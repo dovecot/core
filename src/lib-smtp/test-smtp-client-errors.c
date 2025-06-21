@@ -722,7 +722,19 @@ test_connection_lost_input_line(struct server_connection *conn,
 		}
 		break;
 	case SERVER_CONNECTION_STATE_RCPT_TO:
-		if (server_index == 2) {
+		if (server_index == 2 && conn->rcpt_idx == 0) {
+			conn->state = SERVER_CONNECTION_STATE_DATA;
+			i_sleep_intr_secs(1);
+			server_connection_deinit(&conn);
+			return -1;
+		}
+		if (server_index == 3 && conn->rcpt_idx == 1) {
+			conn->state = SERVER_CONNECTION_STATE_DATA;
+			i_sleep_intr_secs(1);
+			server_connection_deinit(&conn);
+			return -1;
+		}
+		if (server_index == 4 && conn->rcpt_idx == 0) {
 			conn->state = SERVER_CONNECTION_STATE_DATA;
 			i_sleep_intr_secs(1);
 			server_connection_deinit(&conn);
@@ -730,7 +742,7 @@ test_connection_lost_input_line(struct server_connection *conn,
 		}
 		break;
 	case SERVER_CONNECTION_STATE_DATA:
-		if (server_index == 3) {
+		if (server_index == 5) {
 			conn->state = SERVER_CONNECTION_STATE_FINISH;
 			i_sleep_intr_secs(1);
 			server_connection_deinit(&conn);
@@ -755,6 +767,11 @@ test_connection_lost_input_data(struct server_connection *conn,
 
 static void test_server_connection_lost(unsigned int index)
 {
+	switch (index) {
+	case 4:
+	case 6:
+		test_server_protocol = SMTP_PROTOCOL_LMTP;
+	}
 	test_server_input_line = test_connection_lost_input_line;
 	test_server_input_data = test_connection_lost_input_data;
 	test_server_run(index);
@@ -762,19 +779,33 @@ static void test_server_connection_lost(unsigned int index)
 
 /* client */
 
+struct _connection_lost_peer;
+
 struct _connection_lost {
 	unsigned int count;
+};
+
+struct _connection_lost_peer_rcpt {
+	struct _connection_lost_peer *trans;
+	unsigned int rcpt_idx;
 };
 
 struct _connection_lost_peer {
 	struct _connection_lost *context;
 	unsigned int index;
+
+	struct _connection_lost_peer_rcpt rcpts[2];
+
+	struct smtp_client_transaction *trans;
+	struct timeout *to_deinit;
 };
 
 static void
 test_client_connection_lost_rcpt_to_cb(const struct smtp_reply *reply,
-				       struct _connection_lost_peer *pctx)
+				       struct _connection_lost_peer_rcpt *prcpt)
 {
+	struct _connection_lost_peer *pctx = prcpt->trans;
+
 	if (debug) {
 		i_debug("RCPT TO REPLY[%u]: %s",
 			pctx->index, smtp_reply_log(reply));
@@ -794,15 +825,37 @@ test_client_connection_lost_rcpt_to_cb(const struct smtp_reply *reply,
 			    SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST);
 		break;
 	case 3:
-		test_assert(smtp_reply_is_success(reply));
+		if (prcpt->rcpt_idx == 0)
+			test_assert(smtp_reply_is_success(reply));
+		else {
+			test_assert(reply->status ==
+				    SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST);
+		}
 		break;
+	case 4:
+		test_assert(reply->status ==
+			    SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST);
+		break;
+	case 5:
+	case 6:
+		test_assert(smtp_reply_is_success(reply));
 	}
 }
 
 static void
-test_client_connection_lost_rcpt_data_cb(const struct smtp_reply *reply,
-					 struct _connection_lost_peer *pctx)
+test_client_connection_lost_deinit(struct _connection_lost_peer *pctx)
 {
+	smtp_client_transaction_destroy(&pctx->trans);
+	timeout_remove(&pctx->to_deinit);
+}
+
+static void
+test_client_connection_lost_rcpt_data_cb(
+	const struct smtp_reply *reply,
+	struct _connection_lost_peer_rcpt *prcpt)
+{
+	struct _connection_lost_peer *pctx = prcpt->trans;
+
 	if (debug) {
 		i_debug("RCPT DATA REPLY[%u]: %s",
 			pctx->index, smtp_reply_log(reply));
@@ -819,8 +872,24 @@ test_client_connection_lost_rcpt_data_cb(const struct smtp_reply *reply,
 		test_assert(FALSE);
 		break;
 	case 3:
+		test_assert(prcpt->rcpt_idx == 0);
 		test_assert(reply->status ==
 			    SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST);
+		break;
+	case 4:
+		test_assert(FALSE);
+		break;
+	case 5:
+		test_assert(reply->status ==
+			    SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST);
+		break;
+	case 6:
+		test_assert(reply->status ==
+			    SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST);
+		if (pctx->to_deinit == NULL) {
+			pctx->to_deinit = timeout_add_short(
+				0, test_client_connection_lost_deinit, pctx);
+		}
 		break;
 	}
 }
@@ -844,6 +913,8 @@ test_client_connection_lost_finished(struct _connection_lost_peer *pctx)
 
 	if (debug)
 		i_debug("FINISHED[%u]", pctx->index);
+
+	timeout_remove(&pctx->to_deinit);
 	if (--ctx->count == 0) {
 		i_free(ctx);
 		io_loop_stop(ioloop);
@@ -864,20 +935,32 @@ test_client_connection_lost_submit(struct _connection_lost *ctx,
 	struct _connection_lost_peer *pctx;
 	struct smtp_client_connection *sconn;
 	struct smtp_client_transaction *strans;
+	enum smtp_protocol protocol = SMTP_PROTOCOL_SMTP;
 	struct istream *input;
+	unsigned int i;
 
 	pctx = i_new(struct _connection_lost_peer, 1);
 	pctx->context = ctx;
 	pctx->index = index;
 
+	for (i = 0; i < 2; i++) {
+		pctx->rcpts[i].trans = pctx;
+		pctx->rcpts[i].rcpt_idx = i;
+	}
+
 	input = i_stream_create_from_data(message, strlen(message));
 	i_stream_set_name(input, "message");
 
+	switch (index) {
+	case 4:
+	case 6:
+		protocol = SMTP_PROTOCOL_LMTP;
+	}
+
 	sconn = smtp_client_connection_create(
-		smtp_client, SMTP_PROTOCOL_SMTP,
-		net_ip2addr(&bind_ip), bind_ports[index],
+		smtp_client, protocol, net_ip2addr(&bind_ip), bind_ports[index],
 		SMTP_CLIENT_SSL_MODE_NONE, NULL);
-	strans = smtp_client_transaction_create(
+	strans = pctx->trans = smtp_client_transaction_create(
 		sconn, &((struct smtp_address){
 			.localpart = "sender",
 			.domain = "example.com"}), NULL, 0,
@@ -889,7 +972,14 @@ test_client_connection_lost_submit(struct _connection_lost *ctx,
 			.localpart = "rcpt",
 			.domain = "example.com"}), NULL,
 		test_client_connection_lost_rcpt_to_cb,
-		test_client_connection_lost_rcpt_data_cb, pctx);
+		test_client_connection_lost_rcpt_data_cb, &pctx->rcpts[0]);
+	smtp_client_transaction_add_rcpt(
+		strans, &((struct smtp_address){
+			.localpart = "rcpt2",
+			.domain = "example.com"}), NULL,
+		test_client_connection_lost_rcpt_to_cb,
+		test_client_connection_lost_rcpt_data_cb, &pctx->rcpts[1]);
+
 	smtp_client_transaction_send(
 		strans, input, test_client_connection_lost_data_cb, pctx);
 	i_stream_unref(&input);
@@ -902,7 +992,7 @@ test_client_connection_lost(const struct smtp_client_settings *client_set)
 	unsigned int i;
 
 	ctx = i_new(struct _connection_lost, 1);
-	ctx->count = 5;
+	ctx->count = 7;
 
 	smtp_client = smtp_client_init(client_set);
 
@@ -923,7 +1013,7 @@ static void test_connection_lost(void)
 	test_begin("connection lost");
 	test_run_client_server(&smtp_client_set,
 			       test_client_connection_lost,
-			       test_server_connection_lost, 5, NULL);
+			       test_server_connection_lost, 7, NULL);
 	test_end();
 }
 
