@@ -186,6 +186,8 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 		return;
 	*_cmd = NULL;
 
+	i_assert(cmd->refcount > 0);
+
 	struct smtp_client_connection *conn = cmd->conn;
 	enum smtp_client_command_state state = cmd->state;
 	bool disconnected =
