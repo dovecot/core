@@ -150,13 +150,16 @@ struct imap_client_vfuncs {
 	   couldn't be preserved, -1 if temporary internal error occurred. */
 	int (*state_export)(struct client *client, bool internal,
 			    buffer_t *dest, const char **error_r);
-	/* Import a single block of client state from the given data. Returns
-	   number of bytes successfully imported from the block, or 0 if state
-	   is corrupted or contains unknown data (e.g. some plugin is no longer
-	   loaded), -1 if temporary internal error occurred. */
-	ssize_t (*state_import)(struct client *client, bool internal,
-				const unsigned char *data, size_t size,
-				const char **error_r);
+	/* Import a single block of client state from the given data.
+	   Returns a value from enum imap_state_result.
+	   The skip_r parameter is set only if IMAP_STATE_OK is returned,
+	   and indicates the number of bytes successfully processed. */
+	enum imap_state_result (*state_import)(struct client *client,
+					       bool internal,
+					       const unsigned char *data,
+					       size_t size,
+					       size_t *skip_r,
+					       const char **error_r);
 };
 
 struct client {

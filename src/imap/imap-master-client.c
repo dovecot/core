@@ -380,17 +380,22 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 
 	struct event_reason *event_reason =
 		event_reason_begin("imap:unhibernate");
-	ret = imap_state_import_internal(imap_client, master_input.state->data,
-					 master_input.state->used, &error);
+	enum imap_state_result result =
+		imap_state_import_internal(imap_client, master_input.state->data,
+					   master_input.state->used, &error);
 	event_reason_end(&event_reason);
 
-	if (ret <= 0) {
+	switch (result) {
+	case IMAP_STATE_ERROR:
+	case IMAP_STATE_CORRUPTED:
 		error = t_strdup_printf("Failed to import client state: %s", error);
 		event_add_str(event, "error", error);
 		e_error(event, "imap-master: %s", error);
 		event_unref(&event);
 		client_destroy(imap_client, "Client state initialization failed");
 		return -1;
+	case IMAP_STATE_OK:
+		break;
 	}
 	if (imap_client->mailbox != NULL) {
 		/* Would be nice to set this earlier, but the previous errors

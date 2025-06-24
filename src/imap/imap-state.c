@@ -109,36 +109,38 @@ int imap_state_export_internal(struct client *client, buffer_t *dest,
 	return client->v.state_export(client, TRUE, dest, error_r);
 }
 
-static int
+static enum imap_state_result
 imap_state_import(struct client *client, bool internal,
 		  const unsigned char *data, size_t size, const char **error_r)
 {
-	ssize_t ret;
+	size_t skip;
 
 	while (size > 0) {
-		ret = client->v.state_import(client, internal,
-					     data, size, error_r);
-		if (ret <= 0) {
+		enum imap_state_result ret = client->v.state_import(client, internal,
+					     data, size, &skip, error_r);
+		if (ret != IMAP_STATE_OK) {
 			i_assert(*error_r != NULL);
-			return ret < 0 ? -1 : 0;
+			return ret;
 		}
-		i_assert((size_t)ret <= size);
-		data += ret;
-		size -= ret;
+		i_assert(skip <= size);
+		data += skip;
+		size -= skip;
 	}
-	return 1;
+	return IMAP_STATE_OK;
 }
 
-int imap_state_import_internal(struct client *client,
-			       const unsigned char *data, size_t size,
-			       const char **error_r)
+enum imap_state_result
+imap_state_import_internal(struct client *client,
+			   const unsigned char *data, size_t size,
+			   const char **error_r)
 {
 	return imap_state_import(client, TRUE, data, size, error_r);
 }
 
-int imap_state_import_external(struct client *client,
-			       const unsigned char *data, size_t size,
-			       const char **error_r)
+enum imap_state_result
+imap_state_import_external(struct client *client,
+			   const unsigned char *data, size_t size,
+			   const char **error_r)
 {
 	return imap_state_import(client, FALSE, data, size, error_r);
 }
@@ -545,7 +547,7 @@ import_state_mailbox_struct(const unsigned char *data, size_t size,
 	return p - data;
 }
 
-static int
+static enum imap_state_result
 import_state_mailbox_open(struct client *client,
 			  const struct mailbox_import_state *state,
 			  const char **error_r)
@@ -563,7 +565,7 @@ import_state_mailbox_open(struct client *client,
 	ns = mail_namespace_find(client->user->namespaces, state->vname);
 	if (ns == NULL) {
 		*error_r = "Namespace not found for mailbox";
-		return -1;
+		return IMAP_STATE_ERROR;
 	}
 
 	if (state->examined)
@@ -575,7 +577,7 @@ import_state_mailbox_open(struct client *client,
 		*error_r = t_strdup_printf("Couldn't open mailbox: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
-		return -1;
+		return IMAP_STATE_ERROR;
 	}
 
 	ret = mailbox_enable(box, client_enabled_mailbox_features(client));
@@ -583,20 +585,20 @@ import_state_mailbox_open(struct client *client,
 		*error_r = t_strdup_printf("Couldn't sync mailbox: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
-		return -1;
+		return IMAP_STATE_ERROR;
 	}
 	/* verify that this still looks like the same mailbox */
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
 		*error_r = mailbox_get_last_internal_error(box, NULL);
 		mailbox_free(&box);
-		return -1;
+		return IMAP_STATE_ERROR;
 	}
 	if (!guid_128_equals(metadata.guid, state->mailbox_guid)) {
 		*error_r = t_strdup_printf("Mailbox GUID has changed %s->%s",
 					   guid_128_to_string(state->mailbox_guid),
 					   guid_128_to_string(metadata.guid));
 		mailbox_free(&box);
-		return -1;
+		return IMAP_STATE_ERROR;
 	}
 	mailbox_get_open_status(box, STATUS_UIDVALIDITY | STATUS_UIDNEXT |
 				STATUS_HIGHESTMODSEQ | STATUS_RECENT |
@@ -605,20 +607,20 @@ import_state_mailbox_open(struct client *client,
 		*error_r = t_strdup_printf("Mailbox UIDVALIDITY has changed %u->%u",
 					    state->uidvalidity, status.uidvalidity);
 		mailbox_free(&box);
-		return -1;
+		return IMAP_STATE_ERROR;
 	}
 	if (status.uidnext < state->uidnext) {
 		*error_r = t_strdup_printf("Mailbox UIDNEXT shrank %u -> %u",
 					   state->uidnext, status.uidnext);
 		mailbox_free(&box);
-		return -1;
+		return IMAP_STATE_ERROR;
 	}
 	if (status.highest_modseq < state->highest_modseq) {
 		*error_r = t_strdup_printf("Mailbox HIGHESTMODSEQ shrank %"PRIu64" -> %"PRIu64,
 					   state->highest_modseq,
 					   status.highest_modseq);
 		mailbox_free(&box);
-		return -1;
+		return IMAP_STATE_ERROR;
 	}
 
 	client->mailbox = box;
@@ -628,13 +630,13 @@ import_state_mailbox_open(struct client *client,
 	client->notify_uidnext = status.uidnext;
 
 	if (import_send_expunges(client, state, &expunge_count, error_r) < 0)
-		return -1;
+		return IMAP_STATE_ERROR;
 	i_assert(expunge_count <= state->messages);
 	if (state->messages - expunge_count > client->messages_count) {
 		*error_r = t_strdup_printf("Mailbox message count shrank %u -> %u",
 					   client->messages_count,
 					   state->messages - expunge_count);
-		return -1;
+		return IMAP_STATE_ERROR;
 	}
 
 	client_update_mailbox_flags(client, status.keywords);
@@ -668,7 +670,7 @@ import_state_mailbox_open(struct client *client,
 	}
 	if (import_send_flag_changes(client, state, &flag_change_count) < 0) {
 		*error_r = "Couldn't send flag changes";
-		return -1;
+		return IMAP_STATE_ERROR;
 	}
 	if (client_has_enabled(client, imap_feature_qresync) &&
 	    !client->nonpermanent_modseqs &&
@@ -682,7 +684,7 @@ import_state_mailbox_open(struct client *client,
 		"Unhibernation sync: %u expunges, %u new messages, %u flag changes, %"PRIu64" modseq changes",
 		expunge_count, new_mails_count, flag_change_count,
 		status.highest_modseq - state->highest_modseq);
-	return 0;
+	return IMAP_STATE_OK;
 }
 
 static ssize_t
@@ -839,9 +841,10 @@ static struct {
 	{ IMAP_STATE_TYPE_TLS_COMPRESSION, import_state_tls_compression }
 };
 
-static ssize_t
+static int
 imap_state_try_import_public(struct client *client, const unsigned char *data,
-			     size_t size, const char **error_r)
+			     size_t size, size_t *skip_r, const char **error_r,
+			     enum imap_state_result *state_r)
 {
 	unsigned int i;
 	ssize_t ret;
@@ -852,15 +855,22 @@ imap_state_try_import_public(struct client *client, const unsigned char *data,
 		if (imap_states_public[i].type == data[0]) {
 			ret = imap_states_public[i].
 				import(client, data+1, size-1, error_r);
-			return ret < 0 ? -1 : ret+1;
+			if (ret < 0) {
+				*state_r = IMAP_STATE_ERROR;
+				return 0;
+			}
+			*skip_r = ret + 1;
+			*state_r = IMAP_STATE_OK;
+			return 0;
 		}
 	}
-	return -2;
+	return -1;
 }
 
-static ssize_t
+static int
 imap_state_try_import_internal(struct client *client, const unsigned char *data,
-			       size_t size, const char **error_r)
+			       size_t size, size_t *skip_r, const char **error_r,
+			       enum imap_state_result *state_r)
 {
 	unsigned int i;
 	ssize_t ret;
@@ -871,19 +881,26 @@ imap_state_try_import_internal(struct client *client, const unsigned char *data,
 		if (imap_states_internal[i].type == data[0]) {
 			ret = imap_states_internal[i].
 				import(client, data+1, size-1, error_r);
-			return ret < 0 ? -1 : ret+1;
+			if (ret < 0) {
+				*state_r = IMAP_STATE_ERROR;
+				return 0;
+			}
+			*skip_r = ret + 1;
+			*state_r = IMAP_STATE_OK;
+			return 0;
 		}
 	}
-	return -2;
+	return -1;
 }
 
-ssize_t imap_state_import_base(struct client *client, bool internal,
-			       const unsigned char *data, size_t size,
-			       const char **error_r)
+enum imap_state_result
+imap_state_import_base(struct client *client, bool internal,
+		       const unsigned char *data, size_t size,
+		       size_t *skip_r, const char **error_r)
 {
 	const unsigned char *p;
-	ssize_t ret;
-	size_t pos;
+	size_t pos = 0, skip;
+	enum imap_state_result state;
 
 	i_assert(client->mailbox == NULL);
 
@@ -895,27 +912,32 @@ ssize_t imap_state_import_base(struct client *client, bool internal,
 			p = data + I_MIN(size, 20);
 		*error_r = t_strdup_printf("Unknown state block '%s'",
 					   str_sanitize(t_strdup_until(data, p), 20));
-		return 0;
+		return IMAP_STATE_CORRUPTED;
 	}
 
 	pos = 5;
 	while (pos < size) {
-		ret = imap_state_try_import_public(client, data+pos,
-						   size-pos, error_r);
-		if (ret == -2 && internal) {
-			ret = imap_state_try_import_internal(client, data+pos,
-							     size-pos, error_r);
+		size_t remaining = size - pos;
+
+		int ret = imap_state_try_import_public(client, data + pos, remaining,
+						       &skip, error_r, &state);
+
+		if (ret < 0 && internal) {
+			ret = imap_state_try_import_internal(client, data + pos, remaining,
+							     &skip, error_r, &state);
 		}
-		if (ret < 0 || *error_r != NULL) {
-			if (ret == -2) {
-				*error_r = t_strdup_printf("Unknown type '%c'",
-							   data[pos]);
-			}
+
+		if (ret < 0) {
+			*error_r = t_strdup_printf("Unknown type '%c'", data[pos]);
+			state = IMAP_STATE_ERROR;
+		}
+		if (state != IMAP_STATE_OK) {
 			i_assert(*error_r != NULL);
-			return ret < 0 ? -1 : 0;
+			return state;
 		}
-		i_assert(size - pos >= (size_t)ret);
-		pos += ret;
+		i_assert(skip <= remaining);
+		pos += skip;
 	}
-	return pos;
+	*skip_r = pos;
+	return IMAP_STATE_OK;
 }
