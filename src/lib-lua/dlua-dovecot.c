@@ -10,6 +10,7 @@
 #include "dict-lua.h"
 #include "doveadm-client-lua.h"
 #include "strescape.h"
+#include "var-expand.h"
 
 #define LUA_SCRIPT_DOVECOT "dovecot"
 #define LUA_SCRIPT_DOVECOT_BASE64 "base64"
@@ -736,6 +737,20 @@ static int dlua_split_tabescaped(lua_State *L)
 	return 1;
 }
 
+static int dlua_var_expand(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 1);
+	string_t *output = t_str_new(128);
+	const char *error;
+	const char *input = luaL_checkstring(L, 1);
+
+	if (var_expand(output, input, NULL, &error) != 0)
+		return luaL_error(L, "failed to expand '%s': %s", input, error);
+
+	lua_pushlstring(L, str_c(output), str_len(output));
+	return 1;
+}
+
 static int dlua_base64_encode(lua_State *L)
 {
 	DLUA_REQUIRE_ARGS(L, 1);
@@ -775,6 +790,7 @@ static luaL_Reg lua_dovecot_methods[] = {
 	{ "tabescape", dlua_tabescape},
 	{ "tabunescape", dlua_tabunescape},
 	{ "split_tabescaped", dlua_split_tabescaped},
+	{ "var_expand", dlua_var_expand },
 	{ NULL, NULL }
 };
 
