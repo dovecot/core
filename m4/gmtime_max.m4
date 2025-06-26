@@ -1,5 +1,6 @@
 dnl * how large time_t values does gmtime() accept?
 AC_DEFUN([DOVECOT_GMTIME_MAX], [
+  AC_REQUIRE([DOVECOT_TIME_T])
   AC_CACHE_CHECK([how large time_t values gmtime() accepts],i_cv_gmtime_max_time_t,[
     AC_RUN_IFELSE([AC_LANG_PROGRAM([[
       #include <stdio.h>
@@ -20,6 +21,12 @@ AC_DEFUN([DOVECOT_GMTIME_MAX], [
              Let's just do the same as Cyrus folks and limit it to 40 bits. */
           bits = 40;
         }
+        #ifdef TIME_T_SIGNED
+        if (bits == 32) {
+          /* Signed 32-bit time_t is essentially the same as unsigned 31-bit time_t */
+          bits = 31;
+        }
+        #endif
     
         f = fopen("conftest.temp", "w");
         if (f == NULL) {
