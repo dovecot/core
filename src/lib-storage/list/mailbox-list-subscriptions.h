@@ -20,14 +20,4 @@ void mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
 				     struct mailbox_tree_context *tree,
 				     bool default_nonexistent);
 
-/* Iterate through subscriptions, call mailbox_list.get_mailbox_flags()
-   if necessary for mailboxes to get their flags. */
-struct mailbox_list_iterate_context *
-mailbox_list_subscriptions_iter_init(struct mailbox_list *list,
-				     const char *const *patterns,
-				     enum mailbox_list_iter_flags flags);
-const struct mailbox_info *
-mailbox_list_subscriptions_iter_next(struct mailbox_list_iterate_context *ctx);
-int mailbox_list_subscriptions_iter_deinit(struct mailbox_list_iterate_context *ctx);
-
 #endif

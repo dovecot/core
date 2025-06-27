@@ -688,7 +688,6 @@ imapc_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		     enum mailbox_list_iter_flags flags)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
-	struct mailbox_list_iterate_context *_ctx;
 	struct imapc_mailbox_list_iterate_context *ctx;
 	pool_t pool;
 	const char *ns_root_name;
@@ -700,16 +699,6 @@ imapc_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		ret = imapc_list_refresh(list);
 
 	list->iter_count++;
-
-	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
-		/* we're listing only subscriptions. just use the cached
-		   subscriptions list. */
-		_ctx = mailbox_list_subscriptions_iter_init(_list, patterns,
-							    flags);
-		if (ret < 0)
-			_ctx->failed = TRUE;
-		return _ctx;
-	}
 
 	/* if we've already failed, make sure we don't call
 	   mailbox_list_get_hierarchy_sep(), since it clears the error */
@@ -795,9 +784,6 @@ imapc_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 	if (_ctx->failed)
 		return NULL;
 
-	if ((_ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
-		return mailbox_list_subscriptions_iter_next(_ctx);
-
 	do {
 		node = mailbox_tree_iterate_next(ctx->iter, &vname);
 		if (node == NULL)
@@ -842,9 +828,6 @@ static int imapc_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 		list->refreshed_mailboxes = FALSE;
 		list->refreshed_subscriptions = FALSE;
 	}
-
-	if ((_ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
-		return mailbox_list_subscriptions_iter_deinit(_ctx);
 
 	mailbox_tree_iterate_deinit(&ctx->iter);
 	mailbox_tree_deinit(&ctx->tree);

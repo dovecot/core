@@ -519,13 +519,6 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	struct fs_list_iterate_context *ctx;
 	pool_t pool;
 
-	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
-		/* we're listing only subscribed mailboxes. we can't optimize
-		   it, so just use the generic code. */
-		return mailbox_list_subscriptions_iter_init(_list, patterns,
-							    flags);
-	}
-
 	pool = pool_alloconly_create("mailbox list fs iter", 2048);
 	ctx = p_new(pool, struct fs_list_iterate_context, 1);
 	ctx->ctx.pool = pool;
@@ -563,9 +556,6 @@ int fs_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	struct fs_list_iterate_context *ctx =
 		(struct fs_list_iterate_context *)_ctx;
 	int ret = _ctx->failed ? -1 : 0;
-
-	if ((_ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
-		return mailbox_list_subscriptions_iter_deinit(_ctx);
 
 	while (ctx->dir != NULL) {
 		struct list_dir_context *dir = ctx->dir;
@@ -891,9 +881,6 @@ fs_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 	struct fs_list_iterate_context *ctx =
 		(struct fs_list_iterate_context *)_ctx;
 	int ret;
-
-	if ((_ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
-		return mailbox_list_subscriptions_iter_next(_ctx);
 
 	T_BEGIN {
 		ret = fs_list_next(ctx);
