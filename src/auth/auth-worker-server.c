@@ -786,9 +786,9 @@ static void auth_worker_handle_token_continue(struct db_oauth2_request *db_reque
 	if (error != NULL)
 		error = t_strconcat("oauth2 failed: ", error, NULL);
 	if (result == PASSDB_RESULT_INTERNAL_FAILURE)
-		e_error(auth_request->mech_event, "%s", error);
+		e_error(cmd->event, "%s", error);
 	else if (result != PASSDB_RESULT_OK)
-		e_info(auth_request->mech_event, "%s", error);
+		e_info(cmd->event, "%s", error);
 	auth_worker_request_finished(cmd, error);
 }
 
