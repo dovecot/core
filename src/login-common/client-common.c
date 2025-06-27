@@ -923,9 +923,10 @@ int client_get_plaintext_fd(struct client *client, int *fd_r, bool *close_fd_r)
 	fd_set_nonblock(fds[0], TRUE);
 	fd_set_nonblock(fds[1], TRUE);
 
-	struct ostream *output = o_stream_create_fd(fds[0], IO_BLOCK_SIZE);
-	struct istream *input =
-		i_stream_create_fd_autoclose(&fds[0], IO_BLOCK_SIZE);
+	struct ostream *output;
+	struct istream *input;
+	io_stream_create_fd_autoclose(&fds[0], IO_BLOCK_SIZE, IO_BLOCK_SIZE,
+				      &input, &output);
 	o_stream_set_no_error_handling(output, TRUE);
 
 	i_assert(client->io == NULL);
