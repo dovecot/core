@@ -3,6 +3,8 @@
 
 #include "ioloop.h"
 
+struct iostream_fd;
+
 enum ostream_send_istream_result {
 	/* All of the istream was successfully sent to ostream. */
 	OSTREAM_SEND_ISTREAM_RESULT_FINISHED,
@@ -59,6 +61,10 @@ typedef void ostream_callback_t(void *context);
 struct ostream *o_stream_create_fd(int fd, size_t max_buffer_size);
 /* The fd is set to -1 immediately to avoid accidentally closing it twice. */
 struct ostream *o_stream_create_fd_autoclose(int *fd, size_t max_buffer_size);
+/* Autoclose the fd once ref's refcount drops to 0. This function increases the
+   refcount, so the caller is expected to unref it as well. */
+struct ostream *o_stream_create_fd_ref_autoclose(struct iostream_fd *ref,
+						 size_t max_buffer_size);
 /* Create an output stream from a regular file which begins at given offset.
    If offset==UOFF_T_MAX, the current offset isn't known. */
 struct ostream *

@@ -6,6 +6,7 @@
 struct file_istream {
 	struct istream_private istream;
 
+	struct iostream_fd *fd_ref;
 	uoff_t skip_left;
 
 	bool file:1;

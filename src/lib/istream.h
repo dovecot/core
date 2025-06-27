@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 
 struct ioloop;
+struct iostream_fd;
 
 struct istream {
 	uoff_t v_offset;
@@ -41,6 +42,10 @@ typedef void istream_callback_t(void *context);
 struct istream *i_stream_create_fd(int fd, size_t max_buffer_size);
 /* The fd is set to -1 immediately to avoid accidentally closing it twice. */
 struct istream *i_stream_create_fd_autoclose(int *fd, size_t max_buffer_size);
+/* Autoclose the fd once ref's refcount drops to 0. This function increases the
+   refcount, so the caller is expected to unref it as well. */
+struct istream *i_stream_create_fd_ref_autoclose(struct iostream_fd *ref,
+						 size_t max_buffer_size);
 /* Open the given path only when something is actually tried to be read from
    the stream. */
 struct istream *i_stream_create_file(const char *path, size_t max_buffer_size);

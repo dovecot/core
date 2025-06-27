@@ -11,6 +11,7 @@ struct file_ostream {
 		 unsigned int iov_count, const char **error_r);
 
 	int fd;
+	struct iostream_fd *fd_ref;
 	struct io *io;
 	uoff_t buffer_offset;
 	uoff_t real_offset;

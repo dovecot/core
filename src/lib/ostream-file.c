@@ -30,14 +30,14 @@
 	((size) < SSIZE_T_MAX ? (size_t)(size) : SSIZE_T_MAX)
 
 static void stream_send_io(struct file_ostream *fstream);
-static struct ostream * o_stream_create_fd_common(int fd,
-		size_t max_buffer_size, bool autoclose_fd);
 
 static void stream_closed(struct file_ostream *fstream)
 {
 	io_remove(&fstream->io);
 
-	if (fstream->autoclose_fd && fstream->fd != -1) {
+	bool refs_left = fstream->fd_ref != NULL &&
+		iostream_fd_unref(&fstream->fd_ref);
+	if (fstream->autoclose_fd && fstream->fd != -1 && !refs_left) {
 		/* Ignore ECONNRESET because we don't really care about it here,
 		   as we are closing the socket down in any case. There might be
 		   unsent data but nothing we can do about that. */
@@ -1080,15 +1080,19 @@ static void fstream_init_file(struct file_ostream *fstream)
 	}
 }
 
-static
-struct ostream * o_stream_create_fd_common(int fd, size_t max_buffer_size,
-		bool autoclose_fd)
+static struct ostream *
+o_stream_create_fd_common(int fd, struct iostream_fd *ref,
+			  size_t max_buffer_size, bool autoclose_fd)
 {
 	struct file_ostream *fstream;
 	struct ostream *ostream;
 	off_t offset;
 
 	fstream = i_new(struct file_ostream, 1);
+	if (ref != NULL) {
+		fstream->fd_ref = ref;
+		iostream_fd_ref(ref);
+	}
 	ostream = o_stream_create_file_common
 		(fstream, fd, max_buffer_size, autoclose_fd);
 
@@ -1121,16 +1125,22 @@ struct ostream * o_stream_create_fd_common(int fd, size_t max_buffer_size,
 struct ostream *
 o_stream_create_fd(int fd, size_t max_buffer_size)
 {
-	return o_stream_create_fd_common(fd, max_buffer_size, FALSE);
+	return o_stream_create_fd_common(fd, NULL, max_buffer_size, FALSE);
 }
 
 struct ostream *
 o_stream_create_fd_autoclose(int *fd, size_t max_buffer_size)
 {
-	struct ostream *ostream = o_stream_create_fd_common(*fd,
+	struct ostream *ostream = o_stream_create_fd_common(*fd, NULL,
 			max_buffer_size, TRUE);
 	*fd = -1;
 	return ostream;
+}
+
+struct ostream *o_stream_create_fd_ref_autoclose(struct iostream_fd *ref,
+						 size_t max_buffer_size)
+{
+	return o_stream_create_fd_common(ref->fd, ref, max_buffer_size, TRUE);
 }
 
 struct ostream *

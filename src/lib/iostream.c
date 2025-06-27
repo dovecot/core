@@ -6,6 +6,45 @@
 #include "ostream.h"
 #include "iostream-private.h"
 
+struct iostream_fd *iostream_fd_init(int fd)
+{
+	struct iostream_fd *ref = i_new(struct iostream_fd, 1);
+	ref->refcount = 1;
+	ref->fd = fd;
+	return ref;
+}
+
+void iostream_fd_ref(struct iostream_fd *ref)
+{
+	i_assert(ref->refcount > 0);
+	ref->refcount++;
+}
+
+bool iostream_fd_unref(struct iostream_fd **_ref)
+{
+	struct iostream_fd *ref = *_ref;
+
+	i_assert(ref != NULL);
+	i_assert(ref->refcount > 0);
+
+	if (--ref->refcount > 0)
+		return TRUE;
+	i_free(ref);
+	return FALSE;
+}
+
+void io_stream_create_fd_autoclose(int *fd, size_t max_in_buffer_size,
+				   size_t max_out_buffer_size,
+				   struct istream **input_r,
+				   struct ostream **output_r)
+{
+	struct iostream_fd *fd_ref = iostream_fd_init(*fd);
+	*input_r = i_stream_create_fd_ref_autoclose(fd_ref, max_in_buffer_size);
+	*output_r = o_stream_create_fd_ref_autoclose(fd_ref, max_out_buffer_size);
+	iostream_fd_unref(&fd_ref);
+	*fd = -1;
+}
+
 static void
 io_stream_default_close(struct iostream_private *stream ATTR_UNUSED,
 			bool close_parent ATTR_UNUSED)

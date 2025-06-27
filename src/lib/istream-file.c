@@ -20,7 +20,9 @@ void i_stream_file_close(struct iostream_private *stream,
 	struct file_istream *fstream =
 		container_of(_stream, struct file_istream, istream);
 
-	if (fstream->autoclose_fd && _stream->fd != -1) {
+	bool refs_left = fstream->fd_ref != NULL &&
+		iostream_fd_unref(&fstream->fd_ref);
+	if (fstream->autoclose_fd && _stream->fd != -1 && !refs_left) {
 		/* Ignore ECONNRESET because we don't really care about it here,
 		   as we are closing the socket down in any case. There might be
 		   unsent data but nothing we can do about that. */
@@ -267,6 +269,18 @@ struct istream *i_stream_create_fd_autoclose(int *fd, size_t max_buffer_size)
 					   max_buffer_size, TRUE);
 	*fd = -1;
 	return input;
+}
+
+struct istream *i_stream_create_fd_ref_autoclose(struct iostream_fd *ref,
+						 size_t max_buffer_size)
+{
+	struct file_istream *fstream;
+
+	fstream = i_new(struct file_istream, 1);
+	fstream->fd_ref = ref;
+	iostream_fd_ref(ref);
+	return i_stream_create_file_common(fstream, ref->fd, NULL,
+					   max_buffer_size, TRUE);
 }
 
 struct istream *i_stream_create_file(const char *path, size_t max_buffer_size)
