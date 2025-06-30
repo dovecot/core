@@ -29,6 +29,7 @@ SUBDIRS = \
 	quota-clone \
 	imap-quota \
 	pop3-migration \
+	doveadm-replicator \
 	replication \
 	mail-compress \
 	mail-crypt \

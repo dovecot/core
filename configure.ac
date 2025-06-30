@@ -909,6 +909,7 @@ src/plugins/pop3-migration/Makefile
 src/plugins/quota/Makefile
 src/plugins/quota-clone/Makefile
 src/plugins/imap-quota/Makefile
+src/plugins/doveadm-replicator/Makefile
 src/plugins/replication/Makefile
 src/plugins/trash/Makefile
 src/plugins/virtual/Makefile
