@@ -53,9 +53,9 @@ void dsasl_client_mech_register(const struct dsasl_client_mech *mech);
 void dsasl_client_mech_unregister(const struct dsasl_client_mech *mech);
 
 static inline int
-dasl_client_get_channel_binding(struct dsasl_client *client,
-				const char *type, const buffer_t **data_r,
-				const char **error_r)
+dsasl_client_get_channel_binding(struct dsasl_client *client,
+				 const char *type, const buffer_t **data_r,
+				 const char **error_r)
 {
 	if (client->channel_version == SSL_IOSTREAM_PROTOCOL_VERSION_UNKNOWN ||
 	    client->cbinding_callback == NULL) {
