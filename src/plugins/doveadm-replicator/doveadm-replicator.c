@@ -9,6 +9,7 @@
 #include "master-service.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
+#include "doveadm-replicator.h"
 
 #include <stdio.h>
 #include <unistd.h>
