@@ -176,7 +176,7 @@ json_value_as_str(const struct json_value *jvalue)
 	}
 	return jvalue->content.str;
 }
-static inline ATTR_PURE const unsigned char *
+static inline const unsigned char *
 json_value_get_data(const struct json_value *jvalue, size_t *size_r)
 {
 	switch (jvalue->content_type) {
@@ -192,7 +192,7 @@ json_value_get_data(const struct json_value *jvalue, size_t *size_r)
 	i_unreached();
 }
 
-static inline ATTR_PURE int
+static inline int
 json_value_get_stream(const struct json_value *jvalue,
 		       struct istream **stream_r)
 {
@@ -314,7 +314,7 @@ json_node_as_str(const struct json_node *jnode)
 	return json_value_as_str(&jnode->value);
 }
 
-static inline ATTR_PURE const unsigned char *
+static inline const unsigned char *
 json_node_get_data(const struct json_node *jnode, size_t *size_r)
 {
 	const char *literal;
@@ -497,7 +497,7 @@ json_node_is_boolean(const struct json_node *jnode)
 	return FALSE;
 }
 
-static inline ATTR_PURE int
+static inline int
 json_node_get_boolean(const struct json_node *jnode, bool *bool_r)
 {
 	switch (jnode->type) {
