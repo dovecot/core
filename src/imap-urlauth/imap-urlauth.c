@@ -214,7 +214,6 @@ int main(int argc, char *argv[])
 	struct login_server_settings login_set;
 	enum master_service_flags service_flags = 0;
 	const char *error = NULL, *username = NULL;
-	const char *auth_socket_path = "auth-master";
 	int c;
 
 	i_zero(&login_set);
@@ -234,16 +233,9 @@ int main(int argc, char *argv[])
 	}
 
 	master_service = master_service_init("imap-urlauth", service_flags,
-					     &argc, &argv, "a:");
-	while ((c = master_getopt(master_service)) > 0) {
-		switch (c) {
-		case 'a':
-			auth_socket_path = optarg;
-			break;
-		default:
-			return FATAL_DEFAULT;
-		}
-	}
+					     &argc, &argv, "");
+	while ((c = master_getopt(master_service)) > 0)
+		return FATAL_DEFAULT;
 	master_service_init_log(master_service);
 
 	if (master_service_settings_read_simple(master_service, &error) < 0)
@@ -256,9 +248,14 @@ int main(int argc, char *argv[])
 	if (imap_urlauth_settings->verbose_proctitle)
 		verbose_proctitle = TRUE;
 
-	if (t_abspath(auth_socket_path, &login_set.auth_socket_path, &error) < 0) {
-		i_fatal("t_abspath(%s) failed: %s", auth_socket_path, error);
+	const struct master_service_settings *master_set =
+		master_service_get_service_settings(master_service);
+	if (t_abspath(master_set->auth_master_socket_path,
+		      &login_set.auth_socket_path, &error) < 0) {
+		i_fatal("t_abspath(%s) failed: %s",
+			master_set->auth_master_socket_path, error);
 	}
+
 	login_set.callback = login_request_finished;
 	login_set.failure_callback = login_request_failed;
 	login_set.update_proctitle = verbose_proctitle &&
