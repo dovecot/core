@@ -15,7 +15,9 @@
 #include "mail-namespace.h"
 #include "mail-storage-private.h"
 #include "mail-storage-settings.h"
+#include "master-interface.h"
 #include "iostream-ssl.h"
+#include "doc.h"
 
 static bool mail_storage_settings_apply(struct event *event, void *_set, const char *key, const char **value, enum setting_apply_flags, const char **error_r);
 static bool mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool, const char **error_r);
@@ -592,8 +594,8 @@ mail_storage_settings_apply(struct event *event ATTR_UNUSED, void *_set,
 }
 
 static bool
-mail_storage_settings_ext_check(struct event *event ATTR_UNUSED,
-				void *_set, pool_t pool, const char **error_r)
+mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool,
+				const char **error_r)
 {
 	struct mail_storage_settings *set = _set;
 	struct hash_format *format;
@@ -790,6 +792,14 @@ mail_storage_settings_ext_check(struct event *event ATTR_UNUSED,
 			set->mail_inbox_path = p_strdup_printf(pool, "%s/%s",
 				set->mail_path, set->mail_inbox_path);
 		}
+	}
+
+	if (getenv(MASTER_IS_PARENT_ENV) != NULL &&
+	    set->mailbox_directory_name_legacy) {
+		e_warning(event,
+			  "mailbox_directory_name_legacy=yes has been deprecated and will eventually be removed. See "
+			  DOC_LINK("core/config/mailbox_formats/dbox.html#migrating-away-from-mailbox-directory-name-legacy")
+			  " for an upgrade guide.");
 	}
 	return TRUE;
 }
