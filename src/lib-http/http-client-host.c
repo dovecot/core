@@ -227,7 +227,6 @@ http_client_host_shared_get(struct http_client_context *cctx,
 		if (hshared == NULL) {
 			hshared = http_client_host_shared_create(
 				cctx, "[unix]");
-			hshared->name = i_strdup("[unix]");
 			hshared->unix_local = TRUE;
 
 			cctx->unix_host = hshared;
