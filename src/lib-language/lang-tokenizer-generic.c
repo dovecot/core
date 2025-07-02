@@ -68,7 +68,7 @@ lang_tokenizer_generic_create(const struct lang_settings *set,
 
 	bool wb5a = set->tokenizer_generic_wb5a;
 	if (wb5a && algo->id != BOUNDARY_ALGORITHM_TR29) {
-		*error_r = "Can not use language_tokenizer_generic_wb5a for "
+		*error_r = "Cannot use language_tokenizer_generic_wb5a for "
 			   "algorithms other than language_tokenizer_generic_algorithm = tr29";
 		return -1;
 	}
