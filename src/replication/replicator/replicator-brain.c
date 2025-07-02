@@ -7,6 +7,7 @@
 #include "replicator-settings.h"
 #include "replicator-queue.h"
 #include "replicator-brain.h"
+#include "auth-master.h"
 
 struct replicator_sync_context {
 	struct replicator_brain *brain;
@@ -159,6 +160,88 @@ static void dsync_callback(enum dsync_reply reply, const char *state,
 	i_free(ctx);
 }
 
+/*
+  look up mail_replica and noreplicate from userdb
+*/
+static int
+get_userdb_field(struct replicator_brain *brain,
+                 const char *username,
+                 const char *field,
+                 char *value, const size_t value_length,
+                 const char **error_r)
+{
+	enum auth_master_flags flags = 0;
+	struct auth_master_connection *conn;
+	pool_t pool;
+        struct auth_user_info user_info;
+	int ret;
+	const char *updated_username = NULL, *const *fields;
+
+	pool = pool_alloconly_create("replicator userdb lookup", 1024);
+
+	/* flags |= AUTH_MASTER_FLAG_DEBUG; */
+	conn = auth_master_init(brain->set->auth_socket_path, flags);
+	i_zero(&user_info);
+	user_info.protocol = "replicator";
+	ret = auth_master_user_lookup(conn, username, &user_info,
+				      pool, &updated_username, &fields);
+
+	if (ret < 0) {
+		if (fields[0] == NULL) {
+			e_error(brain->event,
+				"userdb lookup failed for %s", username);
+                        *error_r = t_strdup_printf("userdb lookup failed for %s",
+                                                   username);
+		} else {
+			e_error(brain->event,
+				"userdb lookup failed for %s: %s",
+				username, fields[0]);
+                        *error_r = t_strdup_printf("userdb lookup failed for %s: %s",
+                                                   username, fields[0]);
+		}
+		ret = -1;
+	} else if (ret == 0) {
+		e_error(brain->event,
+                        "userdb lookup: user %s doesn't exist",
+			username);
+                *error_r = t_strdup_printf("userdb lookup: user %s doesn't exist",
+                                           username);
+	} else {
+		size_t field_len = strlen(field);
+
+		for (; *fields != NULL; fields++) {
+			if (strncmp(*fields, field, field_len) == 0 &&
+			    (*fields)[field_len] == '=') {
+                          if (i_strocpy(value,
+                                        *fields + field_len + 1,
+                                        value_length) < 0) {
+					e_error(brain->event,
+                                        "failed to i_strocpy %s's %s field",
+                                        username, field);
+                                *error_r = t_strdup_printf("failed to i_strocpy %s's %s field",
+                                                           username, field);
+                                ret = -1;
+                          } else {
+				ret = 2;
+                          }
+                        }
+		}
+                if (ret != 2) {
+                        /*
+                          in case we did not find the field in the userdb result,
+                          we set error_r appropriate as our called might need it initialized
+                        */
+                        *error_r = t_strdup_printf("field \"%s\" not found for user %s",
+                                                   field, username);
+                }
+        }
+        auth_master_deinit(&conn);
+	pool_unref(&pool);
+	return ret;
+}
+
+#define USERDB_FIELD_SIZE 1024
+
 static bool
 dsync_replicate(struct replicator_brain *brain, struct replicator_user *user)
 {
@@ -166,6 +249,10 @@ dsync_replicate(struct replicator_brain *brain, struct replicator_user *user)
 	struct dsync_client *conn;
 	time_t next_full_sync;
 	bool full;
+        char userdb_mail_replica[USERDB_FIELD_SIZE];
+        const char *mail_replica=userdb_mail_replica;
+        int ret;
+        const char *error_r[1024];
 	struct event *event = event_create(brain->event);
 	event_set_append_log_prefix(event, t_strdup_printf(
 		"%s: ", user->username));
@@ -177,6 +264,22 @@ dsync_replicate(struct replicator_brain *brain, struct replicator_user *user)
 		event_unref(&event);
 		return FALSE;
 	}
+
+        ret = get_userdb_field(brain, user->username, "mail_replica",
+                               userdb_mail_replica, USERDB_FIELD_SIZE, error_r);
+        if (ret < 2) {
+                /* error, user not found, field not found */
+                mail_replica = brain->set->mail_replica;
+        }
+        if (strcmp(mail_replica, "") == 0) {
+		e_debug(event,
+                        "no mail_replica found (for user \"%s\"), skipping",
+                        user->username);
+		event_unref(&event);
+		return FALSE;
+        }
+        e_debug(event, "mail_replica for user \"%s\" is \"%s\"",
+                user->username, mail_replica);
 
 	next_full_sync = user->last_full_sync +
 		brain->set->replication_full_sync_interval;
@@ -201,7 +304,7 @@ dsync_replicate(struct replicator_brain *brain, struct replicator_user *user)
 		full ? "full" : "incremental");
 
 	replicator_user_ref(user);
-	dsync_client_sync(conn, user->username, user->state, full,
+	dsync_client_sync(conn, user->username, mail_replica, user->state, full,
 			  dsync_callback, ctx);
 	return TRUE;
 }

@@ -193,7 +193,8 @@ static void dsync_fail_timeout(struct dsync_client *client)
 }
 
 void dsync_client_sync(struct dsync_client *client,
-		       const char *username, const char *state, bool full,
+		       const char *username, const char *mail_replica,
+                       const char *state, bool full,
 		       dsync_callback_t *callback, void *context)
 {
 	string_t *cmd;
@@ -239,6 +240,9 @@ void dsync_client_sync(struct dsync_client *client,
 		str_append(cmd, "\t-s\t");
 		if (state != NULL)
 			str_append(cmd, state);
+                str_append_c(cmd, '\t');
+                str_append(cmd, mail_replica);
+                e_debug(client->event, "Sending command \"%s\"", str_c(cmd));
 		str_append_c(cmd, '\n');
 		o_stream_nsend(client->output, str_data(cmd), str_len(cmd));
 	}
