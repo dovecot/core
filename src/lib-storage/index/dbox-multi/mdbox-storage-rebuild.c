@@ -559,7 +559,7 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	int ret;
 
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY |
-			    MAILBOX_FLAG_IGNORE_ACLS);
+			    MAILBOX_FLAG_IGNORE_ACLS | MAILBOX_FLAG_RAW_NAME);
 	if (box->storage != &ctx->storage->storage.storage) {
 		/* the namespace has multiple storages. */
 		mailbox_free(&box);

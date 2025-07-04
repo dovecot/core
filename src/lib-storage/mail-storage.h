@@ -89,6 +89,8 @@ enum mailbox_flags {
 	   plugin to determine correctly whether the mailbox should be allowed
 	   to be opened. */
 	MAILBOX_FLAG_ATTRIBUTE_SESSION	= 0x10000,
+	/* Skip normalizing the mailbox name to Unicode NFC form. */
+	MAILBOX_FLAG_RAW_NAME           = 0x20000,
 };
 
 enum mailbox_feature {
@@ -475,6 +477,11 @@ struct mail_storage_callbacks {
 	void (*notify_progress)(struct mailbox *mailbox,
 				const struct mail_storage_progress_details *dtl,
 				void *context);
+
+	/* "* LIST (<flags>) <sep> <newname> (OLDNAME (<oldname>)) */
+	void (*notify_mailbox_implicit_rename)(struct mailbox *mailbox,
+					       const char *old_vname,
+					       void *context);
 };
 
 struct mailbox_virtual_pattern {

@@ -68,7 +68,7 @@ fs_get_existence_info_flag(struct fs_list_iterate_context *ctx,
 	int ret;
 
 	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RAW_LIST) != 0)
-		flags |= MAILBOX_FLAG_IGNORE_ACLS;
+		flags |= MAILBOX_FLAG_IGNORE_ACLS | MAILBOX_FLAG_RAW_NAME;
 	auto_boxes = (ctx->ctx.flags & MAILBOX_LIST_ITER_NO_AUTO_BOXES) == 0;
 	box = mailbox_alloc(ctx->ctx.list, vname, flags);
 	ret = mailbox_exists(box, auto_boxes, &existence);

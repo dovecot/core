@@ -846,9 +846,13 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 				  enum mail_namespace_type type_mask,
 				  enum mailbox_list_iter_flags flags)
 {
+	struct mailbox_list *list = namespaces->list;
+	const struct mail_storage_settings *mail_set = list->mail_set;
+	bool nfc = mail_set->mailbox_list_normalize_names_to_nfc;
 	struct ns_list_iterate_context *ctx;
 	unsigned int i, count;
 	pool_t pool, info_pool;
+	int ret;
 
 	i_assert(namespaces != NULL);
 
@@ -867,8 +871,18 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 
 	count = str_array_length(patterns);
 	ctx->patterns = p_new(pool, const char *, count + 1);
-	for (i = 0; i < count; i++)
-		ctx->patterns[i] = p_strdup(pool, patterns[i]);
+	for (i = 0; i < count; i++) {
+		const char *pattern;
+
+		if (!nfc)
+			pattern = patterns[i];
+		else {
+			ret = uni_utf8_to_nfc(patterns[i], strlen(patterns[i]),
+					      &pattern);
+			i_assert(ret >= 0);
+		}
+		ctx->patterns[i] = p_strdup(pool, pattern);
+	}
 	if (patterns_match_inbox(namespaces, ctx->patterns) &&
 	    (flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
 		/* we're going to list the INBOX. get its own flags (i.e. not
@@ -1224,6 +1238,48 @@ mailbox_list_iter_next_call(struct mailbox_list_iterate_context *ctx)
 
 	/* NOTE: ctx->list may be fake - don't use it directly */
 	struct mailbox_list *list = info->ns->list;
+	const struct mail_storage_settings *mail_set = list->mail_set;
+	bool nfc = mail_set->mailbox_list_normalize_names_to_nfc &&
+		(ctx->flags & MAILBOX_LIST_ITER_RAW_LIST) == 0 &&
+		(ctx->flags & MAILBOX_LIST_ITER_NO_RENAMING) == 0;
+	bool need_nfc_normalize = FALSE;
+	const char *vname;
+
+	if (!nfc)
+		vname = info->vname;
+	else {
+		ret = uni_utf8_to_nfc(info->vname, strlen(info->vname), &vname);
+		i_assert(ret >= 0);
+		need_nfc_normalize = (strcmp(info->vname, vname) != 0);
+	}
+	if (need_nfc_normalize) {
+		const char *vname_new = vname, *error;
+		int ret;
+
+		ret = mailbox_rename_nfc_forced(list, info->vname, vname,
+						&vname_new, &error);
+		if (ret < 0) {
+			mailbox_list_set_critical(list,
+				"Failed to rename mailbox '%s' for NFC normalization: %s",
+				info->vname, error);
+			ctx->failed = TRUE;
+		} else if (ret == 0) {
+			/* No rename performed */
+		} else if (strcmp(vname, vname_new) == 0) {
+			e_debug(list->event,
+				"Mailbox '%s' renamed for NFC normalization",
+				vname);
+		} else {
+			e_debug(list->event,
+				"Mailbox '%s' renamed to '%s' for NFC normalization "
+				"(mailbox with NFC normalized name existed already)",
+				info->vname, vname_new);
+		}
+
+		ctx->info = *info;
+		ctx->info.vname = p_strdup(ctx->info_pool, vname_new);
+		info = &ctx->info;
+	}
 
 	list->ns->flags |= NAMESPACE_FLAG_USABLE;
 	if ((ctx->flags & MAILBOX_LIST_ITER_RETURN_SPECIALUSE) != 0) {

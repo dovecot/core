@@ -41,6 +41,7 @@ enum mailbox_list_iter_flags {
 	MAILBOX_LIST_ITER_RETURN_SPECIALUSE	= 0x008000,
 	/* This listing is done as part of a force resync */
 	MAILBOX_LIST_ITER_FORCE_RESYNC		= 0x010000,
+	MAILBOX_LIST_ITER_NO_RENAMING		= 0x020000,
 };
 
 struct mailbox_info {

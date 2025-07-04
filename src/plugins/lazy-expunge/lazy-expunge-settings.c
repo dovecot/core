@@ -10,7 +10,7 @@
 
 static struct setting_define lazy_expunge_setting_defines[] = {
 	DEF(BOOL, lazy_expunge_only_last_instance),
-	DEF(STR, lazy_expunge_mailbox),
+	DEF(STR_NFC, lazy_expunge_mailbox),
 
 	SETTING_DEFINE_LIST_END
 };

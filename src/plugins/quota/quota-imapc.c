@@ -50,7 +50,7 @@ struct quota_imapc_settings {
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct quota_imapc_settings)
 static const struct setting_define quota_imapc_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "quota_imapc" },
-	DEF(STR, quota_imapc_mailbox_name),
+	DEF(STR_NFC, quota_imapc_mailbox_name),
 	DEF(STR, quota_imapc_root_name),
 
 	SETTING_DEFINE_LIST_END

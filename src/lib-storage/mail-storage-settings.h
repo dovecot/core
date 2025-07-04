@@ -75,6 +75,7 @@ struct mail_storage_settings {
 	bool mailbox_list_drop_noselect;
 	bool mailbox_list_validate_fs_names;
 	bool mailbox_list_utf8;
+	bool mailbox_list_normalize_names_to_nfc;
 	const char *mailbox_list_visible_escape_char;
 	const char *mailbox_list_storage_escape_char;
 	const char *mailbox_list_lost_mailbox_prefix;

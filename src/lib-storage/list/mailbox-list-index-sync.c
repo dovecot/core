@@ -22,7 +22,7 @@ node_lookup_guid(struct mailbox_list_index_sync_context *ctx,
 	mailbox_list_index_node_get_path(node, ns_sep, str);
 
 	vname = mailbox_list_get_vname(ctx->list, str_c(str));
-	box = mailbox_alloc(ctx->list, vname, 0);
+	box = mailbox_alloc(ctx->list, vname, MAILBOX_FLAG_RAW_NAME);
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) == 0)
 		memcpy(guid_r, metadata.guid, GUID_128_SIZE);
 	mailbox_free(&box);

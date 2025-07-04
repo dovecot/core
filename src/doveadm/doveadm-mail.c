@@ -301,7 +301,8 @@ static int cmd_force_resync_box(struct doveadm_mail_cmd_context *_ctx,
 	struct force_resync_cmd_context *ctx =
 		container_of(_ctx, struct force_resync_cmd_context, ctx);
 
-	enum mailbox_flags flags = MAILBOX_FLAG_IGNORE_ACLS;
+	enum mailbox_flags flags =
+		MAILBOX_FLAG_IGNORE_ACLS | MAILBOX_FLAG_RAW_NAME;
 	struct mailbox *box;
 	int ret = 0;
 

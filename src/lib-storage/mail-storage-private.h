@@ -393,6 +393,7 @@ struct mailbox {
 	const char *name;
 	/* mailbox's virtual name (from mail_namespace_get_vname()) */
 	const char *vname;
+	const char *vname_raw;
 	struct mail_storage *storage;
 	struct mailbox_list *list;
 	struct event *event;
@@ -515,6 +516,11 @@ struct mailbox {
 	/* mailbox_alloc() opened a different mailbox than asked (e.g. virtual
 	   plugin opened the backend mailbox). */
 	bool mailbox_not_original:1;
+	/* The mailbox name provided through mailbox_alloc() changed through NFC
+	   normalization */
+	bool mailbox_name_changed_by_nfc:1;
+	/* Already handling mailbox NFC normalization notification. */
+	bool notifying_nfc_name_change:1;
 };
 
 struct mail_vfuncs {
@@ -896,6 +902,14 @@ int mailbox_create_missing_dir(struct mailbox *box,
 bool mailbox_is_autocreated(struct mailbox *box);
 /* Returns TRUE if mailbox is autosubscribed. */
 bool mailbox_is_autosubscribed(struct mailbox *box);
+
+/* Force mailbox rename for Unicode NFC normalization. If the target already
+   exists, the new name is suffixed with a GUID. The final name is returned in
+   vname_new_r. Returns 1 if rename was performed, 0 if no rename was performed,
+   and -1 upon error. */
+int mailbox_rename_nfc_forced(struct mailbox_list *list, const char *vname_raw,
+			      const char *vname_nfc, const char **vname_new_r,
+			      const char **error_r);
 
 /* Returns -1 if error, 0 if failed with EEXIST, 1 if ok */
 int mailbox_create_fd(struct mailbox *box, const char *path, int flags,

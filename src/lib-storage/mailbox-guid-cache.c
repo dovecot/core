@@ -45,7 +45,7 @@ static void mailbox_guid_cache_add_mailbox(struct mailbox_list *list,
 	struct mailbox_guid_cache_rec *rec;
 	uint8_t *guid_p;
 
-	box = mailbox_alloc(list, info->vname, 0);
+	box = mailbox_alloc(list, info->vname, MAILBOX_FLAG_RAW_NAME);
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
 				 &metadata) < 0) {
 		e_error(box->event, "Couldn't get mailbox GUID: %s",
@@ -87,6 +87,7 @@ void mailbox_guid_cache_refresh(struct mailbox_list *list)
 	list->guid_cache_errors = FALSE;
 
 	ctx = mailbox_list_iter_init(list, "*",
+				     MAILBOX_LIST_ITER_NO_RENAMING |
 				     MAILBOX_LIST_ITER_SKIP_ALIASES |
 				     MAILBOX_LIST_ITER_NO_AUTO_BOXES);
 	while ((info = mailbox_list_iter_next(ctx)) != NULL) {
