@@ -1626,13 +1626,16 @@ static int mailbox_verify_existing_name(struct mailbox *box)
 	return ret;
 }
 
-static int mailbox_name_check_forbidden_chars(const char *name)
+static int
+mailbox_name_check_forbidden_chars(const char *name, const char **error_r)
 {
 	const char *p;
 
 	for (p = name; *p != '\0'; p++) {
-		if ((unsigned char)*p < ' ')
+		if ((unsigned char)*p < ' ') {
+			*error_r = "Control characters not allowed in new mailbox names";
 			return -1;
+		}
 	}
 	return 0;
 }
@@ -1644,6 +1647,8 @@ void mailbox_skip_create_name_restrictions(struct mailbox *box, bool set)
 
 int mailbox_verify_create_name(struct mailbox *box)
 {
+	const char *error;
+
 	/* mailbox_alloc() already checks that vname is valid UTF8,
 	   so we don't need to verify that.
 
@@ -1653,9 +1658,8 @@ int mailbox_verify_create_name(struct mailbox *box)
 		return -1;
 	if (box->skip_create_name_restrictions)
 		return 0;
-	if (mailbox_name_check_forbidden_chars(box->vname) < 0) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
-			"Control characters not allowed in new mailbox names");
+	if (mailbox_name_check_forbidden_chars(box->vname, &error) < 0) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS, error);
 		return -1;
 	}
 	if (strlen(box->vname) > MAILBOX_LIST_NAME_MAX_LENGTH) {
