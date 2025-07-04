@@ -1626,15 +1626,15 @@ static int mailbox_verify_existing_name(struct mailbox *box)
 	return ret;
 }
 
-static bool mailbox_name_has_control_chars(const char *name)
+static int mailbox_name_check_forbidden_chars(const char *name)
 {
 	const char *p;
 
 	for (p = name; *p != '\0'; p++) {
 		if ((unsigned char)*p < ' ')
-			return TRUE;
+			return -1;
 	}
-	return FALSE;
+	return 0;
 }
 
 void mailbox_skip_create_name_restrictions(struct mailbox *box, bool set)
@@ -1653,7 +1653,7 @@ int mailbox_verify_create_name(struct mailbox *box)
 		return -1;
 	if (box->skip_create_name_restrictions)
 		return 0;
-	if (mailbox_name_has_control_chars(box->vname)) {
+	if (mailbox_name_check_forbidden_chars(box->vname) < 0) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
 			"Control characters not allowed in new mailbox names");
 		return -1;
