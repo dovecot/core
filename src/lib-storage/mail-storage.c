@@ -8,6 +8,7 @@
 #include "str.h"
 #include "str-parse.h"
 #include "sha1.h"
+#include "unicode-data.h"
 #include "unichar.h"
 #include "hex-binary.h"
 #include "fs-api.h"
@@ -1629,11 +1630,49 @@ static int mailbox_verify_existing_name(struct mailbox *box)
 static int
 mailbox_name_check_forbidden_chars(const char *name, const char **error_r)
 {
-	const char *p;
+	const unsigned char *input = (const unsigned char *)name;
+	size_t size = strlen(name);
 
-	for (p = name; *p != '\0'; p++) {
-		if ((unsigned char)*p < ' ') {
-			*error_r = "Control characters not allowed in new mailbox names";
+	/* RFC 9755, Section 3:
+
+	   Mailbox names MUST comply with the Net-Unicode Definition ([RFC5198],
+	   Section 2) with the specific exception that they MUST NOT contain
+	   control characters (U+0000 - U+001F and U+0080 - U+009F), a delete
+	   character (U+007F), a line separator (U+2028), or a paragraph
+	   separator (U+2029).
+
+	   RFC 5198, Section 2:
+
+	   5.  As suggested in Section 6 of RFC 3629, the Byte Order Mark
+	       ("BOM") signature MUST NOT appear at the beginning of these text
+	       strings.
+
+	   6.  Systems conforming to this specification MUST NOT transmit any
+	       string containing any code point that is unassigned in the
+	       version of Unicode on which they are dependent.  The version of
+	       NFC and the version of Unicode used by that system MUST be
+	       consistent.
+	 */
+
+	while (size > 0) {
+		unichar_t chr;
+		int bytes;
+
+		bytes = uni_utf8_get_char_n(input, size, &chr);
+		if (bytes <= 0) {
+			/* UTF8 already checked */
+			i_unreached();
+		}
+		input += bytes;
+		size -= bytes;
+
+		if (chr <= 0x1f || chr == 0x7f ||
+		    (chr >= 0x0080 && chr <= 0x009f) ||
+		    chr == 0x2028 || chr == 0x2029 || chr == 0xFEFF ||
+		    !unicode_code_point_is_assigned(chr)) {
+			*error_r = t_strdup_printf(
+				"New mailbox name contains forbidden character "
+				"(U+%04X)", chr);
 			return -1;
 		}
 	}
