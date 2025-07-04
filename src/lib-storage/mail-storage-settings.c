@@ -278,7 +278,7 @@ const struct setting_parser_info mailbox_list_layout_setting_parser_info = {
 	SETTING_DEFINE_STRUCT_##type("mailbox_"#name, name, struct mailbox_settings)
 
 static const struct setting_define mailbox_setting_defines[] = {
-	DEF(STR, name),
+	DEF(STR_NFC, name),
 	{ .type = SET_ENUM, .key = "mailbox_auto",
 	  .offset = offsetof(struct mailbox_settings, autocreate) } ,
 	DEF(BOOLLIST, special_use),
@@ -320,7 +320,7 @@ static const struct setting_define mail_namespace_setting_defines[] = {
 	DEF(STR, name),
 	DEF(ENUM, type),
 	DEF(STR, separator),
-	DEF(STR, prefix),
+	DEF(STR_NFC, prefix),
 	DEF(STR, alias_for),
 
 	DEF(BOOL, inbox),
@@ -869,11 +869,6 @@ static bool namespace_settings_ext_check(struct event *event,
 			ns->name);
 		return FALSE;
 	}
-	if (!uni_utf8_str_is_valid(ns->prefix)) {
-		*error_r = t_strdup_printf("Namespace %s: prefix not valid UTF8: %s",
-					   ns->name, ns->prefix);
-		return FALSE;
-	}
 
 	return namespace_parse_mailboxes(event, pool, ns, error_r) == 0;
 }
@@ -920,15 +915,10 @@ mailbox_special_use_check(struct mailbox_settings *set)
 }
 
 static bool mailbox_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-				   const char **error_r)
+				   const char **error_r ATTR_UNUSED)
 {
 	struct mailbox_settings *set = _set;
 
-	if (!uni_utf8_str_is_valid(set->name)) {
-		*error_r = t_strdup_printf("mailbox %s: name isn't valid UTF-8",
-					   set->name);
-		return FALSE;
-	}
 	mailbox_special_use_check(set);
 	return TRUE;
 }

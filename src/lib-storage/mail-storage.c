@@ -1107,8 +1107,7 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 	struct mailbox *box;
 	enum mail_error open_error = 0;
 	const char *suffix, *errstr = NULL;
-
-	i_assert(uni_utf8_str_is_valid(vname));
+	int ret;
 
 	if (str_begins_icase(vname, "INBOX", &suffix) &&
 	    !str_begins_with(vname, "INBOX")) {
@@ -1132,9 +1131,17 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 		}
 	}
 
+	const char *vname_raw = vname;
+
+	if (HAS_NO_BITS(flags, MAILBOX_FLAG_RAW_NAME)) {
+		ret = uni_utf8_to_nfc(vname, strlen(vname), &vname);
+		i_assert(ret >= 0);
+	}
+
 	T_BEGIN {
 		const char *error, *orig_vname = vname;
 		enum mailbox_list_get_storage_flags storage_flags = 0;
+		bool mailbox_not_original = FALSE;
 		int ret;
 
 		if ((flags & MAILBOX_FLAG_SAVEONLY) != 0)
@@ -1145,6 +1152,13 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 			storage = mail_namespace_get_default_storage(list->ns);
 			errstr = mailbox_list_get_last_error(new_list, &open_error);
 			errstr = t_strdup(errstr);
+		} else if (strcmp(orig_vname, vname) != 0) {
+			mailbox_not_original = TRUE;
+
+			if (HAS_NO_BITS(flags, MAILBOX_FLAG_RAW_NAME)) {
+				ret = uni_utf8_to_nfc(vname, strlen(vname), &vname);
+				i_assert(ret >= 0);
+			}
 		}
 
 		if ((new_list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
@@ -1179,8 +1193,11 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 				box->open_error = box->storage->error;
 			}
 		}
-		if (strcmp(orig_vname, vname) != 0)
-			box->mailbox_not_original = TRUE;
+		if (vname_raw == vname || strcmp(vname_raw, vname) == 0)
+			box->vname_raw = box->vname;
+		else
+			box->vname_raw = p_strdup(box->pool, vname_raw);
+		box->mailbox_not_original = mailbox_not_original;
 		hook_mailbox_allocated(box);
 	} T_END;
 
@@ -1452,6 +1469,119 @@ static int mailbox_autocreate_and_reopen(struct mailbox *box)
 			mailbox_get_last_internal_error(box, NULL));
 	}
 	return ret;
+}
+
+static void
+mailbox_vname_normalize_ns_prefix_nfc(struct mailbox_list *list,
+				      const char **vname)
+{
+	struct mail_namespace *ns = list->ns;
+
+	if (*ns->prefix == '\0')
+		return;
+
+	/* Find the prefix in the raw name by splitting it at the expected
+	   separator. */
+
+	char sep = mail_namespace_get_sep(ns);
+	unsigned int seps_in_ns_prefix = 0;
+	const char *p = ns->prefix;
+
+	while (*p != '\0') {
+		if (*p == sep)
+			seps_in_ns_prefix++;
+		p++;
+	}
+
+	p = *vname;
+	while (*p != '\0' && seps_in_ns_prefix > 0) {
+		if (*p == sep)
+			seps_in_ns_prefix--;
+		p++;
+	}
+	i_assert(seps_in_ns_prefix == 0);
+
+	/* Normalize the prefix */
+
+	string_t *str = t_str_new(128);
+	int ret;
+
+	ret = uni_utf8_write_nfc(*vname, p - *vname, str);
+	i_assert(ret >= 0);
+	str_append(str, p);
+
+	*vname = str_c(str);
+}
+
+int mailbox_rename_nfc_forced(struct mailbox_list *list, const char *vname_raw,
+			      const char *vname_nfc, const char **vname_new_r,
+			      const char **error_r)
+{
+	struct mailbox *box_old, *box_new;
+	int ret;
+
+	mailbox_vname_normalize_ns_prefix_nfc(list, &vname_raw);
+	*vname_new_r = vname_nfc;
+	if (strcmp(vname_raw, vname_nfc) == 0) {
+		/* Only namespace prefix was not NFC */
+		return 0;
+	}
+	box_old = mailbox_alloc(list, vname_raw, (MAILBOX_FLAG_RAW_NAME |
+						  MAILBOX_FLAG_IGNORE_ACLS));
+	box_old->nfc_notifying = TRUE;
+	box_new = mailbox_alloc(list, vname_nfc, MAILBOX_FLAG_RAW_NAME);
+	box_new->nfc_notifying = TRUE;
+
+	ret = mailbox_rename(box_old, box_new);
+	if (ret < 0 &&
+	    mailbox_get_last_mail_error(box_old) == MAIL_ERROR_NOTFOUND) {
+		/* ignore */
+		ret = 0;
+	} else if (ret < 0 &&
+		   mailbox_get_last_mail_error(box_old) == MAIL_ERROR_EXISTS) {
+		/* generate a new unique name */
+		guid_128_t guid;
+		guid_128_generate(guid);
+
+		*vname_new_r = t_strdup_printf("%s-%s", vname_nfc,
+					       guid_128_to_string(guid));
+		mailbox_free(&box_new);
+		box_new = mailbox_alloc(list, *vname_new_r, 0);
+		ret = mailbox_rename(box_old, box_new);
+	}
+	if (ret < 0)
+		*error_r = mailbox_get_last_error(box_old, NULL);
+	mailbox_free(&box_old);
+	mailbox_free(&box_new);
+
+	return (ret == 0 ? 1 : ret);
+}
+
+static int mailbox_nfc_normalize(struct mailbox *box)
+{
+	const char *vname, *error;
+	int ret;
+
+	ret = mailbox_rename_nfc_forced(box->list, box->vname_raw, box->vname,
+					&vname, &error);
+	if (ret < 0) {
+		mailbox_set_critical(box,
+			"Failed to rename mailbox for NFC normalization: %s",
+			error);
+		return -1;
+	}
+	if (ret == 0)
+		return 0;
+	if (strcmp(box->vname, vname) == 0) {
+		e_debug(box->event, "Mailbox renamed for NFC normalization");
+	} else {
+		box->vname = p_strdup(box->pool, vname);
+		e_debug(box->event,
+			"Mailbox renamed to %s for NFC normalization "
+			"(mailbox with NFC normalized name existed already)",
+			box->vname);
+	}
+	return 1;
 }
 
 static bool
@@ -1774,6 +1904,15 @@ int mailbox_exists(struct mailbox *box, bool auto_boxes,
 	T_BEGIN {
 		ret = box->v.exists(box, auto_boxes, existence_r);
 	} T_END;
+	if (ret == 0 && *existence_r == MAILBOX_EXISTENCE_NONE &&
+	    strcmp(box->vname, box->vname_raw) != 0) {
+		const char *nfc_vname = box->vname;
+		box->vname = box->vname_raw;
+		T_BEGIN {
+			ret = box->v.exists(box, auto_boxes, existence_r);
+		} T_END;
+		box->vname = nfc_vname;
+	}
 	if (ret < 0)
 		return -1;
 
@@ -1796,6 +1935,7 @@ static int ATTR_NULL(2)
 mailbox_open_full(struct mailbox *box, struct istream *input)
 {
 	struct mail_storage *storage = box->storage;
+	bool nfc_notifying = box->nfc_notifying;
 	int ret;
 
 	if (box->opened)
@@ -1830,7 +1970,16 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 		i_stream_ref(box->input);
 	}
 
+	box->nfc_notifying = TRUE;
 	ret = box->v.open(box);
+	if (ret < 0 && storage->error == MAIL_ERROR_NOTFOUND &&
+	    strcmp(box->vname, box->vname_raw) != 0) {
+		ret = mailbox_nfc_normalize(box);
+		if (ret > 0) {
+			mailbox_close(box);
+			ret = box->v.open(box);
+		}
+	}
 	if (ret < 0 && storage->error == MAIL_ERROR_NOTFOUND &&
 	    !box->deleting && !box->creating &&
 	    box->input == NULL && mailbox_is_autocreated(box)) T_BEGIN {
@@ -1840,9 +1989,19 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 	if (ret < 0) {
 		if (box->input != NULL)
 			i_stream_unref(&box->input);
+		box->nfc_notifying = FALSE;
 		return -1;
 	}
 
+	/* Always notify an NFC normalization rename, even when the physical
+	   rename happened in the past. */
+	if (!nfc_notifying && strcmp(box->vname, box->vname_raw) != 0 &&
+	    storage->callbacks.notify_mailbox_implicit_rename != NULL) {
+		storage->callbacks.notify_mailbox_implicit_rename(
+			box, box->vname_raw, storage->callback_context);
+	}
+
+	box->nfc_notifying = FALSE;
 	box->list->ns->flags |= NAMESPACE_FLAG_USABLE;
 	return 0;
 }
@@ -2085,6 +2244,8 @@ static void mailbox_copy_cache_decisions_from_inbox(struct mailbox *box)
 int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		   bool directory)
 {
+	struct mail_storage *storage = box->storage;
+	bool nfc_notifying = box->nfc_notifying;
 	int ret;
 
 	if (mailbox_verify_create_name(box) < 0)
@@ -2104,6 +2265,7 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		return -1;
 	}
 	box->creating = TRUE;
+	box->nfc_notifying = TRUE;
 	if ((box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) != 0) {
 		/* Layout doesn't support creating \NoSelect mailboxes.
 		   Switch to creating a selectable mailbox */
@@ -2120,6 +2282,12 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		if (!box->inbox_any) T_BEGIN {
 			mailbox_copy_cache_decisions_from_inbox(box);
 		} T_END;
+		/* Notify NFC normalization */
+		if (!nfc_notifying && strcmp(box->vname, box->vname_raw) != 0 &&
+		    storage->callbacks.notify_mailbox_implicit_rename != NULL) {
+			storage->callbacks.notify_mailbox_implicit_rename(
+				box, box->vname_raw, storage->callback_context);
+		}
 	} else if (box->opened) {
 		/* Creation failed after (partially) opening the mailbox.
 		   It may not be in a valid state, so close it. */
@@ -2127,6 +2295,7 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		mailbox_close(box);
 		mail_storage_last_error_pop(box->storage);
 	}
+	box->nfc_notifying = FALSE;
 	event_reason_end(&reason);
 	return ret;
 }
@@ -2383,6 +2552,8 @@ int mailbox_rename_check_children(struct mailbox *src, struct mailbox *dest)
 static int mailbox_rename_real(struct mailbox *src, struct mailbox *dest)
 {
 	const char *error = NULL;
+	bool src_nfc_notifying = src->nfc_notifying;
+	bool dest_nfc_notifying = dest->nfc_notifying;
 
 	/* Check only name validity, \Noselect don't necessarily exist. */
 	if (mailbox_verify_name(src) < 0)
@@ -2431,10 +2602,37 @@ static int mailbox_rename_real(struct mailbox *src, struct mailbox *dest)
 		mail_storage_copy_list_error(src->storage, dest->list);
 		return -1;
 	}
+	src->nfc_notifying = TRUE;
+	dest->nfc_notifying = TRUE;
 	int ret = src->v.rename_box(src, dest);
+	if (ret < 0 && src->storage->error == MAIL_ERROR_NOTFOUND &&
+	    strcmp(src->vname, src->vname_raw) != 0) {
+		ret = mailbox_nfc_normalize(src);
+		if (ret >= 0)
+			ret = src->v.rename_box(src, dest);
+	}
 	mailbox_list_unlock(dest->list);
-	if (ret < 0)
+	if (ret < 0) {
+		src->nfc_notifying = FALSE;
+		dest->nfc_notifying = FALSE;
 		return -1;
+	}
+
+	/* Always notify an NFC normalization rename, even when the physical
+	   rename happened in the past. */
+	if (!src_nfc_notifying && strcmp(src->vname, src->vname_raw) != 0 &&
+	    src->storage->callbacks.notify_mailbox_implicit_rename != NULL) {
+		src->storage->callbacks.notify_mailbox_implicit_rename(
+			src, src->vname_raw, src->storage->callback_context);
+	}
+	if (!dest_nfc_notifying && strcmp(dest->vname, dest->vname_raw) != 0 &&
+	    dest->storage->callbacks.notify_mailbox_implicit_rename != NULL) {
+		dest->storage->callbacks.notify_mailbox_implicit_rename(
+			dest, dest->vname_raw, dest->storage->callback_context);
+	}
+	src->nfc_notifying = FALSE;
+	dest->nfc_notifying = FALSE;
+
 	src->list->guid_cache_invalidated = TRUE;
 	dest->list->guid_cache_invalidated = TRUE;
 	return 0;

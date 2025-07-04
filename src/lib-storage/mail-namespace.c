@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "unichar.h"
 #include "file-lock.h"
 #include "settings.h"
 #include "mailbox-list-private.h"
@@ -749,6 +750,10 @@ mail_namespace_find_mask(struct mail_namespace *namespaces, const char *box,
 	size_t best_len = 0;
 	const char *suffix;
 	bool inbox;
+	int ret;
+
+	ret = uni_utf8_to_nfc(box, strlen(box), &box);
+	i_assert(ret >= 0);
 
 	inbox = str_begins_icase(box, "INBOX", &suffix);
 	if (inbox && suffix[0] == '\0') {
@@ -779,6 +784,10 @@ mail_namespace_find_shared(struct mail_namespace *ns, const char *mailbox)
 {
 	struct mailbox_list *list = ns->list;
 	struct mail_storage *storage;
+	int ret;
+
+	ret = uni_utf8_to_nfc(mailbox, strlen(mailbox), &mailbox);
+	i_assert(ret >= 0);
 
 	if (mailbox_list_get_storage(&list, &mailbox, 0, &storage) < 0)
 		return ns;
