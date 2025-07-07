@@ -141,8 +141,8 @@ bool doveadm_cmd_param_bool(const struct doveadm_cmd_context *cctx,
 static inline bool
 doveadm_cmd_param_flag(const struct doveadm_cmd_context *cctx, const char *name)
 {
-	bool ignore ATTR_UNUSED;
-	return doveadm_cmd_param_bool(cctx, name, &ignore);
+	bool value;
+	return doveadm_cmd_param_bool(cctx, name, &value) && value;
 }
 
 bool doveadm_cmd_param_int64(const struct doveadm_cmd_context *cctx,
