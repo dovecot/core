@@ -40,15 +40,21 @@ mailbox_flags2str(struct cmd_list_context *ctx, string_t *str,
 	size_t orig_len = str_len(str);
 
 	if ((flags & MAILBOX_NONEXISTENT) != 0 && !ctx->used_listext) {
-		flags |= MAILBOX_NOSELECT;
 		flags &= ENUM_NEGATE(MAILBOX_NONEXISTENT);
+		if (!ctx->lsub) {
+			/* Convert to \Noselect flag in LIST reply. It can't
+			   be converted to \Noselect in LSUB reply though,
+			   because that means a child mailbox is subscribed. */
+			flags |= MAILBOX_NOSELECT;
+		}
 	}
 
 	if ((ctx->list_flags & MAILBOX_LIST_ITER_RETURN_CHILDREN) == 0)
 		flags &= ENUM_NEGATE(MAILBOX_CHILDREN | MAILBOX_NOCHILDREN);
 
 	if ((flags & MAILBOX_CHILD_SUBSCRIBED) != 0 &&
-	    (flags & MAILBOX_SUBSCRIBED) == 0 && !ctx->used_listext) {
+	    (flags & MAILBOX_SUBSCRIBED) == 0 && !ctx->used_listext &&
+	    ctx->lsub) {
 		/* LSUB uses \Noselect for this */
 		flags |= MAILBOX_NOSELECT;
 	} else if ((ctx->list_flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) == 0)

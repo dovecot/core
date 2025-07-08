@@ -170,6 +170,10 @@ struct mailbox_list_iterate_context {
 
 	ARRAY(union mailbox_list_iterate_module_context *) module_contexts;
 	HASH_TABLE(const char *, void*) found_mailboxes;
+	struct mailbox_tree_context *subscriptions;
+	struct mailbox_tree_iterate_context *subscriptions_iter;
+	struct mailbox_info subscriptions_info;
+	bool subscriptions_children;
 };
 
 struct mailbox_list_iter_update_context {

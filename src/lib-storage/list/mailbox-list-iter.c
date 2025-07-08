@@ -157,6 +157,21 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 	}
 
 	ctx = list->v.iter_init(list, patterns, flags);
+	if ((flags & (MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
+		      MAILBOX_LIST_ITER_RETURN_SUBSCRIBED)) != 0) {
+		char sep = mail_namespace_get_sep(list->ns);
+		ctx->subscriptions = mailbox_tree_init(sep);
+		mailbox_list_subscriptions_fill(ctx, ctx->subscriptions, FALSE);
+
+		struct mailbox_tree_iterate_context *iter =
+			mailbox_tree_iterate_init(ctx->subscriptions, NULL, 0);
+		const char *name ATTR_UNUSED;
+		struct mailbox_node *node;
+		while ((node = mailbox_tree_iterate_next(iter, &name)) != NULL)
+			node->flags |= MAILBOX_NONEXISTENT;
+		mailbox_tree_iterate_deinit(&iter);
+	}
+
 	if ((flags & MAILBOX_LIST_ITER_NO_AUTO_BOXES) == 0) {
 		if (mailbox_list_iter_init_autocreate(ctx) < 0) {
 			hash_table_destroy(&ctx->autocreate_ctx->duplicate_vnames);
@@ -999,6 +1014,88 @@ static bool autocreate_iter_autobox(struct mailbox_list_iterate_context *ctx,
 	return FALSE;
 }
 
+static void mailbox_list_mark_node_visited(struct mailbox_node *node)
+{
+	if (node == NULL)
+		return;
+
+	node->flags &= ENUM_NEGATE(MAILBOX_MATCHED|MAILBOX_NONEXISTENT);
+	while (node->parent != NULL) {
+		node = node->parent;
+		node->flags &= ENUM_NEGATE(MAILBOX_MATCHED);
+	}
+}
+
+static bool
+mailbox_list_match_subscriptions(struct mailbox_list_iterate_context *ctx,
+				 const struct mailbox_info **info)
+{
+	if (ctx->subscriptions == NULL)
+		return TRUE;
+
+	struct mailbox_node *node =
+		mailbox_tree_lookup(ctx->subscriptions, (*info)->vname);
+	enum mailbox_info_flags subs_flags = node == NULL ? 0 :
+		node->flags & MAILBOX_SUBSCRIBED;
+	if (subs_flags == 0) {
+		if (HAS_ANY_BITS((*info)->flags, MAILBOX_SUBSCRIBED |
+						 MAILBOX_CHILD_SUBSCRIBED)) {
+			/* auto-subscribed mailbox */
+			mailbox_list_mark_node_visited(node);
+			return TRUE;
+		}
+		if (node != NULL)
+			node->flags |= (*info)->flags;
+		if (HAS_NO_BITS(ctx->flags, MAILBOX_LIST_ITER_SELECT_SUBSCRIBED)) {
+			mailbox_list_mark_node_visited(node);
+			return TRUE;
+		}
+		else
+			return FALSE;
+	}
+
+	ctx->subscriptions_info = **info;
+	ctx->subscriptions_info.flags &= ENUM_NEGATE(MAILBOX_SUBSCRIBED |
+						     MAILBOX_CHILD_SUBSCRIBED);
+	ctx->subscriptions_info.flags |= subs_flags;
+	*info = &ctx->subscriptions_info;
+
+	mailbox_list_mark_node_visited(node);
+	return TRUE;
+}
+
+static const struct mailbox_info *
+mailbox_list_finish_subscriptions(struct mailbox_list_iterate_context *ctx)
+{
+	if (ctx->subscriptions == NULL ||
+	    HAS_NO_BITS(ctx->flags, MAILBOX_LIST_ITER_SELECT_SUBSCRIBED))
+		return NULL;
+
+	if (ctx->subscriptions_iter == NULL)
+		ctx->subscriptions_iter = mailbox_tree_iterate_init(
+			ctx->subscriptions, NULL, MAILBOX_MATCHED|MAILBOX_SUBSCRIBED);
+
+	struct mailbox_node *node;
+	const char *vname;
+	while ((node = mailbox_tree_iterate_next(ctx->subscriptions_iter, &vname)) == NULL) {
+		if (ctx->subscriptions_children)
+			return NULL;
+
+		ctx->subscriptions_children = TRUE;
+		mailbox_tree_iterate_deinit(&ctx->subscriptions_iter);
+		ctx->subscriptions_iter = mailbox_tree_iterate_init(
+			ctx->subscriptions, NULL, MAILBOX_MATCHED|MAILBOX_CHILD_SUBSCRIBED);
+	}
+
+	i_zero(&ctx->subscriptions_info);
+	ctx->subscriptions_info.ns = ctx->list->ns;
+	ctx->subscriptions_info.vname = vname;
+	ctx->subscriptions_info.flags = node->flags;
+
+	mailbox_list_mark_node_visited(node);
+	return &ctx->subscriptions_info;
+}
+
 static const struct mailbox_info *
 mailbox_list_iter_next_call(struct mailbox_list_iterate_context *ctx)
 {
@@ -1006,9 +1103,13 @@ mailbox_list_iter_next_call(struct mailbox_list_iterate_context *ctx)
 	const struct mailbox_settings *set;
 	int ret;
 
-	info = ctx->list->v.iter_next(ctx);
+	while ((info = ctx->list->v.iter_next(ctx)) != NULL)
+		if (mailbox_list_match_subscriptions(ctx, &info))
+			break;
+
 	if (info == NULL)
-		return NULL;
+		if ((info = mailbox_list_finish_subscriptions(ctx)) == NULL)
+			return NULL;
 
 	ctx->list->ns->flags |= NAMESPACE_FLAG_USABLE;
 	if ((ctx->flags & MAILBOX_LIST_ITER_RETURN_SPECIALUSE) != 0) {
@@ -1112,6 +1213,8 @@ int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **_ctx)
 	if (ctx->autocreate_ctx != NULL)
 		hash_table_destroy(&ctx->autocreate_ctx->duplicate_vnames);
 	i_free(ctx->specialuse_info_flags);
+	mailbox_tree_iterate_deinit(&ctx->subscriptions_iter);
+	mailbox_tree_deinit(&ctx->subscriptions);
 	return ctx->list->v.iter_deinit(ctx);
 }
 
