@@ -34,7 +34,7 @@
 #include "dsync/dsync-brain.h"
 #include "dsync/dsync-ibc.h"
 #include "doveadm-dsync.h"
-#include "auth-master.h"
+#include "module-dir.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -54,66 +54,253 @@
 
 #define DSYNC_DEFAULT_IO_STREAM_TIMEOUT_SECS (60*10)
 
-enum dsync_run_type {
-	DSYNC_RUN_TYPE_LOCAL,
-	DSYNC_RUN_TYPE_STREAM,
-	DSYNC_RUN_TYPE_CMD
+
+struct dsync_module_hooks {
+	struct module *module;
+	const struct dsync_hooks *hooks;
 };
 
-struct dsync_cmd_context {
-	struct doveadm_mail_cmd_context ctx;
-	enum dsync_brain_sync_type sync_type;
-	const char *mailbox;
-	const char *const *destination;
-	const char *const *destination_options;
-	const char *sync_flags;
-	const char *virtual_all_box;
-	guid_128_t mailbox_guid;
-	const char *state_input, *rawlog_path;
-	ARRAY_TYPE(const_string) exclude_mailboxes;
-	ARRAY_TYPE(const_string) namespace_prefixes;
-	time_t sync_since_timestamp;
-	time_t sync_until_timestamp;
-	uoff_t sync_max_size;
-	unsigned int io_timeout_secs;
+static ARRAY(struct dsync_module_hooks) module_hooks = ARRAY_INIT;
 
-	const char *remote_name;
-	pid_t remote_pid;
-	const char *const *remote_cmd_args;
-	struct child_wait *child_wait;
-	int exit_status;
 
-	int fd_in, fd_out, fd_err;
-	struct io *io_err;
-	struct istream *input, *err_stream;
-	struct ostream *output;
-	size_t input_orig_bufsize, output_orig_bufsize;
-	const char *err_prefix;
-	struct failure_context failure_ctx;
+void dsync_hooks_deinit(void);
+void dsync_hooks_deinit(void)
+{
+	/* allow calling this even if dsync_hooks_add() hasn't been called */
+	if (array_is_created(&module_hooks)) {
+		array_free(&module_hooks);
+        }
+}
 
-	struct ssl_iostream *ssl_iostream;
+void dsync_hooks_add(struct module *module,
+			    const struct dsync_hooks *hooks)
+{
+	struct dsync_module_hooks new_hook;
 
-	enum dsync_run_type run_type;
-	struct doveadm_client *tcp_conn;
-	const char *error;
+	i_zero(&new_hook);
+	new_hook.module = module;
+	new_hook.hooks = hooks;
 
-	unsigned int lock_timeout;
-	unsigned int import_commit_msgs_interval;
+	/* allow adding hooks before dsync_hooks_init() */
+	if (!array_is_created(&module_hooks)) {
+		i_array_init(&module_hooks, 8);
+        }
+	array_push_back(&module_hooks, &new_hook);
+}
 
-	bool lock:1;
-	bool purge_remote:1;
-	bool sync_visible_namespaces:1;
-	bool oneway:1;
-	bool backup:1;
-	bool reverse_backup:1;
-	bool remote_user_prefix:1;
-	bool no_mail_sync:1;
-        bool replicator_notify:1;
-	bool exited:1;
-	bool empty_hdr_workaround:1;
-	bool no_header_hashes:1;
-	bool err_line_continues:1;
-};
+void dsync_hooks_remove(const struct dsync_hooks *hooks)
+{
+	const struct dsync_module_hooks *module_hook;
+	unsigned int idx = UINT_MAX;
+
+	array_foreach(&module_hooks, module_hook) {
+		if (module_hook->hooks == hooks) {
+			idx = array_foreach_idx(&module_hooks, module_hook);
+			break;
+		}
+	}
+	i_assert(idx != UINT_MAX);
+
+	array_delete(&module_hooks, idx, 1);
+}
+
+static int
+dsync_module_hooks_cmp(const struct dsync_module_hooks *h1,
+                       const struct dsync_module_hooks *h2)
+{
+	const char *s1 = h1->module->path, *s2 = h2->module->path;
+	const char *p;
+
+	p = strrchr(s1, '/');
+	if (p != NULL) s1 = p+1;
+	p = strrchr(s2, '/');
+	if (p != NULL) s2 = p+1;
+
+	(void)str_begins(s1, "lib", &s1);
+	(void)str_begins(s2, "lib", &s2);
+
+	return strcmp(s1, s2);
+}
+
+void dsync_hook_alloc(struct dsync_cmd_context *ctx);
+void dsync_hook_alloc(struct dsync_cmd_context *ctx) {
+	const struct dsync_module_hooks *module_hook;
+	ARRAY(const struct dsync_module_hooks) sorted_hooks;
+        struct dsync_module_context *hctx;
+
+	/* first get all hooks */
+	t_array_init(&sorted_hooks, array_count(&module_hooks));
+	array_foreach(&module_hooks, module_hook) {
+		array_push_back(&sorted_hooks, module_hook);
+	}
+	/* next we have to sort them by the modules' priority (based on name) */
+	array_sort(&sorted_hooks, dsync_module_hooks_cmp);
+
+	p_array_init(&ctx->hooks, ctx->ctx.pool, array_count(&sorted_hooks));
+	array_foreach(&sorted_hooks, module_hook) {
+		hctx = p_new(ctx->ctx.pool, struct dsync_module_context, 1);
+                i_zero(hctx);
+                hctx->module_hooks = module_hook;
+                if (module_hook->hooks->alloc != NULL) {
+                        hctx->ctx = module_hook->hooks->alloc(ctx);
+                }
+		array_push_back(&ctx->hooks, &hctx);
+	}
+}
+
+void hook_preinit(struct dsync_cmd_context *ctx);
+void hook_preinit(struct dsync_cmd_context *ctx) {
+        struct dsync_module_context **hctx;
+        const struct dsync_hooks *hooks;
+
+	array_foreach_modifiable(&ctx->hooks, hctx) {
+                hooks = (*hctx)->module_hooks->hooks;
+		if (hooks->preinit == NULL)
+                        continue;
+                T_BEGIN {
+                        hooks->preinit((*hctx)->ctx, ctx);
+		} T_END;
+	}
+}
+
+void hook_init(struct dsync_cmd_context *ctx);
+void hook_init(struct dsync_cmd_context *ctx) {
+        struct dsync_module_context **hctx;
+        const struct dsync_hooks *hooks;
+
+	array_foreach_modifiable(&ctx->hooks, hctx) {
+                hooks = (*hctx)->module_hooks->hooks;
+		if (hooks->init == NULL)
+                        continue;
+                T_BEGIN {
+                        hooks->init((*hctx)->ctx, ctx);
+		} T_END;
+	}
+}
+
+bool hook_connected_callback(struct dsync_cmd_context *ctx,
+                             const struct doveadm_server_reply *reply);
+bool hook_connected_callback(struct dsync_cmd_context *ctx,
+                             const struct doveadm_server_reply *reply)
+{
+        struct dsync_module_context **hctx;
+        const struct dsync_hooks *hooks;
+        bool result;
+
+	array_foreach_modifiable(&ctx->hooks, hctx) {
+                hooks = (*hctx)->module_hooks->hooks;
+		if (hooks->connected_callback == NULL)
+                        continue;
+                T_BEGIN {
+                        if (hooks->connected_callback((*hctx)->ctx, ctx, reply)) {
+                                result = TRUE;
+                        }
+		} T_END;
+	}
+        return result;
+}
+
+int hook_run_pre(struct dsync_cmd_context *ctx, struct mail_user *user);
+int hook_run_pre(struct dsync_cmd_context *ctx, struct mail_user *user)
+{
+        struct dsync_module_context **hctx;
+        const struct dsync_hooks *hooks;
+        int ret = 0;
+
+	array_foreach_modifiable(&ctx->hooks, hctx) {
+                hooks = (*hctx)->module_hooks->hooks;
+		if (hooks->run_pre == NULL)
+                        continue;
+                T_BEGIN {
+                        ret = hooks->run_pre((*hctx)->ctx, ctx, user);
+		} T_END;
+                if (ret < 0) {
+                        e_info(ctx->ctx.cctx->event,
+                               "hook_run_pre(): returning %d for \"%s\"",
+                               ret, (*hctx)->module_hooks->module->name);
+                        return ret;
+                }
+	}
+        return ret;
+}
+
+int hook_server_run_pre(struct dsync_cmd_context *ctx, struct mail_user *user);
+int hook_server_run_pre(struct dsync_cmd_context *ctx, struct mail_user *user)
+{
+        struct dsync_module_context **hctx;
+        const struct dsync_hooks *hooks;
+        int ret = 0;
+
+	array_foreach_modifiable(&ctx->hooks, hctx) {
+                hooks = (*hctx)->module_hooks->hooks;
+		if (hooks->server_run_pre == NULL)
+                        continue;
+                T_BEGIN {
+                        ret = hooks->server_run_pre((*hctx)->ctx, ctx, user);
+		} T_END;
+                if (ret < 0) {
+                        return ret;
+                }
+	}
+        return ret;
+}
+
+void hook_server_run_command(struct dsync_cmd_context *ctx,
+                             struct doveadm_client *conn,
+                             string_t *cmd);
+void hook_server_run_command(struct dsync_cmd_context *ctx,
+                             struct doveadm_client *conn,
+                             string_t *cmd) {
+        struct dsync_module_context **hctx;
+        const struct dsync_hooks *hooks;
+
+	array_foreach_modifiable(&ctx->hooks, hctx) {
+                hooks = (*hctx)->module_hooks->hooks;
+		if (hooks->server_run_command == NULL)
+                        continue;
+                T_BEGIN {
+                        hooks->server_run_command((*hctx)->ctx, ctx, conn, cmd);
+		} T_END;
+	}
+}
+
+void hook_server_run_predeinit(struct dsync_cmd_context *ctx,
+                               struct mail_user *user,
+                               struct dsync_ibc *ibc,
+                               struct dsync_brain *brain);
+void hook_server_run_predeinit(struct dsync_cmd_context *ctx,
+                               struct mail_user *user,
+                               struct dsync_ibc *ibc,
+                               struct dsync_brain *brain) {
+        struct dsync_module_context **hctx;
+        const struct dsync_hooks *hooks;
+
+	array_foreach_modifiable(&ctx->hooks, hctx) {
+                hooks = (*hctx)->module_hooks->hooks;
+		if (hooks->server_run_predeinit == NULL)
+                        continue;
+                T_BEGIN {
+                        hooks->server_run_predeinit((*hctx)->ctx, ctx, user, ibc, brain);
+		} T_END;
+	}
+}
+
+void hook_server_run_deinit(struct dsync_cmd_context *ctx,
+                            struct mail_user *user);
+void hook_server_run_deinit(struct dsync_cmd_context *ctx,
+                            struct mail_user *user) {
+        struct dsync_module_context **hctx;
+        const struct dsync_hooks *hooks;
+
+	array_foreach_modifiable(&ctx->hooks, hctx) {
+                hooks = (*hctx)->module_hooks->hooks;
+		if (hooks->server_run_deinit == NULL)
+                        continue;
+                T_BEGIN {
+                        hooks->server_run_deinit((*hctx)->ctx, ctx, user);
+		} T_END;
+	}
+}
 
 static void dsync_cmd_switch_ioloop_to(struct dsync_cmd_context *ctx,
 				       struct ioloop *ioloop)
@@ -667,51 +854,6 @@ cmd_dsync_ibc_stream_init(struct dsync_cmd_context *ctx,
 				     name, temp_prefix, ctx->io_timeout_secs);
 }
 
-static void
-dsync_replicator_notify(struct dsync_cmd_context *ctx,
-			enum dsync_brain_sync_type sync_type,
-			const char *state_str)
-{
-#define REPLICATOR_HANDSHAKE "VERSION\treplicator-doveadm-client\t1\t0\n"
-	const char *path;
-	string_t *str;
-	int fd;
-
-	path = t_strdup_printf("%s/replicator-doveadm",
-			       ctx->ctx.cur_mail_user->set->base_dir);
-	fd = net_connect_unix(path);
-	if (fd == -1) {
-		if (errno == ECONNREFUSED || errno == ENOENT) {
-			/* replicator not running on this server. ignore. */
-			return;
-		}
-		e_error(ctx->ctx.cctx->event,
-			"net_connect_unix(%s) failed: %m", path);
-		return;
-	}
-	fd_set_nonblock(fd, FALSE);
-
-	str = t_str_new(128);
-	str_append(str, REPLICATOR_HANDSHAKE"NOTIFY\t");
-	str_append_tabescaped(str, ctx->ctx.cur_mail_user->username);
-	str_append_c(str, '\t');
-	if (sync_type == DSYNC_BRAIN_SYNC_TYPE_FULL)
-		str_append_c(str, 'f');
-	str_append_c(str, '\t');
-	str_append_tabescaped(str, state_str);
-	str_append_c(str, '\n');
-	if (write_full(fd, str_data(str), str_len(str)) < 0) {
-		e_error(ctx->ctx.cctx->event,
-			"write(%s) failed: %m", path);
-	}
-	/* we only wanted to notify replicator. we don't care enough about the
-	   answer to wait for it. */
-	if (close(fd) < 0) {
-		e_error(ctx->ctx.cctx->event,
-			"close(%s) failed: %m", path);
-	}
-}
-
 static void dsync_errors_finish(struct dsync_cmd_context *ctx)
 {
 	if (ctx->err_stream == NULL)
@@ -724,115 +866,6 @@ static void dsync_errors_finish(struct dsync_cmd_context *ctx)
 				    ctx->remote_cmd_args, ctx->ctx.cctx->event);
 	io_remove(&ctx->io_err);
 	i_close_fd(&ctx->fd_err);
-}
-
-/*
-  dirty hack to allow looking up mail_replica and noreplicate from userdb (only)
-  as it is not possible to access replication plugins
-  struct replication_settings here.
-  Will have to move the using code to replication plugin's doveadm plugin.
-*/
-static int
-get_userdb_field(struct doveadm_cmd_context *cctx,
-                 const char *username,
-                 const char *field,
-                 char *value, const size_t value_length,
-                 const char **error_r)
-{
-	const char *auth_socket_path;
-	enum auth_master_flags flags = 0;
-	struct auth_master_connection *conn;
-	pool_t pool;
-        struct auth_user_info user_info;
-	int ret;
-	const char *updated_username = NULL, *const *fields;
-
-	if (!doveadm_cmd_param_str(cctx, "socket-path", &auth_socket_path))
-		auth_socket_path = doveadm_settings->auth_socket_path;
-
-	pool = pool_alloconly_create("auth master lookup", 1024);
-
-	/* flags |= AUTH_MASTER_FLAG_DEBUG; */
-	conn = auth_master_init(auth_socket_path, flags);
-	i_zero(&user_info);
-	user_info.protocol = "doveadm";
-	ret = auth_master_user_lookup(conn, username, &user_info,
-				      pool, &updated_username, &fields);
-
-	if (ret < 0) {
-        	if (fields[0] == NULL) {
-			e_error(cctx->event,
-				"userdb lookup failed for %s", username);
-                        *error_r = t_strdup_printf("userdb lookup failed for %s",
-                                                   username);
-		} else {
-			e_error(cctx->event,
-				"userdb lookup failed for %s: %s",
-				username, fields[0]);
-                        *error_r = t_strdup_printf("userdb lookup failed for %s: %s",
-                                                   username, fields[0]);
-		}
-		ret = -1;
-	} else if (ret == 0) {
-        	e_error(cctx->event,
-                        "userdb lookup: user %s doesn't exist",
-			username);
-                *error_r = t_strdup_printf("userdb lookup: user %s doesn't exist",
-                                           username);
-	} else {
-		size_t field_len = strlen(field);
-
-		for (; *fields != NULL; fields++) {
-			if (strncmp(*fields, field, field_len) == 0 &&
-			    (*fields)[field_len] == '=') {
-                          if (i_strocpy(value,
-                                        *fields + field_len + 1,
-                                        value_length) < 0) {
-                          	e_error(cctx->event,
-                                        "failed to i_strocpy %s's %s field",
-                                        username, field);
-                                *error_r = t_strdup_printf("failed to i_strocpy %s's %s field",
-                                                           username, field);
-                                ret = -1;
-                          } else {
-                          	ret = 2;
-                          }
-                        }
-		}
-                if (ret != 2) {
-                        /*
-                          in case we did not find the field in the userdb result,
-                          we set error_r appropriate as our called might need it initialized
-                        */
-                        *error_r = t_strdup_printf("field \"%s\" not found for user %s",
-                                                   field, cctx->username);
-                }
-        }
-        auth_master_deinit(&conn);
-	pool_unref(&pool);
-	return ret;
-}
-
-#define USERDB_FIELD_SIZE 1024
-
-static bool
-get_noreplicate(struct doveadm_cmd_context *cctx)
-{
-        char noreplicate[USERDB_FIELD_SIZE];
-        const char *error_r[1024];
-        int ret;
-
-        ret = get_userdb_field(cctx, cctx->username, "noreplicate",
-                               noreplicate, USERDB_FIELD_SIZE, error_r);
-        if (ret < 2) {
-                /* error, user not found, field not found */
-        	return FALSE;
-        }
-        if ((strlen(noreplicate) > 0) &&
-            (noreplicate[0] == '0')) {
-                return FALSE;
-        }
-	return TRUE;
 }
 
 static int
@@ -849,18 +882,14 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	const char *const *strp;
 	enum dsync_brain_flags brain_flags;
 	enum mail_error mail_error = 0, mail_error2;
-	bool cli = (cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
 	const char *changes_during_sync, *changes_during_sync2 = NULL;
 	bool remote_only_changes;
 	int ret = 0;
 
-	/* replicator_notify indicates here automated attempt,
-	   we still want to allow manual sync/backup */
-	if (!cli && ctx->replicator_notify &&
-	    get_noreplicate(cctx)) {
-		ctx->ctx.exit_code = DOVEADM_EX_NOREPLICATE;
-		return -1;
-	}
+        ret = hook_run_pre(ctx, user);
+        if (ret < 0) {
+                return ret;
+        }
 
 	i_zero(&set);
 	if (cctx->remote_ip.family != 0) {
@@ -975,8 +1004,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 	changes_during_sync = dsync_brain_get_unexpected_changes_reason(brain, &remote_only_changes);
 	if (changes_during_sync != NULL || changes_during_sync2 != NULL) {
-		/* don't log a warning when running via doveadm server
-		   (e.g. called by replicator) */
+		/* don't log a warning when running via doveadm server */
 		const char *msg = t_strdup_printf(
 			"Mailbox changes caused a desync. "
 			"You may want to run dsync again: %s",
@@ -1055,12 +1083,10 @@ static void dsync_connected_callback(const struct doveadm_server_reply *reply,
 	case EX_NOUSER:
 		ctx->error = "Unknown user in remote";
 		break;
-	case DOVEADM_EX_NOREPLICATE:
-		if (doveadm_debug)
-			e_debug(ctx->ctx.cctx->event,
-				"user is disabled for replication");
-		break;
 	default:
+                if (hook_connected_callback(ctx, reply)) {
+                        break;
+                }
 		ctx->error = p_strdup_printf(ctx->ctx.pool,
 			"Failed to start remote dsync-server command: "
 			"Remote exit_code=%u %s",
@@ -1082,8 +1108,7 @@ static void dsync_server_run_command(struct dsync_cmd_context *ctx,
 	str_append_tabescaped(cmd, cctx->username);
 	str_append(cmd, "\tdsync-server\t-u");
 	str_append_tabescaped(cmd, cctx->username);
-	if (ctx->replicator_notify)
-		str_append(cmd, "\t-U");
+        hook_server_run_command(ctx, conn, cmd);
 	str_append_c(cmd, '\n');
 
 	ctx->tcp_conn = conn;
@@ -1249,6 +1274,8 @@ static void cmd_dsync_init(struct doveadm_mail_cmd_context *_ctx)
 		array_append_zero(&ctx->exclude_mailboxes);
 
 	lib_signals_ignore(SIGHUP, TRUE);
+
+        hook_init(ctx);
 }
 
 static void cmd_dsync_preinit(struct doveadm_mail_cmd_context *_ctx)
@@ -1325,8 +1352,6 @@ static void cmd_dsync_preinit(struct doveadm_mail_cmd_context *_ctx)
 		i_fatal("Invalid -I parameter '%s': %s", value_str, error);
 
 	(void)doveadm_cmd_param_uint32(cctx, "timeout", &ctx->io_timeout_secs);
-	ctx->replicator_notify =
-		doveadm_cmd_param_flag(cctx, "replicator-notify");
 
 	if (!doveadm_cmd_param_array(cctx, "destination-option",
 				     &ctx->destination_options))
@@ -1336,6 +1361,8 @@ static void cmd_dsync_preinit(struct doveadm_mail_cmd_context *_ctx)
 
 	if ((_ctx->service_flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0)
 		_ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR;
+
+        hook_preinit(ctx);
 }
 
 static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
@@ -1359,6 +1386,9 @@ static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
         if ((doveadm_settings->parsed_features & DSYNC_FEATURE_NO_HEADER_HASHES) != 0)
                 ctx->no_header_hashes = TRUE;
 	ctx->import_commit_msgs_interval = doveadm_settings->dsync_commit_msgs_interval;
+
+        dsync_hook_alloc(ctx);
+
 	return &ctx->ctx;
 }
 
@@ -1383,20 +1413,17 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	bool cli = (cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
 	struct dsync_ibc *ibc;
 	struct dsync_brain *brain;
-	string_t *temp_prefix, *state_str = NULL;
-	enum dsync_brain_sync_type sync_type;
+	string_t *temp_prefix;
 	const char *name, *process_title_prefix = "";
 	enum mail_error mail_error;
+	int ret = 0;
+
+        ret = hook_server_run_pre(ctx, user);
+        if (ret < 0) {
+                return ret;
+        }
 
 	if (!cli) {
-		/* replicator_notify indicates here automated attempt,
-		   we still want to allow manual sync/backup */
-		if (ctx->replicator_notify &&
-		    get_noreplicate(cctx)) {
-			_ctx->exit_code = DOVEADM_EX_NOREPLICATE;
-			return -1;
-		}
-
 		/* doveadm-server connection. start with a success reply.
 		   after that follows the regular dsync protocol. */
 		ctx->fd_in = ctx->fd_out = -1;
@@ -1435,11 +1462,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	/* io_loop_run() deactivates the context - put it back */
 	mail_storage_service_io_activate_user(ctx->ctx.cur_service_user);
 
-	if (ctx->replicator_notify) {
-		state_str = t_str_new(128);
-		dsync_brain_get_state(brain, state_str);
-	}
-	sync_type = dsync_brain_get_sync_type(brain);
+        hook_server_run_predeinit(ctx, user, ibc, brain);
 
 	if (dsync_brain_deinit(&brain, &mail_error) < 0)
 		doveadm_mail_failed_error(_ctx, mail_error);
@@ -1453,8 +1476,10 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	i_stream_unref(&ctx->input);
 	o_stream_unref(&ctx->output);
 
-	if (ctx->replicator_notify && _ctx->exit_code == 0)
-		dsync_replicator_notify(ctx, sync_type, str_c(state_str));
+        hook_server_run_deinit(ctx, user);
+
+        dsync_hooks_deinit();
+
 	return _ctx->exit_code == 0 ? 0 : -1;
 }
 
@@ -1467,7 +1492,8 @@ cmd_dsync_server_init(struct doveadm_mail_cmd_context *_ctx)
 
 	(void)doveadm_cmd_param_str(cctx, "rawlog", &ctx->rawlog_path);
 	(void)doveadm_cmd_param_uint32(cctx, "timeout", &ctx->io_timeout_secs);
-	ctx->replicator_notify = doveadm_cmd_param_flag(cctx, "replicator-notify");
+
+        hook_init(ctx);
 }
 
 static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
@@ -1482,6 +1508,9 @@ static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 
 	ctx->fd_in = STDIN_FILENO;
 	ctx->fd_out = STDOUT_FILENO;
+
+        dsync_hook_alloc(ctx);
+
 	return &ctx->ctx;
 }
 
@@ -1490,7 +1519,6 @@ DOVEADM_CMD_MAIL_COMMON \
 DOVEADM_CMD_PARAM('f', "full-sync", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('P', "purge-remote", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('R', "reverse-sync", CMD_PARAM_BOOL, 0) \
-DOVEADM_CMD_PARAM('U', "replicator-notify", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('l', "lock-timeout", CMD_PARAM_INT64, CMD_PARAM_FLAG_UNSIGNED) \
 DOVEADM_CMD_PARAM('r', "rawlog", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('m', "mailbox", CMD_PARAM_STR, 0) \
@@ -1518,7 +1546,7 @@ DOVEADM_CMD_PARAM('\0', "destination", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONA
 struct doveadm_cmd_ver2 doveadm_cmd_dsync_mirror = {
 	.mail_cmd = cmd_dsync_alloc,
 	.name = "sync",
-	.usage = "[-1fPRU] "DSYNC_COMMON_USAGE,
+	.usage = "[-1fPR] "DSYNC_COMMON_USAGE,
 	.flags = CMD_FLAG_NO_UNORDERED_OPTIONS,
 DOVEADM_CMD_PARAMS_START
 DSYNC_COMMON_PARAMS
@@ -1528,7 +1556,7 @@ DOVEADM_CMD_PARAMS_END
 struct doveadm_cmd_ver2 doveadm_cmd_dsync_backup = {
 	.mail_cmd = cmd_dsync_backup_alloc,
 	.name = "backup",
-	.usage = "[-fPRU] "DSYNC_COMMON_USAGE,
+	.usage = "[-fPR] "DSYNC_COMMON_USAGE,
 	.flags = CMD_FLAG_NO_UNORDERED_OPTIONS,
 DOVEADM_CMD_PARAMS_START
 DSYNC_COMMON_PARAMS
@@ -1542,7 +1570,6 @@ DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('r', "rawlog", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('T', "timeout", CMD_PARAM_INT64, CMD_PARAM_FLAG_UNSIGNED)
-DOVEADM_CMD_PARAM('U', "replicator-notify", CMD_PARAM_BOOL, 0)
 /* previously dsync-server could have been added twice to the parameters */
 DOVEADM_CMD_PARAM('\0', "ignore-arg", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
