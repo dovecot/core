@@ -872,7 +872,10 @@ settings_var_expand(struct settings_apply_ctx *ctx, unsigned int key_idx,
 		return 0;
 	} else if (ctx->info->defines[key_idx].type == SET_FILE) {
 		file.path = str_c(ctx->str);
-		*value = settings_file_get_value(&ctx->mpool->pool, &file);
+		if (settings_parse_read_file(file.path, file.path,
+					     &ctx->mpool->pool, NULL,
+					     value, error_r) < 0)
+			return -1;
 	} else {
 		*value = p_strdup(&ctx->mpool->pool, str_c(ctx->str));
 	}
