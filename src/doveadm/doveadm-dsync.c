@@ -56,7 +56,7 @@
 
 
 struct dsync_module_hooks {
-	struct module *module;
+	const struct module *module;
 	const struct dsync_hooks *hooks;
 };
 
@@ -72,8 +72,8 @@ void dsync_hooks_deinit(void)
         }
 }
 
-void dsync_hooks_add(struct module *module,
-			    const struct dsync_hooks *hooks)
+void dsync_hooks_add(const struct module *module,
+                     const struct dsync_hooks *hooks)
 {
 	struct dsync_module_hooks new_hook;
 

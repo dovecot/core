@@ -113,8 +113,8 @@ struct dsync_hooks {
                                   struct mail_user *user);
 };
 
-void dsync_hooks_add(struct module *module,
-			    const struct dsync_hooks *hooks);
+void dsync_hooks_add(const struct module *module,
+                     const struct dsync_hooks *hooks);
 void dsync_hooks_remove(const struct dsync_hooks *hooks);
 
 #endif
