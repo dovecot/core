@@ -130,8 +130,12 @@ auth_common_sources = \
 	userdb-prefetch.c \
 	userdb-static.c \
 	userdb-sql.c \
+if HAVE_LDAP
 	$(ldap_sources) \
+endif
+if HAVE_LUA
 	$(lua_sources)
+endif
 
 headers = \
 	auth.h \
@@ -226,7 +230,9 @@ test_auth_SOURCES = \
 	test-auth-request-var-expand.c \
 	test-auth-request-fields.c \
 	test-username-filter.c \
+if HAVE_LUA
 	test-lua.c \
+endif
 	test-mock.c \
 	test-main.c
 
