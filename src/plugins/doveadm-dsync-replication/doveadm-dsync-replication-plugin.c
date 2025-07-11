@@ -11,6 +11,8 @@
 
 #include "doveadm-dsync-replication-plugin.h"
 
+#define DOVEADM_EX_NOREPLICATE 1001
+
 
 struct replication_module_context {
 	string_t *state_str;
@@ -421,6 +423,8 @@ void doveadm_update_dsync_server_command(void) {
 
 void doveadm_dsync_replication_plugin_init(struct module *module)
 {
+        doveadm_exit_code_add(module,
+                              DOVEADM_EX_NOREPLICATE, "NOREPLICATE");
         dsync_hooks_add(module, &dsync_replication_hooks);
         doveadm_update_sync_command();
         doveadm_update_dsync_server_command();
