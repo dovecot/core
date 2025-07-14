@@ -246,14 +246,10 @@ imapc_list_update_tree(struct imapc_mailbox_list *list,
 	T_BEGIN {
 		const char *vname =
 			imapc_list_remote_to_vname(list, remote_name);
-
-		if ((info_flags & MAILBOX_NONEXISTENT) != 0)
-			node = mailbox_tree_lookup(tree, vname);
-		else
-			node = mailbox_tree_get(tree, vname, &created);
-	} T_END;
-	if (node != NULL)
+		node = mailbox_tree_get(tree, vname, &created);
 		node->flags = info_flags;
+	} T_END;
+
 	return node;
 }
 
