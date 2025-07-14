@@ -272,7 +272,15 @@ static void imapc_untagged_list(const struct imapc_untagged_reply *reply,
 		list->root_sep = sep == NULL ? '/' : sep[0];
 		mailbox_tree_set_separator(list->mailboxes, list->root_sep);
 	} else {
-		(void)imapc_list_update_tree(list, list->mailboxes, args);
+		struct mailbox_node *node =
+			imapc_list_update_tree(list, list->mailboxes, args);
+		if (node != NULL && (node->flags & MAILBOX_SUBSCRIBED) != 0) {
+			struct mailbox_tree_context *tree =
+				list->tmp_subscriptions != NULL ?
+				list->tmp_subscriptions :
+				list->list.subscriptions;
+			(void)imapc_list_update_tree(list, tree, args);
+		}
 	}
 }
 
