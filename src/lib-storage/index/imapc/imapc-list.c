@@ -287,9 +287,11 @@ static void imapc_untagged_lsub(const struct imapc_untagged_reply *reply,
 		/* we haven't asked for the separator yet */
 		return;
 	}
-	node = imapc_list_update_tree(list, list->tmp_subscriptions != NULL ?
-				      list->tmp_subscriptions :
-				      list->list.subscriptions, args);
+	struct mailbox_tree_context *tree =
+		list->tmp_subscriptions != NULL ?
+		list->tmp_subscriptions :
+		list->list.subscriptions;
+	node = imapc_list_update_tree(list, tree, args);
 	if (node != NULL) {
 		if ((node->flags & MAILBOX_NOSELECT) == 0)
 			node->flags |= MAILBOX_SUBSCRIBED;
