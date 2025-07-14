@@ -39,6 +39,7 @@
 #include "mail-storage-service.h"
 #include "mailbox-tree.h"
 #include "mailbox-list-subscriptions.h"
+#include "imapc-connection.h"
 #include "imapc-storage.h"
 #include "imapc-list.h"
 
@@ -883,7 +884,11 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 	else
 		pattern = t_strdup_printf("%s*", src_list->set->imapc_list_prefix);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
-	imapc_command_sendf(cmd, "LSUB \"\" %s", pattern);
+
+	if (imapc_cmd_has_imap4rev2(cmd))
+		imapc_command_sendf(cmd, "LIST (SUBSCRIBED) \"\" %s", pattern);
+	else
+		imapc_command_sendf(cmd, "LSUB \"\" %s", pattern);
 	imapc_simple_run(&ctx, &cmd);
 
 	if (ctx.ret < 0)
