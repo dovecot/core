@@ -886,9 +886,6 @@ src/pop3/Makefile
 src/pop3-login/Makefile
 src/submission/Makefile
 src/submission-login/Makefile
-src/replication/Makefile
-src/replication/aggregator/Makefile
-src/replication/replicator/Makefile
 src/stats/Makefile
 src/util/Makefile
 src/plugins/Makefile
@@ -909,9 +906,6 @@ src/plugins/pop3-migration/Makefile
 src/plugins/quota/Makefile
 src/plugins/quota-clone/Makefile
 src/plugins/imap-quota/Makefile
-src/plugins/doveadm-dsync-replication/Makefile
-src/plugins/doveadm-replicator/Makefile
-src/plugins/replication/Makefile
 src/plugins/trash/Makefile
 src/plugins/virtual/Makefile
 src/plugins/welcome/Makefile
