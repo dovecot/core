@@ -1,11 +1,11 @@
 #ifndef DOVEADM_DSYNC_H
 #define DOVEADM_DSYNC_H
 
-#include "doveadm-mail.h"
-#include "dsync/dsync-brain.h"
-#include "guid.h"
-#include "array-decl.h"
-#include "doveadm-client.h"
+#include "doveadm-mail.h" /* for struct doveadm_mail_cmd_context */
+#include "dsync-brain.h"  /* for enum dsync_brain_sync_type */
+/* we have to include dsync-brain.h without "dsync/" as the headers
+   are installed in a flat directory. CPPFLAGS have been extended with
+   corresponding '-I$(top_srcdir)/src/doveadm/dsync' switch */
 
 extern struct doveadm_cmd_ver2 doveadm_cmd_dsync_mirror;
 extern struct doveadm_cmd_ver2 doveadm_cmd_dsync_backup;
