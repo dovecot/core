@@ -56,6 +56,7 @@ static struct failure_context failure_ctx_error = { .type = LOG_TYPE_ERROR };
 
 static int log_fd = STDERR_FILENO, log_info_fd = STDERR_FILENO,
 	   log_debug_fd = STDERR_FILENO;
+static char *syslog_ident = NULL;
 static char *log_prefix = NULL;
 static char *log_stamp_format = NULL, *log_stamp_format_suffix = NULL;
 static bool failure_ignore_errors = FALSE, log_prefix_sent = FALSE;
@@ -657,7 +658,11 @@ void i_syslog_error_handler(const struct failure_context *ctx,
 
 void i_set_failure_syslog(const char *ident, int options, int facility)
 {
-	openlog(ident, options, facility);
+	/* openlog() keeps using the pointer directly. Duplicate it in case
+	   caller frees the string. */
+	i_free(syslog_ident);
+	syslog_ident = i_strdup(ident);
+	openlog(syslog_ident, options, facility);
 
 	i_set_fatal_handler(i_syslog_fatal_handler);
 	i_set_error_handler(i_syslog_error_handler);
@@ -1006,6 +1011,7 @@ void failures_deinit(void)
 	i_free_and_null(log_prefix);
 	i_free_and_null(log_stamp_format);
 	i_free_and_null(log_stamp_format_suffix);
+	i_free(syslog_ident);
 }
 
 #undef i_unreached
