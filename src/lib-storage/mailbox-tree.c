@@ -52,6 +52,8 @@ void mailbox_tree_deinit(struct mailbox_tree_context **_tree)
 	struct mailbox_tree_context *tree = *_tree;
 
 	*_tree = NULL;
+	if (tree == NULL)
+		return;
 	pool_unref(&tree->pool);
 	i_free(tree);
 }
@@ -260,6 +262,8 @@ void mailbox_tree_iterate_deinit(struct mailbox_tree_iterate_context **_ctx)
 	struct mailbox_tree_iterate_context *ctx = *_ctx;
 
 	*_ctx = NULL;
+	if (ctx == NULL)
+		return;
 	str_free(&ctx->path_str);
 	array_free(&ctx->node_path);
 	i_free(ctx);
