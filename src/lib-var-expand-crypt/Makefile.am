@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 var_expand_crypt_la_SOURCES = \
 	var-expand-crypt.c
 
+NOPLUGIN_LDFLAGS =
 var_expand_crypt_la_LDFLAGS = $(MODULE_LIBS) -avoid-version -module
 
 pkginc_libdir=$(pkgincludedir)
@@ -24,9 +25,11 @@ test_libs = \
 	$(module_LTLIBRARIES) \
 	../lib-dcrypt/libdcrypt.la \
 	../lib-var-expand/libvar_expand.la \
+	../lib-json/libjson.la \
 	../lib-settings/libsettings.la \
 	../lib-dns/libdns.la \
 	../lib-test/libtest.la \
+	../lib/liblib.la \
 	$(DLLIB)
 
 test_var_expand_crypt_SOURCES = test-var-expand-crypt.c
