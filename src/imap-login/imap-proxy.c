@@ -428,7 +428,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		const char *log_line = line;
 		(void)str_begins_icase(log_line, "NO ", &log_line);
 		enum login_proxy_failure_type failure_type =
-			LOGIN_PROXY_FAILURE_TYPE_AUTH;
+			LOGIN_PROXY_FAILURE_TYPE_AUTH_REPLIED;
 #define STR_NO_IMAP_RESP_CODE_AUTHFAILED "NO ["IMAP_RESP_CODE_AUTHFAILED"]"
 		if (str_begins_with(line, STR_NO_IMAP_RESP_CODE_AUTHFAILED)) {
 			/* the remote sent a generic "authentication failed"
@@ -587,7 +587,7 @@ imap_proxy_send_failure_reply(struct imap_client *imap_client,
 		client_send_raw(&imap_client->common, t_strconcat(
 			imap_client->cmd_tag, " NO ", reason, "\r\n", NULL));
 		break;
-	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH_REPLIED:
 		/* reply was already sent */
 		break;
 	}

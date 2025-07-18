@@ -425,7 +425,7 @@ proxy_redirect_reauth_callback(struct auth_client_request *request,
 			/* Disconnect from the original backend */
 			login_proxy_failed(client->login_proxy,
 				login_proxy_get_event(client->login_proxy),
-				LOGIN_PROXY_FAILURE_TYPE_AUTH,
+				LOGIN_PROXY_FAILURE_TYPE_AUTH_REPLIED,
 				t_strdup_printf("Redirected to %s", reply.proxy.host));
 			return;
 		}

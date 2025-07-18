@@ -1446,7 +1446,7 @@ bool client_get_extra_disconnect_reason(struct client *client,
 			event_reason = "protocol_failure";
 			last_reason = "protocol failure";
 			break;
-		case LOGIN_PROXY_FAILURE_TYPE_AUTH:
+		case LOGIN_PROXY_FAILURE_TYPE_AUTH_REPLIED:
 			event_reason = "auth_failed";
 			last_reason = "authentication failure";
 			break;

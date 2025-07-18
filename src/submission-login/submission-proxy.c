@@ -694,7 +694,7 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 	   shouldn't be a real problem since of course everyone will
 	   be using only Dovecot as their backend :) */
 	enum login_proxy_failure_type failure_type =
-		LOGIN_PROXY_FAILURE_TYPE_AUTH;
+		LOGIN_PROXY_FAILURE_TYPE_AUTH_REPLIED;
 	if ((status / 100) == 4)
 		failure_type = LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL;
 	else if (!submission_proxy_handle_redirect(
@@ -750,7 +750,7 @@ submission_proxy_send_failure_reply(struct submission_client *subm_client,
 		i_assert(subm_client->proxy_reply != NULL);
 		smtp_server_reply_submit(subm_client->proxy_reply);
 		break;
-	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH_REPLIED:
 		/* reply was already sent */
 		i_assert(cmd == NULL);
 		break;

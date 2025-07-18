@@ -321,7 +321,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 	   shouldn't be a real problem since of course everyone will
 	   be using only Dovecot as their backend :) */
 	enum login_proxy_failure_type failure_type =
-		LOGIN_PROXY_FAILURE_TYPE_AUTH;
+		LOGIN_PROXY_FAILURE_TYPE_AUTH_REPLIED;
 	if (!str_begins_with(line, "-ERR ")) {
 		client_send_reply(client, POP3_CMD_REPLY_ERROR,
 				  AUTH_FAILED_MSG);
@@ -372,7 +372,7 @@ pop3_proxy_send_failure_reply(struct client *client,
 		/* [SYS/TEMP] prefix is already in the reason string */
 		client_send_reply(client, POP3_CMD_REPLY_ERROR, reason);
 		break;
-	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH_REPLIED:
 		/* reply was already sent */
 		break;
 	}
