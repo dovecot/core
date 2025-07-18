@@ -35,6 +35,9 @@ enum login_proxy_failure_type {
 	/* Authentication failed to backend. The LOGIN/AUTH command reply was
 	   already sent to the client. */
 	LOGIN_PROXY_FAILURE_TYPE_AUTH_REPLIED,
+	/* Authentication failed to backend. The LOGIN/AUTH command reply was
+	   NOT sent to the client yet. */
+	LOGIN_PROXY_FAILURE_TYPE_AUTH_NOT_REPLIED,
 	/* Authentication failed with a temporary failure code. Attempting it
 	   again might work. */
 	LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL,

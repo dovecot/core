@@ -739,6 +739,7 @@ submission_proxy_send_failure_reply(struct submission_client *subm_client,
 	case LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG:
 	case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT:
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH_NOT_REPLIED:
 		i_assert(cmd != NULL);
 		subm_client->pending_auth = NULL;
 		smtp_server_reply(cmd, 454, "4.7.0", LOGIN_PROXY_FAILURE_MSG);
