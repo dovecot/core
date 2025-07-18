@@ -117,9 +117,6 @@ pop3_proxy_continue_sasl_auth(struct client *client, struct ostream *output,
 			      const char *line)
 {
 	string_t *str;
-	const unsigned char *data;
-	size_t data_len;
-	const char *error;
 
 	str = t_str_new(128);
 	if (base64_decode(line, strlen(line), str) < 0) {
@@ -130,26 +127,9 @@ pop3_proxy_continue_sasl_auth(struct client *client, struct ostream *output,
 			LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
 		return -1;
 	}
-	enum dsasl_client_result sasl_res =
-		dsasl_client_input(client->proxy_sasl_client,
-				   str_data(str), str_len(str), &error);
-	if (sasl_res == DSASL_CLIENT_RESULT_OK) {
-		sasl_res = dsasl_client_output(client->proxy_sasl_client,
-					       &data, &data_len, &error);
-	}
-	if (sasl_res != DSASL_CLIENT_RESULT_OK) {
-		const char *reason = t_strdup_printf(
-			"Invalid authentication data: %s", error);
-		login_proxy_failed(client->login_proxy,
-				   login_proxy_get_event(client->login_proxy),
-				   LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
+	if (login_proxy_sasl_step(client, str) < 0)
 		return -1;
-	}
-
-	str_truncate(str, 0);
-	base64_encode(data, data_len, str);
 	str_append(str, "\r\n");
-
 	o_stream_nsend(output, str_data(str), str_len(str));
 	return 0;
 }

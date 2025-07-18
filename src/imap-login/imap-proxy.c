@@ -330,9 +330,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 	struct imap_client *imap_client = (struct imap_client *)client;
 	struct ostream *output;
 	string_t *str;
-	const unsigned char *data;
-	size_t data_len;
-	const char *suffix, *error;
+	const char *suffix;
 	int ret;
 
 	i_assert(!client->destroyed);
@@ -364,24 +362,8 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 				LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
 			return -1;
 		}
-		enum dsasl_client_result sasl_res =
-			dsasl_client_input(client->proxy_sasl_client,
-					   str_data(str), str_len(str), &error);
-		if (sasl_res == DSASL_CLIENT_RESULT_OK) {
-			sasl_res = dsasl_client_output(client->proxy_sasl_client,
-						       &data, &data_len, &error);
-		}
-		if (sasl_res != DSASL_CLIENT_RESULT_OK) {
-			const char *reason = t_strdup_printf(
-				"Invalid authentication data: %s", error);
-			login_proxy_failed(client->login_proxy,
-				login_proxy_get_event(client->login_proxy),
-				LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
+		if (login_proxy_sasl_step(client, str) < 0)
 			return -1;
-		}
-
-		str_truncate(str, 0);
-		base64_encode(data, data_len, str);
 		str_append(str, "\r\n");
 
 		imap_client->proxy_sent_state |= IMAP_PROXY_SENT_STATE_AUTH_CONTINUE;

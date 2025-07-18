@@ -12,12 +12,14 @@
 #include "iostream-ssl.h"
 #include "llist.h"
 #include "array.h"
+#include "base64.h"
 #include "hash.h"
 #include "str.h"
 #include "strescape.h"
 #include "time-util.h"
 #include "settings.h"
 #include "master-service.h"
+#include "dsasl-client.h"
 #include "client-common.h"
 #include "login-proxy-state.h"
 #include "login-proxy.h"
@@ -863,6 +865,32 @@ bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
 		client_proxy_log_failure(proxy->client, reason);
 	proxy->failure_callback(proxy->client, type, reason, FALSE);
 	return FALSE;
+}
+
+int login_proxy_sasl_step(struct client *client, string_t *str)
+{
+	const unsigned char *data;
+	size_t data_len;
+	const char *error;
+
+	enum dsasl_client_result sasl_res =
+		dsasl_client_input(client->proxy_sasl_client,
+				   str_data(str), str_len(str), &error);
+	if (sasl_res == DSASL_CLIENT_RESULT_OK) {
+		sasl_res = dsasl_client_output(client->proxy_sasl_client,
+					       &data, &data_len, &error);
+	}
+	if (sasl_res != DSASL_CLIENT_RESULT_OK) {
+		const char *reason = t_strdup_printf(
+			"Invalid authentication data: %s", error);
+		login_proxy_failed(client->login_proxy,
+				   login_proxy_get_event(client->login_proxy),
+				   LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
+		return -1;
+	}
+	str_truncate(str, 0);
+	base64_encode(data, data_len, str);
+	return 0;
 }
 
 bool login_proxy_is_ourself(const struct client *client, const char *host,

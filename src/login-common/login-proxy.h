@@ -101,6 +101,9 @@ void login_proxy_redirect_finish(struct login_proxy *proxy,
 bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
 			enum login_proxy_failure_type type, const char *reason);
 
+/* Handle SASL input in str, and write the SASL output to str. */
+int login_proxy_sasl_step(struct client *client, string_t *str);
+
 /* Return TRUE if host/port/destuser combination points to same as current
    connection. */
 bool login_proxy_is_ourself(const struct client *client, const char *host,
