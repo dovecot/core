@@ -13,6 +13,12 @@ struct dsasl_client_settings {
 	const char *password;
 };
 
+enum dsasl_client_result {
+	DSASL_CLIENT_RESULT_OK,
+	/* Client sent invalid SASL protocol input */
+	DSASL_CLIENT_RESULT_ERR_PROTOCOL,
+};
+
 typedef int
 dsasl_client_channel_binding_callback_t(const char *type, void *context,
 					const buffer_t **data_r,
@@ -36,14 +42,16 @@ void dsasl_client_enable_channel_binding(
 	dsasl_client_channel_binding_callback_t *callback, void *context);
 
 /* Call for server input. */
-int dsasl_client_input(struct dsasl_client *client,
-		       const unsigned char *input, size_t input_len,
-		       const char **error_r);
+enum dsasl_client_result
+dsasl_client_input(struct dsasl_client *client,
+		   const unsigned char *input, size_t input_len,
+		   const char **error_r);
 /* Call for getting server output. Also used to get the initial SASL response
    if supported by the protocol. */
-int dsasl_client_output(struct dsasl_client *client,
-			const unsigned char **output_r, size_t *output_len_r,
-			const char **error_r);
+enum dsasl_client_result
+dsasl_client_output(struct dsasl_client *client,
+		    const unsigned char **output_r, size_t *output_len_r,
+		    const char **error_r);
 
 /* Call for setting extra parameters for authentication, these are mechanism
    dependent. -1 = error, 0 = not found, 1 = ok

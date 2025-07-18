@@ -100,21 +100,23 @@ void dsasl_client_enable_channel_binding(
 	client->cbinding_context = context;
 }
 
-int dsasl_client_input(struct dsasl_client *client,
-		       const unsigned char *input, size_t input_len,
-		       const char **error_r)
+enum dsasl_client_result
+dsasl_client_input(struct dsasl_client *client,
+		   const unsigned char *input, size_t input_len,
+		   const char **error_r)
 {
 	if ((client->mech->flags & DSASL_MECH_SEC_ALLOW_NULS) == 0 &&
 	    memchr(input, '\0', input_len) != NULL) {
 		*error_r = "Unexpected NUL in input data";
-		return -1;
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
 	return client->mech->input(client, input, input_len, error_r);
 }
 
-int dsasl_client_output(struct dsasl_client *client,
-			const unsigned char **output_r, size_t *output_len_r,
-			const char **error_r)
+enum dsasl_client_result
+dsasl_client_output(struct dsasl_client *client,
+		    const unsigned char **output_r, size_t *output_len_r,
+		    const char **error_r)
 {
 	return client->mech->output(client, output_r, output_len_r, error_r);
 }

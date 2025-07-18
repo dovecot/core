@@ -8,7 +8,7 @@ struct external_dsasl_client {
 	bool output_sent;
 };
 
-static int
+static enum dsasl_client_result
 mech_external_input(struct dsasl_client *_client,
 		    const unsigned char *input ATTR_UNUSED, size_t input_len,
 		    const char **error_r)
@@ -19,16 +19,16 @@ mech_external_input(struct dsasl_client *_client,
 	if (!client->output_sent) {
 		if (input_len > 0) {
 			*error_r = "Server sent non-empty initial response";
-			return -1;
+			return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 		}
 	} else {
 		*error_r = "Server didn't finish authentication";
-		return -1;
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
-	return 0;
+	return DSASL_CLIENT_RESULT_OK;
 }
 
-static int
+static enum dsasl_client_result
 mech_external_output(struct dsasl_client *_client,
 		     const unsigned char **output_r, size_t *output_len_r,
 		     const char **error_r ATTR_UNUSED)
@@ -47,7 +47,7 @@ mech_external_output(struct dsasl_client *_client,
 	*output_r = (const void *)username;
 	*output_len_r = strlen(username);
 	client->output_sent = TRUE;
-	return 0;
+	return DSASL_CLIENT_RESULT_OK;
 }
 
 const struct dsasl_client_mech dsasl_client_mech_external = {

@@ -798,11 +798,11 @@ smtp_client_connection_auth_cb(const struct smtp_reply *reply,
 				reply->text_lines[0]);
 		} else if (dsasl_client_input(conn->sasl_client,
 					      buf->data, buf->used,
-					      &error) < 0) {
+					      &error) != DSASL_CLIENT_RESULT_OK) {
 			error = t_strdup_printf("Authentication failed: %s",
 						error);
 		} else if (dsasl_client_output(conn->sasl_client, &sasl_output,
-					       &sasl_output_len, &error) < 0) {
+					       &sasl_output_len, &error) != DSASL_CLIENT_RESULT_OK) {
 			error = t_strdup_printf("Authentication failed: %s",
 						error);
 		} else {
@@ -951,7 +951,7 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 	conn->sasl_client = dsasl_client_new(sasl_mech, &sasl_set);
 
 	if (dsasl_client_output(conn->sasl_client, &sasl_output,
-				&sasl_output_len, &error) < 0) {
+				&sasl_output_len, &error) != DSASL_CLIENT_RESULT_OK) {
 		error = t_strdup_printf(
 			"Failed to create initial %s SASL reply: %s",
 			dsasl_client_mech_get_name(sasl_mech), error);

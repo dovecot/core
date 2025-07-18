@@ -87,7 +87,7 @@ static int mech_scram_init(struct scram_dsasl_client *sclient,
 	return 0;
 }
 
-static int
+static enum dsasl_client_result
 mech_scram_input(struct dsasl_client *client,
 		 const unsigned char *input, size_t input_len,
 		 const char **error_r)
@@ -97,13 +97,15 @@ mech_scram_input(struct dsasl_client *client,
 
 	if (sclient->scram_client.state == AUTH_SCRAM_CLIENT_STATE_INIT &&
 	    mech_scram_init(sclient, error_r) < 0)
-		return -1;
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 
-	return auth_scram_client_input(&sclient->scram_client,
-				       input, input_len, error_r);
+	if (auth_scram_client_input(&sclient->scram_client,
+				    input, input_len, error_r) < 0)
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
+	return 0;
 }
 
-static int
+static enum dsasl_client_result
 mech_scram_output(struct dsasl_client *client,
 		  const unsigned char **output_r, size_t *output_len_r,
 		  const char **error_r)
@@ -116,20 +118,20 @@ mech_scram_output(struct dsasl_client *client,
 
 	if (client->set.authid == NULL) {
 		*error_r = "authid not set";
-		return -1;
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
 	if (client->password == NULL) {
 		*error_r = "password not set";
-		return -1;
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
 
 	if (sclient->scram_client.state == AUTH_SCRAM_CLIENT_STATE_INIT &&
 	    mech_scram_init(sclient, error_r) < 0)
-		return -1;
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 
 	auth_scram_client_output(&sclient->scram_client,
 				 output_r, output_len_r);
-	return 0;
+	return DSASL_CLIENT_RESULT_OK;
 }
 
 static void mech_scram_free(struct dsasl_client *client)

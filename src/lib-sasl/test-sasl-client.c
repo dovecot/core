@@ -42,8 +42,8 @@ static void test_sasl_client_login(void)
 
 	/* Any input is valid */
 	str_append(input, "Username:");
-	test_assert(dsasl_client_input(client, input->data, input->used, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == 0);
+	test_assert(dsasl_client_input(client, input->data, input->used, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
 	/* see what we got */
 	str_append_data(output_s, output, olen);
 	test_assert_strcmp(str_c(output_s), "testuser");
@@ -52,8 +52,8 @@ static void test_sasl_client_login(void)
 	str_truncate(output_s, 0);
 
 	str_append(input, "Password:");
-	test_assert(dsasl_client_input(client, input->data, input->used, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == 0);
+	test_assert(dsasl_client_input(client, input->data, input->used, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
 	str_append_data(output_s, output, olen);
 	test_assert_strcmp(str_c(output_s), "testpassword");
 
@@ -66,11 +66,11 @@ static void test_sasl_client_login(void)
 	/* server sends input after password */
 	client = dsasl_client_new(mech, &sasl_set);
 	i_assert(client != NULL);
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == 0);
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == 0);
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == -1);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "Server didn't finish authentication");
 
 	dsasl_client_free(&client);
@@ -79,8 +79,8 @@ static void test_sasl_client_login(void)
 	client = dsasl_client_new(mech, &sasl_empty_set);
 	i_assert(client != NULL);
 
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == -1);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "authid not set");
 	dsasl_client_free(&client);
 
@@ -88,8 +88,8 @@ static void test_sasl_client_login(void)
 	client = dsasl_client_new(mech, &sasl_no_password_set);
 	i_assert(client != NULL);
 
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == -1);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "password not set");
 	dsasl_client_free(&client);
 
@@ -99,7 +99,7 @@ static void test_sasl_client_login(void)
 
 	str_truncate(input, 0);
 	str_append_data(input, "unexpected\0", 11);
-	test_assert(dsasl_client_input(client, input->data, input->used, &error) == -1);
+	test_assert(dsasl_client_input(client, input->data, input->used, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "Unexpected NUL in input data");
 	dsasl_client_free(&client);
 
@@ -118,8 +118,8 @@ static void test_sasl_client_plain(void)
 	const unsigned char *output;
 	size_t olen;
 
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == 0);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
 	const unsigned char expected[] = "\0testuser\0testpassword";
 	/* there is no NUL byte at the end */
 	test_assert(olen == sizeof(expected) - 1);
@@ -131,8 +131,8 @@ static void test_sasl_client_plain(void)
 	client = dsasl_client_new(mech, &sasl_master_set);
 	i_assert(client != NULL);
 
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == 0);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
 	const unsigned char expected_master[] =
 		"testuser\0masteruser\0masterpassword";
 	/* there is no NUL byte at the end */
@@ -146,7 +146,7 @@ static void test_sasl_client_plain(void)
 	const unsigned char input[] = "ir";
 	client = dsasl_client_new(mech, &sasl_set);
 	i_assert(client != NULL);
-	test_assert(dsasl_client_input(client, input, sizeof(input)-1, &error) == -1);
+	test_assert(dsasl_client_input(client, input, sizeof(input)-1, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "Server sent non-empty initial response");
 
 	dsasl_client_free(&client);
@@ -154,9 +154,9 @@ static void test_sasl_client_plain(void)
 	/* server sends input after response */
 	client = dsasl_client_new(mech, &sasl_set);
 	i_assert(client != NULL);
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == 0);
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == -1);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "Server didn't finish authentication");
 
 	dsasl_client_free(&client);
@@ -165,8 +165,8 @@ static void test_sasl_client_plain(void)
 	client = dsasl_client_new(mech, &sasl_empty_set);
 	i_assert(client != NULL);
 
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == -1);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "authid not set");
 	dsasl_client_free(&client);
 
@@ -174,8 +174,8 @@ static void test_sasl_client_plain(void)
 	client = dsasl_client_new(mech, &sasl_no_password_set);
 	i_assert(client != NULL);
 
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == -1);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "password not set");
 	dsasl_client_free(&client);
 
@@ -184,7 +184,7 @@ static void test_sasl_client_plain(void)
 	i_assert(client != NULL);
 
 	const unsigned char input2[] = "unexpected\0";
-	test_assert(dsasl_client_input(client, input2, sizeof(input2), &error) == -1);
+	test_assert(dsasl_client_input(client, input2, sizeof(input2), &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "Unexpected NUL in input data");
 	dsasl_client_free(&client);
 
@@ -203,8 +203,8 @@ static void test_sasl_client_external(void)
 	const unsigned char *output;
 	size_t olen;
 
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == 0);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
 	const unsigned char expected[] = "testuser";
 	/* there is no NUL byte at the end */
 	test_assert(olen == sizeof(expected) - 1);
@@ -216,8 +216,8 @@ static void test_sasl_client_external(void)
 	client = dsasl_client_new(mech, &sasl_master_set);
 	i_assert(client != NULL);
 
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == 0);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
 	const unsigned char expected_master[] =	"testuser";
 	/* there is no NUL byte at the end */
 	test_assert(olen == sizeof(expected_master) - 1);
@@ -231,7 +231,7 @@ static void test_sasl_client_external(void)
 	i_assert(client != NULL);
 
 	const unsigned char input2[] = "unexpected\0";
-	test_assert(dsasl_client_input(client, input2, sizeof(input2), &error) == -1);
+	test_assert(dsasl_client_input(client, input2, sizeof(input2), &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "Unexpected NUL in input data");
 	dsasl_client_free(&client);
 
@@ -252,9 +252,9 @@ static void test_sasl_client_oauthbearer(void)
 	const unsigned char *output;
 	size_t olen;
 
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == 0);
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 
 	const unsigned char expected[] = "n,a=testuser,\1"
 		"auth=Bearer testpassword\1\1";
@@ -277,9 +277,9 @@ static void test_sasl_client_oauthbearer(void)
 	test_assert(dsasl_client_set_parameter(client, "port", "143", &error) == 1);
 	test_assert(dsasl_client_set_parameter(client, "unknown", "value", &error) == 0);
 
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == 0);
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 
 	const unsigned char expected_h_p[] = "n,a=testuser,\1"
 		"host=example.com\1"
@@ -295,11 +295,11 @@ static void test_sasl_client_oauthbearer(void)
 
 	client = dsasl_client_new(mech, &sasl_set);
 	/* test error response */
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == 0);
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	str_append(input, "{\"status\":\"401\",\"schemes\":\"bearer\",\"scope\":\"mail\"}");
-	test_assert(dsasl_client_input(client, input->data, input->used, &error) == -1);
+	test_assert(dsasl_client_input(client, input->data, input->used, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "Failed to authenticate: 401");
 	test_assert(dsasl_client_get_result(client, "status", &value, &error) == 1);
 	test_assert_strcmp(value, "401");
@@ -310,8 +310,8 @@ static void test_sasl_client_oauthbearer(void)
 	client = dsasl_client_new(mech, &sasl_empty_set);
 	i_assert(client != NULL);
 
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == -1);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "authid not set");
 	dsasl_client_free(&client);
 
@@ -319,8 +319,8 @@ static void test_sasl_client_oauthbearer(void)
 	client = dsasl_client_new(mech, &sasl_no_password_set);
 	i_assert(client != NULL);
 
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == -1);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "password not set");
 	dsasl_client_free(&client);
 
@@ -329,7 +329,7 @@ static void test_sasl_client_oauthbearer(void)
 	i_assert(client != NULL);
 
 	const unsigned char input2[] = "unexpected\0";
-	test_assert(dsasl_client_input(client, input2, sizeof(input2), &error) == -1);
+	test_assert(dsasl_client_input(client, input2, sizeof(input2), &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "Unexpected NUL in input data");
 	dsasl_client_free(&client);
 
@@ -349,9 +349,9 @@ static void test_sasl_client_xoauth2(void)
 	const unsigned char *output;
 	size_t olen;
 
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == 0);
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 
 	const unsigned char expected[] = "user=testuser\1auth=Bearer testpassword\1\1";
 	/* there is no NUL byte at the end */
@@ -363,11 +363,11 @@ static void test_sasl_client_xoauth2(void)
 
 	client = dsasl_client_new(mech, &sasl_set);
 	/* test error response */
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == 0);
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	str_append(input, "{\"status\":\"401\",\"schemes\":\"bearer\",\"scope\":\"mail\"}");
-	test_assert(dsasl_client_input(client, input->data, input->used, &error) == -1);
+	test_assert(dsasl_client_input(client, input->data, input->used, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "Failed to authenticate: 401");
 
 	dsasl_client_free(&client);
@@ -376,8 +376,8 @@ static void test_sasl_client_xoauth2(void)
 	client = dsasl_client_new(mech, &sasl_empty_set);
 	i_assert(client != NULL);
 
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == -1);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "authid not set");
 	dsasl_client_free(&client);
 
@@ -385,8 +385,8 @@ static void test_sasl_client_xoauth2(void)
 	client = dsasl_client_new(mech, &sasl_no_password_set);
 	i_assert(client != NULL);
 
-	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == 0);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == -1);
+	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "password not set");
 	dsasl_client_free(&client);
 
@@ -395,7 +395,7 @@ static void test_sasl_client_xoauth2(void)
 	i_assert(client != NULL);
 
 	const unsigned char input2[] = "unexpected\0";
-	test_assert(dsasl_client_input(client, input2, sizeof(input2), &error) == -1);
+	test_assert(dsasl_client_input(client, input2, sizeof(input2), &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "Unexpected NUL in input data");
 	dsasl_client_free(&client);
 

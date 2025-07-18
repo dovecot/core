@@ -91,7 +91,7 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 
 	str_printfa(str, "AUTH %s ", mech_name);
 	if (dsasl_client_output(client->common.proxy_sasl_client,
-				&sasl_output, &len, &error) < 0) {
+				&sasl_output, &len, &error) != DSASL_CLIENT_RESULT_OK) {
 		const char *reason = t_strdup_printf(
 			"SASL mechanism %s init failed: %s",
 			mech_name, error);
@@ -120,7 +120,6 @@ pop3_proxy_continue_sasl_auth(struct client *client, struct ostream *output,
 	const unsigned char *data;
 	size_t data_len;
 	const char *error;
-	int ret;
 
 	str = t_str_new(128);
 	if (base64_decode(line, strlen(line), str) < 0) {
@@ -131,13 +130,14 @@ pop3_proxy_continue_sasl_auth(struct client *client, struct ostream *output,
 			LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
 		return -1;
 	}
-	ret = dsasl_client_input(client->proxy_sasl_client,
-				 str_data(str), str_len(str), &error);
-	if (ret == 0) {
-		ret = dsasl_client_output(client->proxy_sasl_client,
-					  &data, &data_len, &error);
+	enum dsasl_client_result sasl_res =
+		dsasl_client_input(client->proxy_sasl_client,
+				   str_data(str), str_len(str), &error);
+	if (sasl_res == DSASL_CLIENT_RESULT_OK) {
+		sasl_res = dsasl_client_output(client->proxy_sasl_client,
+					       &data, &data_len, &error);
 	}
-	if (ret < 0) {
+	if (sasl_res != DSASL_CLIENT_RESULT_OK) {
 		const char *reason = t_strdup_printf(
 			"Invalid authentication data: %s", error);
 		login_proxy_failed(client->login_proxy,
@@ -145,7 +145,6 @@ pop3_proxy_continue_sasl_auth(struct client *client, struct ostream *output,
 				   LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
 		return -1;
 	}
-	i_assert(ret == 0);
 
 	str_truncate(str, 0);
 	base64_encode(data, data_len, str);

@@ -987,10 +987,11 @@ imapc_connection_authenticate_cb(const struct imapc_command_reply *reply,
 		imapc_auth_failed(conn, reply,
 				  t_strdup_printf("Server sent non-base64 input for AUTHENTICATE: %s",
 						  reply->text_full));
-	} else if (dsasl_client_input(conn->sasl_client, buf->data, buf->used, &error) < 0) {
+	} else if (dsasl_client_input(conn->sasl_client, buf->data, buf->used,
+				      &error) != DSASL_CLIENT_RESULT_OK) {
 		imapc_auth_failed(conn, reply, error);
 	} else if (dsasl_client_output(conn->sasl_client, &sasl_output,
-				       &sasl_output_len, &error) < 0) {
+				       &sasl_output_len, &error) != DSASL_CLIENT_RESULT_OK) {
 		imapc_auth_failed(conn, reply, error);
 	} else if (sasl_output_len == 0) {
 		o_stream_nsend_str(conn->output, "\r\n");
@@ -1138,7 +1139,8 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		const char *error;
 
 		if (dsasl_client_output(conn->sasl_client, &sasl_output,
-					&sasl_output_len, &error) < 0) {
+					&sasl_output_len,
+					&error) != DSASL_CLIENT_RESULT_OK) {
 			e_error(conn->event,
 				"Failed to create initial SASL reply: %s",
 				error);

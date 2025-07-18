@@ -15,7 +15,7 @@ struct oauthbearer_dsasl_client {
 	bool output_sent;
 };
 
-static int
+static enum dsasl_client_result
 mech_oauthbearer_input(struct dsasl_client *_client,
 		 const unsigned char *input, size_t input_len,
 		 const char **error_r)
@@ -26,13 +26,13 @@ mech_oauthbearer_input(struct dsasl_client *_client,
 	if (!client->output_sent) {
 		if (input_len > 0) {
 			*error_r = "Server sent non-empty initial response";
-			return -1;
+			return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 		}
 	} else {
 		client->status = "";
 		/* if response is empty, authentication has *SUCCEEDED* */
 		if (input_len == 0)
-			return 0;
+			return DSASL_CLIENT_RESULT_OK;
 
 		/* authentication has failed, try parse status.
 		   we are only interested in extracting status if possible
@@ -57,7 +57,7 @@ mech_oauthbearer_input(struct dsasl_client *_client,
 				if (!json_node_is_string(&jnode) &&
 				    !json_node_is_number(&jnode)) {
 					*error_r = "Status field in response is not a string or a number.";
-					return -1;
+					return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 				}
 				client->status = p_strdup(
 					_client->pool,
@@ -71,23 +71,23 @@ mech_oauthbearer_input(struct dsasl_client *_client,
 		if (ret < 0) {
 			*error_r = t_strdup_printf(
 				"Error parsing JSON reply: %s", error);
-			return -1;
+			return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 		}
 
 		if (client->status == NULL) {
 			*error_r = "Error parsing JSON reply: "
 				"Status value missing";
-			return -1;
+			return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 		}
 
 		*error_r = t_strdup_printf("Failed to authenticate: %s",
 					   client->status);
-		return -1;
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
-	return 0;
+	return DSASL_CLIENT_RESULT_OK;
 }
 
-static int
+static enum dsasl_client_result
 mech_oauthbearer_output(struct dsasl_client *_client,
 		  const unsigned char **output_r, size_t *output_len_r,
 		  const char **error_r)
@@ -98,11 +98,11 @@ mech_oauthbearer_output(struct dsasl_client *_client,
 
 	if (_client->set.authid == NULL) {
 		*error_r = "authid not set";
-		return -1;
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
 	if (_client->password == NULL) {
 		*error_r = "password not set";
-		return -1;
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
 
 	str = str_new(_client->pool, 64);
@@ -118,10 +118,10 @@ mech_oauthbearer_output(struct dsasl_client *_client,
 	*output_r = str_data(str);
 	*output_len_r = str_len(str);
 	client->output_sent = TRUE;
-	return 0;
+	return DSASL_CLIENT_RESULT_OK;
 }
 
-static int
+static enum dsasl_client_result
 mech_xoauth2_output(struct dsasl_client *_client,
 		    const unsigned char **output_r, size_t *output_len_r,
 		    const char **error_r)
@@ -132,11 +132,11 @@ mech_xoauth2_output(struct dsasl_client *_client,
 
 	if (_client->set.authid == NULL) {
 		*error_r = "authid not set";
-		return -1;
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
 	if (_client->password == NULL) {
 		*error_r = "password not set";
-		return -1;
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
 
 	str = str_new(_client->pool, 64);
@@ -148,7 +148,7 @@ mech_xoauth2_output(struct dsasl_client *_client,
 	*output_r = str_data(str);
 	*output_len_r = str_len(str);
 	client->output_sent = TRUE;
-	return 0;
+	return DSASL_CLIENT_RESULT_OK;
 }
 
 static int

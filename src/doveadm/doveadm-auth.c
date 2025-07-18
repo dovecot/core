@@ -204,12 +204,12 @@ auth_callback(struct auth_client_request *request,
 		if (base64_decode(data_base64, input_len, buf) < 0)
 			i_fatal("Server sent invalid base64 input");
 		if (dsasl_client_input(input->sasl_client, buf->data, buf->used,
-				       &error) < 0) {
+				       &error) != DSASL_CLIENT_RESULT_OK) {
 			e_error(input->event, "internal auth failure: %s", error);
 			auth_client_request_abort(&request, error);
 			break;
 		} else if (dsasl_client_output(input->sasl_client, &sasl_output,
-					       &sasl_output_len, &error) < 0) {
+					       &sasl_output_len, &error) != DSASL_CLIENT_RESULT_OK) {
 			e_error(input->event, "internal auth failure: %s", error);
 			auth_client_request_abort(&request, error);
 			break;
@@ -285,7 +285,8 @@ static void auth_connected(struct auth_client *client,
 		i_fatal("SASL mechanism '%s' not supported by server", mech);
 
 	if (dsasl_client_output(input->sasl_client, &sasl_output,
-				&sasl_output_len, &error) < 0)
+				&sasl_output_len,
+				&error) != DSASL_CLIENT_RESULT_OK)
 		i_fatal("Failed to create initial SASL reply: %s", error);
 	sasl_output_base64 =
 		t_str_new(MAX_BASE64_ENCODED_SIZE(sasl_output_len));

@@ -9,7 +9,7 @@ struct plain_dsasl_client {
 	bool output_sent;
 };
 
-static int
+static enum dsasl_client_result
 mech_plain_input(struct dsasl_client *_client,
 		 const unsigned char *input ATTR_UNUSED, size_t input_len,
 		 const char **error_r)
@@ -20,16 +20,16 @@ mech_plain_input(struct dsasl_client *_client,
 	if (!client->output_sent) {
 		if (input_len > 0) {
 			*error_r = "Server sent non-empty initial response";
-			return -1;
+			return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 		}
 	} else {
 		*error_r = "Server didn't finish authentication";
-		return -1;
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
-	return 0;
+	return DSASL_CLIENT_RESULT_OK;
 }
 
-static int
+static enum dsasl_client_result
 mech_plain_output(struct dsasl_client *_client,
 		  const unsigned char **output_r, size_t *output_len_r,
 		  const char **error_r)
@@ -40,11 +40,11 @@ mech_plain_output(struct dsasl_client *_client,
 
 	if (_client->set.authid == NULL) {
 		*error_r = "authid not set";
-		return -1;
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
 	if (_client->password == NULL) {
 		*error_r = "password not set";
-		return -1;
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
 
 	str = str_new(_client->pool, 64);

@@ -250,7 +250,8 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 
 	str_printfa(str, "AUTH %s", mech_name);
 	if (dsasl_client_output(client->common.proxy_sasl_client,
-				&sasl_output, &sasl_output_len, &error) < 0) {
+				&sasl_output, &sasl_output_len,
+				&error) != DSASL_CLIENT_RESULT_OK) {
 		const char *reason = t_strdup_printf(
 			"SASL mechanism %s init failed: %s",
 			mech_name, error);
@@ -355,7 +356,6 @@ submission_proxy_continue_sasl_auth(struct client *client,
 	const unsigned char *data;
 	size_t data_len;
 	const char *error;
-	int ret;
 
 	if (!last_line) {
 		const char *reason = t_strdup_printf(
@@ -392,13 +392,15 @@ submission_proxy_continue_sasl_auth(struct client *client,
 			"Invalid base64 data in AUTH response");
 		return -1;
 	}
-	ret = dsasl_client_input(client->proxy_sasl_client,
-				 str_data(str), str_len(str), &error);
-	if (ret == 0) {
-		ret = dsasl_client_output(client->proxy_sasl_client,
-					  &data, &data_len, &error);
+
+	enum dsasl_client_result sasl_res =
+		dsasl_client_input(client->proxy_sasl_client,
+				   str_data(str), str_len(str), &error);
+	if (sasl_res == DSASL_CLIENT_RESULT_OK) {
+		sasl_res = dsasl_client_output(client->proxy_sasl_client,
+					       &data, &data_len, &error);
 	}
-	if (ret < 0) {
+	if (sasl_res != DSASL_CLIENT_RESULT_OK) {
 		const char *reason = t_strdup_printf(
 			"Invalid authentication data: %s", error);
 		login_proxy_failed(client->login_proxy,
@@ -406,7 +408,6 @@ submission_proxy_continue_sasl_auth(struct client *client,
 			LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
 		return -1;
 	}
-	i_assert(ret == 0);
 
 	str_truncate(str, 0);
 	base64_encode(data, data_len, str);
