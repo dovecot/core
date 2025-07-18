@@ -214,7 +214,6 @@ int main(int argc, char *argv[])
 	struct login_server_settings login_set;
 	enum master_service_flags service_flags = 0;
 	const char *error = NULL, *username = NULL;
-	int c;
 
 	i_zero(&login_set);
 	login_set.postlogin_timeout_secs =
@@ -234,7 +233,7 @@ int main(int argc, char *argv[])
 
 	master_service = master_service_init("imap-urlauth", service_flags,
 					     &argc, &argv, "");
-	while ((c = master_getopt(master_service)) > 0)
+	while (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 	master_service_init_log(master_service);
 
