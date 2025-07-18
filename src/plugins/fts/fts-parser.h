@@ -9,6 +9,7 @@ struct fts_parser_context {
 	struct mail_user *user;
 	/* Can't be NULL */
 	const char *content_type;
+	const char *content_type_params;
 	const char *content_disposition;
 	struct event *event;
 };

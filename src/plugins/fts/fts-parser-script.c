@@ -161,37 +161,55 @@ static bool script_support_content(struct fts_parser_context *parser_context,
 	return FALSE;
 }
 
-static void parse_content_disposition(const char *content_disposition,
-				      const char **filename_r)
+static bool get_param_and_free_parser(struct rfc822_parser_context *parser,
+				      const char *key, const char **value_r)
 {
-	struct rfc822_parser_context parser;
 	const char *const *results;
-	string_t *str;
-
-	*filename_r = NULL;
-
-	if (content_disposition == NULL)
-		return;
-
-	rfc822_parser_init(&parser, (const unsigned char *)content_disposition,
-			   strlen(content_disposition), NULL);
-	rfc822_skip_lwsp(&parser);
-
-	/* type; param; param; .. */
-	str = t_str_new(32);
-	if (rfc822_parse_mime_token(&parser, str) < 0) {
-		rfc822_parser_deinit(&parser);
-		return;
-	}
-
-	rfc2231_parse(&parser, &results);
+	*value_r = NULL;
+	rfc2231_parse(parser, &results);
 	for (; *results != NULL; results += 2) {
-		if (strcasecmp(results[0], "filename") == 0) {
-			*filename_r = results[1];
+		if (strcasecmp(results[0], key) == 0) {
+			*value_r = results[1];
 			break;
 		}
 	}
-	rfc822_parser_deinit(&parser);
+	rfc822_parser_deinit(parser);
+	return *value_r != NULL;
+}
+
+static struct rfc822_parser_context init_content_parser(const char *content)
+{
+	struct rfc822_parser_context parser;
+	rfc822_parser_init(&parser, (const unsigned char *)content, strlen(content), NULL);
+	rfc822_skip_lwsp(&parser);
+	return parser;
+}
+
+/* We receive Content-Disposition parameters as `mimetype; param; param; ...` */
+static bool get_cd_filename(const char *content, const char **filename_r)
+{
+	if (content == NULL)
+		return FALSE;
+
+	struct rfc822_parser_context parser = init_content_parser(content);
+
+	/* type; param; param; .. */
+	string_t *str = t_str_new(32);
+	if (rfc822_parse_mime_token(&parser, str) < 0) {
+		rfc822_parser_deinit(&parser);
+		return FALSE;
+	}
+
+	return get_param_and_free_parser(&parser, "filename", filename_r);
+}
+
+/* We receive Content-Type parameters as `; param; param; ...` */
+static bool get_ct_filename(const char *content, const char **filename_r)
+{
+	if (content == NULL)
+		return FALSE;
+	struct rfc822_parser_context parser = init_content_parser(content);
+	return get_param_and_free_parser(&parser, "name", filename_r);
 }
 
 static struct fts_parser *
@@ -202,7 +220,9 @@ fts_parser_script_try_init(struct fts_parser_context *parser_context)
 	const char *filename, *path, *cmd;
 	int fd;
 
-	parse_content_disposition(parser_context->content_disposition, &filename);
+	if (!get_cd_filename(parser_context->content_disposition, &filename))
+		(void)get_ct_filename(parser_context->content_type_params, &filename);
+
 	if (!script_support_content(parser_context, filename))
 		return NULL;
 

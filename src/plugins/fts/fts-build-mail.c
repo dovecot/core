@@ -30,7 +30,7 @@ struct fts_mail_build_context {
 	struct mail *mail;
 	struct fts_backend_update_context *update_ctx;
 
-	char *content_type, *content_disposition;
+	char *content_type, *content_type_params, *content_disposition;
 	struct fts_parser *body_parser;
 
 	buffer_t *word_buf, *pending_input;
@@ -55,7 +55,12 @@ static void fts_build_parse_content_type(struct fts_mail_build_context *ctx,
 	T_BEGIN {
 		content_type = t_str_new(64);
 		(void)rfc822_parse_content_type(&parser, content_type);
+		/* Parse the mime-type only... */
 		ctx->content_type = str_lcase(i_strdup(str_c(content_type)));
+		/* ... then store the remainder of the line - which may contain RFC2231
+		   parameters - without parsing it because not all backends need them. In
+		   the backends that need them further parsing can be implemented. */
+		ctx->content_type_params = i_strdup((const char *)parser.data);
 	} T_END;
 	rfc822_parser_deinit(&parser);
 }
@@ -214,8 +219,14 @@ fts_build_body_begin(struct fts_mail_build_context *ctx,
 	key.part = part;
 
 	i_zero(&parser_context);
-	parser_context.content_type = ctx->content_type != NULL ?
-		ctx->content_type : "text/plain";
+	if (ctx->content_type != NULL) {
+		parser_context.content_type = ctx->content_type;
+		parser_context.content_type_params = ctx->content_type_params;
+	} else {
+		parser_context.content_type = "text/plain";
+		parser_context.content_type_params = "";
+	}
+
 	if (str_begins_with(parser_context.content_type, "multipart/")) {
 		/* multiparts are never indexed, only their contents */
 		return FALSE;
@@ -641,6 +652,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 			fts_backend_update_unset_build_key(update_ctx);
 			prev_part = raw_block.part;
 			i_free_and_null(ctx.content_type);
+			i_free_and_null(ctx.content_type_params);
 			i_free_and_null(ctx.content_disposition);
 
 			if (raw_block.size != 0) {
@@ -721,6 +733,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 		index_mail_set_message_parts_corrupted(mail, error);
 	message_decoder_deinit(&decoder);
 	i_free(ctx.content_type);
+	i_free(ctx.content_type_params);
 	i_free(ctx.content_disposition);
 	buffer_free(&ctx.word_buf);
 	buffer_free(&ctx.pending_input);
