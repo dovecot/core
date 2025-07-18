@@ -15,8 +15,13 @@ struct dsasl_client_settings {
 
 enum dsasl_client_result {
 	DSASL_CLIENT_RESULT_OK,
-	/* Client sent invalid SASL protocol input */
+	/* The final response from server returned a failed authentication.
+	   The error string contains details. */
+	DSASL_CLIENT_RESULT_AUTH_FAILED,
+	/* Remote server sent invalid SASL protocol input */
 	DSASL_CLIENT_RESULT_ERR_PROTOCOL,
+	/* Internal client error */
+	DSASL_CLIENT_RESULT_ERR_INTERNAL,
 };
 
 typedef int

@@ -118,16 +118,16 @@ mech_scram_output(struct dsasl_client *client,
 
 	if (client->set.authid == NULL) {
 		*error_r = "authid not set";
-		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
+		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
 	if (client->password == NULL) {
 		*error_r = "password not set";
-		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
+		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
 
 	if (sclient->scram_client.state == AUTH_SCRAM_CLIENT_STATE_INIT &&
 	    mech_scram_init(sclient, error_r) < 0)
-		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
+		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 
 	auth_scram_client_output(&sclient->scram_client,
 				 output_r, output_len_r);

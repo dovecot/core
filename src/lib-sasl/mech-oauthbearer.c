@@ -82,7 +82,7 @@ mech_oauthbearer_input(struct dsasl_client *_client,
 
 		*error_r = t_strdup_printf("Failed to authenticate: %s",
 					   client->status);
-		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
+		return DSASL_CLIENT_RESULT_AUTH_FAILED;
 	}
 	return DSASL_CLIENT_RESULT_OK;
 }
@@ -98,11 +98,11 @@ mech_oauthbearer_output(struct dsasl_client *_client,
 
 	if (_client->set.authid == NULL) {
 		*error_r = "authid not set";
-		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
+		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
 	if (_client->password == NULL) {
 		*error_r = "password not set";
-		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
+		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
 
 	str = str_new(_client->pool, 64);
@@ -132,11 +132,11 @@ mech_xoauth2_output(struct dsasl_client *_client,
 
 	if (_client->set.authid == NULL) {
 		*error_r = "authid not set";
-		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
+		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
 	if (_client->password == NULL) {
 		*error_r = "password not set";
-		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
+		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
 
 	str = str_new(_client->pool, 64);

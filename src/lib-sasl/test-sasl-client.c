@@ -80,7 +80,7 @@ static void test_sasl_client_login(void)
 	i_assert(client != NULL);
 
 	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_INTERNAL);
 	test_assert_strcmp(error, "authid not set");
 	dsasl_client_free(&client);
 
@@ -89,7 +89,7 @@ static void test_sasl_client_login(void)
 	i_assert(client != NULL);
 
 	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_INTERNAL);
 	test_assert_strcmp(error, "password not set");
 	dsasl_client_free(&client);
 
@@ -166,7 +166,7 @@ static void test_sasl_client_plain(void)
 	i_assert(client != NULL);
 
 	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_INTERNAL);
 	test_assert_strcmp(error, "authid not set");
 	dsasl_client_free(&client);
 
@@ -175,7 +175,7 @@ static void test_sasl_client_plain(void)
 	i_assert(client != NULL);
 
 	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_INTERNAL);
 	test_assert_strcmp(error, "password not set");
 	dsasl_client_free(&client);
 
@@ -299,7 +299,7 @@ static void test_sasl_client_oauthbearer(void)
 	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	str_append(input, "{\"status\":\"401\",\"schemes\":\"bearer\",\"scope\":\"mail\"}");
-	test_assert(dsasl_client_input(client, input->data, input->used, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
+	test_assert(dsasl_client_input(client, input->data, input->used, &error) == DSASL_CLIENT_RESULT_AUTH_FAILED);
 	test_assert_strcmp(error, "Failed to authenticate: 401");
 	test_assert(dsasl_client_get_result(client, "status", &value, &error) == 1);
 	test_assert_strcmp(value, "401");
@@ -311,7 +311,7 @@ static void test_sasl_client_oauthbearer(void)
 	i_assert(client != NULL);
 
 	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_INTERNAL);
 	test_assert_strcmp(error, "authid not set");
 	dsasl_client_free(&client);
 
@@ -320,7 +320,7 @@ static void test_sasl_client_oauthbearer(void)
 	i_assert(client != NULL);
 
 	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_INTERNAL);
 	test_assert_strcmp(error, "password not set");
 	dsasl_client_free(&client);
 
@@ -367,7 +367,7 @@ static void test_sasl_client_xoauth2(void)
 	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	str_append(input, "{\"status\":\"401\",\"schemes\":\"bearer\",\"scope\":\"mail\"}");
-	test_assert(dsasl_client_input(client, input->data, input->used, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
+	test_assert(dsasl_client_input(client, input->data, input->used, &error) == DSASL_CLIENT_RESULT_AUTH_FAILED);
 	test_assert_strcmp(error, "Failed to authenticate: 401");
 
 	dsasl_client_free(&client);
@@ -377,7 +377,7 @@ static void test_sasl_client_xoauth2(void)
 	i_assert(client != NULL);
 
 	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_INTERNAL);
 	test_assert_strcmp(error, "authid not set");
 	dsasl_client_free(&client);
 
@@ -386,7 +386,7 @@ static void test_sasl_client_xoauth2(void)
 	i_assert(client != NULL);
 
 	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
-	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
+	test_assert(dsasl_client_output(client, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_INTERNAL);
 	test_assert_strcmp(error, "password not set");
 	dsasl_client_free(&client);
 

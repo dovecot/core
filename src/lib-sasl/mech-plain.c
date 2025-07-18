@@ -40,11 +40,11 @@ mech_plain_output(struct dsasl_client *_client,
 
 	if (_client->set.authid == NULL) {
 		*error_r = "authid not set";
-		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
+		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
 	if (_client->password == NULL) {
 		*error_r = "password not set";
-		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
+		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
 
 	str = str_new(_client->pool, 64);
