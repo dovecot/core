@@ -16,7 +16,8 @@ libdict_extra_la_SOURCES = \
 	dict-fs.c \
 	dict-register.c
 
-noinst_HEADERS = \
+pkginc_libdir = $(pkgincludedir)
+pkginc_lib_HEADERS = \
 	dict-client.h
 
 NOPLUGIN_LDFLAGS =

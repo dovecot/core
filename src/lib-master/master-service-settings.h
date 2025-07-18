@@ -27,6 +27,7 @@ struct master_service_settings {
 	const char *process_shutdown_filter;
 	const char *syslog_facility;
 	const char *stats_writer_socket_path;
+	const char *auth_master_socket_path;
 	const char *dovecot_storage_version;
 	ARRAY_TYPE(const_string) import_environment;
 	bool version_ignore;

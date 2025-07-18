@@ -500,7 +500,7 @@ int main(int argc, char *argv[])
 		 * cause client timeouts on login.
 		 */
 		MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES;
-	const char *username = NULL, *auth_socket_path = "auth-master";
+	const char *username = NULL;
 	const char *error;
 	int c;
 
@@ -522,12 +522,9 @@ int main(int argc, char *argv[])
 	}
 
 	master_service = master_service_init("imap", service_flags,
-					     &argc, &argv, "a:Dt:u:");
+					     &argc, &argv, "Dt:u:");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
-		case 'a':
-			auth_socket_path = optarg;
-			break;
 		case 't':
 			if (str_to_uint(optarg, &login_set.postlogin_timeout_secs) < 0 ||
 			    login_set.postlogin_timeout_secs == 0)
@@ -563,8 +560,13 @@ int main(int argc, char *argv[])
 	verbose_proctitle = !IS_STANDALONE() &&
 		getenv(MASTER_VERBOSE_PROCTITLE_ENV) != NULL;
 
-	if (t_abspath(auth_socket_path, &login_set.auth_socket_path, &error) < 0)
-		i_fatal("t_abspath(%s) failed: %s", auth_socket_path, error);
+	const struct master_service_settings *master_set =
+		master_service_get_service_settings(master_service);
+	if (t_abspath(master_set->auth_master_socket_path,
+		      &login_set.auth_socket_path, &error) < 0) {
+		i_fatal("t_abspath(%s) failed: %s",
+			master_set->auth_master_socket_path, error);
+	}
 
 	if (argv[optind] != NULL) {
 		if (t_abspath(argv[optind], &login_set.postlogin_socket_path, &error) < 0)

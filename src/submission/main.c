@@ -355,7 +355,7 @@ int main(int argc, char *argv[])
 	enum mail_storage_service_flags storage_service_flags = 0;
 	struct smtp_server_settings smtp_server_set;
 	struct smtp_client_settings smtp_client_set;
-	const char *username = NULL, *auth_socket_path = "auth-master";
+	const char *username = NULL;
 	const char *error;
 	int c;
 
@@ -377,12 +377,9 @@ int main(int argc, char *argv[])
 	}
 
 	master_service = master_service_init("submission", service_flags,
-					     &argc, &argv, "a:Dt:u:");
+					     &argc, &argv, "Dt:u:");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
-		case 'a':
-			auth_socket_path = optarg;
-			break;
 		case 't':
 			if (str_to_uint(optarg,
 					&login_set.postlogin_timeout_secs) < 0 ||
@@ -402,11 +399,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (t_abspath(auth_socket_path, &login_set.auth_socket_path,
-		      &error) < 0) {
-		i_fatal("t_abspath(%s) failed: %s", auth_socket_path,
-			error);
-	}
 	if (argv[optind] != NULL) {
 		if (t_abspath(argv[optind],
 			      &login_set.postlogin_socket_path, &error) < 0) {
@@ -425,6 +417,14 @@ int main(int argc, char *argv[])
 
 	if (master_service_settings_read_simple(master_service, &error) < 0)
 		i_fatal("%s", error);
+
+	const struct master_service_settings *master_set =
+		master_service_get_service_settings(master_service);
+	if (t_abspath(master_set->auth_master_socket_path,
+		      &login_set.auth_socket_path, &error) < 0) {
+		i_fatal("t_abspath(%s) failed: %s",
+			master_set->auth_master_socket_path, error);
+	}
 
 	storage_service =
 		mail_storage_service_init(master_service,

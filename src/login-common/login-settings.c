@@ -27,7 +27,7 @@ static const struct setting_define login_setting_defines[] = {
 	DEF(UINT, login_proxy_max_reconnects),
 	DEF(TIME, login_proxy_max_disconnect_delay),
 	DEF(STR, login_proxy_rawlog_dir),
-	DEF(STR, login_socket_path),
+	DEF(STR_HIDDEN, login_socket_path),
 
 	DEF(BOOL, auth_ssl_require_client_cert),
 	DEF(BOOL, auth_ssl_username_from_cert),

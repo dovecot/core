@@ -39,6 +39,7 @@
 #include "mail-storage-service.h"
 #include "mailbox-tree.h"
 #include "mailbox-list-subscriptions.h"
+#include "imapc-connection.h"
 #include "imapc-storage.h"
 #include "imapc-list.h"
 
@@ -246,14 +247,10 @@ imapc_list_update_tree(struct imapc_mailbox_list *list,
 	T_BEGIN {
 		const char *vname =
 			imapc_list_remote_to_vname(list, remote_name);
-
-		if ((info_flags & MAILBOX_NONEXISTENT) != 0)
-			node = mailbox_tree_lookup(tree, vname);
-		else
-			node = mailbox_tree_get(tree, vname, &created);
-	} T_END;
-	if (node != NULL)
+		node = mailbox_tree_get(tree, vname, &created);
 		node->flags = info_flags;
+	} T_END;
+
 	return node;
 }
 
@@ -276,7 +273,15 @@ static void imapc_untagged_list(const struct imapc_untagged_reply *reply,
 		list->root_sep = sep == NULL ? '/' : sep[0];
 		mailbox_tree_set_separator(list->mailboxes, list->root_sep);
 	} else {
-		(void)imapc_list_update_tree(list, list->mailboxes, args);
+		struct mailbox_node *node =
+			imapc_list_update_tree(list, list->mailboxes, args);
+		if (node != NULL && (node->flags & MAILBOX_SUBSCRIBED) != 0) {
+			struct mailbox_tree_context *tree =
+				list->tmp_subscriptions != NULL ?
+				list->tmp_subscriptions :
+				list->list.subscriptions;
+			(void)imapc_list_update_tree(list, tree, args);
+		}
 	}
 }
 
@@ -291,9 +296,11 @@ static void imapc_untagged_lsub(const struct imapc_untagged_reply *reply,
 		/* we haven't asked for the separator yet */
 		return;
 	}
-	node = imapc_list_update_tree(list, list->tmp_subscriptions != NULL ?
-				      list->tmp_subscriptions :
-				      list->list.subscriptions, args);
+	struct mailbox_tree_context *tree =
+		list->tmp_subscriptions != NULL ?
+		list->tmp_subscriptions :
+		list->list.subscriptions;
+	node = imapc_list_update_tree(list, tree, args);
 	if (node != NULL) {
 		if ((node->flags & MAILBOX_NOSELECT) == 0)
 			node->flags |= MAILBOX_SUBSCRIBED;
@@ -877,7 +884,11 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 	else
 		pattern = t_strdup_printf("%s*", src_list->set->imapc_list_prefix);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
-	imapc_command_sendf(cmd, "LSUB \"\" %s", pattern);
+
+	if (imapc_cmd_has_imap4rev2(cmd))
+		imapc_command_sendf(cmd, "LIST (SUBSCRIBED) \"\" %s", pattern);
+	else
+		imapc_command_sendf(cmd, "LSUB \"\" %s", pattern);
 	imapc_simple_run(&ctx, &cmd);
 
 	if (ctx.ret < 0)

@@ -55,7 +55,7 @@ enum imapc_connection_state
 imapc_connection_get_state(struct imapc_connection *conn);
 enum imapc_capability
 imapc_connection_get_capabilities(struct imapc_connection *conn);
-
+bool imapc_cmd_has_imap4rev2(struct imapc_command *cmd);
 struct imapc_client_mailbox *
 imapc_connection_get_mailbox(struct imapc_connection *conn);
 
