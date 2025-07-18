@@ -880,12 +880,27 @@ int login_proxy_sasl_step(struct client *client, string_t *str)
 		sasl_res = dsasl_client_output(client->proxy_sasl_client,
 					       &data, &data_len, &error);
 	}
-	if (sasl_res != DSASL_CLIENT_RESULT_OK) {
+	switch (sasl_res) {
+	case DSASL_CLIENT_RESULT_OK:
+		break;
+	case DSASL_CLIENT_RESULT_AUTH_FAILED:
+		login_proxy_failed(client->login_proxy,
+				   login_proxy_get_event(client->login_proxy),
+				   LOGIN_PROXY_FAILURE_TYPE_AUTH_NOT_REPLIED,
+				   error);
+		return -1;
+	case DSASL_CLIENT_RESULT_ERR_PROTOCOL: {
 		const char *reason = t_strdup_printf(
 			"Invalid authentication data: %s", error);
 		login_proxy_failed(client->login_proxy,
 				   login_proxy_get_event(client->login_proxy),
 				   LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
+		return -1;
+	}
+	case DSASL_CLIENT_RESULT_ERR_INTERNAL:
+		login_proxy_failed(client->login_proxy,
+				   login_proxy_get_event(client->login_proxy),
+				   LOGIN_PROXY_FAILURE_TYPE_INTERNAL, error);
 		return -1;
 	}
 	str_truncate(str, 0);
