@@ -63,15 +63,6 @@ struct dsync_module_hooks {
 static ARRAY(struct dsync_module_hooks) module_hooks = ARRAY_INIT;
 
 
-void dsync_hooks_deinit(void);
-void dsync_hooks_deinit(void)
-{
-	/* allow calling this even if dsync_hooks_add() hasn't been called */
-	if (array_is_created(&module_hooks)) {
-		array_free(&module_hooks);
-        }
-}
-
 void dsync_hooks_add(const struct module *module,
                      const struct dsync_hooks *hooks)
 {
@@ -122,8 +113,8 @@ dsync_module_hooks_cmp(const struct dsync_module_hooks *h1,
 	return strcmp(s1, s2);
 }
 
-void dsync_hook_alloc(struct dsync_cmd_context *ctx);
-void dsync_hook_alloc(struct dsync_cmd_context *ctx) {
+void dsync_hooks_alloc(struct dsync_cmd_context *ctx);
+void dsync_hooks_alloc(struct dsync_cmd_context *ctx) {
 	const struct dsync_module_hooks *module_hook;
 	ARRAY(const struct dsync_module_hooks) sorted_hooks;
         struct dsync_module_context *hctx;
@@ -148,19 +139,26 @@ void dsync_hook_alloc(struct dsync_cmd_context *ctx) {
 	}
 }
 
-void hook_preinit(struct dsync_cmd_context *ctx);
-void hook_preinit(struct dsync_cmd_context *ctx) {
+void dsync_hooks_deinit(struct dsync_cmd_context *ctx);
+void dsync_hooks_deinit(struct dsync_cmd_context *ctx)
+{
         struct dsync_module_context **hctx;
         const struct dsync_hooks *hooks;
 
 	array_foreach_modifiable(&ctx->hooks, hctx) {
                 hooks = (*hctx)->module_hooks->hooks;
-		if (hooks->preinit == NULL)
+		if (hooks->deinit == NULL)
                         continue;
                 T_BEGIN {
-                        hooks->preinit((*hctx)->ctx, ctx);
+                        hooks->deinit((*hctx)->ctx, ctx);
+                        (*hctx)->ctx = NULL;
 		} T_END;
 	}
+
+	/* allow calling this even if dsync_hooks_add() hasn't been called */
+	if (array_is_created(&module_hooks)) {
+		array_free(&module_hooks);
+        }
 }
 
 void hook_init(struct dsync_cmd_context *ctx);
@@ -224,6 +222,21 @@ int hook_run_pre(struct dsync_cmd_context *ctx, struct mail_user *user)
         return ret;
 }
 
+void hook_server_init(struct dsync_cmd_context *ctx);
+void hook_server_init(struct dsync_cmd_context *ctx) {
+        struct dsync_module_context **hctx;
+        const struct dsync_hooks *hooks;
+
+	array_foreach_modifiable(&ctx->hooks, hctx) {
+                hooks = (*hctx)->module_hooks->hooks;
+		if (hooks->server_init == NULL)
+                        continue;
+                T_BEGIN {
+                        hooks->server_init((*hctx)->ctx, ctx);
+		} T_END;
+	}
+}
+
 int hook_server_run_pre(struct dsync_cmd_context *ctx, struct mail_user *user);
 int hook_server_run_pre(struct dsync_cmd_context *ctx, struct mail_user *user)
 {
@@ -264,40 +277,40 @@ void hook_server_run_command(struct dsync_cmd_context *ctx,
 	}
 }
 
-void hook_server_run_predeinit(struct dsync_cmd_context *ctx,
-                               struct mail_user *user,
-                               struct dsync_ibc *ibc,
-                               struct dsync_brain *brain);
-void hook_server_run_predeinit(struct dsync_cmd_context *ctx,
-                               struct mail_user *user,
-                               struct dsync_ibc *ibc,
-                               struct dsync_brain *brain) {
+void hook_server_run_post(struct dsync_cmd_context *ctx,
+                          struct mail_user *user,
+                          struct dsync_ibc *ibc,
+                          struct dsync_brain *brain);
+void hook_server_run_post(struct dsync_cmd_context *ctx,
+                          struct mail_user *user,
+                          struct dsync_ibc *ibc,
+                          struct dsync_brain *brain) {
         struct dsync_module_context **hctx;
         const struct dsync_hooks *hooks;
 
 	array_foreach_modifiable(&ctx->hooks, hctx) {
                 hooks = (*hctx)->module_hooks->hooks;
-		if (hooks->server_run_predeinit == NULL)
+		if (hooks->server_run_post == NULL)
                         continue;
                 T_BEGIN {
-                        hooks->server_run_predeinit((*hctx)->ctx, ctx, user, ibc, brain);
+                        hooks->server_run_post((*hctx)->ctx, ctx, user, ibc, brain);
 		} T_END;
 	}
 }
 
-void hook_server_run_deinit(struct dsync_cmd_context *ctx,
-                            struct mail_user *user);
-void hook_server_run_deinit(struct dsync_cmd_context *ctx,
-                            struct mail_user *user) {
+void hook_server_run_end(struct dsync_cmd_context *ctx,
+                         struct mail_user *user);
+void hook_server_run_end(struct dsync_cmd_context *ctx,
+                         struct mail_user *user) {
         struct dsync_module_context **hctx;
         const struct dsync_hooks *hooks;
 
 	array_foreach_modifiable(&ctx->hooks, hctx) {
                 hooks = (*hctx)->module_hooks->hooks;
-		if (hooks->server_run_deinit == NULL)
+		if (hooks->server_run_end == NULL)
                         continue;
                 T_BEGIN {
-                        hooks->server_run_deinit((*hctx)->ctx, ctx, user);
+                        hooks->server_run_end((*hctx)->ctx, ctx, user);
 		} T_END;
 	}
 }
@@ -1361,8 +1374,14 @@ static void cmd_dsync_preinit(struct doveadm_mail_cmd_context *_ctx)
 
 	if ((_ctx->service_flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0)
 		_ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR;
+}
 
-        hook_preinit(ctx);
+static void cmd_dsync_deinit(struct doveadm_mail_cmd_context *_ctx)
+{
+	struct dsync_cmd_context *ctx =
+		container_of(_ctx, struct dsync_cmd_context, ctx);
+
+        dsync_hooks_deinit(ctx);
 }
 
 static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
@@ -1375,6 +1394,7 @@ static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
 	ctx->ctx.v.init = cmd_dsync_init;
 	ctx->ctx.v.prerun = cmd_dsync_prerun;
 	ctx->ctx.v.run = cmd_dsync_run;
+	ctx->ctx.v.deinit = cmd_dsync_deinit;
 	ctx->sync_type = DSYNC_BRAIN_SYNC_TYPE_CHANGED;
 	doveadm_print_init(DOVEADM_PRINT_TYPE_FLOW);
 	doveadm_print_header("state", "state",
@@ -1387,7 +1407,7 @@ static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
                 ctx->no_header_hashes = TRUE;
 	ctx->import_commit_msgs_interval = doveadm_settings->dsync_commit_msgs_interval;
 
-        dsync_hook_alloc(ctx);
+        dsync_hooks_alloc(ctx);
 
 	return &ctx->ctx;
 }
@@ -1462,7 +1482,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	/* io_loop_run() deactivates the context - put it back */
 	mail_storage_service_io_activate_user(ctx->ctx.cur_service_user);
 
-        hook_server_run_predeinit(ctx, user, ibc, brain);
+        hook_server_run_post(ctx, user, ibc, brain);
 
 	if (dsync_brain_deinit(&brain, &mail_error) < 0)
 		doveadm_mail_failed_error(_ctx, mail_error);
@@ -1476,9 +1496,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	i_stream_unref(&ctx->input);
 	o_stream_unref(&ctx->output);
 
-        hook_server_run_deinit(ctx, user);
-
-        dsync_hooks_deinit();
+        hook_server_run_end(ctx, user);
 
 	return _ctx->exit_code == 0 ? 0 : -1;
 }
@@ -1493,7 +1511,15 @@ cmd_dsync_server_init(struct doveadm_mail_cmd_context *_ctx)
 	(void)doveadm_cmd_param_str(cctx, "rawlog", &ctx->rawlog_path);
 	(void)doveadm_cmd_param_uint32(cctx, "timeout", &ctx->io_timeout_secs);
 
-        hook_init(ctx);
+        hook_server_init(ctx);
+}
+
+static void cmd_dsync_server_deinit(struct doveadm_mail_cmd_context *_ctx)
+{
+	struct dsync_cmd_context *ctx =
+		container_of(_ctx, struct dsync_cmd_context, ctx);
+
+        dsync_hooks_deinit(ctx);
 }
 
 static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
@@ -1504,12 +1530,13 @@ static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 	ctx->io_timeout_secs = DSYNC_DEFAULT_IO_STREAM_TIMEOUT_SECS;
 	ctx->ctx.v.init = cmd_dsync_server_init;
 	ctx->ctx.v.run = cmd_dsync_server_run;
+	ctx->ctx.v.deinit = cmd_dsync_server_deinit;
 	ctx->sync_type = DSYNC_BRAIN_SYNC_TYPE_CHANGED;
 
 	ctx->fd_in = STDIN_FILENO;
 	ctx->fd_out = STDOUT_FILENO;
 
-        dsync_hook_alloc(ctx);
+        dsync_hooks_alloc(ctx);
 
 	return &ctx->ctx;
 }

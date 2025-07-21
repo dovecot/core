@@ -81,40 +81,108 @@ struct dsync_cmd_context {
 };
 
 struct dsync_hooks {
-	void *(*alloc)(struct dsync_cmd_context *ctx);
+        /* allows dsync plugins to allocating own context. Use given
+           dsync_cmd_context dctx to access the pool of
+           doveadm_mail_cmd_context dctx->ctx. Return allocated context
+           as void pointer. Use dealloc hook to free allocated memory.
+           If not specified, plugin context pointer will be NULL in
+           all remaining hook parameters.
+           All further hooks will be called with the returned context
+           pointer and the current dsync_cmd_context.
+        */
+	void *(*alloc)(struct dsync_cmd_context *dctx);
+        /* free dsync plugin's own context allocated in alloc hook.
+        */
+	void (*deinit)(void *ctx, struct dsync_cmd_context *dctx);
 
-	void (*preinit)(void *ctx,
-                        struct dsync_cmd_context *dctx);
+        /* allows dsync plugins to do an init. The hook is called at
+           the end of cmd_dsync_init().
+        */
 	void (*init)(void *ctx,
                      struct dsync_cmd_context *dctx);
+
+        /* allows dsync plugins to do handle an unknown
+           doveadm_server_reply. The hook is called before the generic
+           UNKNOWN handling in dsync_connected_callback().
+           If the plugin has handling the reply, it must return TRUE to
+           indicate, that dsync_connected_callback() should not handle
+           the reply as unknown.
+           The doveadm_server_reply received by dsync_connected_callback()
+           is given as parameters.
+        */
         bool (*connected_callback)(void *ctx,
                                    struct dsync_cmd_context *dctx,
                                    const struct doveadm_server_reply *reply);
+        /* allows dsync plugins to do react BEFORE running dsync. The hook
+           is called at the beginning of cmd_dsync_run().
+           The mail_user received by cmd_dsync_run() is given as parameter.
+        */
         int (*run_pre)(void *ctx,
                        struct dsync_cmd_context *dctx,
                        struct mail_user *user);
 
+        /* allows dsync plugins to do an init for dsync-server. The
+           hook is called at the end of cmd_dsync_server_init().
+        */
 	void (*server_init)(void *ctx,
                             struct dsync_cmd_context *dctx);
+        /* allows dsync plugins to do react BEFORE running dsync on the
+           server. The hook is called at the beginning of
+           cmd_dsync_server_run().
+           The mail_user received by cmd_dsync_server_run() is given as parameter.
+        */
         int (*server_run_pre)(void *ctx,
                               struct dsync_cmd_context *dctx,
                               struct mail_user *user);
+        /* allows dsync plugins to do react AFTER dsync on the
+           server. The hook is called after dsync has been completed but
+           before dsync_ibc and dsync_brain are freed in
+           cmd_dsync_server_run().
+           The mail_user received by cmd_dsync_server_run() is given as
+           parameter as well as the dsync_ibc and dsync_brain.
+           The plugin may store the sync results in it's own context to use
+           in server_run_deinit hook.
+        */
+	void (*server_run_post)(void *ctx,
+                                struct dsync_cmd_context *dctx,
+                                struct mail_user *user,
+                                struct dsync_ibc *ibc,
+                                struct dsync_brain *brain);
+        /* allows dsync plugins to do react AT THE END of dsync on the
+           server. The hook is called at the end of cmd_dsync_server_run().
+           The mail_user received by cmd_dsync_server_run() is given as
+           parameter.
+           The plugin may use the sync results in it's own context and the
+           exit_code set in dctx->ctx.exit_code to do it's own post
+           processing.
+        */
+	void (*server_run_end)(void *ctx,
+                               struct dsync_cmd_context *dctx,
+                               struct mail_user *user);
+
+        /* allows dsync plugins to modify the dsync-server command send
+           to the server. The hook is called in dsync_server_run_command()
+           after the command has been build but before the final newline
+           is appended.
+           The doveadm_client received by dsync_server_run_command() and
+           the cmd are given as parameters.
+           The cmd may be modified by this function, therefore it is
+           provided non-const.
+        */
 	void (*server_run_command)(void *ctx,
                                    struct dsync_cmd_context *dctx,
                                    struct doveadm_client *conn,
                                    string_t *cmd);
-	void (*server_run_predeinit)(void *ctx,
-                                     struct dsync_cmd_context *dctx,
-                                     struct mail_user *user,
-                                     struct dsync_ibc *ibc,
-                                     struct dsync_brain *brain);
-	void (*server_run_deinit)(void *ctx,
-                                  struct dsync_cmd_context *dctx,
-                                  struct mail_user *user);
 };
 
+
+/* use this function in your doveadm dsync plugin to register hooks
+   during dsync/dsync-server. See struct dsync_hooks for a description
+   of possible hook functions. */
 void dsync_hooks_add(const struct module *module,
                      const struct dsync_hooks *hooks);
+/* in case your doveadm dsync plugin registered hooks, you can
+   unregister them using this function. */
 void dsync_hooks_remove(const struct dsync_hooks *hooks);
 
 #endif
