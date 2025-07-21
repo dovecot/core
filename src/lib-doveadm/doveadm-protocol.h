@@ -28,8 +28,16 @@ enum doveadm_protocol_cmd_flag {
 	DOVEADM_PROTOCOL_CMD_FLAG_VERBOSE = 'v',
 	DOVEADM_PROTOCOL_CMD_FLAG_EXTRA_FIELDS = 'x',
 };
+
+/* use this function in your doveadm plugin if you need to register
+   additional exit codes. The code is the exit code you will use in
+   your plugin and the str is the string representation to be used
+   when transfering the exit code from server to client over the
+   doveadm protocol. */
 void doveadm_exit_code_add(const struct module *module,
                            const int code, const char *str);
+/* in case your plugin registered an additional exit code, you can
+   unregister it using this function. */
 void doveadm_exit_code_remove(const int code);
 
 const char *doveadm_exit_code_to_str(int code);
