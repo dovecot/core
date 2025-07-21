@@ -138,7 +138,7 @@ struct event *event_flatten(struct event *src);
    and categories to avoid sending one-off parent events.  (There is a more
    detailed description in a comment above the function implementation.)
    A new reference to the source event is returned if no simplification
-   occured. Event pointers are dropped if a new event was created. */
+   occurred. Event pointers are dropped if a new event was created. */
 struct event *event_minimize(struct event *src);
 /* Copy all categories from source to dest.
    Only the categories in source event itself are copied.
@@ -260,7 +260,7 @@ struct event *event_replace_log_prefix(struct event *event, const char *prefix);
 
 /* Drop count prefixes from parents when this event is used for logging. This
    does not affect the parent events. This only counts actual prefixes and not
-   parents. If the count is higher than the actual number of prefixes added by
+   parents. If the count is greater than the actual number of prefixes added by
    parents, all will be dropped. */
 struct event *
 event_drop_parent_log_prefixes(struct event *event, unsigned int count);

@@ -241,8 +241,8 @@ int acl_backend_vfile_object_update(struct acl_object *_aclobj,
 		return -1;
 	}
 	if (orig_mtime < update->last_change && update->last_change != 0) {
-		/* set mtime to last_change, if it's higher than the file's
-		   original mtime. if original mtime is higher, then we're
+		/* set mtime to last_change, if it's greater than the file's
+		   original mtime. if original mtime is greater, then we're
 		   merging some changes and it's better for the mtime to get
 		   updated. */
 		ut.actime = ioloop_time;

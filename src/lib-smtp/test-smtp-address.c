@@ -1163,7 +1163,7 @@ address_detail_parse_tests[] = {
 	  "address:another+delim", '-' },
 };
 
-unsigned int addresss_detail_parse_test_count =
+unsigned int address_detail_parse_test_count =
 	N_ELEMENTS(address_detail_parse_tests);
 
 static void test_smtp_address_detail_parse(void)
@@ -1171,7 +1171,7 @@ static void test_smtp_address_detail_parse(void)
 	unsigned int i;
 
 
-	for (i = 0; i < N_ELEMENTS(address_detail_parse_tests); i++) T_BEGIN {
+	for (i = 0; i < address_detail_parse_test_count; i++) T_BEGIN {
 		const struct address_detail_parse_test *test =
 			&address_detail_parse_tests[i];
 		struct smtp_address *address;
