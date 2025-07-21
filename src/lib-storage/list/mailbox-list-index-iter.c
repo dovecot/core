@@ -13,12 +13,6 @@ static bool iter_use_index(struct mailbox_list *list,
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 
-	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
-		/* for now we don't use indexes when listing subscriptions,
-		   because it needs to list also the nonexistent subscribed
-		   mailboxes, which don't exist in the index. */
-		return FALSE;
-	}
 	if ((flags & MAILBOX_LIST_ITER_RAW_LIST) != 0 &&
 	    ilist->has_backing_store) {
 		/* no indexing wanted with raw lists */
@@ -125,13 +119,6 @@ mailbox_list_index_update_info(struct mailbox_list_index_iterate_context *ctx)
 	if ((node->flags & MAILBOX_LIST_INDEX_FLAG_NOINFERIORS) != 0)
 		ctx->info.flags |= MAILBOX_NOINFERIORS;
 
-	if ((ctx->ctx.flags & (MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
-			       MAILBOX_LIST_ITER_RETURN_SUBSCRIBED)) != 0) {
-		mailbox_list_set_subscription_flags(ctx->ctx.list,
-						    ctx->info.vname,
-						    &ctx->info.flags);
-	}
-
 	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) == 0) {
 		box = mailbox_alloc(ctx->ctx.list, ctx->info.vname, 0);
 		mailbox_list_index_status_set_info_flags(box, node->uid,
@@ -184,21 +171,6 @@ mailbox_list_index_update_next(struct mailbox_list_index_iterate_context *ctx,
 	}
 }
 
-static bool
-iter_subscriptions_ok(struct mailbox_list_index_iterate_context *ctx)
-{
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0)
-		return TRUE;
-
-	if ((ctx->info.flags & MAILBOX_SUBSCRIBED) != 0)
-		return TRUE;
-
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH) != 0 &&
-	    (ctx->info.flags & MAILBOX_CHILD_SUBSCRIBED) != 0)
-		return TRUE;
-	return FALSE;
-}
-
 const struct mailbox_info *
 mailbox_list_index_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
@@ -222,7 +194,7 @@ mailbox_list_index_iter_next(struct mailbox_list_iterate_context *_ctx)
 
 		follow_children = (match & (IMAP_MATCH_YES |
 					    IMAP_MATCH_CHILDREN)) != 0;
-		if (match == IMAP_MATCH_YES && iter_subscriptions_ok(ctx)) {
+		if (match == IMAP_MATCH_YES) {
 			/* If this is a) \NoSelect leaf,
 			   b) not mailbox_list_layout=index
 			   and c) NO-NOSELECT is set, try to rmdir the leaf
@@ -240,11 +212,6 @@ mailbox_list_index_iter_next(struct mailbox_list_iterate_context *_ctx)
 				mailbox_list_index_update_next(ctx, TRUE);
 				return &ctx->info;
 			}
-		} else if ((_ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0 &&
-			   (ctx->info.flags & MAILBOX_CHILD_SUBSCRIBED) == 0) {
-			/* listing only subscriptions, but there are no
-			   subscribed children. */
-			follow_children = FALSE;
 		}
 		mailbox_list_index_update_next(ctx, follow_children);
 	}

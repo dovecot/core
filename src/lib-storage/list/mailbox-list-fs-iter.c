@@ -923,11 +923,6 @@ fs_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		return fs_list_iter_next(_ctx);
 	}
 
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0) {
-		mailbox_list_set_subscription_flags(ctx->ctx.list,
-						    ctx->info.vname,
-						    &ctx->info.flags);
-	}
 	i_assert(ctx->info.vname != NULL);
 	return &ctx->info;
 }

@@ -448,30 +448,14 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	else
 		ctx->dir = _list->mail_set->mail_path;
 
-	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
-		/* Listing only subscribed mailboxes.
-		   Flags are set later if needed. */
-		bool default_nonexistent =
-			(flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) == 0;
-
-		mailbox_list_subscriptions_fill(&ctx->ctx, ctx->tree_ctx,
-						default_nonexistent);
-	}
-
-	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0 ||
-	    (flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) == 0) {
+	T_BEGIN {
 		/* Add/update mailbox list with flags */
-		bool update_only =
-			(flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0;
+		ret = maildir_fill_readdir(ctx, ctx->ctx.glob, FALSE);
+	} T_END;
 
-		T_BEGIN {
-			ret = maildir_fill_readdir(ctx, ctx->ctx.glob,
-						   update_only);
-		} T_END;
-		if (ret < 0) {
-			ctx->ctx.failed = TRUE;
-			return &ctx->ctx;
-		}
+	if (ret < 0) {
+		ctx->ctx.failed = TRUE;
+		return &ctx->ctx;
 	}
 
 	ctx->tree_iter = mailbox_tree_iterate_init(ctx->tree_ctx, NULL,
@@ -512,13 +496,6 @@ maildir_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		i_assert((ctx->info.flags & MAILBOX_NOCHILDREN) != 0);
 		ctx->info.flags &= ENUM_NEGATE(MAILBOX_NOCHILDREN);
 		ctx->info.flags |= MAILBOX_NOINFERIORS;
-	}
-	if ((_ctx->flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0 &&
-	    (_ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
-		/* we're listing all mailboxes but we want to know
-		   \Subscribed flags */
-		mailbox_list_set_subscription_flags(_ctx->list, ctx->info.vname,
-						    &ctx->info.flags);
 	}
 	return &ctx->info;
 }
