@@ -113,8 +113,7 @@ dsync_module_hooks_cmp(const struct dsync_module_hooks *h1,
 	return strcmp(s1, s2);
 }
 
-void dsync_hooks_alloc(struct dsync_cmd_context *ctx);
-void dsync_hooks_alloc(struct dsync_cmd_context *ctx) {
+static void dsync_hooks_alloc(struct dsync_cmd_context *ctx) {
 	const struct dsync_module_hooks *module_hook;
 	ARRAY(const struct dsync_module_hooks) sorted_hooks;
         struct dsync_module_context *hctx;
@@ -139,8 +138,7 @@ void dsync_hooks_alloc(struct dsync_cmd_context *ctx) {
 	}
 }
 
-void dsync_hooks_deinit(struct dsync_cmd_context *ctx);
-void dsync_hooks_deinit(struct dsync_cmd_context *ctx)
+static void dsync_hooks_deinit(struct dsync_cmd_context *ctx)
 {
         struct dsync_module_context **hctx;
         const struct dsync_hooks *hooks;
@@ -161,8 +159,7 @@ void dsync_hooks_deinit(struct dsync_cmd_context *ctx)
         }
 }
 
-void hook_init(struct dsync_cmd_context *ctx);
-void hook_init(struct dsync_cmd_context *ctx) {
+static void hook_init(struct dsync_cmd_context *ctx) {
         struct dsync_module_context **hctx;
         const struct dsync_hooks *hooks;
 
@@ -176,9 +173,7 @@ void hook_init(struct dsync_cmd_context *ctx) {
 	}
 }
 
-bool hook_connected_callback(struct dsync_cmd_context *ctx,
-                             const struct doveadm_server_reply *reply);
-bool hook_connected_callback(struct dsync_cmd_context *ctx,
+static bool hook_connected_callback(struct dsync_cmd_context *ctx,
                              const struct doveadm_server_reply *reply)
 {
         struct dsync_module_context **hctx;
@@ -198,8 +193,7 @@ bool hook_connected_callback(struct dsync_cmd_context *ctx,
         return result;
 }
 
-int hook_run_pre(struct dsync_cmd_context *ctx, struct mail_user *user);
-int hook_run_pre(struct dsync_cmd_context *ctx, struct mail_user *user)
+static int hook_run_pre(struct dsync_cmd_context *ctx, struct mail_user *user)
 {
         struct dsync_module_context **hctx;
         const struct dsync_hooks *hooks;
@@ -222,8 +216,7 @@ int hook_run_pre(struct dsync_cmd_context *ctx, struct mail_user *user)
         return ret;
 }
 
-void hook_server_init(struct dsync_cmd_context *ctx);
-void hook_server_init(struct dsync_cmd_context *ctx) {
+static void hook_server_init(struct dsync_cmd_context *ctx) {
         struct dsync_module_context **hctx;
         const struct dsync_hooks *hooks;
 
@@ -237,8 +230,8 @@ void hook_server_init(struct dsync_cmd_context *ctx) {
 	}
 }
 
-int hook_server_run_pre(struct dsync_cmd_context *ctx, struct mail_user *user);
-int hook_server_run_pre(struct dsync_cmd_context *ctx, struct mail_user *user)
+static int hook_server_run_pre(struct dsync_cmd_context *ctx,
+                               struct mail_user *user)
 {
         struct dsync_module_context **hctx;
         const struct dsync_hooks *hooks;
@@ -258,12 +251,9 @@ int hook_server_run_pre(struct dsync_cmd_context *ctx, struct mail_user *user)
         return ret;
 }
 
-void hook_server_run_command(struct dsync_cmd_context *ctx,
-                             struct doveadm_client *conn,
-                             string_t *cmd);
-void hook_server_run_command(struct dsync_cmd_context *ctx,
-                             struct doveadm_client *conn,
-                             string_t *cmd) {
+static void hook_server_run_command(struct dsync_cmd_context *ctx,
+                                    struct doveadm_client *conn,
+                                    string_t *cmd) {
         struct dsync_module_context **hctx;
         const struct dsync_hooks *hooks;
 
@@ -277,14 +267,10 @@ void hook_server_run_command(struct dsync_cmd_context *ctx,
 	}
 }
 
-void hook_server_run_post(struct dsync_cmd_context *ctx,
-                          struct mail_user *user,
-                          struct dsync_ibc *ibc,
-                          struct dsync_brain *brain);
-void hook_server_run_post(struct dsync_cmd_context *ctx,
-                          struct mail_user *user,
-                          struct dsync_ibc *ibc,
-                          struct dsync_brain *brain) {
+static void hook_server_run_post(struct dsync_cmd_context *ctx,
+                                 struct mail_user *user,
+                                 struct dsync_ibc *ibc,
+                                 struct dsync_brain *brain) {
         struct dsync_module_context **hctx;
         const struct dsync_hooks *hooks;
 
@@ -298,10 +284,8 @@ void hook_server_run_post(struct dsync_cmd_context *ctx,
 	}
 }
 
-void hook_server_run_end(struct dsync_cmd_context *ctx,
-                         struct mail_user *user);
-void hook_server_run_end(struct dsync_cmd_context *ctx,
-                         struct mail_user *user) {
+static void hook_server_run_end(struct dsync_cmd_context *ctx,
+                                struct mail_user *user) {
         struct dsync_module_context **hctx;
         const struct dsync_hooks *hooks;
 
