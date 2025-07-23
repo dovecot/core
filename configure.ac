@@ -171,6 +171,11 @@ AS_HELP_STRING([--with-icu], [Build with libicu support (for lib-language normal
   want_icu=$withval,
   want_icu=auto)
 
+AC_ARG_WITH(pcre2,
+AS_HELP_STRING([--with-pcre2], [Build with libpcre2 support (for regular expression support) (auto)]),
+  want_pcre=$withval,
+  want_pcre=auto)
+
 AC_ARG_WITH(solr,
 AS_HELP_STRING([--with-solr], [Build with Solr full text search support]),
   TEST_WITH(solr, $withval),
@@ -721,6 +726,7 @@ DOVECOT_WANT_STEMMER
 DOVECOT_WANT_TEXTCAT
 
 DOVECOT_WANT_ICU
+DOVECOT_WANT_PCRE
 
 DOVECOT_WANT_APPARMOR
 
