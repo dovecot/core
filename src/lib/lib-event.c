@@ -133,6 +133,8 @@ event_call_callbacks(struct event *event, enum event_callback_type type,
 
 	if (event->disable_callbacks)
 		return TRUE;
+	if (!array_is_created(&event_handlers))
+		return TRUE;
 
 	array_foreach_elem(&event_handlers, callback) {
 		bool ret;

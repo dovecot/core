@@ -44,6 +44,7 @@ SUBDIRS = \
 	lib-dovecot \
 	$(LIB_LDAP) \
 	$(LIB_LUA) \
+	lib-regex \
 	lib-language \
 	lib-imap-client \
 	lib-imap-urlauth \

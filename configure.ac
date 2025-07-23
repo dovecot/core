@@ -856,6 +856,7 @@ src/lib-settings/Makefile
 src/lib-smtp/Makefile
 src/lib-ssl-iostream/Makefile
 src/lib-test/Makefile
+src/lib-regex/Makefile
 src/lib-storage/Makefile
 src/lib-storage/list/Makefile
 src/lib-storage/index/Makefile
