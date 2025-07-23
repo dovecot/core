@@ -29,6 +29,8 @@ enum doveadm_protocol_cmd_flag {
 	DOVEADM_PROTOCOL_CMD_FLAG_EXTRA_FIELDS = 'x',
 };
 
+void doveadm_exit_code_deinit(void);
+
 /* use this function in your doveadm plugin if you need to register
    additional exit codes. The code is the exit code you will use in
    your plugin and the str is the string representation to be used
