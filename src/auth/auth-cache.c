@@ -122,14 +122,14 @@ static char *auth_cache_parse_key_exclude(pool_t pool, const char *query,
 
 char *auth_cache_parse_key(pool_t pool, const char *query)
 {
-	return auth_cache_parse_key_exclude(pool, query, NULL);
+	return auth_cache_parse_key_and_fields(pool, query, NULL, NULL);
 }
 
 char *auth_cache_parse_key_and_fields(pool_t pool, const char *query,
 				      const ARRAY_TYPE(const_string) *fields,
 				      const char *exclude_driver)
 {
-	if (!array_is_empty(fields)) {
+	if (fields != NULL && !array_is_empty(fields)) {
 		unsigned int i, count;
 		const char *const *str = array_get(fields, &count);
 		string_t *full_query = t_str_new(128);
