@@ -97,7 +97,35 @@ static void test_auth_cache_parse_key(void)
 						 tests[i].in);
 		test_assert_strcmp_idx(cache_key, tests[i].out, i);
 	}
+
 	test_end();
+}
+
+static enum fatal_test_state test_cache_key_missing_variable(unsigned int i)
+{
+	if (i == 0)
+		test_begin("auth cache missing variable");
+
+	/* ensure that we do not accept static string */
+	static const struct {
+		const char *in, *out;
+	} tests_bad[] = {
+		{ "%u", "auth-cache: %u: Cache key must contain at least one variable" },
+		{ "foobar", "auth-cache: foobar: Cache key must contain at least one variable" },
+		{ "%{test", "auth-cache: var_expand_program_create(%{test) " \
+			    "failed: syntax error, unexpected end of file, " \
+			    "expecting CCBRACE or PIPE" },
+	};
+
+	if (i < N_ELEMENTS(tests_bad)) {
+		test_expect_fatal_string(tests_bad[i].out);
+		(void)auth_cache_parse_key(pool_datastack_create(),
+					   tests_bad[i].in);
+		return FATAL_TEST_FAILURE;
+	}
+
+	test_end();
+	return FATAL_TEST_FINISHED;
 }
 
 int main(void)
@@ -108,7 +136,14 @@ int main(void)
 		test_auth_cache_parse_key,
 		NULL
 	};
-	int ret = test_run(test_functions);
+
+	static test_fatal_func_t *const fatal_functions[] = {
+		test_cache_key_missing_variable,
+		NULL,
+	};
+
+	int ret = test_run_with_fatals(test_functions, fatal_functions);
+
 	event_unref(&auth_event);
 	return ret;
 }

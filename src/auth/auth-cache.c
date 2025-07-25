@@ -86,6 +86,13 @@ static int auth_cache_parse_key_exclude(pool_t pool, const char *query,
 	const char *const *vars = var_expand_program_variables(prog);
 	str = t_str_new(32);
 
+	if (*vars == NULL && *query != '\0') {
+		var_expand_program_free(&prog);
+		*error_r = t_strdup_printf("%s: Cache key must contain at least one variable",
+					   query);
+		return -1;
+	}
+
 	for (; *vars != NULL; vars++) {
 		/* ignore any providers */
 		if (strchr(*vars, ':') != NULL &&
