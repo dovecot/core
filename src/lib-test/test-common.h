@@ -40,7 +40,14 @@ void test_begin(const char *name);
 		test_assert_strcmp_idx(s1, s2, LLONG_MIN); \
 	} STMT_END
 
-/* Same as test_assert_strcmp expect that it takes an additional i as input.
+/* Additional parameters are m1 (source) and m2 (destination) memory and len
+ * in memcmp().
+ */
+#define test_assert_memcmp(m1, m2, len) STMT_START { \
+		test_assert_memcmp_idx(m1, m2, len, LLONG_MIN); \
+	} STMT_END
+
+/* Same as test_assert_strcmp except that it takes an additional i as input.
  * When i is greater than or equals 0 it is used to identify the barrage of
  * tests failed like in test_assert_idx.
 */
@@ -50,6 +57,19 @@ void test_begin(const char *name);
 		if ((null_strcmp(_temp_s1,_temp_s2) != 0)) \
 			test_assert_failed_strcmp_idx("strcmp(" #_s1 ","  #_s2 ")", \
 						      __FILE__, __LINE__, _temp_s1, _temp_s2, i); \
+	} STMT_END
+
+/* Same as test_assert_memcmp except that it takes an additional i as input.
+ * When i is greater than or equals 0 it is used to identify the barrage of
+ * tests failed like in test_assert_idx.
+*/
+#define test_assert_memcmp_idx(_m1, _m2, _len, i) STMT_START { \
+		const void *_temp_m1 = (_m1); \
+		const void *_temp_m2 = (_m2); \
+		const size_t _temp_len = (_len); \
+		if ((memcmp(_temp_m1,_temp_m2, _temp_len) != 0)) \
+			test_assert_failed_memcmp_idx("memcmp(" #_m1 ","  #_m2 ","  #_len ")", \
+						      __FILE__, __LINE__, _temp_m1, _temp_m2, _temp_len, i); \
 	} STMT_END
 
 #define test_assert_cmp_bool(_bool_value1, _op, _value2) \
@@ -91,6 +111,9 @@ void test_assert_failed_idx(const char *code, const char *file, unsigned int lin
 	ATTR_STATIC_CHECKER_NORETURN;
 void test_assert_failed_strcmp_idx(const char *code, const char *file, unsigned int line,
 				   const char *src, const char *dst, long long i)
+	ATTR_STATIC_CHECKER_NORETURN;
+void test_assert_failed_memcmp_idx(const char *code, const char *file, unsigned int line,
+				   const void *src, const void *dst, size_t len, long long i)
 	ATTR_STATIC_CHECKER_NORETURN;
 void test_assert_failed_cmp_intmax_idx(const char *code, const char *file,
 				       unsigned int line,

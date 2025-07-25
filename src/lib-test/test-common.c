@@ -84,6 +84,39 @@ void test_assert_failed_strcmp_idx(const char *code, const char *file, unsigned 
 #endif
 }
 
+static void print_memcmp_data(const void *_data, size_t len)
+{
+	const unsigned char *data = _data;
+	size_t i;
+
+	for (i = 0; i < len; i++) {
+		if (data[i] >= 0x20 && data[i] < 0x7f)
+			printf("%c", data[i]);
+		else
+			printf("\\x%02X", data[i]);
+	}
+}
+
+void test_assert_failed_memcmp_idx(const char *code, const char *file, unsigned int line,
+				   const void *src, const void *dst, size_t len, long long i)
+{
+	printf("%s:%u: Assert", file, line);
+	if (i == LLONG_MIN)
+		printf(" failed: %s\n", code);
+	else
+		printf("(#%lld) failed: %s\n", i, code);
+	printf("        \"");
+	print_memcmp_data(src, len);
+	printf("\" != \"");
+	print_memcmp_data(dst, len);
+	printf("\" (len == %zu)", len);
+	fflush(stdout);
+	test_success = FALSE;
+#ifdef STATIC_CHECKER
+	i_unreached();
+#endif
+}
+
 void test_assert_failed_cmp_intmax_idx(const char *code, const char *file,
 				       unsigned int line,
 				       intmax_t src, intmax_t dst,
