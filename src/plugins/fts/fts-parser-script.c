@@ -221,7 +221,8 @@ fts_parser_script_try_init(struct fts_parser_context *parser_context)
 	int fd;
 
 	if (!get_cd_filename(parser_context->content_disposition, &filename))
-		(void)get_ct_filename(parser_context->content_type_params, &filename);
+		if (!get_ct_filename(parser_context->content_type_params, &filename))
+			filename = NULL;
 
 	if (!script_support_content(parser_context, filename))
 		return NULL;
