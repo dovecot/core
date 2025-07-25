@@ -147,10 +147,8 @@ char *auth_cache_parse_key_and_fields(pool_t pool, const char *query,
 	char *cache_key;
 	const char *error;
 	if (auth_cache_parse_key_exclude(pool, query, exclude_driver,
-					 &cache_key, &error) < 0) {
-		e_debug(auth_event, "auth-cache: %s", error);
-		cache_key = p_strdup(pool, "");
-	}
+					 &cache_key, &error) < 0)
+		i_fatal("auth-cache: %s", error);
 	return cache_key;
 }
 
