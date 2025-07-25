@@ -64,8 +64,10 @@ static void auth_cache_key_add_tab_idx(string_t *str, unsigned int i)
 	str_append_c(str, '}');
 }
 
-static char *auth_cache_parse_key_exclude(pool_t pool, const char *query,
-					  const char *exclude_driver)
+static int auth_cache_parse_key_exclude(pool_t pool, const char *query,
+					const char *exclude_driver,
+					char **cache_key_r,
+					const char **error_r)
 {
 	string_t *str;
 	bool key_seen[AUTH_REQUEST_VAR_TAB_COUNT];
@@ -76,9 +78,9 @@ static char *auth_cache_parse_key_exclude(pool_t pool, const char *query,
 
 	struct var_expand_program *prog;
 	if (var_expand_program_create(query, &prog, &error) < 0) {
-		e_debug(auth_event, "auth-cache: var_expand_program_create('%s') failed: %s",
-			query, error);
-		return p_strdup(pool, "");
+		*error_r = t_strdup_printf("var_expand_program_create(%s) failed: %s",
+					   query, error);
+		return -1;
 	}
 
 	const char *const *vars = var_expand_program_variables(prog);
@@ -117,7 +119,8 @@ static char *auth_cache_parse_key_exclude(pool_t pool, const char *query,
 
 	var_expand_program_free(&prog);
 
-	return p_strdup(pool, str_c(str));
+	*cache_key_r = p_strdup(pool, str_c(str));
+	return 0;
 }
 
 char *auth_cache_parse_key(pool_t pool, const char *query)
@@ -140,7 +143,15 @@ char *auth_cache_parse_key_and_fields(pool_t pool, const char *query,
 		}
 		query = str_c(full_query);
 	}
-	return auth_cache_parse_key_exclude(pool, query, exclude_driver);
+
+	char *cache_key;
+	const char *error;
+	if (auth_cache_parse_key_exclude(pool, query, exclude_driver,
+					 &cache_key, &error) < 0) {
+		e_debug(auth_event, "auth-cache: %s", error);
+		cache_key = p_strdup(pool, "");
+	}
+	return cache_key;
 }
 
 static void
