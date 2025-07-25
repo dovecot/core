@@ -93,8 +93,8 @@ static void test_auth_cache_parse_key(void)
 	test_begin("auth cache parse key");
 
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
-		cache_key = auth_cache_parse_key(pool_datastack_create(),
-						 tests[i].in);
+		cache_key = auth_cache_parse_key_and_fields(pool_datastack_create(),
+							    tests[i].in, NULL, NULL);
 		test_assert_strcmp_idx(cache_key, tests[i].out, i);
 	}
 
@@ -119,8 +119,8 @@ static enum fatal_test_state test_cache_key_missing_variable(unsigned int i)
 
 	if (i < N_ELEMENTS(tests_bad)) {
 		test_expect_fatal_string(tests_bad[i].out);
-		(void)auth_cache_parse_key(pool_datastack_create(),
-					   tests_bad[i].in);
+		(void)auth_cache_parse_key_and_fields(pool_datastack_create(),
+						      tests_bad[i].in, NULL, NULL);
 		return FATAL_TEST_FAILURE;
 	}
 

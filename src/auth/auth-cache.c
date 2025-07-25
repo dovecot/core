@@ -130,11 +130,6 @@ static int auth_cache_parse_key_exclude(pool_t pool, const char *query,
 	return 0;
 }
 
-char *auth_cache_parse_key(pool_t pool, const char *query)
-{
-	return auth_cache_parse_key_and_fields(pool, query, NULL, NULL);
-}
-
 char *auth_cache_parse_key_and_fields(pool_t pool, const char *query,
 				      const ARRAY_TYPE(const_string) *fields,
 				      const char *exclude_driver)

@@ -16,10 +16,8 @@ struct auth_cache_node {
 struct auth_cache;
 struct auth_request;
 
-/* Parses all %x variables from query and compresses them into tab-separated
-   list, so it can be used as a cache key. */
-char *auth_cache_parse_key(pool_t pool, const char *query);
-/* Same as auth_cache_parse_key(), but add also variables from "fields",
+/* Parses all %variables from query and compresses them into tab-separated
+   list, so it can be used as a cache key. Adds also variables from "fields",
    except variables prefixed with <exclude_driver>":" */
 char *auth_cache_parse_key_and_fields(pool_t pool, const char *query,
 				      const ARRAY_TYPE(const_string) *fields,
