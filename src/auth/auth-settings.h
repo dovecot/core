@@ -1,6 +1,8 @@
 #ifndef AUTH_SETTINGS_H
 #define AUTH_SETTINGS_H
 
+#define AUTH_CACHE_KEY_USER "%{user}"
+
 struct master_service;
 struct master_service_settings_output;
 

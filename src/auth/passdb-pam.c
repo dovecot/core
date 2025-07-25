@@ -415,7 +415,8 @@ static int pam_preinit(pool_t pool, struct event *event,
 	module = p_new(pool, struct pam_passdb_module, 1);
 	module->module.default_cache_key =
 		auth_cache_parse_key_and_fields(pool,
-						t_strdup_printf("%%u/%s", set->service_name),
+						t_strdup_printf("%"AUTH_CACHE_KEY_USER"\t%s",
+								set->service_name),
 						&post_set->fields, "pam");
 	module->requests_left = set->max_requests;
 	module->pam_setcred = set->setcred;

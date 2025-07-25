@@ -14,8 +14,6 @@
 #include <login_cap.h>
 #include <bsd_auth.h>
 
-#define BSDAUTH_CACHE_KEY "%u"
-
 struct passdb_bsdauth_settings {
 	pool_t pool;
 };
@@ -104,7 +102,7 @@ bsdauth_preinit(pool_t pool, struct event *event,
 			 &post_set, error_r) < 0)
 		return -1;
 	module->default_cache_key = auth_cache_parse_key_and_fields(
-		pool, BSDAUTH_CACHE_KEY, &post_set->fields, "bsdauth");
+		pool, AUTH_CACHE_KEY_USER, &post_set->fields, "bsdauth");
 
 	settings_free(post_set);
 	*module_r = module;

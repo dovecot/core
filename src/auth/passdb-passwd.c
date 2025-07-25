@@ -10,7 +10,6 @@
 #include "safe-memset.h"
 #include "ipwd.h"
 
-#define PASSWD_CACHE_KEY "%u"
 #define PASSWD_PASS_SCHEME "CRYPT"
 
 #undef DEF
@@ -142,7 +141,7 @@ static int passwd_preinit(pool_t pool, struct event *event,
 			 &post_set, error_r) < 0)
 		return -1;
 	module->default_cache_key = auth_cache_parse_key_and_fields(pool,
-								    PASSWD_CACHE_KEY,
+								    AUTH_CACHE_KEY_USER,
 								    &post_set->fields,
 								    "passwd");
 	settings_free(post_set);
