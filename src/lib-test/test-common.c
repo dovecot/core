@@ -62,7 +62,7 @@ void test_assert_failed_idx(const char *code, const char *file, unsigned int lin
 }
 
 void test_assert_failed_strcmp_idx(const char *code, const char *file, unsigned int line,
-				   const char * src, const char * dst, long long i)
+				   const char *src, const char *dst, long long i)
 {
 	printf("%s:%u: Assert", file, line);
 	if (i == LLONG_MIN)
