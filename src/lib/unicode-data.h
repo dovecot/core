@@ -24,6 +24,20 @@ unicode_code_point_get_data(uint32_t cp)
 	return &unicode_code_points[idxcp];
 }
 
+static inline bool
+unicode_code_point_data_is_assigned(
+	const struct unicode_code_point_data *cp_data)
+{
+	switch (cp_data->general_category) {
+	case UNICODE_GENERAL_CATEGORY_INVALID:
+	case UNICODE_GENERAL_CATEGORY_CN:
+		return FALSE;
+	default:
+		break;
+	}
+	return TRUE;
+}
+
 static inline size_t
 unicode_code_point_data_get_first_decomposition(
 	const struct unicode_code_point_data *cp_data,
@@ -78,6 +92,14 @@ unicode_code_point_data_find_composition(
 	}
 
 	return 0x0000;
+}
+
+static inline bool unicode_code_point_is_assigned(uint32_t cp)
+{
+	const struct unicode_code_point_data *cp_data =
+		unicode_code_point_get_data(cp);
+
+	return unicode_code_point_data_is_assigned(cp_data);
 }
 
 static inline size_t
