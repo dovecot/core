@@ -614,7 +614,8 @@ connection_init_full(struct connection_list *list, struct connection *conn,
 	i_zero(&conn->connect_finished);
 	conn->client_connect_succeeded = FALSE;
 
-	conn->ioloop = current_ioloop;
+	if (conn->ioloop == NULL)
+		conn->ioloop = current_ioloop;
 	conn->fd_in = fd_in;
 	conn->fd_out = fd_out;
 	conn->disconnected = TRUE;
