@@ -26,6 +26,8 @@ struct dns_client_parameters {
 	/* Non-zero enables caching for the client, is not supported with
 	   dns_lookup() or dns_lookup_ptr(). Note that DNS TTL is ignored. */
 	unsigned int cache_ttl_secs;
+
+	struct ioloop *ioloop;
 };
 
 struct dns_lookup_result {
@@ -73,6 +75,8 @@ int dns_lookup_ptr(const struct ip_addr *ip,
 /* Abort the DNS lookup without calling the callback. */
 void dns_lookup_abort(struct dns_lookup **lookup);
 
+void dns_lookup_switch_ioloop_to(struct dns_lookup *lookup,
+				 struct ioloop *ioloop);
 void dns_lookup_switch_ioloop(struct dns_lookup *lookup);
 
 /* Alternative API for clients that need to do multiple DNS lookups. */
@@ -106,6 +110,8 @@ int dns_client_lookup_ptr(struct dns_client *client, const struct ip_addr *ip,
 /* Returns true if the DNS client has any pending queries */
 bool dns_client_has_pending_queries(struct dns_client *client);
 
+void dns_client_switch_ioloop_to(struct dns_client *client,
+				 struct ioloop *ioloop);
 void dns_client_switch_ioloop(struct dns_client *client);
 
 extern const struct setting_parser_info dns_client_setting_parser_info;

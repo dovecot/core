@@ -45,7 +45,6 @@ struct dns_client {
 	struct connection_list *clist;
 	struct dns_lookup *head, *tail;
 	struct timeout *to_idle;
-	struct ioloop *ioloop;
 	char *path;
 	struct dns_client_cache *cache;
 
@@ -386,7 +385,7 @@ static void dns_lookup_free(struct dns_lookup **_lookup)
 			dns_client_deinit(&client);
 		else if (client->head == NULL && client->connected &&
 			 client->to_idle == NULL) {
-			client->to_idle = timeout_add_to(client->ioloop,
+			client->to_idle = timeout_add_to(client->conn.ioloop,
 							 client->idle_timeout_msecs,
 							 dns_client_idle_timeout, client);
 		}
@@ -415,19 +414,26 @@ void dns_lookup_abort(struct dns_lookup **_lookup)
 	}
 }
 
-static void dns_lookup_switch_ioloop_real(struct dns_lookup *lookup)
+static void
+dns_lookup_switch_ioloop_real(struct dns_lookup *lookup, struct ioloop *ioloop)
 {
 	if (lookup->to != NULL)
-		lookup->to = io_loop_move_timeout(&lookup->to);
+		lookup->to = io_loop_move_timeout_to(ioloop, &lookup->to);
+}
+
+void dns_lookup_switch_ioloop_to(struct dns_lookup *lookup,
+				 struct ioloop *ioloop)
+{
+	/* dns client ioloop switch switches all lookups too */
+	if (lookup->client->deinit_client_at_free)
+		dns_client_switch_ioloop_to(lookup->client, ioloop);
+	else
+		dns_lookup_switch_ioloop_real(lookup, ioloop);
 }
 
 void dns_lookup_switch_ioloop(struct dns_lookup *lookup)
 {
-	/* dns client ioloop switch switches all lookups too */
-	if (lookup->client->deinit_client_at_free)
-		dns_client_switch_ioloop(lookup->client);
-	else
-		dns_lookup_switch_ioloop_real(lookup);
+	dns_lookup_switch_ioloop_to(lookup, current_ioloop);
 }
 
 static void dns_client_connected(struct connection *conn, bool success)
@@ -469,9 +475,9 @@ int dns_client_init(const struct dns_client_parameters *params,
 	client->timeout_msecs = set->timeout_msecs;
 	client->idle_timeout_msecs = params == NULL ? 0 : params->idle_timeout_msecs;
 	client->clist = connection_list_init(&dns_client_set, &dns_client_vfuncs);
-	client->ioloop = current_ioloop;
 	client->path = i_strdup(set->dns_client_socket_path);
 	client->conn.event_parent = event_parent;
+	client->conn.ioloop = (params != NULL ? params->ioloop : NULL);
 	connection_init_client_unix(client->clist, &client->conn, client->path);
 	event_add_category(client->conn.event, &event_category_dns);
 	if (params != NULL && params->cache_ttl_secs > 0) {
@@ -506,8 +512,6 @@ int dns_client_connect(struct dns_client *client, const char **error_r)
 {
 	if (client->connected)
 		return 0;
-	if (client->ioloop != NULL)
-		connection_switch_ioloop_to(&client->conn, client->ioloop);
 	int ret = connection_client_connect(&client->conn);
 	if (ret < 0)
 		*error_r = t_strdup_printf("Failed to connect to %s: %m",
@@ -560,8 +564,9 @@ dns_client_lookup_common(struct dns_client *client,
 	if (dns_client_cache_lookup(client->cache, lookup->cache_key, pool,
 				    &lookup->result)) {
 		lookup->cached = TRUE;
-		lookup->to = timeout_add_short(0, dns_lookup_callback_cached,
-					       lookup);
+		lookup->to = timeout_add_short_to(client->conn.ioloop, 0,
+						  dns_lookup_callback_cached,
+						  lookup);
 		return 0;
 	}
 
@@ -579,7 +584,7 @@ dns_client_lookup_common(struct dns_client *client,
 	}
 
 	if (client->timeout_msecs != 0) {
-		lookup->to = timeout_add_to(client->ioloop,
+		lookup->to = timeout_add_to(client->conn.ioloop,
 					    client->timeout_msecs,
 					    dns_lookup_timeout, lookup);
 	}
@@ -641,16 +646,21 @@ int dns_client_lookup_ptr(struct dns_client *client, const struct ip_addr *ip,
 	return ret;
 }
 
-void dns_client_switch_ioloop(struct dns_client *client)
+void dns_client_switch_ioloop_to(struct dns_client *client,
+				 struct ioloop *ioloop)
 {
 	struct dns_lookup *lookup;
 
-	connection_switch_ioloop(&client->conn);
+	connection_switch_ioloop_to(&client->conn, ioloop);
 	client->to_idle = io_loop_move_timeout(&client->to_idle);
-	client->ioloop = current_ioloop;
 
 	for (lookup = client->head; lookup != NULL; lookup = lookup->next)
-		dns_lookup_switch_ioloop_real(lookup);
+		dns_lookup_switch_ioloop_real(lookup, ioloop);
+}
+
+void dns_client_switch_ioloop(struct dns_client *client)
+{
+	dns_client_switch_ioloop_to(client, current_ioloop);
 }
 
 bool dns_client_has_pending_queries(struct dns_client *client)
