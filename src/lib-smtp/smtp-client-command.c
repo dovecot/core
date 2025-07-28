@@ -318,7 +318,8 @@ void smtp_client_command_fail_reply(struct smtp_client_command **_cmd,
 		cmd->delayed_failure = smtp_reply_clone(cmd->pool, reply);
 		cmd->delaying_failure = TRUE;
 		if (conn->to_cmd_fail == NULL) {
-			conn->to_cmd_fail = timeout_add_short(
+			conn->to_cmd_fail = timeout_add_short_to(
+				conn->conn.ioloop,
 				0, smtp_client_commands_fail_delayed, conn);
 		}
 		DLLIST_PREPEND(&conn->cmd_fail_list, cmd);
@@ -841,7 +842,8 @@ void smtp_client_command_submit_after(struct smtp_client_command *cmd,
 			       &conn->cmd_send_queue_tail, cmd);
 		conn->cmd_send_queue_count++;
 		if (conn->to_commands == NULL) {
-			conn->to_commands = timeout_add_short(
+			conn->to_commands = timeout_add_short_to(
+				conn->conn.ioloop,
 				0, smtp_client_command_disconnected, conn);
 		}
 		e_debug(e->event(), "Submitted, but disconnected");

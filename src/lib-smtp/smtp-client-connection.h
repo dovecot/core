@@ -74,6 +74,8 @@ void smtp_client_connection_connect(
 	smtp_client_command_callback_t login_callback, void *login_context);
 void smtp_client_connection_disconnect(struct smtp_client_connection *conn);
 
+void smtp_client_connection_switch_ioloop_to(
+	struct smtp_client_connection *conn, struct ioloop *ioloop);
 void smtp_client_connection_switch_ioloop(struct smtp_client_connection *conn);
 
 enum smtp_capability

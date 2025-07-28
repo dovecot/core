@@ -323,8 +323,9 @@ void smtp_client_connection_start_cmd_timeout(
 
 	e_debug(conn->event, "Start timeout");
 	if (conn->to_commands == NULL) {
-		conn->to_commands = timeout_add(
-			msecs, smtp_client_command_timeout, conn);
+		conn->to_commands = timeout_add_to(
+			conn->conn.ioloop, msecs,
+			smtp_client_command_timeout, conn);
 	}
 }
 
@@ -397,8 +398,9 @@ void smtp_client_connection_fail(struct smtp_client_connection *conn,
 
 	if (status == SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED &&
 	    !smtp_client_connection_last_ip(conn)) {
-		conn->to_connect = timeout_add_short(
-			0, smtp_client_connection_connect_next_ip, conn);
+		conn->to_connect = timeout_add_to(
+			conn->conn.ioloop, 0,
+			smtp_client_connection_connect_next_ip, conn);
 		return;
 	}
 
@@ -1814,8 +1816,9 @@ smtp_client_connection_do_connect(struct smtp_client_connection *conn)
 	msecs = conn->set.connect_timeout_msecs;
 	i_assert(conn->to_connect == NULL);
 	if (msecs > 0) {
-		conn->to_connect = timeout_add(
-			msecs, smtp_client_connection_connect_timeout, conn);
+		conn->to_connect = timeout_add_to(
+			conn->conn.ioloop, msecs,
+			smtp_client_connection_connect_timeout, conn);
 	}
 }
 
@@ -1889,8 +1892,9 @@ smtp_client_connection_dns_callback(const struct dns_lookup_result *result,
 		e_error(conn->event, "dns_lookup(%s) failed: %s",
 			conn->host, result->error);
 		timeout_remove(&conn->to_connect);
-		conn->to_connect = timeout_add_short(
-			0, smtp_client_connection_delayed_host_lookup_failure,
+		conn->to_connect = timeout_add_to(
+			conn->conn.ioloop, 0,
+			smtp_client_connection_delayed_host_lookup_failure,
 			conn);
 		return;
 	}
@@ -1922,10 +1926,16 @@ smtp_client_connection_lookup_ip(struct smtp_client_connection *conn)
 			conn->event,
 			smtp_client_connection_dns_callback, conn,
 			&conn->dns_lookup);
+		dns_client_switch_ioloop_to(conn->set.dns_client,
+					    conn->conn.ioloop);
 	} else {
 		e_debug(conn->event, "Performing asynchronous DNS lookup");
 
-		(void)dns_lookup(conn->host, NULL, conn->event,
+		const struct dns_client_parameters dns_params = {
+			.ioloop = conn->conn.ioloop,
+		};
+
+		(void)dns_lookup(conn->host, &dns_params, conn->event,
 				 smtp_client_connection_dns_callback, conn,
 				 &conn->dns_lookup);
 	}
@@ -1966,8 +1976,9 @@ smtp_client_connection_connect_more(struct smtp_client_connection *conn)
 
 	/* Schedule immediate login callback */
 	i_assert(conn->to_connect == NULL);
-	conn->to_connect = timeout_add(
-		0, smtp_client_connection_already_connected, conn);
+	conn->to_connect = timeout_add_short_to(
+		conn->conn.ioloop, 0,
+		smtp_client_connection_already_connected, conn);
 }
 
 void smtp_client_connection_connect(
@@ -2017,13 +2028,15 @@ void smtp_client_connection_connect(
 
 		/* always work asynchronously */
 		timeout_remove(&conn->to_connect);
-		conn->to_connect = timeout_add(
-			0, smtp_client_connection_connect_next_ip, conn);
+		conn->to_connect = timeout_add_short_to(
+			conn->conn.ioloop, 0,
+			smtp_client_connection_connect_next_ip, conn);
 	} else {
 		/* always work asynchronously */
 		timeout_remove(&conn->to_connect);
-		conn->to_connect = timeout_add(
-			0, smtp_client_connection_connect_unix, conn);
+		conn->to_connect = timeout_add_short_to(
+			conn->conn.ioloop, 0,
+			smtp_client_connection_connect_unix, conn);
 	}
 }
 
@@ -2421,27 +2434,43 @@ void smtp_client_connection_update_proxy_data(
 	smtp_proxy_data_merge(conn->pool, &conn->set.proxy_data, proxy_data);
 }
 
-void smtp_client_connection_switch_ioloop(struct smtp_client_connection *conn)
+void smtp_client_connection_switch_ioloop_to(
+	struct smtp_client_connection *conn, struct ioloop *ioloop)
 {
 	struct smtp_client_transaction *trans;
 
-	if (conn->io_cmd_payload != NULL)
-		conn->io_cmd_payload = io_loop_move_io(&conn->io_cmd_payload);
-	if (conn->to_connect != NULL)
-		conn->to_connect = io_loop_move_timeout(&conn->to_connect);
-	if (conn->to_trans != NULL)
-		conn->to_trans = io_loop_move_timeout(&conn->to_trans);
-	if (conn->to_commands != NULL)
-		conn->to_commands = io_loop_move_timeout(&conn->to_commands);
-	if (conn->to_cmd_fail != NULL)
-		conn->to_cmd_fail = io_loop_move_timeout(&conn->to_cmd_fail);
-	connection_switch_ioloop(&conn->conn);
+	connection_switch_ioloop_to(&conn->conn, ioloop);
+	if (conn->io_cmd_payload != NULL) {
+		conn->io_cmd_payload =
+			io_loop_move_io_to(ioloop, &conn->io_cmd_payload);
+	}
+	if (conn->to_connect != NULL) {
+		conn->to_connect =
+			io_loop_move_timeout_to(ioloop, &conn->to_connect);
+	}
+	if (conn->to_trans != NULL) {
+		conn->to_trans =
+			io_loop_move_timeout_to(ioloop, &conn->to_trans);
+	}
+	if (conn->to_commands != NULL) {
+		conn->to_commands =
+			io_loop_move_timeout_to(ioloop, &conn->to_commands);
+	}
+	if (conn->to_cmd_fail != NULL) {
+		conn->to_cmd_fail =
+			io_loop_move_timeout_to(ioloop, &conn->to_cmd_fail);
+	}
 
 	trans = conn->transactions_head;
 	while (trans != NULL) {
 		smtp_client_transaction_switch_ioloop(trans);
 		trans = trans->next;
 	}
+}
+
+void smtp_client_connection_switch_ioloop(struct smtp_client_connection *conn)
+{
+	smtp_client_connection_switch_ioloop_to(conn, current_ioloop);
 }
 
 static void
@@ -2501,8 +2530,9 @@ smtp_client_connection_start_transaction(struct smtp_client_connection *conn)
 
 	smtp_client_connection_set_state(
 		conn, SMTP_CLIENT_CONNECTION_STATE_TRANSACTION);
-	conn->to_trans = timeout_add_short(
-		0, smtp_client_connection_do_start_transaction, conn);
+	conn->to_trans = timeout_add_short_to(
+		conn->conn.ioloop, 0,
+		smtp_client_connection_do_start_transaction, conn);
 }
 
 void smtp_client_connection_add_transaction(

@@ -853,6 +853,8 @@ smtp_client_transaction_timeout(struct smtp_client_transaction *trans)
 void smtp_client_transaction_set_timeout(struct smtp_client_transaction *trans,
 					 unsigned int timeout_msecs)
 {
+	struct ioloop *ioloop = trans->conn->conn.ioloop;
+
 	i_assert(trans->state < SMTP_CLIENT_TRANSACTION_STATE_FINISHED);
 
 	trans->finish_timeout_msecs = timeout_msecs;
@@ -860,9 +862,9 @@ void smtp_client_transaction_set_timeout(struct smtp_client_transaction *trans,
 	if (trans->data_input != NULL && timeout_msecs > 0) {
 		/* Adjust timeout if it is already started */
 		timeout_remove(&trans->to_finish);
-		trans->to_finish = timeout_add(trans->finish_timeout_msecs,
-					       smtp_client_transaction_timeout,
-					       trans);
+		trans->to_finish = timeout_add_to(
+			ioloop, trans->finish_timeout_msecs,
+			smtp_client_transaction_timeout, trans);
 	}
 }
 
@@ -1249,6 +1251,8 @@ void smtp_client_transaction_send(
 	struct smtp_client_transaction *trans, struct istream *data_input,
 	smtp_client_command_callback_t *data_callback, void *data_context)
 {
+	struct ioloop *ioloop = trans->conn->conn.ioloop;
+
 	i_assert(trans->state < SMTP_CLIENT_TRANSACTION_STATE_FINISHED);
 	i_assert(!trans->data_provided);
 	i_assert(!trans->reset);
@@ -1268,9 +1272,9 @@ void smtp_client_transaction_send(
 
 	if (trans->finish_timeout_msecs > 0) {
 		i_assert(trans->to_finish == NULL);
-		trans->to_finish = timeout_add(trans->finish_timeout_msecs,
-					       smtp_client_transaction_timeout,
-					       trans);
+		trans->to_finish = timeout_add_to(
+			ioloop, trans->finish_timeout_msecs,
+			smtp_client_transaction_timeout, trans);
 	}
 
 	smtp_client_transaction_submit(trans, TRUE);
@@ -1335,6 +1339,8 @@ void smtp_client_transaction_reset(
 	struct smtp_client_transaction *trans,
 	smtp_client_command_callback_t *reset_callback, void *reset_context)
 {
+	struct ioloop *ioloop = trans->conn->conn.ioloop;
+
 	i_assert(trans->state < SMTP_CLIENT_TRANSACTION_STATE_FINISHED);
 	i_assert(!trans->data_provided);
 	i_assert(!trans->reset);
@@ -1348,9 +1354,9 @@ void smtp_client_transaction_reset(
 
 	if (trans->finish_timeout_msecs > 0) {
 		i_assert(trans->to_finish == NULL);
-		trans->to_finish = timeout_add(trans->finish_timeout_msecs,
-					       smtp_client_transaction_timeout,
-					       trans);
+		trans->to_finish = timeout_add_to(
+			ioloop, trans->finish_timeout_msecs,
+			smtp_client_transaction_timeout, trans);
 	}
 
 	smtp_client_transaction_submit(trans, TRUE);
@@ -1465,6 +1471,8 @@ static void
 smtp_client_transaction_submit(struct smtp_client_transaction *trans,
 			       bool start)
 {
+	struct ioloop *ioloop = trans->conn->conn.ioloop;
+
 	if (trans->failure == NULL && !start &&
 	    trans->state <= SMTP_CLIENT_TRANSACTION_STATE_PENDING) {
 		/* Cannot submit commands at this time */
@@ -1489,8 +1497,8 @@ smtp_client_transaction_submit(struct smtp_client_transaction *trans,
 		return;
 	}
 
-	trans->to_send = timeout_add_short(0,
-		smtp_client_transaction_submit_more, trans);
+	trans->to_send = timeout_add_short_to(
+		ioloop, 0, smtp_client_transaction_submit_more, trans);
 }
 
 static void
@@ -1646,8 +1654,14 @@ smtp_client_transaction_get_state_destription(
 void smtp_client_transaction_switch_ioloop(
 	struct smtp_client_transaction *trans)
 {
-	if (trans->to_send != NULL)
-		trans->to_send = io_loop_move_timeout(&trans->to_send);
-	if (trans->to_finish != NULL)
-		trans->to_finish = io_loop_move_timeout(&trans->to_finish);
+	struct ioloop *ioloop = trans->conn->conn.ioloop;
+
+	if (trans->to_send != NULL) {
+		trans->to_send =
+			io_loop_move_timeout_to(ioloop, &trans->to_send);
+	}
+	if (trans->to_finish != NULL) {
+		trans->to_finish =
+			io_loop_move_timeout_to(ioloop, &trans->to_finish);
+	}
 }
