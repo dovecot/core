@@ -538,6 +538,8 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 				  str_hash, strcmp);
 	}
 	if (!fs_list_get_valid_patterns(ctx, patterns)) {
+		/* Initialize roots as empty array */
+		p_array_init(&ctx->roots, ctx->ctx.pool, 1);
 		/* we've only invalid patterns (or INBOX). create a glob
 		   anyway to avoid any crashes due to glob being accessed
 		   elsewhere */
