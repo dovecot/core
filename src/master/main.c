@@ -801,8 +801,19 @@ int main(int argc, char *argv[])
 
 #ifdef DEBUG
 	if (getenv("GDB") == NULL) {
-		fd_debug_verify_leaks(3, MASTER_CONFIG_FD - 1);
-		fd_debug_verify_leaks(MASTER_CONFIG_FD + 1, 1024);
+		const char *config_fd_env = getenv(DOVECOT_CONFIG_FD_ENV);
+		if (config_fd_env != NULL) {
+			int config_fd;
+			if (str_to_int(config_fd_env, &config_fd) < 0 ||
+				       config_fd <= 3 || config_fd >= 1024) {
+				i_fatal("'%s' is not valid number (in environment variable %s)",
+					config_fd_env, DOVECOT_CONFIG_FD_ENV);
+			}
+			fd_debug_verify_leaks(3, config_fd - 1);
+			fd_debug_verify_leaks(config_fd + 1, 1024);
+		} else {
+			fd_debug_verify_leaks(3, 1024);
+		}
 	}
 #endif
 	/* drop -- prefix from all --args. ugly, but the only way that it
