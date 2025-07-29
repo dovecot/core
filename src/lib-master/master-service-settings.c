@@ -337,6 +337,8 @@ static int master_service_binary_config_cache_get(const char *cache_dir,
 	int fd = open(cache_path, O_RDONLY);
 	if (fd == -1 && errno != ENOENT)
 		i_error("Binary config cache: open(%s) failed: %m", cache_path);
+	else if (fd != -1)
+		fd_close_on_exec(fd, TRUE);
 	return fd;
 }
 
