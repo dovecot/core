@@ -179,8 +179,8 @@ config_parser_add_service_default_struct(struct config_parser_context *ctx,
 			continue;
 		}
 
-		if (config_apply_line(ctx, info->defines[i].key,
-				      str_c(value_str), NULL) < 0) {
+		if (config_apply_key_value(ctx, info->defines[i].key,
+					   str_c(value_str), NULL) < 0) {
 			i_panic("Failed to add default setting %s=%s for service %s: %s",
 				info->defines[i].key, str_c(value_str),
 				default_set->name, ctx->error);
@@ -226,7 +226,7 @@ config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
 		}
 
 		config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_DEFAULTS);
-		if (config_apply_line(ctx, key, defaults[i].value, NULL) < 0) {
+		if (config_apply_key_value(ctx, key, defaults[i].value, NULL) < 0) {
 			i_panic("Failed to add default setting %s=%s for service %s: %s",
 				defaults[i].key, defaults[i].value,
 				service_name, ctx->error);
@@ -269,8 +269,8 @@ config_parser_add_info_defaults_arr(struct config_parser_context *ctx,
 		return;
 
 	for (unsigned int i = 0; defaults[i].key != NULL; i++) {
-		if (config_apply_line(ctx, defaults[i].key,
-				      defaults[i].value, NULL) < 0) {
+		if (config_apply_key_value(ctx, defaults[i].key,
+					   defaults[i].value, NULL) < 0) {
 			i_panic("Failed to add default setting %s=%s for struct %s: %s",
 				defaults[i].key, defaults[i].value,
 				info->name, ctx->error);
@@ -1099,9 +1099,9 @@ again:
 	return ret < 0 ? -1 : 0;
 }
 
-int config_apply_line(struct config_parser_context *ctx,
-		      const char *key_with_path,
-		      const char *value, const char **full_key_r)
+int config_apply_key_value(struct config_parser_context *ctx,
+			   const char *key_with_path,
+			   const char *value, const char **full_key_r)
 {
 	bool root_setting;
 	return config_apply_line_full(ctx, NULL, key_with_path,
@@ -1413,8 +1413,8 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			const char *escaped_value =
 				settings_section_escape(value);
 			i_assert(filter_info != NULL);
-			if (config_apply_line(ctx, filter_def->key,
-					      escaped_value, NULL) < 0) {
+			if (config_apply_key_value(ctx, filter_def->key,
+						   escaped_value, NULL) < 0) {
 				ctx->error = p_strdup_printf(ctx->pool,
 					"Failed to set %s=%s for struct %s: %s",
 					filter_def->key, escaped_value,
@@ -2308,8 +2308,8 @@ config_parse_finish_service_defaults(struct config_parser_context *ctx)
 					service_defaults[i + 1], ctx->error);
 			}
 			ctx->cur_section->filter_parser = defaults_parser;
-			if (config_apply_line(ctx, service_defaults[i],
-					      str_c(value), NULL) < 0) {
+			if (config_apply_key_value(ctx, service_defaults[i],
+						   str_c(value), NULL) < 0) {
 				i_panic("Failed to set default %s=%s: %s",
 					service_defaults[i],
 					service_defaults[i + 1], ctx->error);
