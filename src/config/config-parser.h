@@ -56,7 +56,8 @@ struct config_module_parser {
 		struct {
 			ARRAY_TYPE(const_string) *values;
 			bool stop_list;
-		} array;
+		} list;
+		ARRAY_TYPE(const_string) *filter_array;
 	} *settings; /* [set_count] */
 	uint8_t *change_counters; /* [set_count] */
 	/* Set if CONFIG_PARSE_FLAG_DELAY_ERRORS is enabled. The error won't

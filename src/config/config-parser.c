@@ -527,9 +527,9 @@ config_is_filter_name(struct config_parser_context *ctx, const char *key,
 }
 
 static void
-config_array_add_defaults(struct config_parser_context *ctx,
-			  struct config_parser_key *config_key,
-			  ARRAY_TYPE(const_string) *dest)
+config_list_add_defaults(struct config_parser_context *ctx,
+			 struct config_parser_key *config_key,
+			 ARRAY_TYPE(const_string) *dest)
 {
 	struct config_filter filter = ctx->cur_section->filter_parser->filter;
 	if (filter.default_settings)
@@ -547,7 +547,7 @@ config_array_add_defaults(struct config_parser_context *ctx,
 		return;
 
 	const ARRAY_TYPE(const_string) *src =
-		ldef->settings[config_key->define_idx].array.values;
+		ldef->settings[config_key->define_idx].list.values;
 	if (src != NULL && array_is_created(src))
 		array_append_array(dest, src);
 }
@@ -584,7 +584,7 @@ static int config_apply_strlist(struct config_parser_context *ctx,
 	if (*strlistp == NULL) {
 		*strlistp = p_new(ctx->pool, ARRAY_TYPE(const_string), 1);
 		p_array_init(*strlistp, ctx->pool, 5);
-		config_array_add_defaults(ctx, config_key, *strlistp);
+		config_list_add_defaults(ctx, config_key, *strlistp);
 	}
 
 	value = p_strdup(ctx->pool, value);
@@ -754,14 +754,14 @@ config_apply_exact_line(struct config_parser_context *ctx,
 		switch (l->info->defines[config_key->define_idx].type) {
 		case SET_STRLIST:
 			if (config_apply_strlist(ctx, key, value, config_key,
-					&l->settings[config_key->define_idx].array.values,
-					&l->settings[config_key->define_idx].array.stop_list) < 0)
+					&l->settings[config_key->define_idx].list.values,
+					&l->settings[config_key->define_idx].list.stop_list) < 0)
 				return -1;
 			break;
 		case SET_BOOLLIST:
 			if (config_apply_boollist(ctx, key, value, config_key,
-					&l->settings[config_key->define_idx].array.values,
-					&l->settings[config_key->define_idx].array.stop_list) < 0)
+					&l->settings[config_key->define_idx].list.values,
+					&l->settings[config_key->define_idx].list.stop_list) < 0)
 				return -1;
 			break;
 		case SET_FILTER_ARRAY:
@@ -773,7 +773,7 @@ config_apply_exact_line(struct config_parser_context *ctx,
 				return -1;
 			}
 			if (config_apply_filter_array(ctx, line, value,
-					&l->settings[config_key->define_idx].array.values) < 0)
+					&l->settings[config_key->define_idx].filter_array) < 0)
 				return -1;
 			break;
 		case SET_FILE: {
@@ -1484,11 +1484,11 @@ void config_fill_set_parser(struct setting_parser_context *parser,
 		switch (p->info->defines[i].type) {
 		case SET_STRLIST:
 		case SET_BOOLLIST: {
-			if (p->settings[i].array.values == NULL)
+			if (p->settings[i].list.values == NULL)
 				break;
 			unsigned int j, count;
 			const char *const *strings =
-				array_get(p->settings[i].array.values, &count);
+				array_get(p->settings[i].list.values, &count);
 			for (j = 0; j < count; j += 2) T_BEGIN {
 				const char *key = t_strdup_printf("%s/%s",
 					p->info->defines[i].key,
@@ -1500,7 +1500,7 @@ void config_fill_set_parser(struct setting_parser_context *parser,
 		}
 		case SET_FILTER_ARRAY: {
 			const char *name;
-			array_foreach_elem(p->settings[i].array.values, name) T_BEGIN {
+			array_foreach_elem(p->settings[i].filter_array, name) T_BEGIN {
 				(void)settings_parse_keyidx_value(parser, i,
 					p->info->defines[i].key,
 					settings_section_escape(name));
@@ -3326,9 +3326,9 @@ config_parsed_get_setting_full(const struct config_parsed *config,
 	if (strcmp(key, "import_environment") == 0) {
 		string_t *keyvals = t_str_new(64);
 		const ARRAY_TYPE(const_string) *strlist_set =
-			l[info_idx].settings[key_idx].array.values;
+			l[info_idx].settings[key_idx].list.values;
 		const ARRAY_TYPE(const_string) *strlist_defaults =
-			ldef[info_idx].settings[key_idx].array.values;
+			ldef[info_idx].settings[key_idx].list.values;
 		config_parsed_strlist_append(keyvals, strlist_set, NULL);
 		config_parsed_strlist_append(keyvals, strlist_defaults, strlist_set);
 		return str_c(keyvals);

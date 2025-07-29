@@ -302,10 +302,10 @@ settings_export(struct config_export_context *ctx,
 		case SET_STRLIST:
 		case SET_BOOLLIST: {
 			const ARRAY_TYPE(const_string) *val =
-				module_parser->settings[define_idx].array.values;
+				module_parser->settings[define_idx].list.values;
 			const char *const *strings;
 
-			value_stop_list = module_parser->settings[define_idx].array.stop_list;
+			value_stop_list = module_parser->settings[define_idx].list.stop_list;
 			if (hash_table_is_created(ctx->keys) &&
 			    hash_table_lookup(ctx->keys, def->key) != NULL) {
 				/* already added all of these */
@@ -357,7 +357,7 @@ settings_export(struct config_export_context *ctx,
 		}
 		case SET_FILTER_ARRAY: {
 			const ARRAY_TYPE(const_string) *val =
-				module_parser->settings[define_idx].array.values;
+				module_parser->settings[define_idx].filter_array;
 			const char *name;
 
 			if (val == NULL)
