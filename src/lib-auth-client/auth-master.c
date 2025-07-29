@@ -620,9 +620,7 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 		set_name("auth_client_passdb_lookup_started");
 	e_debug(e->event(), "Started passdb lookup");
 
-	conn->event = lookup.event;
 	(void)auth_master_run_cmd(conn, str_c(str));
-	conn->event = conn->event_parent;
 
 	*fields_r = lookup.fields != NULL ? lookup.fields :
 		p_new(pool, const char *, 1);
@@ -698,9 +696,7 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 		set_name("auth_client_userdb_lookup_started");
 	e_debug(e->event(), "Started userdb lookup");
 
-	conn->event = lookup.event;
 	(void)auth_master_run_cmd(conn, str_c(str));
-	conn->event = conn->event_parent;
 
 	if (lookup.return_value <= 0 || lookup.fields[0] == NULL) {
 		*username_r = NULL;
@@ -849,7 +845,6 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 		set_name("auth_client_userdb_list_started");
 	e_debug(e->event(), "Started listing users (user_mask=%s)", user_mask);
 
-	conn->event = ctx->event;
 	if (auth_master_run_cmd_pre(conn, str_c(str)) < 0)
 		ctx->failed = TRUE;
 	if (conn->prev_ioloop != NULL)
@@ -898,26 +893,23 @@ auth_master_user_do_list_next(struct auth_master_user_list_ctx *ctx)
 
 const char *auth_master_user_list_next(struct auth_master_user_list_ctx *ctx)
 {
-	struct auth_master_connection *conn = ctx->conn;
 	const char *username;
 
 	username = auth_master_user_do_list_next(ctx);
 	if (username == NULL)
 		return NULL;
 
-	e_debug(conn->event, "Returned username: %s", username);
+	e_debug(ctx->event, "Returned username: %s", username);
 	return username;
 }
 
 int auth_master_user_list_deinit(struct auth_master_user_list_ctx **_ctx)
 {
 	struct auth_master_user_list_ctx *ctx = *_ctx;
-	struct auth_master_connection *conn = ctx->conn;
 	int ret = ctx->failed ? -1 : 0;
 
 	*_ctx = NULL;
 	auth_master_run_cmd_post(ctx->conn);
-	conn->event = conn->event_parent;
 
 	if (ret < 0) {
 		struct event_passthrough *e =
@@ -993,9 +985,7 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 
 	e_debug(ctx.event, "Started cache flush");
 
-	conn->event = ctx.event;
 	(void)auth_master_run_cmd(conn, str_c(str));
-	conn->event = conn->event_parent;
 
 	if (ctx.failed)
 		e_debug(ctx.event, "Cache flush failed");
