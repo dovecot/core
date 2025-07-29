@@ -78,6 +78,7 @@ config_add_new_parser(struct config_parser_context *ctx,
 		      const struct config_filter *filter,
 		      struct config_filter_parser *parent_filter_parser);
 static int config_write_keyvariable(struct config_parser_context *ctx,
+				    struct config_filter_parser *filter_parser,
 				    const char *key, const char *value,
 				    string_t *str);
 static int
@@ -2339,9 +2340,9 @@ config_parse_finish_service_defaults(struct config_parser_context *ctx)
 		    module_parser->change_counters[config_key->define_idx] == 0) {
 			bool orig_expand_values = ctx->expand_values;
 			str_truncate(value, 0);
-			ctx->cur_section->filter_parser = root_parser;
 			ctx->expand_values = TRUE;
-			if (config_write_keyvariable(ctx, service_defaults[i],
+			if (config_write_keyvariable(ctx, root_parser,
+						     service_defaults[i],
 						     service_defaults[i + 1],
 						     value) < 0) {
 				i_panic("Failed to expand %s=%s: %s",
@@ -2458,6 +2459,7 @@ config_parse_finish(struct config_parser_context *ctx,
 }
 
 static int config_write_keyvariable(struct config_parser_context *ctx,
+				    struct config_filter_parser *filter_parser,
 				    const char *key, const char *value,
 				    string_t *str)
 {
@@ -2500,8 +2502,8 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 							 set_name, NULL);
 				return -1;
 			}
-			if (!config_get_value(ctx->cur_section->filter_parser,
-					      config_key, set_name, str)) {
+			if (!config_get_value(filter_parser, config_key,
+					      set_name, str)) {
 				ctx->error = p_strdup_printf(ctx->pool,
 					"Failed to expand $SET:%s: "
 					"Setting type can't be expanded to string",
@@ -2557,7 +2559,8 @@ static int config_write_value(struct config_parser_context *ctx,
 		}
 		break;
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
-		if (config_write_keyvariable(ctx, line->key, line->value,
+		if (config_write_keyvariable(ctx, ctx->cur_section->filter_parser,
+					     line->key, line->value,
 					     ctx->value) < 0)
 			return -1;
 		break;
