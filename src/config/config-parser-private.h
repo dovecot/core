@@ -122,6 +122,12 @@ extern int (*hook_config_parser_end)(struct config_parser_context *ctx,
 				     struct config_parsed *new_config,
 				     struct event *event, const char **error_r);
 
+static inline const char *
+set_str_expanded(const union config_module_parser_setting *value)
+{
+       return value->str;
+}
+
 /* Apply a key-value setting. $VARIABLE expansion is not done for the value. */
 int config_apply_key_value(struct config_parser_context *ctx, const char *key,
 			   const char *value, const char **full_key_r) ATTR_NULL(4);

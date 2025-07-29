@@ -414,12 +414,12 @@ config_filter_get_value(struct config_filter_parser *filter_parser,
 
 	if (l->change_counters != NULL &&
 	    l->change_counters[config_key->define_idx] != 0) {
-		str_append(str, l->settings[config_key->define_idx].str);
+		str_append(str, set_str_expanded(&l->settings[config_key->define_idx]));
 		return TRUE;
 	}
 	if (l2 != NULL && l2->change_counters != NULL &&
 	    l2->change_counters[config_key->define_idx] != 0) {
-		str_append(str, l2->settings[config_key->define_idx].str);
+		str_append(str, set_str_expanded(&l2->settings[config_key->define_idx]));
 		return TRUE;
 	}
 
@@ -1631,10 +1631,10 @@ void config_fill_set_parser(struct setting_parser_context *parser,
 			break;
 		}
 		default: {
-			const char *value = p->settings[i].str;
+			const char *value = set_str_expanded(&p->settings[i]);
 			if (p->info->defines[i].type != SET_STR_NOVARS &&
 			    p->info->defines[i].type != SET_FILE &&
-			    !setting_value_can_check(p->settings[i].str,
+			    !setting_value_can_check(set_str_expanded(&p->settings[i]),
 						     expand_values)) {
 				/* We don't know what the variables would
 				   expand to. */
@@ -1743,7 +1743,7 @@ get_str_setting(struct config_filter_parser *parser, const char *key,
 			i_assert(module_parser->info->defines[key_idx].type != SET_STRLIST &&
 				 module_parser->info->defines[key_idx].type != SET_BOOLLIST &&
 				 module_parser->info->defines[key_idx].type != SET_FILTER_ARRAY);
-			return module_parser->settings[key_idx].str;
+			return set_str_expanded(&module_parser->settings[key_idx]);
 		}
 	}
 	return default_value;
@@ -3427,9 +3427,9 @@ config_parsed_get_setting_full(const struct config_parsed *config,
 	i_assert(def->type != SET_STRLIST && def->type != SET_BOOLLIST &&
 		 def->type != SET_FILTER_ARRAY);
 	if (l[info_idx].change_counters[key_idx] != 0)
-		return l[info_idx].settings[key_idx].str;
+		return set_str_expanded(&l[info_idx].settings[key_idx]);
 	if (ldef[info_idx].change_counters[key_idx] != 0)
-		return ldef[info_idx].settings[key_idx].str;
+		return set_str_expanded(&ldef[info_idx].settings[key_idx]);
 
 	const void *value = CONST_PTR_OFFSET(l[info_idx].info->defaults, def->offset);
 	string_t *str = t_str_new(64);

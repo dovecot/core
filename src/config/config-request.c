@@ -273,7 +273,7 @@ settings_export(struct config_export_context *ctx,
 
 			if (!dump_default &&
 			    strcmp(get_default_value(old_default, info, def),
-				   module_parser->settings[define_idx].str) == 0) {
+				   set_str_expanded(&module_parser->settings[define_idx])) == 0) {
 				/* Explicitly set setting value wasn't
 				   actually changed from its default. */
 				break;
@@ -282,16 +282,16 @@ settings_export(struct config_export_context *ctx,
 					CONFIG_PARSER_CHANGE_DEFAULTS) {
 				/* explicitly set */
 				str_append(ctx->value,
-					module_parser->settings[define_idx].str);
+					   set_str_expanded(&module_parser->settings[define_idx]));
 			} else if (module_parser->change_counters[define_idx] ==
 				   CONFIG_PARSER_CHANGE_DEFAULTS && !default_changed) {
 				/* default not changed by old version checks */
 				str_append(ctx->value,
-					module_parser->settings[define_idx].str);
+					   set_str_expanded(&module_parser->settings[define_idx]));
 			} else if (module_parser->change_counters[define_idx] ==
 				   CONFIG_PARSER_CHANGE_GROUP) {
 				str_append(ctx->value,
-					module_parser->settings[define_idx].str);
+					   set_str_expanded(&module_parser->settings[define_idx]));
 			} else {
 				str_append(ctx->value,
 					get_default_value(old_default, info, def));
