@@ -80,11 +80,18 @@ config_add_new_parser(struct config_parser_context *ctx,
 static int config_write_keyvariable(struct config_parser_context *ctx,
 				    struct config_filter_parser *filter_parser,
 				    const char *key, const char *value,
-				    string_t *str);
+				    string_t *prefixed_str,
+				    bool delay_set_expand);
 static int
 config_apply_exact_line(struct config_parser_context *ctx,
 			const struct config_line *line,
 			const char *key, const char *prefixed_value);
+static int
+config_apply_line_full(struct config_parser_context *ctx,
+		       const struct config_line *line,
+		       const char *key_with_path,
+		       const char *prefixed_value, const char **full_key_r,
+		       bool autoprefix, bool *root_setting_r);
 
 static void
 config_module_parser_init(struct config_parser_context *ctx,
@@ -156,6 +163,24 @@ config_parser_add_filter_array(struct config_parser_context *ctx,
 	return section;
 }
 
+static int
+config_apply_default(struct config_parser_context *ctx,
+		     const char *key_with_path, const char *value)
+{
+	/* This check is only for built-in defaults where this is good
+	   enough, even if not perfect. */
+	bool have_str_vars = strstr(value, "$SET:") != NULL;
+	const char *prefixed_value =
+		t_strdup_printf("%c%s", !have_str_vars ?
+				CONFIG_VALUE_PREFIX_EXPANDED :
+				CONFIG_VALUE_PREFIX_SET_UNEXPANDED, value);
+
+	bool root_setting;
+	return config_apply_line_full(ctx, NULL, key_with_path,
+				      prefixed_value, NULL,
+				      TRUE, &root_setting);
+}
+
 static void
 config_parser_add_service_default_struct(struct config_parser_context *ctx,
 					 unsigned int service_info_idx,
@@ -182,10 +207,10 @@ config_parser_add_service_default_struct(struct config_parser_context *ctx,
 			continue;
 		}
 
-		if (config_apply_key_value(ctx, info->defines[i].key,
-					   str_c(value_str), NULL) < 0) {
+		if (config_apply_default(ctx, info->defines[i].key,
+					 str_c(value_str)) < 0) {
 			i_panic("Failed to add default setting %s=%s for service %s: %s",
-				info->defines[i].key, str_c(value_str),
+				info->defines[i].key, str_c(value_str)  + 1,
 				default_set->name, ctx->error);
 		}
 	}
@@ -229,7 +254,7 @@ config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
 		}
 
 		config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_DEFAULTS);
-		if (config_apply_key_value(ctx, key, defaults[i].value, NULL) < 0) {
+		if (config_apply_default(ctx, key, defaults[i].value) < 0) {
 			i_panic("Failed to add default setting %s=%s for service %s: %s",
 				defaults[i].key, defaults[i].value,
 				service_name, ctx->error);
@@ -272,8 +297,8 @@ config_parser_add_info_defaults_arr(struct config_parser_context *ctx,
 		return;
 
 	for (unsigned int i = 0; defaults[i].key != NULL; i++) {
-		if (config_apply_key_value(ctx, defaults[i].key,
-					   defaults[i].value, NULL) < 0) {
+		if (config_apply_default(ctx, defaults[i].key,
+					 defaults[i].value) < 0) {
 			i_panic("Failed to add default setting %s=%s for struct %s: %s",
 				defaults[i].key, defaults[i].value,
 				info->name, ctx->error);
@@ -670,7 +695,8 @@ config_list_add_defaults(struct config_parser_context *ctx,
 }
 
 static int config_apply_strlist(struct config_parser_context *ctx,
-				const char *key, const char *prefixed_value,
+				const char *key,
+				const char *prefixed_value,
 				struct config_parser_key *config_key,
 				ARRAY_TYPE(const_string) **strlistp,
 				bool *stop_list)
@@ -717,9 +743,12 @@ static int config_apply_strlist(struct config_parser_context *ctx,
 		}
 	}
 
-	const char *prefixed_key =
-		p_strdup_printf(ctx->pool, "%c%s",
-				CONFIG_VALUE_PREFIX_EXPANDED, key);
+	string_t *str = t_str_new(64);
+	if (config_write_keyvariable(ctx, ctx->cur_section->filter_parser,
+				     "", key, str, TRUE) < 0)
+		return -1;
+
+	const char *prefixed_key = p_strdup(ctx->pool, str_c(str));
 	array_push_back(*strlistp, &prefixed_key);
 	array_push_back(*strlistp, &prefixed_value);
 	return 0;
@@ -763,11 +792,15 @@ static int config_apply_boollist(struct config_parser_context *ctx,
 	} else {
 		array_clear(*strlistp);
 	}
+
+	string_t *str = t_str_new(64);
 	const char *yes = CONFIG_VALUE_PREFIX_EXPANDED_S"yes";
 	array_foreach_elem(&boollist, key) {
-		const char *prefixed_key =
-			p_strdup_printf(ctx->pool, "%c%s",
-					CONFIG_VALUE_PREFIX_EXPANDED, key);
+		str_truncate(str, 0);
+		if (config_write_keyvariable(ctx, ctx->cur_section->filter_parser,
+					     "", key, str, TRUE) < 0)
+			return -1;
+		const char *prefixed_key = p_strdup(ctx->pool, str_c(str));
 		array_push_back(*strlistp, &prefixed_key);
 		array_push_back(*strlistp, &yes);
 	}
@@ -2440,12 +2473,11 @@ config_parse_finish_service_defaults(struct config_parser_context *ctx)
 		    module_parser->change_counters[config_key->define_idx] == 0) {
 			bool orig_expand_values = ctx->expand_values;
 			str_truncate(prefixed_value, 0);
-			str_append_c(prefixed_value, CONFIG_VALUE_PREFIX_EXPANDED);
 			ctx->expand_values = TRUE;
 			if (config_write_keyvariable(ctx, root_parser,
 						     service_defaults[i],
 						     service_defaults[i + 1],
-						     prefixed_value) < 0) {
+						     prefixed_value, TRUE) < 0) {
 				i_panic("Failed to expand %s=%s: %s",
 					service_defaults[i],
 					service_defaults[i + 1], ctx->error);
@@ -2500,6 +2532,87 @@ static int config_parser_filter_cmp(struct config_filter_parser *const *f1,
 	return (int)(*f1)->create_order - (int)(*f2)->create_order;
 }
 
+static void config_expand_value(struct config_parser_context *ctx,
+				struct config_filter_parser *filter_parser,
+				const char *key, const char **value)
+{
+	if ((*value)[0] == CONFIG_VALUE_PREFIX_EXPANDED)
+		return;
+	i_assert((*value)[0] == CONFIG_VALUE_PREFIX_SET_UNEXPANDED);
+
+	string_t *new_value = t_str_new(128);
+	if (config_write_keyvariable(ctx, filter_parser, key,
+				     *value + 1, new_value, FALSE) < 0) {
+		/* We already checked the validity of this value before, so
+		   it shouldn't fail here either. */
+		i_panic("BUG: Unexpectedly failed to expand %s=%s: %s",
+			key, *value + 1, ctx->error);
+	}
+	*value = p_strdup(ctx->pool, str_c(new_value));
+}
+
+static void
+config_module_parser_expand_values(struct config_parser_context *ctx,
+				   struct config_filter_parser *filter_parser,
+				   const struct config_module_parser *p)
+{
+	if (p->change_counters == NULL)
+		return;
+
+	for (unsigned int i = 0; p->info->defines[i].key != NULL; i++) {
+		if (p->change_counters[i] == 0)
+			continue;
+
+		union config_module_parser_setting *set = &p->settings[i];
+		switch (p->info->defines[i].type) {
+		case SET_STRLIST:
+		case SET_BOOLLIST: {
+			if (set->list.prefixed_values == NULL)
+				break;
+			unsigned int j, count;
+			const char **prefixed_strings =
+				array_get_modifiable(set->list.prefixed_values, &count);
+			for (j = 0; j < count; j += 2) {
+				config_expand_value(ctx, filter_parser,
+						    p->info->defines[i].key,
+						    &prefixed_strings[j]);
+				config_expand_value(ctx, filter_parser,
+						    p->info->defines[i].key,
+						    &prefixed_strings[j + 1]);
+			}
+			break;
+		}
+		case SET_FILTER_ARRAY:
+		case SET_FILE:
+			break;
+		default:
+			config_expand_value(ctx, filter_parser,
+					    p->info->defines[i].key,
+					    &set->prefixed_str);
+			break;
+		}
+	}
+}
+
+static void
+config_filter_parser_expand_values(struct config_parser_context *ctx,
+				   struct config_filter_parser *filter_parser)
+{
+	const struct config_module_parser *l = filter_parser->module_parsers;
+	for (unsigned int info_idx = 0; l[info_idx].info != NULL; info_idx++) {
+		config_module_parser_expand_values(ctx, filter_parser,
+						   &l[info_idx]);
+	}
+}
+
+static void config_parse_expand_values(struct config_parser_context *ctx)
+{
+	struct config_filter_parser *filter_parser;
+
+	array_foreach_elem(&ctx->all_filter_parsers, filter_parser)
+		config_filter_parser_expand_values(ctx, filter_parser);
+}
+
 static int
 config_parse_finish(struct config_parser_context *ctx,
 		    enum config_parse_flags flags,
@@ -2512,6 +2625,7 @@ config_parse_finish(struct config_parser_context *ctx,
 
 	if ((flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) == 0)
 		config_parse_finish_service_defaults(ctx);
+	config_parse_expand_values(ctx);
 
 	new_config = p_new(ctx->pool, struct config_parsed, 1);
 	new_config->pool = ctx->pool;
@@ -2564,12 +2678,17 @@ config_parse_finish(struct config_parser_context *ctx,
 static int config_write_keyvariable(struct config_parser_context *ctx,
 				    struct config_filter_parser *filter_parser,
 				    const char *key, const char *value,
-				    string_t *str)
+				    string_t *prefixed_str,
+				    bool delay_set_expand)
 {
-	const char *var_end;
+	const char *var_end, *orig_value = value;
+	bool force_expand = FALSE;
+	bool seen_settings = FALSE;
+
+	str_append_c(prefixed_str, CONFIG_VALUE_PREFIX_EXPANDED);
 	while (value != NULL) {
 		const char *var_name, *env_name, *set_name;
-		bool var_is_set, expand_values;
+		bool var_is_set, expand_values = ctx->expand_values;
 		var_end = strchr(value, ' ');
 
 		if (var_end == NULL)
@@ -2582,19 +2701,24 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 		   login_greeting = Hello
 		   login_greeting = $SET:login_greeting world
 
-		   Always show this as "Hello world" output in doveconf.
-		   If we didn't expand it, it would be visible only as
-		   "$SET:login_greeting world",
+		   Always show this as "Hello world" output in doveconf (i.e.
+		   also when ctx->expand_values=FALSE). If we didn't expand it,
+		   it would be visible only as "$SET:login_greeting world",
 		   hiding the "Hello" string entirely. */
-		expand_values = ctx->expand_values ||
-			(var_is_set && strcmp(key, set_name) == 0);
+		if (var_is_set) {
+			seen_settings = TRUE;
+			if (strcmp(key, set_name) == 0) {
+				expand_values = TRUE;
+				force_expand = TRUE;
+			}
+		}
 
 		if (expand_values &&
 		    str_begins(var_name, "$ENV:", &env_name)) {
 			/* use environment variable */
 			const char *envval = getenv(env_name);
 			if (envval != NULL)
-				str_append(str, envval);
+				str_append(prefixed_str, envval);
 		} else if (expand_values && var_is_set) {
 			struct config_parser_key *config_key;
 
@@ -2606,7 +2730,7 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 				return -1;
 			}
 			if (!config_get_value(ctx, filter_parser, config_key,
-					      set_name, str)) {
+					      set_name, prefixed_str)) {
 				ctx->error = p_strdup_printf(ctx->pool,
 					"Failed to expand $SET:%s: "
 					"Setting type can't be expanded to string",
@@ -2614,13 +2738,13 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 				return -1;
 			}
 		} else {
-			str_append(str, var_name);
+			str_append(prefixed_str, var_name);
 		}
 
 		if (var_end == NULL)
 			break;
 
-		str_append_c(str, ' ');
+		str_append_c(prefixed_str, ' ');
 
 		/* find next token */
 		while (*var_end != '\0' && i_isspace(*var_end)) var_end++;
@@ -2628,6 +2752,15 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 		while (*var_end != '\0' && !i_isspace(*var_end)) var_end++;
 	}
 
+	if (delay_set_expand && seen_settings && !force_expand) {
+		/* Delay expanding $SET until the config is parsed. However,
+		   the setting names were validated above, so the final
+		   expansion shouldn't fail. */
+		str_truncate(prefixed_str, 0);
+		str_append_c(prefixed_str,
+			     CONFIG_VALUE_PREFIX_SET_UNEXPANDED);
+		str_append(prefixed_str, orig_value);
+	}
 	return 0;
 }
 
@@ -2637,13 +2770,14 @@ static int config_write_value(struct config_parser_context *ctx,
 	const char *error, *path, *key_with_path;
 
 	str_truncate(ctx->prefixed_value, 0);
-	str_append_c(ctx->prefixed_value, CONFIG_VALUE_PREFIX_EXPANDED);
 
 	switch (line->type) {
 	case CONFIG_LINE_TYPE_KEYVALUE:
+		str_append_c(ctx->prefixed_value, CONFIG_VALUE_PREFIX_EXPANDED);
 		str_append(ctx->prefixed_value, line->value);
 		break;
 	case CONFIG_LINE_TYPE_KEYFILE:
+		str_append_c(ctx->prefixed_value, CONFIG_VALUE_PREFIX_EXPANDED);
 		if (!ctx->expand_values) {
 			str_append_c(ctx->prefixed_value, '<');
 			str_append(ctx->prefixed_value, line->value);
@@ -2666,7 +2800,7 @@ static int config_write_value(struct config_parser_context *ctx,
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
 		if (config_write_keyvariable(ctx, ctx->cur_section->filter_parser,
 					     line->key, line->value,
-					     ctx->prefixed_value) < 0)
+					     ctx->prefixed_value, TRUE) < 0)
 			return -1;
 		break;
 	default:
@@ -3228,8 +3362,9 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	full_line = str_new(default_pool, 512);
 	if ((flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) == 0) {
 		config_parser_add_services(&ctx, service_info_idx);
-		for (i = 0; i < count; i++)
+		for (i = 0; i < count; i++) T_BEGIN {
 			config_parser_add_info_defaults(&ctx, all_infos[i]);
+		} T_END;
 	}
 	if (hook_config_parser_begin != NULL &&
 	    (flags & CONFIG_PARSE_FLAG_EXTERNAL_HOOKS) != 0) T_BEGIN {
