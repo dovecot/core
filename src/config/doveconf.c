@@ -1275,7 +1275,8 @@ int main(int argc, char *argv[])
 			error);
 	}
 
-	if ((ret == -1 && exec_args != NULL) || ret == 0 || ret == -2)
+	if ((ret == -1 && exec_args != NULL) || ret == 0 || ret == -2 ||
+	    config == NULL)
 		i_fatal("%s", error);
 
 	if (dump_full && exec_args != NULL) {
