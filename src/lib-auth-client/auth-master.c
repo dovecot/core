@@ -479,23 +479,14 @@ void auth_user_info_export(string_t *str, const struct auth_user_info *info)
 }
 
 static struct event *
-auth_master_event_create(struct auth_master_connection *conn,
-			 const char *prefix)
+auth_master_user_event_create(struct auth_master_connection *conn,
+			      const char *prefix,
+			      const struct auth_user_info *info)
 {
 	struct event *event;
 
 	event = event_create(conn->event_parent);
 	event_set_append_log_prefix(event, prefix);
-
-	return event;
-}
-
-static struct event *
-auth_master_user_event_create(struct auth_master_connection *conn,
-			      const char *prefix,
-			      const struct auth_user_info *info)
-{
-	struct event *event = auth_master_event_create(conn, prefix);
 
 	if (info != NULL) {
 		if (info->protocol != NULL)
@@ -997,7 +988,8 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 	}
 	str_append_c(str, '\n');
 
-	ctx.event = auth_master_event_create(conn, "auth cache flush: ");
+	ctx.event = event_create(conn->event_parent);
+	event_set_append_log_prefix(ctx.event, "auth cache flush: ");
 
 	e_debug(ctx.event, "Started cache flush");
 
