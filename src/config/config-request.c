@@ -301,9 +301,9 @@ settings_export(struct config_export_context *ctx,
 		}
 		case SET_STRLIST:
 		case SET_BOOLLIST: {
-			const ARRAY_TYPE(const_string) *val =
-				module_parser->settings[define_idx].list.values;
-			const char *const *strings;
+			const ARRAY_TYPE(const_string) *prefixed_val =
+				module_parser->settings[define_idx].list.prefixed_values;
+			const char *const *prefixed_strings;
 
 			value_stop_list = module_parser->settings[define_idx].list.stop_list;
 			if (hash_table_is_created(ctx->keys) &&
@@ -314,11 +314,11 @@ settings_export(struct config_export_context *ctx,
 			if ((ctx->flags & CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS) != 0)
 				hash_table_insert(ctx->keys, def->key, def->key);
 
-			if (val != NULL) {
-				strings = array_get(val, &count);
+			if (prefixed_val != NULL) {
+				prefixed_strings = array_get(prefixed_val, &count);
 				i_assert(count % 2 == 0);
 			} else {
-				strings = NULL;
+				prefixed_strings = NULL;
 				count = 0;
 			}
 
@@ -337,12 +337,14 @@ settings_export(struct config_export_context *ctx,
 			export_set.type = def->type == SET_STRLIST ?
 				CONFIG_KEY_NORMAL : CONFIG_KEY_BOOLLIST_ELEM;
 			for (i = 0; i < count; i += 2) T_BEGIN {
+				i_assert(prefixed_strings[i][0] == CONFIG_VALUE_PREFIX_EXPANDED);
+				i_assert(prefixed_strings[i + 1][0] == CONFIG_VALUE_PREFIX_EXPANDED);
 				export_set.key = t_strdup_printf("%s%c%s",
 						      def->key,
 						      SETTINGS_SEPARATOR,
-						      strings[i]);
+						      prefixed_strings[i] + 1);
 				export_set.list_idx = i / 2;
-				export_set.value = strings[i+1];
+				export_set.value = prefixed_strings[i + 1] + 1;
 				/* only the last element stops the list */
 				export_set.value_stop_list = value_stop_list &&
 					i + 2 == count;

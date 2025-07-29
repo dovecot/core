@@ -481,9 +481,13 @@ static int
 settings_value_check(struct config_parser_context *ctx,
 		     const struct setting_parser_info *info,
 		     const struct setting_define *def,
-		     const char *value)
+		     const char *prefixed_value)
 {
 	const char *error;
+
+	if (prefixed_value[0] != CONFIG_VALUE_PREFIX_EXPANDED)
+		return 0;
+	const char *value = prefixed_value + 1;
 
 	switch (def->type) {
 	case SET_BOOL: {
@@ -660,13 +664,13 @@ config_list_add_defaults(struct config_parser_context *ctx,
 		return;
 
 	const ARRAY_TYPE(const_string) *src =
-		ldef->settings[config_key->define_idx].list.values;
+		ldef->settings[config_key->define_idx].list.prefixed_values;
 	if (src != NULL && array_is_created(src))
 		array_append_array(dest, src);
 }
 
 static int config_apply_strlist(struct config_parser_context *ctx,
-				const char *key, const char *value,
+				const char *key, const char *prefixed_value,
 				struct config_parser_key *config_key,
 				ARRAY_TYPE(const_string) **strlistp,
 				bool *stop_list)
@@ -675,7 +679,8 @@ static int config_apply_strlist(struct config_parser_context *ctx,
 
 	suffix = strchr(key, SETTINGS_SEPARATOR);
 	if (suffix == NULL) {
-		if (value[0] == '\0') {
+		if (prefixed_value[0] == CONFIG_VALUE_PREFIX_EXPANDED &&
+		    prefixed_value[1] == '\0') {
 			/* clear out the whole strlist */
 			if (*strlistp != NULL)
 				array_clear(*strlistp);
@@ -700,26 +705,28 @@ static int config_apply_strlist(struct config_parser_context *ctx,
 		config_list_add_defaults(ctx, config_key, *strlistp);
 	}
 
-	value = p_strdup(ctx->pool, value);
+	prefixed_value = p_strdup(ctx->pool, prefixed_value);
 
 	/* replace if it already exists */
 	unsigned int i, count;
 	const char *const *items = array_get(*strlistp, &count);
 	for (i = 0; i < count; i += 2) {
-		if (strcmp(items[i], key) == 0) {
-			array_idx_set(*strlistp, i + 1, &value);
+		if (strcmp(items[i] + 1, key) == 0) {
+			array_idx_set(*strlistp, i + 1, &prefixed_value);
 			return 0;
 		}
 	}
 
-	key = p_strdup(ctx->pool, key);
-	array_push_back(*strlistp, &key);
-	array_push_back(*strlistp, &value);
+	const char *prefixed_key =
+		p_strdup_printf(ctx->pool, "%c%s",
+				CONFIG_VALUE_PREFIX_EXPANDED, key);
+	array_push_back(*strlistp, &prefixed_key);
+	array_push_back(*strlistp, &prefixed_value);
 	return 0;
 }
 
 static int config_apply_boollist(struct config_parser_context *ctx,
-				 const char *key, const char *value,
+				 const char *key, const char *prefixed_value,
 				 struct config_parser_key *config_key,
 				 ARRAY_TYPE(const_string) **strlistp,
 				 bool *stop_list)
@@ -729,22 +736,24 @@ static int config_apply_boollist(struct config_parser_context *ctx,
 	bool b;
 
 	if (strchr(key, SETTINGS_SEPARATOR) != NULL) {
-		if (setting_value_can_check(value, ctx->expand_values) &&
-		    str_parse_get_bool(value, &b, &error) < 0) {
+		if (prefixed_value[0] == CONFIG_VALUE_PREFIX_EXPANDED &&
+		    setting_value_can_check(prefixed_value + 1,
+					    ctx->expand_values) &&
+		    str_parse_get_bool(prefixed_value + 1, &b, &error) < 0) {
 			ctx->error = p_strdup(ctx->pool, error);
 			return -1;
 		}
 		/* Preserve stop_list's original value. We may be updating a
 		   list within the same filter, and the previous setting might
 		   have wanted to stop the list already. */
-		return config_apply_strlist(ctx, key, value, config_key,
-					    strlistp, stop_list);
+		return config_apply_strlist(ctx, key, prefixed_value,
+					    config_key, strlistp, stop_list);
 	}
 
 	/* replace the whole list */
 	t_array_init(&boollist, 16);
-	if (settings_parse_boollist_string(value, ctx->pool, &boollist,
-					   &error) < 0) {
+	if (settings_parse_boollist_string(prefixed_value + 1, ctx->pool,
+					   &boollist, &error) < 0) {
 		ctx->error = p_strdup(ctx->pool, error);
 		return -1;
 	}
@@ -754,9 +763,12 @@ static int config_apply_boollist(struct config_parser_context *ctx,
 	} else {
 		array_clear(*strlistp);
 	}
-	const char *yes = "yes";
+	const char *yes = CONFIG_VALUE_PREFIX_EXPANDED_S"yes";
 	array_foreach_elem(&boollist, key) {
-		array_push_back(*strlistp, &key);
+		const char *prefixed_key =
+			p_strdup_printf(ctx->pool, "%c%s",
+					CONFIG_VALUE_PREFIX_EXPANDED, key);
+		array_push_back(*strlistp, &prefixed_key);
 		array_push_back(*strlistp, &yes);
 	}
 	*stop_list = TRUE;
@@ -794,20 +806,21 @@ static int config_apply_filter_array(struct config_parser_context *ctx,
 
 static int config_apply_file(struct config_parser_context *ctx,
 			     const struct config_line *line,
-			     const char *path, const char **output_r)
+			     const char *path, const char **prefixed_output_r)
 {
 	struct stat st;
 	const char *full_path, *error;
 
 	if (path[0] == '\0') {
-		*output_r = "";
+		*prefixed_output_r = CONFIG_VALUE_PREFIX_EXPANDED_S;
 		return 0;
 	}
 
 	/* Do not attempt to expand paths that contain variable expansions.
 	   These will be expanded later. */
 	if (!ctx->expand_values || strstr(path, "%{") != NULL) {
-		*output_r = p_strdup(ctx->pool, path);
+		*prefixed_output_r = p_strdup_printf(ctx->pool, "%c%s",
+			CONFIG_VALUE_PREFIX_EXPANDED, path);
 		return 0;
 	}
 	full_path = fix_relative_path(path, ctx->cur_input);
@@ -815,12 +828,13 @@ static int config_apply_file(struct config_parser_context *ctx,
 	if (full_path != path && ctx->expand_values)
 		path = full_path;
 	if (settings_parse_read_file(full_path, path, ctx->pool, &st,
-				     "", output_r, &error) < 0) {
+				     CONFIG_VALUE_PREFIX_EXPANDED_S,
+				     prefixed_output_r, &error) < 0) {
 		ctx->error = p_strdup(ctx->pool, error);
 		if (config_apply_error(ctx, line->key) < 0)
 			return -1;
 		/* delayed error */
-		*output_r = "";
+		*prefixed_output_r = CONFIG_VALUE_PREFIX_EXPANDED_S;
 	} else {
 		config_parser_add_seen_file(ctx, &st, full_path);
 	}
@@ -833,9 +847,6 @@ config_apply_exact_line(struct config_parser_context *ctx,
 			const char *key, const char *prefixed_value)
 {
 	struct config_parser_key *config_key;
-
-	i_assert(prefixed_value[0] == CONFIG_VALUE_PREFIX_EXPANDED);
-	const char *value = prefixed_value + 1;
 
 	if (ctx->cur_section->filter_def != NULL &&
 	    !ctx->cur_section->filter_parser->filter_required_setting_seen &&
@@ -869,18 +880,26 @@ config_apply_exact_line(struct config_parser_context *ctx,
 		}
 		switch (l->info->defines[config_key->define_idx].type) {
 		case SET_STRLIST:
-			if (config_apply_strlist(ctx, key, value, config_key,
-					&l->settings[config_key->define_idx].list.values,
+			if (config_apply_strlist(ctx, key, prefixed_value, config_key,
+					&l->settings[config_key->define_idx].list.prefixed_values,
 					&l->settings[config_key->define_idx].list.stop_list) < 0)
 				return -1;
 			break;
 		case SET_BOOLLIST:
-			if (config_apply_boollist(ctx, key, value, config_key,
-					&l->settings[config_key->define_idx].list.values,
+			if (config_apply_boollist(ctx, key, prefixed_value, config_key,
+					&l->settings[config_key->define_idx].list.prefixed_values,
 					&l->settings[config_key->define_idx].list.stop_list) < 0)
 				return -1;
 			break;
 		case SET_FILTER_ARRAY:
+			if (prefixed_value[0] != CONFIG_VALUE_PREFIX_EXPANDED) {
+				i_assert(prefixed_value[0] == CONFIG_VALUE_PREFIX_SET_UNEXPANDED);
+				ctx->error = p_strdup_printf(ctx->pool,
+					"Named list filter name must not contain $SET: %s",
+					prefixed_value + 1);
+				return -1;
+			}
+			const char *value = prefixed_value + 1;
 			if (str_begins_with(value, "__")) {
 				/* These are reserved for internal filters */
 				ctx->error = p_strdup_printf(ctx->pool,
@@ -894,22 +913,33 @@ config_apply_exact_line(struct config_parser_context *ctx,
 			break;
 		case SET_FILE: {
 			const char *inline_value;
+			if (prefixed_value[0] != CONFIG_VALUE_PREFIX_EXPANDED) {
+				/* FIXME: implement in a later commit */
+				i_assert(prefixed_value[0] == CONFIG_VALUE_PREFIX_SET_UNEXPANDED);
+				ctx->error = p_strdup_printf(ctx->pool,
+					"File settings must not contain $SET: %s",
+					prefixed_value + 1);
+				return -1;
+			}
+			const char *value = prefixed_value + 1;
 			if (str_begins(value, SET_FILE_INLINE_PREFIX,
 				       &inline_value)) {
-				l->settings[config_key->define_idx].str =
-					value[0] == '\0' ? "" :
-					p_strconcat(ctx->pool, "\n", inline_value, NULL);
+				l->settings[config_key->define_idx].prefixed_str =
+					value[0] == '\0' ? CONFIG_VALUE_PREFIX_EXPANDED_S :
+					p_strdup_printf(ctx->pool, "%c\n%s",
+							CONFIG_VALUE_PREFIX_EXPANDED,
+							inline_value);
 				break;
 			}
 			i_assert(line != NULL);
 			if (config_apply_file(ctx, line, value,
-					&l->settings[config_key->define_idx].str) < 0)
+					&l->settings[config_key->define_idx].prefixed_str) < 0)
 				return -1;
 			break;
 		}
 		default:
-			l->settings[config_key->define_idx].str =
-				p_strdup(ctx->pool, value);
+			l->settings[config_key->define_idx].prefixed_str =
+				p_strdup(ctx->pool, prefixed_value);
 			break;
 		}
 		if (l->change_counters[config_key->define_idx] < ctx->change_counter) {
@@ -918,7 +948,7 @@ config_apply_exact_line(struct config_parser_context *ctx,
 		}
 		if (settings_value_check(ctx, l->info,
 				&l->info->defines[config_key->define_idx],
-				value) < 0)
+				prefixed_value) < 0)
 			return -1;
 		/* FIXME: remove once auth does support these. */
 		if (strcmp(l->info->name, "auth") == 0 &&
@@ -1607,17 +1637,19 @@ void config_fill_set_parser(struct setting_parser_context *parser,
 		switch (p->info->defines[i].type) {
 		case SET_STRLIST:
 		case SET_BOOLLIST: {
-			if (p->settings[i].list.values == NULL)
+			if (p->settings[i].list.prefixed_values == NULL)
 				break;
 			unsigned int j, count;
-			const char *const *strings =
-				array_get(p->settings[i].list.values, &count);
+			const char *const *prefixed_strings =
+				array_get(p->settings[i].list.prefixed_values, &count);
 			for (j = 0; j < count; j += 2) T_BEGIN {
+				i_assert(prefixed_strings[j][0] == CONFIG_VALUE_PREFIX_EXPANDED);
+				i_assert(prefixed_strings[j + 1][0] == CONFIG_VALUE_PREFIX_EXPANDED);
 				const char *key = t_strdup_printf("%s/%s",
 					p->info->defines[i].key,
-					settings_section_escape(strings[j]));
+					settings_section_escape(prefixed_strings[j] + 1));
 				(void)settings_parse_keyidx_value_nodup(parser, i,
-					key, strings[j + 1]);
+					key, prefixed_strings[j + 1] + 1);
 			} T_END;
 			break;
 		}
@@ -2894,7 +2926,10 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 				ctx->error = "Recursive include groups not allowed";
 				break;
 			}
-			i_assert(str_c(ctx->prefixed_value)[0] == CONFIG_VALUE_PREFIX_EXPANDED);
+			if (str_c(ctx->prefixed_value)[0] != CONFIG_VALUE_PREFIX_EXPANDED) {
+				ctx->error = "Include groups cannot contain $variables";
+				break;
+			}
 			config_parser_include_add_or_update(ctx, line->key + 1,
 				str_c(ctx->prefixed_value) + 1);
 		} else {
@@ -3366,15 +3401,18 @@ config_parsed_strlist_append(string_t *keyvals,
 
 	strlist = array_get(values, &len);
 	for (i = 0; i < len; i += 2) {
+		i_assert(strlist[i][0] == CONFIG_VALUE_PREFIX_EXPANDED);
+		i_assert(strlist[i + 1][0] == CONFIG_VALUE_PREFIX_EXPANDED);
+
 		if (str_len(keyvals) > 0)
 			str_append_c(keyvals, ' ');
 		for (j = 0; j < drop_len; j += 2) {
-			if (strcmp(strlist[i], drop_strlist[j]) == 0)
+			if (strcmp(strlist[i] + 1, drop_strlist[j]) == 0)
 				break;
 		}
 		if (j == drop_len) {
-			str_printfa(keyvals, "%s=%s", strlist[i],
-				    strlist[i + 1]);
+			str_printfa(keyvals, "%s=%s", strlist[i] + 1,
+				    strlist[i + 1] + 1);
 		}
 	}
 }
@@ -3416,9 +3454,9 @@ config_parsed_get_setting_full(const struct config_parsed *config,
 	if (strcmp(key, "import_environment") == 0) {
 		string_t *keyvals = t_str_new(64);
 		const ARRAY_TYPE(const_string) *strlist_set =
-			l[info_idx].settings[key_idx].list.values;
+			l[info_idx].settings[key_idx].list.prefixed_values;
 		const ARRAY_TYPE(const_string) *strlist_defaults =
-			ldef[info_idx].settings[key_idx].list.values;
+			ldef[info_idx].settings[key_idx].list.prefixed_values;
 		config_parsed_strlist_append(keyvals, strlist_set, NULL);
 		config_parsed_strlist_append(keyvals, strlist_defaults, strlist_set);
 		return str_c(keyvals);

@@ -42,7 +42,10 @@ enum config_parse_flags {
 	CONFIG_PARSE_FLAG_DEFAULT_VERSION = BIT(11),
 };
 
-#define CONFIG_VALUE_PREFIX_EXPANDED '\001'
+#define CONFIG_VALUE_PREFIX_EXPANDED_S "\001"
+#define CONFIG_VALUE_PREFIX_EXPANDED CONFIG_VALUE_PREFIX_EXPANDED_S[0]
+/* value contains $SET variables (and perhaps other variables) */
+#define CONFIG_VALUE_PREFIX_SET_UNEXPANDED '\002'
 
 /* Used to track changed settings for a setting_parser_info. Initially only
    the "info" is set, while everything else is NULL. Once the first setting
@@ -54,9 +57,10 @@ struct config_module_parser {
 	/* The rest are filled only after the first setting is changed: */
 	unsigned int set_count;
 	union config_module_parser_setting {
-		const char *str;
+		const char *prefixed_str;
 		struct {
-			ARRAY_TYPE(const_string) *values;
+			/* [prefixed_key, prefixed_value, prefixed_key2, ...] */
+			ARRAY_TYPE(const_string) *prefixed_values;
 			bool stop_list;
 		} list;
 		ARRAY_TYPE(const_string) *filter_array;

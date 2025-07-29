@@ -125,7 +125,8 @@ extern int (*hook_config_parser_end)(struct config_parser_context *ctx,
 static inline const char *
 set_str_expanded(const union config_module_parser_setting *value)
 {
-       return value->str;
+	i_assert(value->prefixed_str[0] == CONFIG_VALUE_PREFIX_EXPANDED);
+	return value->prefixed_str + 1;
 }
 
 /* Apply a key-value setting. $VARIABLE expansion is not done for the value. */
