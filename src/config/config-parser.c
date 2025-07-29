@@ -2417,12 +2417,12 @@ config_parse_finish(struct config_parser_context *ctx,
 }
 
 static bool
-config_get_value(struct config_section_stack *section,
+config_get_value(struct config_filter_parser *filter_parser,
 		 struct config_parser_key *config_key,
 		 const char *key, string_t *str)
 {
 	struct config_module_parser *l =
-		&section->filter_parser->module_parsers[config_key->info_idx];
+		&filter_parser->module_parsers[config_key->info_idx];
 	const struct setting_define *def =
 		&l->info->defines[config_key->define_idx];
 	if (def->type == SET_STRLIST || def->type == SET_BOOLLIST ||
@@ -2434,7 +2434,7 @@ config_get_value(struct config_section_stack *section,
 		str_append(str, l->settings[config_key->define_idx].str);
 		return TRUE;
 	}
-	if (section->prev == NULL) {
+	if (filter_parser->parent == NULL) {
 		/* use the default setting */
 		const void *value = CONST_PTR_OFFSET(l->info->defaults,
 						     def->offset);
@@ -2444,7 +2444,7 @@ config_get_value(struct config_section_stack *section,
 	}
 
 	/* not changed by this parser. maybe parent has. */
-	return config_get_value(section->prev, config_key, key, str);
+	return config_get_value(filter_parser->parent, config_key, key, str);
 }
 
 static int config_write_keyvariable(struct config_parser_context *ctx,
@@ -2490,8 +2490,8 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 							 set_name, NULL);
 				return -1;
 			}
-			if (!config_get_value(ctx->cur_section, config_key,
-					      set_name, str)) {
+			if (!config_get_value(ctx->cur_section->filter_parser,
+					      config_key, set_name, str)) {
 				ctx->error = p_strdup_printf(ctx->pool,
 					"Failed to expand $SET:%s: "
 					"Setting type can't be expanded to string",
