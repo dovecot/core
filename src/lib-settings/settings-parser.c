@@ -277,7 +277,7 @@ get_file(struct setting_parser_context *ctx, bool dup_value, const char **value)
 
 	const char *error;
 	if (settings_parse_read_file(*value, *value, ctx->set_pool, NULL,
-				     value, &error) < 0) {
+				     "", value, &error) < 0) {
 		settings_parser_set_error(ctx, error);
 		return -1;
 	}
@@ -298,7 +298,8 @@ get_in_port_zero(struct setting_parser_context *ctx, const char *value,
 
 int settings_parse_read_file(const char *path, const char *value_path,
 			     pool_t pool, struct stat *st_r,
-			     const char **output_r, const char **error_r)
+			     const char *prefix, const char **output_r,
+			     const char **error_r)
 {
 	struct stat st;
 	int fd;
@@ -312,12 +313,16 @@ int settings_parse_read_file(const char *path, const char *value_path,
 		i_close_fd(&fd);
 		return -1;
 	}
+	size_t prefix_len = strlen(prefix);
 	size_t value_path_len = strlen(value_path);
-	char *buf = p_malloc(pool, value_path_len + 1 + st.st_size + 1);
-	memcpy(buf, value_path, value_path_len);
-	buf[value_path_len] = '\n';
+	char *buf = p_malloc(pool, prefix_len + value_path_len + 1 +
+			     st.st_size + 1);
+	memcpy(buf, prefix, prefix_len);
+	memcpy(buf + prefix_len, value_path, value_path_len);
+	buf[prefix_len + value_path_len] = '\n';
 
-	int ret = read_full(fd, buf + value_path_len + 1, st.st_size);
+	int ret = read_full(fd, buf + prefix_len + value_path_len + 1,
+			    st.st_size);
 	i_close_fd(&fd);
 	if (ret < 0) {
 		*error_r = t_strdup_printf("read(%s) failed: %m", path);
@@ -328,7 +333,7 @@ int settings_parse_read_file(const char *path, const char *value_path,
 			"read(%s) failed: Unexpected EOF", path);
 		return -1;
 	}
-	if (memchr(buf + value_path_len + 1, '\0', st.st_size) != NULL) {
+	if (memchr(buf + prefix_len + value_path_len + 1, '\0', st.st_size) != NULL) {
 		*error_r = t_strdup_printf(
 			"%s contains NUL characters - This is not supported",
 			path);

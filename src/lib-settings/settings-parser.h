@@ -272,11 +272,13 @@ bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
 bool settings_check(struct event *event, const struct setting_parser_info *info,
 		    pool_t pool, void *set, const char **error_r);
 
-/* Read a SET_FILE from the given path and write "value_path\ncontents" to
-   output_r. Returns 0 on success, -1 on error. */
+/* Read a SET_FILE from the given path and write
+   "<prefix><value_path>\n<contents>" to output_r. Returns 0 on success,
+   -1 on error. */
 int settings_parse_read_file(const char *path, const char *value_path,
 			     pool_t pool, struct stat *st_r,
-			     const char **output_r, const char **error_r);
+			     const char *prefix, const char **output_r,
+			     const char **error_r);
 int settings_parse_boollist_string(const char *value, pool_t pool,
 				   ARRAY_TYPE(const_string) *dest,
 				   const char **error_r);

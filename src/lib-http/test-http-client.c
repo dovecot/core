@@ -413,7 +413,7 @@ int main(int argc, char *argv[])
 		if (settings_parse_read_file("/etc/pki/tls/cert.pem",
 					     "/etc/pki/tls/cert.pem",
 					     unsafe_data_stack_pool, NULL,
-					     &ca_value, &error) < 0)
+					     "", &ca_value, &error) < 0)
 			i_fatal("%s", error);
 		settings_file_get(ca_value, unsafe_data_stack_pool,
 				  &ssl_set.ca);

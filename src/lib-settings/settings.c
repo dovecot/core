@@ -874,7 +874,7 @@ settings_var_expand(struct settings_apply_ctx *ctx, unsigned int key_idx,
 		file.path = str_c(ctx->str);
 		if (settings_parse_read_file(file.path, file.path,
 					     &ctx->mpool->pool, NULL,
-					     value, error_r) < 0)
+					     "", value, error_r) < 0)
 			return -1;
 	} else {
 		*value = p_strdup(&ctx->mpool->pool, str_c(ctx->str));
