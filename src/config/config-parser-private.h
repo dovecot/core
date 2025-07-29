@@ -93,7 +93,7 @@ struct config_parser_context {
 	uint8_t change_counter;
 	unsigned int create_order_counter;
 
-	string_t *value;
+	string_t *prefixed_value;
 	const char *error;
 
 	const char *dovecot_config_version;

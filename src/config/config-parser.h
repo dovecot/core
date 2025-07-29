@@ -42,6 +42,8 @@ enum config_parse_flags {
 	CONFIG_PARSE_FLAG_DEFAULT_VERSION = BIT(11),
 };
 
+#define CONFIG_VALUE_PREFIX_EXPANDED '\001'
+
 /* Used to track changed settings for a setting_parser_info. Initially only
    the "info" is set, while everything else is NULL. Once the first setting
    is changed, the other fields are initialized. Each config_filter_parser
