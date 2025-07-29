@@ -2117,10 +2117,15 @@ config_module_parsers_merge(pool_t pool, struct config_module_parser *dest,
 			/* destination is empty - just copy the whole src */
 			*dest = *src;
 			if (new_change_counter != 0 && src->set_count > 0) {
+				dest->settings =
+					p_new(pool, union config_module_parser_setting,
+					      dest->set_count);
 				dest->change_counters =
 					p_new(pool, uint8_t, dest->set_count);
 				for (unsigned int i = 0; i < dest->set_count; i++) {
 					if (src->change_counters[i] != 0) {
+						dest->settings[i] =
+							src->settings[i];
 						dest->change_counters[i] =
 							new_change_counter;
 					}
