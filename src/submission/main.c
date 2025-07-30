@@ -6,7 +6,6 @@
 #include "istream.h"
 #include "ostream.h"
 #include "array.h"
-#include "base64.h"
 #include "hostpid.h"
 #include "path-util.h"
 #include "process-title.h"
@@ -249,8 +248,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 static void main_stdio_run(const char *username)
 {
 	struct mail_storage_service_input input;
-	buffer_t *input_buf;
-	const char *value, *error, *input_base64;
+	const char *error;
 
 	i_zero(&input);
 	input.service = "submission";
@@ -259,17 +257,9 @@ static void main_stdio_run(const char *username)
 		input.username = getlogin();
 	if (input.username == NULL)
 		i_fatal("USER environment missing");
-	if ((value = getenv("IP")) != NULL)
-		(void)net_addr2ip(value, &input.remote_ip);
-	if ((value = getenv("LOCAL_IP")) != NULL)
-		(void)net_addr2ip(value, &input.local_ip);
-
-	input_base64 = getenv("CLIENT_INPUT");
-	input_buf = input_base64 == NULL ? NULL :
-		t_base64_decode_str(input_base64);
 
 	if (client_create_from_input(&input, 0, STDIN_FILENO, STDOUT_FILENO,
-				     input_buf, &error) < 0)
+				     NULL, &error) < 0)
 		i_fatal("%s", error);
 }
 

@@ -6,7 +6,6 @@
 #include "ostream.h"
 #include "path-util.h"
 #include "str.h"
-#include "base64.h"
 #include "process-title.h"
 #include "randgen.h"
 #include "restrict-access.h"
@@ -312,8 +311,8 @@ static void main_stdio_run(const char *username)
 {
 	struct client *client;
 	struct mail_storage_service_input input;
-	struct imap_login_request request;
-	const char *value, *error, *input_base64;
+	struct imap_login_request request = { };
+	const char *error;
 
 	i_zero(&input);
 	input.service = "imap";
@@ -322,29 +321,10 @@ static void main_stdio_run(const char *username)
 		input.username = getlogin();
 	if (input.username == NULL)
 		i_fatal("USER environment missing");
-	if ((value = getenv("IP")) != NULL)
-		(void)net_addr2ip(value, &input.remote_ip);
-	if ((value = getenv("LOCAL_IP")) != NULL)
-		(void)net_addr2ip(value, &input.local_ip);
 
 	if (client_create_from_input(&input, NULL, STDIN_FILENO, STDOUT_FILENO,
 				     0, &client, &error) < 0)
 		i_fatal("%s", error);
-
-	input_base64 = getenv("CLIENT_INPUT");
-	if (input_base64 == NULL) {
-		/* IMAPLOGINTAG environment is compatible with mailfront */
-		i_zero(&request);
-		request.tag = getenv("IMAPLOGINTAG");
-	} else {
-		const buffer_t *input_buf = t_base64_decode_str(input_base64);
-		client_parse_imap_login_request(input_buf->data, input_buf->used,
-						&request);
-		if (request.input_size > 0) {
-			client_add_istream_prefix(client, request.input,
-						  request.input_size);
-		}
-	}
 
 	client_create_finish_io(client);
 	client_send_login_reply(client->output,
