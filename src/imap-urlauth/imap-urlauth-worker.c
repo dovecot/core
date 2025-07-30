@@ -1018,7 +1018,12 @@ int main(int argc, char *argv[])
 	master_service_init_log_with_pid(master_service);
 	master_service_set_die_callback(master_service, imap_urlauth_worker_die);
 
-	if (master_service_settings_read_simple(master_service, &error) < 0)
+	struct master_service_settings_input set_input = {
+		.preserve_user = TRUE,
+	};
+	struct master_service_settings_output set_output;
+	if (master_service_settings_read(master_service, &set_input,
+					 &set_output, &error) < 0)
 		i_fatal("%s", error);
 
 	storage_service =
