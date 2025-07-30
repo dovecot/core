@@ -129,20 +129,18 @@ char *auth_cache_parse_key_and_fields(pool_t pool, const char *query,
 				      const ARRAY_TYPE(const_string) *fields,
 				      const char *exclude_driver)
 {
-	if (array_is_empty(fields))
-		return auth_cache_parse_key_exclude(pool, query, exclude_driver);
-
-	string_t *full_query = t_str_new(128);
-	str_append(full_query, query);
-
-	unsigned int i, count;
-	const char *const *str = array_get(fields, &count);
-	for (i = 0; i < count; i += 2) {
-		str_append_c(full_query, '\t');
-		str_append(full_query, str[i + 1]);
+	if (!array_is_empty(fields)) {
+		unsigned int i, count;
+		const char *const *str = array_get(fields, &count);
+		string_t *full_query = t_str_new(128);
+		str_append(full_query, query);
+		for (i = 0; i < count; i += 2) {
+			str_append_c(full_query, '\t');
+			str_append(full_query, str[i + 1]);
+		}
+		query = str_c(full_query);
 	}
-	return auth_cache_parse_key_exclude(pool, str_c(full_query),
-					    exclude_driver);
+	return auth_cache_parse_key_exclude(pool, query, exclude_driver);
 }
 
 static void
