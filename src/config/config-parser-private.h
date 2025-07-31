@@ -111,6 +111,8 @@ struct config_parser_context {
 	bool delay_errors:1;
 	bool hide_obsolete_warnings:1;
 	bool ignore_unknown:1;
+	/* All config_filter_parsers have reverse_default_sibling set. */
+	bool reverse_parsers_set:1;
 };
 
 extern void (*hook_config_parser_begin)(struct config_parser_context *ctx);

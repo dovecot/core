@@ -354,6 +354,38 @@ config_filters_find_child(struct config_filter_parser *parent,
 	return NULL;
 }
 
+static void
+config_filter_fill_reverse_default_siblings(struct config_filter_parser *p1_parent,
+					    struct config_filter_parser *p2_parent)
+{
+	struct config_filter_parser *p1, *p2;
+
+	p2_parent->reverse_default_sibling = p1_parent;
+	p1_parent->reverse_default_sibling = p2_parent;
+
+	for (p1 = p1_parent->children_head; p1 != NULL; p1 = p1->next) {
+		p2 = config_filters_find_child(p2_parent, &p1->filter);
+		if (p2 != NULL)
+			config_filter_fill_reverse_default_siblings(p2, p1);
+	}
+}
+
+static void
+config_parse_fill_reverse_default_siblings(struct config_parser_context *ctx)
+{
+	struct config_filter_parser *root_parser, *defaults_parser;
+
+	if (ctx->reverse_parsers_set)
+		return;
+
+	ctx->reverse_parsers_set = TRUE;
+	root_parser = array_idx_elem(&ctx->all_filter_parsers, 0);
+	defaults_parser = array_idx_elem(&ctx->all_filter_parsers, 1);
+	i_assert(config_filter_is_empty_defaults(&defaults_parser->filter));
+
+	config_filter_fill_reverse_default_siblings(root_parser, defaults_parser);
+}
+
 static bool
 config_filter_get_value(struct config_filter_parser *filter_parser,
 			const struct setting_define *def,
@@ -362,11 +394,33 @@ config_filter_get_value(struct config_filter_parser *filter_parser,
 {
 	struct config_module_parser *l =
 		&filter_parser->module_parsers[config_key->info_idx];
+	struct config_module_parser *l2 =
+		filter_parser->reverse_default_sibling == NULL ? NULL :
+		&filter_parser->reverse_default_sibling->module_parsers[config_key->info_idx];
+
+	/* We have settings in two filter_parser trees: the built-in default
+	   settings and non-default settings. When both tree nodes exist,
+	   prefer the non-default settings. Otherwise use the first node in the
+	   hierarchy where the setting has been changed. */
+	if (l2 != NULL && filter_parser->filter.default_settings) {
+		/* swap the parsers so non-defaults is checked first */
+		i_assert(!filter_parser->reverse_default_sibling->filter.default_settings);
+		struct config_module_parser *l_swap = l;
+		l = l2;
+		l2 = l_swap;
+	}
+
 	if (l->change_counters != NULL &&
 	    l->change_counters[config_key->define_idx] != 0) {
 		str_append(str, l->settings[config_key->define_idx].str);
 		return TRUE;
 	}
+	if (l2 != NULL && l2->change_counters != NULL &&
+	    l2->change_counters[config_key->define_idx] != 0) {
+		str_append(str, l2->settings[config_key->define_idx].str);
+		return TRUE;
+	}
+
 	if (filter_parser->parent == NULL) {
 		/* use the default setting */
 		const void *value = CONST_PTR_OFFSET(l->info->defaults,
@@ -382,7 +436,8 @@ config_filter_get_value(struct config_filter_parser *filter_parser,
 }
 
 static bool
-config_get_value(struct config_filter_parser *filter_parser,
+config_get_value(struct config_parser_context *ctx,
+		 struct config_filter_parser *filter_parser,
 		 struct config_parser_key *config_key,
 		 const char *key, string_t *str)
 {
@@ -392,6 +447,7 @@ config_get_value(struct config_filter_parser *filter_parser,
 	    def->type == SET_FILTER_NAME || def->type == SET_FILTER_ARRAY)
 		return FALSE;
 
+	config_parse_fill_reverse_default_siblings(ctx);
 	return config_filter_get_value(filter_parser, def, config_key, key, str);
 }
 
@@ -1194,6 +1250,7 @@ config_add_new_parser(struct config_parser_context *ctx,
 		ctx->root_module_parsers :
 		config_module_parsers_init(ctx->pool);
 	array_push_back(&ctx->all_filter_parsers, &filter_parser);
+	ctx->reverse_parsers_set = FALSE;
 
 	if (ctx->all_filter_parsers_hash._table != NULL) {
 		hash_table_insert(ctx->all_filter_parsers_hash,
@@ -2502,7 +2559,7 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 							 set_name, NULL);
 				return -1;
 			}
-			if (!config_get_value(filter_parser, config_key,
+			if (!config_get_value(ctx, filter_parser, config_key,
 					      set_name, str)) {
 				ctx->error = p_strdup_printf(ctx->pool,
 					"Failed to expand $SET:%s: "

@@ -54,6 +54,10 @@ struct config_filter_parser {
 	struct config_filter_parser *parent;
 	struct config_filter_parser *children_head, *children_tail, *prev, *next;
 
+	/* Filter that is identical, but has !filter.default_settings. These
+	   are updated on-demand by config_get_value() */
+	struct config_filter_parser *reverse_default_sibling;
+
 	/* When this filter is used, it includes settings from these groups. */
 	ARRAY_TYPE(config_include_group) include_groups;
 	/* Filter for this parser. Its parent filters must also match. */
