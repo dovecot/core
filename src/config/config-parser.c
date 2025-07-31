@@ -340,6 +340,19 @@ config_apply_error(struct config_parser_context *ctx, const char *key)
 	return 0;
 }
 
+static struct config_filter_parser *
+config_filters_find_child(struct config_filter_parser *parent,
+			  const struct config_filter *wanted_filter)
+{
+	struct config_filter_parser *filter;
+
+	for (filter = parent->children_head; filter != NULL; filter = filter->next) {
+		if (config_filters_equal_no_recursion(&filter->filter, wanted_filter))
+			return filter;
+	}
+	return NULL;
+}
+
 static bool
 config_get_value(struct config_filter_parser *filter_parser,
 		 struct config_parser_key *config_key,
@@ -2193,19 +2206,6 @@ config_module_parsers_merge(pool_t pool, struct config_module_parser *dest,
 		}
 	}
 	i_assert(src->info == NULL);
-}
-
-static struct config_filter_parser *
-config_filters_find_child(struct config_filter_parser *parent,
-			  const struct config_filter *wanted_filter)
-{
-	struct config_filter_parser *filter;
-
-	for (filter = parent->children_head; filter != NULL; filter = filter->next) {
-		if (config_filters_equal_no_recursion(&filter->filter, wanted_filter))
-			return filter;
-	}
-	return NULL;
 }
 
 static void
