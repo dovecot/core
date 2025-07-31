@@ -1861,8 +1861,15 @@ config_all_parsers_check(struct config_parser_context *ctx,
 
 	int ret = 0;
 	if (hook_config_parser_end != NULL &&
-	    (flags & CONFIG_PARSE_FLAG_EXTERNAL_HOOKS) != 0)
+	    (flags & CONFIG_PARSE_FLAG_EXTERNAL_HOOKS) != 0) {
+		/* Assume the hooks want to update default settings */
+		struct config_filter_parser *defaults_parser =
+			array_idx_elem(&ctx->all_filter_parsers, 1);
+		i_assert(config_filter_is_empty_defaults(&defaults_parser->filter));
+		ctx->cur_section->filter_parser = defaults_parser;
+
 		ret = hook_config_parser_end(ctx, new_config, event, error_r);
+	}
 
 	/* Run check_func()s for each filter independently. If you have
 	   protocol imap { ... local { ... } } blocks, it's going to check the
