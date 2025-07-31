@@ -745,6 +745,8 @@ static bool
 client_auth_handle_reply(struct client *client,
 			 const struct client_auth_reply *reply, bool success)
 {
+	const char *error;
+
 	if (array_count(&reply->alt_usernames) > 0) {
 		const char **alt;
 
@@ -753,6 +755,15 @@ client_auth_handle_reply(struct client *client,
 		memcpy(alt, array_front(&reply->alt_usernames),
 		       sizeof(*alt) * array_count(&reply->alt_usernames));
 		client->alt_usernames = alt;
+	}
+
+	/* Refresh client settings to get mail user variable expanded. */
+	if (success && client_settings_reload(client, &error) < 0) {
+		e_error(client->event, "%s", error);
+		client_auth_result(client, CLIENT_AUTH_RESULT_TEMPFAIL, reply,
+				   AUTH_TEMP_FAILED_MSG);
+		client_auth_failed(client);
+		return TRUE;
 	}
 
 	if (reply->proxy.proxy) {
