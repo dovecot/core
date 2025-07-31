@@ -2451,59 +2451,6 @@ config_parse_merge_default_filters(struct config_parser_context *ctx,
 			     FALSE, FALSE, 0);
 }
 
-static void
-config_parse_finish_service_defaults(struct config_parser_context *ctx)
-{
-	const char *const service_defaults[] = {
-		"service_process_limit", "$SET:default_process_limit",
-		"service_client_limit", "$SET:default_client_limit",
-		"service_idle_kill_interval", "$SET:default_idle_kill_interval",
-		"service_vsz_limit", "$SET:default_vsz_limit",
-	};
-	struct config_filter_parser *root_parser, *defaults_parser;
-
-	root_parser = array_idx_elem(&ctx->all_filter_parsers, 0);
-	defaults_parser = array_idx_elem(&ctx->all_filter_parsers, 1);
-	i_assert(config_filter_is_empty_defaults(&defaults_parser->filter));
-
-	/* Add the service_* settings into global defaults filter, so they
-	   are used only if not overridden by default service filters. */
-	string_t *prefixed_value = t_str_new(64);
-	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_DEFAULTS);
-	for (unsigned int i = 0; i < N_ELEMENTS(service_defaults); i += 2) {
-		struct config_parser_key *config_key =
-			hash_table_lookup(ctx->all_keys, service_defaults[i]);
-		i_assert(config_key != NULL);
-		struct config_module_parser *module_parser =
-			&ctx->cur_section->filter_parser->module_parsers[config_key->info_idx];
-		if (module_parser->change_counters == NULL ||
-		    module_parser->change_counters[config_key->define_idx] == 0) {
-			bool orig_expand_values = ctx->expand_values;
-			str_truncate(prefixed_value, 0);
-			ctx->expand_values = TRUE;
-			if (config_write_keyvariable(ctx, root_parser,
-						     service_defaults[i],
-						     service_defaults[i + 1],
-						     prefixed_value, TRUE) < 0) {
-				i_panic("Failed to expand %s=%s: %s",
-					service_defaults[i],
-					service_defaults[i + 1], ctx->error);
-			}
-			ctx->cur_section->filter_parser = defaults_parser;
-			bool root_setting;
-			if (config_apply_line_full(ctx, NULL, service_defaults[i],
-						   str_c(prefixed_value), NULL,
-						   TRUE, &root_setting) < 0) {
-				i_panic("Failed to set default %s=%s: %s",
-					service_defaults[i],
-					service_defaults[i + 1], ctx->error);
-			}
-			ctx->expand_values = orig_expand_values;
-		}
-	}
-	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
-}
-
 static int config_parser_filter_cmp(struct config_filter_parser *const *f1,
 				    struct config_filter_parser *const *f2)
 {
@@ -2630,8 +2577,6 @@ config_parse_finish(struct config_parser_context *ctx,
 	const char *error;
 	int ret = 0;
 
-	if ((flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) == 0)
-		config_parse_finish_service_defaults(ctx);
 	config_parse_expand_values(ctx);
 
 	new_config = p_new(ctx->pool, struct config_parsed, 1);

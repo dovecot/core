@@ -245,6 +245,10 @@ static const struct master_settings master_default_settings = {
 static const struct setting_keyvalue master_default_settings_keyvalue[] = {
 	{ "protocols", "" },
 	{ "listen", "* ::" },
+	{ "service_process_limit", "$SET:default_process_limit" },
+	{ "service_client_limit", "$SET:default_client_limit" },
+	{ "service_idle_kill_interval", "$SET:default_idle_kill_interval" },
+	{ "service_vsz_limit", "$SET:default_vsz_limit" },
 	{ NULL, NULL }
 };
 
