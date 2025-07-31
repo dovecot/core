@@ -354,18 +354,13 @@ config_filters_find_child(struct config_filter_parser *parent,
 }
 
 static bool
-config_get_value(struct config_filter_parser *filter_parser,
-		 struct config_parser_key *config_key,
-		 const char *key, string_t *str)
+config_filter_get_value(struct config_filter_parser *filter_parser,
+			const struct setting_define *def,
+			struct config_parser_key *config_key,
+			const char *key, string_t *str)
 {
 	struct config_module_parser *l =
 		&filter_parser->module_parsers[config_key->info_idx];
-	const struct setting_define *def =
-		&l->info->defines[config_key->define_idx];
-	if (def->type == SET_STRLIST || def->type == SET_BOOLLIST ||
-	    def->type == SET_FILTER_NAME || def->type == SET_FILTER_ARRAY)
-		return FALSE;
-
 	if (l->change_counters != NULL &&
 	    l->change_counters[config_key->define_idx] != 0) {
 		str_append(str, l->settings[config_key->define_idx].str);
@@ -381,7 +376,22 @@ config_get_value(struct config_filter_parser *filter_parser,
 	}
 
 	/* not changed by this parser. maybe parent has. */
-	return config_get_value(filter_parser->parent, config_key, key, str);
+	return config_filter_get_value(filter_parser->parent, def, config_key,
+				       key, str);
+}
+
+static bool
+config_get_value(struct config_filter_parser *filter_parser,
+		 struct config_parser_key *config_key,
+		 const char *key, string_t *str)
+{
+	const struct setting_define *def =
+		&all_infos[config_key->info_idx]->defines[config_key->define_idx];
+	if (def->type == SET_STRLIST || def->type == SET_BOOLLIST ||
+	    def->type == SET_FILTER_NAME || def->type == SET_FILTER_ARRAY)
+		return FALSE;
+
+	return config_filter_get_value(filter_parser, def, config_key, key, str);
 }
 
 static bool config_filter_has_include_group(const struct config_filter *filter)
