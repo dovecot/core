@@ -67,6 +67,8 @@ struct login_proxy {
 	struct io *client_wait_io, *server_io, *side_channel_io;
 	struct istream *client_input, *server_input;
 	struct ostream *client_output, *server_output;
+	struct istream *pre_rawlog_input, *rawlog_input;
+	struct ostream *pre_rawlog_output, *rawlog_output;
 	struct istream *multiplex_input, *multiplex_orig_input;
 	struct istream *side_channel_input;
 	struct iostream_proxy *iostream_proxy;
@@ -228,6 +230,35 @@ static void proxy_side_channel_input(struct login_proxy *proxy)
 		proxy->client->login_proxy = NULL;
 }
 
+static void proxy_rawlog_init(struct login_proxy *proxy)
+{
+	if (proxy->rawlog_dir == NULL)
+		return;
+
+	proxy->pre_rawlog_input = proxy->server_input;
+	proxy->pre_rawlog_output = proxy->server_output;
+	if (iostream_rawlog_create(proxy->rawlog_dir, &proxy->server_input,
+				   &proxy->server_output) < 0)
+		return;
+	proxy->rawlog_input = proxy->server_input;
+	proxy->rawlog_output = proxy->server_output;
+}
+
+static void proxy_rawlog_deinit(struct login_proxy *proxy)
+{
+	if (proxy->rawlog_input == NULL)
+		return;
+
+	i_assert(proxy->rawlog_input == proxy->server_input);
+	i_assert(proxy->rawlog_output == proxy->server_output);
+	i_stream_ref(proxy->pre_rawlog_input);
+	o_stream_ref(proxy->pre_rawlog_output);
+	i_stream_destroy(&proxy->rawlog_input);
+	o_stream_destroy(&proxy->rawlog_output);
+	proxy->server_input = proxy->pre_rawlog_input;
+	proxy->server_output = proxy->pre_rawlog_output;
+}
+
 static void proxy_plain_connected(struct login_proxy *proxy)
 {
 	proxy->server_input =
@@ -238,13 +269,6 @@ static void proxy_plain_connected(struct login_proxy *proxy)
 
 	proxy->server_io =
 		io_add(proxy->server_fd, IO_READ, proxy_prelogin_input, proxy);
-
-	if (proxy->rawlog_dir != NULL) {
-		if (iostream_rawlog_create(proxy->rawlog_dir,
-					   &proxy->server_input,
-					   &proxy->server_output) < 0)
-			i_free(proxy->rawlog_dir);
-	}
 }
 
 static void proxy_fail_connect(struct login_proxy *proxy)
@@ -421,6 +445,8 @@ static void proxy_wait_connect(struct login_proxy *proxy)
 		if (login_proxy_starttls(proxy) < 0) {
 			/* proxy is already destroyed */
 		}
+	} else {
+		proxy_rawlog_init(proxy);
 	}
 }
 
@@ -1257,6 +1283,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 	if ((proxy->ssl_flags & AUTH_PROXY_SSL_FLAG_ANY_CERT) != 0)
 		ssl_flags |= SSL_IOSTREAM_FLAG_ALLOW_INVALID_CERT;
 
+	proxy_rawlog_deinit(proxy);
 	io_remove(&proxy->side_channel_io);
 	io_remove(&proxy->server_io);
 
@@ -1297,6 +1324,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 				   LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
 		return -1;
 	}
+	proxy_rawlog_init(proxy);
 
 	proxy->server_io = io_add_istream(proxy->server_input,
 					  proxy_prelogin_input, proxy);
