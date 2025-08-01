@@ -26,8 +26,8 @@ struct mdbox_rebuild_msg {
 
 	guid_128_t guid_128;
 	uint32_t file_id;
-	uint32_t offset;
-	uint32_t rec_size;
+	uoff_t offset;
+	uoff_t rec_size;
 	uoff_t mail_size;
 	uint32_t map_uid;
 
@@ -219,8 +219,8 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 		} else {
 			/* duplicate GUID, but not a duplicate message. */
 			e_error(event, "Duplicate GUID %s in "
-				"m.%u:%u (size=%"PRIuUOFF_T") and m.%u:%u "
-				"(size=%"PRIuUOFF_T")",
+				"m.%u:%"PRIuUOFF_T" (size=%"PRIuUOFF_T") and "
+				"m.%u:%"PRIuUOFF_T" (size=%"PRIuUOFF_T")",
 				guid, old_rec->file_id, old_rec->offset,
 				old_rec->mail_size, rec->file_id, rec->offset,
 				rec->mail_size);
