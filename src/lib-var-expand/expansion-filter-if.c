@@ -3,9 +3,8 @@
 #include "lib.h"
 #include "var-expand-private.h"
 #include "expansion.h"
+#include "dregex.h"
 #include "wildcard-match.h"
-
-#include <regex.h>
 
 enum var_expand_if_op {
 	OP_UNKNOWN,
@@ -65,7 +64,6 @@ fn_if_cmp(struct var_expand_state *state, const struct var_expand_parameter *p_l
 	  enum var_expand_if_op op, const struct var_expand_parameter *p_rhs,
 	  bool *result_r, const char **error_r)
 {
-	bool neg = FALSE;
 	if (op < OP_STR_EQ) {
 		intmax_t a;
 		intmax_t b;
@@ -109,6 +107,8 @@ fn_if_cmp(struct var_expand_state *state, const struct var_expand_parameter *p_l
 		return -1;
 	}
 
+	bool neg ATTR_UNUSED = FALSE;
+
 	switch (op) {
 	case OP_STR_EQ:
 		*result_r = strcmp(lhs,rhs) == 0;
@@ -140,29 +140,15 @@ fn_if_cmp(struct var_expand_state *state, const struct var_expand_parameter *p_l
 	case OP_STR_REGEXP: {
 		int ec;
 		bool res;
-		regex_t reg;
-		if ((ec = regcomp(&reg, rhs, REG_EXTENDED)) != 0) {
-			size_t size;
-			char *errbuf;
-			size = regerror(ec, &reg, NULL, 0);
-			errbuf = t_malloc_no0(size);
-			(void)regerror(ec, &reg, errbuf, size);
-			*error_r = t_strdup_printf("regexp() failed: %s",
-						   errbuf);
+
+		ec = dregex_match(rhs, lhs, 0, error_r);
+
+		if (ec < 0)
 			return -1;
-		}
-		if ((ec = regexec(&reg, lhs, 0, 0, 0)) != 0) {
-			i_assert(ec == REG_NOMATCH);
-			res = FALSE;
-		} else {
-			res = TRUE;
-		}
-		regfree(&reg);
-		/* this should be same as neg.
-		   if NOT_REGEXP, neg == TRUE and res should be FALSE
-		   if REGEXP, ned == FALSE, and res should be TRUE
-		 */
+
+		res = ec == 1;
 		*result_r = res != neg;
+
 		return 0;
 	}
 	default:

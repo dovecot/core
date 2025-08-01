@@ -8,11 +8,11 @@
 #include "str.h"
 #include "strescape.h"
 #include "str-sanitize.h"
+#include "dregex.h"
 #include "var-expand-private.h"
 #include "expansion.h"
 
 #include <ctype.h>
-#include <regex.h>
 
 ARRAY_DEFINE_TYPE(var_expand_filter, struct var_expand_filter);
 static ARRAY_TYPE(var_expand_filter) dyn_filters = ARRAY_INIT;
@@ -795,66 +795,15 @@ static int fn_regexp(const struct var_expand_statement *stmt,
 
 	ERROR_IF_NO_TRANSFER_TO("regexp");
 
-	int ret;
-	regex_t reg;
-	regmatch_t matches[10];
-	const char *input = str_c(state->transfer);
-	i_zero(&reg);
-	i_zero(&matches);
-	if ((ret = regcomp(&reg, pat, REG_EXTENDED)) != 0) {
-		char errbuf[1024] = {0};
-		(void)regerror(ret, &reg, errbuf, sizeof(errbuf));
-		regfree(&reg);
-		*error_r = t_strdup(errbuf);
-		return -1;
-	}
-
-	ret = regexec(&reg, input, N_ELEMENTS(matches), matches, 0);
-	if (ret == REG_NOMATCH) {
-		/* no match, do not modify */
-		regfree(&reg);
-		return 0;
-	}
-
-	/* perform replacement */
+	const char *input ATTR_UNUSED = str_c(state->transfer);
 	string_t *dest = t_str_new(strlen(rep));
-	const char *p0 = rep;
-	const char *p1;
-	ret = 0;
 
-	/* Supports up to 9 capture groups,
-	 * if we need more, then this code should
-	 * be refactored to see how many we really need
-	 * and create a proper template from this. */
-	while ((p1 = strchr(p0, '\\')) != NULL) {
-		if (i_isdigit(p1[1])) {
-			/* looks like a placeholder */
-			str_append_data(dest, p0, p1 - p0);
-			unsigned int g = p1[1] - '0';
-			if (g >= N_ELEMENTS(matches) ||
-			    matches[g].rm_so == -1) {
-				*error_r = "Invalid capture group";
-				ret = -1;
-				break;
-			}
-			i_assert(matches[g].rm_eo >= matches[g].rm_so);
-			str_append_data(dest, input + matches[g].rm_so,
-				        matches[g].rm_eo - matches[g].rm_so);
-			p0 = p1 + 2;
-		} else {
-			str_append_c(dest, *p1);
-			p1++;
-		}
-	}
+	int ret = dregex_replace(pat, input, rep, dest, 0, error_r);
 
-	regfree(&reg);
-
-	if (ret == 0) {
-		str_append(dest, p0);
+	if (ret > 0)
 		var_expand_state_set_transfer_data(state, dest->data, dest->used);
-	}
 
-	return ret == 0 ? 0 : -1;
+	return ret < 0 ? -1 : 0;
 }
 
 static int fn_number(const struct var_expand_statement *stmt, bool be,

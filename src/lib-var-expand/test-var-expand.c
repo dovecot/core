@@ -196,8 +196,10 @@ static void test_var_expand_builtin_filters(void) {
 		{ .in = "%{truncate(3)}", .out = "truncate: No value to truncate", .ret = -1 },
 		/* ldap dn */
 		{ .in = "cn=%{first},ou=%{domain | ldap_dn}", .out = "cn=hello,ou=test,dc=dovecot,dc=org", .ret = 0 },
+#ifdef HAVE_LIBPCRE
 		/* regexp */
-		{ .in = "%{literal('hello world') | regexp('(.*) (.*)', '\\\\2 \\\\1')}", .out = "world hello" },
+		{ .in = "%{literal('hello world') | regexp('(.*) (.*)', '$2 $1')}", .out = "world hello" },
+#endif
 		/* index */
 		{ .in = "%{user | index('@',0)}", .out = "user", .ret = 0 },
 		{ .in = "%{user | username}", .out = "user", .ret = 0 },
@@ -342,6 +344,7 @@ static void test_var_expand_if(void)
 		{ .in = "%{literal('a') | if('!*', '*a*', 'yes', 'no')}", .out = "no", .ret = 0 },
 		{ .in = "%{literal('a') | if('!*', '*b*', 'yes', 'no')}", .out = "yes", .ret = 0 },
 		{ .in = "%{literal('a') | if('!*', '*', 'yes', 'no')}", .out = "no", .ret = 0 },
+#ifdef HAVE_LIBPCRE
 		{ .in = "%{literal('a') | if('~', 'a', 'yes', 'no')}", .out = "yes", .ret = 0 },
 		{ .in = "%{literal('a') | if('~', 'b', 'yes', 'no')}", .out = "no", .ret = 0 },
 		{ .in = "%{literal('a') | if('~', '.*a.*', 'yes', 'no')}", .out = "yes", .ret = 0 },
@@ -354,6 +357,7 @@ static void test_var_expand_if(void)
 		{ .in = "%{literal('a') | if('!~', '.*', 'yes', 'no')}", .out = "no", .ret = 0 },
 		{ .in = "%{literal('this is test') | if('~', '^test', 'yes', 'no')}", .out = "no", .ret = 0 },
 		{ .in = "%{literal('this is test') | if('~', '.*test', 'yes', 'no')}", .out = "yes", .ret = 0 },
+#endif
 		/* variable expansion */
 		{ .in = "%{alpha | if('eq', alpha, 'yes', 'no')}", .out = "yes", .ret = 0 },
 		{ .in = "%{alpha | if('eq', beta, 'yes', 'no')}", .out = "no", .ret = 0 },
