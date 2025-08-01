@@ -19,6 +19,7 @@ YACC=/bin/false
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-regex \
 	-Wno-error=unused-function \
 	-DVAR_EXPAND_MODULE_DIR=\"$(moduledir)\"
 
@@ -59,6 +60,7 @@ noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	libvar_expand.la \
+	../lib-regex/libdregex.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
 	$(MODULE_LIBS)

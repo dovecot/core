@@ -56,6 +56,7 @@ check-local:
 
 LIBDOVECOT_TEST_DEPS = \
 	../lib-var-expand/libvar_expand.la \
+	../lib-regex/libdregex.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-json/libjson.la \
 	../lib-settings/libsettings.la \

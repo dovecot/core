@@ -40,6 +40,7 @@ test_libs = \
 	../lib-dns/libdns.la \
 	../lib-charset/libcharset.la \
 	../lib-var-expand/libvar_expand.la \
+	../lib-regex/libdregex.la \
 	../lib/liblib.la \
 	$(MODULE_LIBS)
 

@@ -595,6 +595,7 @@ LIBDOVECOT_LA_LIBS='\
 	$(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la \
 	$(top_builddir)/src/lib-dcrypt/libdcrypt.la \
 	$(top_builddir)/src/lib-json/libjson.la \
+	$(top_builddir)/src/lib-regex/libdregex.la \
 	$(top_builddir)/src/lib-test/libtest.la \
 	$(top_builddir)/src/lib/liblib.la'
 # This is used in dovecot-config, which is grepped in dovecot.m4,
@@ -605,7 +606,7 @@ LIBDOVECOT_LUA=''
 
 if test "$want_shared_libs" = "yes"; then
   LIBDOVECOT_DEPS='$(top_builddir)/src/lib-dovecot/libdovecot.la'
-  LIBDOVECOT="$LIBDOVECOT_DEPS \$(MODULE_LIBS)"
+  LIBDOVECOT="$LIBDOVECOT_DEPS \$(MODULE_LIBS) \$(LIBPCRE_LIBS)"
   LIBDOVECOT_STORAGE_DEPS='$(top_builddir)/src/lib-storage/libdovecot-storage.la $(top_builddir)/src/lib-imap-storage/libimap-storage.la'
   LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/libdovecot-login.la'
   LIBDOVECOT_LDA='$(top_builddir)/src/lib-lda/libdovecot-lda.la'
@@ -614,7 +615,7 @@ if test "$want_shared_libs" = "yes"; then
   fi
 else
   LIBDOVECOT_DEPS="$LIBDOVECOT_LA_LIBS"
-  LIBDOVECOT="$LIBDOVECOT_DEPS \$(MODULE_LIBS)"
+  LIBDOVECOT="$LIBDOVECOT_DEPS \$(MODULE_LIBS) \$(LIBPCRE_LIBS)"
   LIBDOVECOT_STORAGE_DEPS='$(top_builddir)/src/lib-storage/libstorage.la'
   LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/liblogin.la'
   LIBDOVECOT_LDA='$(top_builddir)/src/lib-lda/liblda.la'

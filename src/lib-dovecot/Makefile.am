@@ -5,6 +5,7 @@ libdovecot_la_SOURCES =
 libdovecot_la_LIBADD = \
 	$(LIBDOVECOT_LA_LIBS) \
 	$(MODULE_LIBS) \
+	$(LIBPCRE_LIBS) \
 	$(RELRO_LDFLAGS)
 
 libdovecot_la_DEPENDENCIES = $(LIBDOVECOT_LA_LIBS)

@@ -57,6 +57,7 @@ test_deps = \
 	../lib-settings/libsettings.la \
 	../lib-dns/libdns.la \
 	../lib-var-expand/libvar_expand.la \
+	../lib-regex/libdregex.la \
 	../lib-test/libtest.la \
 	../lib-dns-client/libdns-client.la  \
 	../lib-dns/libdns.la \

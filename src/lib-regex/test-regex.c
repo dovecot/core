@@ -112,6 +112,13 @@ static void test_dregex_match(void)
 		MATCH_CASE("^.{2,3}$", "hel"),
 		MATCH_CASE("^.+$", "hello"),
 		MATCH_CASE_FULL("^.+$", "", NULL, 0, 0),
+		/* Groups */
+		MATCH_CASE(
+			"the (.*) jumped over a (.*) dog",
+			"the fox jumped over a lazy dog"
+		),
+		MATCH_CASE("the (a) of (b)", "the a of b"),
+		MATCH_CASE("the \\(a\\) of \\(b\\)", "the (a) of (b)"),
 		/* Alternation and grouping */
 		MATCH_CASE("^(hello|world)$", "hello"),
 		MATCH_CASE("^(hello|world)$", "world"),
@@ -175,6 +182,14 @@ static void test_dregex_match(void)
 			0,
 			0
 		),
+		{
+			.pattern = "the (.*) jumps off the (.*)",
+			.subject = "the cat jumps off the table",
+			.error = NULL,
+			.flags = (DREGEX_ICASE|DREGEX_ASCII_ONLY),
+			.compile_ret = 0,
+			.match_ret = 1,
+		},
 		MATCH_CASE("<(.*)@", "<simple-list@test.invalid>"),
 		MATCH_CASE("^\\[(.*)\\] (.*)$", "[acme-users] [fwd]: hello, world"),
 		MATCH_CASE_END

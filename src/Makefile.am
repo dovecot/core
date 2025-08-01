@@ -11,6 +11,7 @@ endif
 LIBDOVECOT_SUBDIRS = \
 	lib-test \
 	lib \
+	lib-regex \
 	lib-var-expand \
 	lib-dns \
 	lib-settings \
@@ -44,7 +45,6 @@ SUBDIRS = \
 	lib-dovecot \
 	$(LIB_LDAP) \
 	$(LIB_LUA) \
-	lib-regex \
 	lib-language \
 	lib-imap-client \
 	lib-imap-urlauth \

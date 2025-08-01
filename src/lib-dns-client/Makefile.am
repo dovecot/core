@@ -27,6 +27,7 @@ test_libs = \
 	../lib-dns/libdns.la  \
 	../lib-test/libtest.la \
 	../lib-var-expand/libvar_expand.la \
+	../lib-regex/libdregex.la \
 	../lib/liblib.la
 
 test_dns_lookup_SOURCES = test-dns-lookup.c

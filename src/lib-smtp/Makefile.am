@@ -118,6 +118,7 @@ test_libs = \
 	../lib-otp/libotp.la \
 	../lib-json/libjson.la \
 	../lib-var-expand/libvar_expand.la \
+	../lib-regex/libdregex.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
 	$(MODULE_LIBS)
@@ -138,6 +139,7 @@ test_deps = \
 	../lib-auth/libauth.la \
 	../lib-json/libjson.la \
 	../lib-var-expand/libvar_expand.la \
+	../lib-regex/libdregex.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
