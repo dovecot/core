@@ -296,4 +296,7 @@
 #  define ENUM_NEGATE(x) ((unsigned int)(~(x)))
 #endif
 
+#define regexec(...) "Do not use libc regex, use lib-regex instead"
+#define regcomp(...) "Do not use libc regex, use lib-regex instead"
+
 #endif
