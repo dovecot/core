@@ -454,6 +454,7 @@ int doveadm_cmdline_run(int argc, const char *const argv[],
 		cctx->cmd->cmd(cctx);
 
 	doveadm_cmd_params_clean(&pargv);
+        doveadm_exit_code_deinit();
 	pool_unref(&pool);
 	return 0;
 }
