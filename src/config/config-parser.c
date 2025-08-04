@@ -413,7 +413,7 @@ config_parse_fill_reverse_default_siblings(struct config_parser_context *ctx)
 	config_filter_fill_reverse_default_siblings(root_parser, defaults_parser);
 }
 
-static bool
+static int
 config_filter_get_value(struct config_filter_parser *filter_parser,
 			const struct setting_define *def,
 			struct config_parser_key *config_key,
@@ -440,12 +440,12 @@ config_filter_get_value(struct config_filter_parser *filter_parser,
 	if (l->change_counters != NULL &&
 	    l->change_counters[config_key->define_idx] != 0) {
 		str_append(str, set_str_expanded(&l->settings[config_key->define_idx]));
-		return TRUE;
+		return 1;
 	}
 	if (l2 != NULL && l2->change_counters != NULL &&
 	    l2->change_counters[config_key->define_idx] != 0) {
 		str_append(str, set_str_expanded(&l2->settings[config_key->define_idx]));
-		return TRUE;
+		return 1;
 	}
 
 	if (filter_parser->parent == NULL) {
@@ -454,7 +454,7 @@ config_filter_get_value(struct config_filter_parser *filter_parser,
 						     def->offset);
 		if (!config_export_type(str, value, def->type))
 			i_unreached();
-		return TRUE;
+		return 1;
 	}
 
 	/* not changed by this parser. maybe parent has. */
@@ -462,7 +462,7 @@ config_filter_get_value(struct config_filter_parser *filter_parser,
 				       key, str);
 }
 
-static bool
+static int
 config_get_value(struct config_parser_context *ctx,
 		 struct config_filter_parser *filter_parser,
 		 struct config_parser_key *config_key,
@@ -472,7 +472,7 @@ config_get_value(struct config_parser_context *ctx,
 		&all_infos[config_key->info_idx]->defines[config_key->define_idx];
 	if (def->type == SET_STRLIST || def->type == SET_BOOLLIST ||
 	    def->type == SET_FILTER_NAME || def->type == SET_FILTER_ARRAY)
-		return FALSE;
+		return 0;
 
 	config_parse_fill_reverse_default_siblings(ctx);
 	return config_filter_get_value(filter_parser, def, config_key, key, str);
@@ -2636,6 +2636,7 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 	const char *var_end, *orig_value = value;
 	bool force_expand = FALSE;
 	bool seen_settings = FALSE;
+	int ret;
 
 	str_append_c(prefixed_str, CONFIG_VALUE_PREFIX_EXPANDED);
 	while (value != NULL) {
@@ -2681,14 +2682,18 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 							 set_name, NULL);
 				return -1;
 			}
-			if (!config_get_value(ctx, filter_parser, config_key,
-					      set_name, prefixed_str)) {
+			ret = config_get_value(ctx, filter_parser,
+					       config_key, set_name,
+					       prefixed_str);
+			if (ret == 0) {
 				ctx->error = p_strdup_printf(ctx->pool,
 					"Failed to expand $SET:%s: "
 					"Setting type can't be expanded to string",
 					set_name);
-				return -1;
+				ret = -1;
 			}
+			if (ret < 0)
+				return -1;
 		} else {
 			str_append(prefixed_str, var_name);
 		}
