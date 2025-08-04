@@ -2486,32 +2486,30 @@ static int config_parser_filter_cmp(struct config_filter_parser *const *f1,
 	return (int)(*f1)->create_order - (int)(*f2)->create_order;
 }
 
-static void config_expand_value(struct config_parser_context *ctx,
-				struct config_filter_parser *filter_parser,
-				const char *key, const char **value)
+static int config_expand_value(struct config_parser_context *ctx,
+			       struct config_filter_parser *filter_parser,
+			       const char *key, const char **value)
 {
 	if ((*value)[0] == CONFIG_VALUE_PREFIX_EXPANDED)
-		return;
+		return 0;
 	i_assert((*value)[0] == CONFIG_VALUE_PREFIX_SET_UNEXPANDED);
 
 	string_t *new_value = t_str_new(128);
 	if (config_write_keyvariable(ctx, filter_parser, key,
 				     *value + 1, new_value, FALSE) < 0) {
-		/* We already checked the validity of this value before, so
-		   it shouldn't fail here either. */
-		i_panic("BUG: Unexpectedly failed to expand %s=%s: %s",
-			key, *value + 1, ctx->error);
+		return -1;
 	}
 	*value = p_strdup(ctx->pool, str_c(new_value));
+	return 0;
 }
 
-static void
+static int
 config_module_parser_expand_values(struct config_parser_context *ctx,
 				   struct config_filter_parser *filter_parser,
 				   const struct config_module_parser *p)
 {
 	if (p->change_counters == NULL)
-		return;
+		return 0;
 
 	for (unsigned int i = 0; p->info->defines[i].key != NULL; i++) {
 		if (p->change_counters[i] == 0)
@@ -2527,12 +2525,13 @@ config_module_parser_expand_values(struct config_parser_context *ctx,
 			const char **prefixed_strings =
 				array_get_modifiable(set->list.prefixed_values, &count);
 			for (j = 0; j < count; j += 2) {
-				config_expand_value(ctx, filter_parser,
-						    p->info->defines[i].key,
-						    &prefixed_strings[j]);
-				config_expand_value(ctx, filter_parser,
-						    p->info->defines[i].key,
-						    &prefixed_strings[j + 1]);
+				if (config_expand_value(ctx, filter_parser,
+							p->info->defines[i].key,
+							&prefixed_strings[j]) < 0 ||
+				    config_expand_value(ctx, filter_parser,
+							p->info->defines[i].key,
+							&prefixed_strings[j + 1]) < 0)
+					return -1;
 			}
 			break;
 		}
@@ -2540,31 +2539,38 @@ config_module_parser_expand_values(struct config_parser_context *ctx,
 		case SET_FILE:
 			break;
 		default:
-			config_expand_value(ctx, filter_parser,
-					    p->info->defines[i].key,
-					    &set->prefixed_str);
+			if (config_expand_value(ctx, filter_parser,
+						p->info->defines[i].key,
+						&set->prefixed_str) < 0)
+				return -1;
 			break;
 		}
 	}
+	return 0;
 }
 
-static void
+static int
 config_filter_parser_expand_values(struct config_parser_context *ctx,
 				   struct config_filter_parser *filter_parser)
 {
 	const struct config_module_parser *l = filter_parser->module_parsers;
 	for (unsigned int info_idx = 0; l[info_idx].info != NULL; info_idx++) {
-		config_module_parser_expand_values(ctx, filter_parser,
-						   &l[info_idx]);
+		if (config_module_parser_expand_values(ctx, filter_parser,
+						       &l[info_idx]) < 0)
+			return -1;
 	}
+	return 0;
 }
 
-static void config_parse_expand_values(struct config_parser_context *ctx)
+static int config_parse_expand_values(struct config_parser_context *ctx)
 {
 	struct config_filter_parser *filter_parser;
 
-	array_foreach_elem(&ctx->all_filter_parsers, filter_parser)
-		config_filter_parser_expand_values(ctx, filter_parser);
+	array_foreach_elem(&ctx->all_filter_parsers, filter_parser) {
+		if (config_filter_parser_expand_values(ctx, filter_parser) < 0)
+			return -1;
+	}
+	return 0;
 }
 
 static int
@@ -2577,7 +2583,10 @@ config_parse_finish(struct config_parser_context *ctx,
 	const char *error;
 	int ret = 0;
 
-	config_parse_expand_values(ctx);
+	if (config_parse_expand_values(ctx) < 0) {
+		*error_r = t_strdup(ctx->error);
+		return -1;
+	}
 
 	new_config = p_new(ctx->pool, struct config_parsed, 1);
 	new_config->pool = ctx->pool;
