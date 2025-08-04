@@ -103,6 +103,7 @@ struct config_parser_context {
 
 	struct old_set_parser *old;
 
+	ARRAY_TYPE(const_string) var_chain_keys;
 	HASH_TABLE(const char *, const char *) seen_settings;
 	struct config_filter_context *filter;
 	bool dump_defaults:1;

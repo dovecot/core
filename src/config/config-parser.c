@@ -414,7 +414,8 @@ config_parse_fill_reverse_default_siblings(struct config_parser_context *ctx)
 }
 
 static int
-config_filter_get_value(struct config_filter_parser *filter_parser,
+config_filter_get_value(struct config_parser_context *ctx,
+			struct config_filter_parser *filter_parser,
 			const struct setting_define *def,
 			struct config_parser_key *config_key,
 			const char *key, string_t *str)
@@ -437,14 +438,28 @@ config_filter_get_value(struct config_filter_parser *filter_parser,
 		l2 = l_swap;
 	}
 
+	const union config_module_parser_setting *value = NULL;
 	if (l->change_counters != NULL &&
-	    l->change_counters[config_key->define_idx] != 0) {
-		str_append(str, set_str_expanded(&l->settings[config_key->define_idx]));
-		return 1;
-	}
-	if (l2 != NULL && l2->change_counters != NULL &&
-	    l2->change_counters[config_key->define_idx] != 0) {
-		str_append(str, set_str_expanded(&l2->settings[config_key->define_idx]));
+	    l->change_counters[config_key->define_idx] != 0)
+		value = &l->settings[config_key->define_idx];
+	else if (l2 != NULL && l2->change_counters != NULL &&
+		 l2->change_counters[config_key->define_idx] != 0)
+		value = &l2->settings[config_key->define_idx];
+
+	if (value != NULL) {
+		if (value->prefixed_str[0] == CONFIG_VALUE_PREFIX_EXPANDED) {
+			str_append(str, set_str_expanded(value));
+			return 1;
+		}
+		i_assert(value->prefixed_str[0] == CONFIG_VALUE_PREFIX_SET_UNEXPANDED);
+		/* chained $variables */
+		string_t *substr = t_str_new(128);
+		if (config_write_keyvariable(ctx, filter_parser,
+					     key, value->prefixed_str + 1,
+					     substr, FALSE) < 0)
+			return -1;
+		i_assert(str_c(substr)[0] == CONFIG_VALUE_PREFIX_EXPANDED);
+		str_append(str, str_c(substr) + 1);
 		return 1;
 	}
 
@@ -458,8 +473,8 @@ config_filter_get_value(struct config_filter_parser *filter_parser,
 	}
 
 	/* not changed by this parser. maybe parent has. */
-	return config_filter_get_value(filter_parser->parent, def, config_key,
-				       key, str);
+	return config_filter_get_value(ctx, filter_parser->parent, def,
+				       config_key, key, str);
 }
 
 static int
@@ -475,7 +490,7 @@ config_get_value(struct config_parser_context *ctx,
 		return 0;
 
 	config_parse_fill_reverse_default_siblings(ctx);
-	return config_filter_get_value(filter_parser, def, config_key, key, str);
+	return config_filter_get_value(ctx, filter_parser, def, config_key, key, str);
 }
 
 static bool config_filter_has_include_group(const struct config_filter *filter)
@@ -2497,6 +2512,9 @@ static int config_expand_value(struct config_parser_context *ctx,
 	string_t *new_value = t_str_new(128);
 	if (config_write_keyvariable(ctx, filter_parser, key,
 				     *value + 1, new_value, FALSE) < 0) {
+		/* We mostly checked the validity of the value. If we're here,
+		   it should be because the settings expansion went into
+		   recursive loop. */
 		return -1;
 	}
 	*value = p_strdup(ctx->pool, str_c(new_value));
@@ -2645,7 +2663,16 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 	const char *var_end, *orig_value = value;
 	bool force_expand = FALSE;
 	bool seen_settings = FALSE;
-	int ret;
+	int ret = 0;
+
+	if (!array_is_created(&ctx->var_chain_keys))
+		p_array_init(&ctx->var_chain_keys, ctx->pool, 4);
+	else if (array_lsearch(&ctx->var_chain_keys, &key, i_strcmp_p) != NULL) {
+		ctx->error = p_strdup_printf(ctx->pool,
+			"Chained $SET:%s loops back to itself", key);
+		return -1;
+	}
+	array_push_back(&ctx->var_chain_keys, &key);
 
 	str_append_c(prefixed_str, CONFIG_VALUE_PREFIX_EXPANDED);
 	while (value != NULL) {
@@ -2689,7 +2716,8 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 				ctx->error = p_strconcat(ctx->pool,
 							 "Unknown setting: ",
 							 set_name, NULL);
-				return -1;
+				ret = -1;
+				break;
 			}
 			ret = config_get_value(ctx, filter_parser,
 					       config_key, set_name,
@@ -2702,7 +2730,8 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 				ret = -1;
 			}
 			if (ret < 0)
-				return -1;
+				break;
+			ret = 0;
 		} else {
 			str_append(prefixed_str, var_name);
 		}
@@ -2718,7 +2747,7 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 		while (*var_end != '\0' && !i_isspace(*var_end)) var_end++;
 	}
 
-	if (delay_set_expand && seen_settings && !force_expand) {
+	if (ret == 0 && delay_set_expand && seen_settings && !force_expand) {
 		/* Delay expanding $SET until the config is parsed. However,
 		   the setting names were validated above, so the final
 		   expansion shouldn't fail. */
@@ -2727,7 +2756,8 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 			     CONFIG_VALUE_PREFIX_SET_UNEXPANDED);
 		str_append(prefixed_str, orig_value);
 	}
-	return 0;
+	array_pop_back(&ctx->var_chain_keys);
+	return ret;
 }
 
 static int config_write_value(struct config_parser_context *ctx,
