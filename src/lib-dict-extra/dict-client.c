@@ -663,8 +663,13 @@ static void dict_conn_destroy(struct connection *_conn)
 {
 	struct dict_client_connection *conn =
 		(struct dict_client_connection *)_conn;
+	const char *error;
 
-	client_dict_disconnect(conn->dict, connection_disconnect_reason(_conn));
+	(void)client_dict_reconnect(conn->dict, t_strdup_printf(
+		"Dict server connection failed: %s "
+		"(%u commands pending)",
+		connection_disconnect_reason(_conn),
+		array_count(&conn->dict->cmds)), &error);
 }
 
 static const struct connection_settings dict_conn_set = {
