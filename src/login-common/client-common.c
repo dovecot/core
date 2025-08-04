@@ -704,18 +704,8 @@ void clients_destroy_all(void)
 	clients_destroy_all_reason(MASTER_SERVICE_SHUTTING_DOWN_MSG);
 }
 
-int client_sni_callback(const char *name, const char **error_r,
-			void *context)
+int client_settings_reload(struct client *client, const char **error_r)
 {
-	struct client *client = context;
-	struct ssl_iostream_context *ssl_ctx;
-	const struct ssl_iostream_settings *ssl_set;
-	int ret;
-
-	if (client->ssl_servername_settings_read)
-		return 0;
-	client->ssl_servername_settings_read = TRUE;
-
 	const struct login_settings *old_set = client->set;
 	const struct ssl_settings *old_ssl_set = client->ssl_set;
 	const struct ssl_server_settings *old_ssl_server_set =
@@ -724,11 +714,6 @@ int client_sni_callback(const char *name, const char **error_r,
 	client->ssl_set = NULL;
 	client->ssl_server_set = NULL;
 
-	/* Add local_name also to event. This is especially important to get
-	   local_name { .. } config filters to work when looking up the settings
-	   again. */
-	event_add_str(client->event, "local_name", name);
-	client->local_name = p_strdup(client->pool, name);
 	if (client_settings_get(client, error_r) < 0 ||
 	    (client->v.reload_config != NULL &&
 	     client->v.reload_config(client, error_r) < 0)) {
@@ -743,6 +728,28 @@ int client_sni_callback(const char *name, const char **error_r,
 	settings_free(old_set);
 	settings_free(old_ssl_set);
 	settings_free(old_ssl_server_set);
+	return 0;
+}
+
+int client_sni_callback(const char *name, const char **error_r,
+			void *context)
+{
+	struct client *client = context;
+	struct ssl_iostream_context *ssl_ctx;
+	const struct ssl_iostream_settings *ssl_set;
+	int ret;
+
+	if (client->ssl_servername_settings_read)
+		return 0;
+	client->ssl_servername_settings_read = TRUE;
+
+	/* Add local_name also to event. This is especially important to get
+	   local_name { .. } config filters to work when looking up the settings
+	   again. */
+	event_add_str(client->event, "local_name", name);
+	client->local_name = p_strdup(client->pool, name);
+	if (client_settings_reload(client, error_r) < 0)
+		return -1;
 
 	ssl_server_settings_to_iostream_set(client->ssl_set,
 		client->ssl_server_set, &ssl_set);

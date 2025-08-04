@@ -357,6 +357,9 @@ void client_destroy_success(struct client *client, const char *reason);
 void client_ref(struct client *client);
 bool client_unref(struct client **client) ATTR_NOWARN_UNUSED_RESULT;
 
+int client_settings_reload(struct client *client, const char **error_r)
+	ATTR_WARN_UNUSED_RESULT;
+
 void client_rawlog_init(struct client *client);
 void client_rawlog_deinit(struct client *client);
 
