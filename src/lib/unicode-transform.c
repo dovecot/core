@@ -205,11 +205,10 @@ static const uint16_t uni_hangul_s_base = 0xac00;
 static const uint16_t uni_hangul_l_base = 0x1100;
 static const uint16_t uni_hangul_v_base = 0x1161;
 static const uint16_t uni_hangul_t_base = 0x11a7;
-static const unsigned int uni_hangul_l_count = 19;
-static const unsigned int uni_hangul_v_count = 21;
-static const unsigned int uni_hangul_t_count = 28;
-static const unsigned int uni_hangul_n_count =
-	uni_hangul_v_count * uni_hangul_t_count;
+static const size_t uni_hangul_l_count = 19;
+static const size_t uni_hangul_v_count = 21;
+static const size_t uni_hangul_t_count = 28;
+static const size_t uni_hangul_n_count = uni_hangul_v_count * uni_hangul_t_count;
 static const uint16_t uni_hangul_l_end = uni_hangul_l_base + uni_hangul_l_count;
 static const uint16_t uni_hangul_v_end = uni_hangul_v_base + uni_hangul_v_count;
 static const uint16_t uni_hangul_t_end = uni_hangul_t_base + uni_hangul_t_count;
@@ -221,11 +220,10 @@ static size_t unicode_hangul_decompose(uint32_t cp, uint32_t buf[3])
 	   Hangul Syllable Decomposition
 	 */
 
-	unsigned int s_index = cp - uni_hangul_s_base;
-	unsigned int l_index = s_index / uni_hangul_n_count;
-	unsigned int v_index = ((s_index % uni_hangul_n_count) /
-				uni_hangul_t_count);
-	unsigned int t_index = s_index % uni_hangul_t_count;
+	size_t s_index = cp - uni_hangul_s_base;
+	size_t l_index = s_index / uni_hangul_n_count;
+	size_t v_index = ((s_index % uni_hangul_n_count) / uni_hangul_t_count);
+	size_t t_index = s_index % uni_hangul_t_count;
 	uint32_t l_part = uni_hangul_l_base + l_index;
 	uint32_t v_part = uni_hangul_v_base + v_index;
 
@@ -254,19 +252,19 @@ static uint32_t unicode_hangul_compose_pair(uint32_t l, uint32_t r)
 	    r >= uni_hangul_v_base && r < uni_hangul_v_end) {
 		uint32_t l_part = l, v_part = r;
 
-		unsigned int l_index = l_part - uni_hangul_l_base;
-		unsigned int v_index = v_part - uni_hangul_v_base;
-		unsigned int lv_index = l_index * uni_hangul_n_count +
-					v_index * uni_hangul_t_count;
+		size_t l_index = l_part - uni_hangul_l_base;
+		size_t v_index = v_part - uni_hangul_v_base;
+		size_t lv_index = l_index * uni_hangul_n_count +
+				  v_index * uni_hangul_t_count;
 		return uni_hangul_s_base + lv_index;
 	}
 	/* A sequence <LVPart, TPart> */
 	if (l >= uni_hangul_s_base && l < uni_hangul_s_end &&
-	    r >= (uni_hangul_t_base + 1) && r < uni_hangul_t_end &&
+	    r >= (uni_hangul_t_base + 1u) && r < uni_hangul_t_end &&
 	    ((l - uni_hangul_s_base) % uni_hangul_t_count) == 0) {
 		uint32_t lv_part = l, t_part = r;
 
-		unsigned int t_index = t_part - uni_hangul_t_base;
+		size_t t_index = t_part - uni_hangul_t_base;
 		return lv_part + t_index;
 	}
 	return 0x0000;
