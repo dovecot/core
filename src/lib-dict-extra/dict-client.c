@@ -185,6 +185,11 @@ client_dict_cmd_init(struct client_dict *dict, const char *query)
 	return cmd;
 }
 
+static const char *client_dict_cmd_get_log_query(struct client_dict_cmd *cmd)
+{
+	return cmd->query;
+}
+
 static void client_dict_cmd_ref(struct client_dict_cmd *cmd)
 {
 	i_assert(cmd->refcount > 0);
@@ -266,7 +271,7 @@ static void client_dict_input_timeout(struct client_dict_cmd *cmd)
 		"(%u commands pending, oldest sent %lld.%03lld secs ago: %s, %s)",
 		connection_input_timeout_reason(&dict->conn.conn),
 		array_count(&dict->cmds),
-		cmd_diff/1000, cmd_diff%1000, cmd->query,
+		cmd_diff/1000, cmd_diff%1000, client_dict_cmd_get_log_query(cmd),
 		dict_wait_warnings(cmd)), &error);
 }
 
@@ -896,7 +901,7 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd,
 	default:
 		result.error = t_strdup_printf(
 			"dict-client: Invalid lookup '%s' reply: %c%s",
-			cmd->query, reply, value);
+			client_dict_cmd_get_log_query(cmd), reply, value);
 		/* This is already the command's callback being called.
 		   Make sure it is not called again by
 		   dict_cmd_callback_error() */
@@ -915,7 +920,7 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd,
 		   diff >= (int)dict->set->dict_proxy_slow_warn) {
 		e_warning(dict->conn.conn.event, "dict lookup took %s: %s",
 			  dict_warnings_sec(cmd, diff, extra_args),
-			  cmd->query);
+			  client_dict_cmd_get_log_query(cmd));
 	}
 
 	dict_pre_api_callback(&dict->dict);
@@ -1030,7 +1035,7 @@ client_dict_iter_api_callback(struct client_dict_iterate_context *ctx,
 			   diff >= (int)dict->set->dict_proxy_slow_warn) {
 			e_warning(dict->conn.conn.event, "dict iteration took %s: %s",
 				  dict_warnings_sec(cmd, diff, extra_args),
-				  cmd->query);
+				  client_dict_cmd_get_log_query(cmd));
 		}
 	}
 	if (ctx->ctx.async_callback == NULL) {
@@ -1309,8 +1314,8 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 		e_warning(dict->conn.conn.event, "dict commit took %s: "
 			  "%s (%u commands, first: %s)",
 			  dict_warnings_sec(cmd, diff, extra_args),
-			  cmd->query, cmd->trans->query_count,
-			  cmd->trans->first_query);
+			  client_dict_cmd_get_log_query(cmd),
+			  cmd->trans->query_count, cmd->trans->first_query);
 	}
 	client_dict_transaction_free(&cmd->trans);
 
