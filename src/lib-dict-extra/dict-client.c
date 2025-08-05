@@ -187,7 +187,7 @@ client_dict_cmd_init(struct client_dict *dict, const char *query)
 
 static const char *client_dict_cmd_get_log_query(struct client_dict_cmd *cmd)
 {
-	return cmd->query;
+	return t_strcut(cmd->query, '\n');
 }
 
 static void client_dict_cmd_ref(struct client_dict_cmd *cmd)
@@ -278,17 +278,13 @@ static void client_dict_input_timeout(struct client_dict_cmd *cmd)
 static int
 client_dict_cmd_query_send(struct client_dict *dict, const char *query)
 {
-	struct const_iovec iov[2];
+	size_t len = strlen(query);
 	ssize_t ret;
 
-	iov[0].iov_base = query;
-	iov[0].iov_len = strlen(query);
-	iov[1].iov_base = "\n";
-	iov[1].iov_len = 1;
-	ret = o_stream_sendv(dict->conn.conn.output, iov, 2);
+	ret = o_stream_send(dict->conn.conn.output, query, len);
 	if (ret < 0)
 		return -1;
-	i_assert((size_t)ret == iov[0].iov_len + 1);
+	i_assert((size_t)ret == len);
 	return 0;
 }
 
@@ -366,7 +362,7 @@ client_dict_transaction_send_begin(struct client_dict_transaction_context *ctx,
 	ctx->sent_begin = TRUE;
 
 	/* transactions commands don't have replies. only COMMIT has. */
-	query = t_strdup_printf("%c%u\t%s\t%u", DICT_PROTOCOL_CMD_BEGIN,
+	query = t_strdup_printf("%c%u\t%s\t%u\n", DICT_PROTOCOL_CMD_BEGIN,
 				ctx->id,
 				set->username == NULL ? "" : str_tabescape(set->username),
 				set->expire_secs);
@@ -398,8 +394,10 @@ client_dict_send_transaction_query(struct client_dict_transaction_context *ctx,
 	}
 
 	ctx->query_count++;
-	if (ctx->first_query == NULL)
-		ctx->first_query = i_strdup(query);
+	if (ctx->first_query == NULL) {
+		/* save the query without the trailing LF */
+		ctx->first_query = i_strndup(query, strlen(query) - 1);
+	}
 
 	cmd = client_dict_cmd_init(dict, query);
 	cmd->no_replies = TRUE;
@@ -937,7 +935,7 @@ client_dict_lookup_async(struct dict *_dict, const struct dict_op_settings *set,
 	struct client_dict_cmd *cmd;
 	const char *query;
 
-	query = t_strdup_printf("%c%s\t%s", DICT_PROTOCOL_CMD_LOOKUP,
+	query = t_strdup_printf("%c%s\t%s\n", DICT_PROTOCOL_CMD_LOOKUP,
 				str_tabescape(key),
 				set->username == NULL ? "" : str_tabescape(set->username));
 	cmd = client_dict_cmd_init(dict, query);
@@ -1155,6 +1153,7 @@ client_dict_iterate_cmd_send(struct client_dict_iterate_context *ctx)
 	str_append_tabescaped(query, ctx->path);
 	str_append_c(query, '\t');
 	str_append_tabescaped(query, set->username == NULL ? "" : set->username);
+	str_append_c(query, '\n');
 
 	cmd = client_dict_cmd_init(dict, str_c(query));
 	cmd->iter = ctx;
@@ -1340,7 +1339,7 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 	DLLIST_REMOVE(&dict->transactions, ctx);
 
 	if (ctx->sent_begin && ctx->error == NULL) {
-		query = t_strdup_printf("%c%u", DICT_PROTOCOL_CMD_COMMIT, ctx->id);
+		query = t_strdup_printf("%c%u\n", DICT_PROTOCOL_CMD_COMMIT, ctx->id);
 		cmd = client_dict_cmd_init(dict, query);
 		cmd->trans = ctx;
 
@@ -1382,7 +1381,7 @@ client_dict_transaction_rollback(struct dict_transaction_context *_ctx)
 	if (ctx->sent_begin) {
 		const char *query;
 
-		query = t_strdup_printf("%c%u", DICT_PROTOCOL_CMD_ROLLBACK,
+		query = t_strdup_printf("%c%u\n", DICT_PROTOCOL_CMD_ROLLBACK,
 					ctx->id);
 		client_dict_send_transaction_query(ctx, query);
 	}
@@ -1399,7 +1398,7 @@ static void client_dict_set(struct dict_transaction_context *_ctx,
 		(struct client_dict_transaction_context *)_ctx;
 	const char *query;
 
-	query = t_strdup_printf("%c%u\t%s\t%s",
+	query = t_strdup_printf("%c%u\t%s\t%s\n",
 				DICT_PROTOCOL_CMD_SET, ctx->id,
 				str_tabescape(key),
 				str_tabescape(value));
@@ -1413,7 +1412,7 @@ static void client_dict_unset(struct dict_transaction_context *_ctx,
 		(struct client_dict_transaction_context *)_ctx;
 	const char *query;
 
-	query = t_strdup_printf("%c%u\t%s",
+	query = t_strdup_printf("%c%u\t%s\n",
 				DICT_PROTOCOL_CMD_UNSET, ctx->id,
 				str_tabescape(key));
 	client_dict_send_transaction_query(ctx, query);
@@ -1426,7 +1425,7 @@ static void client_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		(struct client_dict_transaction_context *)_ctx;
 	const char *query;
 
-	query = t_strdup_printf("%c%u\t%s\t%lld",
+	query = t_strdup_printf("%c%u\t%s\t%lld\n",
 				DICT_PROTOCOL_CMD_ATOMIC_INC,
 				ctx->id, str_tabescape(key), diff);
 	client_dict_send_transaction_query(ctx, query);
@@ -1439,7 +1438,7 @@ static void client_dict_set_timestamp(struct dict_transaction_context *_ctx,
 		(struct client_dict_transaction_context *)_ctx;
 	const char *query;
 
-	query = t_strdup_printf("%c%u\t%s\t%u",
+	query = t_strdup_printf("%c%u\t%s\t%u\n",
 				DICT_PROTOCOL_CMD_TIMESTAMP,
 				ctx->id, dec2str(ts->tv_sec),
 				(unsigned int)ts->tv_nsec);
@@ -1453,7 +1452,7 @@ static void client_dict_set_hide_log_values(struct dict_transaction_context *_ct
                container_of(_ctx, struct client_dict_transaction_context, ctx);
        const char *query;
 
-       query = t_strdup_printf("%c%u\t%s",
+       query = t_strdup_printf("%c%u\t%s\n",
                                DICT_PROTOCOL_CMD_HIDE_LOG_VALUES,
                                ctx->id,
                                hide_log_values ? "yes" : "no");
