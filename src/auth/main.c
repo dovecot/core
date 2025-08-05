@@ -278,7 +278,6 @@ static void main_deinit(void)
 	mech_register_deinit(&mech_reg);
 	mech_otp_deinit();
 	mech_deinit(global_auth_settings);
-	settings_free(global_auth_settings);
 
 	/* allow modules to unregister their dbs/drivers/etc. before freeing
 	   the whole data structures containing them. */
@@ -288,6 +287,8 @@ static void main_deinit(void)
 	passdbs_deinit();
 	passdb_cache_deinit();
         password_schemes_deinit();
+
+	settings_free(global_auth_settings);
 
 	sql_drivers_deinit();
 	child_wait_deinit();
