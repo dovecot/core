@@ -112,6 +112,7 @@ struct client_dict_transaction_context {
 
 	unsigned int id;
 	string_t *queries;
+	bool can_retry;
 };
 
 struct dict_proxy_settings {
@@ -1204,6 +1205,7 @@ client_dict_transaction_init(struct dict *_dict)
 	ctx->ctx.dict = _dict;
 	ctx->id = ++dict->transaction_id_counter;
 	ctx->queries = str_new(default_pool, 256);
+	ctx->can_retry = TRUE;
 
 	DLLIST_PREPEND(&dict->transactions, ctx);
 	return &ctx->ctx;
@@ -1310,6 +1312,7 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 			    ctx->id);
 		cmd = client_dict_cmd_init(dict, str_c(ctx->queries));
 		cmd->trans = ctx;
+		cmd->retry_errors = ctx->can_retry;
 
 		cmd->callback = client_dict_transaction_commit_callback;
 		cmd->api_callback.commit = callback;
@@ -1384,6 +1387,9 @@ static void client_dict_atomic_inc(struct dict_transaction_context *_ctx,
 	struct client_dict_transaction_context *ctx =
 		(struct client_dict_transaction_context *)_ctx;
 	const char *query;
+
+	/* Retrying may cause it to increment too many times */
+	ctx->can_retry = FALSE;
 
 	query = t_strdup_printf("%c%u\t%s\t%lld\n",
 				DICT_PROTOCOL_CMD_ATOMIC_INC,
