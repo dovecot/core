@@ -108,13 +108,10 @@ struct client_dict_transaction_context {
 	struct dict_transaction_context ctx;
 	struct client_dict_transaction_context *prev, *next;
 
-	char *first_query;
 	char *error;
 
 	unsigned int id;
-	unsigned int query_count;
-
-	bool sent_begin:1;
+	string_t *queries;
 };
 
 struct dict_proxy_settings {
@@ -187,7 +184,22 @@ client_dict_cmd_init(struct client_dict *dict, const char *query)
 
 static const char *client_dict_cmd_get_log_query(struct client_dict_cmd *cmd)
 {
-	return t_strcut(cmd->query, '\n');
+	const char *p = cmd->query, *last_lf = NULL, *first_trans_query = NULL;
+	unsigned int query_count = 0;
+
+	while ((p = strchr(p, '\n')) != NULL) {
+		if (first_trans_query == NULL)
+			first_trans_query = p + 1;
+		last_lf = p;
+		query_count++;
+		p++;
+	}
+	i_assert(last_lf != NULL);
+
+	if (query_count == 1)
+		return t_strdup_until(cmd->query, last_lf);
+	return t_strdup_printf("(%u queries in transaction, first=%s)",
+			       query_count, t_strcut(first_trans_query, '\n'));
 }
 
 static void client_dict_cmd_ref(struct client_dict_cmd *cmd)
@@ -349,60 +361,20 @@ client_dict_cmd_send(struct client_dict *dict, struct client_dict_cmd **_cmd,
 	}
 }
 
-static bool
-client_dict_transaction_send_begin(struct client_dict_transaction_context *ctx,
-				   const struct dict_op_settings_private *set)
-{
-	struct client_dict *dict = (struct client_dict *)ctx->ctx.dict;
-	struct client_dict_cmd *cmd;
-	const char *query, *error;
-
-	i_assert(ctx->error == NULL);
-
-	ctx->sent_begin = TRUE;
-
-	/* transactions commands don't have replies. only COMMIT has. */
-	query = t_strdup_printf("%c%u\t%s\t%u\n", DICT_PROTOCOL_CMD_BEGIN,
-				ctx->id,
-				set->username == NULL ? "" : str_tabescape(set->username),
-				set->expire_secs);
-	cmd = client_dict_cmd_init(dict, query);
-	cmd->no_replies = TRUE;
-	cmd->retry_errors = TRUE;
-	if (!client_dict_cmd_send(dict, &cmd, &error)) {
-		ctx->error = i_strdup(error);
-		return FALSE;
-	}
-	return TRUE;
-}
-
 static void
 client_dict_send_transaction_query(struct client_dict_transaction_context *ctx,
 				   const char *query)
 {
-	struct client_dict *dict = (struct client_dict *)ctx->ctx.dict;
-	const struct dict_op_settings_private *set = &ctx->ctx.set;
-	struct client_dict_cmd *cmd;
-	const char *error;
-
-	if (ctx->error != NULL)
-		return;
-
-	if (!ctx->sent_begin) {
-		if (!client_dict_transaction_send_begin(ctx, set))
-			return;
+	if (str_len(ctx->queries) == 0) {
+		const struct dict_op_settings_private *set = &ctx->ctx.set;
+		str_printfa(ctx->queries, "%c%u\t%s\t%u\n",
+			    DICT_PROTOCOL_CMD_BEGIN, ctx->id,
+			    set->username == NULL ? "" :
+			    str_tabescape(set->username),
+			    set->expire_secs);
 	}
 
-	ctx->query_count++;
-	if (ctx->first_query == NULL) {
-		/* save the query without the trailing LF */
-		ctx->first_query = i_strndup(query, strlen(query) - 1);
-	}
-
-	cmd = client_dict_cmd_init(dict, query);
-	cmd->no_replies = TRUE;
-	if (!client_dict_cmd_send(dict, &cmd, &error))
-		ctx->error = i_strdup(error);
+	str_append(ctx->queries, query);
 }
 
 static bool client_dict_is_finished(struct client_dict *dict)
@@ -589,16 +561,7 @@ client_dict_abort_commands(struct client_dict *dict, const char *reason)
 
 static void client_dict_disconnect(struct client_dict *dict, const char *reason)
 {
-	struct client_dict_transaction_context *ctx, *next;
-
 	client_dict_abort_commands(dict, reason);
-
-	/* all transactions that have sent BEGIN are no longer valid */
-	for (ctx = dict->transactions; ctx != NULL; ctx = next) {
-		next = ctx->next;
-		if (ctx->sent_begin && ctx->error == NULL)
-			ctx->error = i_strdup(reason);
-	}
 
 	timeout_remove(&dict->to_idle);
 	connection_disconnect(&dict->conn.conn);
@@ -1240,6 +1203,7 @@ client_dict_transaction_init(struct dict *_dict)
 	ctx = i_new(struct client_dict_transaction_context, 1);
 	ctx->ctx.dict = _dict;
 	ctx->id = ++dict->transaction_id_counter;
+	ctx->queries = str_new(default_pool, 256);
 
 	DLLIST_PREPEND(&dict->transactions, ctx);
 	return &ctx->ctx;
@@ -1251,7 +1215,7 @@ client_dict_transaction_free(struct client_dict_transaction_context **_ctx)
 	struct client_dict_transaction_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	i_free(ctx->first_query);
+	str_free(&ctx->queries);
 	i_free(ctx->error);
 	i_free(ctx);
 }
@@ -1316,10 +1280,9 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 	} else if (!cmd->background && !cmd->trans->ctx.set.no_slowness_warning &&
 		   diff >= (int)dict->set->dict_proxy_slow_warn) {
 		e_warning(dict->conn.conn.event, "dict commit took %s: "
-			  "%s (%u commands, first: %s)",
+			  "%s",
 			  dict_warnings_sec(cmd, diff, extra_args),
-			  client_dict_cmd_get_log_query(cmd),
-			  cmd->trans->query_count, cmd->trans->first_query);
+			  client_dict_cmd_get_log_query(cmd));
 	}
 	client_dict_transaction_free(&cmd->trans);
 
@@ -1339,13 +1302,13 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 		(struct client_dict_transaction_context *)_ctx;
 	struct client_dict *dict = (struct client_dict *)_ctx->dict;
 	struct client_dict_cmd *cmd;
-	const char *query;
 
 	DLLIST_REMOVE(&dict->transactions, ctx);
 
-	if (ctx->sent_begin && ctx->error == NULL) {
-		query = t_strdup_printf("%c%u\n", DICT_PROTOCOL_CMD_COMMIT, ctx->id);
-		cmd = client_dict_cmd_init(dict, query);
+	if (str_len(ctx->queries) > 0 && ctx->error == NULL) {
+		str_printfa(ctx->queries, "%c%u\n", DICT_PROTOCOL_CMD_COMMIT,
+			    ctx->id);
+		cmd = client_dict_cmd_init(dict, str_c(ctx->queries));
 		cmd->trans = ctx;
 
 		cmd->callback = client_dict_transaction_commit_callback;
@@ -1382,14 +1345,6 @@ client_dict_transaction_rollback(struct dict_transaction_context *_ctx)
 	struct client_dict_transaction_context *ctx =
 		(struct client_dict_transaction_context *)_ctx;
 	struct client_dict *dict = (struct client_dict *)_ctx->dict;
-
-	if (ctx->sent_begin) {
-		const char *query;
-
-		query = t_strdup_printf("%c%u\n", DICT_PROTOCOL_CMD_ROLLBACK,
-					ctx->id);
-		client_dict_send_transaction_query(ctx, query);
-	}
 
 	DLLIST_REMOVE(&dict->transactions, ctx);
 	client_dict_transaction_free(&ctx);
