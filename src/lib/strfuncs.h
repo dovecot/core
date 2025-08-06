@@ -32,6 +32,7 @@ char *p_strconcat(pool_t pool, const char *str1, ...)
 const char *t_strdup(const char *str) ATTR_MALLOC;
 char *t_strdup_noconst(const char *str) ATTR_MALLOC;
 const void *t_memdup(const void *data, size_t size) ATTR_MALLOC;
+void *t_memdup_noconst(const void *data, size_t size) ATTR_MALLOC;
 /* return NULL if str = "" */
 const char *t_strdup_empty(const char *str) ATTR_MALLOC;
 /* *end isn't included */

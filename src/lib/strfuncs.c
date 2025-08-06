@@ -236,7 +236,7 @@ char *p_strconcat(pool_t pool, const char *str1, ...)
 	return ret;
 }
 
-static void *t_memdup_noconst(const void *data, size_t size)
+void *t_memdup_noconst(const void *data, size_t size)
 {
 	void *mem = t_malloc_no0(size);
 	memcpy(mem, data, size);
