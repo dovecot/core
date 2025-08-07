@@ -950,6 +950,9 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 		sasl_set.authzid = set->username;
 	}
 	sasl_set.password = set->password;
+	sasl_set.protocol = "smtp";
+	sasl_set.host = conn->host;
+	sasl_set.port = conn->port;
 
 	conn->sasl_client = dsasl_client_new(sasl_mech, &sasl_set);
 

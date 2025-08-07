@@ -154,6 +154,9 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 		client->common.proxy_master_user : client->common.proxy_user;
 	sasl_set.authzid = client->common.proxy_user;
 	sasl_set.password = client->common.proxy_password;
+	sasl_set.protocol = "imap";
+	sasl_set.host = login_proxy_get_host(client->common.login_proxy);
+	sasl_set.port = login_proxy_get_port(client->common.login_proxy);
 	client->common.proxy_sasl_client =
 		dsasl_client_new(client->common.proxy_mech, &sasl_set);
 	mech_name = dsasl_client_mech_get_name(client->common.proxy_mech);

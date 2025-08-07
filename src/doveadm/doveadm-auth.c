@@ -340,6 +340,23 @@ static void cmd_auth_init_sasl_client(struct authtest_input *input)
 	}
 	sasl_set.password = input->password;
 
+	/* Translate to SASL/GSSAPI/Kerberos service name (IANA-registered) */
+	if (strcasecmp(input->info.protocol, "POP3") == 0)
+		sasl_set.protocol = "pop";
+	else if (strcasecmp(input->info.protocol, "Submission") == 0 ||
+		 strcasecmp(input->info.protocol, "LMTP") == 0)
+		sasl_set.protocol = "smtp";
+	else
+		sasl_set.protocol = input->info.protocol;
+
+	if (input->info.local_name != NULL)
+		sasl_set.host = input->info.local_name;
+	else if (input->info.local_ip.family != 0)
+		sasl_set.host = net_ip2addr(&input->info.local_ip);
+	else
+		sasl_set.host = "localhost";
+	sasl_set.port = input->info.local_port;
+
 	input->sasl_client = dsasl_client_new(input->sasl_mech, &sasl_set);
 	dsasl_client_enable_channel_binding(
 		input->sasl_client, SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3,

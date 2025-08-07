@@ -1117,6 +1117,9 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		sasl_set.authzid = set->imapc_user;
 	}
 	sasl_set.password = conn->client->password;
+	sasl_set.protocol = "imap";
+	sasl_set.host = conn->client->set->imapc_host;
+	sasl_set.port = conn->client->set->imapc_port;
 
 	if (sasl_mech == NULL)
 		sasl_mech = &dsasl_client_mech_plain;
