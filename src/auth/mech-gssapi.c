@@ -691,7 +691,10 @@ mech_gssapi_auth_free(struct auth_request *request)
 					     GSS_C_NO_BUFFER);
 	}
 
-	(void)gss_release_cred(&minor_status, &gssapi_request->service_cred);
+	if (gssapi_request->service_cred != GSS_C_NO_CREDENTIAL) {
+		(void)gss_release_cred(&minor_status,
+				       &gssapi_request->service_cred);
+	}
 	if (gssapi_request->authn_name != GSS_C_NO_NAME) {
 		(void)gss_release_name(&minor_status,
 				       &gssapi_request->authn_name);
