@@ -38,6 +38,17 @@ enum ssl_iostream_flags {
 	SSL_IOSTREAM_FLAG_DISABLE_CA_FILES = BIT(1),
 };
 
+enum ssl_iostream_cert_validity {
+	/* SSL certificate is valid. */
+	SSL_IOSTREAM_CERT_VALIDITY_OK,
+	/* SSL certificate has not been received. */
+	SSL_IOSTREAM_CERT_VALIDITY_NO_CERT,
+	/* SSL certificate is invalid/untrusted. */
+	SSL_IOSTREAM_CERT_VALIDITY_INVALID,
+	/* SSL certificate is valid, but it doesn't match the name. */
+	SSL_IOSTREAM_CERT_VALIDITY_NAME_MISMATCH,
+};
+
 struct ssl_iostream_cert {
 	struct settings_file cert;
 	struct settings_file key;
@@ -189,8 +200,9 @@ bool ssl_iostream_has_client_cert(struct ssl_iostream *ssl_io);
    This function is same as calling ssl_iostream_has_valid_client_cert()
    and ssl_iostream_cert_match_name().
  */
-int ssl_iostream_check_cert_validity(struct ssl_iostream *ssl_io,
-				     const char *host, const char **error_r);
+enum ssl_iostream_cert_validity
+ssl_iostream_check_cert_validity(struct ssl_iostream *ssl_io,
+				 const char *host, const char **error_r);
 /* Returns TRUE if the given name matches the SSL stream's certificate.
    The returned reason is a human-readable string explaining what exactly
    matched the name, or why nothing matched. Note that this function works

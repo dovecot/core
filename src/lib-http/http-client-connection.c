@@ -1392,7 +1392,7 @@ http_client_connection_ssl_handshaked(const char **error_r, void *context)
 	const char *error, *host = pshared->addr.a.tcp.https_name;
 
 	if (ssl_iostream_check_cert_validity(conn->ssl_iostream,
-					     host, &error) == 0)
+					     host, &error) == SSL_IOSTREAM_CERT_VALIDITY_OK)
 		e_debug(conn->event, "SSL handshake successful");
 	else if (ssl_iostream_get_allow_invalid_cert(conn->ssl_iostream)) {
 		e_debug(conn->event, "SSL handshake successful, "

@@ -1717,7 +1717,8 @@ static int imapc_connection_ssl_handshaked(const char **error_r, void *context)
 	const char *error;
 
 	if (ssl_iostream_check_cert_validity(conn->ssl_iostream,
-					     conn->client->set->imapc_host, &error) == 0) {
+					     conn->client->set->imapc_host,
+					     &error) == SSL_IOSTREAM_CERT_VALIDITY_OK) {
 		e_debug(conn->event, "SSL handshake successful");
 		return 0;
 	} else if (ssl_iostream_get_allow_invalid_cert(conn->ssl_iostream)) {

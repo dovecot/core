@@ -515,7 +515,7 @@ static int pop3c_client_ssl_handshaked(const char **error_r, void *context)
 	const char *error;
 
 	if (ssl_iostream_check_cert_validity(client->ssl_iostream,
-					     client->set.host, &error) == 0) {
+					     client->set.host, &error) == SSL_IOSTREAM_CERT_VALIDITY_OK) {
 		e_debug(client->event, "SSL handshake successful");
 		return 0;
 	} else if (ssl_iostream_get_allow_invalid_cert(client->ssl_iostream)) {

@@ -249,12 +249,13 @@ static int test_iostream_ssl_handshake_real(struct ssl_iostream_settings *server
 	} else if (client->hostname != NULL &&
 	    !client->set->allow_invalid_cert &&
 	    ssl_iostream_check_cert_validity(client->iostream, client->hostname,
-					     &error) != 0) {
+					     &error) != SSL_IOSTREAM_CERT_VALIDITY_OK) {
 		i_error("client(%s): %s", client->hostname, error);
 		ret = -1;
 	/* client cert */
 	} else if (server->set->verify_remote_cert &&
-	    ssl_iostream_check_cert_validity(server->iostream, NULL, &error) != 0) {
+		   ssl_iostream_check_cert_validity(server->iostream, NULL,
+						    &error) != SSL_IOSTREAM_CERT_VALIDITY_OK) {
 		i_error("server: %s", error);
 		ret = -1;
 	}
