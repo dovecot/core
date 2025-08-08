@@ -707,16 +707,14 @@ openssl_iostream_get_state(const struct ssl_iostream *ssl_io)
 	return ssl_io->state;
 }
 
-static bool
-openssl_iostream_has_valid_client_cert(const struct ssl_iostream *ssl_io)
+static enum ssl_iostream_cert_validity
+openssl_iostream_get_cert_validity(const struct ssl_iostream *ssl_io)
 {
-	return ssl_io->cert_received && !ssl_io->cert_broken;
-}
-
-static bool
-openssl_iostream_has_client_cert(struct ssl_iostream *ssl_io)
-{
-	return ssl_io->cert_received;
+	if (!ssl_io->cert_received)
+		return SSL_IOSTREAM_CERT_VALIDITY_NO_CERT;
+	if (ssl_io->cert_broken)
+		return SSL_IOSTREAM_CERT_VALIDITY_INVALID;
+	return SSL_IOSTREAM_CERT_VALIDITY_OK;
 }
 
 static bool
@@ -1098,8 +1096,7 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 
 	.set_log_prefix = openssl_iostream_set_log_prefix,
 	.get_state = openssl_iostream_get_state,
-	.has_valid_client_cert = openssl_iostream_has_valid_client_cert,
-	.has_client_cert = openssl_iostream_has_client_cert,
+	.get_cert_validity = openssl_iostream_get_cert_validity,
 	.cert_match_name = openssl_iostream_cert_match_name,
 	.get_allow_invalid_cert = openssl_iostream_get_allow_invalid_cert,
 	.get_peer_username = openssl_iostream_get_peer_username,

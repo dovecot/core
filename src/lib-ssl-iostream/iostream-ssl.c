@@ -271,12 +271,12 @@ bool ssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io)
 
 bool ssl_iostream_has_valid_client_cert(const struct ssl_iostream *ssl_io)
 {
-	return ssl_vfuncs->has_valid_client_cert(ssl_io);
+	return ssl_vfuncs->get_cert_validity(ssl_io) == SSL_IOSTREAM_CERT_VALIDITY_OK;
 }
 
 bool ssl_iostream_has_client_cert(struct ssl_iostream *ssl_io)
 {
-	return ssl_vfuncs->has_client_cert(ssl_io);
+	return ssl_vfuncs->get_cert_validity(ssl_io) != SSL_IOSTREAM_CERT_VALIDITY_NO_CERT;
 }
 
 bool ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io, const char *name,
