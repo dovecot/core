@@ -443,7 +443,10 @@ smtp_client_connection_lost(struct smtp_client_connection *conn,
 			error = t_strdup_printf(
 				"Connection lost (last SSL error: %s)", sslerr);
 		}
-		if (ssl_iostream_has_handshake_failed(conn->ssl_iostream)) {
+		enum ssl_iostream_state state =
+			ssl_iostream_get_state(conn->ssl_iostream);
+		if (state == SSL_IOSTREAM_STATE_INVALID_CERT ||
+		    state == SSL_IOSTREAM_STATE_NAME_MISMATCH) {
 			/* This isn't really a "connection lost", but that we
 			   don't trust the remote's SSL certificate. */
 			i_assert(error != NULL);

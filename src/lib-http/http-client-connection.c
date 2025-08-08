@@ -280,7 +280,10 @@ void http_client_connection_lost(struct http_client_connection **_conn,
 			error = t_strdup_printf("%s (last SSL error: %s)",
 						error, sslerr);
 		}
-		if (ssl_iostream_has_handshake_failed(conn->ssl_iostream)) {
+		enum ssl_iostream_state state =
+			ssl_iostream_get_state(conn->ssl_iostream);
+		if (state == SSL_IOSTREAM_STATE_INVALID_CERT ||
+		    state == SSL_IOSTREAM_STATE_NAME_MISMATCH) {
 			/* This isn't really a "connection lost", but that we
 			   don't trust the remote's SSL certificate. don't
 			   retry. */
