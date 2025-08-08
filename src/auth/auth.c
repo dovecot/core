@@ -197,11 +197,11 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *_set)
 
 static void auth_userdb_deinit(struct auth_userdb *userdb)
 {
+	userdb_deinit(userdb->userdb);
 	if (userdb->set != &userdb_dummy_set)
 		settings_free(userdb->set);
 	settings_free(userdb->auth_set);
 	settings_free(userdb->unexpanded_post_set);
-	userdb_deinit(userdb->userdb);
 }
 
 static bool auth_passdb_list_have_verify_plain(const struct auth *auth)
