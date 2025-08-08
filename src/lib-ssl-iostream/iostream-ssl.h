@@ -49,6 +49,15 @@ enum ssl_iostream_cert_validity {
 	SSL_IOSTREAM_CERT_VALIDITY_NAME_MISMATCH,
 };
 
+enum ssl_iostream_state {
+	/* Handshake is finished and successful. */
+	SSL_IOSTREAM_STATE_OK,
+	/* SSL certificate is missing/invalid/untrusted. */
+	SSL_IOSTREAM_STATE_INVALID_CERT,
+	/* SSL certificate is valid, but it doesn't match the name. */
+	SSL_IOSTREAM_STATE_NAME_MISMATCH,
+};
+
 struct ssl_iostream_cert {
 	struct settings_file cert;
 	struct settings_file key;
@@ -100,10 +109,11 @@ struct ssl_iostream_settings {
 /* Load SSL module */
 int ssl_module_load(const char **error_r);
 
-/* Returns 0 if ok, -1 and sets error_r if failed. The returned error string
-   becomes available via ssl_iostream_get_last_error(). The callback most
-   likely should be calling ssl_iostream_check_cert_validity(). */
-typedef int
+/* If returned state is not SSL_IOSTREAM_STATE_OK, error_r is also returned.
+   The returned error string becomes available via
+   ssl_iostream_get_last_error(). The callback most likely should be calling
+   ssl_iostream_check_cert_validity(). */
+typedef enum ssl_iostream_state
 ssl_iostream_handshake_callback_t(const char **error_r, void *context);
 /* Called when TLS SNI becomes available. */
 typedef int ssl_iostream_sni_callback_t(const char *name, const char **error_r,

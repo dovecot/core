@@ -618,7 +618,7 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 	(void)openssl_iostream_bio_sync(ssl_io, OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE);
 
 	if (ssl_io->handshake_callback != NULL) {
-		if (ssl_io->handshake_callback(&error, ssl_io->handshake_context) < 0) {
+		if (ssl_io->handshake_callback(&error, ssl_io->handshake_context) != SSL_IOSTREAM_STATE_OK) {
 			i_assert(error != NULL);
 			openssl_iostream_set_error(ssl_io, error);
 			ssl_io->handshake_failed = TRUE;

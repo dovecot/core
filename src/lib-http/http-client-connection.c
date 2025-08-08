@@ -1384,24 +1384,27 @@ static void http_client_connection_ready(struct http_client_connection *conn)
 				    http_client_connection_output, conn);
 }
 
-static int
+static enum ssl_iostream_state
 http_client_connection_ssl_handshaked(const char **error_r, void *context)
 {
 	struct http_client_connection *conn = context;
 	struct http_client_peer_shared *pshared = conn->ppool->peer;
 	const char *error, *host = pshared->addr.a.tcp.https_name;
+	enum ssl_iostream_cert_validity validity =
+		ssl_iostream_check_cert_validity(conn->ssl_iostream, host, &error);
 
-	if (ssl_iostream_check_cert_validity(conn->ssl_iostream,
-					     host, &error) == SSL_IOSTREAM_CERT_VALIDITY_OK)
+	if (validity == SSL_IOSTREAM_CERT_VALIDITY_OK)
 		e_debug(conn->event, "SSL handshake successful");
 	else if (ssl_iostream_get_allow_invalid_cert(conn->ssl_iostream)) {
 		e_debug(conn->event, "SSL handshake successful, "
 			"ignoring invalid certificate: %s", error);
 	} else {
 		*error_r = error;
-		return -1;
+		return validity == SSL_IOSTREAM_CERT_VALIDITY_NAME_MISMATCH ?
+			SSL_IOSTREAM_STATE_NAME_MISMATCH :
+			SSL_IOSTREAM_STATE_INVALID_CERT;
 	}
-	return 0;
+	return SSL_IOSTREAM_STATE_OK;
 }
 
 static int

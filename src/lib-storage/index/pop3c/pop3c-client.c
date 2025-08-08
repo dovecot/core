@@ -509,25 +509,29 @@ static void pop3c_client_prelogin_input(struct pop3c_client *client)
 	}
 }
 
-static int pop3c_client_ssl_handshaked(const char **error_r, void *context)
+static enum ssl_iostream_state
+pop3c_client_ssl_handshaked(const char **error_r, void *context)
 {
 	struct pop3c_client *client = context;
 	const char *error;
+	enum ssl_iostream_cert_validity validity =
+		ssl_iostream_check_cert_validity(client->ssl_iostream,
+						 client->set.host, &error);
 
-	if (ssl_iostream_check_cert_validity(client->ssl_iostream,
-					     client->set.host, &error) == SSL_IOSTREAM_CERT_VALIDITY_OK) {
+	if (validity == SSL_IOSTREAM_CERT_VALIDITY_OK)
 		e_debug(client->event, "SSL handshake successful");
-		return 0;
-	} else if (ssl_iostream_get_allow_invalid_cert(client->ssl_iostream)) {
+	else if (ssl_iostream_get_allow_invalid_cert(client->ssl_iostream)) {
 		e_debug(client->event,
 			"SSL handshake successful, "
 			"ignoring invalid certificate: %s",
 			error);
-		return 0;
 	} else {
 		*error_r = error;
-		return -1;
+		return validity == SSL_IOSTREAM_CERT_VALIDITY_NAME_MISMATCH ?
+			SSL_IOSTREAM_STATE_NAME_MISMATCH :
+			SSL_IOSTREAM_STATE_INVALID_CERT;
 	}
+	return SSL_IOSTREAM_STATE_OK;
 }
 
 static int pop3c_client_ssl_init(struct pop3c_client *client)

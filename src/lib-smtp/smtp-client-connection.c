@@ -1527,23 +1527,26 @@ smtp_client_connection_established(struct smtp_client_connection *conn)
 		smtp_client_connection_output, conn);
 }
 
-static int
+static enum ssl_iostream_state
 smtp_client_connection_ssl_handshaked(const char **error_r, void *context)
 {
 	struct smtp_client_connection *conn = context;
 	const char *error, *host = conn->host;
+	enum ssl_iostream_cert_validity validity =
+		ssl_iostream_check_cert_validity(conn->ssl_iostream, host, &error);
 
-	if (ssl_iostream_check_cert_validity(conn->ssl_iostream,
-					     host, &error) == SSL_IOSTREAM_CERT_VALIDITY_OK) {
+	if (validity == SSL_IOSTREAM_CERT_VALIDITY_OK) {
 		e_debug(conn->event, "SSL handshake successful");
 	} else if (ssl_iostream_get_allow_invalid_cert(conn->ssl_iostream)) {
 		e_debug(conn->event, "SSL handshake successful, "
 			"ignoring invalid certificate: %s", error);
 	} else {
 		*error_r = error;
-		return -1;
+		return validity == SSL_IOSTREAM_CERT_VALIDITY_NAME_MISMATCH ?
+			SSL_IOSTREAM_STATE_NAME_MISMATCH :
+			SSL_IOSTREAM_STATE_INVALID_CERT;
 	}
-	return 0;
+	return SSL_IOSTREAM_STATE_OK;
 }
 
 static void
