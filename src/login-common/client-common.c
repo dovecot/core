@@ -1392,13 +1392,13 @@ bool client_get_extra_disconnect_reason(struct client *client,
 			*human_reason_r = "cert required, client didn't start TLS";
 			return TRUE;
 		}
-		if (!ssl_iostream_has_client_cert(client->ssl_iostream)) {
+		if (!ssl_iostream_has_cert(client->ssl_iostream)) {
 			*event_reason_r = "client_ssl_cert_missing";
 			*human_reason_r = "client didn't send a cert";
 			return TRUE;
 		}
 		if (client->ssl_server_set->parsed_opts.verify_client_cert &&
-		    !ssl_iostream_has_valid_client_cert(client->ssl_iostream)) {
+		    !ssl_iostream_has_valid_cert(client->ssl_iostream)) {
 			*event_reason_r = "client_ssl_cert_untrusted";
 			*human_reason_r = "client sent an untrusted cert";
 			return TRUE;

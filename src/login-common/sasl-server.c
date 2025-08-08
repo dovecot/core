@@ -124,7 +124,7 @@ client_get_auth_flags(struct client *client)
         enum auth_request_flags auth_flags = 0;
 
 	if (client->ssl_iostream != NULL &&
-	    ssl_iostream_has_valid_client_cert(client->ssl_iostream))
+	    ssl_iostream_has_valid_cert(client->ssl_iostream))
 		auth_flags |= AUTH_REQUEST_FLAG_VALID_CLIENT_CERT;
 	if (client->connection_tls_secured)
 		auth_flags |= AUTH_REQUEST_FLAG_CONN_SECURED_TLS;
@@ -477,7 +477,7 @@ get_cert_username(struct client *client, const char **username_r,
 	}
 
 	/* no client certificate */
-	if (!ssl_iostream_has_valid_client_cert(client->ssl_iostream)) {
+	if (!ssl_iostream_has_valid_cert(client->ssl_iostream)) {
 		*username_r = NULL;
 		return TRUE;
 	}

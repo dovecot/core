@@ -205,8 +205,13 @@ ssl_iostream_get_state(const struct ssl_iostream *ssl_io);
 /* Returns TRUE if SSL iostream handshake is finished and certificate is valid.
    This is the same as state being SSL_IOSTREAM_STATE_OK. */
 bool ssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io);
-bool ssl_iostream_has_valid_client_cert(const struct ssl_iostream *ssl_io);
-bool ssl_iostream_has_client_cert(struct ssl_iostream *ssl_io);
+/* Returns TRUE if SSL (client or server) certificate was received,
+   valid or not. */
+bool ssl_iostream_has_cert(struct ssl_iostream *ssl_io);
+/* Returns TRUE if a valid SSL (client or server) certificate was received.
+   Certificate name validity isn't checked, ssl_iostream_cert_match_name() must
+   be used for that. */
+bool ssl_iostream_has_valid_cert(const struct ssl_iostream *ssl_io);
 /* Checks certificate validity based, also performs name checking. Called by
    default in handshake, unless handshake callback is set with
    ssl_iostream_check_cert_validity().
@@ -214,7 +219,7 @@ bool ssl_iostream_has_client_cert(struct ssl_iostream *ssl_io);
    Host should be set as the name you want to validate the certificate name(s)
    against. Usually this is the host name you connected to.
 
-   This function is same as calling ssl_iostream_has_valid_client_cert()
+   This function is same as calling ssl_iostream_has_valid_cert()
    and ssl_iostream_cert_match_name().
  */
 enum ssl_iostream_cert_validity

@@ -269,12 +269,12 @@ bool ssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io)
 	return ssl_iostream_get_state(ssl_io) == SSL_IOSTREAM_STATE_OK;
 }
 
-bool ssl_iostream_has_valid_client_cert(const struct ssl_iostream *ssl_io)
+bool ssl_iostream_has_valid_cert(const struct ssl_iostream *ssl_io)
 {
 	return ssl_vfuncs->get_cert_validity(ssl_io) == SSL_IOSTREAM_CERT_VALIDITY_OK;
 }
 
-bool ssl_iostream_has_client_cert(struct ssl_iostream *ssl_io)
+bool ssl_iostream_has_cert(struct ssl_iostream *ssl_io)
 {
 	return ssl_vfuncs->get_cert_validity(ssl_io) != SSL_IOSTREAM_CERT_VALIDITY_NO_CERT;
 }
@@ -291,8 +291,8 @@ ssl_iostream_check_cert_validity(struct ssl_iostream *ssl_io,
 {
 	const char *reason;
 
-	if (!ssl_iostream_has_valid_client_cert(ssl_io)) {
-		if (!ssl_iostream_has_client_cert(ssl_io)) {
+	if (!ssl_iostream_has_valid_cert(ssl_io)) {
+		if (!ssl_iostream_has_cert(ssl_io)) {
 			*error_r = "SSL certificate not received";
 			return SSL_IOSTREAM_CERT_VALIDITY_NO_CERT;
 		} else {

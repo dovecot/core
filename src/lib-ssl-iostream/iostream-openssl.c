@@ -577,7 +577,7 @@ static bool
 openssl_iostream_cert_match_name(struct ssl_iostream *ssl_io,
 				 const char *verify_name, const char **reason_r)
 {
-	if (!ssl_iostream_has_valid_client_cert(ssl_io)) {
+	if (!ssl_iostream_has_valid_cert(ssl_io)) {
 		*reason_r = "Invalid certificate";
 		return FALSE;
 	}
@@ -730,7 +730,7 @@ openssl_iostream_get_peer_username(struct ssl_iostream *ssl_io)
 	char *name;
 	int len;
 
-	if (!ssl_iostream_has_valid_client_cert(ssl_io))
+	if (!ssl_iostream_has_valid_cert(ssl_io))
 		return NULL;
 
 #ifdef HAVE_SSL_get1_peer_certificate
