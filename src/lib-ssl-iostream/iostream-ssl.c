@@ -258,6 +258,12 @@ void ssl_iostream_change_context(struct ssl_iostream *ssl_io,
 	ssl_vfuncs->change_context(ssl_io, ctx);
 }
 
+enum ssl_iostream_state
+ssl_iostream_get_state(const struct ssl_iostream *ssl_io)
+{
+	return ssl_vfuncs->get_state(ssl_io);
+}
+
 bool ssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io)
 {
 	return ssl_vfuncs->is_handshaked(ssl_io);

@@ -112,6 +112,7 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 		ssl_io->cert_broken = TRUE;
 		if (!ssl_io->allow_invalid_cert) {
 			ssl_io->handshake_failed = TRUE;
+			ssl_io->state = SSL_IOSTREAM_STATE_INVALID_CERT;
 			return 0;
 		}
 	}
@@ -181,6 +182,7 @@ openssl_iostream_create(struct ssl_iostream_context *ctx,
 	ssl_io->plain_output = *output;
 	ssl_io->connected_host = i_strdup(host);
 	ssl_io->event = event_create(event_parent);
+	ssl_io->state = SSL_IOSTREAM_STATE_HANDSHAKING;
 	ssl_io->allow_invalid_cert = ctx->allow_invalid_cert ||
 		(flags & SSL_IOSTREAM_FLAG_ALLOW_INVALID_CERT) != 0;
 	if (client)
@@ -618,15 +620,30 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 	(void)openssl_iostream_bio_sync(ssl_io, OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE);
 
 	if (ssl_io->handshake_callback != NULL) {
-		if (ssl_io->handshake_callback(&error, ssl_io->handshake_context) != SSL_IOSTREAM_STATE_OK) {
+		ssl_io->state = ssl_io->handshake_callback(&error, ssl_io->handshake_context);
+		if (ssl_io->state != SSL_IOSTREAM_STATE_OK) {
 			i_assert(error != NULL);
 			openssl_iostream_set_error(ssl_io, error);
 			ssl_io->handshake_failed = TRUE;
 		}
 	} else if (ssl_io->connected_host != NULL && !ssl_io->handshake_failed &&
 		   !ssl_io->allow_invalid_cert) {
-		if (ssl_iostream_check_cert_validity(ssl_io, ssl_io->connected_host,
-						     &reason) != SSL_IOSTREAM_CERT_VALIDITY_OK) {
+		enum ssl_iostream_cert_validity validity =
+			ssl_iostream_check_cert_validity(ssl_io,
+				ssl_io->connected_host, &reason);
+		switch (validity) {
+		case SSL_IOSTREAM_CERT_VALIDITY_OK:
+			ssl_io->state = SSL_IOSTREAM_STATE_OK;
+			break;
+		case SSL_IOSTREAM_CERT_VALIDITY_NO_CERT:
+		case SSL_IOSTREAM_CERT_VALIDITY_INVALID:
+			ssl_io->state = SSL_IOSTREAM_STATE_INVALID_CERT;
+			break;
+		case SSL_IOSTREAM_CERT_VALIDITY_NAME_MISMATCH:
+			ssl_io->state = SSL_IOSTREAM_STATE_NAME_MISMATCH;
+			break;
+		}
+		if (validity != SSL_IOSTREAM_CERT_VALIDITY_OK) {
 			openssl_iostream_set_error(ssl_io, reason);
 			ssl_io->handshake_failed = TRUE;
 		}
@@ -638,6 +655,7 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 	}
 	i_free_and_null(ssl_io->last_error);
 	ssl_io->handshaked = TRUE;
+	ssl_io->state = SSL_IOSTREAM_STATE_OK;
 
 	const char *alpn_proto = ssl_iostream_get_application_protocol(ssl_io);
 	if (alpn_proto != NULL && *alpn_proto != '\0')
@@ -681,6 +699,12 @@ static void openssl_iostream_set_log_prefix(struct ssl_iostream *ssl_io,
 					    const char *prefix)
 {
 	event_set_append_log_prefix(ssl_io->event, prefix);
+}
+
+static enum ssl_iostream_state
+openssl_iostream_get_state(const struct ssl_iostream *ssl_io)
+{
+	return ssl_io->state;
 }
 
 static bool openssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io)
@@ -1084,6 +1108,7 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.change_context = openssl_iostream_change_context,
 
 	.set_log_prefix = openssl_iostream_set_log_prefix,
+	.get_state = openssl_iostream_get_state,
 	.is_handshaked = openssl_iostream_is_handshaked,
 	.has_handshake_failed = openssl_iostream_has_handshake_failed,
 	.has_valid_client_cert = openssl_iostream_has_valid_client_cert,

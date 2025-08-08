@@ -43,6 +43,7 @@ struct ssl_iostream {
 	SSL *ssl;
 	BIO *bio_ext;
 
+	enum ssl_iostream_state state;
 	struct istream *plain_input;
 	struct ostream *plain_output;
 	struct istream *ssl_input;

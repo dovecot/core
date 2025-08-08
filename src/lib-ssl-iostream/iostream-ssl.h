@@ -52,6 +52,10 @@ enum ssl_iostream_cert_validity {
 enum ssl_iostream_state {
 	/* Handshake is finished and successful. */
 	SSL_IOSTREAM_STATE_OK,
+	/* Handshake has not finished yet. */
+	SSL_IOSTREAM_STATE_HANDSHAKING,
+	/* Handshake failed due to some error unrelated to SSL certificate. */
+	SSL_IOSTREAM_STATE_HANDSHAKE_FAILURE,
 	/* SSL certificate is missing/invalid/untrusted. */
 	SSL_IOSTREAM_STATE_INVALID_CERT,
 	/* SSL certificate is valid, but it doesn't match the name. */
@@ -193,6 +197,10 @@ void ssl_iostream_set_sni_callback(struct ssl_iostream *ssl_io,
 				   void *context);
 void ssl_iostream_change_context(struct ssl_iostream *ssl_io,
 				 struct ssl_iostream_context *ctx);
+
+/* Returns the SSL iostream (handshake) state. */
+enum ssl_iostream_state
+ssl_iostream_get_state(const struct ssl_iostream *ssl_io);
 
 bool ssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io);
 /* Returns TRUE if the remote cert is invalid, or handshake callback returned
