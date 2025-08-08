@@ -1320,8 +1320,12 @@ int login_proxy_starttls(struct login_proxy *proxy)
 		const char *reason = t_strdup_printf(
 			"Failed to start SSL handshake: %s",
 			ssl_iostream_get_last_error(proxy->server_ssl_iostream));
-		login_proxy_failed(proxy, proxy->event,
-				   LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
+
+		enum login_proxy_failure_type type =
+			login_proxy_failed_because_invalid_cert(proxy) ?
+			LOGIN_PROXY_FAILURE_TYPE_INTERNAL_CONFIG :
+			LOGIN_PROXY_FAILURE_TYPE_INTERNAL;
+		login_proxy_failed(proxy, proxy->event, type, reason);
 		return -1;
 	}
 	proxy_rawlog_init(proxy);
@@ -1331,6 +1335,17 @@ int login_proxy_starttls(struct login_proxy *proxy)
 	if (add_multiplex_istream)
 		login_proxy_multiplex_input_start(proxy);
 	return 0;
+}
+
+bool login_proxy_failed_because_invalid_cert(struct login_proxy *proxy)
+{
+	if (proxy->server_ssl_iostream == NULL)
+		return FALSE;
+
+	enum ssl_iostream_state state =
+		ssl_iostream_get_state(proxy->server_ssl_iostream);
+	return state == SSL_IOSTREAM_STATE_INVALID_CERT ||
+		state == SSL_IOSTREAM_STATE_NAME_MISMATCH;
 }
 
 void login_proxy_multiplex_input_start(struct login_proxy *proxy)

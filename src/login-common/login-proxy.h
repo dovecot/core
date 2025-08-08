@@ -116,6 +116,8 @@ void login_proxy_detach(struct login_proxy *proxy);
 
 /* STARTTLS command was issued. */
 int login_proxy_starttls(struct login_proxy *proxy);
+/* Returns TRUE if proxying failed because of invalid SSL certificate. */
+bool login_proxy_failed_because_invalid_cert(struct login_proxy *proxy);
 /* MULTIPLEX input was started. */
 void login_proxy_multiplex_input_start(struct login_proxy *proxy);
 

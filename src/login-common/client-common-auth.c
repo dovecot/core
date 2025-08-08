@@ -353,9 +353,14 @@ static void proxy_input(struct client *client)
 			client_proxy_get_state(client), duration,
 			line == NULL ? "" : t_strdup_printf(
 				" - BUG: line not read: %s", line));
+
+		enum login_proxy_failure_type type =
+			login_proxy_failed_because_invalid_cert(client->login_proxy) ?
+			LOGIN_PROXY_FAILURE_TYPE_INTERNAL_CONFIG :
+			LOGIN_PROXY_FAILURE_TYPE_CONNECT;
 		login_proxy_failed(client->login_proxy,
 				   login_proxy_get_event(client->login_proxy),
-				   LOGIN_PROXY_FAILURE_TYPE_CONNECT, reason);
+				   type, reason);
 		return;
 	}
 
