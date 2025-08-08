@@ -202,6 +202,8 @@ void ssl_iostream_change_context(struct ssl_iostream *ssl_io,
 enum ssl_iostream_state
 ssl_iostream_get_state(const struct ssl_iostream *ssl_io);
 
+/* Returns TRUE if SSL iostream handshake is finished and certificate is valid.
+   This is the same as state being SSL_IOSTREAM_STATE_OK. */
 bool ssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io);
 /* Returns TRUE if the remote cert is invalid, or handshake callback returned
    failure. */

@@ -37,7 +37,6 @@ struct iostream_ssl_vfuncs {
 
 	void (*set_log_prefix)(struct ssl_iostream *ssl_io, const char *prefix);
 	enum ssl_iostream_state (*get_state)(const struct ssl_iostream *ssl_io);
-	bool (*is_handshaked)(const struct ssl_iostream *ssl_io);
 	bool (*has_handshake_failed)(const struct ssl_iostream *ssl_io);
 	bool (*has_valid_client_cert)(const struct ssl_iostream *ssl_io);
 	bool (*has_client_cert)(struct ssl_iostream *ssl_io);
