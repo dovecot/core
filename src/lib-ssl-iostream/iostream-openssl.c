@@ -623,8 +623,8 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 			openssl_iostream_set_error(ssl_io, error);
 			ssl_io->handshake_failed = TRUE;
 		}
-       } else if (ssl_io->connected_host != NULL && !ssl_io->handshake_failed &&
-		  !ssl_io->allow_invalid_cert) {
+	} else if (ssl_io->connected_host != NULL && !ssl_io->handshake_failed &&
+		   !ssl_io->allow_invalid_cert) {
 		if (ssl_iostream_check_cert_validity(ssl_io, ssl_io->connected_host,
 						     &reason) != SSL_IOSTREAM_CERT_VALIDITY_OK) {
 			openssl_iostream_set_error(ssl_io, reason);
