@@ -708,12 +708,6 @@ openssl_iostream_get_state(const struct ssl_iostream *ssl_io)
 }
 
 static bool
-openssl_iostream_has_handshake_failed(const struct ssl_iostream *ssl_io)
-{
-	return ssl_io->handshake_failed;
-}
-
-static bool
 openssl_iostream_has_valid_client_cert(const struct ssl_iostream *ssl_io)
 {
 	return ssl_io->cert_received && !ssl_io->cert_broken;
@@ -1104,7 +1098,6 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 
 	.set_log_prefix = openssl_iostream_set_log_prefix,
 	.get_state = openssl_iostream_get_state,
-	.has_handshake_failed = openssl_iostream_has_handshake_failed,
 	.has_valid_client_cert = openssl_iostream_has_valid_client_cert,
 	.has_client_cert = openssl_iostream_has_client_cert,
 	.cert_match_name = openssl_iostream_cert_match_name,

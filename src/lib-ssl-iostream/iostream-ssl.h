@@ -205,9 +205,6 @@ ssl_iostream_get_state(const struct ssl_iostream *ssl_io);
 /* Returns TRUE if SSL iostream handshake is finished and certificate is valid.
    This is the same as state being SSL_IOSTREAM_STATE_OK. */
 bool ssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io);
-/* Returns TRUE if the remote cert is invalid, or handshake callback returned
-   failure. */
-bool ssl_iostream_has_handshake_failed(const struct ssl_iostream *ssl_io);
 bool ssl_iostream_has_valid_client_cert(const struct ssl_iostream *ssl_io);
 bool ssl_iostream_has_client_cert(struct ssl_iostream *ssl_io);
 /* Checks certificate validity based, also performs name checking. Called by

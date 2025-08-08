@@ -239,10 +239,12 @@ static int test_iostream_ssl_handshake_real(struct ssl_iostream_settings *server
 	if (client->failed || server->failed)
 		ret = -1;
 
-	if (ssl_iostream_has_handshake_failed(client->iostream)) {
+	if (ssl_iostream_get_state(client->iostream) != SSL_IOSTREAM_STATE_OK &&
+	    ssl_iostream_get_state(client->iostream) != SSL_IOSTREAM_STATE_HANDSHAKING) {
 		i_error("client: %s", ssl_iostream_get_last_error(client->iostream));
 		ret = -1;
-	} else if (ssl_iostream_has_handshake_failed(server->iostream)) {
+	} else if (ssl_iostream_get_state(server->iostream) != SSL_IOSTREAM_STATE_OK &&
+		   ssl_iostream_get_state(server->iostream) != SSL_IOSTREAM_STATE_HANDSHAKING) {
 		i_error("server: %s", ssl_iostream_get_last_error(server->iostream));
 		ret = -1;
 	/* check hostname */
