@@ -1528,7 +1528,6 @@ void db_ldap_unref(struct ldap_connection **_conn)
 		}
 	}
 
-	db_ldap_abort_requests(conn, UINT_MAX, 0, FALSE, "Shutting down");
 	i_assert(conn->pending_count == 0);
 	db_ldap_conn_close(conn);
 	i_assert(conn->to == NULL);
@@ -1543,6 +1542,11 @@ void db_ldap_unref(struct ldap_connection **_conn)
 	i_free(conn->log_prefix);
 
 	pool_unref(&conn->pool);
+}
+
+void db_ldap_abort_all_requests(struct ldap_connection *conn)
+{
+	db_ldap_abort_requests(conn, UINT_MAX, 0, FALSE, "Shutting down");
 }
 
 #ifndef BUILTIN_LDAP

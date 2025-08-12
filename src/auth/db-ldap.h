@@ -163,6 +163,7 @@ void db_ldap_get_attribute_names(pool_t pool,
 
 struct ldap_connection *db_ldap_init(struct event *event);
 void db_ldap_unref(struct ldap_connection **conn);
+void db_ldap_abort_all_requests(struct ldap_connection *conn);
 
 int db_ldap_connect(struct ldap_connection *conn);
 void db_ldap_connect_delayed(struct ldap_connection *conn);

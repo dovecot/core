@@ -370,6 +370,7 @@ static void userdb_ldap_deinit(struct userdb_module *_module)
 	struct ldap_userdb_module *module =
 		container_of(_module, struct ldap_userdb_module, module);
 
+	db_ldap_abort_all_requests(module->conn);
 	db_ldap_unref(&module->conn);
 }
 

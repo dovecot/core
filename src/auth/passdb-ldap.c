@@ -487,6 +487,7 @@ static void passdb_ldap_deinit(struct passdb_module *_module)
 	struct ldap_passdb_module *module =
 		container_of(_module, struct ldap_passdb_module, module);
 
+	db_ldap_abort_all_requests(module->conn);
 	db_ldap_unref(&module->conn);
 }
 
