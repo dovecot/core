@@ -1302,7 +1302,7 @@ int main(int argc, char *argv[])
 	} else if (dump_full) {
 		ret2 = config_dump_full(config,
 					CONFIG_DUMP_FULL_DEST_STDOUT,
-					0, &import_environment);
+					0, NULL);
 	} else if (setting_name_filters != NULL) {
 		ret2 = 0;
 		/* ignore settings-check failures in configuration. this allows
