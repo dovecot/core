@@ -499,11 +499,14 @@ oauth2_jwt_body_process(const struct oauth2_settings *set,
 	} else if (ret == 0 || iat == 0)
 		iat = t0;
 
-	if (nbf > t0) {
+	/* Token could have been just generated with a server where time is
+	   slightly newer than this server's time. Allow 1 second difference
+	   to avoid random failures due to token being into future. */
+	if (nbf > t0 + 1) {
 		*error_r = "Token is not valid yet";
 		return -1;
 	}
-	if (iat > t0) {
+	if (iat > t0 + 1) {
 		*error_r = "Token is issued in future";
 		return -1;
 	}
