@@ -98,6 +98,7 @@ static void driver_sqlite_disconnect(struct sql_db *_db)
 	sql_connection_log_finished(_db);
 	sqlite3_close(db->sqlite);
 	db->sqlite = NULL;
+	db->connected = FALSE;
 }
 
 static int driver_sqlite_connect(struct sql_db *_db)
