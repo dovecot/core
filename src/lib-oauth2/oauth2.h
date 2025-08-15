@@ -38,6 +38,9 @@ struct oauth2_settings {
 	struct oauth2_validation_key_cache *key_cache;
 	/* valid issuer names */
 	const char *const *issuers;
+	/* How many seconds after token expiration is it still allowed to
+	   succeed the authentication. */
+	unsigned int token_expire_grace_secs;
 
 	enum {
 		INTROSPECTION_MODE_GET_AUTH,

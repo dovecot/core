@@ -21,6 +21,8 @@
 #undef DEF
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type("oauth2_"#name, name, struct auth_oauth2_settings)
+#define DEF_SECS(type, name) \
+	SETTING_DEFINE_STRUCT_##type("oauth2_"#name, name##_secs, struct auth_oauth2_settings)
 
 static const struct setting_define auth_oauth2_setting_defines[] = {
 	DEF(STR, tokeninfo_url),
@@ -36,6 +38,7 @@ static const struct setting_define auth_oauth2_setting_defines[] = {
 	DEF(STR, client_secret),
 	DEF(BOOLLIST, issuers),
 	DEF(STR, openid_configuration_url),
+	DEF_SECS(TIME, token_expire_grace),
 	DEF(BOOL, force_introspection),
 	DEF(BOOL, send_auth_headers),
 	DEF(BOOL, use_worker_with_mech),
@@ -60,6 +63,7 @@ static const struct auth_oauth2_settings auth_oauth2_default_settings = {
 	.client_secret = "",
 	.issuers = ARRAY_INIT,
 	.openid_configuration_url = "",
+	.token_expire_grace_secs = 60,
 	.send_auth_headers = FALSE,
 	.use_worker_with_mech = FALSE,
 };
@@ -195,6 +199,7 @@ static int db_oauth2_setup(struct db_oauth2 *db, const char **error_r)
 	db->oauth2_set.client_id = db->set->client_id;
 	db->oauth2_set.client_secret = db->set->client_secret;
 	db->oauth2_set.send_auth_headers = db->set->send_auth_headers;
+	db->oauth2_set.token_expire_grace_secs = db->set->token_expire_grace_secs;
 	if (!array_is_empty(&db->set->scope)) {
 		db->oauth2_set.scope =
 			p_array_const_string_join(db->pool, &db->set->scope, " ");

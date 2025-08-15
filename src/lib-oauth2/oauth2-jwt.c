@@ -514,10 +514,12 @@ oauth2_jwt_body_process(const struct oauth2_settings *set,
 			iat, t0 + 1);
 		return -1;
 	}
-	if (exp < t0) {
+	/* Allow using slightly expired token, in case client time isn't well
+	   synced. */
+	if (exp < t0 - set->token_expire_grace_secs) {
 		*error_r = t_strdup_printf(
-			"Token has expired (exp=%"PRId64" < %"PRId64")",
-			exp, t0);
+			"Token has expired (exp=%"PRId64" < %"PRId64" - grace %u)",
+			exp, t0, set->token_expire_grace_secs);
 		return -1;
 	}
 

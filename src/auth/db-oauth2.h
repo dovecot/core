@@ -43,6 +43,10 @@ struct auth_oauth2_settings {
 	*/
 	const char *openid_configuration_url;
 
+	/* How many seconds after token expiration is it still allowed to
+	   succeed the authentication. */
+	unsigned int token_expire_grace_secs;
+
 	/* Should introspection be done even if not necessary */
 	bool force_introspection;
 	/* Should we send service and local/remote endpoints as X-Dovecot-Auth headers */
