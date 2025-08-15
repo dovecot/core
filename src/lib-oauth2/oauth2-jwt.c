@@ -503,15 +503,21 @@ oauth2_jwt_body_process(const struct oauth2_settings *set,
 	   slightly newer than this server's time. Allow 1 second difference
 	   to avoid random failures due to token being into future. */
 	if (nbf > t0 + 1) {
-		*error_r = "Token is not valid yet";
+		*error_r = t_strdup_printf(
+			"Token is not valid yet (nbf=%"PRId64" > %"PRId64")",
+			nbf, t0 + 1);
 		return -1;
 	}
 	if (iat > t0 + 1) {
-		*error_r = "Token is issued in future";
+		*error_r = t_strdup_printf(
+			"Token is issued in future (iat=%"PRId64" > %"PRId64")",
+			iat, t0 + 1);
 		return -1;
 	}
 	if (exp < t0) {
-		*error_r = "Token has expired";
+		*error_r = t_strdup_printf(
+			"Token has expired (exp=%"PRId64" < %"PRId64")",
+			exp, t0);
 		return -1;
 	}
 

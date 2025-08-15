@@ -549,7 +549,7 @@ static void test_jwt_bad_valid_token(void)
 						&is_jwt, &error) != 0, i);
 		test_assert_idx(is_jwt == TRUE, i);
 		if (test_case->error != NULL) {
-			test_assert_strcmp(test_case->error, error);
+			test_assert(strstr(error, test_case->error) != NULL);
 		}
 		test_assert(error != NULL);
 	} T_END;
