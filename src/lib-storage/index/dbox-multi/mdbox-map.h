@@ -20,7 +20,11 @@ struct mdbox_map_mail_index_header {
 struct mdbox_map_mail_index_record {
 	uint32_t file_id;
 	uint32_t offset;
-	uint32_t size; /* including pre/post metadata */
+	/* Size is used to find the next mail in the same mdbox file.
+	   Special case is size=0, which indicates it's the last mail in the
+	   record and can be arbitrarily sized (i.e. larger than 4GB).
+	   Includes pre/post metadata. */
+	uint32_t size;
 };
 
 struct mdbox_map_file_msg {

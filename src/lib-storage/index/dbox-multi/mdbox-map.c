@@ -872,7 +872,8 @@ mdbox_map_file_try_append(struct mdbox_map_append_context *ctx,
 		if (errno != ENOENT)
 			e_error(event, "stat(%s) failed: %m", file->cur_path);
 		/* the file was unlinked between opening and locking it. */
-	} else if (st.st_size != rec->offset + rec->size &&
+	} else if (rec->size != 0 &&
+		   st.st_size != rec->offset + rec->size &&
 		   /* check if there's any garbage at the end of file.
 		      note that there may be valid messages added by another
 		      session before we locked it (but after we refreshed
@@ -1048,6 +1049,11 @@ mdbox_map_find_appendable_file(struct mdbox_map_append_context *ctx,
 			/* we've wasted enough time here */
 			break;
 		}
+
+		/* Don't append to the index if the record indicates this is the
+		   last mail with special size=0. */
+		if (rec->size == 0)
+			continue;
 
 		/* first lookup: this should be enough usually, but we can't
 		   be sure until after locking. also if messages were recently
@@ -1309,7 +1315,9 @@ int mdbox_map_append_assign_map_uids(struct mdbox_map_append_context *ctx,
 
 		rec.file_id = mfile->file_id;
 		rec.offset = appends[i].offset;
-		rec.size = appends[i].size;
+		/* A mail that exceeds 4GB is the final mail in the record and
+		   thusly is registered with size=0. */
+		rec.size = (appends[i].size > UINT32_MAX) ? 0 : appends[i].size;
 
 		mail_index_append(ctx->trans, 0, &seq);
 		mail_index_update_ext(ctx->trans, seq, ctx->map->map_ext_id,
@@ -1371,7 +1379,9 @@ int mdbox_map_append_move(struct mdbox_map_append_context *ctx,
 		i_assert(j < appends_count);
 		rec.file_id = mfile->file_id;
 		rec.offset = appends[j].offset;
-		rec.size = appends[j].size;
+		/* A mail that exceeds 4GB is the final mail in the record and
+		   thusly is registered with size=0. */
+		rec.size = (appends[j].size > UINT32_MAX) ? 0 : appends[j].size;
 		j++;
 
 		if (!mail_index_lookup_seq(ctx->atomic->sync_view,
