@@ -292,22 +292,24 @@ const char *sql_statement_get_query(struct sql_statement *stmt)
 {
 	string_t *query = t_str_new(128);
 	const char *const *args;
-	unsigned int i, args_count, arg_pos = 0;
+	unsigned int args_count, arg_pos = 0;
+	const char *p0, *p1;
 
 	args = array_get(&stmt->args, &args_count);
-
-	for (i = 0; stmt->query_template[i] != '\0'; i++) {
-		if (stmt->query_template[i] == '?') {
-			if (arg_pos >= args_count ||
-			    args[arg_pos] == NULL) {
-				i_panic("lib-sql: Missing bind for arg #%u in statement: %s",
-					arg_pos, stmt->query_template);
-			}
-			str_append(query, args[arg_pos++]);
-		} else {
-			str_append_c(query, stmt->query_template[i]);
+	p0 = stmt->query_template;
+	while ((p1 = strchr(p0, '?')) != NULL) {
+		/* append until ? */
+		str_append_max(query, p0, (p1 - p0));
+		if (arg_pos >= args_count ||
+		    args[arg_pos] == NULL) {
+			i_panic("lib-sql: Missing bind for arg #%u in statement: %s",
+				arg_pos, stmt->query_template);
 		}
+		str_append(query, args[arg_pos++]);
+		p0 = p1 + 1;
 	}
+	str_append(query, p0);
+
 	if (arg_pos != args_count) {
 		i_panic("lib-sql: Too many bind args (%u) for statement: %s",
 			args_count, stmt->query_template);

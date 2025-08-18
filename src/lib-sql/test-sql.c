@@ -60,6 +60,24 @@ static void deinit_sql(struct sql_db **_sql)
 	}; \
 	sql_driver_test_add_expected_result(sql, &result_1);
 
+#define setup_result_2(sql) \
+	struct test_driver_result_set rset_2 = { \
+		.rows = 2, \
+		.cols = 1, \
+		.col_names = (const char *[]){"foo", NULL}, \
+		.row_data = (const char **[]){ \
+			(const char*[]){"value1", NULL}, \
+			(const char*[]){"value2", NULL}, \
+		}, \
+	}; \
+	struct test_driver_result result_2 = { \
+		.nqueries = 1, \
+		.queries = (const char *[]){"SELECT foo FROM bar WHERE baz = 'foz'"}, \
+		.result = &rset_2 \
+	}; \
+	sql_driver_test_add_expected_result(sql, &result_2);
+
+
 static void test_result_1(struct sql_result *cursor)
 {
 	test_assert(sql_result_next_row(cursor) == SQL_RESULT_NEXT_OK);
@@ -122,6 +140,18 @@ static void test_sql_stmt_prepared_api(void)
 		sql_statement_init_prepared(prep_stmt);
 	sql_prepared_statement_unref(&prep_stmt);
 	struct sql_result *cursor = sql_statement_query_s(&stmt);
+
+	test_result_1(cursor);
+
+	sql_result_unref(cursor);
+
+	setup_result_2(sql);
+
+	prep_stmt = sql_prepared_statement_init(sql, "SELECT foo FROM bar WHERE baz = ?");
+	stmt = sql_statement_init_prepared(prep_stmt);
+	sql_statement_bind_str(stmt, 0, "foz");
+	sql_prepared_statement_unref(&prep_stmt);
+	cursor = sql_statement_query_s(&stmt);
 
 	test_result_1(cursor);
 
