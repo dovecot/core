@@ -1403,7 +1403,7 @@ driver_cassandra_error_is_uncertain(CassError error)
 	case CASS_ERROR_LIB_REQUEST_TIMED_OUT:
 		/* A request sent from the driver has timed out. */
 	case CASS_ERROR_LIB_WRITE_ERROR:
-		/* A write error occured. */
+		/* A write error occurred. */
 		return SQL_RESULT_ERROR_TYPE_WRITE_UNCERTAIN;
 	default:
 		return SQL_RESULT_ERROR_TYPE_UNKNOWN;
