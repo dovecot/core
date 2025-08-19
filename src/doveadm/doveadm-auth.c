@@ -501,6 +501,8 @@ static void cmd_auth_cache_flush(struct doveadm_cmd_context *cctx)
 
 static void authtest_input_init(struct authtest_input *input)
 {
+	dsasl_clients_init();
+
 	i_zero(input);
 	input->pool = pool_alloconly_create("auth input", 256);
 	input->info.protocol = "doveadm";
@@ -512,6 +514,8 @@ static void authtest_input_init(struct authtest_input *input)
 static void authtest_input_deinit(struct authtest_input *input)
 {
 	pool_unref(&input->pool);
+
+	dsasl_clients_deinit();
 }
 
 static void cmd_auth_test(struct doveadm_cmd_context *cctx)
