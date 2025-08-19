@@ -81,10 +81,11 @@ usage_commands_write(FILE *out, const ARRAY_TYPE(doveadm_cmd_ver2_p) *cmds,
 			if (strcmp(prev_name, short_name) != 0) {
 				if (*prev_name != '\0')
 					fprintf(out, "\n");
+				sub_name = t_strcut(p + 1, ' ');
 				fprintf(out, USAGE_CMDNAME_FMT" %s",
-					short_name, t_strcut(p + 1, ' '));
+					short_name, sub_name);
 				prev_name = short_name;
-				prev_sub_name = "";
+				prev_sub_name = sub_name;
 			} else {
 				sub_name = t_strcut(p + 1, ' ');
 				if (strcmp(prev_sub_name, sub_name) != 0) {
