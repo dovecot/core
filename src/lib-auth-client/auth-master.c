@@ -207,8 +207,12 @@ static void auth_master_destroy(struct connection *_conn)
 		auth_master_connection_failure(conn, NULL);
 		break;
 	default:
-		if (conn->requests_head != NULL)
+		if (conn->requests_head != NULL) {
 			e_error(conn->conn.event, "Disconnected unexpectedly");
+			auth_master_connection_failure(conn,
+				"Unexpectedly disconnected from auth service");
+			break;
+		}
 		auth_master_connection_failure(conn, NULL);
 	}
 }
@@ -473,7 +477,8 @@ auth_master_delayed_connect_failure(struct auth_master_connection *conn)
 
 	i_assert(conn->to_connect != NULL);
 	timeout_remove(&conn->to_connect);
-	auth_master_connection_failure(conn, "Connect failed");
+	auth_master_connection_failure(conn,
+		"Failed to connect to auth service");
 }
 
 int auth_master_connect(struct auth_master_connection *conn)

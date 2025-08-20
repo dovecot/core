@@ -512,13 +512,15 @@ static bool test_client_passdb_disconnect(void)
 	ret = test_client_passdb_lookup_simple("hendrik", FALSE, &error);
 	test_out("run (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
-		    str_begins_with(error, "Disconnected from auth service"));
+		    str_begins_with(error,
+			"Unexpectedly disconnected from auth service"));
 
 	test_expect_error_string("Disconnected unexpectedly");
 	ret = test_client_passdb_lookup_simple_async("hendrik", FALSE, &error);
 	test_out("run async (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
-		    str_begins_with(error, "Disconnected from auth service"));
+		    str_begins_with(error,
+			"Unexpectedly disconnected from auth service"));
 
 	return FALSE;
 }
@@ -532,13 +534,15 @@ static bool test_client_passdb_reconnect(void)
 	ret = test_client_passdb_lookup_simple("hendrik", TRUE, &error);
 	test_out("run (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
-		    str_begins_with(error, "Disconnected from auth service"));
+		    str_begins_with(error,
+			"Unexpectedly disconnected from auth service"));
 
 	test_expect_errors(2);
 	ret = test_client_passdb_lookup_simple_async("hendrik", TRUE, &error);
 	test_out("run async (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
-		    str_begins_with(error, "Disconnected from auth service"));
+		    str_begins_with(error,
+			"Unexpectedly disconnected from auth service"));
 
 	return FALSE;
 }
@@ -726,13 +730,15 @@ static bool test_client_userdb_disconnect(void)
 	ret = test_client_userdb_lookup_simple("hendrik", FALSE, &error);
 	test_out("run (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
-		    str_begins_with(error, "Disconnected from auth service"));
+		    str_begins_with(error,
+			"Unexpectedly disconnected from auth service"));
 
 	test_expect_error_string("Disconnected unexpectedly");
 	ret = test_client_userdb_lookup_simple_async("hendrik", FALSE, &error);
 	test_out("run async (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
-		    str_begins_with(error, "Disconnected from auth service"));
+		    str_begins_with(error,
+			"Unexpectedly disconnected from auth service"));
 
 	return FALSE;
 }
@@ -746,13 +752,15 @@ static bool test_client_userdb_reconnect(void)
 	ret = test_client_userdb_lookup_simple("hendrik", TRUE, &error);
 	test_out("run (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
-		    str_begins_with(error, "Disconnected from auth service"));
+		    str_begins_with(error,
+			"Unexpectedly disconnected from auth service"));
 
 	test_expect_errors(2);
 	ret = test_client_userdb_lookup_simple_async("hendrik", TRUE, &error);
 	test_out("run async (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
-		    str_begins_with(error, "Disconnected from auth service"));
+		    str_begins_with(error,
+			"Unexpectedly disconnected from auth service"));
 
 	return FALSE;
 }
