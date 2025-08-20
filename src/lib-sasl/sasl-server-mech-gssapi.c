@@ -719,7 +719,7 @@ mech_gssapi_register(struct sasl_server_instance *sinst,
 
 	const char *path = set->krb5_keytab;
 
-	if (*path != '\0') {
+	if (path != NULL && *path != '\0') {
 		/* Environment may be used by Kerberos 5 library directly */
 		env_put("KRB5_KTNAME", path);
 #ifdef HAVE_GSSKRB5_REGISTER_ACCEPTOR_IDENTITY
