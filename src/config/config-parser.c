@@ -493,6 +493,41 @@ config_get_value(struct config_parser_context *ctx,
 	return config_filter_get_value(ctx, filter_parser, def, config_key, key, str);
 }
 
+static struct config_filter_parser *
+config_filter_parser_find_path_sub(struct config_filter_parser *parent,
+				   const char *path, bool done_reverse)
+{
+	struct config_filter_parser *parser;
+	const char *suffix;
+
+	for (parser = parent->children_head; parser != NULL; parser = parser->next) {
+		if (!parser->filter.filter_name_array)
+			;
+		else if (!str_begins(path, parser->filter.filter_name, &suffix))
+			;
+		else if (suffix[0] == '/')
+			return config_filter_parser_find_path_sub(parser, suffix + 1, FALSE);
+		else if (suffix[0] == '\0')
+			return parser;
+	}
+	if (parent->reverse_default_sibling != NULL && !done_reverse) {
+		return config_filter_parser_find_path_sub(
+			parent->reverse_default_sibling, path, TRUE);
+	}
+	return NULL;
+}
+
+static struct config_filter_parser *
+config_filter_parser_find_path(struct config_parser_context *ctx,
+			       const char *path)
+{
+	config_parse_fill_reverse_default_siblings(ctx);
+
+	struct config_filter_parser *parser =
+		array_idx_elem(&ctx->all_filter_parsers, 0);
+	return config_filter_parser_find_path_sub(parser, path, FALSE);
+}
+
 static bool config_filter_has_include_group(const struct config_filter *filter)
 {
 	for (; filter != NULL; filter = filter->parent) {
@@ -2709,24 +2744,54 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 			if (envval != NULL)
 				str_append(prefixed_str, envval);
 		} else if (expand_values && var_is_set) {
+			static struct config_filter_parser *set_parser;
 			struct config_parser_key *config_key;
+			const char *full_set_name = set_name;
 
+			set_name = strrchr(full_set_name, '/');
+			if (set_name == NULL) {
+				/* Get setting from the current filter */
+				set_name = full_set_name;
+				set_parser = filter_parser;
+			} else {
+				/* Getting setting from the specified filter
+				   path. The path is expected to start from
+				   root. For example:
+				   $SET:service/auth/service_client_limit
+				   Note that auto-prefixing isn't currently
+				   supported. */
+				const char *filter_path = t_strdup_until(
+					full_set_name, set_name);
+				set_parser = config_filter_parser_find_path(ctx,
+					filter_path);
+				set_name++;
+
+				if (set_parser == NULL) {
+					ctx->error = p_strdup_printf(ctx->pool,
+						"Failed to expand $SET:%s: "
+						"Unknown filter path: %s",
+						full_set_name, filter_path);
+					ret = -1;
+					break;
+				}
+			}
 			config_key = hash_table_lookup(ctx->all_keys, set_name);
 			if (config_key == NULL) {
-				ctx->error = p_strconcat(ctx->pool,
-							 "Unknown setting: ",
-							 set_name, NULL);
+				ctx->error = p_strdup_printf(ctx->pool,
+					"Failed to expand $SET:%s: "
+					"Unknown setting: %s",
+					full_set_name, set_name);
 				ret = -1;
 				break;
 			}
-			ret = config_get_value(ctx, filter_parser,
-					       config_key, set_name,
+			ret = config_get_value(ctx, set_parser,
+					       config_key, full_set_name,
 					       prefixed_str);
 			if (ret == 0) {
 				ctx->error = p_strdup_printf(ctx->pool,
 					"Failed to expand $SET:%s: "
 					"Setting type can't be expanded to string",
-					set_name);
+					full_set_name);
 				ret = -1;
 			}
 			if (ret < 0)
