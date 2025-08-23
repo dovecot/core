@@ -109,6 +109,9 @@ static void index_mail_try_set_attachment_keywords(struct index_mail *mail)
 		/* We can get here from mail_get_parts() */
 		return;
 	}
+	if ((mail->mail.mail.box->flags & MAILBOX_FLAG_READONLY) != 0)
+		return;
+
 	mail->data.attachment_flags_updating = TRUE;
 	enum mail_lookup_abort orig_lookup_abort = mail->mail.mail.lookup_abort;
 	mail->mail.mail.lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
