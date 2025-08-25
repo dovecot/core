@@ -1985,10 +1985,10 @@ dsync_mailbox_import_saved_newmail(struct dsync_mailbox_importer *importer,
 	   are larger than we're committing.
 
 	   Note that if any existing UIDs have been changed, the new UID is
-	   usually higher than anything that is being saved so we can't do
+	   usually greater than anything that is being saved so we can't do
 	   an intermediate commit. It's too much extra work to try to handle
 	   that situation. So here this never happens, because then
-	   array_count(wanted_uids) is always higher than first_unsaved_idx. */
+	   array_count(wanted_uids) is always greater than first_unsaved_idx. */
 	if (importer->saves_since_commit >= importer->commit_msgs_interval &&
 	    importer->first_unsaved_idx == array_count(&importer->wanted_uids)) {
 		if (dsync_mailbox_import_commit(importer, FALSE) < 0)

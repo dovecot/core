@@ -1150,7 +1150,7 @@ static void test_data_disconnect(void)
 
 /* server */
 
-enum _data_timout_state {
+enum _data_timeout_state {
 	DATA_TIMEOUT_STATE_EHLO = 0,
 	DATA_TIMEOUT_STATE_MAIL_FROM,
 	DATA_TIMEOUT_STATE_RCPT_TO,
@@ -1158,20 +1158,20 @@ enum _data_timout_state {
 	DATA_TIMEOUT_STATE_FINISH
 };
 
-struct _data_timout_server {
-	enum _data_timout_state state;
+struct _data_timeout_server {
+	enum _data_timeout_state state;
 };
 
-static void test_data_timout_input(struct server_connection *conn)
+static void test_data_timeout_input(struct server_connection *conn)
 {
-	struct _data_timout_server *ctx;
+	struct _data_timeout_server *ctx;
 	const char *line;
 
 	if (conn->context == NULL) {
-		ctx = p_new(conn->pool, struct _data_timout_server, 1);
+		ctx = p_new(conn->pool, struct _data_timeout_server, 1);
 		conn->context = (void*)ctx;
 	} else {
-		ctx = (struct _data_timout_server *)conn->context;
+		ctx = (struct _data_timeout_server *)conn->context;
 	}
 
 	for (;;) {
@@ -1217,24 +1217,24 @@ static void test_data_timout_input(struct server_connection *conn)
 	}
 }
 
-static void test_data_timout_init(struct server_connection *conn)
+static void test_data_timeout_init(struct server_connection *conn)
 {
 	o_stream_nsend_str(
 		conn->conn.output,
 		"220 testserver ESMTP Testfix (Debian/GNU)\r\n");
 }
 
-static void test_server_data_timout(unsigned int index)
+static void test_server_data_timeout(unsigned int index)
 {
-	test_server_init = test_data_timout_init;
-	test_server_input = test_data_timout_input;
+	test_server_init = test_data_timeout_init;
+	test_server_input = test_data_timeout_input;
 	test_server_run(index);
 }
 
 /* client */
 
 static bool
-test_client_data_timout(const struct smtp_submit_settings *submit_set)
+test_client_data_timeout(const struct smtp_submit_settings *submit_set)
 {
 	time_t time;
 	const char *error = NULL;
@@ -1264,8 +1264,8 @@ static void test_data_timeout(void)
 	test_begin("data timeout");
 	test_expect_errors(1);
 	test_run_client_server(&smtp_submit_set,
-			       test_client_data_timout,
-			       test_server_data_timout, 1);
+			       test_client_data_timeout,
+			       test_server_data_timeout, 1);
 	test_end();
 }
 
