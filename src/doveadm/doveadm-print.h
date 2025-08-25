@@ -33,6 +33,8 @@ void doveadm_print_header_simple(const char *key_title);
 unsigned int doveadm_print_get_headers_count(void);
 
 void doveadm_print(const char *value);
+/* Print count number of empty fields */
+void doveadm_print_empty(unsigned int count);
 void doveadm_print_num(uintmax_t value);
 /* Stream for same field continues until len=0 */
 void doveadm_print_stream(const void *value, size_t size);

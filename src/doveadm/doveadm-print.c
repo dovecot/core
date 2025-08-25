@@ -93,6 +93,12 @@ void doveadm_print(const char *value)
 	ctx->header_idx++;
 }
 
+void doveadm_print_empty(unsigned int count)
+{
+	for (unsigned int i = 0; i < count; i++)
+		doveadm_print("");
+}
+
 void doveadm_print_num(uintmax_t value)
 {
 	T_BEGIN {
