@@ -286,6 +286,12 @@ void dlua_push_event(lua_State *L, struct event *event)
 	lua_setfield(L, -2, "item");
 }
 
+void dlua_push_timeval(lua_State *L, const struct timeval *tv)
+{
+	lua_pushinteger(L, tv == NULL ? 0 :
+			tv->tv_sec * 1000000LL + tv->tv_usec);
+}
+
 static int dlua_event_append_log_prefix(lua_State *L)
 {
 	DLUA_REQUIRE_ARGS(L, 2);

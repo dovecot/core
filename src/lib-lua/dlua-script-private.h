@@ -116,6 +116,9 @@ struct event *dlua_check_event(lua_State *L, int arg);
 const char *dlua_push_vfstring(lua_State *L, const char *fmt, va_list argp) ATTR_FORMAT(2, 0);
 const char *dlua_push_fstring(lua_State *L, const char *fmt, ...) ATTR_FORMAT(2, 3);
 
+/* push timeval as a microseconds integer to top of the stack */
+void dlua_push_timeval(lua_State *L, const struct timeval *tv);
+
 /* improved luaL_error, can handle full C format support */
 int dluaL_error(lua_State *L, const char *fmt, ...) ATTR_FORMAT(2, 3);
 #define luaL_error(...) dluaL_error(__VA_ARGS__)
