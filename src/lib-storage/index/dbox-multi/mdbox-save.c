@@ -147,7 +147,6 @@ int mdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		ctx->ctx.failed = TRUE;
 		return -1;
 	}
-	i_assert(ctx->ctx.dbox_output->offset <= UOFF_T_MAX);
 	append_offset = ctx->ctx.dbox_output->offset;
 
 	ctx->cur_file = ctx->cur_file_append->file;
