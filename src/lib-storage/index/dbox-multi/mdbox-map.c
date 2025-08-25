@@ -1310,9 +1310,6 @@ int mdbox_map_append_assign_map_uids(struct mdbox_map_append_context *ctx,
 		struct mdbox_file *mfile =
 			(struct mdbox_file *)appends[i].file_append->file;
 
-		i_assert(appends[i].offset <= UOFF_T_MAX);
-		i_assert(appends[i].size <= UOFF_T_MAX);
-
 		rec.file_id = mfile->file_id;
 		rec.offset = appends[i].offset;
 		/* A mail that exceeds 4GB is the final mail in the record and
