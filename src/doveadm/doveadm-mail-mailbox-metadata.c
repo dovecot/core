@@ -244,7 +244,7 @@ cmd_mailbox_metadata_get_run(struct doveadm_mail_cmd_context *_ctx,
 		doveadm_mail_failed_mailbox(_ctx, box);
 	} else if (ret == 0) {
 		/* not found, print as empty */
-		doveadm_print("");
+		doveadm_print_empty(1);
 	} else if (value.value_stream != NULL) {
 		if (doveadm_print_istream(value.value_stream) < 0) {
 			e_error(ctx->ctx.cctx->event, "read(%s) failed: %s",

@@ -62,7 +62,7 @@ static void cmd_acl_get_right(const struct acl_rights *rights)
 	if (rights->global)
 		doveadm_print("global");
 	else
-		doveadm_print("");
+		doveadm_print_empty(1);
 
 	str = t_str_new(256);
 	if (rights->rights != NULL)

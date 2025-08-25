@@ -690,13 +690,13 @@ static void cmd_mcp_key_export_cb(const struct generated_key *key,
 		if (ret == 0)
 			error = "key not found";
 		doveadm_print(t_strdup_printf("ERROR: %s", error));
-		doveadm_print("");
+		doveadm_print_empty(1);
 	} else {
 		string_t *out = t_str_new(64);
 		if (!dcrypt_key_store_private(pkey, DCRYPT_FORMAT_PEM, NULL, out,
 					      NULL, NULL, &error)) {
 			doveadm_print(t_strdup_printf("ERROR: %s", error));
-			doveadm_print("");
+			doveadm_print_empty(1);
 		} else {
 			/* this is to make it more compatible with openssl cli
 			   as it expects BEGIN on its own line */

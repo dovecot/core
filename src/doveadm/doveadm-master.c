@@ -211,8 +211,7 @@ static void cmd_service_status(struct doveadm_cmd_context *cctx)
 				unsigned int i;
 				for (i = 0; i < fields_count && args[i] != NULL; i++)
 					doveadm_print(args[i]);
-				for (; i < fields_count; i++)
-					doveadm_print("");
+				doveadm_print_empty(fields_count - i);
 			}
 		} T_END;
 	}

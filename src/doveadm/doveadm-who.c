@@ -452,8 +452,7 @@ who_print_line(struct who_context *ctx, struct doveadm_who_iter *iter,
 
 	for (alt_idx = 0; line->alt_usernames[alt_idx] != NULL; alt_idx++)
 		doveadm_print(line->alt_usernames[alt_idx]);
-	for (; alt_idx < iter->alt_username_fields_count; alt_idx++)
-		doveadm_print("");
+	doveadm_print_empty(iter->alt_username_fields_count - alt_idx);
 }
 
 static void cmd_who(struct doveadm_cmd_context *cctx)

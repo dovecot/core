@@ -366,7 +366,7 @@ static void cmd_log_error_write(const struct log_error *error)
 	doveadm_print(t_strdup_printf("%s.%06u", ts_secs,
 				      (unsigned int)error->timestamp.tv_usec));
 	if (error->prefix[0] == '\0')
-		doveadm_print("");
+		doveadm_print_empty(1);
 	else {
 		const char *prefix = t_strconcat(
 			t_cmd_log_error_trim(error->prefix), ": ", NULL);
