@@ -120,7 +120,8 @@ const char *dlua_push_fstring(lua_State *L, const char *fmt, ...) ATTR_FORMAT(2,
 void dlua_push_timeval(lua_State *L, const struct timeval *tv);
 
 /* improved luaL_error, can handle full C format support */
-int dluaL_error(lua_State *L, const char *fmt, ...) ATTR_FORMAT(2, 3);
+int dluaL_error(lua_State *L, const char *fmt, ...) ATTR_FORMAT(2, 3)
+	ATTR_NORETURN;
 #define luaL_error(...) dluaL_error(__VA_ARGS__)
 
 /*

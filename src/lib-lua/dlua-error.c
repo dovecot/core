@@ -9,5 +9,6 @@ int dluaL_error(lua_State *L, const char *fmt, ...)
 	va_start(argp, fmt);
 	(void)dlua_push_vfstring(L, fmt, argp);
 	va_end(argp);
-	return lua_error(L);
+	(void)lua_error(L);
+	i_unreached();
 }
