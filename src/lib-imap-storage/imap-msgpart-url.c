@@ -246,6 +246,7 @@ int imap_msgpart_url_verify(struct imap_msgpart_url *mpurl,
 }
 
 int imap_msgpart_url_get_bodypartstructure(struct imap_msgpart_url *mpurl,
+					   enum imap_quote_flags qflags,
 					   const char **bpstruct_r,
 					   const char **client_error_r)
 {
@@ -257,7 +258,7 @@ int imap_msgpart_url_get_bodypartstructure(struct imap_msgpart_url *mpurl,
 	if (ret <= 0)
 		return ret;
 
-	ret = imap_msgpart_bodypartstructure(mail, mpurl->part, 0,
+	ret = imap_msgpart_bodypartstructure(mail, mpurl->part, qflags,
 					     bpstruct_r);
 	if (ret < 0)
 		*client_error_r = mailbox_get_last_error(mpurl->box, NULL);
