@@ -813,7 +813,7 @@ imap_msgpart_vsizes_to_binary(struct mail *mail, const struct message_part *part
 }
 
 int imap_msgpart_bodypartstructure(struct mail *mail,
-				   struct imap_msgpart *msgpart,
+				   struct imap_msgpart *msgpart, bool utf8,
 				   const char **bpstruct_r)
 {
 	struct message_part *all_parts, *part;
@@ -847,7 +847,7 @@ int imap_msgpart_bodypartstructure(struct mail *mail,
 
 	if (ret >= 0) {
 		bpstruct = t_str_new(256);
-		if (imap_bodystructure_write(part, bpstruct, TRUE, FALSE,
+		if (imap_bodystructure_write(part, bpstruct, TRUE, utf8,
 					     &error) < 0) {
 			error = t_strdup_printf(
 				"Invalid message_part/BODYSTRUCTURE: %s", error);

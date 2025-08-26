@@ -57,7 +57,7 @@ int imap_msgpart_size(struct mail *mail, struct imap_msgpart *msgpart,
 
 /* Return msgpart's IMAP BODYPARTSTRUCTURE */
 int imap_msgpart_bodypartstructure(struct mail *mail,
-				   struct imap_msgpart *msgpart,
+				   struct imap_msgpart *msgpart, bool utf8,
 				   const char **bpstruct_r);
 
 /* Header context is automatically created by imap_msgpart_open() and destroyed

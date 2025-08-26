@@ -257,7 +257,8 @@ int imap_msgpart_url_get_bodypartstructure(struct imap_msgpart_url *mpurl,
 	if (ret <= 0)
 		return ret;
 
-	ret = imap_msgpart_bodypartstructure(mail, mpurl->part, bpstruct_r);
+	ret = imap_msgpart_bodypartstructure(mail, mpurl->part, FALSE,
+					     bpstruct_r);
 	if (ret < 0)
 		*client_error_r = mailbox_get_last_error(mpurl->box, NULL);
 	else if (ret == 0)
