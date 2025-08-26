@@ -291,7 +291,7 @@ static void index_mail_parse_finish_imap_envelope(struct index_mail *mail)
 	string_t *str;
 
 	str = str_new(mail->mail.data_pool, 256);
-	imap_envelope_write(mail->data.envelope_data, str);
+	imap_envelope_write(mail->data.envelope_data, str, 0);
 	mail->data.envelope = str_c(str);
 	mail->data.save_envelope = FALSE;
 

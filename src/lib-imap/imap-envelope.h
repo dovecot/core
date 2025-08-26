@@ -1,12 +1,14 @@
 #ifndef IMAP_ENVELOPE_H
 #define IMAP_ENVELOPE_H
 
+#include "imap-quote.h"
+
 struct imap_arg;
 struct message_part_envelope;
 
 /* Write envelope to given string */
-void imap_envelope_write(struct message_part_envelope *data,
-				   string_t *str);
+void imap_envelope_write(struct message_part_envelope *data, string_t *str,
+			 enum imap_quote_flags qflags);
 
 /* Parse envelope from arguments */
 bool imap_envelope_parse_args(const struct imap_arg *args,
