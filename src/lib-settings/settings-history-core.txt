@@ -1,3 +1,4 @@
+default	fts_search_read_fallback	yes	-	3.1.1
 default	mailbox_directory_name_legacy	yes	2.4.2	3.1.1
 default	service/anvil/unix_listener/anvil/unix_listener_mode	0600	2.4.2	-
 default	service/anvil/unix_listener/anvil/unix_listener_group		2.4.2	-

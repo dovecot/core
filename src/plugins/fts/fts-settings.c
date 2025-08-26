@@ -55,7 +55,11 @@ static const struct fts_settings fts_default_settings = {
 	.driver = "",
 	.search = TRUE,
 	.search_add_missing = FTS_SEARCH_ADD_MISSING_BODY_SEARCH_ONLY":yes",
+#ifdef DOVECOT_PRO_EDITION
+	.search_read_fallback = FALSE,
+#else
 	.search_read_fallback = TRUE,
+#endif
 
 	.search_timeout = 30,
 	.message_max_size = SET_SIZE_UNLIMITED,
