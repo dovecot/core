@@ -15,7 +15,8 @@
  * Envelope write
  */
 
-static void imap_write_address(string_t *str, struct message_address *addr)
+static void
+imap_write_address(string_t *str, struct message_address *addr, bool utf8)
 {
 	if (addr == NULL) {
 		str_append(str, "NIL");
@@ -30,14 +31,14 @@ static void imap_write_address(string_t *str, struct message_address *addr)
 		else {
 			imap_append_string_for_humans(str,
 				(const void *)addr->name, strlen(addr->name),
-				FALSE);
+				utf8);
 		}
 		str_append_c(str, ' ');
-		imap_append_nstring(str, addr->route, FALSE);
+		imap_append_nstring(str, addr->route, utf8);
 		str_append_c(str, ' ');
-		imap_append_nstring(str, addr->mailbox, FALSE);
+		imap_append_nstring(str, addr->mailbox, utf8);
 		str_append_c(str, ' ');
-		imap_append_nstring(str, addr->domain, FALSE);
+		imap_append_nstring(str, addr->domain, utf8);
 		str_append_c(str, ')');
 
 		addr = addr->next;
@@ -45,8 +46,8 @@ static void imap_write_address(string_t *str, struct message_address *addr)
 	str_append_c(str, ')');
 }
 
-void imap_envelope_write(struct message_part_envelope *data,
-				   string_t *str)
+void imap_envelope_write(struct message_part_envelope *data, string_t *str,
+			 bool utf8)
 {
 #define NVL(str, nullstr) ((str) != NULL ? (str) : (nullstr))
 	static const char *empty_envelope =
@@ -57,33 +58,33 @@ void imap_envelope_write(struct message_part_envelope *data,
 		return;
 	}
 
-	imap_append_nstring_nolf(str, data->date, FALSE);
+	imap_append_nstring_nolf(str, data->date, utf8);
 	str_append_c(str, ' ');
 	if (data->subject == NULL)
 		str_append(str, "NIL");
 	else {
 		imap_append_string_for_humans(str,
 			(const unsigned char *)data->subject,
-			strlen(data->subject), FALSE);
+			strlen(data->subject), utf8);
 	}
 
 	str_append_c(str, ' ');
-	imap_write_address(str, data->from.head);
+	imap_write_address(str, data->from.head, utf8);
 	str_append_c(str, ' ');
-	imap_write_address(str, NVL(data->sender.head, data->from.head));
+	imap_write_address(str, NVL(data->sender.head, data->from.head), utf8);
 	str_append_c(str, ' ');
-	imap_write_address(str, NVL(data->reply_to.head, data->from.head));
+	imap_write_address(str, NVL(data->reply_to.head, data->from.head), utf8);
 	str_append_c(str, ' ');
-	imap_write_address(str, data->to.head);
+	imap_write_address(str, data->to.head, utf8);
 	str_append_c(str, ' ');
-	imap_write_address(str, data->cc.head);
+	imap_write_address(str, data->cc.head, utf8);
 	str_append_c(str, ' ');
-	imap_write_address(str, data->bcc.head);
+	imap_write_address(str, data->bcc.head, utf8);
 
 	str_append_c(str, ' ');
-	imap_append_nstring_nolf(str, data->in_reply_to, FALSE);
+	imap_append_nstring_nolf(str, data->in_reply_to, utf8);
 	str_append_c(str, ' ');
-	imap_append_nstring_nolf(str, data->message_id, FALSE);
+	imap_append_nstring_nolf(str, data->message_id, utf8);
 }
 
 /*

@@ -5,8 +5,8 @@ struct imap_arg;
 struct message_part_envelope;
 
 /* Write envelope to given string */
-void imap_envelope_write(struct message_part_envelope *data,
-				   string_t *str);
+void imap_envelope_write(struct message_part_envelope *data, string_t *str,
+			 bool utf8);
 
 /* Parse envelope from arguments */
 bool imap_envelope_parse_args(const struct imap_arg *args,

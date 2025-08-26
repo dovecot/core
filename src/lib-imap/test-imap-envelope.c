@@ -156,7 +156,7 @@ static void test_imap_envelope_write(void)
 		test_begin(t_strdup_printf("imap envelope write [%u]", i));
 		envlp = msg_parse(pool, test->message);
 
-		imap_envelope_write(envlp, str);
+		imap_envelope_write(envlp, str, FALSE);
 		test_assert_idx(strcmp(str_c(str), test->envelope) == 0, i);
 
 		pool_unref(&pool);
@@ -183,7 +183,7 @@ static void test_imap_envelope_parse(void)
 
 		if (ret) {
 			str_truncate(str, 0);
-			imap_envelope_write(envlp, str);
+			imap_envelope_write(envlp, str, FALSE);
 			test_assert_idx(strcmp(str_c(str), test->envelope) == 0, i);
 		} else {
 			i_error("Invalid envelope: %s", error);
