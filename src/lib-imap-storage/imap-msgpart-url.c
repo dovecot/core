@@ -246,7 +246,7 @@ int imap_msgpart_url_verify(struct imap_msgpart_url *mpurl,
 }
 
 int imap_msgpart_url_get_bodypartstructure(struct imap_msgpart_url *mpurl,
-					   const char **bpstruct_r,
+					   bool utf8, const char **bpstruct_r,
 					   const char **client_error_r)
 {
 	struct mail *mail;
@@ -257,7 +257,7 @@ int imap_msgpart_url_get_bodypartstructure(struct imap_msgpart_url *mpurl,
 	if (ret <= 0)
 		return ret;
 
-	ret = imap_msgpart_bodypartstructure(mail, mpurl->part, FALSE,
+	ret = imap_msgpart_bodypartstructure(mail, mpurl->part, utf8,
 					     bpstruct_r);
 	if (ret < 0)
 		*client_error_r = mailbox_get_last_error(mpurl->box, NULL);

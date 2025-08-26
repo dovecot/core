@@ -336,7 +336,7 @@ client_fetch_urlpart(struct client *client, const char *url,
 	if ((url_flags & IMAP_URLAUTH_FETCH_FLAG_BINARY) != 0)
 		imap_msgpart_url_set_decode_to_binary(client->url);
 	if ((url_flags & IMAP_URLAUTH_FETCH_FLAG_BODYPARTSTRUCTURE) != 0) {
-		ret = imap_msgpart_url_get_bodypartstructure(client->url,
+		ret = imap_msgpart_url_get_bodypartstructure(client->url, FALSE,
 							     bpstruct_r, &error);
 		if (ret <= 0) {
 			*errormsg_r = t_strdup_printf(

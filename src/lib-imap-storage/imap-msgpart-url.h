@@ -41,7 +41,7 @@ int imap_msgpart_url_read_part(struct imap_msgpart_url *mpurl,
 			       const char **client_error_r);
 
 int imap_msgpart_url_get_bodypartstructure(struct imap_msgpart_url *mpurl,
-					   const char **bpstruct_r,
+					   bool utf8, const char **bpstruct_r,
 					   const char **client_error_r);
 
 int imap_msgpart_url_verify(struct imap_msgpart_url *mpurl,
