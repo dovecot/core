@@ -44,7 +44,7 @@ static void test_imap_storage_callback_line(void)
 	test_begin("imap_storage_callback_line");
 	for (unsigned int index = 0; index < N_ELEMENTS(test_vectors); ++index ) {
 		const struct test_vector *v = test_vectors + index;
-		const char *actual = imap_storage_callback_line(&v->dtl, v->tag);
+		const char *actual = imap_progress_line(&v->dtl, v->tag);
 		test_assert_strcmp_idx(v->expect, actual, index);
 	}
 	test_end();

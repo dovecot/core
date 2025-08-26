@@ -57,7 +57,7 @@ int imap_notify_progress(const struct mail_storage_progress_details *dtl,
 	T_BEGIN {
 		bool corked = o_stream_is_corked(client->output);
 		const char *tag = find_cmd_tag(event_get_global());
-		const char *line = imap_storage_callback_line(dtl, tag);
+		const char *line = imap_progress_line(dtl, tag);
 
 		client_send_line(client, line);
 		ret = o_stream_uncork_flush(client->output);
