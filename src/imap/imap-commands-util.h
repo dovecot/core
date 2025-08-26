@@ -14,7 +14,7 @@ struct mailbox_keywords;
 struct mail_namespace *
 client_find_namespace(struct client_command_context *cmd, const char **mailbox);
 struct mail_namespace *
-client_find_namespace_full(struct client *client,
+client_find_namespace_full(struct client_command_context *cmd,
 			   const char **mailbox, const char **client_error_r);
 
 /* Returns TRUE if mailbox is selected. If not, sends "No mailbox selected"

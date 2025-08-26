@@ -388,7 +388,7 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 
 	ctx = p_new(cmd->pool, struct imap_select_context, 1);
 	ctx->cmd = cmd;
-	ctx->ns = client_find_namespace_full(cmd->client, &mailbox, &client_error);
+	ctx->ns = client_find_namespace_full(cmd, &mailbox, &client_error);
 	if (ctx->ns == NULL) {
 		/* send * OK [CLOSED] before the tagged reply */
 		close_selected_mailbox(client);
