@@ -200,12 +200,12 @@ static bool cmd_id_handle_keyvalue(struct imap_client *client,
 		} else {
 			str_append_c(client->common.client_id, ' ');
 		}
-		imap_append_quoted(client->common.client_id, key);
+		imap_append_quoted(client->common.client_id, key, 0);
 		str_append_c(client->common.client_id, ' ');
 		if (value == NULL)
 			str_append(client->common.client_id, "NIL");
 		else
-			imap_append_quoted(client->common.client_id, value);
+			imap_append_quoted(client->common.client_id, value, 0);
 	}
 
 	if (!is_login_id_param)

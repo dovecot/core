@@ -699,7 +699,7 @@ static void imapc_mail_copy_bulk_flush(struct imapc_mailbox *mbox)
 	seqset_builder_deinit(&mbox->pending_copy_request->uidset_builder);
 
 	str_append(mbox->pending_copy_cmd, " ");
-	imap_append_astring(mbox->pending_copy_cmd, mbox->copy_dest_box);
+	imap_append_astring(mbox->pending_copy_cmd, mbox->copy_dest_box, 0);
 
 	imapc_command_send(cmd, str_c(mbox->pending_copy_cmd));
 

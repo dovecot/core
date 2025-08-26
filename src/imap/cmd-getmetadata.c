@@ -123,7 +123,7 @@ metadata_add_entry(struct imap_getmetadata_context *ctx, const char *entry)
 		} else {
 			if (imap_utf8_to_utf7(mailbox_get_vname(ctx->box), mailbox_mutf7) < 0)
 				i_unreached();
-			imap_append_astring(str, str_c(mailbox_mutf7));
+			imap_append_astring(str, str_c(mailbox_mutf7), 0);
 		}
 		str_append(str, " (");
 
@@ -132,7 +132,7 @@ metadata_add_entry(struct imap_getmetadata_context *ctx, const char *entry)
 	} else {
 		str_append_c(str, ' ');
 	}
-	imap_append_astring(str, entry);
+	imap_append_astring(str, entry, 0);
 	return str;
 }
 

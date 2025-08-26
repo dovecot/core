@@ -54,18 +54,20 @@ mail_search_arg_to_cmdline(string_t *dest, const struct mail_search_arg *arg)
 	}
 	case SEARCH_INTHREAD:
 		str_append(dest, "INTHREAD ");
-		imap_append_astring(dest, mail_thread_type_to_str(arg->value.thread_type));
+		imap_append_astring(
+			dest, mail_thread_type_to_str(arg->value.thread_type),
+			0);
 		str_append_c(dest, ' ');
 		mail_search_subargs_to_cmdline(dest, arg->value.subargs, " ");
 		break;
 	case SEARCH_MAILBOX:
 	case SEARCH_MAILBOX_GLOB:
 		str_append(dest, "MAILBOX ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		return;
 	case SEARCH_MAILBOX_GUID:
 		str_append(dest, "MAILBOX-GUID ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		return;
 	case SEARCH_ALL:
 	case SEARCH_SEQSET:

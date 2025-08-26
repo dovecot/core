@@ -66,7 +66,7 @@ static void list_namespaces(struct mail_namespace *ns,
 				no->ns->prefix);
 		}
 
-		imap_append_string(str, str_c(mutf7_prefix));
+		imap_append_string(str, str_c(mutf7_prefix), 0);
 		str_append(str, " \"");
 		if (ns_sep == '\\')
 			str_append_c(str, '\\');

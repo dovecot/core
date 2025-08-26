@@ -271,7 +271,7 @@ body_header_fields_parse(struct imap_fetch_init_context *ctx,
 		if (args[i].type == IMAP_ARG_ATOM)
 			str_append(str, value);
 		else
-			imap_append_quoted(str, value);
+			imap_append_quoted(str, value, 0);
 	}
 	str_append_c(str, ')');
 	body->section = str_c(str);
@@ -640,7 +640,7 @@ fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
 	else
 		str_append(ctx->state.cur_str, " ");
 	if (ret == 0)
-		imap_append_string(ctx->state.cur_str, snippet);
+		imap_append_string(ctx->state.cur_str, snippet, 0);
 	else
 		str_append(ctx->state.cur_str, "NIL");
 	if (preview->old_standard)

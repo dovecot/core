@@ -289,7 +289,7 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 		for (i = 0; mail->fetching_headers[i] != NULL; i++) {
 			if (i > 0)
 				str_append_c(str, ' ');
-			imap_append_astring(str, mail->fetching_headers[i]);
+			imap_append_astring(str, mail->fetching_headers[i], 0);
 		}
 		str_append(str, ")] ");
 		mail->header_list_fetched = FALSE;

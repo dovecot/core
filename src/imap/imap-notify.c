@@ -39,7 +39,7 @@ static int imap_notify_list(struct imap_notify_namespace *notify_ns,
 	if (imap_utf8_to_utf7(vname, mutf7_vname) < 0)
 		i_panic("Mailbox name not UTF-8: %s", vname);
 	vname = str_c(mutf7_vname);
-	imap_append_astring(str, vname);
+	imap_append_astring(str, vname, 0);
 	if (rec->old_vname != NULL) {
 		old_vname = rec->old_vname;
 		str_truncate(mutf7_vname, 0);
@@ -49,7 +49,7 @@ static int imap_notify_list(struct imap_notify_namespace *notify_ns,
 		}
 		old_vname = str_c(mutf7_vname);
 		str_append(str, " (\"OLDNAME\" (");
-		imap_append_astring(str, old_vname);
+		imap_append_astring(str, old_vname, 0);
 		str_append(str, "))");
 	}
 	return client_send_line_next(client, str_c(str));

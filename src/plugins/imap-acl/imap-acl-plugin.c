@@ -208,7 +208,7 @@ imap_acl_write_right(string_t *dest, string_t *tmp,
 		i_unreached();
 	}
 
-	imap_append_astring(dest, str_c(tmp));
+	imap_append_astring(dest, str_c(tmp), 0);
 	str_append_c(dest, ' ');
 	imap_acl_write_rights_list(dest, rights);
 }
@@ -479,29 +479,32 @@ imapc_acl_prepare_cmd(string_t *reply_r, const char *mailbox,
 	case IMAP_ACL_CMD_MYRIGHTS:
 		/* Prepare client untagged reply. */
 		str_append(reply_r, "* MYRIGHTS ");
-		imap_append_astring(reply_r, mailbox);
+		imap_append_astring(reply_r, mailbox, 0);
 		str_append_c(reply_r, ' ');
 
 		str_append(proxy_cmd_str, "MYRIGHTS ");
 		/* Strip namespace prefix. */
 		imap_append_astring(proxy_cmd_str,
-				    imap_acl_get_mailbox_name(ns, mailbox));
+				    imap_acl_get_mailbox_name(ns, mailbox),
+				    0);
 		break;
 	case IMAP_ACL_CMD_GETACL:
 		/* Prepare client untagged reply. */
 		str_append(reply_r, "* ACL ");
-		imap_append_astring(reply_r, mailbox);
+		imap_append_astring(reply_r, mailbox, 0);
 		str_append_c(reply_r, ' ');
 
 		str_append(proxy_cmd_str, "GETACL ");
 		imap_append_astring(proxy_cmd_str,
-				    imap_acl_get_mailbox_name(ns, mailbox));
+				    imap_acl_get_mailbox_name(ns, mailbox),
+				    0);
 		break;
 	case IMAP_ACL_CMD_SETACL:
 		/* No contents in untagged replies for SETACL */
 		str_append(proxy_cmd_str, "SETACL ");
 		imap_append_astring(proxy_cmd_str,
-				    imap_acl_get_mailbox_name(ns, mailbox));
+				    imap_acl_get_mailbox_name(ns, mailbox),
+				    0);
 
 		str_append_c(proxy_cmd_str, ' ');
 		str_append(proxy_cmd_str, cmd_args);
@@ -510,7 +513,8 @@ imapc_acl_prepare_cmd(string_t *reply_r, const char *mailbox,
 		/* No contents in untagged replies for DELETEACL */
 		str_append(proxy_cmd_str, "DELETEACL ");
 		imap_append_astring(proxy_cmd_str,
-				    imap_acl_get_mailbox_name(ns, mailbox));
+				    imap_acl_get_mailbox_name(ns, mailbox),
+				    0);
 
 		str_append_c(proxy_cmd_str, ' ');
 		str_append(proxy_cmd_str, cmd_args);
@@ -640,7 +644,7 @@ imap_acl_send_myrights(struct client_command_context *cmd,
 
 	str = t_str_new(128);
 	str_append(str, "* MYRIGHTS ");
-	imap_append_astring(str, mutf7_mailbox);
+	imap_append_astring(str, mutf7_mailbox, 0);
 	str_append_c(str, ' ');
 	imap_acl_write_rights_list(str, rights);
 
@@ -663,7 +667,7 @@ static void imap_acl_cmd_getacl(struct mailbox *box, struct mail_namespace *ns,
 
 	str = t_str_new(128);
 	str_append(str, "* ACL ");
-	imap_append_astring(str, mailbox);
+	imap_append_astring(str, mailbox, 0);
 
 	ret = imap_acl_write_aclobj(str, backend,
 				    acl_mailbox_get_aclobj(box), TRUE,
@@ -798,9 +802,9 @@ static bool cmd_listrights(struct client_command_context *cmd)
 
 	str = t_str_new(128);
 	str_append(str, "* LISTRIGHTS ");
-	imap_append_astring(str, orig_mailbox);
+	imap_append_astring(str, orig_mailbox, 0);
 	str_append_c(str, ' ');
-	imap_append_astring(str, identifier);
+	imap_append_astring(str, identifier, 0);
 	str_append_c(str, ' ');
 	str_append(str, "\"\" l r w s t p i e k x a c d");
 
@@ -1076,10 +1080,10 @@ static bool cmd_setacl(struct client_command_context *cmd)
 	}
 
 	/* Keep original identifer for proxy_cmd_args */
-	imap_append_astring(proxy_cmd_args, identifier);
+	imap_append_astring(proxy_cmd_args, identifier, 0);
 	str_append_c(proxy_cmd_args, ' ');
 	/* Append original rights for proxy_cmd_args */
-	imap_append_astring(proxy_cmd_args, rights);
+	imap_append_astring(proxy_cmd_args, rights, 0);
 
 	ns = imap_acl_find_namespace(cmd, &mailbox);
 	if (ns == NULL)
@@ -1154,7 +1158,7 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 		return TRUE;
 
 	/* Escaped identifer for proxy_cmd_args */
-	imap_append_astring(proxy_cmd_args, identifier);
+	imap_append_astring(proxy_cmd_args, identifier, 0);
 
 	box = mailbox_alloc(ns->list, mailbox,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);

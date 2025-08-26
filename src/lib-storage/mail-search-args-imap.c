@@ -226,19 +226,19 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 			str_append(dest, t_str_ucase(arg->hdr_field_name));
 		else {
 			str_append(dest, "HEADER ");
-			imap_append_astring(dest, arg->hdr_field_name);
+			imap_append_astring(dest, arg->hdr_field_name, 0);
 		}
 		str_append_c(dest, ' ');
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 
 	case SEARCH_BODY:
 		str_append(dest, "BODY ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_TEXT:
 		str_append(dest, "TEXT ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 
 	/* extensions */
@@ -277,7 +277,9 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 		break;
 	case SEARCH_INTHREAD:
 		str_append(dest, "INTHREAD ");
-		imap_append_astring(dest, mail_thread_type_to_str(arg->value.thread_type));
+		imap_append_astring(
+			dest, mail_thread_type_to_str(arg->value.thread_type),
+			0);
 		str_append_c(dest, ' ');
 		if (!mail_search_subargs_to_imap(dest, arg->value.subargs,
 						 "", error_r))
@@ -285,7 +287,7 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 		break;
 	case SEARCH_GUID:
 		str_append(dest, "X-GUID ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MAILBOX:
 		*error_r = "SEARCH_MAILBOX can't be written as IMAP";
@@ -295,7 +297,7 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 		return FALSE;
 	case SEARCH_MAILBOX_GLOB:
 		str_append(dest, "X-MAILBOX ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_REAL_UID:
 		str_append(dest, "X-REAL-UID ");

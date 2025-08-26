@@ -38,7 +38,7 @@ static void test_imap_append_string_for_humans(void)
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		str_truncate(str, 0);
 		imap_append_string_for_humans(str, (const void *)tests[i].input,
-					      strlen(tests[i].input));
+					      strlen(tests[i].input), 0);
 		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
 	}
 	test_end();
@@ -71,6 +71,7 @@ static void test_imap_append_astring(void)
 		{ "\x7f", "\"\x7f\"" },
 		{ "\x80", "{1}\r\n\x80" },
 		{ "\xff", "{1}\r\n\xff" },
+		{ "außergewöhnlich", "{17}\r\naußergewöhnlich" },
 	};
 	string_t *str = t_str_new(128);
 	unsigned int i;
@@ -79,7 +80,7 @@ static void test_imap_append_astring(void)
 
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		str_truncate(str, 0);
-		imap_append_astring(str, tests[i].input);
+		imap_append_astring(str, tests[i].input, 0);
 		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
 	}
 	test_end();
@@ -106,7 +107,7 @@ static void test_imap_append_nstring(void)
 
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		str_truncate(str, 0);
-		imap_append_nstring(str, tests[i].input);
+		imap_append_nstring(str, tests[i].input, 0);
 		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
 	}
 	test_end();
@@ -146,15 +147,47 @@ static void test_imap_append_nstring_nolf(void)
 		string_t *str2 = str_new(default_pool, 1);
 
 		str_truncate(str, 0);
-		imap_append_nstring_nolf(str, tests[i].input);
+		imap_append_nstring_nolf(str, tests[i].input, 0);
 		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
 
 		str_truncate(str2, 0);
-		imap_append_nstring_nolf(str2, tests[i].input);
+		imap_append_nstring_nolf(str2, tests[i].input, 0);
 		test_assert_idx(strcmp(tests[i].output, str_c(str2)) == 0, i);
 
 		str_free(&str2);
 	} T_END;
+	test_end();
+}
+
+static void test_imap_append_string_utf8(void)
+{
+	static const struct {
+		const char *input, *output;
+	} tests[] = {
+		{ "", "\"\"" },
+		{ "\"\"", "\"\\\"\\\"\"" },
+		{ "\"\"\"", "\"\\\"\\\"\\\"\"" },
+		{ "\"\"\"\"", "\"\\\"\\\"\\\"\\\"\"" },
+		{ "\"\"\"\"\"", "{5}\r\n\"\"\"\"\"" },
+		{ "\"\"\"\"\"\"", "{6}\r\n\"\"\"\"\"\"" },
+		{ "\r", "{1}\r\n\r" },
+		{ "\n", "{1}\r\n\n" },
+		{ "\r\n", "{2}\r\n\r\n" },
+		{ "\x7f", "\"\x7f\"" },
+		{ "\x80", "{1}\r\n\x80" },
+		{ "\xff", "{1}\r\n\xff" },
+		{ "außergewöhnlich", "\"außergewöhnlich\"" }
+	};
+	string_t *str = t_str_new(128);
+	unsigned int i;
+
+	test_begin("test_imap_append_string_utf8()");
+
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		str_truncate(str, 0);
+		imap_append_string(str, tests[i].input, IMAP_QUOTE_FLAG_UTF8);
+		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
+	}
 	test_end();
 }
 
@@ -165,6 +198,7 @@ int main(void)
 		test_imap_append_astring,
 		test_imap_append_nstring,
 		test_imap_append_nstring_nolf,
+		test_imap_append_string_utf8,
 		NULL
 	};
 	return test_run(test_functions);

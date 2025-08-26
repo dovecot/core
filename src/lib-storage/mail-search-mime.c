@@ -414,93 +414,93 @@ bool mail_search_mime_arg_to_imap(string_t *dest,
 		break;
 	case SEARCH_MIME_DESCRIPTION:
 		str_append(dest, "DESCRIPTION ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_DISPOSITION_TYPE:
 		str_append(dest, "DISPOSITION TYPE ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_DISPOSITION_PARAM:
 		str_append(dest, "DISPOSITION PARAM ");
-		imap_append_astring(dest, arg->field_name);
+		imap_append_astring(dest, arg->field_name, 0);
 		str_append_c(dest, ' ');
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_ENCODING:
 		str_append(dest, "ENCODING ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_ID:
 		str_append(dest, "ID ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_LANGUAGE:
 		str_append(dest, "LANGUAGE ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_LOCATION:
 		str_append(dest, "LOCATION ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_MD5:
 		str_append(dest, "MD5 ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_TYPE:
 		str_append(dest, "TYPE ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_SUBTYPE:
 		str_append(dest, "SUBTYPE ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_PARAM:
 		str_append(dest, "PARAM ");
-		imap_append_astring(dest, arg->field_name);
+		imap_append_astring(dest, arg->field_name, 0);
 		str_append_c(dest, ' ');
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_HEADER:
 		str_append(dest, "HEADER ");
-		imap_append_astring(dest, arg->field_name);
+		imap_append_astring(dest, arg->field_name, 0);
 		str_append_c(dest, ' ');
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_BODY:
 		str_append(dest, "BODY ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_TEXT:
 		str_append(dest, "TEXT ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_CC:
 		str_append(dest, "CC ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_BCC:
 		str_append(dest, "BCC ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_FROM:
 		str_append(dest, "FROM ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_IN_REPLY_TO:
 		str_append(dest, "IN-REPLY-TO ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_MESSAGE_ID:
 		str_append(dest, "MESSAGE-ID ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_REPLY_TO:
 		str_append(dest, "REPLY-TO ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_SENDER:
 		str_append(dest, "SENDER ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_SENTBEFORE:
 		str_append(dest, "SENTBEFORE");
@@ -531,11 +531,11 @@ bool mail_search_mime_arg_to_imap(string_t *dest,
 		break;
 	case SEARCH_MIME_SUBJECT:
 		str_append(dest, "SUBJECT ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_TO:
 		str_append(dest, "TO ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_DEPTH_EQUAL:
 		str_printfa(dest, "DEPTH %u", arg->value.number);
@@ -567,19 +567,19 @@ bool mail_search_mime_arg_to_imap(string_t *dest,
 		break;
 	case SEARCH_MIME_FILENAME_IS:
 		str_append(dest, "FILENAME IS ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_FILENAME_CONTAINS:
 		str_append(dest, "FILENAME CONTAINS ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_FILENAME_BEGINS:
 		str_append(dest, "FILENAME BEGINS ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	case SEARCH_MIME_FILENAME_ENDS:
 		str_append(dest, "FILENAME ENDS ");
-		imap_append_astring(dest, arg->value.str);
+		imap_append_astring(dest, arg->value.str, 0);
 		break;
 	}
 	return TRUE;

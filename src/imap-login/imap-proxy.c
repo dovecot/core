@@ -62,7 +62,7 @@ static void proxy_write_id(struct imap_client *client, string_t *str)
 
 	if (client->common.local_name != NULL) {
 		str_append(str, " \"x-connected-name\" ");
-		imap_append_nstring(str, client->common.local_name);
+		imap_append_nstring(str, client->common.local_name, 0);
 	}
 
 	/* append any forward_ variables to request */
@@ -74,9 +74,9 @@ static void proxy_write_id(struct imap_client *client, string_t *str)
 						      NULL);
 			const char *val = i_strchr_to_next(suffix, '=');
 			str_append_c(str, ' ');
-			imap_append_string(str, key);
+			imap_append_string(str, key, 0);
 			str_append_c(str, ' ');
-			imap_append_nstring(str, val);
+			imap_append_nstring(str, val, 0);
 		}
 	}
 
@@ -139,9 +139,9 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 			return -1;
 		}
 		str_append(str, "L LOGIN ");
-		imap_append_string(str, client->common.proxy_user);
+		imap_append_string(str, client->common.proxy_user, 0);
 		str_append_c(str, ' ');
-		imap_append_string(str, client->common.proxy_password);
+		imap_append_string(str, client->common.proxy_password, 0);
 		str_append(str, "\r\n");
 
 		client->proxy_sent_state |= IMAP_PROXY_SENT_STATE_LOGIN;
