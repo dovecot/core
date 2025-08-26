@@ -10,7 +10,7 @@ struct imap_arg;
    for writing it. Returns 0 on success, -1 if parts don't internally match
    (e.g. broken cached mime.parts mixed with parsed message). */
 int imap_bodystructure_write(const struct message_part *part,
-			     string_t *dest, bool extended,
+			     string_t *dest, bool extended, bool utf8,
 			     const char **error_r);
 
 /* Parse BODYSTRUCTURE and save the contents to message_part->data for each

@@ -33,7 +33,7 @@
 static void
 params_write(const struct message_part_param *params,
 	unsigned int params_count, string_t *str,
-	bool default_charset)
+	bool default_charset, bool utf8)
 {
 	unsigned int i;
 	bool seen_charset;
@@ -54,9 +54,9 @@ params_write(const struct message_part_param *params,
 		if (default_charset &&
 			strcasecmp(params[i].name, "charset") == 0)
 			seen_charset = TRUE;
-		imap_append_string(str, params[i].name, FALSE);
+		imap_append_string(str, params[i].name, utf8);
 		str_append_c(str, ' ');
-		imap_append_string(str, params[i].value, FALSE);
+		imap_append_string(str, params[i].value, utf8);
 	}
 	if (default_charset && !seen_charset) {
 		if (i > 0)
@@ -69,12 +69,13 @@ params_write(const struct message_part_param *params,
 
 static int
 part_write_bodystructure_siblings(const struct message_part *part,
-				  string_t *dest, bool extended,
+				  string_t *dest, bool extended, bool utf8,
 				  const char **error_r)
 {
 	for (; part != NULL; part = part->next) {
 		str_append_c(dest, '(');
-		if (imap_bodystructure_write(part, dest, extended, error_r) < 0)
+		if (imap_bodystructure_write(part, dest, extended, utf8,
+					     error_r) < 0)
 			return -1;
 		str_append_c(dest, ')');
 	}
@@ -83,18 +84,19 @@ part_write_bodystructure_siblings(const struct message_part *part,
 
 static void
 part_write_bodystructure_common(const struct message_part_data *data,
-				     string_t *str)
+				string_t *str, bool utf8)
 {
 	str_append_c(str, ' ');
 	if (data->content_disposition == NULL)
 		str_append(str, "NIL");
 	else {
 		str_append_c(str, '(');
-		imap_append_string(str, data->content_disposition, FALSE);
+		imap_append_string(str, data->content_disposition, utf8);
 
 		str_append_c(str, ' ');
 		params_write(data->content_disposition_params,
-			data->content_disposition_params_count, str, FALSE);
+			data->content_disposition_params_count, str,
+			FALSE, utf8);
 
 		str_append_c(str, ')');
 	}
@@ -107,22 +109,22 @@ part_write_bodystructure_common(const struct message_part_data *data,
 
 		i_assert(*lang != NULL);
 		str_append_c(str, '(');
-		imap_append_string(str, *lang, FALSE);
+		imap_append_string(str, *lang, utf8);
 		lang++;
 		while (*lang != NULL) {
 			str_append_c(str, ' ');
-			imap_append_string(str, *lang, FALSE);
+			imap_append_string(str, *lang, utf8);
 			lang++;
 		}
 		str_append_c(str, ')');
 	}
 
 	str_append_c(str, ' ');
-	imap_append_nstring_nolf(str, data->content_location, FALSE);
+	imap_append_nstring_nolf(str, data->content_location, utf8);
 }
 
 static int part_write_body_multipart(const struct message_part *part,
-				     string_t *str, bool extended,
+				     string_t *str, bool extended, bool utf8,
 				     const char **error_r)
 {
 	const struct message_part_data *data = part->data;
@@ -131,7 +133,8 @@ static int part_write_body_multipart(const struct message_part *part,
 
 	if (part->children != NULL) {
 		if (part_write_bodystructure_siblings(part->children, str,
-						      extended, error_r) < 0)
+						      extended, utf8,
+						      error_r) < 0)
 			return -1;
 	} else {
 		/* no parts in multipart message,
@@ -144,7 +147,7 @@ static int part_write_body_multipart(const struct message_part *part,
 	}
 
 	str_append_c(str, ' ');
-	imap_append_string(str, data->content_subtype, FALSE);
+	imap_append_string(str, data->content_subtype, utf8);
 
 	if (!extended)
 		return 0;
@@ -153,9 +156,9 @@ static int part_write_body_multipart(const struct message_part *part,
 
 	str_append_c(str, ' ');
 	params_write(data->content_type_params,
-		data->content_type_params_count, str, FALSE);
+		data->content_type_params_count, str, FALSE, utf8);
 
-	part_write_bodystructure_common(data, str);
+	part_write_bodystructure_common(data, str, utf8);
 	return 0;
 }
 
@@ -190,8 +193,9 @@ static bool part_is_truncated(const struct message_part *part)
 	return FALSE;
 }
 
-static int part_write_body(const struct message_part *part,
-			   string_t *str, bool extended, const char **error_r)
+static int
+part_write_body(const struct message_part *part, string_t *str,
+		bool extended, bool utf8, const char **error_r)
 {
 	const struct message_part_data *data = part->data;
 	bool text;
@@ -216,9 +220,9 @@ static int part_write_body(const struct message_part *part,
 			str_append(str, "\"text\" \"plain\"");
 		} else {
 			text = (strcasecmp(data->content_type, "text") == 0);
-			imap_append_string(str, data->content_type, FALSE);
+			imap_append_string(str, data->content_type, utf8);
 			str_append_c(str, ' ');
-			imap_append_string(str, data->content_subtype, FALSE);
+			imap_append_string(str, data->content_subtype, utf8);
 		}
 		bool part_is_text = (part->flags & MESSAGE_PART_FLAG_TEXT) != 0;
 		if (text != part_is_text) {
@@ -230,15 +234,15 @@ static int part_write_body(const struct message_part *part,
 	/* ("content type param key" "value" ...) */
 	str_append_c(str, ' ');
 	params_write(data->content_type_params,
-		data->content_type_params_count, str, text);
+		data->content_type_params_count, str, text, utf8);
 
 	str_append_c(str, ' ');
-	imap_append_nstring_nolf(str, data->content_id, FALSE);
+	imap_append_nstring_nolf(str, data->content_id, utf8);
 	str_append_c(str, ' ');
-	imap_append_nstring_nolf(str, data->content_description, FALSE);
+	imap_append_nstring_nolf(str, data->content_description, utf8);
 	str_append_c(str, ' ');
 	if (data->content_transfer_encoding != NULL)
-		imap_append_string(str, data->content_transfer_encoding, FALSE);
+		imap_append_string(str, data->content_transfer_encoding, utf8);
 	else
 		str_append(str, "\"7bit\"");
 	str_printfa(str, " %"PRIuUOFF_T, part->body_size.virtual_size);
@@ -256,11 +260,12 @@ static int part_write_body(const struct message_part *part,
 		child_data = part->children->data;
 
 		str_append(str, " (");
-		imap_envelope_write(child_data->envelope, str, FALSE);
+		imap_envelope_write(child_data->envelope, str, utf8);
 		str_append(str, ") ");
 
 		if (part_write_bodystructure_siblings(part->children, str,
-						      extended, error_r) < 0)
+						      extended, utf8,
+						      error_r) < 0)
 			return -1;
 		str_printfa(str, " %u", part->body_size.lines);
 	}
@@ -273,19 +278,22 @@ static int part_write_body(const struct message_part *part,
 	/* "md5" ("content disposition" ("disposition" "params"))
 	   ("body" "language" "params") "location" */
 	str_append_c(str, ' ');
-	imap_append_nstring_nolf(str, data->content_md5, FALSE);
-	part_write_bodystructure_common(data, str);
+	imap_append_nstring_nolf(str, data->content_md5, utf8);
+	part_write_bodystructure_common(data, str, utf8);
 	return 0;
 }
 
 int imap_bodystructure_write(const struct message_part *part,
-			     string_t *dest, bool extended,
+			     string_t *dest, bool extended, bool utf8,
 			     const char **error_r)
 {
-	if ((part->flags & MESSAGE_PART_FLAG_MULTIPART) != 0)
-		return part_write_body_multipart(part, dest, extended, error_r);
-	else
-		return part_write_body(part, dest, extended, error_r);
+	if ((part->flags & MESSAGE_PART_FLAG_MULTIPART) != 0) {
+		return part_write_body_multipart(part, dest, extended, utf8,
+						 error_r);
+	} else {
+		return part_write_body(part, dest, extended, utf8,
+				       error_r);
+	}
 }
 
 /*

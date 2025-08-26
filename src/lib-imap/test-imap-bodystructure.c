@@ -425,11 +425,11 @@ static void test_imap_bodystructure_write(void)
 		test_begin(t_strdup_printf("imap bodystructure write [%u]", i));
 		parts = msg_parse(pool, test->message, 0, 0, TRUE);
 
-		test_assert(imap_bodystructure_write(parts, str, TRUE, &error) == 0);
+		test_assert(imap_bodystructure_write(parts, str, TRUE, FALSE, &error) == 0);
 		test_assert(strcmp(str_c(str), test->bodystructure) == 0);
 
 		str_truncate(str, 0);
-		test_assert(imap_bodystructure_write(parts, str, FALSE, &error) == 0);
+		test_assert(imap_bodystructure_write(parts, str, FALSE, FALSE, &error) == 0);
 		test_assert(strcmp(str_c(str), test->body) == 0);
 
 		pool_unref(&pool);
@@ -445,7 +445,7 @@ static void test_imap_bodystructure_write(void)
 		parts->flags &= ENUM_NEGATE(MESSAGE_PART_FLAG_TEXT);
 
 		string_t *str = t_str_new(128);
-		test_assert(imap_bodystructure_write(parts, str, FALSE, &error) < 0);
+		test_assert(imap_bodystructure_write(parts, str, FALSE, FALSE, &error) < 0);
 		test_assert_strcmp(error, "text flag mismatch");
 		pool_unref(&pool);
 		test_end();
@@ -477,7 +477,7 @@ static void test_imap_bodystructure_parse(void)
 
 		if (ret == 0) {
 			str_truncate(str, 0);
-			test_assert(imap_bodystructure_write(parts, str, TRUE, &error) == 0);
+			test_assert(imap_bodystructure_write(parts, str, TRUE, FALSE, &error) == 0);
 			test_assert(strcmp(str_c(str), test->bodystructure) == 0);
 		} else {
 			i_error("Invalid BODYSTRUCTURE: %s", error);
@@ -581,7 +581,7 @@ static void test_imap_bodystructure_parse_full(void)
 
 		if (ret == 0) {
 			str_truncate(str, 0);
-			test_assert(imap_bodystructure_write(parts, str, TRUE, &error) == 0);
+			test_assert(imap_bodystructure_write(parts, str, TRUE, FALSE, &error) == 0);
 			test_assert(strcmp(str_c(str), test->bodystructure) == 0);
 		} else {
 			i_error("Invalid BODYSTRUCTURE: %s", error);
@@ -613,7 +613,7 @@ static void test_imap_bodystructure_normalize(void)
 
 		if (ret == 0) {
 			str_truncate(str, 0);
-			test_assert(imap_bodystructure_write(parts, str, TRUE, &error) == 0);
+			test_assert(imap_bodystructure_write(parts, str, TRUE, FALSE, &error) == 0);
 			test_assert(strcmp(str_c(str), test->output) == 0);
 		} else {
 			i_error("Invalid BODYSTRUCTURE: %s", error);
@@ -702,7 +702,7 @@ static void test_imap_bodystructure_truncation(void)
 				  TRUE);
 
 		/* write out BODYSTRUCTURE and serialize message_parts */
-		test_assert(imap_bodystructure_write(parts, str_body, TRUE, &error) == 0);
+		test_assert(imap_bodystructure_write(parts, str_body, TRUE, FALSE, &error) == 0);
 		message_part_serialize(parts, str_parts);
 
 		/* now deserialize message_parts and make sure they can be used

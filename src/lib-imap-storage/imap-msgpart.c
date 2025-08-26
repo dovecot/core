@@ -847,7 +847,8 @@ int imap_msgpart_bodypartstructure(struct mail *mail,
 
 	if (ret >= 0) {
 		bpstruct = t_str_new(256);
-		if (imap_bodystructure_write(part, bpstruct, TRUE, &error) < 0) {
+		if (imap_bodystructure_write(part, bpstruct, TRUE, FALSE,
+					     &error) < 0) {
 			error = t_strdup_printf(
 				"Invalid message_part/BODYSTRUCTURE: %s", error);
 			mail_set_cache_corrupted(mail, MAIL_FETCH_MESSAGE_PARTS,
