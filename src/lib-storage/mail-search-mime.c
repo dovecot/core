@@ -16,7 +16,7 @@
 
 static struct mail_search_mime_arg *
 mail_search_mime_arg_dup_one(pool_t pool,
-	const struct mail_search_mime_arg *arg)
+			     const struct mail_search_mime_arg *arg)
 {
 	struct mail_search_mime_arg *new_arg;
 
@@ -66,8 +66,7 @@ mail_search_mime_arg_dup_one(pool_t pool,
 	case SEARCH_MIME_FILENAME_CONTAINS:
 	case SEARCH_MIME_FILENAME_BEGINS:
 	case SEARCH_MIME_FILENAME_ENDS:
-		new_arg->value.str =
-			p_strdup(pool, arg->value.str);
+		new_arg->value.str = p_strdup(pool, arg->value.str);
 		break;
 	case SEARCH_MIME_SENTBEFORE:
 	case SEARCH_MIME_SENTON:
@@ -92,8 +91,7 @@ mail_search_mime_arg_dup_one(pool_t pool,
 }
 
 struct mail_search_mime_arg *
-mail_search_mime_arg_dup(pool_t pool,
-	const struct mail_search_mime_arg *arg)
+mail_search_mime_arg_dup(pool_t pool, const struct mail_search_mime_arg *arg)
 {
 	struct mail_search_mime_arg *new_arg = NULL, **dest = &new_arg;
 
@@ -106,7 +104,7 @@ mail_search_mime_arg_dup(pool_t pool,
 
 struct mail_search_mime_part *
 mail_search_mime_part_dup(pool_t pool,
-	const struct mail_search_mime_part *mpart)
+			  const struct mail_search_mime_part *mpart)
 {
 	struct mail_search_mime_part *new_mpart;
 
@@ -121,10 +119,11 @@ mail_search_mime_part_dup(pool_t pool,
  */
 
 void mail_search_mime_args_reset(struct mail_search_mime_arg *args,
-	bool full_reset)
+				 bool full_reset)
 {
 	while (args != NULL) {
-		if (args->type == SEARCH_MIME_OR || args->type == SEARCH_MIME_SUB)
+		if (args->type == SEARCH_MIME_OR ||
+		    args->type == SEARCH_MIME_SUB)
 			mail_search_mime_args_reset(args->value.subargs, full_reset);
 
 		if (args->match_always) {
@@ -149,9 +148,10 @@ void mail_search_mime_args_reset(struct mail_search_mime_arg *args,
 	}
 }
 
-static void search_mime_arg_foreach(struct mail_search_mime_arg *arg,
-			       mail_search_mime_foreach_callback_t *callback,
-			       void *context)
+static void
+search_mime_arg_foreach(struct mail_search_mime_arg *arg,
+			mail_search_mime_foreach_callback_t *callback,
+			void *context)
 {
 	struct mail_search_mime_arg *subarg;
 
@@ -210,8 +210,8 @@ static void search_mime_arg_foreach(struct mail_search_mime_arg *arg,
 
 #undef mail_search_mime_args_foreach
 int mail_search_mime_args_foreach(struct mail_search_mime_arg *args,
-			     mail_search_mime_foreach_callback_t *callback,
-			     void *context)
+				  mail_search_mime_foreach_callback_t *callback,
+				  void *context)
 {
 	int result;
 
@@ -236,17 +236,16 @@ int mail_search_mime_args_foreach(struct mail_search_mime_arg *args,
  */
 
 bool mail_search_mime_arg_one_equals(const struct mail_search_mime_arg *arg1,
-				const struct mail_search_mime_arg *arg2)
+				     const struct mail_search_mime_arg *arg2)
 {
-	if (arg1->type != arg2->type ||
-	    arg1->match_not != arg2->match_not)
+	if (arg1->type != arg2->type || arg1->match_not != arg2->match_not)
 		return FALSE;
 
 	switch (arg1->type) {
 	case SEARCH_MIME_OR:
 	case SEARCH_MIME_SUB:
 		return mail_search_mime_arg_equals(arg1->value.subargs,
-					      arg2->value.subargs);
+						   arg2->value.subargs);
 
 	case SEARCH_MIME_SIZE_EQUAL:
 	case SEARCH_MIME_SIZE_LARGER:
@@ -300,7 +299,7 @@ bool mail_search_mime_arg_one_equals(const struct mail_search_mime_arg *arg1,
 		if (arg2->value.subargs == NULL)
 			return FALSE;
 		return mail_search_mime_arg_equals(arg1->value.subargs,
-					      arg2->value.subargs);
+						   arg2->value.subargs);
 
 	case SEARCH_MIME_DEPTH_EQUAL:
 	case SEARCH_MIME_DEPTH_MIN:
@@ -312,7 +311,7 @@ bool mail_search_mime_arg_one_equals(const struct mail_search_mime_arg *arg1,
 }
 
 bool mail_search_mime_arg_equals(const struct mail_search_mime_arg *arg1,
-			    const struct mail_search_mime_arg *arg2)
+				 const struct mail_search_mime_arg *arg2)
 {
 	while (arg1 != NULL && arg2 != NULL) {
 		if (!mail_search_mime_arg_one_equals(arg1, arg2))
@@ -324,7 +323,7 @@ bool mail_search_mime_arg_equals(const struct mail_search_mime_arg *arg1,
 }
 
 bool mail_search_mime_parts_equal(const struct mail_search_mime_part *mpart1,
-			    const struct mail_search_mime_part *mpart2)
+				  const struct mail_search_mime_part *mpart2)
 {
 	i_assert(mpart1->simplified == mpart2->simplified);
 
@@ -348,8 +347,8 @@ void mail_search_mime_simplify(struct mail_search_mime_part *mpart)
 
 static bool
 mail_search_mime_subargs_to_imap(string_t *dest,
-	const struct mail_search_mime_arg *args,
-	const char *prefix, const char **error_r)
+				 const struct mail_search_mime_arg *args,
+				 const char *prefix, const char **error_r)
 {
 	const struct mail_search_mime_arg *arg;
 
@@ -370,7 +369,7 @@ mail_search_mime_subargs_to_imap(string_t *dest,
 
 static bool
 mail_search_mime_arg_to_imap_date(string_t *dest,
-	const struct mail_search_mime_arg *arg)
+				  const struct mail_search_mime_arg *arg)
 {
 	time_t timestamp = arg->value.time;
 	const char *str;
@@ -388,19 +387,20 @@ mail_search_mime_arg_to_imap_date(string_t *dest,
 }
 
 bool mail_search_mime_arg_to_imap(string_t *dest,
-	const struct mail_search_mime_arg *arg, const char **error_r)
+				  const struct mail_search_mime_arg *arg,
+				  const char **error_r)
 {
 	if (arg->match_not)
 		str_append(dest, "NOT ");
 	switch (arg->type) {
 	case SEARCH_MIME_OR:
-		if (!mail_search_mime_subargs_to_imap
-			(dest, arg->value.subargs, "OR ", error_r))
+		if (!mail_search_mime_subargs_to_imap(
+			dest, arg->value.subargs, "OR ", error_r))
 			return FALSE;
 		break;
 	case SEARCH_MIME_SUB:
-		if (!mail_search_mime_subargs_to_imap
-			(dest, arg->value.subargs, "", error_r))
+		if (!mail_search_mime_subargs_to_imap(
+			dest, arg->value.subargs, "", error_r))
 			return FALSE;
 		break;
 	case SEARCH_MIME_SIZE_EQUAL:
@@ -553,16 +553,16 @@ bool mail_search_mime_arg_to_imap(string_t *dest,
 		str_append(dest, "PARENT ");
 		if (arg->value.subargs == NULL)
 			str_append(dest, "EXISTS");
-		else if (!mail_search_mime_subargs_to_imap
-			(dest, arg->value.subargs, "", error_r))
+		else if (!mail_search_mime_subargs_to_imap(
+				dest, arg->value.subargs, "", error_r))
 			return FALSE;
 		break;
 	case SEARCH_MIME_CHILD:
 		str_append(dest, "CHILD ");
 		if (arg->value.subargs == NULL)
 			str_append(dest, "EXISTS");
-		else if (!mail_search_mime_subargs_to_imap
-			(dest, arg->value.subargs, "", error_r))
+		else if (!mail_search_mime_subargs_to_imap(
+				dest, arg->value.subargs, "", error_r))
 			return FALSE;
 		break;
 	case SEARCH_MIME_FILENAME_IS:
@@ -586,7 +586,8 @@ bool mail_search_mime_arg_to_imap(string_t *dest,
 }
 
 bool mail_search_mime_part_to_imap(string_t *dest,
-	const struct mail_search_mime_part *mpart, const char **error_r)
+				   const struct mail_search_mime_part *mpart,
+				   const char **error_r)
 {
 	const struct mail_search_mime_arg *arg;
 
@@ -606,4 +607,3 @@ bool mail_search_mime_part_to_imap(string_t *dest,
 	}
 	return TRUE;
 }
-
