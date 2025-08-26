@@ -869,12 +869,13 @@ sql_query_finished_event(struct sql_db *db, struct event *event, const char *que
 			 bool success, int *duration_r)
 {
 	long long diff;
-	struct timeval tv;
+	struct timeval tv, tv2;
 	event_get_create_time(event, &tv);
+	i_gettimeofday(&tv2);
 	struct event_passthrough *e = event_create_passthrough(event)->
 			set_name(SQL_QUERY_FINISHED)->
 			add_str("query_first_word", t_strcut(query, ' '));
-	diff = timeval_diff_msecs(&ioloop_timeval, &tv);
+	diff = timeval_diff_msecs(&tv2, &tv);
 
 	if (!success) {
 		db->failed_queries++;
