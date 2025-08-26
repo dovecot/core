@@ -1792,6 +1792,7 @@ int mailbox_exists(struct mailbox *box, bool auto_boxes,
 static int ATTR_NULL(2)
 mailbox_open_full(struct mailbox *box, struct istream *input)
 {
+	struct mail_storage *storage = box->storage;
 	int ret;
 
 	if (box->opened)
@@ -1802,12 +1803,12 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 		e_debug(box->event, "Mailbox opened");
 		break;
 	case MAIL_ERROR_NOTFOUND:
-		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+		mail_storage_set_error(storage, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
 		return -1;
 	default:
-		mail_storage_set_internal_error(box->storage);
-		box->storage->error = box->open_error;
+		mail_storage_set_internal_error(storage);
+		storage->error = box->open_error;
 		return -1;
 	}
 
@@ -1815,7 +1816,7 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 		return -1;
 
 	if (input != NULL) {
-		if ((box->storage->class_flags &
+		if ((storage->class_flags &
 		     MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS) == 0) {
 			mailbox_set_critical(box,
 				"Storage doesn't support streamed mailboxes");
@@ -1827,7 +1828,7 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 	}
 
 	ret = box->v.open(box);
-	if (ret < 0 && box->storage->error == MAIL_ERROR_NOTFOUND &&
+	if (ret < 0 && storage->error == MAIL_ERROR_NOTFOUND &&
 	    !box->deleting && !box->creating &&
 	    box->input == NULL && mailbox_is_autocreated(box)) T_BEGIN {
 		ret = mailbox_autocreate_and_reopen(box);
