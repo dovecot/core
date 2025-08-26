@@ -1222,23 +1222,24 @@ mailbox_list_iter_next_call(struct mailbox_list_iterate_context *ctx)
 		if ((info = mailbox_list_finish_subscriptions(ctx)) == NULL)
 			return NULL;
 
-	ctx->list->ns->flags |= NAMESPACE_FLAG_USABLE;
+	/* NOTE: ctx->list may be fake - don't use it directly */
+	struct mailbox_list *list = info->ns->list;
+
+	list->ns->flags |= NAMESPACE_FLAG_USABLE;
 	if ((ctx->flags & MAILBOX_LIST_ITER_RETURN_SPECIALUSE) != 0) {
-		/* NOTE: ctx->list is fake - don't use it directly */
 		const char *error;
 
-		ret = mailbox_name_try_get_settings(info->ns->list, info->vname,
+		ret = mailbox_name_try_get_settings(list, info->vname,
 						    &set, &error);
 		if (ret == 0) {
 			struct event *event = mail_storage_mailbox_create_event(
-				info->ns->list->event, info->ns->list,
-				info->vname);
+				list->event, list, info->vname);
 			ret = settings_get(event, &mailbox_setting_parser_info, 0,
 					   &set, &error);
 			event_unref(&event);
 		}
 		if (ret < 0) {
-			mailbox_list_set_critical(info->ns->list, "%s", error);
+			mailbox_list_set_critical(list, "%s", error);
 			ctx->failed = TRUE;
 			return NULL;
 		}
