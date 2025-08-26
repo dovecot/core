@@ -3,13 +3,10 @@
 #include "lib.h"
 #include "test-common.h"
 #include "test-subprocess.h"
-#include "imap-storage-callbacks.h"
+#include "mail-storage.h"
+#include "imap-progress.h"
 
 #include <stdio.h>
-
-void client_send_line(struct client *client ATTR_UNUSED, const char *data ATTR_UNUSED)
-{
-}
 
 #define non_0  	  1
 #define t_non_0	  { .tv_sec = non_0 }

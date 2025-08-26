@@ -87,6 +87,7 @@ common_sources = \
 	imap-list.c \
 	imap-master-client.c \
 	imap-notify.c \
+	imap-progress.c \
 	imap-search.c \
 	imap-search-args.c \
 	imap-settings.c \
@@ -110,6 +111,7 @@ headers = \
 	imap-list.h \
 	imap-master-client.h \
 	imap-notify.h \
+	imap-progress.h \
 	imap-search.h \
 	imap-search-args.h \
 	imap-settings.h \
@@ -132,7 +134,7 @@ test_programs = \
 
 test_imap_storage_callbacks_SOURCES = \
 	test-imap-storage-callbacks.c \
-	imap-storage-callbacks.c
+	imap-progress.c
 test_imap_storage_callbacks_LDADD = $(imap_LDADD)
 test_imap_storage_callbacks_DEPENDENCIES = $(imap_DEPENDENCIES)
 
