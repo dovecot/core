@@ -29,14 +29,15 @@ static void imap_write_address(string_t *str, struct message_address *addr)
 			str_append(str, "NIL");
 		else {
 			imap_append_string_for_humans(str,
-				(const void *)addr->name, strlen(addr->name));
+				(const void *)addr->name, strlen(addr->name),
+				FALSE);
 		}
 		str_append_c(str, ' ');
-		imap_append_nstring(str, addr->route);
+		imap_append_nstring(str, addr->route, FALSE);
 		str_append_c(str, ' ');
-		imap_append_nstring(str, addr->mailbox);
+		imap_append_nstring(str, addr->mailbox, FALSE);
 		str_append_c(str, ' ');
-		imap_append_nstring(str, addr->domain);
+		imap_append_nstring(str, addr->domain, FALSE);
 		str_append_c(str, ')');
 
 		addr = addr->next;
@@ -56,14 +57,14 @@ void imap_envelope_write(struct message_part_envelope *data,
 		return;
 	}
 
-	imap_append_nstring_nolf(str, data->date);
+	imap_append_nstring_nolf(str, data->date, FALSE);
 	str_append_c(str, ' ');
 	if (data->subject == NULL)
 		str_append(str, "NIL");
 	else {
 		imap_append_string_for_humans(str,
 			(const unsigned char *)data->subject,
-			strlen(data->subject));
+			strlen(data->subject), FALSE);
 	}
 
 	str_append_c(str, ' ');
@@ -80,9 +81,9 @@ void imap_envelope_write(struct message_part_envelope *data,
 	imap_write_address(str, data->bcc.head);
 
 	str_append_c(str, ' ');
-	imap_append_nstring_nolf(str, data->in_reply_to);
+	imap_append_nstring_nolf(str, data->in_reply_to, FALSE);
 	str_append_c(str, ' ');
-	imap_append_nstring_nolf(str, data->message_id);
+	imap_append_nstring_nolf(str, data->message_id, FALSE);
 }
 
 /*

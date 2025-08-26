@@ -113,7 +113,7 @@ imap_sync_send_search_update(struct imap_sync_context *ctx,
 
 	cmd = t_str_new(256);
 	str_append(cmd, "* ESEARCH (TAG ");
-	imap_append_string(cmd, update->tag);
+	imap_append_string(cmd, update->tag, FALSE);
 	str_append_c(cmd, ')');
 	if (update->return_uids)
 		str_append(cmd, " UID");

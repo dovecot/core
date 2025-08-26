@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "unichar.h"
 #include "imap-arg.h"
 #include "imap-quote.h"
 
@@ -15,14 +16,14 @@
    quoted-specials. */
 #define QUOTED_MAX_ESCAPE_CHARS 4
 
-void imap_append_string(string_t *dest, const char *src)
+void imap_append_string(string_t *dest, const char *src, bool utf8)
 {
 	i_assert(src != NULL);
 
-	imap_append_nstring(dest, src);
+	imap_append_nstring(dest, src, utf8);
 }
 
-void imap_append_astring(string_t *dest, const char *src)
+void imap_append_astring(string_t *dest, const char *src, bool utf8)
 {
 	unsigned int i;
 
@@ -30,13 +31,13 @@ void imap_append_astring(string_t *dest, const char *src)
 
 	for (i = 0; src[i] != '\0'; i++) {
 		if (!IS_ASTRING_CHAR(src[i])) {
-			imap_append_string(dest, src);
+			imap_append_string(dest, src, utf8);
 			return;
 		}
 	}
 	/* don't mix up NIL and "NIL"! */
 	if (i == 0 || strcasecmp(src, "NIL") == 0)
-		imap_append_string(dest, src);
+		imap_append_string(dest, src, utf8);
 	else
 		str_append(dest, src);
 }
@@ -50,7 +51,7 @@ imap_append_literal(string_t *dest, const char *src, unsigned int pos)
 	buffer_append(dest, src, full_len);
 }
 
-void imap_append_nstring(string_t *dest, const char *src)
+void imap_append_nstring(string_t *dest, const char *src, bool utf8)
 {
 	unsigned int escape_count = 0;
 	size_t i;
@@ -80,17 +81,30 @@ void imap_append_nstring(string_t *dest, const char *src)
 			imap_append_literal(dest, src, i);
 			return;
 		default:
-			if ((unsigned char)src[i] >= 0x80) {
-				imap_append_literal(dest, src, i);
-				return;
+			if (!utf8) {
+				if ((unsigned char)src[i] >= 0x80) {
+					imap_append_literal(dest, src, i);
+					return;
+				}
+			} else {
+				unichar_t chr;
+				int ret;
+
+				ret = uni_utf8_get_char(&src[i], &chr);
+				if (ret <= 0) {
+					imap_append_literal(dest, src, i);
+					return;
+				}
+				i += ret - 1;
 			}
 			break;
 		}
 	}
-	imap_append_quoted(dest, src);
+	imap_append_quoted(dest, src, utf8);
 }
 
-static void remove_newlines_and_append(string_t *dest, const char *src)
+static void
+remove_newlines_and_append(string_t *dest, const char *src, bool utf8)
 {
 	size_t src_len;
 	string_t *src_nolf;
@@ -113,21 +127,21 @@ static void remove_newlines_and_append(string_t *dest, const char *src)
 			   OR at the end of the string are discarded */
 		}
 	}
-	imap_append_nstring(dest, str_c(src_nolf));
+	imap_append_nstring(dest, str_c(src_nolf), utf8);
 }
 
-void imap_append_nstring_nolf(string_t *dest, const char *src)
+void imap_append_nstring_nolf(string_t *dest, const char *src, bool utf8)
 {
 	if (src == NULL || strpbrk(src, "\r\n") == NULL)
-		imap_append_nstring(dest, src);
+		imap_append_nstring(dest, src, utf8);
 	else if (buffer_get_pool(dest)->datastack_pool)
-		remove_newlines_and_append(dest, src);
+		remove_newlines_and_append(dest, src, utf8);
 	else T_BEGIN {
-		remove_newlines_and_append(dest, src);
+		remove_newlines_and_append(dest, src, utf8);
 	} T_END;
 }
 
-void imap_append_quoted(string_t *dest, const char *src)
+void imap_append_quoted(string_t *dest, const char *src, bool utf8)
 {
 	str_append_c(dest, '"');
 	for (; *src != '\0'; src++) {
@@ -142,12 +156,22 @@ void imap_append_quoted(string_t *dest, const char *src)
 			str_append_c(dest, *src);
 			break;
 		default:
-			if ((unsigned char)*src >= 0x80) {
-				/* 8bit input not allowed in dquotes */
-				break;
-			}
+			if (!utf8) {
+				if ((unsigned char)*src >= 0x80) {
+					/* 8bit input not allowed in dquotes */
+					break;
+				}
+				str_append_c(dest, *src);
+			} else {
+				unichar_t chr;
+				int ret;
 
-			str_append_c(dest, *src);
+				ret = uni_utf8_get_char(src, &chr);
+				if (ret <= 0)
+					break;
+				str_append_data(dest, src, ret);
+				src += ret - 1;
+			}
 			break;
 		}
 	}
@@ -155,7 +179,8 @@ void imap_append_quoted(string_t *dest, const char *src)
 }
 
 void imap_append_string_for_humans(string_t *dest,
-				   const unsigned char *src, size_t size)
+				   const unsigned char *src, size_t size,
+				   bool utf8)
 {
 	size_t i, pos, remove_count = 0;
 	bool whitespace_prefix = TRUE, last_lwsp = TRUE, modify = FALSE;
@@ -186,8 +211,19 @@ void imap_append_string_for_humans(string_t *dest,
 			last_lwsp = FALSE;
 			break;
 		default:
-			if ((src[i] & 0x80) != 0)
-				modify = TRUE;
+			if (!utf8) {
+				if ((src[i] & 0x80) != 0)
+					modify = TRUE;
+			} else {
+				unichar_t chr;
+				int ret;
+
+				ret = uni_utf8_get_char_n(&src[i], size - i, &chr);
+				if (ret <= 0)
+					modify = TRUE;
+				else
+					i += ret - 1;
+			}
 			last_lwsp = FALSE;
 			break;
 		}

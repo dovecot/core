@@ -31,7 +31,7 @@ imap_progress_line(const struct mail_storage_progress_details *dtl,
 	if (has_tag || processed > 0 || total > 0) {
 		str_append(str, " (");
 		if (has_tag)
-			imap_append_quoted(str, tag);
+			imap_append_quoted(str, tag, FALSE);
 		else
 			str_append(str, "NIL");
 

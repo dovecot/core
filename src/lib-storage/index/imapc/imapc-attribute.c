@@ -145,16 +145,16 @@ imapc_storage_attribute_build_cmd(struct imapc_mailbox *mbox,
 	}
 
 	str_append_c(text, ' ');
-	imap_append_astring(text, mbname);
+	imap_append_astring(text, mbname, FALSE);
 
 	str_append_c(text, ' ');
 	if (command == GETMETADATA) {
-		imap_append_astring(text, fkey);
+		imap_append_astring(text, fkey, FALSE);
 	} else {
 		str_append_c(text, '(');
-		imap_append_astring(text, fkey);
+		imap_append_astring(text, fkey, FALSE);
 		str_append_c(text, ' ');
-		imap_append_nstring(text, value);
+		imap_append_nstring(text, value, FALSE);
 		str_append_c(text, ')');
 	}
 	return str_c(text);

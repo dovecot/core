@@ -418,7 +418,7 @@ imap_notify_box_list_noperm(struct client *client, struct mailbox *box)
 	str_append_c(str, ns_sep);
 	str_append(str, "\" ");
 
-	imap_append_astring(str, mailbox_get_vname(box));
+	imap_append_astring(str, mailbox_get_vname(box), FALSE);
 	client_send_line(client, str_c(str));
 }
 

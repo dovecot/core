@@ -179,7 +179,7 @@ static int cmd_urlfetch_url_success(struct client_command_context *cmd,
 	int ret;
 
 	str_append(response, "* URLFETCH ");
-	imap_append_astring(response, reply->url);
+	imap_append_astring(response, reply->url, FALSE);
 
 	if ((reply->flags & IMAP_URLAUTH_FETCH_FLAG_EXTENDED) == 0) {
 		/* simple */
@@ -260,7 +260,7 @@ cmd_urlfetch_url_callback(struct imap_urlauth_fetch_reply *reply,
 		string_t *response = t_str_new(128);
 
 		str_append(response, "* URLFETCH ");
-		imap_append_astring(response, reply->url);
+		imap_append_astring(response, reply->url, FALSE);
 		str_append(response, " NIL");
 		client_send_line(client, str_c(response));
 		if (reply->error != NULL) {

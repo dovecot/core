@@ -38,7 +38,7 @@ static void test_imap_append_string_for_humans(void)
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		str_truncate(str, 0);
 		imap_append_string_for_humans(str, (const void *)tests[i].input,
-					      strlen(tests[i].input));
+					      strlen(tests[i].input), FALSE);
 		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
 	}
 	test_end();
@@ -79,7 +79,7 @@ static void test_imap_append_astring(void)
 
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		str_truncate(str, 0);
-		imap_append_astring(str, tests[i].input);
+		imap_append_astring(str, tests[i].input, FALSE);
 		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
 	}
 	test_end();
@@ -106,7 +106,7 @@ static void test_imap_append_nstring(void)
 
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		str_truncate(str, 0);
-		imap_append_nstring(str, tests[i].input);
+		imap_append_nstring(str, tests[i].input, FALSE);
 		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
 	}
 	test_end();
@@ -146,11 +146,11 @@ static void test_imap_append_nstring_nolf(void)
 		string_t *str2 = str_new(default_pool, 1);
 
 		str_truncate(str, 0);
-		imap_append_nstring_nolf(str, tests[i].input);
+		imap_append_nstring_nolf(str, tests[i].input, FALSE);
 		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
 
 		str_truncate(str2, 0);
-		imap_append_nstring_nolf(str2, tests[i].input);
+		imap_append_nstring_nolf(str2, tests[i].input, FALSE);
 		test_assert_idx(strcmp(tests[i].output, str_c(str2)) == 0, i);
 
 		str_free(&str2);

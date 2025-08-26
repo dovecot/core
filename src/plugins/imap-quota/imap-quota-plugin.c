@@ -44,7 +44,7 @@ quota_reply_write(string_t *str, struct mail_user *user,
 
 	str_append(str, "* QUOTA ");
 	name = imap_quota_root_get_name(user, owner, root);
-	imap_append_astring(str, name);
+	imap_append_astring(str, name, FALSE);
 
 	str_append(str, " (");
 	prefix_len = str_len(str);
@@ -110,7 +110,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	quotaroot_reply = t_str_new(128);
 	quota_reply = t_str_new(256);
 	str_append(quotaroot_reply, "* QUOTAROOT ");
-	imap_append_astring(quotaroot_reply, orig_mailbox);
+	imap_append_astring(quotaroot_reply, orig_mailbox, FALSE);
 
 	ret = 0;
 	iter = quota_root_iter_init(box);
@@ -119,7 +119,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 			continue;
 		str_append_c(quotaroot_reply, ' ');
 		name = imap_quota_root_get_name(client->user, ns->owner, root);
-		imap_append_astring(quotaroot_reply, name);
+		imap_append_astring(quotaroot_reply, name, FALSE);
 
 		if (quota_reply_write(quota_reply, client->user, ns->owner, root) < 0)
 			ret = -1;
