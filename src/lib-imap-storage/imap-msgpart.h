@@ -1,6 +1,8 @@
 #ifndef IMAP_MSGPART_H
 #define IMAP_MSGPART_H
 
+#include "imap-quote.h"
+
 struct imap_msgpart;
 
 struct imap_msgpart_open_result {
@@ -58,6 +60,7 @@ int imap_msgpart_size(struct mail *mail, struct imap_msgpart *msgpart,
 /* Return msgpart's IMAP BODYPARTSTRUCTURE */
 int imap_msgpart_bodypartstructure(struct mail *mail,
 				   struct imap_msgpart *msgpart,
+				   enum imap_quote_flags qflags,
 				   const char **bpstruct_r);
 
 /* Header context is automatically created by imap_msgpart_open() and destroyed
