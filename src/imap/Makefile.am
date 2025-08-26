@@ -129,14 +129,14 @@ TEST_IMAP_CLIENT_HIBERNATE=test-imap-client-hibernate
 endif
 
 test_programs = \
-	test-imap-storage-callbacks \
+	test-imap-progress \
 	$(TEST_IMAP_CLIENT_HIBERNATE)
 
-test_imap_storage_callbacks_SOURCES = \
-	test-imap-storage-callbacks.c \
+test_imap_progress_SOURCES = \
+	test-imap-progress.c \
 	imap-progress.c
-test_imap_storage_callbacks_LDADD = $(imap_LDADD)
-test_imap_storage_callbacks_DEPENDENCIES = $(imap_DEPENDENCIES)
+test_imap_progress_LDADD = $(imap_LDADD)
+test_imap_progress_DEPENDENCIES = $(imap_DEPENDENCIES)
 
 test_imap_client_hibernate_SOURCES = \
 	test-imap-client-hibernate.c $(common_sources)
