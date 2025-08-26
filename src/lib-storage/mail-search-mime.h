@@ -94,37 +94,37 @@ struct mail_search_mime_part {
 
 typedef void
 mail_search_mime_foreach_callback_t(struct mail_search_mime_arg *arg,
-					    void *context);
+				    void *context);
 
 /* Returns TRUE if the two mimepart search keys are fully compatible. */
 bool mail_search_mime_parts_equal(const struct mail_search_mime_part *mpart1,
-			    const struct mail_search_mime_part *mpart2);
+				  const struct mail_search_mime_part *mpart2);
 /* Same as mail_search_mime_part_equal(), but for individual
    mail_search_mime_arg structs. All the siblings of arg1 and arg2 are
    also compared. */
 bool mail_search_mime_arg_equals(const struct mail_search_mime_arg *arg1,
-			    const struct mail_search_mime_arg *arg2);
+				 const struct mail_search_mime_arg *arg2);
 /* Same as mail_search_mime_arg_equals(), but don't compare siblings. */
 bool mail_search_mime_arg_one_equals(const struct mail_search_mime_arg *arg1,
-				const struct mail_search_mime_arg *arg2);
+				     const struct mail_search_mime_arg *arg2);
 
 struct mail_search_mime_part *
 mail_search_mime_part_dup(pool_t pool,
-	const struct mail_search_mime_part *mpart);
+			  const struct mail_search_mime_part *mpart);
 struct mail_search_mime_arg *
 mail_search_mime_arg_dup(pool_t pool,
-	const struct mail_search_mime_arg *arg);
+			 const struct mail_search_mime_arg *arg);
 
 /* Reset the results in search arguments. match_always is reset only if
    full_reset is TRUE. */
 void mail_search_mime_args_reset(struct mail_search_mime_arg *args,
-	bool full_reset);
+				 bool full_reset);
 
 /* goes through arguments in list that don't have a result yet.
    Returns 1 = search matched, 0 = search unmatched, -1 = don't know yet */
 int mail_search_mime_args_foreach(struct mail_search_mime_arg *args,
-			     mail_search_mime_foreach_callback_t *callback,
-			     void *context) ATTR_NULL(3);
+				  mail_search_mime_foreach_callback_t *callback,
+				  void *context) ATTR_NULL(3);
 #define mail_search_mime_args_foreach(args, callback, context) \
 	  mail_search_mime_args_foreach(args - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
@@ -137,10 +137,12 @@ void mail_search_mime_simplify(struct mail_search_mime_part *args);
 
 /* Appends MIMEPART search key to the dest string and returns TRUE. */
 bool mail_search_mime_part_to_imap(string_t *dest,
-	const struct mail_search_mime_part *mpart, const char **error_r);
+				   const struct mail_search_mime_part *mpart,
+				   const char **error_r);
 /* Like mail_search_mime_part_to_imap(), but append only a single MIMEPART
    key. */
 bool mail_search_mime_arg_to_imap(string_t *dest,
-	const struct mail_search_mime_arg *arg, const char **error_r);
+				  const struct mail_search_mime_arg *arg,
+				  const char **error_r);
 
 #endif
