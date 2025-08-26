@@ -138,11 +138,11 @@ void mail_search_mime_simplify(struct mail_search_mime_part *args);
 /* Appends MIMEPART search key to the dest string and returns TRUE. */
 bool mail_search_mime_part_to_imap(string_t *dest,
 				   const struct mail_search_mime_part *mpart,
-				   const char **error_r);
+				   bool utf8, const char **error_r);
 /* Like mail_search_mime_part_to_imap(), but append only a single MIMEPART
    key. */
 bool mail_search_mime_arg_to_imap(string_t *dest,
 				  const struct mail_search_mime_arg *arg,
-				  const char **error_r);
+				  bool utf8, const char **error_r);
 
 #endif

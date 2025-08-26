@@ -44,7 +44,7 @@ mail_search_arg_to_cmdline(string_t *dest, const struct mail_search_arg *arg)
 
 		new_arg = *arg;
 		new_arg.match_not = FALSE;
-		if (!mail_search_arg_to_imap(dest, &new_arg, &error))
+		if (!mail_search_arg_to_imap(dest, &new_arg, FALSE, &error))
 			i_unreached();
 		if (str_c(dest)[pos] == '(') {
 			str_insert(dest, pos+1, " ");
@@ -91,7 +91,7 @@ mail_search_arg_to_cmdline(string_t *dest, const struct mail_search_arg *arg)
 	}
 	new_arg = *arg;
 	new_arg.match_not = FALSE;
-	if (!mail_search_arg_to_imap(dest, &new_arg, &error))
+	if (!mail_search_arg_to_imap(dest, &new_arg, FALSE, &error))
 		i_panic("mail_search_args_to_cmdline(): Missing handler: %s", error);
 }
 

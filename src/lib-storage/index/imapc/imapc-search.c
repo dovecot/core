@@ -181,7 +181,7 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 		    (mbox->capabilities & IMAPC_CAPABILITY_WITHIN) == 0) {
 			/* a bit kludgy way to check this.. */
 			size_t pos = str_len(str);
-			if (!mail_search_arg_to_imap(str, arg, &error))
+			if (!mail_search_arg_to_imap(str, arg, FALSE, &error))
 				return FALSE;
 			if (str_begins_icase_with(str_c(str) + pos, "OLDER") ||
 			    str_begins_icase_with(str_c(str) + pos, "YOUNGER"))
@@ -206,16 +206,16 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 	case SEARCH_HEADER_COMPRESS_LWSP:
 	case SEARCH_BODY:
 	case SEARCH_TEXT:
-		return mail_search_arg_to_imap(str, arg, &error);
+		return mail_search_arg_to_imap(str, arg, FALSE, &error);
 	/* extensions */
 	case SEARCH_MODSEQ:
 		if ((mbox->capabilities & IMAPC_CAPABILITY_CONDSTORE) == 0)
 			return FALSE;
-		return mail_search_arg_to_imap(str, arg, &error);
+		return mail_search_arg_to_imap(str, arg, FALSE, &error);
 	case SEARCH_SAVEDATESUPPORTED:
 		if ((mbox->capabilities & IMAPC_CAPABILITY_SAVEDATE) == 0)
 			return FALSE;
-		return mail_search_arg_to_imap(str, arg, &error);
+		return mail_search_arg_to_imap(str, arg, FALSE, &error);
 	case SEARCH_INTHREAD:
 	case SEARCH_GUID:
 	case SEARCH_MAILBOX:
@@ -227,7 +227,7 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 	case SEARCH_MIMEPART:
 		if ((mbox->capabilities & IMAPC_CAPABILITY_SEARCH_MIMEPART) == 0)
 			return FALSE;
-		return mail_search_arg_to_imap(str, arg, &error);
+		return mail_search_arg_to_imap(str, arg, FALSE, &error);
 	}
 	return FALSE;
 }

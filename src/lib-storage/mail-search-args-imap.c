@@ -16,7 +16,7 @@
 
 static bool
 mail_search_subargs_to_imap(string_t *dest, const struct mail_search_arg *args,
-			    const char *prefix, const char **error_r)
+			    const char *prefix, bool utf8, const char **error_r)
 {
 	const struct mail_search_arg *arg;
 
@@ -25,7 +25,7 @@ mail_search_subargs_to_imap(string_t *dest, const struct mail_search_arg *args,
 	for (arg = args; arg != NULL; arg = arg->next) {
 		if (arg->next != NULL)
 			str_append(dest, prefix);
-		if (!mail_search_arg_to_imap(dest, arg, error_r))
+		if (!mail_search_arg_to_imap(dest, arg, utf8, error_r))
 			return FALSE;
 		if (arg->next != NULL)
 			str_append_c(dest, ' ');
@@ -77,7 +77,7 @@ mail_search_arg_to_imap_flags(string_t *dest, enum mail_flags flags)
 }
 
 bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
-			     const char **error_r)
+			     bool utf8, const char **error_r)
 {
 	unsigned int start_pos;
 
@@ -87,12 +87,12 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 	switch (arg->type) {
 	case SEARCH_OR:
 		if (!mail_search_subargs_to_imap(dest, arg->value.subargs,
-						 "OR ", error_r))
+						 "OR ", utf8, error_r))
 			return FALSE;
 		break;
 	case SEARCH_SUB:
 		if (!mail_search_subargs_to_imap(dest, arg->value.subargs,
-						 "", error_r))
+						 "", utf8, error_r))
 			return FALSE;
 		break;
 	case SEARCH_ALL:
@@ -226,19 +226,19 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 			str_append(dest, t_str_ucase(arg->hdr_field_name));
 		else {
 			str_append(dest, "HEADER ");
-			imap_append_astring(dest, arg->hdr_field_name, FALSE);
+			imap_append_astring(dest, arg->hdr_field_name, utf8);
 		}
 		str_append_c(dest, ' ');
-		imap_append_astring(dest, arg->value.str, FALSE);
+		imap_append_astring(dest, arg->value.str, utf8);
 		break;
 
 	case SEARCH_BODY:
 		str_append(dest, "BODY ");
-		imap_append_astring(dest, arg->value.str, FALSE);
+		imap_append_astring(dest, arg->value.str, utf8);
 		break;
 	case SEARCH_TEXT:
 		str_append(dest, "TEXT ");
-		imap_append_astring(dest, arg->value.str, FALSE);
+		imap_append_astring(dest, arg->value.str, utf8);
 		break;
 
 	/* extensions */
@@ -282,7 +282,7 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 			FALSE);
 		str_append_c(dest, ' ');
 		if (!mail_search_subargs_to_imap(dest, arg->value.subargs,
-						 "", error_r))
+						 "", utf8, error_r))
 			return FALSE;
 		break;
 	case SEARCH_GUID:
@@ -297,7 +297,7 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 		return FALSE;
 	case SEARCH_MAILBOX_GLOB:
 		str_append(dest, "X-MAILBOX ");
-		imap_append_astring(dest, arg->value.str, FALSE);
+		imap_append_astring(dest, arg->value.str, utf8);
 		break;
 	case SEARCH_REAL_UID:
 		str_append(dest, "X-REAL-UID ");
@@ -305,8 +305,8 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 		break;
 	case SEARCH_MIMEPART:
 		str_append(dest, "MIMEPART ");
-		if (!mail_search_mime_part_to_imap(dest,
-			arg->value.mime_part, error_r))
+		if (!mail_search_mime_part_to_imap(dest, arg->value.mime_part,
+						   utf8, error_r))
 			return FALSE;
 		break;
 	}
@@ -314,12 +314,12 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 }
 
 bool mail_search_args_to_imap(string_t *dest, const struct mail_search_arg *args,
-			      const char **error_r)
+			      bool utf8, const char **error_r)
 {
 	const struct mail_search_arg *arg;
 
 	for (arg = args; arg != NULL; arg = arg->next) {
-		if (!mail_search_arg_to_imap(dest, arg, error_r))
+		if (!mail_search_arg_to_imap(dest, arg, utf8, error_r))
 			return FALSE;
 		if (arg->next != NULL)
 			str_append_c(dest, ' ');
