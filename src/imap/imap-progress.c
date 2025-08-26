@@ -7,8 +7,8 @@
 #include "imap-progress.h"
 
 const char *
-imap_storage_callback_line(const struct mail_storage_progress_details *dtl,
-			   const char *tag)
+imap_progress_line(const struct mail_storage_progress_details *dtl,
+		   const char *tag)
 {
 	const char *verb = dtl->verb;
 	unsigned int total = dtl->total;
