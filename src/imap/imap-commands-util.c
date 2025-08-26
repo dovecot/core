@@ -15,9 +15,10 @@
 #include "imap-commands-util.h"
 
 struct mail_namespace *
-client_find_namespace_full(struct client *client,
+client_find_namespace_full(struct client_command_context *cmd,
 			   const char **mailbox, const char **client_error_r)
 {
+	struct client *client = cmd->client;
 	struct mail_namespace *namespaces = client->user->namespaces;
 	struct mail_namespace *ns;
 	string_t *utf8_name;
@@ -58,7 +59,7 @@ client_find_namespace(struct client_command_context *cmd, const char **mailbox)
 	struct mail_namespace *ns;
 	const char *client_error;
 
-	ns = client_find_namespace_full(cmd->client, mailbox, &client_error);
+	ns = client_find_namespace_full(cmd, mailbox, &client_error);
 	if (ns == NULL)
 		client_send_tagline(cmd, client_error);
 	return ns;
