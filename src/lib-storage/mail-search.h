@@ -255,11 +255,12 @@ void mail_search_args_simplify(struct mail_search_args *args);
 /* Append all args as IMAP SEARCH AND-query to the dest string and returns TRUE.
    If some search arg can't be written as IMAP SEARCH parameter, error_r is set
    and FALSE is returned. */
-bool mail_search_args_to_imap(string_t *dest, const struct mail_search_arg *args,
-			      const char **error_r);
+bool mail_search_args_to_imap(string_t *dest,
+			      const struct mail_search_arg *args,
+			      bool utf8, const char **error_r);
 /* Like mail_search_args_to_imap(), but append only a single arg. */
 bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
-			     const char **error_r);
+			     bool utf8, const char **error_r);
 /* Write all args to dest string as cmdline/human compatible input. */
 void mail_search_args_to_cmdline(string_t *dest,
 				 const struct mail_search_arg *args);

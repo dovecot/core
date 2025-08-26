@@ -159,12 +159,16 @@ static void test_mail_search_args_imap(void)
 		output = tests[i].output != NULL ?
 			tests[i].output : tests[i].input;
 		str_truncate(str, 0);
-		test_assert_idx(mail_search_args_to_imap(str, args->args, &error), i);
+		test_assert_idx(mail_search_args_to_imap(str, args->args, FALSE,
+							 &error), i);
 		test_assert_idx(strcmp(str_c(str), output) == 0, i);
 		mail_search_args_unref(&args);
 	}
-	for (i = 0; i < N_ELEMENTS(test_failures); i++)
-		test_assert_idx(!mail_search_args_to_imap(str, &test_failures[i], &error), i);
+	for (i = 0; i < N_ELEMENTS(test_failures); i++) {
+		test_assert_idx(
+			!mail_search_args_to_imap(str, &test_failures[i], FALSE,
+						  &error), i);
+	}
 	test_end();
 }
 

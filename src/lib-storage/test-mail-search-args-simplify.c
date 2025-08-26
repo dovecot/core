@@ -298,7 +298,8 @@ static void test_mail_search_args_simplify(void)
 		mail_search_args_simplify(args);
 
 		str_truncate(str, 0);
-		test_assert(mail_search_args_to_imap(str, args->args, &error));
+		test_assert(mail_search_args_to_imap(str, args->args, FALSE,
+						     &error));
 		test_assert_idx(strcmp(str_c(str), tests[i].output) == 0, i);
 
 		test_assert_idx(test_search_args_are_initialized(args->args), i);
