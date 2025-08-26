@@ -1,6 +1,8 @@
 #ifndef IMAP_BODYSTRUCTURE_H
 #define IMAP_BODYSTRUCTURE_H
 
+#include "imap-quote.h"
+
 struct message_part;
 struct message_header_line;
 struct imap_arg;
@@ -11,6 +13,7 @@ struct imap_arg;
    (e.g. broken cached mime.parts mixed with parsed message). */
 int imap_bodystructure_write(const struct message_part *part,
 			     string_t *dest, bool extended,
+			     enum imap_quote_flags qflags,
 			     const char **error_r);
 
 /* Parse BODYSTRUCTURE and save the contents to message_part->data for each

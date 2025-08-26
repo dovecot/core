@@ -130,7 +130,7 @@ FUZZ_BEGIN_STR(const char *bodystruct_orig)
 	if (imap_bodystructure_parse_full(
 		bodystruct_orig, pool, &parts_orig, &error) == 0) {
 		if (imap_bodystructure_write(
-			parts_orig, buffer, TRUE, &error) != 0)
+			parts_orig, buffer, TRUE, 0, &error) != 0)
 			i_panic("Failed to write bodystructure: %s", error);
 		bodystruct_regen = t_strdup(str_c(buffer));
 
