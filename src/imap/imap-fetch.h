@@ -102,6 +102,7 @@ struct imap_fetch_context {
 	bool flags_show_only_seen_changes:1;
 	/* HEADER.FIELDS or HEADER.FIELDS.NOT is fetched */
 	bool fetch_header_fields:1;
+	bool utf8:1;
 };
 
 void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
@@ -121,12 +122,13 @@ void imap_fetch_add_handler(struct imap_fetch_init_context *ctx,
 		(imap_fetch_handler_t *)handler, context)
 
 int imap_fetch_att_list_parse(struct client *client, pool_t pool,
-			      const struct imap_arg *list,
+			      const struct imap_arg *list, bool utf8,
 			      struct imap_fetch_context **fetch_ctx_r,
 			      const char **client_error_r);
 
 struct imap_fetch_context *
-imap_fetch_alloc(struct client *client, pool_t pool, const char *reason);
+imap_fetch_alloc(struct client *client, pool_t pool, const char *reason,
+		 bool utf8);
 void imap_fetch_free(struct imap_fetch_context **ctx);
 bool imap_fetch_init_handler(struct imap_fetch_init_context *init_ctx);
 void imap_fetch_init_nofail_handler(struct imap_fetch_context *ctx,

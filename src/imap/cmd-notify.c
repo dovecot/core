@@ -45,7 +45,8 @@ cmd_notify_parse_fetch(struct imap_notify_context *ctx,
 	if (list->type == IMAP_ARG_EOL)
 		return -1; /* at least one attribute must be set */
 	return imap_fetch_att_list_parse(ctx->client, ctx->pool, list,
-					 &ctx->fetch_ctx, &ctx->error);
+					 ctx->utf8, &ctx->fetch_ctx,
+					 &ctx->error);
 }
 
 static bool
@@ -535,6 +536,7 @@ bool cmd_notify(struct client_command_context *cmd)
 	ctx = p_new(pool, struct imap_notify_context, 1);
 	ctx->pool = pool;
 	ctx->client = cmd->client;
+	ctx->utf8 = cmd->utf8;
 	p_array_init(&ctx->namespaces, pool, 4);
 
 	if (!imap_arg_get_atom(&args[0], &str))

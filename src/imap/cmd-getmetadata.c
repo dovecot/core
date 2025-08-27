@@ -120,6 +120,8 @@ metadata_add_entry(struct imap_getmetadata_context *ctx, const char *entry)
 		if (ctx->box == NULL) {
 			/* server metadata reply */
 			str_append(str, "\"\"");
+		} else if (ctx->cmd->utf8) {
+			imap_append_astring(str, mailbox_get_vname(ctx->box), FALSE);
 		} else {
 			if (imap_utf8_to_utf7(mailbox_get_vname(ctx->box), mailbox_mutf7) < 0)
 				i_unreached();

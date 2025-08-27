@@ -355,7 +355,7 @@ bool cmd_fetch(struct client_command_context *cmd)
 		return ret < 0;
 
 	ctx = imap_fetch_alloc(client, cmd->pool,
-			       imap_client_command_get_reason(cmd));
+			       imap_client_command_get_reason(cmd), cmd->utf8);
 
 	if (!fetch_parse_args(ctx, cmd, &args[1], &next_arg) ||
 	    (imap_arg_get_list(next_arg, &list_arg) &&

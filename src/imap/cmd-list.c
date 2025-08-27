@@ -298,9 +298,12 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 			continue;
 		}
 
-		str_truncate(mutf7_name, 0);
-		if (imap_utf8_to_utf7(name, mutf7_name) < 0)
-			i_panic("LIST: Mailbox name not UTF-8: %s", name);
+		if (!cmd->utf8) {
+			str_truncate(mutf7_name, 0);
+			if (imap_utf8_to_utf7(name, mutf7_name) < 0)
+				i_panic("LIST: Mailbox name not UTF-8: %s", name);
+			name = str_c(mutf7_name);
+		}
 
 		str_truncate(str, 0);
 		str_printfa(str, "* %s (", ctx->lsub ? "LSUB" : "LIST");
@@ -309,7 +312,7 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 		list_reply_append_ns_sep_param(str,
 			mail_namespace_get_sep(info->ns));
 		str_append_c(str, ' ');
-		imap_append_astring(str, str_c(mutf7_name), FALSE);
+		imap_append_astring(str, name, FALSE);
 		mailbox_childinfo2str(ctx, str, flags);
 
 		/* send LIST/LSUB response */
@@ -320,8 +323,8 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 		/* send optional responses (if any) */
 		if (list_has_options(ctx)) {
 			struct imap_list_return_flag_params params = {
-				.name = name,
-				.mutf7_name = str_c(mutf7_name),
+				.name = info->vname,
+				.mutf7_name = name,
 				.mbox_flags = flags,
 				.list_flags = ctx->list_flags,
 			};
@@ -385,7 +388,7 @@ static void cmd_list_init(struct cmd_list_context *ctx,
 						  ctx->list_flags);
 }
 
-static void cmd_list_ref_root(struct client *client, const char *ref)
+static void cmd_list_ref_root(struct client *client, const char *ref, bool utf8)
 {
 	struct mail_namespace *ns;
 	const char *ns_prefix;
@@ -397,7 +400,10 @@ static void cmd_list_ref_root(struct client *client, const char *ref)
 	   Otherwise we'll emulate UW-IMAP behavior. */
 	ns = mail_namespace_find_visible(client->user->namespaces, ref);
 	if (ns != NULL) {
-		ns_prefix = ns_prefix_mutf7(ns);
+		if (utf8)
+			ns_prefix = ns->prefix;
+		else
+			ns_prefix = ns_prefix_mutf7(ns);
 		ns_sep = mail_namespace_get_sep(ns);
 	} else {
 		ns_prefix = "";
@@ -465,10 +471,14 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 		return TRUE;
 	}
 	str = t_str_new(64);
-	if (imap_utf7_to_utf8(ref, str) == 0)
+	if (cmd->utf8) {
+		if (!uni_utf8_str_is_valid(ref))
+			invalid_ref = TRUE;
+	} else if (imap_utf7_to_utf8(ref, str) == 0) {
 		ref = p_strdup(cmd->pool, str_c(str));
-	else
+	} else {
 		invalid_ref = TRUE;
+	}
 	str_truncate(str, 0);
 
 	if (imap_arg_get_list_full(&args[1], &list_args, &arg_count)) {
@@ -481,7 +491,10 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 					"Invalid pattern list.");
 				return TRUE;
 			}
-			if (imap_utf7_to_utf8(pattern, str) == 0) {
+			if (cmd->utf8) {
+				if (uni_utf8_str_is_valid(pattern))
+					array_push_back(&patterns, &pattern);
+			} else if (imap_utf7_to_utf8(pattern, str) == 0) {
 				pattern = p_strdup(cmd->pool, str_c(str));
 				array_push_back(&patterns, &pattern);
 			}
@@ -494,7 +507,10 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 			return TRUE;
 		}
 		p_array_init(&patterns, cmd->pool, 1);
-		if (imap_utf7_to_utf8(pattern, str) == 0) {
+		if (cmd->utf8) {
+			if (uni_utf8_str_is_valid(pattern))
+				array_push_back(&patterns, &pattern);
+		} else if (imap_utf7_to_utf8(pattern, str) == 0) {
 			pattern = p_strdup(cmd->pool, str_c(str));
 			array_push_back(&patterns, &pattern);
 		}
@@ -542,10 +558,13 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 
 	array_append_zero(&patterns); /* NULL-terminate */
 	patterns_strarr = array_front(&patterns);
-	if (invalid_ref || patterns_strarr[0] == NULL ||
-	    (!ctx->used_listext && !lsub && *patterns_strarr[0] == '\0')) {
-		/* Only LIST ref "" gets us here, or invalid ref/pattern */
-		cmd_list_ref_root(client, ref);
+	if (invalid_ref || patterns_strarr[0] == NULL) {
+		/* invalid ref/pattern */
+		client_send_tagline(cmd, "OK List completed.");
+	} else if (!ctx->used_listext && !lsub &&
+		   *patterns_strarr[0] == '\0') {
+		/* Only LIST ref "" gets us here */
+		cmd_list_ref_root(client, ref, cmd->utf8);
 		client_send_tagline(cmd, "OK List completed.");
 	} else {
 		patterns_strarr =
