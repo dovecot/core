@@ -112,8 +112,8 @@ static void test_smtp_command_parse_valid(void)
 		parser = smtp_command_parser_init(input, &test->limits);
 
 		while ((ret = smtp_command_parse_next(
-			parser, &cmd_name, &cmd_params,
-			&error_code, &error)) > 0);
+				parser, FALSE, &cmd_name, &cmd_params,
+				&error_code, &error)) > 0);
 
 		test_out_reason("parse success [buffer]", ret == -2,
 				(ret == -2 ? NULL : error));
@@ -138,14 +138,14 @@ static void test_smtp_command_parse_valid(void)
 		for (pos = 0; pos <= command_text_len && ret == 0; pos++) {
 			test_istream_set_size(input, pos);
 			ret = smtp_command_parse_next(
-				parser, &cmd_name, &cmd_params,
+				parser, FALSE, &cmd_name, &cmd_params,
 				&error_code, &error);
 		}
 		test_istream_set_size(input, command_text_len);
 		if (ret >= 0) {
 			while ((ret = smtp_command_parse_next(
-				parser, &cmd_name, &cmd_params,
-				&error_code, &error)) > 0);
+					parser, FALSE, &cmd_name, &cmd_params,
+					&error_code, &error)) > 0);
 		}
 
 		test_out_reason("parse success [stream]", ret == -2,
@@ -271,7 +271,8 @@ static void test_smtp_command_parse_invalid(void)
 						  command_text_len);
 		parser = smtp_command_parser_init(input, &test->limits);
 
-		ret = smtp_command_parse_next(parser, &cmd_name, &cmd_params,
+		ret = smtp_command_parse_next(parser, FALSE,
+					      &cmd_name, &cmd_params,
 					      &error_code, &error);
 		i_assert(ret != 0);
 
@@ -294,15 +295,15 @@ static void test_smtp_command_parse_invalid(void)
 
 		for (pos = 0; pos <= command_text_len && ret == 0; pos++) {
 			test_istream_set_size(input, pos);
-			ret = smtp_command_parse_next(
-				parser, &cmd_name, &cmd_params,
-				&error_code, &error);
+			ret = smtp_command_parse_next(parser, FALSE,
+						      &cmd_name, &cmd_params,
+						      &error_code, &error);
 		}
 		test_istream_set_size(input, command_text_len);
 		if (ret == 0) {
-			ret = smtp_command_parse_next(
-				parser, &cmd_name, &cmd_params,
-				&error_code, &error);
+			ret = smtp_command_parse_next(parser, FALSE,
+						      &cmd_name, &cmd_params,
+						      &error_code, &error);
 			i_assert(ret != 0);
 		}
 

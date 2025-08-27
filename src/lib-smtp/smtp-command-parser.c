@@ -506,6 +506,7 @@ static int smtp_command_parse_finish_data(struct smtp_command_parser *parser)
 }
 
 int smtp_command_parse_next(struct smtp_command_parser *parser,
+			    bool only_finish_previous,
 			    const char **cmd_name_r, const char **cmd_params_r,
 			    enum smtp_command_parse_error *error_code_r,
 			    const char **error_r)
@@ -517,6 +518,8 @@ int smtp_command_parse_next(struct smtp_command_parser *parser,
 		 parser->state.state == SMTP_COMMAND_PARSE_STATE_ERROR);
 	parser->auth_response = FALSE;
 
+	*cmd_name_r = NULL;
+	*cmd_params_r = NULL;
 	*error_code_r = parser->error_code = SMTP_COMMAND_PARSE_ERROR_NONE;
 	*error_r = NULL;
 
@@ -532,6 +535,9 @@ int smtp_command_parse_next(struct smtp_command_parser *parser,
 		}
 		return ret;
 	}
+
+	if (only_finish_previous)
+		return 1;
 
 	ret = smtp_command_parse(parser);
 	if (ret <= 0) {

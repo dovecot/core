@@ -38,6 +38,7 @@ void smtp_command_parser_set_stream(struct smtp_command_parser *parser,
    -2 if disconnected in SMTP_COMMAND_PARSE_STATE_INIT state. -2 is mainly for
    unit tests - it can normally be treated the same as -1. */
 int smtp_command_parse_next(struct smtp_command_parser *parser,
+			    bool only_finish_previous,
 			    const char **cmd_name_r, const char **cmd_params_r,
 			    enum smtp_command_parse_error *error_code_r,
 			    const char **error_r);
