@@ -81,13 +81,12 @@ static void doveadm_print_formatted_deinit(void)
 }
 
 struct doveadm_print_vfuncs doveadm_print_formatted_vfuncs = {
-	"formatted",
+	.name = "formatted",
 
-	doveadm_print_formatted_init,
-	doveadm_print_formatted_deinit,
-	doveadm_print_formatted_header,
-	doveadm_print_formatted_print,
-	NULL,
-	doveadm_print_formatted_flush
+	.init = doveadm_print_formatted_init,
+	.deinit = doveadm_print_formatted_deinit,
+	.header = doveadm_print_formatted_header,
+	.print = doveadm_print_formatted_print,
+	.flush = doveadm_print_formatted_flush,
 };
 

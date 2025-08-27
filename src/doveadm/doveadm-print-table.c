@@ -257,12 +257,12 @@ static void doveadm_print_table_deinit(void)
 }
 
 struct doveadm_print_vfuncs doveadm_print_table_vfuncs = {
-	"table",
+	.name = "table",
 
-	doveadm_print_table_init,
-	doveadm_print_table_deinit,
-	doveadm_print_table_header,
-	doveadm_print_table_print,
-	doveadm_print_table_print_stream,
-	doveadm_print_table_flush
+	.init = doveadm_print_table_init,
+	.deinit = doveadm_print_table_deinit,
+	.header = doveadm_print_table_header,
+	.print = doveadm_print_table_print,
+	.print_stream = doveadm_print_table_print_stream,
+	.flush = doveadm_print_table_flush,
 };

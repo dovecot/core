@@ -108,12 +108,12 @@ static void doveadm_print_server_flush(void)
 }
 
 struct doveadm_print_vfuncs doveadm_print_server_vfuncs = {
-	DOVEADM_PRINT_TYPE_SERVER,
+	.name = DOVEADM_PRINT_TYPE_SERVER,
 
-	doveadm_print_server_init,
-	doveadm_print_server_deinit,
-	doveadm_print_server_header,
-	doveadm_print_server_print,
-	doveadm_print_server_print_stream,
-	doveadm_print_server_flush
+	.init = doveadm_print_server_init,
+	.deinit = doveadm_print_server_deinit,
+	.header = doveadm_print_server_header,
+	.print = doveadm_print_server_print,
+	.print_stream = doveadm_print_server_print_stream,
+	.flush = doveadm_print_server_flush,
 };

@@ -65,12 +65,10 @@ static void doveadm_print_tab_flush(void)
 }
 
 struct doveadm_print_vfuncs doveadm_print_tab_vfuncs = {
-	"tab",
+	.name = "tab",
 
-	NULL,
-	NULL,
-	doveadm_print_tab_header,
-	doveadm_print_tab_print,
-	doveadm_print_tab_print_stream,
-	doveadm_print_tab_flush
+	.header = doveadm_print_tab_header,
+	.print = doveadm_print_tab_print,
+	.print_stream = doveadm_print_tab_print_stream,
+	.flush = doveadm_print_tab_flush,
 };

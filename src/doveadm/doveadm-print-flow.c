@@ -100,12 +100,12 @@ static void doveadm_print_flow_deinit(void)
 }
 
 struct doveadm_print_vfuncs doveadm_print_flow_vfuncs = {
-	"flow",
+	.name = "flow",
 
-	doveadm_print_flow_init,
-	doveadm_print_flow_deinit,
-	doveadm_print_flow_header,
-	doveadm_print_flow_print,
-	doveadm_print_flow_print_stream,
-	doveadm_print_flow_flush
+	.init = doveadm_print_flow_init,
+	.deinit = doveadm_print_flow_deinit,
+	.header = doveadm_print_flow_header,
+	.print = doveadm_print_flow_print,
+	.print_stream = doveadm_print_flow_print_stream,
+	.flush = doveadm_print_flow_flush,
 };

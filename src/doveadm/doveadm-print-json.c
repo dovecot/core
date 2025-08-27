@@ -129,13 +129,13 @@ static void doveadm_print_json_deinit(void)
 }
 
 struct doveadm_print_vfuncs doveadm_print_json_vfuncs = {
-	"json",
+	.name = "json",
 
-	doveadm_print_json_init,
-	doveadm_print_json_deinit,
-	doveadm_print_json_header,
-	doveadm_print_json_print,
-	doveadm_print_json_print_stream,
-	doveadm_print_json_flush
+	.init = doveadm_print_json_init,
+	.deinit = doveadm_print_json_deinit,
+	.header = doveadm_print_json_header,
+	.print = doveadm_print_json_print,
+	.print_stream = doveadm_print_json_print_stream,
+	.flush = doveadm_print_json_flush,
 };
 
