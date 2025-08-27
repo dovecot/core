@@ -14,6 +14,8 @@ enum imap_urlauth_fetch_flags {
 	IMAP_URLAUTH_FETCH_FLAG_BINARY			= 0x04,
 	/* Fetch IMAP bodypartstructure */
 	IMAP_URLAUTH_FETCH_FLAG_BODYPARTSTRUCTURE	= 0x08,
+	/* IMAP UTF8 extensions active */
+	IMAP_URLAUTH_FETCH_FLAG_UTF8			= 0x10,
 };
 
 struct imap_urlauth_fetch_reply {
