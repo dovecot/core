@@ -521,6 +521,7 @@ void smtp_server_cmd_data(struct smtp_server_cmd_ctx *cmd,
 	}
 
 	smtp_server_command_input_lock(cmd);
+	smtp_server_command_pipeline_block(cmd);
 
 	data_cmd = p_new(cmd->pool, struct cmd_data_context, 1);
 	data_cmd->chunk_first = TRUE;
@@ -605,6 +606,7 @@ int smtp_server_connection_data_chunk_add(struct smtp_server_cmd_ctx *cmd,
 		smtp_server_command_add_hook(
 			command, SMTP_SERVER_COMMAND_HOOK_REPLIED,
 			cmd_data_replied, data_cmd);
+		smtp_server_command_pipeline_block(cmd);
 	}
 
 	data_cmd->chunk_input = chunk;
