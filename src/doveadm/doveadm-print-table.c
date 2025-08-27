@@ -133,6 +133,11 @@ static void doveadm_print_next(const char *value)
 	const struct doveadm_print_table_header *hdr;
 	int value_padded_len;
 
+	if (value[0] == '\0') {
+		/* It's more readable to see empty values as "-" in a table */
+		value = "-";
+	}
+
 	hdr = array_idx(&ctx->headers, ctx->hdr_idx);
 
 	value_padded_len = hdr->length + utf8_correction(value);
