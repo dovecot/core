@@ -35,7 +35,6 @@ list_namespaces(struct mail_namespace *ns, enum mail_namespace_type type,
 	struct namespace_order *no;
 	unsigned int count = 0;
 	string_t *mutf7_prefix;
-	char ns_sep;
 
 	t_array_init(&ns_order, 4);
 
@@ -59,6 +58,7 @@ list_namespaces(struct mail_namespace *ns, enum mail_namespace_type type,
 	str_append_c(str, '(');
 	array_foreach_modifiable(&ns_order, no) {
 		const char *prefix = no->ns->prefix;
+		char ns_sep;
 
 		ns_sep = mail_namespace_get_sep(no->ns);
 		str_append_c(str, '(');
