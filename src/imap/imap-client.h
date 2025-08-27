@@ -127,6 +127,7 @@ struct client_command_context {
 	bool tagline_sent:1;
 	bool executing:1;
 	bool internal:1;
+	bool utf8:1; /* status of UTF8=ACCEPT feature at command alloc */
 };
 
 struct imap_client_vfuncs {

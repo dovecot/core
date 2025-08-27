@@ -24,7 +24,13 @@ client_find_namespace_full(struct client_command_context *cmd,
 	string_t *utf8_name;
 
 	utf8_name = t_str_new(64);
-	if (imap_utf7_to_utf8(*mailbox, utf8_name) < 0) {
+	if (cmd->utf8) {
+		if (!uni_utf8_str_is_valid(*mailbox)) {
+			*client_error_r = "NO Mailbox name is not valid UTF-8";
+			return NULL;
+		}
+		str_append(utf8_name, *mailbox);
+	} else if (imap_utf7_to_utf8(*mailbox, utf8_name) < 0) {
 		*client_error_r = "NO Mailbox name is not valid mUTF-7";
 		return NULL;
 	}

@@ -46,7 +46,8 @@ cmd_notify_parse_fetch(struct imap_notify_context *ctx,
 	if (list->type == IMAP_ARG_EOL)
 		return -1; /* at least one attribute must be set */
 	return imap_fetch_att_list_parse(ctx->client, ctx->pool, list,
-					 &ctx->fetch_ctx, &ctx->error);
+					 ctx->utf8, &ctx->fetch_ctx,
+					 &ctx->error);
 }
 
 static bool
@@ -470,10 +471,12 @@ imap_notify_box_send_status(struct client_command_context *cmd,
 	} else {
 		const char *vname = info->vname;
 
-		string_t *mutf7_vname = t_str_new(128);
-		if (imap_utf8_to_utf7(vname, mutf7_vname) < 0)
-			i_panic("Mailbox name not UTF-8: %s", vname);
-		vname = str_c(mutf7_vname);
+		if (!cmd->utf8) {
+			string_t *mutf7_vname = t_str_new(128);
+			if (imap_utf8_to_utf7(vname, mutf7_vname) < 0)
+				i_panic("Mailbox name not UTF-8: %s", vname);
+			vname = str_c(mutf7_vname);
+		}
 		imap_status_send(client, vname, &items, &result);
 	}
 	mailbox_free(&box);
@@ -550,6 +553,7 @@ bool cmd_notify(struct client_command_context *cmd)
 	ctx = p_new(pool, struct imap_notify_context, 1);
 	ctx->pool = pool;
 	ctx->client = cmd->client;
+	ctx->utf8 = cmd->utf8;
 	p_array_init(&ctx->namespaces, pool, 4);
 
 	if (!imap_arg_get_atom(&args[0], &str))

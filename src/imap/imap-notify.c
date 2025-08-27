@@ -94,12 +94,15 @@ static int imap_notify_status(struct imap_notify_namespace *notify_ns,
 		if (error != MAIL_ERROR_PERM)
 			ret = -1;
 	} else {
+		bool utf8 = client_has_enabled(client, imap_feature_utf8accept);
 		const char *vname = rec->vname;
 
-		string_t *mutf7_vname = t_str_new(128);
-		if (imap_utf8_to_utf7(vname, mutf7_vname) < 0)
-			i_panic("Mailbox name not UTF-8: %s", vname);
-		vname = str_c(mutf7_vname);
+		if (!utf8) {
+			string_t *mutf7_vname = t_str_new(128);
+			if (imap_utf8_to_utf7(vname, mutf7_vname) < 0)
+				i_panic("Mailbox name not UTF-8: %s", vname);
+			vname = str_c(mutf7_vname);
+		}
 		ret = imap_status_send(client, vname, &items, &result);
 	}
 	mailbox_free(&box);

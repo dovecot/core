@@ -954,6 +954,7 @@ struct client_command_context *client_command_alloc(struct client *client)
 	cmd->stats.last_run_timeval = ioloop_timeval;
 	cmd->stats.start_ioloop_wait_usecs =
 		io_loop_get_wait_usecs(current_ioloop);
+	cmd->utf8 = client_has_enabled(client, imap_feature_utf8accept);
 	p_array_init(&cmd->module_contexts, cmd->pool, 5);
 
 	DLLIST_PREPEND(&client->command_queue, cmd);

@@ -446,6 +446,7 @@ import_send_flag_changes(struct client *client,
 			 const struct mailbox_import_state *state,
 			 unsigned int *flag_change_count_r)
 {
+	bool utf8 = client_has_enabled(client, imap_feature_utf8accept);
 	struct imap_fetch_context *fetch_ctx;
 	struct mail_search_args *search_args;
 	ARRAY_TYPE(seq_range) old_uids;
@@ -466,7 +467,7 @@ import_send_flag_changes(struct client *client,
 	imap_search_add_changed_since(search_args, state->highest_modseq);
 
 	pool = pool_alloconly_create("imap state flag changes", 1024);
-	fetch_ctx = imap_fetch_alloc(client, pool, "unhibernate");
+	fetch_ctx = imap_fetch_alloc(client, pool, "unhibernate", utf8);
 	pool_unref(&pool);
 
 	imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_flags_init);
