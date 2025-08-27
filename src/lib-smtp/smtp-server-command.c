@@ -879,7 +879,7 @@ void smtp_server_command_pipeline_block(struct smtp_server_cmd_ctx *cmd)
 	e_debug(cmd->event, "Pipeline blocked");
 
 	command->pipeline_blocked = TRUE;
-	smtp_server_connection_input_lock(conn);
+	smtp_server_connection_input_halt(conn);
 }
 
 void smtp_server_command_pipeline_unblock(struct smtp_server_cmd_ctx *cmd)
@@ -893,5 +893,5 @@ void smtp_server_command_pipeline_unblock(struct smtp_server_cmd_ctx *cmd)
 	e_debug(cmd->event, "Pipeline unblocked");
 
 	command->pipeline_blocked = FALSE;
-	smtp_server_connection_input_unlock(conn);
+	smtp_server_connection_input_resume(conn);
 }
