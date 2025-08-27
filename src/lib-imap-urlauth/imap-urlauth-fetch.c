@@ -178,6 +178,7 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 	const char *error, *errormsg = NULL, *bpstruct = NULL;
 	enum mail_error error_code;
 	struct imap_msgpart_url *mpurl = NULL;
+	bool utf8 = HAS_ALL_BITS(url_flags, IMAP_URLAUTH_FETCH_FLAG_UTF8);
 	int ret;
 
 	bool success = TRUE;
@@ -208,7 +209,7 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 		imap_msgpart_url_set_decode_to_binary(mpurl);
 	if (success &&
 	    (url_flags & IMAP_URLAUTH_FETCH_FLAG_BODYPARTSTRUCTURE) != 0) {
-		ret = imap_msgpart_url_get_bodypartstructure(mpurl, TRUE,
+		ret = imap_msgpart_url_get_bodypartstructure(mpurl, utf8,
 							     &bpstruct, &error);
 		if (ret <= 0) {
 			errormsg = t_strdup_printf(
