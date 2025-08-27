@@ -774,11 +774,6 @@ void smtp_server_reply_forward(struct smtp_server_cmd_ctx *cmd,
 void smtp_server_reply_all(struct smtp_server_cmd_ctx *_cmd,
 			   unsigned int status, const char *enh_code,
 			   const char *fmt, ...) ATTR_FORMAT(4, 5);
-/* Submit and send the same message for all expected replies for this command
-   early; i.e., no matter whether all command data is received completely. */
-void smtp_server_reply_early(struct smtp_server_cmd_ctx *_cmd,
-			     unsigned int status, const char *enh_code,
-			     const char *fmt, ...) ATTR_FORMAT(4, 5);
 
 /* Reply the command with a 221 bye message */
 void smtp_server_reply_quit(struct smtp_server_cmd_ctx *_cmd);

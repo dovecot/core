@@ -106,7 +106,6 @@ struct smtp_server_command {
 	bool input_locked:1;
 	bool input_captured:1;
 	bool pipeline_blocked:1;
-	bool reply_early:1;
 	bool destroying:1;
 };
 
@@ -274,7 +273,7 @@ smtp_server_command_is_complete(struct smtp_server_command *cmd)
 {
 	struct smtp_server_connection *conn = cmd->context.conn;
 
-	return (conn->input_broken || (cmd->next != NULL) || cmd->reply_early ||
+	return (conn->input_broken || (cmd->next != NULL) ||
 		!smtp_server_connection_pending_command_data(conn));
 }
 

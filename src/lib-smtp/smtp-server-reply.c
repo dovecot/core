@@ -533,19 +533,6 @@ void smtp_server_reply_all(struct smtp_server_cmd_ctx *_cmd,
 	va_end(args);
 }
 
-void smtp_server_reply_early(struct smtp_server_cmd_ctx *_cmd,
-			     unsigned int status, const char *enh_code,
-			     const char *fmt, ...)
-{
-	va_list args;
-
-	_cmd->cmd->reply_early = TRUE;
-
-	va_start(args, fmt);
-	smtp_server_reply_allv(_cmd, status, enh_code, fmt, args);
-	va_end(args);
-}
-
 void smtp_server_reply_quit(struct smtp_server_cmd_ctx *_cmd)
 {
 	struct smtp_server_command *cmd = _cmd->cmd;

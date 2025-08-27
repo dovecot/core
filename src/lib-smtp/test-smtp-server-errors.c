@@ -1291,8 +1291,8 @@ test_server_big_data_data_continue(void *conn_ctx ATTR_UNUSED,
 	}
 
 	if (ctx->payload_input->v_offset >= max_size) {
-		smtp_server_reply_early(cmd, 552, "5.3.4",
-					"Message too big for system");
+		smtp_server_reply(cmd, 552, "5.3.4",
+				  "Message too big for system");
 		return -1;
 	}
 
