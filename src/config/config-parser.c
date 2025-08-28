@@ -3601,14 +3601,15 @@ config_parsed_strlist_append(string_t *keyvals,
 		i_assert(strlist[i + 1][0] == CONFIG_VALUE_PREFIX_EXPANDED);
 
 		if (str_len(keyvals) > 0)
-			str_append_c(keyvals, ' ');
+			str_append_c(keyvals, '\t');
 		for (j = 0; j < drop_len; j += 2) {
 			if (strcmp(strlist[i] + 1, drop_strlist[j]) == 0)
 				break;
 		}
 		if (j == drop_len) {
-			str_printfa(keyvals, "%s=%s", strlist[i] + 1,
-				    strlist[i + 1] + 1);
+			str_append_tabescaped(keyvals, strlist[i] + 1);
+			str_append_c(keyvals, '=');
+			str_append_tabescaped(keyvals, strlist[i + 1] + 1);
 		}
 	}
 }

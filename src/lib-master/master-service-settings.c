@@ -19,6 +19,7 @@
 #include "stats-client.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
+#include "strescape.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -656,10 +657,12 @@ master_service_get_import_environment_keyvals(struct master_service *service)
 	for (unsigned int i = 0; i < len; i += 2) {
 		const char *const *key = array_idx(&arr, i);
 		const char *const *val = array_idx(&arr, i + 1);
-		str_append(keyvals, t_strdup_printf("%s=%s", *key, *val));
+		str_append_tabescaped(keyvals, *key);
+		str_append_c(keyvals, '=');
+		str_append_tabescaped(keyvals, *val);
 
 		if (i + 2 < len)
-			str_append_c(keyvals, ' ');
+			str_append_c(keyvals, '\t');
 	}
 	return str_c(keyvals);
 }

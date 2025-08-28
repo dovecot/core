@@ -1029,7 +1029,7 @@ static void master_service_import_environment_real(const char *import_environmen
 	array_push_back(&keys, &value);
 #endif
 	/* add new environments */
-	envs = t_strsplit_spaces(import_environment, " ");
+	envs = t_strsplit_tabescaped(import_environment);
 	expanded = t_str_new(64);
 	for (; *envs != NULL; envs++) {
 		value = strchr(*envs, '=');
