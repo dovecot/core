@@ -632,8 +632,8 @@ void auth_master_wait(struct auth_master_connection *conn)
 	if (conn->conn.input != NULL &&
 	    i_stream_get_data_size(conn->conn.input) > 0)
 		i_stream_set_input_pending(conn->conn.input, TRUE);
-	o_stream_set_flush_pending(conn->conn.output, TRUE);
 	if (conn->conn.output != NULL) {
+		o_stream_set_flush_pending(conn->conn.output, TRUE);
 		was_corked = o_stream_is_corked(conn->conn.output);
 		o_stream_uncork(conn->conn.output);
 	}
