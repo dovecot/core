@@ -155,7 +155,8 @@ bool acl_backend_user_name_equals(struct acl_backend *backend,
 bool acl_backend_user_is_in_group(struct acl_backend *backend,
 				  const char *group_name)
 {
-	return array_bsearch(&backend->set->acl_groups, group_name,
+	return array_not_empty(&backend->set->acl_groups) &&
+	       array_bsearch(&backend->set->acl_groups, group_name,
 			     search_strcmp) != NULL;
 }
 
