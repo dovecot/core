@@ -80,11 +80,18 @@ static int
 test_client_passdb_lookup_simple_async(const char *username, bool retry,
 				       const char **error_r);
 static int
+test_client_passdb_lookup_parallel(const char *const *usernames,
+				   bool retry, const char **error_r);
+static int
 test_client_userdb_lookup_simple(const char *user, bool retry,
 				 const char **error_r);
 static int
 test_client_userdb_lookup_simple_async(const char *username, bool retry,
 				       const char **error_r);
+static int
+test_client_userdb_lookup_parallel(const char *const *usernames,
+				   bool retry, const char **error_r);
+
 static int test_client_user_list_simple(void);
 
 /* test*/
@@ -943,8 +950,7 @@ static void test_passdb_lookup_input(struct server_connection *conn)
 			}
 			line = t_strdup_printf("PASS\t%u\tuser=frop\n", id);
 			o_stream_nsend_str(conn->conn.output, line);
-			server_connection_deinit(&conn);
-			return;
+			continue;
 		}
 		i_unreached();
 	}
@@ -980,6 +986,10 @@ static bool test_client_passdb_lookup(void)
 
 	ret = test_client_passdb_lookup_simple_async("harrie", FALSE, &error);
 	test_out("run_async (ret > 0)", ret > 0);
+
+	const char *const usernames[] = { "henk", "hans", "harrie", NULL };
+	ret = test_client_passdb_lookup_parallel(usernames, FALSE, &error);
+	test_out("run parallel (ret > 0)", ret > 0);
 
 	return FALSE;
 }
@@ -1046,8 +1056,7 @@ static void test_userdb_lookup_input(struct server_connection *conn)
 				"USER\t%u\tharrie\t"
 				"uid=1000\tgid=110\thome=/home/harrie\n", id);
 			o_stream_nsend_str(conn->conn.output, line);
-			server_connection_deinit(&conn);
-			return;
+			continue;
 		}
 		i_unreached();
 	}
@@ -1083,6 +1092,10 @@ static bool test_client_userdb_lookup(void)
 
 	ret = test_client_userdb_lookup_simple_async("harrie", FALSE, &error);
 	test_out("run async (ret > 0)", ret > 0);
+
+	const char *const usernames[] = { "henk", "hans", "harrie", NULL };
+	ret = test_client_userdb_lookup_parallel(usernames, FALSE, &error);
+	test_out("run parallel (ret > 0)", ret > 0);
 
 	return FALSE;
 }
@@ -1336,6 +1349,118 @@ test_client_passdb_lookup_simple_async(const char *username, bool retry,
 	return ctx.result;
 }
 
+struct _passdb_parallel_context {
+	pool_t pool;
+	struct ioloop *ioloop;
+
+	struct auth_master_connection *auth_conn;
+	struct auth_user_info *info;
+
+	unsigned int pending;
+
+	bool retry:1;
+};
+
+struct _passdb_parallel_user_context {
+	struct _passdb_parallel_context *ctx;
+
+	const char *username;
+	struct auth_user_info *info;
+
+	int result;
+	const char *const *fields;
+
+	bool retried:1;
+};
+
+static void
+test_client_passdb_parallel_callback(struct _passdb_parallel_user_context *uctx,
+				     int result, const char *const *fields)
+{
+	struct _passdb_parallel_context *ctx = uctx->ctx;
+
+	if (result < 0 && ctx->retry && !uctx->retried) {
+		(void)auth_master_pass_lookup_async(
+			ctx->auth_conn, uctx->username, ctx->info,
+			test_client_passdb_parallel_callback, uctx);
+		uctx->retried = TRUE;
+	}
+	uctx->result = result;
+	uctx->fields = p_strarray_dup(ctx->pool, fields);
+
+	i_assert(ctx->pending > 0);
+	if (--ctx->pending == 0)
+		io_loop_stop(ctx->ioloop);
+}
+
+static int
+test_client_passdb_lookup_parallel(const char *const *usernames,
+				   bool retry, const char **error_r)
+{
+	struct _passdb_parallel_context ctx;
+	struct _passdb_parallel_user_context *uctxs;
+	enum auth_master_flags flags = 0;
+	struct auth_user_info info;
+	unsigned int usernames_count = str_array_length(usernames), i;
+	pool_t pool;
+
+	i_zero(&info);
+	info.protocol = "test";
+	info.debug = debug;
+
+	if (debug)
+		flags |= AUTH_MASTER_FLAG_DEBUG;
+
+	pool = pool_alloconly_create("test", 1024);
+
+	i_zero(&ctx);
+	ctx.pool = pool;
+	ctx.ioloop = io_loop_create();
+	ctx.info = &info;
+	ctx.retry = retry;
+	ctx.pending = usernames_count;
+
+	ctx.auth_conn = auth_master_init(TEST_SOCKET, flags);
+	auth_master_set_timeout(ctx.auth_conn, 1000);
+
+	uctxs = p_new(pool, struct _passdb_parallel_user_context,
+		      usernames_count);
+
+	for (i = 0; i < usernames_count; i++) {
+		struct _passdb_parallel_user_context *uctx = &uctxs[i];
+
+		uctx->ctx = &ctx;
+		uctx->username = usernames[i];
+
+		(void)auth_master_pass_lookup_async(
+			ctx.auth_conn, usernames[i], &info,
+			test_client_passdb_parallel_callback, uctx);
+	}
+
+	io_loop_run(ctx.ioloop);
+
+	auth_master_deinit(&ctx.auth_conn);
+
+	int ret = 1;
+
+	*error_r = NULL;
+	for (i = 0; i < usernames_count; i++) {
+		struct _passdb_parallel_user_context *uctx = &uctxs[i];
+
+		if (uctx->result < 1) {
+			ret = uctx->result;
+			if (uctx->result < 0)
+				*error_r = t_strdup(uctx->fields[0]);
+			break;
+		}
+	}
+
+	io_loop_destroy(&ctx.ioloop);
+	pool_unref(&pool);
+
+	return ret;
+}
+
 static int
 test_client_userdb_lookup_simple(const char *username, bool retry,
 				 const char **error_r)
@@ -1446,6 +1571,121 @@ test_client_userdb_lookup_simple_async(const char *username, bool retry,
 	pool_unref(&pool);
 
 	return ctx.result;
+}
+
+struct _userdb_parallel_context {
+	pool_t pool;
+	struct ioloop *ioloop;
+
+	struct auth_master_connection *auth_conn;
+	struct auth_user_info *info;
+
+	unsigned int pending;
+
+	bool retry:1;
+};
+
+struct _userdb_parallel_user_context {
+	struct _userdb_parallel_context *ctx;
+
+	const char *username;
+	struct auth_user_info *info;
+
+	int result;
+	const char *username_out;
+	const char *const *fields;
+
+	bool retried:1;
+};
+
+static void
+test_client_userdb_parallel_callback(struct _userdb_parallel_user_context *uctx,
+				     int result, const char *username,
+				     const char *const *fields)
+{
+	struct _userdb_parallel_context *ctx = uctx->ctx;
+
+	if (result < 0 && ctx->retry && !uctx->retried) {
+		(void)auth_master_user_lookup_async(
+			ctx->auth_conn, uctx->username, ctx->info,
+			test_client_userdb_parallel_callback, uctx);
+		uctx->retried = TRUE;
+	}
+	uctx->result = result;
+	uctx->username_out = p_strdup(ctx->pool, username);
+	uctx->fields = p_strarray_dup(ctx->pool, fields);
+
+	i_assert(ctx->pending > 0);
+	if (--ctx->pending == 0)
+		io_loop_stop(ctx->ioloop);
+}
+
+static int
+test_client_userdb_lookup_parallel(const char *const *usernames,
+				   bool retry, const char **error_r)
+{
+	struct _userdb_parallel_context ctx;
+	struct _userdb_parallel_user_context *uctxs;
+	enum auth_master_flags flags = 0;
+	struct auth_user_info info;
+	unsigned int usernames_count = str_array_length(usernames), i;
+	pool_t pool;
+
+	i_zero(&info);
+	info.protocol = "test";
+	info.debug = debug;
+
+	if (debug)
+		flags |= AUTH_MASTER_FLAG_DEBUG;
+
+	pool = pool_alloconly_create("test", 1024);
+
+	i_zero(&ctx);
+	ctx.pool = pool;
+	ctx.ioloop = io_loop_create();
+	ctx.info = &info;
+	ctx.retry = retry;
+	ctx.pending = usernames_count;
+
+	ctx.auth_conn = auth_master_init(TEST_SOCKET, flags);
+	auth_master_set_timeout(ctx.auth_conn, 1000);
+
+	uctxs = p_new(pool, struct _userdb_parallel_user_context,
+		      usernames_count);
+
+	for (i = 0; i < usernames_count; i++) {
+		struct _userdb_parallel_user_context *uctx = &uctxs[i];
+
+		uctx->ctx = &ctx;
+		uctx->username = usernames[i];
+
+		(void)auth_master_user_lookup_async(
+			ctx.auth_conn, usernames[i], &info,
+			test_client_userdb_parallel_callback, uctx);
+	}
+
+	io_loop_run(ctx.ioloop);
+
+	auth_master_deinit(&ctx.auth_conn);
+
+	int ret = 1;
+
+	*error_r = NULL;
+	for (i = 0; i < usernames_count; i++) {
+		struct _userdb_parallel_user_context *uctx = &uctxs[i];
+
+		if (uctx->result < 1) {
+			ret = uctx->result;
+			if (uctx->result < 0)
+				*error_r = t_strdup(uctx->fields[0]);
+			break;
+		}
+	}
+
+	io_loop_destroy(&ctx.ioloop);
+	pool_unref(&pool);
+
+	return ret;
 }
 
 static int test_client_user_list_simple(void)
