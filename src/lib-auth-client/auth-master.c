@@ -420,8 +420,7 @@ auth_master_connection_output(struct auth_master_connection *conn)
 			break;
 	}
 
-	if (conn->conn.output != NULL &&
-	    o_stream_uncork_flush(conn->conn.output) < 0) {
+	if (o_stream_uncork_flush(conn->conn.output) < 0) {
 		auth_master_handle_output_error(conn);
 		return -1;
 	}
