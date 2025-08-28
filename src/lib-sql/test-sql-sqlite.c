@@ -2,12 +2,8 @@
 
 #include "lib.h"
 #include "settings.h"
-#include "sql-api-private.h"
 #include "test-common.h"
 #include "sql-api-private.h"
-
-void driver_sqlite_init(void);
-void driver_sqlite_deinit(void);
 
 static const char sql_create_db[] =
 "CREATE TABLE bar(\n"
