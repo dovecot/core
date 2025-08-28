@@ -3,6 +3,10 @@
 
 /* several useful macros, mostly from glib.h */
 
+#ifdef __USE_ISOC11
+#  define typeof __typeof__
+#endif
+
 #ifndef NULL
 #  define NULL ((void *)0)
 #endif
