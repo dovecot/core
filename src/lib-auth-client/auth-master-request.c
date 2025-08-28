@@ -376,18 +376,10 @@ bool auth_master_request_wait(struct auth_master_request *req)
 	ioloop = io_loop_create();
 	auth_master_switch_ioloop_to(conn, ioloop);
 
-	if (conn->conn.input != NULL &&
-	    i_stream_get_data_size(conn->conn.input) > 0)
-		i_stream_set_input_pending(conn->conn.input, TRUE);
 	if (conn->conn.output != NULL) {
 		was_corked = o_stream_is_corked(conn->conn.output);
 		o_stream_uncork(conn->conn.output);
 	}
-
-	/* either we're waiting for network I/O or we're getting out of a
-	   callback using timeout_add_short(0) */
-	i_assert(io_loop_have_ios(ioloop) ||
-		 io_loop_have_immediate_timeouts(ioloop));
 
 	auth_master_request_ref(req);
 
@@ -398,9 +390,18 @@ bool auth_master_request_wait(struct auth_master_request *req)
 	if (req->state < AUTH_MASTER_REQUEST_STATE_REPLIED) {
 		if (req->state == AUTH_MASTER_REQUEST_STATE_REPLIED_MORE)
 			req->state = AUTH_MASTER_REQUEST_STATE_SENT;
-		do
+		do {
+			if (conn->conn.input != NULL &&
+			    i_stream_get_data_size(conn->conn.input) > 0)
+				i_stream_set_input_pending(conn->conn.input, TRUE);
+
+			/* Either we're waiting for network I/O or we're getting
+			   out of a callback using timeout_add_short(0) */
+			i_assert(io_loop_have_ios(ioloop) ||
+				 io_loop_have_immediate_timeouts(ioloop));
+
 			io_loop_run(ioloop);
-		while (req->state < AUTH_MASTER_REQUEST_STATE_REPLIED_MORE);
+		} while (req->state < AUTH_MASTER_REQUEST_STATE_REPLIED_MORE);
 	}
 	conn->waiting = waiting;
 
@@ -419,7 +420,14 @@ bool auth_master_request_wait(struct auth_master_request *req)
 	if (!waiting)
 		conn->prev_ioloop = NULL;
 
-	return (freed || last_state >= AUTH_MASTER_REQUEST_STATE_FINISHED);
+	if (!freed && last_state < AUTH_MASTER_REQUEST_STATE_FINISHED)
+		return FALSE;
+
+	if (auth_master_request_count(conn) > 0 &&
+	    conn->conn.input != NULL &&
+	    i_stream_get_data_size(conn->conn.input) > 0)
+		i_stream_set_input_pending(conn->conn.input, TRUE);
+	return TRUE;
 }
 
 unsigned int auth_master_request_count(struct auth_master_connection *conn)
