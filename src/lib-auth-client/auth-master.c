@@ -367,10 +367,7 @@ auth_master_input_args(struct connection *_conn, const char *const *args)
 		auth_master_disconnect(conn);
 		return -1;
 	}
-	/* The continue/stop return 0/1 semantics for auth_master_handle_input()
-	   (and the reply callback) are inverted when compared to the connection
-	   API, so we need to return 0 for ret > 0 and 1 for ret == 0. */
-	return (ret > 0 ? 0 : 1);
+	return 1;
 }
 
 static void
