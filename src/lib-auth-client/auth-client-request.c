@@ -449,32 +449,13 @@ auth_client_request_handle_input(struct auth_client_request **_request,
 		return;
 	}
 
-	switch (status) {
-	case AUTH_REQUEST_STATUS_CONTINUE:
-		e = event_create_passthrough(request->event)->
-			set_name("auth_client_request_challenged");
-
+	if (status == AUTH_REQUEST_STATUS_CONTINUE) {
 		for (tmp = args; tmp != NULL && *tmp != NULL; tmp++) {
 			if (str_begins(*tmp, "channel_binding=",
 				       &cbinding_type))
 				break;
 		}
 		args = NULL;
-		break;
-	default:
-		e = event_create_passthrough(request->event)->
-			set_name("auth_client_request_finished");
-
-		for (tmp = args; tmp != NULL && *tmp != NULL; tmp++) {
-			const char *key;
-			const char *value;
-			t_split_key_value_eq(*tmp, &key, &value);
-			if (str_begins(key, "event_", &key))
-				event_add_str(request->event, key, value);
-			else
-				args_parse_user(request, key, value);
-		}
-		break;
 	}
 
 	if (cbinding_type != NULL) {
@@ -500,6 +481,27 @@ auth_client_request_handle_input(struct auth_client_request **_request,
 		request->cbinding_data = buffer_create_dynamic(request->pool,
 							       data->used);
 		buffer_append_buf(request->cbinding_data, data, 0, SIZE_MAX);
+	}
+
+	switch (status) {
+	case AUTH_REQUEST_STATUS_CONTINUE:
+		e = event_create_passthrough(request->event)->
+			set_name("auth_client_request_challenged");
+		break;
+	default:
+		e = event_create_passthrough(request->event)->
+			set_name("auth_client_request_finished");
+
+		for (tmp = args; tmp != NULL && *tmp != NULL; tmp++) {
+			const char *key;
+			const char *value;
+			t_split_key_value_eq(*tmp, &key, &value);
+			if (str_begins(key, "event_", &key))
+				event_add_str(request->event, key, value);
+			else
+				args_parse_user(request, key, value);
+		}
+		break;
 	}
 
 	switch (status) {
