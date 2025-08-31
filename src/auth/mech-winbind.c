@@ -289,7 +289,8 @@ mech_winbind_auth_initial(struct auth_request *auth_request,
 			  const unsigned char *data, size_t data_size)
 {
 	struct winbind_auth_request *request =
-		(struct winbind_auth_request *)auth_request;
+		container_of(auth_request,
+			     struct winbind_auth_request, auth_request);
 
 	winbind_helper_connect(auth_request->set, request->winbind,
 			       auth_request->event);
@@ -301,7 +302,8 @@ mech_winbind_auth_continue(struct auth_request *auth_request,
 			   const unsigned char *data, size_t data_size)
 {
 	struct winbind_auth_request *request =
-		(struct winbind_auth_request *)auth_request;
+		container_of(auth_request,
+			     struct winbind_auth_request, auth_request);
 	enum helper_result res;
 
 	res = do_auth_continue(request, data, data_size);
