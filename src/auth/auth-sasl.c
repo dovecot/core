@@ -418,8 +418,7 @@ mech_register_init(const struct auth_settings *set)
 	reg->handshake = str_new(pool, 512);
 	reg->handshake_cbind = str_new(pool, 256);
 
-	if (!array_is_created(&set->mechanisms) ||
-	    array_is_empty(&set->mechanisms))
+	if (array_is_empty(&set->mechanisms))
 		i_fatal("No authentication mechanisms configured");
 
 	array_foreach_elem(&set->mechanisms, name) {
