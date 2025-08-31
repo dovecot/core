@@ -154,11 +154,10 @@ winbind_helper_connect(const struct auth_settings *set,
 }
 
 static enum helper_result
-do_auth_continue(struct auth_request *auth_request,
+do_auth_continue(struct winbind_auth_request *request,
 		 const unsigned char *data, size_t data_size)
 {
-	struct winbind_auth_request *request =
-		(struct winbind_auth_request *)auth_request;
+	struct auth_request *auth_request = &request->auth_request;
 	struct istream *in_pipe = request->winbind->in_pipe;
 	string_t *str;
 	char *answer;
@@ -305,7 +304,7 @@ mech_winbind_auth_continue(struct auth_request *auth_request,
 		(struct winbind_auth_request *)auth_request;
 	enum helper_result res;
 
-	res = do_auth_continue(auth_request, data, data_size);
+	res = do_auth_continue(request, data, data_size);
 	if (res != HR_OK) {
 		if (res == HR_RESTART)
 			winbind_helper_disconnect(request->winbind);
