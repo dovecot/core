@@ -256,6 +256,12 @@ auth_sasl_translate_protocol_name(struct auth_request *request)
 		   called just "pop". */
 		return "pop";
 	}
+	if (strcasecmp(protocol, "Submission") == 0 ||
+	    strcasecmp(protocol, "LMTP") == 0) {
+		/* The standard Submission or LMTP service name with
+		   SASL/GSSAPI/Kerberos is called just "smtp". */
+		return "smtp";
+	}
 
 	return t_str_lcase(protocol);
 }
