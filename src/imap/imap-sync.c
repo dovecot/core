@@ -113,7 +113,7 @@ imap_sync_send_search_update(struct imap_sync_context *ctx,
 
 	cmd = t_str_new(256);
 	str_append(cmd, "* ESEARCH (TAG ");
-	imap_append_string(cmd, update->tag, FALSE);
+	imap_append_string(cmd, update->tag, ctx->utf8);
 	str_append_c(cmd, ')');
 	if (update->return_uids)
 		str_append(cmd, " UID");
@@ -168,7 +168,8 @@ imap_sync_send_search_updates(struct imap_sync_context *ctx, bool removes_only)
 
 struct imap_sync_context *
 imap_sync_init(struct client *client, struct mailbox *box,
-	       enum imap_sync_flags imap_flags, enum mailbox_sync_flags flags)
+	       enum imap_sync_flags imap_flags, enum mailbox_sync_flags flags,
+	       bool utf8)
 {
 	struct imap_sync_context *ctx;
 
@@ -183,6 +184,7 @@ imap_sync_init(struct client *client, struct mailbox *box,
 	ctx->client = client;
 	ctx->box = box;
 	ctx->imap_flags = imap_flags;
+	ctx->utf8 = utf8;
 	i_array_init(&ctx->module_contexts, 5);
 
 	/* make sure user can't DoS the system by causing Dovecot to create
@@ -708,7 +710,8 @@ static bool cmd_sync_client(struct client_command_context *sync_cmd)
 
 	client->syncing = TRUE;
 
-	ctx = imap_sync_init(client, client->mailbox, imap_flags, flags);
+	ctx = imap_sync_init(client, client->mailbox, imap_flags, flags,
+			     sync_cmd->utf8);
 	ctx->no_newmail = no_newmail;
 
 	/* handle the syncing using sync_cmd. it doesn't actually matter which

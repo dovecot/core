@@ -72,7 +72,7 @@ list_namespaces(struct mail_namespace *ns, enum mail_namespace_type type,
 			prefix = str_c(mutf7_prefix);
 		}
 
-		imap_append_string(str, prefix, FALSE);
+		imap_append_string(str, prefix, utf8);
 		str_append(str, " \"");
 		if (ns_sep == '\\')
 			str_append_c(str, '\\');

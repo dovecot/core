@@ -45,7 +45,7 @@ bool cmd_genurlauth(struct client_command_context *cmd)
 		}
 
 		str_append_c(response, ' ');
-		imap_append_astring(response, url, FALSE);
+		imap_append_astring(response, url, cmd->utf8);
 	}
 
 	client_send_line(cmd->client, str_c(response));

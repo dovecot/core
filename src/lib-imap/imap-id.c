@@ -12,7 +12,8 @@
 /* Limit the allowed characters that an IMAP ID parameter might have. */
 #define IMAP_ID_KEY_ACCEPT_CHARS "abcdefghijklmnopqrstuvwxyz0123456789_-"
 
-const char *imap_id_reply_generate(const ARRAY_TYPE(const_string) *args)
+const char *
+imap_id_reply_generate(const ARRAY_TYPE(const_string) *args, bool utf8)
 {
 	if (array_is_empty(args))
 		return "NIL";
@@ -32,7 +33,7 @@ const char *imap_id_reply_generate(const ARRAY_TYPE(const_string) *args)
 		    strcmp(DOVECOT_EDITION, "Pro") == 0)
 			value = DOVECOT_NAME;
 #endif
-		imap_append_nstring(str, value, FALSE);
+		imap_append_nstring(str, value, utf8);
 	}
 	str_append_c(str, ')');
 	return str_c(str);

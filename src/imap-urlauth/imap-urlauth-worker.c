@@ -337,7 +337,7 @@ client_fetch_urlpart(struct client *client, const char *url,
 		imap_msgpart_url_set_decode_to_binary(client->url);
 	if ((url_flags & IMAP_URLAUTH_FETCH_FLAG_BODYPARTSTRUCTURE) != 0) {
 		ret = imap_msgpart_url_get_bodypartstructure(client->url, FALSE,
-							     bpstruct_r, &error);
+							     bpstruct_r, &error); // FIXME: utf8
 		if (ret <= 0) {
 			*errormsg_r = t_strdup_printf(
 				"Failed to read URLAUTH \"%s\": %s", url, error);

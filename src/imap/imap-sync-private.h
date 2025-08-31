@@ -42,6 +42,7 @@ struct imap_sync_context {
 	bool no_newmail:1;
 	bool have_new_mails:1;
 	bool search_update_notifying:1;
+	bool utf8:1;
 };
 
 #endif

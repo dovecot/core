@@ -959,7 +959,7 @@ static int fetch_x_mailbox(struct imap_fetch_context *ctx, struct mail *mail,
 	}
 
 	str_append(ctx->state.cur_str, "X-MAILBOX ");
-	imap_append_astring(ctx->state.cur_str, name, FALSE);
+	imap_append_astring(ctx->state.cur_str, name, ctx->utf8);
 	str_append_c(ctx->state.cur_str, ' ');
 	return 1;
 }

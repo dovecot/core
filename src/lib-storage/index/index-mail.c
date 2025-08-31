@@ -824,7 +824,7 @@ index_mail_write_bodystructure(struct index_mail *mail, string_t *str,
 {
 	const char *error;
 
-	if (imap_bodystructure_write(mail->data.parts, str, extended, FALSE,
+	if (imap_bodystructure_write(mail->data.parts, str, extended, FALSE, /* FIXME: utf8 support */
 				     &error) < 0) {
 		mail_set_cache_corrupted(&mail->mail.mail,
 			MAIL_FETCH_MESSAGE_PARTS, error);

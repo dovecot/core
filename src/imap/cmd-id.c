@@ -63,8 +63,9 @@ bool cmd_id(struct client_command_context *cmd)
 		str_free(&log_reply);
 	}
 
-	client_send_line(cmd->client, t_strdup_printf(
-		"* ID %s", imap_id_reply_generate(&set->imap_id_send)));
+	client_send_line(cmd->client,
+		t_strdup_printf("* ID %s",
+			imap_id_reply_generate(&set->imap_id_send, cmd->utf8)));
 	client_send_tagline(cmd, "OK ID completed.");
 	return TRUE;
 }

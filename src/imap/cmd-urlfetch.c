@@ -290,6 +290,8 @@ cmd_urlfetch_parse_arg(struct client_command_context *cmd,
 	const struct imap_arg *params;
 	const char *url_text;
 
+	if (cmd->utf8)
+		url_flags |= IMAP_URLAUTH_FETCH_FLAG_UTF8;
 	if (imap_arg_get_list(arg, &params))
 		url_flags |= IMAP_URLAUTH_FETCH_FLAG_EXTENDED;
 	else

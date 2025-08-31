@@ -10,7 +10,8 @@ struct client;
 
 struct imap_sync_context *
 imap_sync_init(struct client *client, struct mailbox *box,
-	       enum imap_sync_flags imap_flags, enum mailbox_sync_flags flags);
+	       enum imap_sync_flags imap_flags, enum mailbox_sync_flags flags,
+	       bool utf8);
 int imap_sync_deinit(struct imap_sync_context *ctx,
 		     struct client_command_context *sync_cmd);
 int imap_sync_more(struct imap_sync_context *ctx);

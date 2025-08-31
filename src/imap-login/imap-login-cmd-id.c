@@ -301,7 +301,8 @@ static void cmd_id_finish(struct imap_client *client)
 
 	client_send_raw(&client->common,
 		t_strdup_printf("* ID %s\r\n",
-			imap_id_reply_generate(&client->set->imap_id_send)));
+			imap_id_reply_generate(&client->set->imap_id_send,
+					       FALSE)));
 	const char *msg = "ID completed.";
 	if (client->common.connection_trusted) {
 		if (client->cmd_id->params->multiplex &&

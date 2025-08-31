@@ -19,7 +19,8 @@ struct imap_id_log_entry {
 #define IMAP_ID_PARAMS_LOG_MAX_LEN 1024
 
 /* Return ID reply based on given settings. */
-const char *imap_id_reply_generate(const ARRAY_TYPE(const_string) *args);
+const char *
+imap_id_reply_generate(const ARRAY_TYPE(const_string) *args, bool utf8);
 /* Format the IMAP ID parameters into string-fields of the given event, and
    into a printable log message. */
 void imap_id_add_log_entry(struct imap_id_log_entry *log_entry,

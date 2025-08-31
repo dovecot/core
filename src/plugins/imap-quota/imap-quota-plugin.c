@@ -34,7 +34,7 @@ imap_quota_root_get_name(struct mail_user *user, struct mail_user *owner,
 
 static int
 quota_reply_write(string_t *str, struct mail_user *user,
-		  struct mail_user *owner, struct quota_root *root)
+		  struct mail_user *owner, struct quota_root *root, bool utf8)
 {
         const char *name, *const *list, *error;
 	unsigned int i;
@@ -44,7 +44,7 @@ quota_reply_write(string_t *str, struct mail_user *user,
 
 	str_append(str, "* QUOTA ");
 	name = imap_quota_root_get_name(user, owner, root);
-	imap_append_astring(str, name, FALSE);
+	imap_append_astring(str, name, utf8);
 
 	str_append(str, " (");
 	prefix_len = str_len(str);
@@ -110,7 +110,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	quotaroot_reply = t_str_new(128);
 	quota_reply = t_str_new(256);
 	str_append(quotaroot_reply, "* QUOTAROOT ");
-	imap_append_astring(quotaroot_reply, orig_mailbox, FALSE);
+	imap_append_astring(quotaroot_reply, orig_mailbox, cmd->utf8);
 
 	ret = 0;
 	iter = quota_root_iter_init(box);
@@ -119,9 +119,10 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 			continue;
 		str_append_c(quotaroot_reply, ' ');
 		name = imap_quota_root_get_name(client->user, ns->owner, root);
-		imap_append_astring(quotaroot_reply, name, FALSE);
+		imap_append_astring(quotaroot_reply, name, cmd->utf8);
 
-		if (quota_reply_write(quota_reply, client->user, ns->owner, root) < 0)
+		if (quota_reply_write(quota_reply, client->user, ns->owner,
+				      root, cmd->utf8) < 0)
 			ret = -1;
 	}
 	quota_root_iter_deinit(&iter);
@@ -179,7 +180,8 @@ static bool cmd_getquota(struct client_command_context *cmd)
 	}
 
 	quota_reply = t_str_new(128);
-	if (quota_reply_write(quota_reply, cmd->client->user, owner, root) < 0)
+	if (quota_reply_write(quota_reply, cmd->client->user, owner,
+			      root, cmd->utf8) < 0)
 		client_send_tagline(cmd, "NO Internal quota calculation error.");
 	else {
 		o_stream_nsend(cmd->client->output, str_data(quota_reply),
