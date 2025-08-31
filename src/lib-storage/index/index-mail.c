@@ -824,7 +824,9 @@ index_mail_write_bodystructure(struct index_mail *mail, string_t *str,
 {
 	const char *error;
 
-	if (imap_bodystructure_write(mail->data.parts, str, extended, FALSE,
+	/* FIXME: Implement UTF-8 support for quoted strings in generated
+	          BODYSTRUCTURE element. */
+	if (imap_bodystructure_write(mail->data.parts, str, extended, 0,
 				     &error) < 0) {
 		mail_set_cache_corrupted(&mail->mail.mail,
 			MAIL_FETCH_MESSAGE_PARTS, error);

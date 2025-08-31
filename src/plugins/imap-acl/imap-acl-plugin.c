@@ -175,8 +175,9 @@ imap_acl_write_rights_list(string_t *dest, const char *const *rights)
 
 static void
 imap_acl_write_right(string_t *dest, string_t *tmp,
-		     const struct acl_rights *right, bool neg)
+		     const struct acl_rights *right, bool neg, bool utf8)
 {
+	enum imap_quote_flags qflags = (utf8 ? IMAP_QUOTE_FLAG_UTF8 : 0);
 	const char *const *rights = neg ? right->neg_rights : right->rights;
 
 	str_truncate(tmp, 0);
@@ -208,7 +209,7 @@ imap_acl_write_right(string_t *dest, string_t *tmp,
 		i_unreached();
 	}
 
-	imap_append_astring(dest, str_c(tmp), 0);
+	imap_append_astring(dest, str_c(tmp), qflags);
 	str_append_c(dest, ' ');
 	imap_acl_write_rights_list(dest, rights);
 }
@@ -252,7 +253,7 @@ have_positive_owner_rights(struct acl_backend *backend,
 static int
 imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
 		      struct acl_object *aclobj, bool convert_owner,
-		      bool add_default)
+		      bool add_default, bool utf8)
 {
 	struct acl_object_list_iter *iter;
 	struct acl_rights rights;
@@ -280,7 +281,7 @@ imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
 				str_truncate(dest, orig_len);
 				return imap_acl_write_aclobj(dest, backend,
 							     aclobj, FALSE,
-							     add_default);
+							     add_default, utf8);
 			}
 			seen_owner = TRUE;
 			if (rights.rights != NULL)
@@ -289,11 +290,11 @@ imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
 
 		if (rights.rights != NULL) {
 			str_append_c(dest, ' ');
-			imap_acl_write_right(dest, tmp, &rights, FALSE);
+			imap_acl_write_right(dest, tmp, &rights, FALSE, utf8);
 		}
 		if (rights.neg_rights != NULL) {
 			str_append_c(dest, ' ');
-			imap_acl_write_right(dest, tmp, &rights, TRUE);
+			imap_acl_write_right(dest, tmp, &rights, TRUE, utf8);
 		}
 	}
 	ret = acl_object_list_deinit(&iter);
@@ -310,7 +311,7 @@ imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
 		rights.rights = acl_object_get_default_rights(aclobj);
 		if (rights.rights != NULL) {
 			str_append_c(dest, ' ');
-			imap_acl_write_right(dest, tmp, &rights, FALSE);
+			imap_acl_write_right(dest, tmp, &rights, FALSE, utf8);
 		}
 	}
 	return ret;
@@ -630,6 +631,7 @@ static int
 imap_acl_send_myrights(struct client_command_context *cmd,
 		       struct mailbox *box, const char *mutf7_mailbox)
 {
+	enum imap_quote_flags qflags = (cmd->utf8 ? IMAP_QUOTE_FLAG_UTF8 : 0);
 	const char *const *rights;
 	string_t *str;
 
@@ -644,7 +646,7 @@ imap_acl_send_myrights(struct client_command_context *cmd,
 
 	str = t_str_new(128);
 	str_append(str, "* MYRIGHTS ");
-	imap_append_astring(str, mutf7_mailbox, 0);
+	imap_append_astring(str, mutf7_mailbox, qflags);
 	str_append_c(str, ' ');
 	imap_acl_write_rights_list(str, rights);
 
@@ -656,6 +658,7 @@ static void imap_acl_cmd_getacl(struct mailbox *box, struct mail_namespace *ns,
 				const char *mailbox,
 				struct client_command_context *cmd)
 {
+	enum imap_quote_flags qflags = (cmd->utf8 ? IMAP_QUOTE_FLAG_UTF8 : 0);
 	struct acl_backend *backend;
 	string_t *str;
 	int ret;
@@ -667,11 +670,12 @@ static void imap_acl_cmd_getacl(struct mailbox *box, struct mail_namespace *ns,
 
 	str = t_str_new(128);
 	str_append(str, "* ACL ");
-	imap_append_astring(str, mailbox, 0);
+	imap_append_astring(str, mailbox, qflags);
 
 	ret = imap_acl_write_aclobj(str, backend,
 				    acl_mailbox_get_aclobj(box), TRUE,
-				    ns->type == MAIL_NAMESPACE_TYPE_PRIVATE);
+				    ns->type == MAIL_NAMESPACE_TYPE_PRIVATE,
+				    cmd->utf8);
 	if (ret > -1) {
 		client_send_line(cmd->client, str_c(str));
 		client_send_tagline(cmd, "OK Getacl completed.");
@@ -784,6 +788,7 @@ static bool cmd_myrights(struct client_command_context *cmd)
 
 static bool cmd_listrights(struct client_command_context *cmd)
 {
+	enum imap_quote_flags qflags = (cmd->utf8 ? IMAP_QUOTE_FLAG_UTF8 : 0);
 	struct mailbox *box;
 	struct mail_namespace *ns;
 	const char *mailbox, *orig_mailbox, *identifier;
@@ -802,9 +807,9 @@ static bool cmd_listrights(struct client_command_context *cmd)
 
 	str = t_str_new(128);
 	str_append(str, "* LISTRIGHTS ");
-	imap_append_astring(str, orig_mailbox, 0);
+	imap_append_astring(str, orig_mailbox, qflags);
 	str_append_c(str, ' ');
-	imap_append_astring(str, identifier, 0);
+	imap_append_astring(str, identifier, qflags);
 	str_append_c(str, ' ');
 	str_append(str, "\"\" l r w s t p i e k x a c d");
 
@@ -1065,6 +1070,7 @@ imap_acl_cmd_setacl(struct mailbox *box, struct mail_namespace *ns,
 
 static bool cmd_setacl(struct client_command_context *cmd)
 {
+	enum imap_quote_flags qflags = (cmd->utf8 ? IMAP_QUOTE_FLAG_UTF8 : 0);
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	const char *mailbox, *orig_mailbox, *identifier, *rights;
@@ -1080,7 +1086,7 @@ static bool cmd_setacl(struct client_command_context *cmd)
 	}
 
 	/* Keep original identifer for proxy_cmd_args */
-	imap_append_astring(proxy_cmd_args, identifier, 0);
+	imap_append_astring(proxy_cmd_args, identifier, qflags);
 	str_append_c(proxy_cmd_args, ' ');
 	/* Append original rights for proxy_cmd_args */
 	imap_append_astring(proxy_cmd_args, rights, 0);
@@ -1139,6 +1145,7 @@ imap_acl_cmd_deleteacl(struct mailbox *box, const char *mailbox,
 
 static bool cmd_deleteacl(struct client_command_context *cmd)
 {
+	enum imap_quote_flags qflags = (cmd->utf8 ? IMAP_QUOTE_FLAG_UTF8 : 0);
 	struct mailbox *box;
 	struct mail_namespace *ns;
 	const char *mailbox, *orig_mailbox, *identifier;
@@ -1158,7 +1165,7 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 		return TRUE;
 
 	/* Escaped identifer for proxy_cmd_args */
-	imap_append_astring(proxy_cmd_args, identifier, 0);
+	imap_append_astring(proxy_cmd_args, identifier, qflags);
 
 	box = mailbox_alloc(ns->list, mailbox,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);

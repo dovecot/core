@@ -943,6 +943,7 @@ static bool fetch_guid_init(struct imap_fetch_init_context *ctx)
 static int fetch_x_mailbox(struct imap_fetch_context *ctx, struct mail *mail,
 			   void *context ATTR_UNUSED)
 {
+	enum imap_quote_flags qflags = (ctx->utf8 ? IMAP_QUOTE_FLAG_UTF8 : 0);
 	const char *name;
 
 	if (mail_get_special(mail, MAIL_FETCH_MAILBOX_NAME, &name) < 0) {
@@ -959,7 +960,7 @@ static int fetch_x_mailbox(struct imap_fetch_context *ctx, struct mail *mail,
 	}
 
 	str_append(ctx->state.cur_str, "X-MAILBOX ");
-	imap_append_astring(ctx->state.cur_str, name, 0);
+	imap_append_astring(ctx->state.cur_str, name, qflags);
 	str_append_c(ctx->state.cur_str, ' ');
 	return 1;
 }

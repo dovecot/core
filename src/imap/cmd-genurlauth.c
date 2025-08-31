@@ -9,6 +9,7 @@
 bool cmd_genurlauth(struct client_command_context *cmd)
 {
 	const struct imap_arg *args;
+	enum imap_quote_flags qflags = (cmd->utf8 ? IMAP_QUOTE_FLAG_UTF8 : 0);
 	string_t *response;
 	int ret;
 
@@ -45,7 +46,7 @@ bool cmd_genurlauth(struct client_command_context *cmd)
 		}
 
 		str_append_c(response, ' ');
-		imap_append_astring(response, url, 0);
+		imap_append_astring(response, url, qflags);
 	}
 
 	client_send_line(cmd->client, str_c(response));

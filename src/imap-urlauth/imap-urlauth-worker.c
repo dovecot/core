@@ -331,6 +331,8 @@ client_fetch_urlpart(struct client *client, const char *url,
 	if ((url_flags & IMAP_URLAUTH_FETCH_FLAG_BINARY) != 0)
 		imap_msgpart_url_set_decode_to_binary(client->url);
 	if ((url_flags & IMAP_URLAUTH_FETCH_FLAG_BODYPARTSTRUCTURE) != 0) {
+		/* FIXME: Implement UTF-8 support for quoted strings in
+		          generated BODYSTRUCTURE element. */
 		ret = imap_msgpart_url_get_bodypartstructure(client->url, 0,
 							     bpstruct_r, &error);
 		if (ret <= 0) {

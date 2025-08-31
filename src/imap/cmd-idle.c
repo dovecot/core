@@ -140,7 +140,7 @@ static bool idle_sync_now(struct mailbox *box, struct cmd_idle_context *ctx)
 	timeout_remove(&ctx->to_hibernate);
 
 	ctx->sync_pending = FALSE;
-	ctx->sync_ctx = imap_sync_init(ctx->client, box, 0, 0);
+	ctx->sync_ctx = imap_sync_init(ctx->client, box, 0, 0, ctx->cmd->utf8);
 	return cmd_idle_continue(ctx->cmd);
 }
 

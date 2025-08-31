@@ -273,6 +273,7 @@ list_send_options(struct cmd_list_context *ctx,
 static bool cmd_list_continue(struct client_command_context *cmd)
 {
         struct cmd_list_context *ctx = cmd->context;
+	enum imap_quote_flags qflags = (cmd->utf8 ? IMAP_QUOTE_FLAG_UTF8 : 0);
 	const struct mailbox_info *info;
 	enum mailbox_info_flags flags;
 	string_t *str, *mutf7_name;
@@ -312,7 +313,7 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 		list_reply_append_ns_sep_param(str,
 			mail_namespace_get_sep(info->ns));
 		str_append_c(str, ' ');
-		imap_append_astring(str, name, 0);
+		imap_append_astring(str, name, qflags);
 		mailbox_childinfo2str(ctx, str, flags);
 
 		/* send LIST/LSUB response */
@@ -390,6 +391,7 @@ static void cmd_list_init(struct cmd_list_context *ctx,
 
 static void cmd_list_ref_root(struct client *client, const char *ref, bool utf8)
 {
+	enum imap_quote_flags qflags = (utf8 ? IMAP_QUOTE_FLAG_UTF8 : 0);
 	struct mail_namespace *ns;
 	const char *ns_prefix;
 	char ns_sep;
@@ -417,7 +419,7 @@ static void cmd_list_ref_root(struct client *client, const char *ref, bool utf8)
 	str_printfa(str, "%c\" ", ns_sep);
 	if (*ns_prefix != '\0') {
 		/* non-hidden namespace, use it as the root name */
-		imap_append_astring(str, ns_prefix, 0);
+		imap_append_astring(str, ns_prefix, qflags);
 	} else {
 		/* Hidden namespace or empty namespace prefix. We could just
 		   return an empty root name, but it's safer to emulate what
@@ -427,8 +429,10 @@ static void cmd_list_ref_root(struct client *client, const char *ref, bool utf8)
 
 		if (p == NULL)
 			str_append(str, "\"\"");
-		else
-			imap_append_astring(str, t_strdup_until(ref, p + 1), 0);
+		else {
+			imap_append_astring(str, t_strdup_until(ref, p + 1),
+					    qflags);
+		}
 	}
 	client_send_line(client, str_c(str));
 }

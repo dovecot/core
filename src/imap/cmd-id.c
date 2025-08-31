@@ -42,6 +42,7 @@ cmd_id_log_params(const struct imap_arg *args, struct event *event,
 bool cmd_id(struct client_command_context *cmd)
 {
 	const struct imap_settings *set = cmd->client->set;
+	enum imap_quote_flags qflags = (cmd->utf8 ? IMAP_QUOTE_FLAG_UTF8 : 0);
 	const struct imap_arg *args;
 
 	if (!client_read_args(cmd, 0, 0, &args))
@@ -63,8 +64,9 @@ bool cmd_id(struct client_command_context *cmd)
 		str_free(&log_reply);
 	}
 
-	client_send_line(cmd->client, t_strdup_printf(
-		"* ID %s", imap_id_reply_generate(&set->imap_id_send, 0)));
+	client_send_line(cmd->client,
+		t_strdup_printf("* ID %s",
+			imap_id_reply_generate(&set->imap_id_send, qflags)));
 	client_send_tagline(cmd, "OK ID completed.");
 	return TRUE;
 }

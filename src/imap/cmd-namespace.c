@@ -31,6 +31,7 @@ static void
 list_namespaces(struct mail_namespace *ns, enum mail_namespace_type type,
 		string_t *str, bool utf8)
 {
+	enum imap_quote_flags qflags = (utf8 ? IMAP_QUOTE_FLAG_UTF8 : 0);
 	ARRAY(struct namespace_order) ns_order;
 	struct namespace_order *no;
 	unsigned int count = 0;
@@ -72,7 +73,7 @@ list_namespaces(struct mail_namespace *ns, enum mail_namespace_type type,
 			prefix = str_c(mutf7_prefix);
 		}
 
-		imap_append_string(str, prefix, 0);
+		imap_append_string(str, prefix, qflags);
 		str_append(str, " \"");
 		if (ns_sep == '\\')
 			str_append_c(str, '\\');

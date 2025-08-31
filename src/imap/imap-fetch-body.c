@@ -247,6 +247,8 @@ body_header_fields_parse(struct imap_fetch_init_context *ctx,
 			 struct imap_fetch_body_data *body, const char *prefix,
 			 const struct imap_arg *args, unsigned int args_count)
 {
+	enum imap_quote_flags qflags = (ctx->fetch_ctx->utf8 ?
+					IMAP_QUOTE_FLAG_UTF8 : 0);
 	string_t *str;
 	const char *value;
 	size_t i;
@@ -271,7 +273,7 @@ body_header_fields_parse(struct imap_fetch_init_context *ctx,
 		if (args[i].type == IMAP_ARG_ATOM)
 			str_append(str, value);
 		else
-			imap_append_quoted(str, value, 0);
+			imap_append_quoted(str, value, qflags);
 	}
 	str_append_c(str, ')');
 	body->section = str_c(str);
@@ -601,6 +603,7 @@ static int ATTR_NULL(3)
 fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
 	      struct imap_fetch_preview_data *preview)
 {
+	enum imap_quote_flags qflags = (ctx->utf8 ? IMAP_QUOTE_FLAG_UTF8 : 0);
 	enum mail_lookup_abort temp_lookup_abort = preview->lazy ? MAIL_LOOKUP_ABORT_NOT_IN_CACHE_START_CACHING : mail->lookup_abort;
 	enum mail_lookup_abort orig_lookup_abort = mail->lookup_abort;
 	const char *resp, *snippet;
@@ -640,7 +643,7 @@ fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
 	else
 		str_append(ctx->state.cur_str, " ");
 	if (ret == 0)
-		imap_append_string(ctx->state.cur_str, snippet, 0);
+		imap_append_string(ctx->state.cur_str, snippet, qflags);
 	else
 		str_append(ctx->state.cur_str, "NIL");
 	if (preview->old_standard)

@@ -109,6 +109,8 @@ imap_metadata_parse_entry_names(struct imap_getmetadata_context *ctx,
 static string_t *
 metadata_add_entry(struct imap_getmetadata_context *ctx, const char *entry)
 {
+	enum imap_quote_flags qflags = (ctx->cmd->utf8 ?
+					IMAP_QUOTE_FLAG_UTF8 : 0);
 	string_t *str;
 
 	str = t_str_new(64);
@@ -121,7 +123,7 @@ metadata_add_entry(struct imap_getmetadata_context *ctx, const char *entry)
 			/* server metadata reply */
 			str_append(str, "\"\"");
 		} else if (ctx->cmd->utf8) {
-			imap_append_astring(str, mailbox_get_vname(ctx->box), FALSE);
+			imap_append_astring(str, mailbox_get_vname(ctx->box), qflags);
 		} else {
 			if (imap_utf8_to_utf7(mailbox_get_vname(ctx->box), mailbox_mutf7) < 0)
 				i_unreached();
@@ -134,7 +136,7 @@ metadata_add_entry(struct imap_getmetadata_context *ctx, const char *entry)
 	} else {
 		str_append_c(str, ' ');
 	}
-	imap_append_astring(str, entry, 0);
+	imap_append_astring(str, entry, qflags);
 	return str;
 }
 

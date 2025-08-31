@@ -291,6 +291,8 @@ static void index_mail_parse_finish_imap_envelope(struct index_mail *mail)
 	string_t *str;
 
 	str = str_new(mail->mail.data_pool, 256);
+	/* FIXME: Implement UTF-8 support for quoted strings in generated
+	          ENVELOPE element. */
 	imap_envelope_write(mail->data.envelope_data, str, 0);
 	mail->data.envelope = str_c(str);
 	mail->data.save_envelope = FALSE;

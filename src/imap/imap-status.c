@@ -132,13 +132,15 @@ int imap_status_send(struct client *client, const char *mailbox_mutf7,
 		     const struct imap_status_items *items,
 		     const struct imap_status_result *result)
 {
+	bool utf8 = client_has_enabled(client, imap_feature_utf8accept);
+	enum imap_quote_flags qflags = (utf8 ? IMAP_QUOTE_FLAG_UTF8 : 0);
 	const struct mailbox_status *status = &result->status;
 	string_t *str;
 	size_t prefix_len;
 
 	str = t_str_new(128);
 	str_append(str, "* STATUS ");
-        imap_append_astring(str, mailbox_mutf7, 0);
+        imap_append_astring(str, mailbox_mutf7, qflags);
 	str_append(str, " (");
 
 	prefix_len = str_len(str);
