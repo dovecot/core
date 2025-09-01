@@ -54,11 +54,13 @@ static int dregex_code_callout(pcre2_callout_block *block ATTR_UNUSED, void *ctx
 	return 0;
 }
 
+#ifdef HAVE_PCRE2_SUBSTITUTE_CALLOUT_BLOCK
 static int
 dregex_code_substitute_callout(pcre2_substitute_callout_block *block ATTR_UNUSED, void *ctx)
 {
 	return dregex_code_callout(NULL, ctx);
 }
+#endif
 
 static int dregex_code_guard(uint depth, void *ctx)
 {
@@ -78,7 +80,9 @@ static void dregex_code_init(struct dregex_code *code)
 	pcre2_set_compile_recursion_guard(code->cctx, dregex_code_guard, code);
 	/* these are used to ensure that CPU time isn't exceeded */
 	pcre2_set_callout(code->mctx, dregex_code_callout, code);
+#ifdef HAVE_PCRE2_SUBSTITUTE_CALLOUT_BLOCK
 	pcre2_set_substitute_callout(code->mctx, dregex_code_substitute_callout, code);
+#endif
 
 	/* Set some limits */
 	pcre2_set_match_limit(code->mctx, code->max_capture_groups);

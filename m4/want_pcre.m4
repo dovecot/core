@@ -12,6 +12,10 @@ AC_DEFUN([DOVECOT_WANT_PCRE], [
   ])
 
   AS_IF([test "$have_pcre" != "no"], [
+    old_CFLAGS="$CFLAGS"
+    CFLAGS="$CFLAGS $LIBPCRE_CFLAGS"
+    AC_CHECK_FUNCS([pcre2_substitute_callout_block])
+    CFLAGS="$old_CFLAGS"
     AC_DEFINE(HAVE_LIBPCRE,, [Define if you have libpcre2 backed regular expressions])
   ])
 
