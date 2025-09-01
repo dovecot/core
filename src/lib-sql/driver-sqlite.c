@@ -24,8 +24,8 @@ struct sqlite_db {
 
 	sqlite3 *sqlite;
 	const struct sqlite_settings *set;
-	bool connected:1;
 	int rc;
+	bool connected:1;
 };
 
 struct sqlite_result {
