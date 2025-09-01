@@ -32,6 +32,7 @@ struct sqlite_result {
 	struct sql_result api;
 	sqlite3_stmt *stmt;
 	unsigned int cols;
+	int rc;
 	const char **row;
 };
 
@@ -257,14 +258,14 @@ driver_sqlite_escape_string(struct sql_db *_db ATTR_UNUSED,
 }
 
 static const char *
-driver_sqlite_result_log(const struct sql_result *result, const char *query)
+driver_sqlite_result_log(const struct sqlite_result *result, const char *query)
 {
-	struct sqlite_db *db = container_of(result->db, struct sqlite_db, api);
-	bool success = db->connected && db->connect_rc == SQLITE_OK;
+	struct sqlite_db *db = container_of(result->api.db, struct sqlite_db, api);
+	bool success = db->connected && result->rc == SQLITE_OK;
 	int duration;
 	const char *suffix = "";
 	struct event_passthrough *e =
-		sql_query_finished_event(&db->api, result->event, query, success,
+		sql_query_finished_event(&db->api, result->api.event, query, success,
 					 &duration);
 	io_loop_time_refresh();
 
@@ -273,21 +274,21 @@ driver_sqlite_result_log(const struct sql_result *result, const char *query)
 					 db->connect_rc);
 		e->add_str("error", "Cannot connect to database");
 		e->add_int("error_code", db->connect_rc);
-	} else if (db->connect_rc == SQLITE_NOMEM) {
-		suffix = t_strdup_printf(": %s (%d)", sqlite3_errmsg(db->sqlite),
-					 db->connect_rc);
+	} else if (result->rc == SQLITE_NOMEM) {
+		suffix = t_strdup_printf(": %s (%d)", sqlite3_errstr(result->rc),
+					 result->rc);
 		i_fatal_status(FATAL_OUTOFMEM, SQL_QUERY_FINISHED_FMT"%s", query,
 			       duration, suffix);
-	} else if (db->connect_rc == SQLITE_READONLY || db->connect_rc == SQLITE_CANTOPEN) {
+	} else if (result->rc == SQLITE_READONLY || result->rc == SQLITE_CANTOPEN) {
 		const char *eacces_err = eacces_error_get("write", db->set->path);
 		suffix = t_strconcat(": ", eacces_err, NULL);
 		e->add_str("error", eacces_err);
-		e->add_int("error_code", db->connect_rc);
-	} else if (db->connect_rc != SQLITE_OK) {
-		suffix = t_strdup_printf(": %s (%d)", sqlite3_errmsg(db->sqlite),
-					 db->connect_rc);
-		e->add_str("error", sqlite3_errmsg(db->sqlite));
-		e->add_int("error_code", db->connect_rc);
+		e->add_int("error_code", result->rc);
+	} else if (result->rc != SQLITE_OK) {
+		suffix = t_strdup_printf(": %s (%d)", sqlite3_errstr(result->rc),
+					 result->rc);
+		e->add_str("error", sqlite3_errstr(result->rc));
+		e->add_int("error_code", result->rc);
 	}
 	e_debug(e->event(), SQL_QUERY_FINISHED_FMT"%s", query, duration, suffix);
 	return t_strdup_printf("Query '%s'%s", query, suffix);
@@ -296,24 +297,25 @@ driver_sqlite_result_log(const struct sql_result *result, const char *query)
 static int driver_sqlite_exec_query(struct sqlite_db *db, const char *query,
 				    const char **error_r)
 {
-	struct sql_result result;
+	struct sqlite_result result;
 
 	i_zero(&result);
-	result.db = &db->api;
-	result.event = event_create(db->api.event);
+	result.api.db = &db->api;
+	result.api.event = event_create(db->api.event);
 
 	/* Other drivers do not include time spent connecting
 	   but this simplifies error logging, so we include
 	   it here. */
 	if (driver_sqlite_connect(&db->api) < 0) {
 		*error_r = driver_sqlite_result_log(&result, query);
+		result.rc = db->connect_rc;
 	} else {
-		db->connect_rc = sqlite3_exec(db->sqlite, query, NULL, NULL, NULL);
+		result.rc = sqlite3_exec(db->sqlite, query, NULL, NULL, NULL);
 		*error_r = driver_sqlite_result_log(&result, query);
 	}
 
-	event_unref(&result.event);
-	return db->connect_rc;
+	event_unref(&result.api.event);
+	return result.rc;
 }
 
 static void driver_sqlite_exec(struct sql_db *_db, const char *query)
@@ -351,14 +353,13 @@ driver_sqlite_query_s(struct sql_db *_db, const char *query)
 	result->api.event = event;
 
 	if (driver_sqlite_connect(_db) < 0) {
-		driver_sqlite_result_log(&result->api, query);
 		result->api = driver_sqlite_error_result;
 		result->stmt = NULL;
 		result->cols = 0;
+		result->rc = db->connect_rc;
 	} else {
-		db->connect_rc = sqlite3_prepare(db->sqlite, query, -1, &result->stmt, NULL);
-		driver_sqlite_result_log(&result->api, query);
-		if (db->connect_rc == SQLITE_OK) {
+		result->rc = sqlite3_prepare(db->sqlite, query, -1, &result->stmt, NULL);
+		if (result->rc == SQLITE_OK) {
 			result->api = driver_sqlite_result;
 			result->cols = sqlite3_column_count(result->stmt);
 			if (result->cols == 0)
@@ -375,6 +376,8 @@ driver_sqlite_query_s(struct sql_db *_db, const char *query)
 	result->api.db = _db;
 	result->api.refcount = 1;
 	result->api.event = event;
+	driver_sqlite_result_log(result, query);
+
 	return &result->api;
 }
 
@@ -408,16 +411,16 @@ static int driver_sqlite_result_next_row(struct sql_result *_result)
 {
 	struct sqlite_result *result =
 		container_of(_result, struct sqlite_result, api);
-	struct sqlite_db *db =
-		container_of(result->api.db, struct sqlite_db, api);
-	switch (sqlite3_step(result->stmt)) {
+	result->rc = sqlite3_step(result->stmt);
+
+	switch (result->rc) {
 	case SQLITE_ROW:
 		return 1;
 	case SQLITE_DONE:
 		return 0;
 	case SQLITE_NOMEM:
-		i_fatal_status(FATAL_OUTOFMEM, "sqlite3_step() failed: %s(%d)",
-			       sqlite3_errmsg(db->sqlite), SQLITE_NOMEM);
+		i_fatal_status(FATAL_OUTOFMEM, "sqlite3_step() failed: %s (%d)",
+			       sqlite3_errstr(result->rc), SQLITE_NOMEM);
 	default:
 		return -1;
 	}
@@ -515,12 +518,12 @@ static const char *driver_sqlite_result_get_error(struct sql_result *_result)
 		container_of(result->api.db, struct sqlite_db, api);
 
 	if (db->connected) {
-		const char *err = sqlite3_errstr(db->connect_rc);
-		if (db->connect_rc == SQLITE_READONLY || db->connect_rc == SQLITE_CANTOPEN)
+		const char *err = sqlite3_errstr(result->rc);
+		if (result->rc == SQLITE_READONLY || result->rc == SQLITE_CANTOPEN)
 			err = t_strconcat(err, ": ",
 					  eacces_error_get("write", db->set->path), NULL);
 		return err;
-	} else if (db->connect_rc == SQLITE_CANTOPEN) {
+	} else if (result->rc == SQLITE_CANTOPEN) {
 		struct stat st;
 		const char *err;
 		if (stat(db->set->path, &st) == -1 && errno == ENOENT) {
