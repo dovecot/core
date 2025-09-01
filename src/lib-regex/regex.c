@@ -369,8 +369,14 @@ int dregex_code_replace_full(struct dregex_code *code,
 		options |= PCRE2_ANCHORED;
 	if (HAS_ALL_BITS(flags, DREGEX_REPLACE_ALL))
 		options |= PCRE2_SUBSTITUTE_GLOBAL;
-	if (HAS_ALL_BITS(flags, DREGEX_REPLACE_LITERAL))
+	if (HAS_ALL_BITS(flags, DREGEX_REPLACE_LITERAL)) {
+#ifdef PCRE2_SUBSTITUTE_LITERAL
 		options |= PCRE2_SUBSTITUTE_LITERAL;
+#else
+		*error_r = "DREGEX_REPLACE_LITERAL not supported on this platform";
+		return -1;
+#endif
+	}
 
 	PCRE2_UCHAR *result32 = U"";
 	PCRE2_SIZE result_len = 0;
