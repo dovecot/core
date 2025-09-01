@@ -96,7 +96,11 @@ static void driver_sqlite_disconnect(struct sql_db *_db)
 	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
 
 	sql_connection_log_finished(_db);
-	sqlite3_close(db->sqlite);
+	int rc = sqlite3_close(db->sqlite);
+	if (rc != SQLITE_OK) {
+		e_error(db->api.event, "sqlite3_close() failed: %s (%d)",
+			sqlite3_errstr(rc), rc);
+	}
 	db->sqlite = NULL;
 	db->connected = FALSE;
 }
