@@ -27,6 +27,7 @@ struct header_filter_istream {
 	void *context;
 
 	buffer_t *hdr_buf;
+	int snapshot_pending_refcount;
 	struct message_size header_size;
 	uoff_t skip_count;
 	uoff_t last_lf_offset;
@@ -50,7 +51,6 @@ struct header_filter_istream {
 	bool eoh_not_matched:1;
 	bool callbacks_called:1;
 	bool prev_matched:1;
-	bool snapshot_pending:1;
 };
 
 header_filter_callback *null_header_filter_callback = NULL;
@@ -66,7 +66,7 @@ static void i_stream_header_filter_destroy(struct iostream_private *stream)
 		message_parse_header_deinit(&mstream->hdr_ctx);
 	if (array_is_created(&mstream->match_change_lines))
 		array_free(&mstream->match_change_lines);
-	if (!mstream->snapshot_pending)
+	if (mstream->snapshot_pending_refcount == 0)
 		buffer_free(&mstream->hdr_buf);
 	else {
 		/* Clear hdr_buf to make sure
@@ -168,7 +168,7 @@ static ssize_t hdr_stream_update_pos(struct header_filter_istream *mstream)
 
 static void hdr_buf_realloc_if_needed(struct header_filter_istream *mstream)
 {
-	if (!mstream->snapshot_pending)
+	if (mstream->snapshot_pending_refcount == 0)
 		return;
 
 	/* hdr_buf exists in a snapshot. Leave it be and create a copy of it
@@ -177,7 +177,7 @@ static void hdr_buf_realloc_if_needed(struct header_filter_istream *mstream)
 	mstream->hdr_buf = buffer_create_dynamic(default_pool,
 						 I_MAX(1024, old_buf->used));
 	buffer_append(mstream->hdr_buf, old_buf->data, old_buf->used);
-	mstream->snapshot_pending = FALSE;
+	mstream->snapshot_pending_refcount = 0;
 
 	mstream->istream.buffer = mstream->hdr_buf->data;
 }
@@ -662,8 +662,8 @@ i_stream_header_filter_snapshot_free(struct istream_snapshot *_snapshot)
 	if (snapshot->mstream->hdr_buf != snapshot->hdr_buf)
 		buffer_free(&snapshot->hdr_buf);
 	else {
-		i_assert(snapshot->mstream->snapshot_pending);
-		snapshot->mstream->snapshot_pending = FALSE;
+		i_assert(snapshot->mstream->snapshot_pending_refcount > 0);
+		snapshot->mstream->snapshot_pending_refcount--;
 	}
 	i_free(snapshot);
 }
@@ -687,7 +687,7 @@ i_stream_header_filter_snapshot(struct istream_private *stream,
 	snapshot->hdr_buf = mstream->hdr_buf;
 	snapshot->snapshot.free = i_stream_header_filter_snapshot_free;
 	snapshot->snapshot.prev_snapshot = prev_snapshot;
-	mstream->snapshot_pending = TRUE;
+	mstream->snapshot_pending_refcount++;
 	return &snapshot->snapshot;
 }
 
