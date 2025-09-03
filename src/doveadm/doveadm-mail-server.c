@@ -837,8 +837,12 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 		request->print_username = print_username;
 		doveadm_client_settings_dup(&conn_set, &request->set, request->pool);
 	}
+	if (master_service_is_killed(master_service)) {
+		*error_r = "Shutting down";
+		return -1;
+	}
 	*error_r = "doveadm server failure";
-	return DOVEADM_MAIL_SERVER_FAILED(ctx) ? -1 : 1;
+	return ctx->server_connect_failure ? -1 : 1;
 }
 
 void doveadm_mail_server_flush(struct doveadm_mail_cmd_context *ctx)
@@ -873,7 +877,7 @@ void doveadm_mail_server_flush(struct doveadm_mail_cmd_context *ctx)
 
 	doveadm_clients_destroy_all();
 	if (doveadm_is_killed())
-		e_error(ctx->cctx->event, "Aborted");
+		e_error(ctx->cctx->event, "Shutting down");
 	if (DOVEADM_MAIL_SERVER_FAILED(ctx))
 		doveadm_mail_failed_error(ctx, MAIL_ERROR_TEMP);
 
