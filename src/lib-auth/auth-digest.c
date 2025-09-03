@@ -13,16 +13,17 @@
 /* Linear whitespace */
 #define IS_LWS(c) ((c) == ' ' || (c) == '\t')
 
-bool auth_digest_parse_keyvalue(char **data, char **key_r, char **value_r)
+bool auth_digest_parse_keyvalue(char **data, const char **key_r,
+				const char **value_r)
 {
 	/* @UNSAFE */
-	char *p, *dest;
+	char *p, *dest, *key, *value;
 
 	p = *data;
 	while (IS_LWS(*p)) p++;
 
 	/* get key */
-	*key_r = p;
+	key = p;
 	while (*p != '\0' && *p != '=' && *p != ',')
 		p++;
 
@@ -31,7 +32,7 @@ bool auth_digest_parse_keyvalue(char **data, char **key_r, char **value_r)
 		return FALSE;
 	}
 
-	*value_r = p+1;
+	value = p+1;
 
 	/* skip trailing whitespace in key */
 	while (p > *data && IS_LWS(p[-1]))
@@ -39,7 +40,7 @@ bool auth_digest_parse_keyvalue(char **data, char **key_r, char **value_r)
 	*p = '\0';
 
 	/* get value */
-	p = *value_r;
+	p = value;
 	while (IS_LWS(*p)) p++;
 
 	if (*p != '"') {
@@ -55,7 +56,7 @@ bool auth_digest_parse_keyvalue(char **data, char **key_r, char **value_r)
 		*p = '\0';
 	} else {
 		/* quoted string */
-		*value_r = dest = ++p;
+		value = dest = ++p;
 		while (*p != '\0' && *p != '"') {
 			if (*p == '\\' && p[1] != '\0')
 				p++;
@@ -66,6 +67,8 @@ bool auth_digest_parse_keyvalue(char **data, char **key_r, char **value_r)
 		*dest = '\0';
 	}
 
+	*key_r = str_lcase(key);
+	*value_r = value;
 	return TRUE;
 }
 

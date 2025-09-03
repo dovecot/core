@@ -5,7 +5,8 @@
  * Parsing
  */
 
-bool auth_digest_parse_keyvalue(char **data, char **key_r, char **value_r);
+bool auth_digest_parse_keyvalue(char **data, const char **key_r,
+				const char **value_r);
 
 /*
  * Processing

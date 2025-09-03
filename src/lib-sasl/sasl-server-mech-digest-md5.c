@@ -189,12 +189,10 @@ verify_credentials(struct sasl_server_mech_request *auth_request,
 
 static bool
 auth_handle_response(struct digest_auth_request *request,
-		     char *key, char *value, const char **error_r)
+		     const char *key, const char *value, const char **error_r)
 {
 	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	unsigned int i;
-
-	(void)str_lcase(key);
 
 	if (strcmp(key, "realm") == 0) {
 		if (auth_request->realm == NULL && *value != '\0')
@@ -367,7 +365,7 @@ parse_digest_response(struct digest_auth_request *request,
 		      const char **error_r)
 {
 	struct sasl_server_mech_request *auth_request = &request->auth_request;
-	char *copy, *key, *value;
+	char *copy;
 	bool failed;
 
 	/*
@@ -397,6 +395,8 @@ parse_digest_response(struct digest_auth_request *request,
 	   potential problems with NUL characters in strings. */
 	copy = t_strdup_noconst(t_strndup(data, size));
 	while (*copy != '\0') {
+		const char *key, *value;
+
 		if (auth_digest_parse_keyvalue(&copy, &key, &value)) {
 			if (!auth_handle_response(request, key, value,
 						  error_r)) {
