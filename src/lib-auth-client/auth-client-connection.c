@@ -73,7 +73,7 @@ auth_server_input_mech(struct auth_client_connection *conn,
 	i_zero(&mech_desc);
 	mech_desc.name = p_strdup(conn->pool, args[0]);
 
-	if (strcmp(mech_desc.name, "PLAIN") == 0)
+	if (strcmp(mech_desc.name, SASL_MECH_NAME_PLAIN) == 0)
 		conn->has_plain_mech = TRUE;
 
 	for (args++; *args != NULL; args++) {

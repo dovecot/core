@@ -199,7 +199,7 @@ mech_oauthbearer_get_result(struct dsasl_client *_client, const char *key,
 }
 
 const struct dsasl_client_mech dsasl_client_mech_oauthbearer = {
-	.name = "OAUTHBEARER",
+	.name = SASL_MECH_NAME_OAUTHBEARER,
 	.struct_size = sizeof(struct oauthbearer_dsasl_client),
 
 	.input = mech_oauthbearer_input,
@@ -209,7 +209,7 @@ const struct dsasl_client_mech dsasl_client_mech_oauthbearer = {
 };
 
 const struct dsasl_client_mech dsasl_client_mech_xoauth2 = {
-	.name = "XOAUTH2",
+	.name = SASL_MECH_NAME_XOAUTH2,
 	.struct_size = sizeof(struct oauthbearer_dsasl_client),
 
 	.input = mech_oauthbearer_input,

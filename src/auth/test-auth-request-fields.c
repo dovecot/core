@@ -144,16 +144,20 @@ static void test_auth_request_fields_secured(void)
 
 static void test_auth_request_export_import(void)
 {
-	struct auth_request *request_a = test_auth_request_init(mech_module_find("PLAIN"));
+	struct auth_request *request_a =
+		test_auth_request_init(mech_module_find(SASL_MECH_NAME_PLAIN));
 	string_t *exported_a = t_str_new(128);
 	string_t *exported_b = t_str_new(128);
 	request_a->passdb_success = TRUE;
-	auth_request_set_field(request_a, "event_brand with fun = \" values", "this = has _ fun \t values \"", "PLAIN");
+	auth_request_set_field(request_a, "event_brand with fun = \" values",
+			       "this = has _ fun \t values \"",
+			       SASL_MECH_NAME_PLAIN);
 	auth_request_export(request_a, exported_a);
 	test_auth_request_deinit(request_a);
 
 	/* then import it */
-	struct auth_request *request_b = test_auth_request_init(mech_module_find("PLAIN"));
+	struct auth_request *request_b =
+		test_auth_request_init(mech_module_find(SASL_MECH_NAME_PLAIN));
 	const char *const *args = t_strsplit_tabescaped(str_c(exported_a));
 	for (; *args != NULL; args++) {
 		const char *value = strchr(*args, '=');

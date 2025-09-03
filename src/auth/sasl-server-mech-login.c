@@ -57,7 +57,7 @@ static const struct sasl_server_mech_funcs mech_login_funcs = {
 };
 
 const struct sasl_server_mech_def mech_login = {
-	.name = "LOGIN",
+	.name = SASL_MECH_NAME_LOGIN,
 
 	.flags = SASL_MECH_SEC_PLAINTEXT,
 	.passdb_need = SASL_MECH_PASSDB_NEED_VERIFY_PLAIN,

@@ -424,7 +424,7 @@ mech_register_init(const struct auth_settings *set)
 	array_foreach_elem(&set->mechanisms, name) {
 		name = t_str_ucase(name);
 
-		if (strcmp(name, "ANONYMOUS") == 0) {
+		if (strcmp(name, SASL_MECH_NAME_ANONYMOUS) == 0) {
 			if (*set->anonymous_username == '\0') {
 				i_fatal("ANONYMOUS listed in mechanisms, "
 					"but anonymous_username not set");

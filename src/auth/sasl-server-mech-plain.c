@@ -68,7 +68,7 @@ static const struct sasl_server_mech_funcs mech_plain_funcs = {
 };
 
 const struct sasl_server_mech_def mech_plain = {
-	.name = "PLAIN",
+	.name = SASL_MECH_NAME_PLAIN,
 
 	.flags = SASL_MECH_SEC_PLAINTEXT | SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_VERIFY_PLAIN,

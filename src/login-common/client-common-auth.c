@@ -490,7 +490,7 @@ proxy_redirect_reauth(struct client *client, const char *destuser,
 		t_strdup_printf("destuser=%s", str_tabescape(destuser)),
 		t_strdup_printf("proxy_timeout=%u", connect_timeout_msecs),
 	};
-	info.mech = "EXTERNAL";
+	info.mech = SASL_MECH_NAME_EXTERNAL;
 	t_array_init(&info.extra_fields, N_ELEMENTS(extra_fields));
 	array_append(&info.extra_fields, extra_fields,
 		     N_ELEMENTS(extra_fields));

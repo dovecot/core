@@ -680,7 +680,7 @@ static const struct sasl_server_mech_funcs mech_gssapi_funcs = {
 };
 
 const struct sasl_server_mech_def mech_gssapi = {
-	.name = "GSSAPI",
+	.name = SASL_MECH_NAME_GSSAPI,
 
 	.flags = SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,
@@ -692,7 +692,7 @@ const struct sasl_server_mech_def mech_gssapi = {
    internally. Nothing else needs to be done here. Note, however, that this does
    not support SPNEGO when the only available credential is NTLM. */
 const struct sasl_server_mech_def mech_gssapi_spnego = {
-	.name = "GSS-SPNEGO",
+	.name = SASL_MECH_NAME_GSS_SPNEGO,
 
 	.flags = SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,

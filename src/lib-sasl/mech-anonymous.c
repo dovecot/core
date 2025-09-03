@@ -46,7 +46,7 @@ mech_anonymous_output(struct dsasl_client *_client,
 }
 
 const struct dsasl_client_mech dsasl_client_mech_anonymous = {
-	.name = "ANONYMOUS",
+	.name = SASL_MECH_NAME_ANONYMOUS,
 	.struct_size = sizeof(struct anonymous_dsasl_client),
 	.flags = DSASL_MECH_SEC_NO_PASSWORD,
 

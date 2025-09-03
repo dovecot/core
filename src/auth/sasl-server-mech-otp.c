@@ -319,7 +319,7 @@ static const struct sasl_server_mech_funcs mech_otp_funcs = {
 };
 
 const struct sasl_server_mech_def mech_otp = {
-	.name = "OTP",
+	.name = SASL_MECH_NAME_OTP,
 
 	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE |
 		 SASL_MECH_SEC_ALLOW_NULS,

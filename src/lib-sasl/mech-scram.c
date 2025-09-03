@@ -143,7 +143,7 @@ static void mech_scram_free(struct dsasl_client *client)
 }
 
 const struct dsasl_client_mech dsasl_client_mech_scram_sha_1 = {
-	.name = "SCRAM-SHA-1",
+	.name = SASL_MECH_NAME_SCRAM_SHA_1,
 	.struct_size = sizeof(struct scram_dsasl_client),
 
 	.input = mech_scram_input,
@@ -152,7 +152,7 @@ const struct dsasl_client_mech dsasl_client_mech_scram_sha_1 = {
 };
 
 const struct dsasl_client_mech dsasl_client_mech_scram_sha_1_plus = {
-	.name = "SCRAM-SHA-1-PLUS",
+	.name = SASL_MECH_NAME_SCRAM_SHA_1_PLUS,
 	.struct_size = sizeof(struct scram_dsasl_client),
 
 	.input = mech_scram_input,
@@ -161,7 +161,7 @@ const struct dsasl_client_mech dsasl_client_mech_scram_sha_1_plus = {
 };
 
 const struct dsasl_client_mech dsasl_client_mech_scram_sha_256 = {
-	.name = "SCRAM-SHA-256",
+	.name = SASL_MECH_NAME_SCRAM_SHA_256,
 	.struct_size = sizeof(struct scram_dsasl_client),
 
 	.input = mech_scram_input,
@@ -170,7 +170,7 @@ const struct dsasl_client_mech dsasl_client_mech_scram_sha_256 = {
 };
 
 const struct dsasl_client_mech dsasl_client_mech_scram_sha_256_plus = {
-	.name = "SCRAM-SHA-256-PLUS",
+	.name = SASL_MECH_NAME_SCRAM_SHA_256_PLUS,
 	.struct_size = sizeof(struct scram_dsasl_client),
 
 	.input = mech_scram_input,

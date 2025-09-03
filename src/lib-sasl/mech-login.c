@@ -67,7 +67,7 @@ mech_login_output(struct dsasl_client *_client,
 }
 
 const struct dsasl_client_mech dsasl_client_mech_login = {
-	.name = "LOGIN",
+	.name = SASL_MECH_NAME_LOGIN,
 	.struct_size = sizeof(struct login_dsasl_client),
 
 	.input = mech_login_input,

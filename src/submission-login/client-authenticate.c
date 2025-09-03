@@ -353,7 +353,8 @@ void cmd_mail(struct smtp_server_cmd_ctx *cmd, const char *params)
 
 	if (HAS_NO_BITS(workarounds,
 			SUBMISSION_LOGIN_WORKAROUND_IMPLICIT_AUTH_EXTERNAL) ||
-	    sasl_server_find_available_mech(client, "EXTERNAL") == NULL) {
+	    sasl_server_find_available_mech(
+			client, SASL_MECH_NAME_EXTERNAL) == NULL) {
 		smtp_server_command_fail(cmd->cmd, 530, "5.7.0",
 					 "Authentication required.");
 		return;
@@ -369,5 +370,5 @@ void cmd_mail(struct smtp_server_cmd_ctx *cmd, const char *params)
 	i_assert(subm_client->pending_auth == NULL);
 	subm_client->pending_auth = cmd;
 
-	(void)client_auth_begin_implicit(client, "EXTERNAL", "=");
+	(void)client_auth_begin_implicit(client, SASL_MECH_NAME_EXTERNAL, "=");
 }

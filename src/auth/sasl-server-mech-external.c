@@ -34,7 +34,7 @@ static const struct sasl_server_mech_funcs mech_external_funcs = {
 };
 
 const struct sasl_server_mech_def mech_external = {
-	.name = "EXTERNAL",
+	.name = SASL_MECH_NAME_EXTERNAL,
 
 	.flags = 0,
 	.passdb_need = SASL_MECH_PASSDB_NEED_VERIFY_PLAIN,

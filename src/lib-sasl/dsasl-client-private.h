@@ -1,6 +1,7 @@
 #ifndef DSASL_CLIENT_PRIVATE_H
 #define DSASL_CLIENT_PRIVATE_H
 
+#include "sasl-common.h"
 #include "dsasl-client.h"
 
 enum dsasl_mech_security_flags {

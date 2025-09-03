@@ -62,7 +62,7 @@ mech_plain_output(struct dsasl_client *_client,
 }
 
 const struct dsasl_client_mech dsasl_client_mech_plain = {
-	.name = "PLAIN",
+	.name = SASL_MECH_NAME_PLAIN,
 	.struct_size = sizeof(struct plain_dsasl_client),
 
 	.input = mech_plain_input,

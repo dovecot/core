@@ -320,7 +320,7 @@ static const struct sasl_server_mech_funcs mech_oauthbearer_funcs = {
 };
 
 const struct sasl_server_mech_def mech_oauthbearer = {
-	.name = "OAUTHBEARER",
+	.name = SASL_MECH_NAME_OAUTHBEARER,
 
 	/* while this does not transfer plaintext password,
 	   the token is still considered as password */
@@ -337,7 +337,7 @@ static const struct sasl_server_mech_funcs mech_xoauth2_funcs = {
 };
 
 const struct sasl_server_mech_def mech_xoauth2 = {
-	.name = "XOAUTH2",
+	.name = SASL_MECH_NAME_XOAUTH2,
 
 	.flags = SASL_MECH_SEC_PLAINTEXT,
 	.passdb_need = 0,

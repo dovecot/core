@@ -212,7 +212,7 @@ bool cmd_pass(struct pop3_client *pop3_client, const char *args)
 	base64 = t_buffer_create(MAX_BASE64_ENCODED_SIZE(plain_login->used));
 	base64_encode(plain_login->data, plain_login->used, base64);
 
-	(void)client_auth_begin(client, "PLAIN", str_c(base64));
+	(void)client_auth_begin(client, SASL_MECH_NAME_PLAIN, str_c(base64));
 	return TRUE;
 }
 
