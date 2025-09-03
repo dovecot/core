@@ -1386,7 +1386,7 @@ int index_mail_init_stream(struct index_mail *mail,
 			index_mail_stream_destroy_callback, mail);
 	}
 
-	bool want_attachment_kw =
+	bool want_attachment_kw = !data->stream_has_only_header &&
 		index_mail_want_attachment_keywords_on_fetch(mail);
 	if (want_attachment_kw) {
 		data->access_part |= PARSE_HDR | PARSE_BODY;
