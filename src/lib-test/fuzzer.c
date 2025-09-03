@@ -86,7 +86,6 @@ int fuzzer_io_as_fd(struct fuzzer_context *fuzz_ctx,
 	return sfd[1];
 }
 
-
 const char *fuzzer_t_strndup_replace_zero(
 	const uint8_t *data, size_t size, char subst)
 {
