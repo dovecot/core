@@ -11,6 +11,7 @@
 #include "md5.h"
 #include "buffer.h"
 #include "sasl-server-protected.h"
+#include "auth-sasl.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
 
@@ -160,7 +161,7 @@ static const struct sasl_server_mech_funcs mech_apop_funcs = {
 };
 
 const struct sasl_server_mech_def mech_apop = {
-	.name = "APOP",
+	.name = AUTH_SASL_MECH_NAME_APOP,
 
 	.flags = SASL_MECH_SEC_PRIVATE | SASL_MECH_SEC_DICTIONARY |
 		 SASL_MECH_SEC_ACTIVE | SASL_MECH_SEC_ALLOW_NULS,

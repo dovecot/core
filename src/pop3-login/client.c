@@ -232,7 +232,8 @@ static char *get_apop_challenge(struct pop3_client *client)
 	unsigned char buffer_base64[MAX_BASE64_ENCODED_SIZE(sizeof(buffer)) + 1];
 	buffer_t buf;
 
-	if (sasl_server_find_available_mech(&client->common, "APOP") == NULL) {
+	if (sasl_server_find_available_mech(
+		&client->common, AUTH_SASL_MECH_NAME_APOP) == NULL) {
 		/* disabled, no need to present the challenge */
 		return NULL;
 	}

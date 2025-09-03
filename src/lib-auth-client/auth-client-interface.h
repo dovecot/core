@@ -1,7 +1,7 @@
 #ifndef AUTH_CLIENT_INTERFACE_H
 #define AUTH_CLIENT_INTERFACE_H
 
-#include "sasl-common.h"
+#include "auth-sasl-common.h"
 
 /* Major version changes are not backwards compatible,
    minor version numbers can be ignored. */

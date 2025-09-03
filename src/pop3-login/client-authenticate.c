@@ -272,6 +272,7 @@ bool cmd_apop(struct pop3_client *pop3_client, const char *args)
 		return TRUE;
 	}
 
-	(void)client_auth_begin_private(client, "APOP", str_c(base64));
+	(void)client_auth_begin_private(client, AUTH_SASL_MECH_NAME_APOP,
+					str_c(base64));
 	return TRUE;
 }

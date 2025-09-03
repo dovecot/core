@@ -17,6 +17,7 @@ libauth_client_la_SOURCES = \
 	auth-proxy.c
 
 headers = \
+	auth-sasl-common.h \
 	auth-client.h \
 	auth-client-interface.h \
 	auth-client-private.h \

@@ -2,6 +2,7 @@
 #define AUTH_SASL_H
 
 #include "sasl-server.h"
+#include "auth-sasl-common.h"
 
 /* Used only for string sanitization. */
 #define AUTH_SASL_MAX_MECH_NAME_LEN 64
