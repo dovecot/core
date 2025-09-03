@@ -195,6 +195,11 @@ int doveadm_blocking_connect(const char *path,
 	return ret;
 }
 
+bool doveadm_is_killed(void)
+{
+	return master_service_is_killed(master_service);
+}
+
 int i_strccdascmp(const char *a, const char *b)
 {
 	while(*a != '\0' && *b != '\0') {

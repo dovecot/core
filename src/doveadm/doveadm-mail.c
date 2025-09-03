@@ -47,11 +47,6 @@ struct doveadm_mail_cmd_module_register
 	doveadm_mail_cmd_module_register = { 0 };
 char doveadm_mail_cmd_hide = '\0';
 
-bool doveadm_is_killed(void)
-{
-	return master_service_is_killed(master_service);
-}
-
 void doveadm_mail_failed_error(struct doveadm_mail_cmd_context *ctx,
 			       enum mail_error error)
 {

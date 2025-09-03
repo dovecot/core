@@ -20,6 +20,8 @@ int doveadm_blocking_connect(const char *path,
 			     struct istream **input_r,
 			     struct ostream **output_r, const char **error_r);
 
+bool doveadm_is_killed(void);
+
 void doveadm_load_modules(void);
 void doveadm_unload_modules(void);
 bool doveadm_has_unloaded_plugin(const char *name);
