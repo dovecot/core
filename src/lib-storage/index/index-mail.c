@@ -1368,6 +1368,9 @@ int index_mail_init_stream(struct index_mail *mail,
 	int ret;
 
 	i_assert(_mail->mail_stream_accessed);
+	i_assert(!data->stream_has_only_header || body_size == NULL);
+	i_assert(!data->stream_has_only_header ||
+		 (data->access_part & (READ_BODY | PARSE_BODY)) == 0);
 
 	if (!data->initialized_wrapper_stream &&
 	    _mail->transaction->stats_track) {
