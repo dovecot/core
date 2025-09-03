@@ -23,8 +23,7 @@
 #define DOVEADM_SERVER_QUEUE_MAX 16
 
 #define DOVEADM_MAIL_SERVER_FAILED(ctx) \
-	((ctx)->server_connect_failure || \
-	 master_service_is_killed(master_service))
+	((ctx)->server_connect_failure || doveadm_is_killed())
 
 struct doveadm_server {
 	/* hostname:port or UNIX socket path. Used mainly for logging. */
@@ -873,7 +872,7 @@ void doveadm_mail_server_flush(struct doveadm_mail_cmd_context *ctx)
 		io_loop_run(current_ioloop);
 
 	doveadm_clients_destroy_all();
-	if (master_service_is_killed(master_service))
+	if (doveadm_is_killed())
 		e_error(ctx->cctx->event, "Aborted");
 	if (DOVEADM_MAIL_SERVER_FAILED(ctx))
 		doveadm_mail_failed_error(ctx, MAIL_ERROR_TEMP);

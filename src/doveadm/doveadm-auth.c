@@ -277,7 +277,7 @@ static void auth_connected(struct auth_client *client,
 	const char *error;
 
 	if (!connected) {
-		if (master_service_is_killed(master_service))
+		if (doveadm_is_killed())
 			return;
 		i_fatal("Couldn't connect to auth socket");
 	}
