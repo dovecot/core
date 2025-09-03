@@ -183,10 +183,8 @@ test_programs = \
 	test-doveadm-util
 noinst_PROGRAMS = $(test_programs)
 
-test_libs = \
-	../lib-test/libtest.la \
-	../lib/liblib.la
-test_deps = $(noinst_LTLIBRARIES) $(test_libs)
+test_libs = $(LIBDOVECOT)
+test_deps = $(noinst_LTLIBRARIES) $(LIBDOVECOT_DEPS)
 
 test_doveadm_cmd_SOURCES = doveadm-cmd-parse.c test-doveadm-cmd-parse.c
 test_doveadm_cmd_LDADD = $(test_libs) $(MODULE_LIBS)
