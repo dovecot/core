@@ -7,6 +7,13 @@
 #include "config-parser-private.h"
 #include "old-set-parser.h"
 
+static bool has_config_version(const char *dovecot_config_version)
+{
+	return dovecot_config_version[0] != '\0' &&
+		/* 0.0.0 is for git builds - it's always the latest */
+		strcmp(dovecot_config_version, "0.0.0") != 0;
+}
+
 static void ATTR_FORMAT(2, 3)
 obsolete(struct config_parser_context *ctx, const char *str, ...)
 {
@@ -35,7 +42,7 @@ static void old_settings_handle_rename(struct config_parser_context *ctx,
 	struct settings_history *history = settings_history_get();
 	const struct setting_history_rename *rename;
 
-	if (ctx->dovecot_config_version[0] == '\0')
+	if (!has_config_version(ctx->dovecot_config_version))
 		return;
 
 	array_foreach(&history->renames, rename) {
@@ -79,7 +86,7 @@ bool old_settings_default(const char *dovecot_config_version,
 	struct settings_history *history = settings_history_get();
 	const struct setting_history_default *def;
 
-	if (dovecot_config_version[0] == '\0')
+	if (!has_config_version(dovecot_config_version))
 		return FALSE;
 
 	array_foreach(&history->defaults, def) {
