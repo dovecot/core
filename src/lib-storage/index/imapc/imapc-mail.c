@@ -490,6 +490,7 @@ static int imapc_mail_get_hdr_hash(struct index_mail *imail)
 	const unsigned char *data;
 	size_t size;
 	uoff_t old_offset;
+	struct message_size hdr_size;
 	struct sha1_ctxt sha1_ctx;
 	unsigned char sha1_output[SHA1_RESULTLEN];
 	const char *sha1_str;
@@ -497,13 +498,16 @@ static int imapc_mail_get_hdr_hash(struct index_mail *imail)
 	sha1_init(&sha1_ctx);
 	old_offset = imail->data.stream == NULL ? 0 :
 		imail->data.stream->v_offset;
-	if (mail_get_hdr_stream(&imail->mail.mail, NULL, &input) < 0)
+	if (mail_get_hdr_stream(&imail->mail.mail, &hdr_size, &input) < 0)
 		return -1;
 	i_assert(imail->data.stream != NULL);
+
+	input = i_stream_create_limit(input, hdr_size.physical_size);
 	while (i_stream_read_more(input, &data, &size) > 0) {
 		sha1_loop(&sha1_ctx, data, size);
 		i_stream_skip(input, size);
 	}
+	i_stream_unref(&input);
 	i_stream_seek(imail->data.stream, old_offset);
 	sha1_result(&sha1_ctx, sha1_output);
 
