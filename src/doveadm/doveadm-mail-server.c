@@ -841,7 +841,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 		*error_r = "Shutting down";
 		return -1;
 	}
-	*error_r = "doveadm server failure";
+	*error_r = "Failed to communicate to doveadm server";
 	return ctx->server_connect_failure ? -1 : 1;
 }
 
