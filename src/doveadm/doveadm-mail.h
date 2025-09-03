@@ -94,6 +94,9 @@ struct doveadm_mail_cmd_context {
 	bool proxying:1;
 	/* We're handling only a single user */
 	bool iterate_single_user:1;
+	/* Failed to communicate to doveadm server. When set, abort all the
+	   rest of the users' commands. */
+	bool server_connect_failure:1;
 };
 
 struct doveadm_mail_cmd {

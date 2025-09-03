@@ -22,8 +22,9 @@
 
 #define DOVEADM_SERVER_QUEUE_MAX 16
 
-#define DOVEADM_MAIL_SERVER_FAILED() \
-	(server_connect_failure || master_service_is_killed(master_service))
+#define DOVEADM_MAIL_SERVER_FAILED(ctx) \
+	((ctx)->server_connect_failure || \
+	 master_service_is_killed(master_service))
 
 struct doveadm_server {
 	/* hostname:port or UNIX socket path. Used mainly for logging. */
@@ -59,7 +60,6 @@ struct doveadm_server_request {
 
 static HASH_TABLE(char *, struct doveadm_server *) servers;
 static pool_t server_pool;
-static bool server_connect_failure = FALSE;
 static ARRAY(struct doveadm_server_request) doveadm_server_request_queue;
 
 static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
@@ -504,7 +504,7 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 			"%s: Command %s failed for %s: %s",
 			server->name, cmd_ctx->cmd->name, servercmd->username,
 			reply->error);
-		server_connect_failure = TRUE;
+		cmd_ctx->server_connect_failure = TRUE;
 		io_loop_stop(current_ioloop);
 		doveadm_mail_server_cmd_free(&servercmd);
 		return;
@@ -519,7 +519,7 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 		ret = doveadm_cmd_redirect(servercmd, reply->error);
 		if (ret <= 0) {
 			if (ret < 0)
-				server_connect_failure = TRUE;
+				cmd_ctx->server_connect_failure = TRUE;
 			io_loop_stop(current_ioloop);
 			doveadm_mail_server_cmd_free(&servercmd);
 		}
@@ -625,7 +625,7 @@ doveadm_mail_server_request_queue_handle_next(struct doveadm_mail_cmd_context *c
 	array_pop_front(&doveadm_server_request_queue);
 
 	if (doveadm_client_create(&request_copy.set, &conn, error_r) < 0) {
-		server_connect_failure = TRUE;
+		cmd_ctx->server_connect_failure = TRUE;
 		return -1;
 	}
 	doveadm_mail_server_handle(request_copy.server, conn, cmd_ctx,
@@ -802,7 +802,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	unsigned int limit = I_MAX(ctx->set->doveadm_worker_count, 1);
 	/* Make sure there's space for the new request. Either by creating a
 	   new connection or in the queue. */
-	while (!DOVEADM_MAIL_SERVER_FAILED()) {
+	while (!DOVEADM_MAIL_SERVER_FAILED(ctx)) {
 		/* try to flush existing queue if there are available
 		   connections. */
 		if (doveadm_clients_count() < limit &&
@@ -822,7 +822,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 
 	if (doveadm_clients_count() <= limit) {
 		if (doveadm_client_create(&conn_set, &conn, error_r) < 0) {
-			server_connect_failure = TRUE;
+			ctx->server_connect_failure = TRUE;
 			return -1;
 		} else {
 			doveadm_mail_server_handle(server, conn, ctx,
@@ -839,7 +839,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 		doveadm_client_settings_dup(&conn_set, &request->set, request->pool);
 	}
 	*error_r = "doveadm server failure";
-	return DOVEADM_MAIL_SERVER_FAILED() ? -1 : 1;
+	return DOVEADM_MAIL_SERVER_FAILED(ctx) ? -1 : 1;
 }
 
 void doveadm_mail_server_flush(struct doveadm_mail_cmd_context *ctx)
@@ -852,7 +852,7 @@ void doveadm_mail_server_flush(struct doveadm_mail_cmd_context *ctx)
 
 	/* flush the queue */
 	unsigned int limit = I_MAX(doveadm_settings->doveadm_worker_count, 1);
-	while (!DOVEADM_MAIL_SERVER_FAILED()) {
+	while (!DOVEADM_MAIL_SERVER_FAILED(ctx)) {
 		/* If there are too many connections, flush away one so queue
 		   can be eaten. */
 		if (doveadm_clients_count() >= limit) {
@@ -868,14 +868,14 @@ void doveadm_mail_server_flush(struct doveadm_mail_cmd_context *ctx)
 		}
 	}
 	/* flush the final connections */
-	while (!DOVEADM_MAIL_SERVER_FAILED() &&
+	while (!DOVEADM_MAIL_SERVER_FAILED(ctx) &&
 	       doveadm_clients_count() > 0)
 		io_loop_run(current_ioloop);
 
 	doveadm_clients_destroy_all();
 	if (master_service_is_killed(master_service))
 		e_error(ctx->cctx->event, "Aborted");
-	if (DOVEADM_MAIL_SERVER_FAILED())
+	if (DOVEADM_MAIL_SERVER_FAILED(ctx))
 		doveadm_mail_failed_error(ctx, MAIL_ERROR_TEMP);
 
 	/* queue may not be empty if something failed */
