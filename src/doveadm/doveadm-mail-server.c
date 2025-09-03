@@ -23,7 +23,7 @@
 #define DOVEADM_SERVER_QUEUE_MAX 16
 
 #define DOVEADM_MAIL_SERVER_FAILED() \
-	(internal_failure || master_service_is_killed(master_service))
+	(server_connect_failure || master_service_is_killed(master_service))
 
 struct doveadm_server {
 	/* hostname:port or UNIX socket path. Used mainly for logging. */
@@ -59,7 +59,7 @@ struct doveadm_server_request {
 
 static HASH_TABLE(char *, struct doveadm_server *) servers;
 static pool_t server_pool;
-static bool internal_failure = FALSE;
+static bool server_connect_failure = FALSE;
 static ARRAY(struct doveadm_server_request) doveadm_server_request_queue;
 
 static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
@@ -504,7 +504,7 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 			"%s: Command %s failed for %s: %s",
 			server->name, cmd_ctx->cmd->name, servercmd->username,
 			reply->error);
-		internal_failure = TRUE;
+		server_connect_failure = TRUE;
 		io_loop_stop(current_ioloop);
 		doveadm_mail_server_cmd_free(&servercmd);
 		return;
@@ -519,7 +519,7 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 		ret = doveadm_cmd_redirect(servercmd, reply->error);
 		if (ret <= 0) {
 			if (ret < 0)
-				internal_failure = TRUE;
+				server_connect_failure = TRUE;
 			io_loop_stop(current_ioloop);
 			doveadm_mail_server_cmd_free(&servercmd);
 		}
@@ -625,7 +625,7 @@ doveadm_mail_server_request_queue_handle_next(struct doveadm_mail_cmd_context *c
 	array_pop_front(&doveadm_server_request_queue);
 
 	if (doveadm_client_create(&request_copy.set, &conn, error_r) < 0) {
-		internal_failure = TRUE;
+		server_connect_failure = TRUE;
 		return -1;
 	}
 	doveadm_mail_server_handle(request_copy.server, conn, cmd_ctx,
@@ -822,7 +822,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 
 	if (doveadm_clients_count() <= limit) {
 		if (doveadm_client_create(&conn_set, &conn, error_r) < 0) {
-			internal_failure = TRUE;
+			server_connect_failure = TRUE;
 			return -1;
 		} else {
 			doveadm_mail_server_handle(server, conn, ctx,
