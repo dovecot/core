@@ -23,6 +23,7 @@
 #include <sys/wait.h>
 
 #define MAX_LINE_LENGTH 16384
+#define KILL_TIMEOUT 5000
 
 enum helper_result {
 	HR_OK	= 0,	/* OK or continue */
@@ -39,6 +40,9 @@ struct winbind_helper {
 
 	struct istream *in_pipe;
 	struct ostream *out_pipe;
+	struct timeout *to_kill;
+
+	bool sent_term:1;
 };
 
 struct winbind_auth_request {
@@ -89,15 +93,85 @@ winbind_helper_create(struct winbind_auth_mech_data *wb_mdata,
 	return helper;
 }
 
+static void winbind_helper_terminated(struct winbind_helper *helper)
+{
+	e_debug(helper->event, "Terminated");
+	helper->pid = -1;
+	helper->sent_term = FALSE;
+	timeout_remove(&helper->to_kill);
+}
+
+static void winbind_helper_kill_now(struct winbind_helper *helper)
+{
+	timeout_remove(&helper->to_kill);
+
+	if (helper->pid < 0)
+		return;
+
+	e_debug(helper->event, "Sending SIGKILL signal to helper");
+
+	/* kill it brutally now: it should die right away */
+	if (kill(helper->pid, SIGKILL) < 0) {
+		e_error(helper->event,
+			"Failed to send SIGKILL signal to helper");
+	} else if (waitpid(helper->pid, NULL, 0) < 0) {
+		e_error(helper->event,
+			"waitpid(%d) failed: %m", helper->pid);
+	}
+	winbind_helper_terminated(helper);
+}
+
+static void winbind_helper_kill(struct winbind_helper *helper)
+{
+	timeout_remove(&helper->to_kill);
+
+	if (helper->pid < 0)
+		return;
+
+	if (helper->sent_term) {
+		/* Timed out again */
+		e_debug(helper->event,
+			"Did not terminate after %d milliseconds",
+			KILL_TIMEOUT);
+		winbind_helper_kill_now(helper);
+		return;
+	}
+
+	e_debug(helper->event, "Still running after %u milliseconds: "
+		"Sending TERM signal to helper", KILL_TIMEOUT / 2);
+
+	/* kill helper gently first */
+	if (kill(helper->pid, SIGTERM) < 0) {
+		e_error(helper->event,
+			"Failed to send SIGTERM signal to helper");
+		(void)kill(helper->pid, SIGKILL);
+		winbind_helper_terminated(helper);
+		return;
+	}
+	helper->sent_term = TRUE;
+
+	helper->to_kill = timeout_add_short(KILL_TIMEOUT / 2,
+					    winbind_helper_kill, helper);
+}
+
 static void winbind_helper_disconnect(struct winbind_helper *helper)
 {
 	i_stream_destroy(&helper->in_pipe);
 	o_stream_destroy(&helper->out_pipe);
 }
 
+static void winbind_helper_restart(struct winbind_helper *helper)
+{
+	winbind_helper_disconnect(helper);
+
+	helper->to_kill = timeout_add_short(KILL_TIMEOUT / 2,
+					    winbind_helper_kill, helper);
+}
+
 static void winbind_helper_destroy(struct winbind_helper *helper)
 {
 	winbind_helper_disconnect(helper);
+	winbind_helper_kill_now(helper);
 	event_unref(&helper->event);
 }
 
@@ -125,7 +199,7 @@ static void winbind_wait_pid(struct winbind_helper *helper)
 		/* shouldn't happen */
 		e_error(helper->event, "Exited with status %d", status);
 	}
-	helper->pid = -1;
+	winbind_helper_terminated(helper);
 }
 
 static void
@@ -353,7 +427,7 @@ mech_winbind_auth_continue(struct sasl_server_mech_request *auth_request,
 	res = do_auth_continue(request, data, data_size);
 	if (res != HR_OK) {
 		if (res == HR_RESTART)
-			winbind_helper_disconnect(wb_mech->helper);
+			winbind_helper_restart(wb_mech->helper);
 		sasl_server_request_failure(auth_request);
 	}
 }
