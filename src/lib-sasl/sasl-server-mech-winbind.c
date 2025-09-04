@@ -33,6 +33,8 @@ enum helper_result {
 struct winbind_helper {
 	const char *path;
 	const char *param;
+
+	struct event *event;
 	pid_t pid;
 
 	struct istream *in_pipe;
@@ -62,7 +64,8 @@ static const struct sasl_server_mech_def mech_gss_spnego;
 
 static struct winbind_helper *
 winbind_helper_create(struct winbind_auth_mech_data *wb_mdata,
-		      const char *path, const char *param)
+		      const char *path, const char *param,
+		      struct event *event_parent)
 {
 	struct winbind_helper *helper;
 	pool_t pool = wb_mdata->data.pool;
@@ -78,6 +81,9 @@ winbind_helper_create(struct winbind_auth_mech_data *wb_mdata,
 	helper->param = p_strdup(pool, param);
 	helper->pid = -1;
 
+	helper->event = event_create(event_parent);
+	event_set_append_log_prefix(helper->event, "helper: ");
+
 	array_append(&wb_mdata->helpers, &helper, 1);
 
 	return helper;
@@ -92,6 +98,7 @@ static void winbind_helper_disconnect(struct winbind_helper *helper)
 static void winbind_helper_destroy(struct winbind_helper *helper)
 {
 	winbind_helper_disconnect(helper);
+	event_unref(&helper->event);
 }
 
 static void winbind_wait_pid(struct winbind_helper *helper)
@@ -104,20 +111,19 @@ static void winbind_wait_pid(struct winbind_helper *helper)
 	/* FIXME: use child-wait.h API */
 	if ((ret = waitpid(helper->pid, &status, WNOHANG)) <= 0) {
 		if (ret < 0 && errno != ECHILD && errno != EINTR)
-			i_error("waitpid() failed: %m");
+			e_error(helper->event, "waitpid() failed: %m");
 		return;
 	}
 
 	if (WIFSIGNALED(status)) {
-		i_error("winbind: ntlm_auth died with signal %d",
+		e_error(helper->event, "Died with signal %d",
 			WTERMSIG(status));
 	} else if (WIFEXITED(status)) {
-		i_error("winbind: ntlm_auth exited with exit code %d",
+		e_error(helper->event, "Exited with exit code %d",
 			WEXITSTATUS(status));
 	} else {
 		/* shouldn't happen */
-		i_error("winbind: ntlm_auth exited with status %d",
-			status);
+		e_error(helper->event, "Exited with status %d", status);
 	}
 	helper->pid = -1;
 }
@@ -130,8 +136,7 @@ sigchld_handler(const siginfo_t *si ATTR_UNUSED, void *context)
 	winbind_wait_pid(helper);
 }
 
-static void
-winbind_helper_connect(struct winbind_helper *helper, struct event *event)
+static void winbind_helper_connect(struct winbind_helper *helper)
 {
 	int infd[2], outfd[2];
 	pid_t pid;
@@ -140,7 +145,7 @@ winbind_helper_connect(struct winbind_helper *helper, struct event *event)
 		return;
 
 	if (pipe(infd) < 0) {
-		e_error(event, "pipe() failed: %m");
+		e_error(helper->event, "pipe() failed: %m");
 		return;
 	}
 	if (pipe(outfd) < 0) {
@@ -150,7 +155,7 @@ winbind_helper_connect(struct winbind_helper *helper, struct event *event)
 
 	pid = fork();
 	if (pid < 0) {
-		e_error(event, "fork() failed: %m");
+		e_error(helper->event, "fork() failed: %m");
 		i_close_fd(&infd[0]); i_close_fd(&infd[1]);
 		i_close_fd(&outfd[0]); i_close_fd(&outfd[1]);
 		return;
@@ -176,6 +181,8 @@ winbind_helper_connect(struct winbind_helper *helper, struct event *event)
 	/* parent */
 	i_close_fd(&infd[1]);
 	i_close_fd(&outfd[0]);
+
+	e_debug(helper->event, "Connected");
 
 	helper->pid = pid;
 	helper->in_pipe =
@@ -327,7 +334,7 @@ mech_winbind_auth_initial(struct sasl_server_mech_request *auth_request,
 		container_of(auth_request->mech,
 			     const struct winbind_auth_mech, mech);
 
-	winbind_helper_connect(wb_mech->helper, auth_request->event);
+	winbind_helper_connect(wb_mech->helper);
 	sasl_server_mech_generic_auth_initial(auth_request, data, data_size);
 }
 
@@ -440,7 +447,7 @@ sasl_server_mech_register_winbind(
 		container_of(mech->data, struct winbind_auth_mech_data, data);
 
 	wb_mech->helper = winbind_helper_create(wb_mdata, set->helper_path,
-						helper_param);
+						helper_param, mech->event);
 }
 
 void sasl_server_mech_register_winbind_ntlm(
