@@ -24,7 +24,7 @@ struct sqlite_db {
 
 	sqlite3 *sqlite;
 	const struct sqlite_settings *set;
-	int rc;
+	int connect_rc;
 	bool connected:1;
 };
 
@@ -123,9 +123,9 @@ static int driver_sqlite_connect(struct sql_db *_db)
 	if (db->set->parsed_journal_use_wal)
 		flags |= SQLITE_OPEN_WAL;
 
-	db->rc = sqlite3_open_v2(db->set->path, &db->sqlite, flags, NULL);
+	db->connect_rc = sqlite3_open_v2(db->set->path, &db->sqlite, flags, NULL);
 
-	switch (db->rc) {
+	switch (db->connect_rc) {
 	case SQLITE_OK:
 		db->connected = TRUE;
 		sqlite3_busy_timeout(db->sqlite, sqlite_busy_timeout);
@@ -260,7 +260,7 @@ static const char *
 driver_sqlite_result_log(const struct sql_result *result, const char *query)
 {
 	struct sqlite_db *db = container_of(result->db, struct sqlite_db, api);
-	bool success = db->connected && db->rc == SQLITE_OK;
+	bool success = db->connected && db->connect_rc == SQLITE_OK;
 	int duration;
 	const char *suffix = "";
 	struct event_passthrough *e =
@@ -270,24 +270,24 @@ driver_sqlite_result_log(const struct sql_result *result, const char *query)
 
 	if (!db->connected) {
 		suffix = t_strdup_printf(": Cannot connect to database (%d)",
-					 db->rc);
+					 db->connect_rc);
 		e->add_str("error", "Cannot connect to database");
-		e->add_int("error_code", db->rc);
-	} else if (db->rc == SQLITE_NOMEM) {
+		e->add_int("error_code", db->connect_rc);
+	} else if (db->connect_rc == SQLITE_NOMEM) {
 		suffix = t_strdup_printf(": %s (%d)", sqlite3_errmsg(db->sqlite),
-					 db->rc);
+					 db->connect_rc);
 		i_fatal_status(FATAL_OUTOFMEM, SQL_QUERY_FINISHED_FMT"%s", query,
 			       duration, suffix);
-	} else if (db->rc == SQLITE_READONLY || db->rc == SQLITE_CANTOPEN) {
+	} else if (db->connect_rc == SQLITE_READONLY || db->connect_rc == SQLITE_CANTOPEN) {
 		const char *eacces_err = eacces_error_get("write", db->set->path);
 		suffix = t_strconcat(": ", eacces_err, NULL);
 		e->add_str("error", eacces_err);
-		e->add_int("error_code", db->rc);
-	} else if (db->rc != SQLITE_OK) {
+		e->add_int("error_code", db->connect_rc);
+	} else if (db->connect_rc != SQLITE_OK) {
 		suffix = t_strdup_printf(": %s (%d)", sqlite3_errmsg(db->sqlite),
-					 db->rc);
+					 db->connect_rc);
 		e->add_str("error", sqlite3_errmsg(db->sqlite));
-		e->add_int("error_code", db->rc);
+		e->add_int("error_code", db->connect_rc);
 	}
 	e_debug(e->event(), SQL_QUERY_FINISHED_FMT"%s", query, duration, suffix);
 	return t_strdup_printf("Query '%s'%s", query, suffix);
@@ -308,12 +308,12 @@ static int driver_sqlite_exec_query(struct sqlite_db *db, const char *query,
 	if (driver_sqlite_connect(&db->api) < 0) {
 		*error_r = driver_sqlite_result_log(&result, query);
 	} else {
-		db->rc = sqlite3_exec(db->sqlite, query, NULL, NULL, NULL);
+		db->connect_rc = sqlite3_exec(db->sqlite, query, NULL, NULL, NULL);
 		*error_r = driver_sqlite_result_log(&result, query);
 	}
 
 	event_unref(&result.event);
-	return db->rc;
+	return db->connect_rc;
 }
 
 static void driver_sqlite_exec(struct sql_db *_db, const char *query)
@@ -356,9 +356,9 @@ driver_sqlite_query_s(struct sql_db *_db, const char *query)
 		result->stmt = NULL;
 		result->cols = 0;
 	} else {
-		db->rc = sqlite3_prepare(db->sqlite, query, -1, &result->stmt, NULL);
+		db->connect_rc = sqlite3_prepare(db->sqlite, query, -1, &result->stmt, NULL);
 		driver_sqlite_result_log(&result->api, query);
-		if (db->rc == SQLITE_OK) {
+		if (db->connect_rc == SQLITE_OK) {
 			result->api = driver_sqlite_result;
 			result->cols = sqlite3_column_count(result->stmt);
 			if (result->cols == 0)
@@ -515,12 +515,12 @@ static const char *driver_sqlite_result_get_error(struct sql_result *_result)
 		container_of(result->api.db, struct sqlite_db, api);
 
 	if (db->connected) {
-		const char *err = sqlite3_errmsg(db->sqlite);
-		if (db->rc == SQLITE_READONLY || db->rc == SQLITE_CANTOPEN)
+		const char *err = sqlite3_errstr(db->connect_rc);
+		if (db->connect_rc == SQLITE_READONLY || db->connect_rc == SQLITE_CANTOPEN)
 			err = t_strconcat(err, ": ",
 					  eacces_error_get("write", db->set->path), NULL);
 		return err;
-	} else if (db->rc == SQLITE_CANTOPEN) {
+	} else if (db->connect_rc == SQLITE_CANTOPEN) {
 		struct stat st;
 		const char *err;
 		if (stat(db->set->path, &st) == -1 && errno == ENOENT) {
