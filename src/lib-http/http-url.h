@@ -18,6 +18,7 @@ struct http_url {
 	const char *password;
 
 	/* path */
+	const char *enc_path; /* encoded */
 	const char *path;
 
 	/* ?query (still encoded) */

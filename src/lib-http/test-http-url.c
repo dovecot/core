@@ -724,7 +724,124 @@ static struct valid_http_url_test valid_url_tests[] = {
 			.path = "/b/c/g",
 			.enc_fragment = "s/../x",
 		},
-	}
+	},
+	/* Encoded paths */
+	{ // "http://a/%2f"
+		.url = "http://a/%2f",
+		.url_parsed = {
+			.host = { .name = "a" },
+			.path = "//",
+			.enc_path = "/%2f",
+		},
+	},
+	{ // ""
+		.url = "",
+		.url_base = {
+			.host = { .name = "a" },
+			.enc_path = "/%2f",
+		},
+		.url_parsed = {
+			.host = { .name = "a" },
+			.path = "//",
+			.enc_path = "/%2f",
+		},
+	},
+	{ // ""
+		.url = "",
+		.url_base = {
+			.host = { .name = "a" },
+			.path = "//",
+		},
+		.url_parsed = {
+			.host = { .name = "a" },
+			.path = "//",
+			.enc_path = "//",
+		},
+	},
+	{ // "."
+		.url = ".",
+		.url_base = {
+			.host = { .name = "a" },
+			.enc_path = "/%2f",
+		},
+		.url_parsed = {
+			.host = { .name = "a" },
+			.path = "/",
+			.enc_path = "/",
+		},
+	},
+	{ // "./%2fc"
+		.url = "./%2fc",
+		.url_base = {
+			.host = { .name = "a" },
+			.enc_path = "/%2fa/%2fb/",
+		},
+		.url_parsed = {
+			.host = { .name = "a" },
+			.path = "//a//b//c",
+			.enc_path = "/%2fa/%2fb/%2fc",
+		},
+	},
+	{ // "../%2fc"
+		.url = "../%2fc",
+		.url_base = {
+			.host = { .name = "a" },
+			.enc_path = "/%2fa/%2fb/",
+		},
+		.url_parsed = {
+			.host = { .name = "a" },
+			.path = "//a//c",
+			.enc_path = "/%2fa/%2fc",
+		},
+	},
+	{ // "./%2fc"
+		.url = "./%2fc",
+		.url_base = {
+			.host = { .name = "a" },
+			.path = "/%2fa/%2fb/",
+		},
+		.url_parsed = {
+			.host = { .name = "a" },
+			.path = "/%2fa/%2fb//c",
+			.enc_path = "/%252fa/%252fb/%2fc",
+		},
+	},
+	{ // "../%2fc"
+		.url = "../%2fc",
+		.url_base = {
+			.host = { .name = "a" },
+			.path = "/%2fa/%2fb/",
+		},
+		.url_parsed = {
+			.host = { .name = "a" },
+			.path = "/%2fa//c",
+			.enc_path = "/%252fa/%2fc",
+		},
+	},
+	{ // "./%2fc%3f"
+		.url = "./%2fc%3f",
+		.url_base = {
+			.host = { .name = "a" },
+			.enc_path = "/%2fa%3f/%2fb%3f/",
+		},
+		.url_parsed = {
+			.host = { .name = "a" },
+			.path = "//a?//b?//c?",
+			.enc_path = "/%2fa%3f/%2fb%3f/%2fc%3f",
+		},
+	},
+	{ // "../%2fc"
+		.url = "../%2fc%3f",
+		.url_base = {
+			.host = { .name = "a" },
+			.enc_path = "/%2fa%3f/%2fb%3f/",
+		},
+		.url_parsed = {
+			.host = { .name = "a" },
+			.path = "//a?//c?",
+			.enc_path = "/%2fa%3f/%2fc%3f",
+		},
+	},
 };
 
 static unsigned int valid_url_test_count = N_ELEMENTS(valid_url_tests);
@@ -753,6 +870,13 @@ test_http_url_equal(struct http_url *urlt, struct http_url *urlp)
 		test_assert(urlp->path == urlt->path);
 	} else {
 		test_assert(strcmp(urlp->path, urlt->path) == 0);
+	}
+	const char *urlt_enc_path = (urlt->enc_path == NULL ?
+				     urlt->path : urlt->enc_path);
+	if (urlp->enc_path == NULL || urlt_enc_path == NULL) {
+		test_assert(urlp->enc_path == urlt_enc_path);
+	} else {
+		test_assert(strcmp(urlp->enc_path, urlt_enc_path) == 0);
 	}
 	if (urlp->enc_query == NULL || urlt->enc_query == NULL) {
 		test_assert(urlp->enc_query == urlt->enc_query);
@@ -907,6 +1031,8 @@ static const char *parse_create_url_tests[] = {
 	"http://www.example.com/%23shared/news",
 	"http://www.example.com/query.php?name=Hendrik%20Visser",
 	"http://www.example.com/network.html#IMAP%20Server",
+	"http://www.example.com/%2f/frop.html",
+	"http://www.example.com/%3f%2f%3f/frop.html",
 };
 
 static unsigned int

@@ -153,6 +153,41 @@ static bool http_url_parse_authority_form(struct http_url_parser *url_parser)
 	return TRUE;
 }
 
+static void
+http_url_parse_path_copy_from_base(struct http_url_parser *url_parser)
+{
+	struct uri_parser *parser = &url_parser->parser;
+	struct http_url *url = url_parser->url, *base = url_parser->base;
+
+	if (!url_parser->relative || url == NULL)
+		return;
+
+	if (base->path != NULL)
+		url->path = p_strdup(parser->pool, base->path);
+	else if (base->enc_path != NULL) {
+		const char *enc;
+		bool result;
+
+		result = uri_data_decode(parser, base->enc_path,
+					 NULL, &enc);
+		i_assert(result);
+		url->path = p_strdup(parser->pool, enc);
+	}
+	if (base->enc_path != NULL) {
+		if (strcmp(url->path, base->enc_path) == 0)
+			url->enc_path = url->path;
+		else
+			url->enc_path =	p_strdup(parser->pool, base->enc_path);
+	} else if (base->path != NULL) {
+		string_t *enc = t_str_new(256);
+		uri_append_path_data(enc, NULL, base->path);
+		if (strcmp(url->path, str_c(enc)) == 0)
+			url->enc_path = url->path;
+		else
+			url->enc_path = p_strdup(parser->pool, str_c(enc));
+	}
+}
+
 static int
 http_url_parse_path(struct http_url_parser *url_parser)
 {
@@ -160,7 +195,7 @@ http_url_parse_path(struct http_url_parser *url_parser)
 	struct http_url *url = url_parser->url, *base = url_parser->base;
 	const char *const *path;
 	int path_relative;
-	string_t *fullpath = NULL;
+	string_t *enc_fullpath = NULL, *fullpath = NULL;
 	int ret;
 
 	/* path-abempty / path-absolute / path-noscheme / path-empty */
@@ -169,17 +204,27 @@ http_url_parse_path(struct http_url_parser *url_parser)
 
 	/* Resolve path */
 	if (ret == 0) {
-		if (url_parser->relative && url != NULL)
-			url->path = p_strdup(parser->pool, base->path);
+		http_url_parse_path_copy_from_base(url_parser);
 		return 0;
 	}
 
-	if (url != NULL)
+	if (url != NULL) {
+		enc_fullpath = t_str_new(256);
 		fullpath = t_str_new(256);
+	}
 
-	if (url_parser->relative && path_relative > 0 && base->path != NULL) {
-		const char *pbegin = base->path;
-		const char *pend = base->path + strlen(base->path);
+	if (url != NULL && url_parser->relative && path_relative > 0 &&
+	    (base->enc_path != NULL || base->path != NULL)) {
+		const char *base_path = base->enc_path;
+
+		if (base_path == NULL) {
+			string_t *enc = t_str_new(256);
+			uri_append_path_data(enc, NULL, base->path);
+			base_path = str_c(enc);
+		}
+
+		const char *pbegin = base_path;
+		const char *pend = base_path + strlen(base_path);
 		const char *p = pend - 1;
 
 		i_assert(*pbegin == '/');
@@ -197,8 +242,16 @@ http_url_parse_path(struct http_url_parser *url_parser)
 			if (p > pbegin) p--;
 		}
 
-		if (url != NULL && pend > pbegin)
-			str_append_data(fullpath, pbegin, pend - pbegin);
+		if (pend > pbegin) {
+			const char *enc;
+			bool result;
+
+			str_append_data(enc_fullpath, pbegin, pend - pbegin);
+			result = uri_data_decode(parser, str_c(enc_fullpath),
+						 NULL, &enc);
+			i_assert(result);
+			str_append(fullpath, enc);
+		}
 	}
 
 	/* Append relative path */
@@ -209,14 +262,21 @@ http_url_parse_path(struct http_url_parser *url_parser)
 			return -1;
 
 		if (url != NULL) {
+			str_append_c(enc_fullpath, '/');
+			str_append(enc_fullpath, *path);
 			str_append_c(fullpath, '/');
 			str_append(fullpath, part);
 		}
 		path++;
 	}
 
-	if (url != NULL)
-		url->path = p_strdup(parser->pool, str_c(fullpath));
+	if (url != NULL) {
+		url->enc_path = p_strdup(parser->pool, str_c(enc_fullpath));
+		if (strcmp(str_c(fullpath), url->enc_path) == 0)
+			url->path = url->enc_path;
+		else
+			url->path = p_strdup(parser->pool, str_c(fullpath));
+	}
 	return 1;
 }
 
@@ -555,6 +615,7 @@ void http_url_copy(pool_t pool, struct http_url *dest,
 		   const struct http_url *src)
 {
 	http_url_copy_authority(pool, dest, src);
+	dest->enc_path = p_strdup(pool, src->enc_path);
 	dest->path = p_strdup(pool, src->path);
 	dest->enc_query = p_strdup(pool, src->enc_query);
 	dest->enc_fragment = p_strdup(pool, src->enc_fragment);
@@ -616,11 +677,16 @@ http_url_add_authority(string_t *urlstr, const struct http_url *url)
 static void
 http_url_add_target(string_t *urlstr, const struct http_url *url)
 {
-	if (url->path == NULL || *url->path == '\0') {
+	if ((url->enc_path == NULL || *url->enc_path == '\0') &&
+	    (url->path == NULL || *url->path == '\0')) {
 		/* Older syntax of RFC 2616 requires this slash at all times for
 		   an absolute URL. */
 		str_append_c(urlstr, '/');
+	} else if (url->enc_path != NULL && *url->enc_path != '\0') {
+		i_assert(*url->enc_path == '/');
+		str_append(urlstr, url->enc_path);
 	} else {
+		i_assert(*url->path == '/');
 		uri_append_path_data(urlstr, "", url->path);
 	}
 
