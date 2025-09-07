@@ -35,6 +35,7 @@ server_mechanisms = \
 	sasl-server-mech-winbind.c
 
 libsasl_la_SOURCES = \
+	sasl-oauth2.c \
 	$(client_mechanisms) \
 	dsasl-client.c \
 	$(server_mechanisms) \
@@ -56,6 +57,7 @@ endif
 
 headers = \
 	sasl-common.h \
+	sasl-oauth2.h \
 	dsasl-client.h \
 	dsasl-client-private.h \
 	sasl-server.h \
@@ -69,6 +71,7 @@ pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
+	test-sasl-oauth2 \
 	test-sasl-client
 
 noinst_PROGRAMS = $(test_programs)
@@ -83,6 +86,10 @@ test_libs = \
 	../lib/liblib.la
 
 test_deps = $(test_libs)
+
+test_sasl_oauth2_SOURCES = test-sasl-oauth2.c
+test_sasl_oauth2_LDADD = $(test_libs)
+test_sasl_oauth2_DEPENDENCIES = $(test_deps)
 
 test_sasl_client_SOURCES = test-sasl-client.c
 test_sasl_client_LDADD = $(test_libs)

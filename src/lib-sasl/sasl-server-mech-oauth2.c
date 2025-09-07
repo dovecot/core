@@ -7,6 +7,7 @@
 #include "auth-gs2.h"
 #include "oauth2.h"
 
+#include "sasl-oauth2.h"
 #include "sasl-server-protected.h"
 #include "sasl-server-oauth2.h"
 
@@ -213,6 +214,11 @@ mech_oauthbearer_auth_continue(struct sasl_server_mech_request *request,
 	struct oauth2_auth_request *oauth2_req =
 		container_of(request, struct oauth2_auth_request, request);
 
+	/* RFC 7628, Section 3.1:
+
+	   client-resp    = (gs2-header kvsep *kvpair kvsep) / kvsep
+	 */
+
 	if (data_size == 0) {
 		oauth2_fail_invalid_request(oauth2_req);
 		return;
@@ -222,6 +228,7 @@ mech_oauthbearer_auth_continue(struct sasl_server_mech_request *request,
 	const unsigned char *gs2_header_end;
 	const char *error;
 
+	/* gs2-header */
 	if (auth_gs2_header_decode(data, data_size, FALSE,
 				   &gs2_header, &gs2_header_end, &error) < 0) {
 		e_info(request->event, "Invalid gs2-header in request: %s",
@@ -264,27 +271,56 @@ mech_oauthbearer_auth_continue(struct sasl_server_mech_request *request,
 		return;
 	}
 
-	/* split the data from ^A */
-	const char *const *fields =
-		t_strsplit(t_strndup(gs2_header_end + 1, payload_size - 1),
-		  "\x01");
-	const char *const *ptr;
-	const char *token = NULL, *value;
+	const unsigned char *in = gs2_header_end;
+	const unsigned char *in_end = in + payload_size;
+	const char *token = NULL;
 
-	for (ptr = fields; *ptr != NULL; ptr++) {
-		if (str_begins(*ptr, "auth=", &value)) {
+	/* kvsep */
+	in++;
+
+	/* *kvpair */
+	while (*in != 0x01 && in < in_end) {
+		const char *key, *value;
+
+		if (sasl_oauth2_kvpair_parse(in, in_end - in, &key, &value,
+					     &in, &error) < 0) {
+			e_info(request->event,
+			       "Invalid response payload: "
+			       "Bad key-value pair: %s", error);
+			oauth2_fail_invalid_request(oauth2_req);
+			return;
+		}
+		if (strcmp(key, "auth") == 0) {
 			if (str_begins_icase(value, "bearer ", &value) &&
 			    oauth2_valid_token(value)) {
 				token = value;
 			} else {
 				e_info(request->event,
-				       "Invalid response payload");
+				       "Invalid response payload: "
+				       "Invalid 'auth' value");
 				oauth2_fail_invalid_token(oauth2_req);
 				return;
 			}
 		}
 		/* do not fail on unexpected fields */
 	}
+
+	/* kvsep */
+	if (in == in_end) {
+		e_info(request->event, "Invalid response payload: "
+		       "Missing final key-value separator (0x01)");
+		oauth2_fail_invalid_request(oauth2_req);
+		return;
+	}
+	i_assert(*in == 0x01);
+	in++;
+	if (in < in_end) {
+		e_info(request->event, "Invalid response payload: "
+		       "Spurious data at end of response");
+		oauth2_fail_invalid_request(oauth2_req);
+		return;
+	}
+
 	if (token == NULL) {
 		e_info(request->event, "Missing token");
 		oauth2_fail_invalid_token(oauth2_req);
