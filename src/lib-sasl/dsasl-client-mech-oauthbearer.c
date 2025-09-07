@@ -6,6 +6,7 @@
 #include "json-istream.h"
 #include "istream.h"
 #include "auth-gs2.h"
+#include "sasl-oauth2.h"
 #include "dsasl-client-private.h"
 
 struct oauthbearer_dsasl_client {
@@ -105,6 +106,10 @@ mech_oauthbearer_output(struct dsasl_client *_client,
 		*error_r = "password not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
+	if (!sasl_oauth2_kvpair_check_value(_client->password)) {
+		*error_r = "password contains unsupported characters";
+		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
+	}
 
 	struct auth_gs2_header gs2_header = {
 		.authzid = _client->set.authid,
@@ -141,6 +146,10 @@ mech_xoauth2_output(struct dsasl_client *_client,
 	}
 	if (_client->password == NULL) {
 		*error_r = "password not set";
+		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
+	}
+	if (strchr(_client->password, 0x01) != NULL) {
+		*error_r = "password contains unsupported characters";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
 

@@ -155,6 +155,8 @@ test_kvpair_valid_next(const unsigned char **in, const unsigned char *in_end,
 
 	test_assert_strcmp(key, test->key);
 	test_assert_strcmp(value, test->value);
+
+	test_assert(sasl_oauth2_kvpair_check_value(value));
 }
 
 static void test_kvpair_valid(void)

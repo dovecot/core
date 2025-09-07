@@ -85,3 +85,14 @@ int sasl_oauth2_kvpair_parse(const unsigned char *data, size_t size,
 	*end_r = p;
 	return 0;
 }
+
+bool sasl_oauth2_kvpair_check_value(const char *value)
+{
+	const unsigned char *p = (const unsigned char *)value;
+	const unsigned char *pend = p + strlen(value);
+
+	while (p < pend && (char_lookup[*p] & value_mask) != 0x00)
+		p++;
+
+	return (p == pend);
+}
