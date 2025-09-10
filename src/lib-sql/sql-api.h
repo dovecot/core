@@ -84,7 +84,11 @@ struct sql_settings {
 
 extern const struct setting_parser_info sql_setting_parser_info;
 
+/* Called when query finished, note that result will be automatically
+ * unreferenced after callback finishes. */
 typedef void sql_query_callback_t(struct sql_result *result, void *context);
+/* Called when commit finished, note that result will be freed after
+ * callback finishes. */
 typedef void sql_commit_callback_t(const struct sql_commit_result *result, void *context);
 
 void sql_drivers_init(void);
