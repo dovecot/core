@@ -49,6 +49,8 @@ passwd_file_add_extra_fields(struct auth_request *request,
 			key = fields[i];
 			value = "";
 		}
+		if (key[0] == '\0')
+			continue;
 		if (request->passdb->set->fields_import_all)
 			auth_request_set_field(request, key, value, NULL);
 		auth_fields_add(pwd_fields, key, value, 0);
