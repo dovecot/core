@@ -1998,6 +1998,8 @@ void auth_request_set_field(struct auth_request *request,
 	if (name_len > 8 && strcmp(name+name_len-8, ":default") == 0) {
 		/* set this field only if it hasn't been set before */
 		name = t_strndup(name, name_len-8);
+		if (name[0] == '\0')
+			return; /* ":default" is invalid */
 		if (auth_fields_exists(request->fields.extra_fields, name))
 			return;
 	} else if (name_len > 7 && strcmp(name+name_len-7, ":remove") == 0) {
@@ -2228,6 +2230,8 @@ void auth_request_set_userdb_field(struct auth_request *request,
 		name = t_strndup(name, name_len-8);
 		if (auth_fields_exists(request->fields.userdb_reply, name))
 			return;
+		if (name[0] == '\0')
+			return; /* ":default" is invalid */
 	} else if (name_len > 7 && strcmp(name+name_len-7, ":remove") == 0) {
 		/* remove this field entirely */
 		name = t_strndup(name, name_len-7);
