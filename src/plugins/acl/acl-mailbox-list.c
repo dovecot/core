@@ -340,14 +340,6 @@ acl_mailbox_list_info_is_visible(struct mailbox_list_iterate_context *_ctx)
 		return 1;
 	}
 
-	if ((_ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0 &&
-	    (_ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) != 0) {
-		/* don't waste time doing an ACL check. we're going to list
-		   all subscriptions anyway. */
-		info->flags &= MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED;
-		return 1;
-	}
-
 	acl_name = acl_mailbox_list_iter_get_name(_ctx, info->vname);
 	ret = acl_mailbox_list_have_right(_ctx->list, acl_name, FALSE,
 					  ACL_STORAGE_RIGHT_LOOKUP);
@@ -362,17 +354,6 @@ acl_mailbox_list_info_is_visible(struct mailbox_list_iterate_context *_ctx)
 			info->flags |= MAILBOX_NOCHILDREN;
 		}
 		return ret;
-	}
-
-	/* no permission to see this mailbox */
-	if ((_ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
-		/* we're listing subscribed mailboxes. this one or its child
-		   is subscribed, so we'll need to list it. but since we don't
-		   have LOOKUP right, we'll need to show it as nonexistent. */
-		i_assert((info->flags & PRESERVE_MAILBOX_FLAGS) != 0);
-		info->flags = MAILBOX_NONEXISTENT |
-			(info->flags & PRESERVE_MAILBOX_FLAGS);
-		return 1;
 	}
 
 	if (!iter_is_listing_all_children(_ctx) &&
