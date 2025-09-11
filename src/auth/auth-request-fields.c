@@ -208,8 +208,11 @@ bool auth_request_import_info(struct auth_request *request,
 		fields->client_id = p_strdup(request->pool, value);
 		event_add_str(event, "client_id", value);
 	} else if (strcmp(key, "forward_fields") == 0) {
-		auth_fields_import_prefixed(fields->extra_fields,
-					    "forward_", value, 0);
+		if (auth_fields_import_prefixed(fields->extra_fields,
+						"forward_", value, 0) < 0) {
+			e_error(request->event,
+				"Invalid forward_fields: %s", value);
+		}
 		/* make sure the forward_ fields aren't deleted by
 		   auth_fields_rollback() if the first passdb lookup fails. */
 		auth_fields_snapshot(fields->extra_fields);

@@ -115,12 +115,13 @@ void auth_fields_reset(struct auth_fields *fields)
 	}
 }
 
-static void auth_fields_import_prefixed_args(struct auth_fields *fields,
-					     const char *prefix,
-					     const char *const *args,
-					     enum auth_field_flags flags)
+static int auth_fields_import_prefixed_args(struct auth_fields *fields,
+					    const char *prefix,
+					    const char *const *args,
+					    enum auth_field_flags flags)
 {
 	const char *key, *value;
+	int ret = 0;
 
 	for (; *args != NULL; args++) {
 		value = strchr(*args, '=');
@@ -131,26 +132,33 @@ static void auth_fields_import_prefixed_args(struct auth_fields *fields,
 			if (*prefix != '\0')
 				key = t_strconcat(prefix, key, NULL);
 		}
+		if (key[0] == '\0')
+			ret = -1;
 		auth_fields_add(fields, key, value, flags);
 	}
+	return ret;
 }
 
-void auth_fields_import_prefixed(struct auth_fields *fields, const char *prefix,
-				 const char *str, enum auth_field_flags flags)
+int auth_fields_import_prefixed(struct auth_fields *fields, const char *prefix,
+				const char *str, enum auth_field_flags flags)
 {
+	int ret;
 	T_BEGIN {
 		const char *const *arg = t_strsplit_tabescaped(str);
-		auth_fields_import_prefixed_args(fields, prefix, arg, flags);
+		ret = auth_fields_import_prefixed_args(fields, prefix, arg, flags);
 	} T_END;
+	return ret;
 }
 
-void auth_fields_import_args(struct auth_fields *fields,
-			     const char *const *args,
-			     enum auth_field_flags flags)
+int auth_fields_import_args(struct auth_fields *fields,
+			    const char *const *args,
+			    enum auth_field_flags flags)
 {
+	int ret;
 	T_BEGIN {
-		auth_fields_import_prefixed_args(fields, "", args, flags);
+		ret = auth_fields_import_prefixed_args(fields, "", args, flags);
 	} T_END;
+	return ret;
 }
 
 const ARRAY_TYPE(auth_field) *auth_fields_export(struct auth_fields *fields)

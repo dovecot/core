@@ -50,7 +50,11 @@ static bool user_callback(struct auth_worker_connection *conn ATTR_UNUSED,
 	}
 
 	if (args != NULL && args[0] != NULL && *args[0] != '\0') {
-		auth_fields_import_args(request->fields.userdb_reply, args, 0);
+		if (auth_fields_import_args(request->fields.userdb_reply,
+					    args, 0) < 0) {
+			e_error(authdb_event(request),
+				"BUG: auth-worker sent invalid args");
+		}
 		if (auth_fields_exists(request->fields.userdb_reply, "tempfail"))
 			request->userdb_lookup_tempfailed = TRUE;
 	}
