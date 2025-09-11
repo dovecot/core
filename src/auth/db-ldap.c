@@ -1092,8 +1092,9 @@ void db_ldap_get_attribute_names(pool_t pool,
 		const char *const *vars = var_expand_program_variables(prog);
 		for (; *vars != NULL; vars++) {
 			const char *ldap_attr;
-			if (str_begins(*vars, "ldap:", &ldap_attr) ||
-			    str_begins(*vars, "ldap_multi:", &ldap_attr)) {
+			if ((str_begins(*vars, "ldap:", &ldap_attr) ||
+			     str_begins(*vars, "ldap_multi:", &ldap_attr)) &&
+			    ldap_attr[0] != '\0') {
 				/* when we free program, this name
 				   would be invalid, so dup it here. */
 				ldap_attr = p_strdup(pool, ldap_attr);
