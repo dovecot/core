@@ -49,6 +49,16 @@ cmd_acl_mailbox_open(struct doveadm_mail_cmd_context *ctx,
 		mailbox_free(&box);
 		return -1;
 	}
+
+	/* check that ACLs are enabled */
+	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	if (abox == NULL) {
+		e_error(box->event, "ACL not enabled for %s", user->username);
+		doveadm_mail_failed_error(ctx, MAIL_ERROR_NOTFOUND);
+                mailbox_free(&box);
+		return -1;
+	}
+
 	*box_r = box;
 	return 0;
 }
