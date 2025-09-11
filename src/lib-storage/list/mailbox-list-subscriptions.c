@@ -66,6 +66,12 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 		   one easy way is to just ask to join a reference and
 		   pattern */
 		(void)mailbox_list_join_refpattern(ns->list, ns_name, "");
+		/* If the namespace changes to the newly created one, start
+		   the lookup all over again. */
+		struct mail_namespace *ns2 =
+			mail_namespace_find_unsubscribable(namespaces, ns_name);
+		if (ns != ns2)
+			return mailbox_list_subscription_fill_one(list, src_list, name);
 	}
 
 	/* When listing pub/ namespace, skip over the namespace
