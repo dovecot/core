@@ -92,7 +92,8 @@ int password_verify(const char *plaintext,
 	}
 
 	if (s->weak && !g_allow_weak) {
-		*error_r = t_strdup_printf("Weak password scheme '%s' used and refused",
+		*error_r = t_strdup_printf("Weak password scheme '%s' used and refused "
+					   "(Set auth_allow_weak_schemes=yes to allow)",
 					   s->name);
 		return -1;
 	}

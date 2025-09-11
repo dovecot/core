@@ -241,7 +241,8 @@ static void main_init(void)
 		/* caching is handled only by the main auth process */
 		passdb_cache_init(global_auth_settings);
 		if (global_auth_settings->allow_weak_schemes)
-			i_warning("Weak password schemes are allowed");
+			i_warning("Weak password schemes are allowed "
+				  "(auth_allow_weak_schemes=yes)");
 	}
 }
 
