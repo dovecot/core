@@ -2220,6 +2220,7 @@ void auth_request_set_userdb_field(struct auth_request *request,
 	uid_t uid;
 	gid_t gid;
 
+	i_assert(*name != '\0');
 	i_assert(value != NULL);
 
 	if (name_len > 8 && strcmp(name+name_len-8, ":default") == 0) {
