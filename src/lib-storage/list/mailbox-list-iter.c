@@ -182,6 +182,40 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 	return ctx;
 }
 
+static bool node_has_existing_subscription(enum mailbox_info_flags node_flags)
+{
+	if ((node_flags & MAILBOX_NONEXISTENT) == 0 &&
+	    (node_flags & MAILBOX_SUBSCRIBED) != 0)
+		return TRUE;
+	if ((node_flags & MAILBOX_CHILD_SUBSCRIBED) != 0 &&
+	    (node_flags & MAILBOX_CHILDREN) != 0) {
+		/* When listing e.g. public/% but only public/foo/bar
+		   is subscribed, we need to list public/foo. However, since
+		   public/foo/bar doesn't match the list glob, the mailbox node
+		   doesn't exist in the tree. We can instead rely on the
+		   MAILBOX_CHILDREN flag to know whether there are visible
+		   children. */
+		return TRUE;
+	}
+	return FALSE;
+}
+
+static bool
+mailbox_list_want_subscription(struct mail_namespace *ns,
+			       enum mailbox_info_flags node_flags)
+{
+	if (ns->type != MAIL_NAMESPACE_TYPE_PRIVATE &&
+	    (ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) != 0) {
+		/* Non-private namespace with subscriptions=yes. This could be
+		   a site-global subscriptions file, so hide subscriptions for
+		   mailboxes the user doesn't have ACLs to see. This actually
+		   hides all mailboxes that are nonexistent, so the assumption
+		   is that the nonexistence is due to ACLs. */
+		return node_has_existing_subscription(node_flags);
+	}
+	return TRUE;
+}
+
 static bool
 ns_match_simple(struct ns_list_iterate_context *ctx, struct mail_namespace *ns)
 {
@@ -1078,7 +1112,14 @@ mailbox_list_finish_subscriptions(struct mailbox_list_iterate_context *ctx)
 
 	struct mailbox_node *node;
 	const char *vname;
-	while ((node = mailbox_tree_iterate_next(ctx->subscriptions_iter, &vname)) == NULL) {
+	for (;;) {
+		node = mailbox_tree_iterate_next(ctx->subscriptions_iter, &vname);
+		if (node != NULL) {
+			if (!mailbox_list_want_subscription(ctx->list->ns, node->flags))
+				continue;
+			break;
+		}
+
 		if (ctx->subscriptions_children)
 			return NULL;
 

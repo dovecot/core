@@ -20,7 +20,6 @@ struct acl_mailbox_list_iterate_context {
 	struct mailbox_info info;
 
 	char sep;
-	bool hide_nonlistable_subscriptions:1;
 	bool simple_star_glob:1;
 	bool autocreate_acls_checked:1;
 };
@@ -172,14 +171,6 @@ acl_mailbox_list_iter_init(struct mailbox_list *list,
 
 	ctx = p_new(_ctx->pool, struct acl_mailbox_list_iterate_context, 1);
 
-	if (list->ns->type != MAIL_NAMESPACE_TYPE_PRIVATE &&
-	    (list->ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) != 0) {
-		/* non-private namespace with subscriptions=yes. this could be
-		   a site-global subscriptions file, so hide subscriptions for
-		   mailboxes the user doesn't see. */
-		ctx->hide_nonlistable_subscriptions = TRUE;
-	}
-
 	ctx->sep = mail_namespace_get_sep(list->ns);
 	/* see if all patterns have only a single '*' and it's at the end.
 	   we can use it to do some optimizations. */
@@ -270,7 +261,7 @@ iter_is_listing_all_children(struct mailbox_list_iterate_context *_ctx)
 
 static bool
 iter_mailbox_has_visible_children(struct mailbox_list_iterate_context *_ctx,
-				  bool only_nonpatterns, bool subscribed)
+				  bool only_nonpatterns)
 {
 	struct acl_mailbox_list_iterate_context *ctx =
 		ACL_LIST_ITERATE_CONTEXT(_ctx);
@@ -316,8 +307,6 @@ iter_mailbox_has_visible_children(struct mailbox_list_iterate_context *_ctx,
 	}
 
 	iter = mailbox_list_iter_init(_ctx->list, str_c(pattern),
-				      (!subscribed ? 0 :
-				       MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		if (only_nonpatterns &&
@@ -352,8 +341,7 @@ acl_mailbox_list_info_is_visible(struct mailbox_list_iterate_context *_ctx)
 	}
 
 	if ((_ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0 &&
-	    (_ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) != 0 &&
-	    !ctx->hide_nonlistable_subscriptions) {
+	    (_ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) != 0) {
 		/* don't waste time doing an ACL check. we're going to list
 		   all subscriptions anyway. */
 		info->flags &= MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED;
@@ -369,7 +357,7 @@ acl_mailbox_list_info_is_visible(struct mailbox_list_iterate_context *_ctx)
 			   children, but also don't return incorrect flags */
 			info->flags &= ENUM_NEGATE(MAILBOX_CHILDREN);
 		} else if ((info->flags & MAILBOX_CHILDREN) != 0 &&
-			   !iter_mailbox_has_visible_children(_ctx, FALSE, FALSE)) {
+			   !iter_mailbox_has_visible_children(_ctx, FALSE)) {
 			info->flags &= ENUM_NEGATE(MAILBOX_CHILDREN);
 			info->flags |= MAILBOX_NOCHILDREN;
 		}
@@ -384,22 +372,11 @@ acl_mailbox_list_info_is_visible(struct mailbox_list_iterate_context *_ctx)
 		i_assert((info->flags & PRESERVE_MAILBOX_FLAGS) != 0);
 		info->flags = MAILBOX_NONEXISTENT |
 			(info->flags & PRESERVE_MAILBOX_FLAGS);
-		if (ctx->hide_nonlistable_subscriptions) {
-			/* global subscriptions file. hide this entry if there
-			   are no visible subscribed children or if we're going
-			   to list the subscribed children anyway. */
-			if ((info->flags & MAILBOX_CHILD_SUBSCRIBED) == 0)
-				return 0;
-			if (iter_is_listing_all_children(_ctx) ||
-			    !iter_mailbox_has_visible_children(_ctx, TRUE, TRUE))
-				return 0;
-			/* e.g. LSUB "" % with visible subscribed children */
-		}
 		return 1;
 	}
 
 	if (!iter_is_listing_all_children(_ctx) &&
-	    iter_mailbox_has_visible_children(_ctx, TRUE, FALSE)) {
+	    iter_mailbox_has_visible_children(_ctx, TRUE)) {
 		/* no child mailboxes match the list pattern(s), but mailbox
 		   has visible children. we'll need to show this as
 		   nonexistent. */
