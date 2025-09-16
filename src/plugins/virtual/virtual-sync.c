@@ -1820,9 +1820,9 @@ static int virtual_sync_mail_mailbox_cmp(const struct virtual_sync_mail *m1,
 	return 0;
 }
 
-static void virtual_sync_bboxes_get_mails(struct virtual_sync_context *ctx)
+static int virtual_sync_bboxes_get_mails(struct virtual_sync_context *ctx)
 {
-	uint32_t messages, vseq;
+	uint32_t messages, vseq, vuid, prev_vuid = 0;
 	const void *mail_data;
 	const struct virtual_mail_index_record *vrec;
 	struct virtual_sync_mail *sync_mail;
@@ -1830,6 +1830,16 @@ static void virtual_sync_bboxes_get_mails(struct virtual_sync_context *ctx)
 	messages = mail_index_view_get_messages_count(ctx->sync_view);
 	i_array_init(&ctx->all_mails, messages);
 	for (vseq = 1; vseq <= messages; vseq++) {
+		mail_index_lookup_uid(ctx->sync_view, vseq, &vuid);
+		if (vuid <= prev_vuid) {
+			mail_storage_set_critical(ctx->mbox->box.storage,
+				"Corrupted virtual index: uid=%u followed by uid=%u",
+				prev_vuid, vuid);
+			mail_index_mark_corrupted(ctx->mbox->box.index);
+			return -1;
+		}
+		prev_vuid = vuid;
+
 		mail_index_lookup_ext(ctx->sync_view, vseq,
 				      ctx->mbox->virtual_ext_id, &mail_data, NULL);
 		vrec = mail_data;
@@ -1838,6 +1848,7 @@ static void virtual_sync_bboxes_get_mails(struct virtual_sync_context *ctx)
 		sync_mail->vrec = *vrec;
 	}
 	array_sort(&ctx->all_mails, virtual_sync_mail_mailbox_cmp);
+	return 0;
 }
 
 static int virtual_sync_backend_boxes(struct virtual_sync_context *ctx)
@@ -1854,8 +1865,10 @@ static int virtual_sync_backend_boxes(struct virtual_sync_context *ctx)
 
 	/* we have different optimizations depending on whether the virtual
 	   mailbox consists of multiple backend boxes or just one */
-	if (count > 1)
-		virtual_sync_bboxes_get_mails(ctx);
+	if (count > 1) {
+		if (virtual_sync_bboxes_get_mails(ctx) < 0)
+			return -1;
+	}
 
 	for (i = 0; i < count; i++) {
 		struct virtual_backend_box *bbox = bboxes[i];
