@@ -53,6 +53,7 @@ static const struct setting_define acl_setting_defines[] = {
 	DEF(BOOL, acl_globals_only),
 	DEF(BOOL, acl_defaults_from_inbox),
 	DEF(BOOL, acl_ignore),
+	DEF(BOOL, acl_dict_index),
 	{ .type = SET_FILTER_NAME, .key = "acl_sharing_map",
 		.required_setting = "dict", },
 	{ .type = SET_FILTER_ARRAY,
@@ -73,6 +74,11 @@ static const struct acl_settings acl_default_settings = {
 	.acl_globals_only = FALSE,
 	.acl_defaults_from_inbox = FALSE,
 	.acl_ignore = FALSE,
+#ifdef DOVECOT_PRO_EDITION
+	.acl_dict_index = TRUE,
+#else
+	.acl_dict_index = FALSE,
+#endif
 };
 
 static bool acl_settings_check(void *_set ATTR_UNUSED, pool_t pool ATTR_UNUSED,

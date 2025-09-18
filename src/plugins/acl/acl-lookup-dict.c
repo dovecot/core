@@ -14,6 +14,7 @@
 
 
 #define DICT_SHARED_BOXES_PATH "shared-boxes/"
+#define DICT_SHARED_USER_BOXES_PATH_REV "shared-user-boxes-rev/"
 
 extern struct event_category event_category_acl;
 
@@ -147,7 +148,7 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 static int
 acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			       const ARRAY_TYPE(const_string) *new_ids_arr,
-			       bool no_removes)
+			       bool no_removes, bool acl_dict_index)
 {
 	struct event *event = dict->event;
 	const char *username = dict->user->username;
@@ -168,15 +169,42 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	   that aren't visible to us, so we don't want to remove anything
 	   that could break them. */
 	t_array_init(&old_ids_arr, 128);
-	prefix = DICT_PATH_SHARED DICT_SHARED_BOXES_PATH;
-	prefix_len = strlen(prefix);
-	iter = dict_iterate_init(dict->dict, set, prefix, DICT_ITERATE_FLAG_RECURSE);
-	while (dict_iterate(iter, &key, &value)) {
-		/* prefix/$type/$dest/$source */
-		key += prefix_len;
-		p = strrchr(key, '/');
-		if (p != NULL && strcmp(p + 1, username) == 0) {
-			key = t_strdup_until(key, p);
+	if (!acl_dict_index) {
+		prefix = DICT_PATH_SHARED DICT_SHARED_BOXES_PATH;
+		prefix_len = strlen(prefix);
+		iter = dict_iterate_init(dict->dict, set, prefix, DICT_ITERATE_FLAG_RECURSE);
+		while (dict_iterate(iter, &key, &value)) {
+			/* prefix/$type/$dest/$source */
+			key += prefix_len;
+			p = strrchr(key, '/');
+			if (p != NULL && strcmp(p + 1, username) == 0) {
+				key = t_strdup_until(key, p);
+				array_push_back(&old_ids_arr, &key);
+			}
+		}
+	} else {
+		key = t_strdup_printf(DICT_PATH_SHARED
+				      DICT_SHARED_BOXES_PATH"anyone/%s",
+				      username);
+		ret = dict_lookup(dict->dict, set, pool_datastack_create(),
+				  key, &value, &error);
+		if (ret < 0) {
+			e_error(event, "dict_lookup(%s) failed: %s - can't update dict",
+				key, error);
+			return -1;
+		}
+		if (ret > 0) {
+			key = t_strdup_printf("anyone/%s", username);
+			array_push_back(&old_ids_arr, &key);
+		}
+		prefix = t_strdup_printf(DICT_PATH_SHARED
+					 DICT_SHARED_USER_BOXES_PATH_REV"%s/",
+					 username);
+		prefix_len = strlen(prefix);
+		iter = dict_iterate_init(dict->dict, set, prefix, DICT_ITERATE_FLAG_RECURSE);
+		while (dict_iterate(iter, &key, &value)) {
+			/* prefix/$dest */
+			key = t_strdup_printf("user/%s", key + prefix_len);
 			array_push_back(&old_ids_arr, &key);
 		}
 	}
@@ -190,7 +218,8 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 
 	/* sync the identifiers */
 	path = t_str_new(256);
-	str_append(path, prefix);
+	str_append(path, DICT_PATH_SHARED DICT_SHARED_BOXES_PATH);
+	prefix_len = str_len(path);
 
 	old_ids = array_get(&old_ids_arr, &old_count);
 	new_ids = array_get(new_ids_arr, &new_count);
@@ -226,7 +255,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	return 0;
 }
 
-int acl_lookup_dict_rebuild(struct acl_lookup_dict *dict)
+int acl_lookup_dict_rebuild(struct acl_lookup_dict *dict, bool acl_dict_index)
 {
 	struct mail_namespace *ns;
 	ARRAY_TYPE(const_string) ids_arr;
@@ -259,7 +288,8 @@ int acl_lookup_dict_rebuild(struct acl_lookup_dict *dict)
 
 	/* if lookup failed at some point we can still add new ids,
 	   but we can't remove any existing ones */
-	if (acl_lookup_dict_rebuild_update(dict, &ids_arr, ret < 0) < 0)
+	if (acl_lookup_dict_rebuild_update(dict, &ids_arr, ret < 0,
+					   acl_dict_index) < 0)
 		ret = -1;
 	return ret;
 }

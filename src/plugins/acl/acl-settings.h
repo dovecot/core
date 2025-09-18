@@ -24,6 +24,7 @@ struct acl_settings {
 	bool acl_globals_only;
 	bool acl_defaults_from_inbox;
 	bool acl_ignore;
+	bool acl_dict_index;
 };
 
 extern const struct setting_parser_info acl_rights_setting_parser_info;

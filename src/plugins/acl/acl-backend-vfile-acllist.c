@@ -309,8 +309,8 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 		i_assert(auser != NULL);
 		backend->acllist_mtime = st.st_mtime;
 		backend->acllist_last_check = ioloop_time;
-		/* FIXME: dict rebuild is expensive, try to avoid it */
-		(void)acl_lookup_dict_rebuild(auser->acl_lookup_dict);
+		(void)acl_lookup_dict_rebuild(auser->acl_lookup_dict,
+			backend->backend.set->acl_dict_index);
 	} else {
 		acllist_clear(backend, 0);
 		i_unlink_if_exists(str_c(path));

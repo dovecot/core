@@ -345,7 +345,7 @@ cmd_acl_recalc_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 		doveadm_mail_failed_error(ctx, MAIL_ERROR_NOTFOUND);
 		return -1;
 	}
-	if (acl_lookup_dict_rebuild(auser->acl_lookup_dict) < 0) {
+	if (acl_lookup_dict_rebuild(auser->acl_lookup_dict, FALSE) < 0) {
 		e_error(user->event, "Failed to recalculate ACL dicts");
 		doveadm_mail_failed_error(ctx, MAIL_ERROR_TEMP);
 		return -1;
@@ -501,7 +501,7 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 	if (name == NULL) {
 		e_error(box->event, "User %s not found from ACL shared dict, rebuilding",
 			ns->owner->username);
-		if (acl_lookup_dict_rebuild(auser->acl_lookup_dict) < 0)
+		if (acl_lookup_dict_rebuild(auser->acl_lookup_dict, FALSE) < 0)
 			i_fatal("ACL lookup dict rebuild failed");
 		all_ok = FALSE;
 		*retry_r = TRUE;
