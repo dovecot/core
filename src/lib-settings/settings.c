@@ -1517,7 +1517,7 @@ settings_mmap_pool_create(struct settings_root *root,
 	mpool->parent_pool = parent_pool;
 	mpool->root = root;
 	mpool->mmap = mmap;
-	mpool->source_filename = source_filename;
+	mpool->source_filename = p_strdup(parent_pool, source_filename);
 	mpool->source_linenum = source_linenum;
 	if (mmap != NULL)
 		settings_mmap_ref(mmap);
