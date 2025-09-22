@@ -11,6 +11,9 @@ static const char *stats_metric_defaults =
 "  group_by reason {\n"
 "  }\n"
 "}\n"
+"metric proxy_session_established {\n"
+"  filter = event=proxy_session_established\n"
+"}\n"
 "}\n"
 
 "group @metric_defaults backend {\n"
