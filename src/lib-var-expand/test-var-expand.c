@@ -199,6 +199,9 @@ static void test_var_expand_builtin_filters(void) {
 #ifdef HAVE_LIBPCRE
 		/* regexp */
 		{ .in = "%{literal('hello world') | regexp('(.*) (.*)', '$2 $1')}", .out = "world hello" },
+		{ .in = "%{literal('hello world') | regexp('(.*) (.*)', '\\\\2 \\\\1')}", .out = "world hello" },
+		{ .in = "%{literal('hello world') | regexp('(.*) (.*)', '\\\\\\\\2 \\\\\\\\1')}", .out = "\\2 \\1" },
+		{ .in = "%{literal('hello world') | regexp('(.*) (.*)', '\\\\\\\\\\\\2 \\\\\\\\\\\\1')}", .out = "\\world \\hello" },
 #endif
 		/* index */
 		{ .in = "%{user | index('@',0)}", .out = "user", .ret = 0 },

@@ -750,6 +750,32 @@ static int fn_ldap_dn(const struct var_expand_statement *stmt,
 	return 0;
 }
 
+static const char *fix_replacement_pattern(const char *pattern)
+{
+	const char *p1, *p0 = pattern;
+	string_t *dest = t_str_new(strlen(pattern));
+
+	while ((p1 = strchr(p0, '\\')) != NULL) {
+		str_append_data(dest, p0, p1 - p0);
+		if (i_isdigit(p1[1])) {
+			str_append_c(dest, '$');
+			str_append_c(dest, p1[1]);
+			p1 += 2;
+		} else if (p1[1] == '\\') {
+			str_append_c(dest, '\\');
+			p1 += 2;
+		} else {
+			str_append_c(dest, *p1);
+			p1++;
+		}
+		p0 = p1;
+	}
+
+	str_append(dest, p0);
+
+	return str_c(dest);
+}
+
 static int fn_regexp(const struct var_expand_statement *stmt,
 		     struct var_expand_state *state, const char **error_r)
 {
@@ -797,6 +823,11 @@ static int fn_regexp(const struct var_expand_statement *stmt,
 
 	const char *input ATTR_UNUSED = str_c(state->transfer);
 	string_t *dest = t_str_new(strlen(rep));
+
+	if (strchr(rep, '\\') != NULL) {
+		/* fix replacement pattern */
+		rep = fix_replacement_pattern(rep);
+	}
 
 	int ret = dregex_replace(pat, input, rep, dest, 0, error_r);
 
