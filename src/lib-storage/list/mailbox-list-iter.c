@@ -161,7 +161,7 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 		      MAILBOX_LIST_ITER_RETURN_SUBSCRIBED)) != 0) {
 		char sep = mail_namespace_get_sep(list->ns);
 		ctx->subscriptions = mailbox_tree_init(sep);
-		mailbox_list_subscriptions_fill(ctx, ctx->subscriptions, FALSE);
+		mailbox_list_subscriptions_fill(ctx, ctx->subscriptions);
 
 		struct mailbox_tree_iterate_context *iter =
 			mailbox_tree_iterate_init(ctx->subscriptions, NULL, 0);
