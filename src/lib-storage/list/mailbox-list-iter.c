@@ -1236,12 +1236,11 @@ mailbox_list_iter_update_real(struct mailbox_list_iter_update_context *ctx,
 {
 	struct mail_namespace *ns = ctx->iter_ctx->list->ns;
 	struct mailbox_node *node;
-	enum mailbox_info_flags create_flags, always_flags;
+	enum mailbox_info_flags create_flags = 0, always_flags;
 	enum imap_match_result match;
 	const char *p;
 	bool created, add_matched;
 
-	create_flags = MAILBOX_NOCHILDREN;
 	always_flags = ctx->leaf_flags;
 	add_matched = TRUE;
 
@@ -1257,8 +1256,6 @@ mailbox_list_iter_update_real(struct mailbox_list_iter_update_context *ctx,
 			}
 			if (add_matched)
 				node->flags |= MAILBOX_MATCHED;
-			if ((always_flags & MAILBOX_CHILDREN) != 0)
-				node->flags &= ENUM_NEGATE(MAILBOX_NOCHILDREN);
 			node->flags |= always_flags;
 			/* We don't want to show the parent mailboxes unless
 			   something else matches them, but if they are matched
@@ -1282,8 +1279,7 @@ mailbox_list_iter_update_real(struct mailbox_list_iter_update_context *ctx,
 
 		name = t_strdup_until(name, p);
 		create_flags |= MAILBOX_NONEXISTENT;
-		create_flags &= ENUM_NEGATE(MAILBOX_NOCHILDREN);
-		always_flags = MAILBOX_CHILDREN | ctx->parent_flags;
+		always_flags = ctx->parent_flags;
 	}
 }
 
