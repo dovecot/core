@@ -183,7 +183,6 @@ struct mailbox_list_iter_update_context {
 	struct imap_match_glob *glob;
 	enum mailbox_info_flags leaf_flags, parent_flags;
 
-	bool update_only:1;
 	bool match_parents:1;
 };
 

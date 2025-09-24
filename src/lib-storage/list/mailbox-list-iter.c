@@ -1249,21 +1249,17 @@ mailbox_list_iter_update_real(struct mailbox_list_iter_update_context *ctx,
 		created = FALSE;
 		match = imap_match(ctx->glob, name);
 		if (match == IMAP_MATCH_YES) {
-			node = ctx->update_only ?
-				mailbox_tree_lookup(ctx->tree_ctx, name) :
-				mailbox_tree_get(ctx->tree_ctx, name, &created);
+			node = mailbox_tree_get(ctx->tree_ctx, name, &created);
 			if (created) {
 				node->flags = create_flags;
 				if (create_flags != 0)
 					node_fix_parents(node);
 			}
-			if (node != NULL) {
-				if (!ctx->update_only && add_matched)
-					node->flags |= MAILBOX_MATCHED;
-				if ((always_flags & MAILBOX_CHILDREN) != 0)
-					node->flags &= ENUM_NEGATE(MAILBOX_NOCHILDREN);
-				node->flags |= always_flags;
-			}
+			if (add_matched)
+				node->flags |= MAILBOX_MATCHED;
+			if ((always_flags & MAILBOX_CHILDREN) != 0)
+				node->flags &= ENUM_NEGATE(MAILBOX_NOCHILDREN);
+			node->flags |= always_flags;
 			/* We don't want to show the parent mailboxes unless
 			   something else matches them, but if they are matched
 			   we want to show them having child subscriptions */
