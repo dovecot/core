@@ -1094,9 +1094,6 @@ static bool autocreate_iter_autobox(struct mailbox_list_iterate_context *ctx,
 
 static void mailbox_list_mark_node_visited(struct mailbox_node *node)
 {
-	if (node == NULL)
-		return;
-
 	node->flags &= ENUM_NEGATE(MAILBOX_MATCHED);
 	while (node->parent != NULL) {
 		node = node->parent;
@@ -1112,9 +1109,10 @@ mailbox_list_match_subscriptions(struct mailbox_list_iterate_context *ctx,
 	if (ctx->subscriptions == NULL)
 		return TRUE;
 
+	bool created ATTR_UNUSED;
 	struct mailbox_node *node =
-		mailbox_tree_lookup(ctx->subscriptions, (*info)->vname);
-	enum mailbox_info_flags subs_flags = node == NULL ? 0 :
+		mailbox_tree_get(ctx->subscriptions, (*info)->vname, &created);
+	enum mailbox_info_flags subs_flags =
 		node->flags & MAILBOX_SUBSCRIBED;
 	if (subs_flags == 0) {
 		if (HAS_ANY_BITS((*info)->flags, MAILBOX_SUBSCRIBED |
@@ -1123,8 +1121,7 @@ mailbox_list_match_subscriptions(struct mailbox_list_iterate_context *ctx,
 			mailbox_list_mark_node_visited(node);
 			return TRUE;
 		}
-		if (node != NULL)
-			node->flags |= (*info)->flags;
+		node->flags |= (*info)->flags;
 		if (HAS_NO_BITS(ctx->flags, MAILBOX_LIST_ITER_SELECT_SUBSCRIBED)) {
 			mailbox_list_mark_node_visited(node);
 			return TRUE;
@@ -1141,6 +1138,23 @@ mailbox_list_match_subscriptions(struct mailbox_list_iterate_context *ctx,
 
 	mailbox_list_mark_node_visited(node);
 	return TRUE;
+}
+
+static bool node_has_existing_children(struct mailbox_node *parent)
+{
+	struct mailbox_node *node;
+
+	for (node = parent->children; node != NULL; node = node->next) {
+		if ((node->flags & MAILBOX_NONEXISTENT) == 0)
+			return TRUE;
+		if ((node->flags & MAILBOX_CHILDREN) != 0)
+			return TRUE;
+		if ((node->flags & MAILBOX_NOCHILDREN) == 0) {
+			if (node_has_existing_children(node))
+				return TRUE;
+		}
+	}
+	return FALSE;
 }
 
 static const struct mailbox_info *
@@ -1177,6 +1191,14 @@ mailbox_list_finish_subscriptions(struct mailbox_list_iterate_context *ctx)
 	ctx->subscriptions_info.ns = ctx->list->ns;
 	ctx->subscriptions_info.vname = vname;
 	ctx->subscriptions_info.flags = node->flags;
+	if ((node->flags & (MAILBOX_CHILDREN | MAILBOX_NOCHILDREN)) == 0) {
+		/* Subscription tree was filled by mailbox list iteration.
+		   We can use it to get the children flags. */
+		if (node_has_existing_children(node))
+			ctx->subscriptions_info.flags |= MAILBOX_CHILDREN;
+		else
+			ctx->subscriptions_info.flags |= MAILBOX_NOCHILDREN;
+	}
 
 	mailbox_list_mark_node_visited(node);
 	return &ctx->subscriptions_info;
