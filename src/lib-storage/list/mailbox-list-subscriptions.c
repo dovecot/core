@@ -187,25 +187,6 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 	return 0;
 }
 
-void mailbox_list_set_subscription_flags(struct mailbox_list *list,
-					 const char *vname,
-					 enum mailbox_info_flags *flags)
-{
-	struct mailbox_node *node;
-
-	*flags &= ENUM_NEGATE(MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED);
-
-	node = mailbox_tree_lookup(list->subscriptions, vname);
-	if (node != NULL) {
-		*flags |= node->flags & MAILBOX_SUBSCRIBED;
-
-		/* the only reason why node might have a child is if one of
-		   them is subscribed */
-		if (node->children != NULL)
-			*flags |= MAILBOX_CHILD_SUBSCRIBED;
-	}
-}
-
 void mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
 				     struct mailbox_tree_context *tree)
 {

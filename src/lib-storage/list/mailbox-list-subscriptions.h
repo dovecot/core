@@ -9,12 +9,6 @@ struct mailbox_list_iterate_context;
 int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 				       struct mailbox_list *dest_list);
 
-/* Set MAILBOX_SUBSCRIBED and MAILBOX_CHILD_SUBSCRIBED flags,
-   clearing them if they already are there when they shouldn't. */
-void mailbox_list_set_subscription_flags(struct mailbox_list *list,
-					 const char *vname,
-					 enum mailbox_info_flags *flags);
-
 /* Add subscriptions matching the iteration to the given tree */
 void mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
 				     struct mailbox_tree_context *tree);
