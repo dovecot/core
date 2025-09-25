@@ -531,7 +531,9 @@ mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 	if (has_children)
 		ctx->ns_info.flags |= MAILBOX_CHILDREN;
 	else if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_CHILDREN) != 0 ||
-		 (ns->flags & NAMESPACE_FLAG_LIST_CHILDREN) != 0) {
+		 (ns->flags & NAMESPACE_FLAG_LIST_CHILDREN) != 0 ||
+		 (ctx->ctx.flags & (MAILBOX_LIST_ITER_RETURN_SUBSCRIBED |
+				    MAILBOX_LIST_ITER_SELECT_SUBSCRIBED)) != 0) {
 		/* need to check this explicitly */
 		if ((ret = mailbox_list_match_anything(ctx, ns, ns->prefix)) > 0)
 			ctx->ns_info.flags |= MAILBOX_CHILDREN;
@@ -554,9 +556,24 @@ mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 			mailbox_list_ns_iter_failed(ctx);
 			return FALSE;
 		}
-		mailbox_list_set_subscription_flags(ns->list,
-						    ctx->ns_info.vname,
-						    &ctx->ns_info.flags);
+
+		struct mailbox_node *subs_node =
+			mailbox_tree_lookup(ns->list->subscriptions,
+					    ctx->ns_info.vname);
+		enum mailbox_info_flags subs_flags = 0;
+		if (subs_node == NULL)
+			;
+		else if ((subs_node->flags & MAILBOX_SUBSCRIBED) != 0)
+			subs_flags = MAILBOX_SUBSCRIBED;
+		else if (subs_node->children != NULL) {
+			/* the only reason why node in subscriptions tree might
+			   have a child is if one of them is subscribed */
+			subs_flags = MAILBOX_CHILD_SUBSCRIBED;
+		}
+		if (subs_flags != 0 &&
+		    mailbox_list_want_subscription(ns, ctx->ns_info.flags |
+						   subs_flags))
+			ctx->ns_info.flags |= subs_flags;
 	}
 	return mailbox_ns_prefix_check_selection_criteria(ctx);
 }
