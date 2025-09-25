@@ -659,6 +659,17 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	return ctx.ret;
 }
 
+static bool imapc_list_has_existing_children(struct mailbox_node *node)
+{
+	for (node = node->children; node != NULL; node = node->next) {
+		if ((node->flags & MAILBOX_NONEXISTENT) == 0)
+			return TRUE;
+		if (imapc_list_has_existing_children(node))
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static void
 imapc_list_build_match_tree(struct imapc_mailbox_list_iterate_context *ctx)
 {
@@ -677,7 +688,13 @@ imapc_list_build_match_tree(struct imapc_mailbox_list_iterate_context *ctx)
 
 	iter = mailbox_tree_iterate_init(list->mailboxes, NULL, 0);
 	while ((node = mailbox_tree_iterate_next(iter, &vname)) != NULL) {
-		update_ctx.leaf_flags = node->flags;
+		/* We'll build our own children flags */
+		update_ctx.leaf_flags = node->flags &
+			ENUM_NEGATE(MAILBOX_CHILDREN | MAILBOX_NOCHILDREN);
+		if (imapc_list_has_existing_children(node))
+			update_ctx.leaf_flags |= MAILBOX_CHILDREN;
+		else
+			update_ctx.leaf_flags |= MAILBOX_NOCHILDREN;
 		mailbox_list_iter_update(&update_ctx, vname);
 	}
 	mailbox_tree_iterate_deinit(&iter);
