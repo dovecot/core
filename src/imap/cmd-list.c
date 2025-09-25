@@ -39,6 +39,12 @@ mailbox_flags2str(struct cmd_list_context *ctx, string_t *str,
 {
 	size_t orig_len = str_len(str);
 
+	if (ctx->lsub) {
+		/* LSUB won't allow \NoSelect flag, since it has a
+		   special meaning. */
+		flags &= ENUM_NEGATE(MAILBOX_NOSELECT);
+	}
+
 	if ((flags & MAILBOX_NONEXISTENT) != 0 && !ctx->used_listext) {
 		flags &= ENUM_NEGATE(MAILBOX_NONEXISTENT);
 		if (!ctx->lsub) {
