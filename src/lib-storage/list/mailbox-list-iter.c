@@ -516,23 +516,16 @@ mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 		i_assert(!ctx->inbox_listed);
 		ctx->inbox_listed = TRUE;
 		ctx->ns_info.flags |= ctx->inbox_info.flags | MAILBOX_SELECT;
+	} else {
+		/* see if namespace prefix is selectable */
+		box = mailbox_alloc(ns->list, ctx->ns_info.vname, 0);
+		if (mailbox_exists(box, TRUE, &existence) == 0 &&
+		    existence == MAILBOX_EXISTENCE_SELECT)
+			ctx->ns_info.flags |= MAILBOX_SELECT;
+		else
+			ctx->ns_info.flags |= MAILBOX_NONEXISTENT;
+		mailbox_free(&box);
 	}
-
-	if ((ctx->ctx.flags & (MAILBOX_LIST_ITER_RETURN_SUBSCRIBED |
-			       MAILBOX_LIST_ITER_SELECT_SUBSCRIBED)) != 0) {
-		/* Refresh subscriptions first, this won't cause a duplicate
-		   call later on as this is only called when the namespace's
-		   children definitely don't match */
-		if (mailbox_list_iter_subscriptions_refresh(ns->list) < 0) {
-			mailbox_list_ns_iter_failed(ctx);
-			return FALSE;
-		}
-		mailbox_list_set_subscription_flags(ns->list,
-						    ctx->ns_info.vname,
-						    &ctx->ns_info.flags);
-	}
-	if (!mailbox_ns_prefix_check_selection_criteria(ctx))
-		return FALSE;
 
 	/* see if the namespace has children */
 	if (has_children)
@@ -552,17 +545,20 @@ mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 		}
 	}
 
-	if ((ctx->ns_info.flags & MAILBOX_SELECT) == 0) {
-		/* see if namespace prefix is selectable */
-		box = mailbox_alloc(ns->list, ctx->ns_info.vname, 0);
-		if (mailbox_exists(box, TRUE, &existence) == 0 &&
-		    existence == MAILBOX_EXISTENCE_SELECT)
-			ctx->ns_info.flags |= MAILBOX_SELECT;
-		else
-			ctx->ns_info.flags |= MAILBOX_NONEXISTENT;
-		mailbox_free(&box);
+	if ((ctx->ctx.flags & (MAILBOX_LIST_ITER_RETURN_SUBSCRIBED |
+			       MAILBOX_LIST_ITER_SELECT_SUBSCRIBED)) != 0) {
+		/* Refresh subscriptions first, this won't cause a duplicate
+		   call later on as this is only called when the namespace's
+		   children definitely don't match */
+		if (mailbox_list_iter_subscriptions_refresh(ns->list) < 0) {
+			mailbox_list_ns_iter_failed(ctx);
+			return FALSE;
+		}
+		mailbox_list_set_subscription_flags(ns->list,
+						    ctx->ns_info.vname,
+						    &ctx->ns_info.flags);
 	}
-	return TRUE;
+	return mailbox_ns_prefix_check_selection_criteria(ctx);
 }
 
 static void inbox_set_children_flags(struct ns_list_iterate_context *ctx)
