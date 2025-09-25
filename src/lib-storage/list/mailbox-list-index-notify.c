@@ -149,9 +149,11 @@ int mailbox_list_index_notify_init(struct mailbox_list *list,
 	inotify->rec_name = str_new(default_pool, 64);
 	if ((mask & (MAILBOX_LIST_NOTIFY_SUBSCRIBE |
 		     MAILBOX_LIST_NOTIFY_UNSUBSCRIBE)) != 0) {
-		(void)mailbox_list_iter_subscriptions_refresh(list);
-		mailbox_tree_sort(list->subscriptions);
-		inotify->subscriptions = mailbox_tree_dup(list->subscriptions);
+		if (mailbox_list_iter_subscriptions_refresh(list) == 0) {
+			mailbox_tree_sort(list->subscriptions);
+			inotify->subscriptions =
+				mailbox_tree_dup(list->subscriptions);
+		}
 	}
 	inotify->list_log_path = i_strdup(ilist->index->log->filepath);
 	if (list->mail_set->mailbox_list_index_include_inbox) {
@@ -513,6 +515,12 @@ mailbox_list_index_notify_find_subscribes(struct mailbox_list_notify_index *inot
 
 	old_tree = inotify->subscriptions;
 	new_tree = mailbox_tree_dup(inotify->notify.list->subscriptions);
+
+	if (old_tree == NULL) {
+		/* Initial subscription refresh failed. */
+		inotify->subscriptions = new_tree;
+		return;
+	}
 
 	old_iter = mailbox_tree_iterate_init(old_tree, NULL, MAILBOX_SUBSCRIBED);
 	new_iter = mailbox_tree_iterate_init(new_tree, NULL, MAILBOX_SUBSCRIBED);
