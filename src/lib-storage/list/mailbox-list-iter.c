@@ -486,6 +486,29 @@ mailbox_ns_prefix_check_selection_criteria(struct ns_list_iterate_context *ctx)
 	return TRUE;
 }
 
+static int ns_has_child_subscriptions(struct ns_list_iterate_context *ctx,
+				      struct mail_namespace *parent_ns)
+{
+	struct mail_namespace *ns;
+
+	for (ns = ctx->namespaces; ns != NULL; ns = ns->next) {
+		if (ns->prefix_len > parent_ns->prefix_len &&
+		    strncmp(ns->prefix, parent_ns->prefix,
+			    parent_ns->prefix_len) == 0) {
+			if (mailbox_list_iter_subscriptions_refresh(ns->list) < 0)
+				return -1;
+
+			if (mailbox_tree_get_root(ns->list->subscriptions) != NULL)
+				return 1;
+
+			int ret = ns_has_child_subscriptions(ctx, ns);
+			if (ret != 0)
+				return ret;
+		}
+	}
+	return 0;
+}
+
 static bool
 mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 			      struct mail_namespace *ns, bool has_children)
@@ -569,6 +592,14 @@ mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 			/* the only reason why node in subscriptions tree might
 			   have a child is if one of them is subscribed */
 			subs_flags = MAILBOX_CHILD_SUBSCRIBED;
+		}
+		if (subs_flags == 0) {
+			if ((ret = ns_has_child_subscriptions(ctx, ns)) < 0) {
+				mailbox_list_ns_iter_failed(ctx);
+				return FALSE;
+			}
+			if (ret > 0)
+				subs_flags = MAILBOX_CHILD_SUBSCRIBED;
 		}
 		if (subs_flags != 0 &&
 		    mailbox_list_want_subscription(ns, ctx->ns_info.flags |

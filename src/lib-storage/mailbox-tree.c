@@ -80,6 +80,11 @@ pool_t mailbox_tree_get_pool(struct mailbox_tree_context *tree)
 	return tree->pool;
 }
 
+struct mailbox_node *mailbox_tree_get_root(struct mailbox_tree_context *tree)
+{
+	return tree->nodes;
+}
+
 static struct mailbox_node * ATTR_NULL(2)
 mailbox_tree_traverse(struct mailbox_tree_context *tree, const char *path,
 		      bool create, bool *created_r)
