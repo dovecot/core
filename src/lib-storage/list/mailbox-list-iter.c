@@ -1019,10 +1019,11 @@ static void mailbox_list_mark_node_visited(struct mailbox_node *node)
 	if (node == NULL)
 		return;
 
-	node->flags &= ENUM_NEGATE(MAILBOX_MATCHED|MAILBOX_NONEXISTENT);
+	node->flags &= ENUM_NEGATE(MAILBOX_MATCHED);
 	while (node->parent != NULL) {
 		node = node->parent;
-		node->flags &= ENUM_NEGATE(MAILBOX_MATCHED);
+		if ((node->flags & MAILBOX_SUBSCRIBED) == 0)
+			node->flags &= ENUM_NEGATE(MAILBOX_MATCHED);
 	}
 }
 
