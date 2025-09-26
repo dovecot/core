@@ -588,13 +588,13 @@ static bool
 mail_message_has_attachment(struct message_part *part,
 			    const struct message_part_attachment_settings *set)
 {
-	for (; part != NULL; part = part->next) {
-		if (message_part_is_attachment(part, set) ||
-		    mail_message_has_attachment(part->children, set))
-			return TRUE;
-	}
+	bool has_attachment = FALSE;
+	for (; part != NULL && !has_attachment; part = part->next) T_BEGIN {
+		has_attachment = message_part_is_attachment(part, set) ||
+			mail_message_has_attachment(part->children, set);
+	} T_END;
 
-	return FALSE;
+	return has_attachment;
 }
 
 bool mail_has_attachment_keywords(struct mail *mail)
