@@ -117,6 +117,9 @@ void index_storage_get_open_status(struct mailbox *box,
 			status_r->unseen = index_storage_count_pvt_unseen(box);
 		}
 	}
+	if ((items & STATUS_DELETED) != 0)
+		status_r->deleted = hdr->deleted_messages_count;
+
 	status_r->uidvalidity = hdr->uid_validity;
 	status_r->uidnext = hdr->next_uid;
 	status_r->first_recent_uid = hdr->first_recent_uid;

@@ -118,6 +118,7 @@ enum mailbox_status_items {
 	STATUS_FTS_LAST_INDEXED_UID	= 0x800,
 	STATUS_CHECK_OVER_QUOTA		= 0x1000, /* return error if over quota */
 	STATUS_HIGHESTPVTMODSEQ		= 0x2000,
+	STATUS_DELETED                  = 0x4000,
 	/* status items that must not be looked up with
 	   mailbox_get_open_status(), because they can return failure. */
 #define MAILBOX_STATUS_FAILING_ITEMS \
@@ -265,6 +266,7 @@ struct mailbox_status {
 	uint32_t messages; /* STATUS_MESSAGES */
 	uint32_t recent; /* STATUS_RECENT */
 	uint32_t unseen; /* STATUS_UNSEEN */
+	uint32_t deleted; /* STATUS_DELETED */
 
 	uint32_t uidvalidity; /* STATUS_UIDVALIDITY */
 	uint32_t uidnext; /* STATUS_UIDNEXT */
