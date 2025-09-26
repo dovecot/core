@@ -1878,6 +1878,7 @@ static void index_mail_reset_data(struct index_mail *mail)
 	mail->mail.mail.seq = 0;
 	mail->mail.mail.uid = 0;
 	mail->mail.seq_pvt = 0;
+	mail->mail.mail_opened_event_sent = FALSE;
 	mail->mail.mail.expunged = FALSE;
 	mail->mail.mail.has_nuls = FALSE;
 	mail->mail.mail.has_no_nuls = FALSE;

@@ -708,6 +708,14 @@ void mail_opened_event(struct mail *mail)
 {
 	struct mail_private *pmail =
 		container_of(mail, struct mail_private, mail);
+
+	/* If istream is opened twice for the same mail, count it as a single
+	   mail_opened event. Their cost is effectively the same, so having
+	   two events would just be confusing the statistics. */
+	if (pmail->mail_opened_event_sent)
+		return;
+	pmail->mail_opened_event_sent = TRUE;
+
 	struct event_passthrough *e =
 		event_create_passthrough(mail_event(mail))->
 		set_name("mail_opened")->

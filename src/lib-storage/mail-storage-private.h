@@ -610,6 +610,8 @@ struct mail_private {
 	bool autoexpunged:1;
 	/* mail created by mailbox_search_*() */
 	bool search_mail:1;
+	/* mail_opened event has been sent for this mail/seq */
+	bool mail_opened_event_sent:1;
 };
 
 struct mailbox_list_context {
