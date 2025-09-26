@@ -12,7 +12,8 @@
 #define ALL_STATUS_ITEMS \
 	(STATUS_MESSAGES | STATUS_RECENT | \
 	 STATUS_UIDNEXT | STATUS_UIDVALIDITY | \
-	 STATUS_UNSEEN | STATUS_HIGHESTMODSEQ)
+	 STATUS_UNSEEN | STATUS_HIGHESTMODSEQ | \
+	 STATUS_DELETED)
 #define ALL_METADATA_ITEMS \
 	(MAILBOX_METADATA_VIRTUAL_SIZE | MAILBOX_METADATA_GUID | \
 	 MAILBOX_METADATA_FIRST_SAVE_DATE)
@@ -55,6 +56,8 @@ static void status_parse_fields(struct status_cmd_context *ctx,
 			ctx->status_items |= STATUS_MESSAGES;
 		else if (strcmp(field, "recent") == 0)
 			ctx->status_items |= STATUS_RECENT;
+		else if (strcmp(field, "deleted") == 0)
+			ctx->status_items |= STATUS_DELETED;
 		else if (strcmp(field, "uidnext") == 0)
 			ctx->status_items |= STATUS_UIDNEXT;
 		else if (strcmp(field, "uidvalidity") == 0)
@@ -95,6 +98,8 @@ status_output(struct status_cmd_context *ctx, struct mailbox *box,
 		doveadm_print_num(status->messages);
 	if ((ctx->status_items & STATUS_RECENT) != 0)
 		doveadm_print_num(status->recent);
+	if ((ctx->status_items & STATUS_DELETED) != 0)
+		doveadm_print_num(status->deleted);
 	if ((ctx->status_items & STATUS_UIDNEXT) != 0)
 		doveadm_print_num(status->uidnext);
 	if ((ctx->status_items & STATUS_UIDVALIDITY) != 0)
@@ -219,6 +224,8 @@ static void cmd_mailbox_status_init(struct doveadm_mail_cmd_context *_ctx)
 		doveadm_print_header_simple("messages");
 	if ((ctx->status_items & STATUS_RECENT) != 0)
 		doveadm_print_header_simple("recent");
+	if ((ctx->status_items & STATUS_DELETED) != 0)
+		doveadm_print_header_simple("deleted");
 	if ((ctx->status_items & STATUS_UIDNEXT) != 0)
 		doveadm_print_header_simple("uidnext");
 	if ((ctx->status_items & STATUS_UIDVALIDITY) != 0)
