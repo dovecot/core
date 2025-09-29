@@ -31,6 +31,10 @@ EXTRA_DIST = \
 	settings-history-core.txt \
 	settings-history.py
 
+pkglibexecdir = $(libexecdir)/dovecot
+pkglibexec_SCRIPTS = \
+	settings-history.py
+
 test_programs = \
 	test-settings-parser \
 	test-settings
