@@ -1,3 +1,4 @@
+default	@metric_defaults/proxy/metric	auth_successes,auth_failures,login_aborted	2.4.2	3.2.0
 default	fts_search_read_fallback	yes	-	3.2.0
 default	mailbox_directory_name_legacy	yes	2.4.2	3.2.0
 default	service/anvil/unix_listener/anvil/unix_listener_mode	0600	2.4.2	-
