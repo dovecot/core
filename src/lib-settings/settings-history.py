@@ -174,17 +174,25 @@ def main():
         choices=[0, 1],
         help="Whether to generate settings migration data for Pro",
     )
+    parser.add_argument(
+        "--plugin",
+        type=str,
+        default="core",
+        help="Used to generate settings for the named plugin",
+    )
     args = parser.parse_args()
 
     input_file = getattr(args, "input-file")
     output_file = getattr(args, "output-file")
+    plugin_name = args.plugin
 
     with open(input_file, mode="r", encoding="utf-8") as f_in:
         contents = f_in.read()
         (renames, defaults) = process(input_file, contents, pro=bool(args.pro))
 
         with open(output_file, mode="w", encoding="utf-8") as f_out:
-            f_out.write(FILE_TEMPLATE % (renames, defaults))
+            template = FILE_TEMPLATE.replace("core", plugin_name)
+            f_out.write(template % (renames, defaults))
 
 
 if __name__ == "__main__":
