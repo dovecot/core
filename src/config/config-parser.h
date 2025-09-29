@@ -7,6 +7,9 @@
 
 #define CONFIG_MODULE_DIR MODULEDIR"/settings"
 
+#define CONFIG_VERSION_GIT "0.0.0"
+#define CONFIG_VERSION_MAX "9999.9999.9999"
+
 #define CONFIG_PARSER_CHANGE_GROUP 1
 /* change_counter used for default settings created internally */
 #define CONFIG_PARSER_CHANGE_DEFAULTS 2

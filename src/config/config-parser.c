@@ -2959,6 +2959,17 @@ static bool config_version_find(const char *version, const char **error_r)
 	return TRUE;
 }
 
+static bool
+dovecot_config_version_equals(struct config_parser_context *ctx, const char *value)
+{
+	if (strcmp(ctx->dovecot_config_version, value) == 0)
+		return TRUE;
+	if (strcmp(ctx->dovecot_config_version, CONFIG_VERSION_MAX) == 0 &&
+	    strcmp(value, CONFIG_VERSION_GIT) == 0)
+		return TRUE;
+	return FALSE;
+}
+
 static bool config_parser_get_version(struct config_parser_context *ctx,
 				      const struct config_line *line)
 {
@@ -2971,7 +2982,7 @@ static bool config_parser_get_version(struct config_parser_context *ctx,
 	if (strcmp(line->key, "dovecot_config_version") == 0) {
 		if (ctx->dovecot_config_version == NULL)
 			;
-		else if (strcmp(ctx->dovecot_config_version, line->value) != 0) {
+		else if (!dovecot_config_version_equals(ctx, line->value)) {
 			ctx->error = "dovecot_config_version value can't be changed once set";
 			return TRUE;
 		} else {
@@ -2991,6 +3002,9 @@ static bool config_parser_get_version(struct config_parser_context *ctx,
 	else if (!config_version_find(line->value, &error)) {
 		ctx->error = p_strdup_printf(ctx->pool,
 			"Invalid dovecot_config_version: %s", error);
+	} else if (strcmp(line->value, CONFIG_VERSION_GIT) == 0) {
+		/* git build - this is the same as the latest version. */
+		ctx->dovecot_config_version = CONFIG_VERSION_MAX;
 	} else {
 		ctx->dovecot_config_version = p_strdup(ctx->pool, line->value);
 	}

@@ -1329,7 +1329,15 @@ int main(int argc, char *argv[])
 				printf("# %u default setting changes since version %s\n",
 				       count, version);
 			}
-			printf("dovecot_config_version = %s\n", version);
+			if (strcmp(version, CONFIG_VERSION_MAX) != 0)
+				printf("dovecot_config_version = %s\n", version);
+			else {
+				/* GIT version was changed to MAX for easier
+				   comparisons internally. However, output it
+				   back as the original GIT version. */
+				printf("dovecot_config_version = %s\n",
+				       CONFIG_VERSION_GIT);
+			}
 		}
 		if (!config_path_specified)
 			check_wrong_config(config_path);
