@@ -181,6 +181,35 @@ get_default_value(const char *old_default_value,
 }
 
 static void
+settings_check_old_export_array(struct config_export_context *ctx,
+				const struct setting_define *def,
+				const ARRAY_TYPE(const_string) **val)
+{
+	/* Array fields aren't explicitly set. See if the default fields have
+	   changed. We can't differentiate between the config adding to the
+	   array vs. replacing the whole array. For now that shouldn't really
+	   make a difference, since these defaults are changed only for
+	   @*defaults groups, which shouldn't be changed by configs anyway. */
+	const char *key_with_path = def->key;
+	if (ctx->path_prefix[0] != '\0')
+		key_with_path = t_strconcat(ctx->path_prefix, def->key, NULL);
+
+	const char *old_default = NULL;
+        if (!old_settings_default(ctx->dovecot_config_version,
+				  def->key, key_with_path,
+				  &old_default))
+		return;
+
+	const char *const *list =
+		t_strsplit(old_default, SETTINGS_FILTER_ARRAY_SEPARATORS);
+	unsigned int list_count = str_array_length(list);
+	ARRAY_TYPE(const_string) *list_arr = t_new(ARRAY_TYPE(const_string), 1);
+	t_array_init(list_arr, list_count);
+	array_append(list_arr, list, list_count);
+	*val = list_arr;
+}
+
+static void
 settings_export(struct config_export_context *ctx,
 		const struct config_module_parser *module_parser)
 {
@@ -364,6 +393,9 @@ settings_export(struct config_export_context *ctx,
 
 			if (val == NULL)
 				break;
+
+			if (module_parser->change_counters[define_idx] <= CONFIG_PARSER_CHANGE_DEFAULTS)
+				settings_check_old_export_array(ctx, def, &val);
 
 			array_foreach_elem(val, name) {
 				if (str_len(ctx->value) > 0)
