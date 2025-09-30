@@ -5,6 +5,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
+	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-sasl \
 	-I$(top_srcdir)/src/lib-auth-client \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
@@ -114,6 +115,10 @@ test_libs = \
 	../lib-settings/libsettings.la \
 	../lib-dns/libdns.la \
 	../lib-sasl/libsasl.la \
+	../lib-oauth2/liboauth2.la \
+	../lib-http/libhttp.la \
+	../lib-dcrypt/libdcrypt.la \
+	../lib-dict/libdict.la \
 	../lib-auth/libauth.la \
 	../lib-otp/libotp.la \
 	../lib-json/libjson.la \
@@ -136,6 +141,10 @@ test_deps = \
 	../lib-settings/libsettings.la \
 	../lib-dns/libdns.la \
 	../lib-sasl/libsasl.la \
+	../lib-oauth2/liboauth2.la \
+	../lib-http/libhttp.la \
+	../lib-dcrypt/libdcrypt.la \
+	../lib-dict/libdict.la \
 	../lib-auth/libauth.la \
 	../lib-json/libjson.la \
 	../lib-var-expand/libvar_expand.la \
