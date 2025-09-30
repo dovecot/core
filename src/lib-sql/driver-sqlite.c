@@ -276,41 +276,54 @@ driver_sqlite_escape_string(struct sql_db *_db ATTR_UNUSED,
 	return destbegin;
 }
 
+static const char*
+driver_sqlite_result_str(struct sql_db *_db, int rc)
+{
+	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
+	const char *err = "";
+
+	if (!db->connected) {
+		err = t_strconcat("Cannot connect to database: ",
+				  driver_sqlite_connect_error(db), NULL);
+	} else if (rc == SQLITE_READONLY || rc == SQLITE_CANTOPEN) {
+		err = eacces_error_get("write", db->set->path);
+	} else if (!SQLITE_IS_OK(rc)) {
+		err = t_strdup_printf("%s (%d)", sqlite3_errstr(rc), rc);
+	}
+	return err;
+}
+
 static const char *
 driver_sqlite_result_log(const struct sqlite_result *result, const char *query)
 {
 	struct sqlite_db *db = container_of(result->api.db, struct sqlite_db, api);
 	bool success = db->connected && SQLITE_IS_OK(result->rc);
 	int duration;
-	const char *suffix = "";
+	/* result->rc is ignored by driver_sqlite_result_str() when
+	   handling connection error. */
+	const char *error = driver_sqlite_result_str(result->api.db, result->rc);
 	struct event_passthrough *e =
 		sql_query_finished_event(&db->api, result->api.event, query, success,
 					 &duration);
 	io_loop_time_refresh();
 
 	if (!db->connected) {
-		suffix = t_strconcat("Cannot connect to database: ",
-				     driver_sqlite_connect_error(db), NULL);
-		e->add_str("error", driver_sqlite_connect_error(db));
+		e->add_str("error", error);
+		e->add_str("error", "Cannot connect to database");
 		e->add_int("error_code", db->connect_rc);
 	} else if (result->rc == SQLITE_NOMEM) {
-		suffix = t_strdup_printf(": %s (%d)", sqlite3_errstr(result->rc),
-					 result->rc);
 		i_fatal_status(FATAL_OUTOFMEM, SQL_QUERY_FINISHED_FMT"%s", query,
-			       duration, suffix);
-	} else if (result->rc == SQLITE_READONLY || result->rc == SQLITE_CANTOPEN) {
-		const char *eacces_err = eacces_error_get("write", db->set->path);
-		suffix = t_strconcat(": ", eacces_err, NULL);
-		e->add_str("error", eacces_err);
-		e->add_int("error_code", result->rc);
+			       duration, error);
 	} else if (!SQLITE_IS_OK(result->rc)) {
-		suffix = t_strdup_printf(": %s (%d)", sqlite3_errstr(result->rc),
-					 result->rc);
-		e->add_str("error", sqlite3_errstr(result->rc));
+		e->add_str("error", error);
 		e->add_int("error_code", result->rc);
 	}
-	e_debug(e->event(), SQL_QUERY_FINISHED_FMT"%s", query, duration, suffix);
-	return t_strdup_printf("Query '%s'%s", query, suffix);
+
+	if (*error != '\0')
+		error = t_strconcat(": ", error, NULL);
+
+	e_debug(e->event(), SQL_QUERY_FINISHED_FMT"%s", query, duration, error);
+	return t_strdup_printf("Query '%s'%s", query, error);
 }
 
 static int driver_sqlite_exec_query(struct sqlite_db *db, const char *query,
