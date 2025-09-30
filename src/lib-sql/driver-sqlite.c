@@ -770,6 +770,9 @@ void driver_sqlite_init(void)
 {
 	i_array_init(&sqlite_db_cache, 4);
 	sql_driver_register(&driver_sqlite_db);
+	int rc = sqlite3_initialize();
+	if (rc != SQLITE_OK)
+		i_fatal("Cannot initialize sqlite: %s", sqlite3_errstr(rc));
 }
 
 void driver_sqlite_deinit(void)
@@ -782,6 +785,7 @@ void driver_sqlite_deinit(void)
 	}
 	array_free(&sqlite_db_cache);
 	sql_driver_unregister(&driver_sqlite_db);
+	sqlite3_shutdown();
 }
 
 #endif
