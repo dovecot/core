@@ -816,7 +816,7 @@ smtp_client_connection_auth_cb(const struct smtp_reply *reply,
 			cmd = smtp_client_command_new(
 				conn, SMTP_CLIENT_COMMAND_FLAG_PRELOGIN,
 				smtp_client_connection_auth_cb, conn);
-			smtp_client_command_write(cmd, conn->sasl_ir);
+			smtp_client_command_write(cmd, str_c(smtp_output));
 			smtp_client_command_submit_after(cmd, cmd_auth);
 			conn->cmd_auth = cmd;
 			return;
