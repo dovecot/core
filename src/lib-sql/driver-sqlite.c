@@ -149,7 +149,7 @@ static int driver_sqlite_connect(struct sql_db *_db)
 
 	if (db->connected)
 		return 1;
-	if (db->set->readonly)
+	if (db->set->readonly || db->connect_rc == SQLITE_READONLY)
 		flags = SQLITE_OPEN_READONLY;
 	else
 		flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
@@ -165,6 +165,9 @@ static int driver_sqlite_connect(struct sql_db *_db)
 		db->connected = TRUE;
 		sqlite3_busy_timeout(db->sqlite, sqlite_busy_timeout);
 		return 1;
+	case SQLITE_READONLY:
+		i_assert(!db->set->readonly);
+		return driver_sqlite_connect(_db);
 	default:
 		i_free(_db->last_connect_error);
 		_db->last_connect_error =
