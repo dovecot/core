@@ -48,7 +48,7 @@ struct mail_cache_transaction_ctx {
 
 	bool tried_purging:1;
 	bool decisions_refreshed:1;
-	bool have_noncommited_mails:1;
+	bool have_noncommitted_mails:1;
 	bool changes:1;
 };
 
@@ -304,7 +304,7 @@ mail_cache_transaction_update_index(struct mail_cache_transaction_ctx *ctx,
 	if (committing) {
 		/* The transaction is being committed now. Use it. */
 		trans = ctx->trans;
-	} else if (ctx->have_noncommited_mails) {
+	} else if (ctx->have_noncommitted_mails) {
 		/* Some of the mails haven't been committed yet. We must use
 		   the provided transaction to update the cache records. */
 		trans = ctx->trans;
@@ -518,7 +518,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx,
 	/* If we're going to be committing a transaction, the log must be
 	   locked before we lock cache or we can deadlock. */
 	bool lock_log = !ctx->cache->index->log_sync_locked &&
-		!committing && !ctx->have_noncommited_mails;
+		!committing && !ctx->have_noncommitted_mails;
 	if (lock_log) {
 		uint32_t file_seq;
 		uoff_t file_offset;
@@ -788,7 +788,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 		return;
 
 	if (seq >= ctx->trans->first_new_seq)
-		ctx->have_noncommited_mails = TRUE;
+		ctx->have_noncommitted_mails = TRUE;
 
 	/* If the cache file exists, make sure the caching decisions have been
 	   read. */

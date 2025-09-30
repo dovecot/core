@@ -335,7 +335,7 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 	enum dcrypt_key_type ktype;
 	int keys;
 	bool have_key = FALSE;
-	unsigned char dgst[32];
+	unsigned char digest[32];
 	uint32_t val;
 	buffer_t buf;
 
@@ -346,7 +346,7 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 
 	/* if we have a key, prefab the digest */
 	if (stream->priv_key != NULL) {
-		buffer_create_from_data(&buf, dgst, sizeof(dgst));
+		buffer_create_from_data(&buf, digest, sizeof(digest));
 		if (!dcrypt_key_id_private(stream->priv_key, "sha256", &buf,
 					   &error)) {
 			io_stream_set_error(&stream->istream.iostream,
@@ -364,23 +364,23 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 
 	/* for each key */
 	for(;keys>0;keys--) {
-		if ((size_t)(end-data) < 1 + (ssize_t)sizeof(dgst))
+		if ((size_t)(end-data) < 1 + (ssize_t)sizeof(digest))
 			return 0;
 		ktype = *data++;
 
 		if (stream->priv_key != NULL) {
 			/* see if key matches to the one we have */
-			if (memcmp(dgst, data, sizeof(dgst)) == 0) {
+			if (memcmp(digest, data, sizeof(digest)) == 0) {
 				have_key = TRUE;
 				break;
 			}
 		} else if (stream->key_callback != NULL) {
-			const char *hexdgst = /* digest length */
-				binary_to_hex(data, sizeof(dgst));
+			const char *hexdigest = /* digest length */
+				binary_to_hex(data, sizeof(digest));
 			if (stream->priv_key != NULL)
 				dcrypt_key_unref_private(&stream->priv_key);
 			/* hope you going to give us right key.. */
-			int ret = stream->key_callback(hexdgst,
+			int ret = stream->key_callback(hexdigest,
 				&stream->priv_key, &error, stream->key_context);
 			if (ret < 0) {
 				io_stream_set_error(&stream->istream.iostream,
@@ -393,7 +393,7 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 				break;
 			}
 		}
-		data += sizeof(dgst);
+		data += sizeof(digest);
 
 		/* wasn't correct key, skip over some data */
 		if (!get_msb32(&data, end, &val) ||
@@ -409,7 +409,7 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 		return -1;
 	}
 
-	data += sizeof(dgst);
+	data += sizeof(digest);
 
 	const unsigned char *ephemeral_key;
 	uint32_t ep_key_len;
@@ -965,16 +965,16 @@ i_stream_decrypt_read(struct istream_private *stream)
 			if ((dstream->flags & IO_STREAM_ENC_INTEGRITY_HMAC) ==
 				IO_STREAM_ENC_INTEGRITY_HMAC) {
 				size_t maclen = dcrypt_ctx_hmac_get_digest_length(dstream->ctx_mac);
-				unsigned char dgst[maclen];
+				unsigned char digest[maclen];
 				buffer_t db;
-				buffer_create_from_data(&db, dgst, sizeof(dgst));
+				buffer_create_from_data(&db, digest, sizeof(digest));
 				if (!dcrypt_ctx_hmac_final(dstream->ctx_mac, &db, &error)) {
 					io_stream_set_error(&stream->iostream,
 						"Cannot verify MAC: %s", error);
 					stream->istream.stream_errno = EIO;
 					return -1;
 				}
-				if (memcmp(dgst, data + decrypt_size, maclen) != 0) {
+				if (memcmp(digest, data + decrypt_size, maclen) != 0) {
 					io_stream_set_error(&stream->iostream,
 						"Cannot verify MAC: mismatch");
 					stream->istream.stream_errno = EIO;

@@ -96,7 +96,7 @@ void auth_scram_server_init(struct auth_scram_server *server_r, pool_t pool,
 void auth_scram_server_deinit(struct auth_scram_server *server);
 
 /* Returns TRUE if authentication was concluded successfully. */
-bool auth_scram_server_acces_granted(struct auth_scram_server *server);
+bool auth_scram_server_access_granted(struct auth_scram_server *server);
 
 /* Pass client input to the server. Returns 1 if server output is available, 0
    if no server output is available yet (e.g. pending credentials lookup), and

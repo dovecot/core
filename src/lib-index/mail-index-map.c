@@ -221,7 +221,7 @@ int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
 			return -1;
 	}
 	if (ext_hdr->hdr_size > MAIL_INDEX_EXT_HEADER_MAX_SIZE) {
-		*error_r = t_strdup_printf("Headersize too large (%u)",
+		*error_r = t_strdup_printf("Header size too large (%u)",
 					   ext_hdr->hdr_size);
 		return -1;
 	}

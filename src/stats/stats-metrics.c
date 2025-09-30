@@ -146,7 +146,7 @@ static int stats_metrics_add_set(struct stats_metrics *metrics,
 		exporter = stats_metrics_exporter_find(metrics, set->exporter);
 		if (exporter == NULL) {
 			*error_r = t_strdup_printf("metric %s refers to "
-						   "non-existent exporter '%s'",
+						   "nonexistent exporter '%s'",
 						   set->name,
 						   set->exporter);
 			return -1;

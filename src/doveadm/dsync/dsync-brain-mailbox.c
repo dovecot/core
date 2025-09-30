@@ -296,7 +296,7 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 	}
 
 	if (last_common_uid != 0) {
-		/* if last_common_* is higher than our current ones it means
+		/* if last_common_* is greater than our current ones it means
 		   that the incremental sync state is stale and we need to do
 		   a full resync */
 		if (status.uidnext < last_common_uid) {

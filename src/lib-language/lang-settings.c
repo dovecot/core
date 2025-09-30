@@ -124,7 +124,7 @@ static bool langs_settings_ext_check(struct event *event, void *_set,
 
 			if (lang_default != NULL) {
 				*error_r = t_strdup_printf(
-					"Only one language with with { default = yes } is allowed"
+					"Only one language with { default = yes } is allowed"
 					" (default is '%s', cannot set '%s' too)",
 					lang_default, lang_set->name);
 				settings_free(lang_set);

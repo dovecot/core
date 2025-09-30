@@ -276,7 +276,7 @@ mailbox_list_vname_prepare(struct mailbox_list *list, const char **_vname)
 
 	if (strcasecmp(vname, "INBOX") == 0 &&
 	    (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
-		/* INBOX is case sensitive. Normalize it into "INBOX". */
+		/* INBOX is case-sensitive. Normalize it into "INBOX". */
 		vname = "INBOX";
 	} else if (ns->prefix_len > 0) {
 		/* skip namespace prefix, except if this is INBOX */

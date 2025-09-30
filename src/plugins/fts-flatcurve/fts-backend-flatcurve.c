@@ -502,7 +502,7 @@ fts_backend_flatcurve_rescan_box(struct flatcurve_fts_backend *backend,
 				u2, u);
 		} else {
 			e_debug(e->add_str("status", "expunge_msgs")->event(),
-				"Rescan: expunge non-existent messages "
+				"Rescan: expunge nonexistent messages "
 				"expunged=%s", u);
 		}
 	} T_END;

@@ -915,7 +915,7 @@ static bool mdbox_mailbox_is_fscked(struct mailbox *box)
 
 static int
 mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx,
-				   struct mailbox *fsckd_box,
+				   struct mailbox *fscked_box,
 				   enum mdbox_rebuild_reason reason,
 				   const char **reason_string_r)
 {
@@ -946,9 +946,9 @@ mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx,
 		   mdbox_map_is_fscked(ctx->storage->map))
 		*reason_string_r = "dovecot.index.map was fsck'd";
 	else if ((reason & MDBOX_REBUILD_REASON_MAILBOX_FSCKD) != 0 &&
-		 mdbox_mailbox_is_fscked(fsckd_box)) {
+		 mdbox_mailbox_is_fscked(fscked_box)) {
 		*reason_string_r = t_strdup_printf(
-			"Mailbox %s index was fsck'd", fsckd_box->vname);
+			"Mailbox %s index was fsck'd", fscked_box->vname);
 	} else {
 		/* storage was already rebuilt by someone else */
 		return 0;
@@ -1001,7 +1001,7 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx,
 static int
 mdbox_storage_rebuild_in_context(struct mdbox_storage *storage,
 				 struct mdbox_map_atomic_context *atomic,
-				 struct mailbox *fsckd_box,
+				 struct mailbox *fscked_box,
 				 enum mdbox_rebuild_reason rebuild_reason)
 {
 	struct mdbox_storage_rebuild_context *ctx;
@@ -1017,7 +1017,7 @@ mdbox_storage_rebuild_in_context(struct mdbox_storage *storage,
 	}
 
 	ctx = mdbox_storage_rebuild_init(storage, atomic);
-	if ((ret = mdbox_storage_rebuild_scan_prepare(ctx, fsckd_box,
+	if ((ret = mdbox_storage_rebuild_scan_prepare(ctx, fscked_box,
 						      rebuild_reason,
 						      &reason_string)) > 0) {
 		struct event_reason *reason = event_reason_begin("mdbox:rebuild");
@@ -1034,7 +1034,7 @@ mdbox_storage_rebuild_in_context(struct mdbox_storage *storage,
 }
 
 int mdbox_storage_rebuild(struct mdbox_storage *storage,
-			  struct mailbox *fsckd_box,
+			  struct mailbox *fscked_box,
 			  enum mdbox_rebuild_reason reason)
 {
 	struct mdbox_map_atomic_context *atomic;
@@ -1042,7 +1042,7 @@ int mdbox_storage_rebuild(struct mdbox_storage *storage,
 
 	atomic = mdbox_map_atomic_begin(storage->map);
 	ret = mdbox_storage_rebuild_in_context(storage, atomic,
-					       fsckd_box, reason);
+					       fscked_box, reason);
 	mdbox_map_atomic_set_success(atomic);
 	mdbox_map_atomic_unset_fscked(atomic);
 	(void)mail_index_reset_fscked(storage->map->index);

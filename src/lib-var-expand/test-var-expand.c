@@ -74,7 +74,7 @@ static void run_var_expand_tests(const struct var_expand_params *params,
 }
 
 static void test_var_expand_builtin_filters(void) {
-	test_begin("var_expand(buildin filters)");
+	test_begin("var_expand(builtin filters)");
 
 	const struct var_expand_table table[] = {
 		{ .key = "first", .value = "hello", },

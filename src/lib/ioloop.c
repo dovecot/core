@@ -432,7 +432,7 @@ timeout_reset_timeval(struct timeout *timeout, struct timeval *tv_now)
 	/* If we came here from io_loop_handle_timeouts_real(), next_run must
 	   be larger than tv_now or it can go to infinite loop. This would
 	   mainly happen with 0 ms timeouts. Avoid this by making sure
-	   next_run is at least 1 us higher than tv_now.
+	   next_run is at least 1 us greater than tv_now.
 
 	   Note that some callers (like master process's process_min_avail
 	   preforking timeout) really do want the 0 ms timeout to trigger
