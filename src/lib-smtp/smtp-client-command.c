@@ -509,8 +509,10 @@ static void smtp_client_command_sent(struct smtp_client_command *cmd)
 
 	if (cmd->data == NULL)
 		e_debug(e->event(), "Sent");
-	else {
-		i_assert(str_len(cmd->data) > 2);
+	else if (str_len(cmd->data) <= 2) {
+		i_assert(str_len(cmd->data) == 2);
+		e_debug(e->event(), "Sent empty line");
+	} else {
 		str_truncate(cmd->data, str_len(cmd->data)-2);
 		e_debug(e->event(), "Sent: %s", str_c(cmd->data));
 	}
