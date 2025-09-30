@@ -661,9 +661,14 @@ driver_sqlite_transaction_exec(struct sqlite_transaction_context *ctx,
 	const char *error;
 	int rc;
 
+	/* We have already failed */
+	if (!SQLITE_IS_OK(ctx->rc))
+		return;
+
 	rc = driver_sqlite_exec_query(db, query, &error);
 	if (!SQLITE_IS_OK(rc) && SQLITE_IS_OK(ctx->rc)) {
 		/* first error in the transaction */
+		i_assert(ctx->error == NULL);
 		ctx->rc = rc;
 		ctx->error = i_strdup(error);
 	}
@@ -695,6 +700,8 @@ driver_sqlite_transaction_rollback(struct sql_transaction_context *_ctx)
 			add_str("error", "Rolled back")->event(),
 			"Transaction rolled back");
 	}
+	ctx->rc = SQLITE_OK;
+	i_free(ctx->error);
 	driver_sqlite_transaction_exec(ctx, "ROLLBACK");
 	event_unref(&_ctx->event);
 	i_free(ctx->error);
@@ -749,6 +756,8 @@ driver_sqlite_transaction_commit_s(struct sql_transaction_context *_ctx,
 		return -1;
 	}
 
+	ctx->rc = 0;
+	i_free(ctx->error);
 	driver_sqlite_transaction_exec(ctx, "COMMIT");
 	if (!SQLITE_IS_OK(ctx->rc)) {
 		e_debug(sql_transaction_finished_event(_ctx)->
