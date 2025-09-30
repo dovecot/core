@@ -265,7 +265,8 @@ int virtual_mailbox_ext_header_read(struct virtual_mailbox *mbox,
 		mailboxes = (const void *)(ext_hdr + 1);
 		ext_name_offset = sizeof(*ext_hdr) +
 			ext_hdr->mailbox_count * sizeof(*mailboxes);
-		if (ext_name_offset >= ext_size ||
+		if ((ext_name_offset == ext_size && ext_hdr->mailbox_count > 0) ||
+		    ext_name_offset > ext_size ||
 		    ext_hdr->mailbox_count > INT_MAX/sizeof(*mailboxes)) {
 			e_error(event,
 				"virtual index %s: Broken mailbox_count header",
