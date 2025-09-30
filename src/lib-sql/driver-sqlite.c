@@ -44,6 +44,7 @@ struct sqlite_transaction_context {
 	char *error;
 };
 
+/* <settings checks> */
 struct sqlite_settings {
 	pool_t pool;
 
@@ -54,6 +55,7 @@ struct sqlite_settings {
 	/* generated: */
 	bool parsed_journal_use_wal;
 };
+/* </settings checks> */
 
 #undef DEF
 #define DEF(type, name) \
@@ -70,6 +72,8 @@ static const struct sqlite_settings sqlite_default_settings = {
 	.journal_mode = "wal:delete",
 	.readonly = FALSE,
 };
+static bool
+driver_sqlite_settings_check(void *_set, pool_t pool, const char **error_r);
 const struct setting_parser_info sqlite_setting_parser_info = {
 	.name = "sqlite",
 #ifdef SQL_DRIVER_PLUGINS
@@ -81,7 +85,19 @@ const struct setting_parser_info sqlite_setting_parser_info = {
 
 	.struct_size = sizeof(struct sqlite_settings),
 	.pool_offset1 = 1 + offsetof(struct sqlite_settings, pool),
+
+	.check_func = driver_sqlite_settings_check,
 };
+
+/* <settings checks> */
+static bool driver_sqlite_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+					 const char **error_r ATTR_UNUSED)
+{
+	struct sqlite_settings *set = _set;
+	set->parsed_journal_use_wal = strcmp(set->journal_mode, "wal") == 0;
+	return TRUE;
+}
+/* </settings checks> */
 
 extern const struct sql_db driver_sqlite_db;
 extern const struct sql_result driver_sqlite_result;
