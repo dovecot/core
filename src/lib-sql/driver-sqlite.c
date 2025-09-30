@@ -15,6 +15,8 @@
 #ifdef BUILD_SQLITE
 #include <sqlite3.h>
 #include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 /* retry time if db is busy (in ms) */
 static const int sqlite_busy_timeout = 1000;
@@ -126,6 +128,39 @@ static void driver_sqlite_disconnect(struct sql_db *_db)
 	db->connected = FALSE;
 }
 
+static const char *
+driver_sqlite_get_eacces_error(struct sqlite_db *db, const char *func)
+{
+	const char *path = db->set->path;
+	struct stat st ATTR_UNUSED;
+	int system_errno;
+	if (db->connected)
+		system_errno = sqlite3_system_errno(db->sqlite);
+	else
+		system_errno = db->connect_errno;
+
+	/* Something must've failed */
+	i_assert(system_errno != 0);
+
+	/* If we are using wal mode and the database file itself
+	   is there, then the problem is likely in the -wal file. */
+	if (db->set->parsed_journal_use_wal && system_errno != ENOENT)
+		path = t_strconcat(path, "-wal", NULL);
+
+	/* If the path (wal file or database) is not there, it's gonna be
+	   creation error. */
+	if (system_errno == EACCES) {
+		if (stat(path, &st) < 0 && errno == ENOENT)
+			return eacces_error_get_creating("creat", path);
+		else
+			return eacces_error_get(func, path);
+	} else {
+		/* something else failed */
+		return t_strdup_printf("%s(%s) failed: %s", func, db->set->path,
+				       strerror(system_errno));
+	}
+}
+
 static const char *driver_sqlite_connect_error(struct sqlite_db *db)
 {
 	const char *err;
@@ -136,15 +171,7 @@ static const char *driver_sqlite_connect_error(struct sqlite_db *db)
 		i_unreached();
 	case SQLITE_CANTOPEN:
 	case SQLITE_PERM:
-		if (db->connect_errno == ENOENT)
-			err = eacces_error_get_creating("creat", db->set->path);
-		else if (db->connect_errno == EACCES)
-			err = eacces_error_get("open", db->set->path);
-		else {
-			err = t_strdup_printf("open(%s) failed: %s",
-					      db->set->path,
-					      strerror(db->connect_errno));
-		}
+		err = driver_sqlite_get_eacces_error(db, "open");
 		break;
 	case SQLITE_NOMEM:
 		i_fatal_status(FATAL_OUTOFMEM, "open(%s) failed: %s",
@@ -296,6 +323,39 @@ driver_sqlite_escape_string(struct sql_db *_db ATTR_UNUSED,
 	return destbegin;
 }
 
+static const char *driver_sqlite_readonly_error(struct sqlite_db *db)
+{
+	int ret = i_faccessat2(AT_FDCWD, db->set->path, W_OK, AT_EACCESS);
+	if (ret < 0 && errno == EACCES)
+		return eacces_error_get("write", db->set->path);
+	else if (ret < 0) {
+		/* Something else failed */
+	} else if (db->set->parsed_journal_use_wal) {
+		const char *path = t_strconcat(db->set->path, "-wal", NULL);
+		/* If we ended up here, these things have happened:
+		    - the database is unexpectedly readonly
+		    - this can only happen if the database itself is non-writable,
+		      or the wal file cannot be created, or written to.
+
+		   So here we test if -wal file writing would fail with
+		   ENOENT which means the file isn't there, so it likely
+		   failed to create it, because the database itself was accessible,
+		   and this is likely because permissions. Or it is there,
+		   and we get EACCES, and handle it accordingly.
+		*/
+		ret = i_faccessat2(AT_FDCWD, path, W_OK, AT_EACCESS);
+		if (ret < 0) {
+			if (errno == ENOENT) {
+				return eacces_error_get_creating("creat", path);
+			} else if (errno == EACCES) {
+				return eacces_error_get("write", path);
+			}
+		}
+	}
+
+	return sqlite3_errstr(SQLITE_READONLY);
+}
+
 static const char*
 driver_sqlite_result_str(struct sql_db *_db, int rc)
 {
@@ -305,8 +365,16 @@ driver_sqlite_result_str(struct sql_db *_db, int rc)
 	if (!db->connected) {
 		err = t_strconcat("Cannot connect to database: ",
 				  driver_sqlite_connect_error(db), NULL);
-	} else if (rc == SQLITE_READONLY || rc == SQLITE_CANTOPEN || rc == SQLITE_PERM) {
-		err = eacces_error_get("write", db->set->path);
+	} else if (rc == SQLITE_READONLY) {
+		if (db->set->readonly) {
+			/* Expected to happen */
+			err = sqlite3_errstr(rc);
+		} else {
+			/* Check why the database is read only */
+			err = driver_sqlite_readonly_error(db);
+		}
+	} else if (rc == SQLITE_CANTOPEN || rc == SQLITE_PERM) {
+		err = driver_sqlite_get_eacces_error(db, "write");
 	} else if (!SQLITE_IS_OK(rc)) {
 		err = t_strdup_printf("%s (%d)", sqlite3_errstr(rc), rc);
 	}
