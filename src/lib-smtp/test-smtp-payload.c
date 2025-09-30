@@ -47,9 +47,11 @@ enum test_ssl_mode {
 	TEST_SSL_MODE_STARTTLS
 };
 
-static unsigned int test_max_pending = 1;
-static bool test_unknown_size = FALSE;
-static enum test_ssl_mode test_ssl_mode = TEST_SSL_MODE_NONE;
+static struct test_settings {
+	unsigned int max_pending;
+	bool unknown_size;
+	enum test_ssl_mode ssl_mode;
+} tset;
 
 static struct ip_addr bind_ip;
 static in_port_t bind_port = 0;
@@ -405,7 +407,7 @@ static void client_init(int fd)
 
 	client->smtp_conn = smtp_server_connection_create(
 		smtp_server, fd, fd, NULL, 0,
-		(test_ssl_mode == TEST_SSL_MODE_IMMEDIATE),
+		(tset.ssl_mode == TEST_SSL_MODE_IMMEDIATE),
 		NULL, &server_callbacks, client);
 	smtp_server_connection_start(client->smtp_conn);
 	DLLIST_PREPEND(&clients, client);
@@ -509,7 +511,7 @@ static struct test_client_connection *test_client_connection_get(void)
 
 	i_assert(i < MAX_PARALLEL_PENDING);
 
-	switch (test_ssl_mode) {
+	switch (tset.ssl_mode) {
 	case TEST_SSL_MODE_NONE:
 	default:
 		ssl_mode = SMTP_CLIENT_SSL_MODE_NONE;
@@ -716,7 +718,7 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 		return;
 	}
 
-	for (; client_files_last < count && pending_count < test_max_pending;
+	for (; client_files_last < count && pending_count < tset.max_pending;
 	     client_files_last++, pending_count++) {
 		struct istream *fstream, *payload;
 		const char *path = paths[client_files_last];
@@ -768,7 +770,7 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 				test_client_transaction_rcpt_data, tctrans);
 		}
 
-		if (!test_unknown_size) {
+		if (!tset.unknown_size) {
 			payload = i_stream_create_base64_encoder(
 				fstream, 80, TRUE);
 		} else {
@@ -926,7 +928,7 @@ test_run_client_server(
 {
 	struct test_server_data data;
 
-	if (test_ssl_mode == TEST_SSL_MODE_STARTTLS)
+	if (tset.ssl_mode == TEST_SSL_MODE_STARTTLS)
 		server_set->capabilities |= SMTP_CAPABILITY_STARTTLS;
 
 	failure = NULL;
@@ -1023,17 +1025,17 @@ test_run_scenarios(
 		smtp_server_set.socket_recv_buffer_size = 4096;
 	}
 
-	test_max_pending = 1;
-	test_unknown_size = FALSE;
-	test_ssl_mode = TEST_SSL_MODE_NONE;
+	tset.max_pending = 1;
+	tset.unknown_size = FALSE;
+	tset.ssl_mode = TEST_SSL_MODE_NONE;
 	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
 			       client_init);
 
 	test_out_reason("sequential", (failure == NULL), failure);
 
-	test_max_pending = MAX_PARALLEL_PENDING;
-	test_unknown_size = FALSE;
-	test_ssl_mode = TEST_SSL_MODE_NONE;
+	tset.max_pending = MAX_PARALLEL_PENDING;
+	tset.unknown_size = FALSE;
+	tset.ssl_mode = TEST_SSL_MODE_NONE;
 	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
 			       client_init);
 
@@ -1041,9 +1043,9 @@ test_run_scenarios(
 
 	smtp_server_set.max_pipelined_commands = 5;
 	smtp_server_set.capabilities |= SMTP_CAPABILITY_PIPELINING;
-	test_max_pending = MAX_PARALLEL_PENDING;
-	test_unknown_size = FALSE;
-	test_ssl_mode = TEST_SSL_MODE_NONE;
+	tset.max_pending = MAX_PARALLEL_PENDING;
+	tset.unknown_size = FALSE;
+	tset.ssl_mode = TEST_SSL_MODE_NONE;
 	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
 			       client_init);
 
@@ -1051,9 +1053,9 @@ test_run_scenarios(
 
 	smtp_server_set.max_pipelined_commands = 5;
 	smtp_server_set.capabilities |= SMTP_CAPABILITY_PIPELINING;
-	test_max_pending = MAX_PARALLEL_PENDING;
-	test_unknown_size = TRUE;
-	test_ssl_mode = TEST_SSL_MODE_NONE;
+	tset.max_pending = MAX_PARALLEL_PENDING;
+	tset.unknown_size = TRUE;
+	tset.ssl_mode = TEST_SSL_MODE_NONE;
 	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
 			       client_init);
 
@@ -1061,9 +1063,9 @@ test_run_scenarios(
 
 	smtp_server_set.max_pipelined_commands = 5;
 	smtp_server_set.capabilities |= SMTP_CAPABILITY_PIPELINING;
-	test_max_pending = MAX_PARALLEL_PENDING;
-	test_unknown_size = FALSE;
-	test_ssl_mode = TEST_SSL_MODE_IMMEDIATE;
+	tset.max_pending = MAX_PARALLEL_PENDING;
+	tset.unknown_size = FALSE;
+	tset.ssl_mode = TEST_SSL_MODE_IMMEDIATE;
 	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
 			       client_init);
 
@@ -1072,9 +1074,9 @@ test_run_scenarios(
 
 	smtp_server_set.max_pipelined_commands = 5;
 	smtp_server_set.capabilities |= SMTP_CAPABILITY_PIPELINING;
-	test_max_pending = MAX_PARALLEL_PENDING;
-	test_unknown_size = FALSE;
-	test_ssl_mode = TEST_SSL_MODE_STARTTLS;
+	tset.max_pending = MAX_PARALLEL_PENDING;
+	tset.unknown_size = FALSE;
+	tset.ssl_mode = TEST_SSL_MODE_STARTTLS;
 	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
 			       client_init);
 
@@ -1086,6 +1088,7 @@ test_run_scenarios(
 
 static void test_smtp_normal(void)
 {
+	i_zero(&tset);
 	test_begin("smtp payload - normal");
 	test_run_scenarios(SMTP_PROTOCOL_SMTP,
 			   SMTP_CAPABILITY_DSN, test_client);
@@ -1094,6 +1097,7 @@ static void test_smtp_normal(void)
 
 static void test_smtp_chunking(void)
 {
+	i_zero(&tset);
 	test_begin("smtp payload - chunking");
 	test_run_scenarios(SMTP_PROTOCOL_SMTP,
 			   SMTP_CAPABILITY_DSN | SMTP_CAPABILITY_CHUNKING,
@@ -1103,6 +1107,7 @@ static void test_smtp_chunking(void)
 
 static void test_lmtp_normal(void)
 {
+	i_zero(&tset);
 	test_begin("lmtp payload - normal");
 	test_run_scenarios(SMTP_PROTOCOL_LMTP,
 			   SMTP_CAPABILITY_DSN, test_client);
@@ -1111,6 +1116,7 @@ static void test_lmtp_normal(void)
 
 static void test_lmtp_chunking(void)
 {
+	i_zero(&tset);
 	test_begin("lmtp payload - chunking");
 	test_run_scenarios(SMTP_PROTOCOL_LMTP,
 			   SMTP_CAPABILITY_DSN | SMTP_CAPABILITY_CHUNKING,
