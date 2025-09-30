@@ -34,6 +34,7 @@ struct sqlite_result {
 	sqlite3_stmt *stmt;
 	unsigned int cols;
 	int rc;
+	char *error;
 	const char **row;
 };
 
@@ -408,6 +409,10 @@ driver_sqlite_query_s(struct sql_db *_db, const char *query)
 	result->api.db = _db;
 	result->api.refcount = 1;
 	result->api.event = event;
+	if (result->rc != SQLITE_OK && result->rc != SQLITE_DONE) {
+		result->error = i_strdup(driver_sqlite_result_str(result->api.db,
+								  result->rc));
+	}
 	driver_sqlite_result_log(result, query);
 
 	return &result->api;
@@ -434,6 +439,7 @@ static void driver_sqlite_result_free(struct sql_result *_result)
 		i_free(result->row);
 	}
 	event_unref(&result->api.event);
+	i_free(result->error);
 	i_free(result);
 }
 
@@ -441,6 +447,16 @@ static int driver_sqlite_result_next_row(struct sql_result *_result)
 {
 	struct sqlite_result *result =
 		container_of(_result, struct sqlite_result, api);
+
+	/* no more results */
+	if (result->rc == SQLITE_DONE)
+		return 0;
+	/* there has already been error */
+	if (result->rc != SQLITE_OK && result->rc != SQLITE_ROW) {
+		i_assert(result->error != NULL);
+		return -1;
+	}
+
 	result->rc = sqlite3_step(result->stmt);
 
 	switch (result->rc) {
@@ -452,6 +468,9 @@ static int driver_sqlite_result_next_row(struct sql_result *_result)
 		i_fatal_status(FATAL_OUTOFMEM, "sqlite3_step() failed: %s (%d)",
 			       sqlite3_errstr(result->rc), SQLITE_NOMEM);
 	default:
+		i_assert(result->error == NULL);
+		result->error = i_strdup(driver_sqlite_result_str(result->api.db,
+								  result->rc));
 		return -1;
 	}
 }
@@ -544,30 +563,7 @@ static const char *driver_sqlite_result_get_error(struct sql_result *_result)
 {
 	struct sqlite_result *result =
 		container_of(_result, struct sqlite_result, api);
-	struct sqlite_db *db =
-		container_of(result->api.db, struct sqlite_db, api);
-
-	if (db->connected) {
-		const char *err = sqlite3_errstr(result->rc);
-		if (result->rc == SQLITE_READONLY || result->rc == SQLITE_CANTOPEN)
-			err = t_strconcat(err, ": ",
-					  eacces_error_get("write", db->set->path), NULL);
-		return err;
-	} else if (result->rc == SQLITE_CANTOPEN) {
-		const char *err;
-		if (db->connect_errno == ENOENT) {
-			err = eacces_error_get_creating("creat", db->set->path);
-		} else if (db->connect_errno == EACCES) {
-			err = eacces_error_get("open", db->set->path);
-		} else {
-			err = t_strdup_printf("open(%s) failed: %s",
-					      db->set->path,
-					      strerror(db->connect_errno));
-		}
-		return t_strconcat("Cannot connect to database: ", err, NULL);
-	} else {
-		return "Cannot connect to database";
-	}
+	return result->error;
 }
 
 static void
