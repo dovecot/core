@@ -17,10 +17,10 @@ LIBDOVECOT_SUBDIRS = \
 	lib-settings \
 	lib-otp \
 	lib-auth \
-	lib-auth-client \
 	lib-dns-client \
 	lib-ssl-iostream \
 	lib-master \
+	lib-auth-client \
 	lib-login \
 	lib-charset \
 	lib-json \

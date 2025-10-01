@@ -14,7 +14,7 @@
 #include "write-full.h"
 #include "connection.h"
 #include "master-interface.h"
-#include "master-service.h"
+#include "master-service-private.h"
 #include "test-common.h"
 #include "test-subprocess.h"
 
@@ -24,8 +24,6 @@
 
 #define TEST_SOCKET "./auth-master-test"
 #define SERVER_KILL_TIMEOUT_SECS    20
-
-struct master_service *master_service = NULL;
 
 static void main_deinit(void);
 
@@ -1902,11 +1900,6 @@ static void main_deinit(void)
 	/* nothing yet; also called from sub-processes */
 }
 
-bool master_service_is_killed(struct master_service *service ATTR_UNUSED)
-{
-	return FALSE;
-}
-
 int main(int argc, char *argv[])
 {
 	int c;
@@ -1914,6 +1907,9 @@ int main(int argc, char *argv[])
 
 	lib_init();
 	main_init();
+	/* A bit ugly way to initialize master_service. We just need it to
+	   not be NULL for master_service_is_killed(). */
+	master_service = t_new(struct master_service, 1);
 
 	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
