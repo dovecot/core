@@ -50,6 +50,7 @@ noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	$(noinst_LTLIBRARIES) \
+        ../lib-otp/libotp.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
 	$(MODULE_LIBS)
