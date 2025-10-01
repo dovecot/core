@@ -46,7 +46,8 @@ static void test_str_to_uintmax(void)
 		test_assert_idx(value == value_back, i);
 
 		/* test with trailing noise */
-		buff[len] = 'x'; /* don't even null-terminate, let's be evil */
+		buff[len] = 'x';
+		buff[len + 1] = '\0';
 		value_back = 0x1234567890123456;
 		ret = str_to_uintmax(buff, &value_back);
 		test_assert_idx(ret < 0, i);

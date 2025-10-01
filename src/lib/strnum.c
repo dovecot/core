@@ -79,29 +79,35 @@ STR_TO_U__TEMPLATE(str_to_ullong, unsigned long long)
 STR_TO_U__TEMPLATE(str_to_uint32, uint32_t)
 STR_TO_U__TEMPLATE(str_to_uint64, uint64_t)
 
-int str_parse_uintmax(const char *str, uintmax_t *num_r,
-	const char **endp_r)
+int str_parse_data_uintmax(const unsigned char *data, size_t size,
+			   uintmax_t *num_r, const unsigned char **endp_r)
 {
+	const unsigned char *p = data, *pend = data + size;
 	uintmax_t n = 0;
 
-	if (*str < '0' || *str > '9')
+	if (p >= pend || *p < '0' || *p > '9')
 		return -1;
 
 	do {
 		if (n >= ((uintmax_t)-1 / 10)) {
 			if (n > (uintmax_t)-1 / 10)
 				return -1;
-			if ((uintmax_t)(*str - '0') > ((uintmax_t)-1 % 10))
+			if ((uintmax_t)(*p - '0') > ((uintmax_t)-1 % 10))
 				return -1;
 		}
-		n = n * 10 + (*str - '0');
-		str++;
-	} while (*str >= '0' && *str <= '9');
+		n = n * 10 + (*p - '0');
+		p++;
+	} while (p < pend && *p >= '0' && *p <= '9');
 
 	if (endp_r != NULL)
-		*endp_r = str;
+		*endp_r = p;
 	*num_r = n;
 	return 0;
+}
+int str_parse_uintmax(const char *str, uintmax_t *num_r, const char **endp_r)
+{
+	return str_parse_data_uintmax((const unsigned char *)str, strlen(str),
+				      num_r, (const unsigned char **)endp_r);
 }
 int str_to_uintmax(const char *str, uintmax_t *num_r)
 {
