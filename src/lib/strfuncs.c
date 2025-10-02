@@ -268,7 +268,7 @@ const char *t_strdup_empty(const char *str)
 	return t_strdup(str);
 }
 
-const char *t_strdup_until(const void *start, const void *end)
+char *t_strdup_until_noconst(const void *start, const void *end)
 {
 	char *mem;
 	size_t size;
@@ -281,6 +281,11 @@ const char *t_strdup_until(const void *start, const void *end)
 	memcpy(mem, start, size);
 	mem[size] = '\0';
 	return mem;
+}
+
+const char *t_strdup_until(const void *start, const void *end)
+{
+	return t_strdup_until_noconst(start, end);
 }
 
 const char *t_strndup(const void *str, size_t max_chars)

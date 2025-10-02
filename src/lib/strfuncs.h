@@ -37,6 +37,8 @@ const char *t_strdup_empty(const char *str) ATTR_MALLOC;
 /* *end isn't included */
 const char *t_strdup_until(const void *start, const void *end)
 	ATTR_MALLOC ATTR_RETURNS_NONNULL;
+char *t_strdup_until_noconst(const void *start, const void *end)
+	ATTR_MALLOC ATTR_RETURNS_NONNULL;
 const char *t_strndup(const void *str, size_t max_chars) ATTR_MALLOC;
 const char *t_strdup_printf(const char *format, ...)
 	ATTR_FORMAT(1, 2) ATTR_MALLOC ATTR_RETURNS_NONNULL;
