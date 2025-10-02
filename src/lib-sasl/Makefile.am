@@ -22,6 +22,7 @@ client_mechanisms = \
 	dsasl-client-mech-external.c \
 	dsasl-client-mech-login.c \
 	dsasl-client-mech-oauthbearer.c \
+	dsasl-client-mech-otp.c \
 	dsasl-client-mech-plain.c \
 	dsasl-client-mech-scram.c
 

@@ -208,6 +208,23 @@ fuzz_server_request_lookup_credentials(
 }
 
 static void
+fuzz_server_request_set_credentials(
+	struct sasl_server_req_ctx *rctx,
+	const char *scheme ATTR_UNUSED, const char *data ATTR_UNUSED,
+	sasl_server_passdb_callback_t *callback)
+{
+	struct fuzz_sasl_context *fctx =
+		container_of(rctx, struct fuzz_sasl_context, ssrctx);
+	struct sasl_passdb_result result;
+
+	/* Credentials are currently not actually stored */
+
+	i_zero(&result);
+	result.status = SASL_PASSDB_RESULT_OK;
+	callback(&fctx->ssrctx, &result);
+}
+
+static void
 fuzz_sasl_amend_data(struct fuzz_sasl_context *fctx,
 		     const unsigned char **_data, size_t *_size)
 {
@@ -449,6 +466,7 @@ struct sasl_server_request_funcs server_funcs = {
 
 	.request_verify_plain = fuzz_server_request_verify_plain,
 	.request_lookup_credentials = fuzz_server_request_lookup_credentials,
+	.request_set_credentials = fuzz_server_request_set_credentials,
 
 	.request_output = fuzz_server_request_output,
 };
@@ -583,6 +601,7 @@ static void fuzz_sasl_run(struct istream *input)
 	sasl_server_mech_register_cram_md5(server_inst);
 	sasl_server_mech_register_digest_md5(server_inst);
 	sasl_server_mech_register_login(server_inst);
+	sasl_server_mech_register_otp(server_inst);
 	sasl_server_mech_register_plain(server_inst);
 	sasl_server_mech_register_scram_sha1(server_inst);
 	sasl_server_mech_register_scram_sha1_plus(server_inst);
