@@ -353,7 +353,8 @@ do_auth_continue(struct winbind_auth_request *request,
 		request->continued = TRUE;
 		return HR_OK;
 	} else if (strcmp(token[0], "NA") == 0) {
-		const char *error = gss_spnego ? token[2] : token[1];
+		const char *error =
+			t_strarray_join(gss_spnego ? token+2 : token+1, " ");
 
 		e_info(auth_request->event, "user not authenticated: %s",
 		       error);
