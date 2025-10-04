@@ -110,11 +110,13 @@ static string_t *get_digest_challenge(struct digest_auth_request *request)
 	return str;
 }
 
-static bool
-verify_credentials(struct digest_auth_request *request,
+static void
+verify_credentials(struct auth_request *auth_request,
 		   const unsigned char *credentials, size_t size)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct digest_auth_request *request =
+		container_of(auth_request, struct digest_auth_request,
+			     auth_request);
 	struct md5_context ctx;
 	unsigned char digest[MD5_RESULTLEN];
 	const char *a1_hex, *a2_hex, *response_hex;
@@ -124,7 +126,8 @@ verify_credentials(struct digest_auth_request *request,
 	if (size != MD5_RESULTLEN) {
 		e_error(auth_request->mech_event,
 			"invalid credentials length");
-		return FALSE;
+		auth_request_fail(auth_request);
+		return;
 	}
 
 	/*
@@ -213,7 +216,8 @@ verify_credentials(struct digest_auth_request *request,
 						    request->response, 32)) {
 				e_info(auth_request->mech_event,
 				       AUTH_LOG_MSG_PASSWORD_MISMATCH);
-				return FALSE;
+				auth_request_fail(auth_request);
+				return;
 			}
 		} else {
 			request->rspauth =
@@ -222,7 +226,8 @@ verify_credentials(struct digest_auth_request *request,
 		}
 	}
 
-	return TRUE;
+	auth_request_success(auth_request, request->rspauth,
+			     strlen(request->rspauth));
 }
 
 static bool parse_next(char **data, char **key, char **value)
@@ -528,19 +533,9 @@ credentials_callback(enum passdb_result result,
 		     const unsigned char *credentials, size_t size,
 		     struct auth_request *auth_request)
 {
-	struct digest_auth_request *request =
-		container_of(auth_request, struct digest_auth_request,
-			     auth_request);
-
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		if (!verify_credentials(request, credentials, size)) {
-			auth_request_fail(auth_request);
-			return;
-		}
-
-		auth_request_success(auth_request, request->rspauth,
-				     strlen(request->rspauth));
+		verify_credentials(auth_request, credentials, size);
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(auth_request);
