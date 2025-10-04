@@ -123,6 +123,8 @@ void sasl_server_request_failure_with_reply(
 	struct sasl_server_mech_request *mreq,
 	const void *data, size_t data_size);
 void sasl_server_request_failure(struct sasl_server_mech_request *mreq);
+void sasl_server_request_password_mismatch(
+	struct sasl_server_mech_request *mreq);
 void sasl_server_request_internal_failure(
 	struct sasl_server_mech_request *mreq);
 

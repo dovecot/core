@@ -39,7 +39,9 @@ enum sasl_mech_passdb_need {
 
 enum sasl_server_output_status {
 	/* Internal failure */
-	SASL_SERVER_OUTPUT_INTERNAL_FAILURE = -2,
+	SASL_SERVER_OUTPUT_INTERNAL_FAILURE = -3,
+	/* Password mismatch */
+	SASL_SERVER_OUTPUT_PASSWORD_MISMATCH = -2,
 	/* Authentication failed */
 	SASL_SERVER_OUTPUT_FAILURE = -1,
 	/* Client is challlenged to continue authentication */

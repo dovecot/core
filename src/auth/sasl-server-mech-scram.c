@@ -166,17 +166,17 @@ mech_scram_auth_continue(struct sasl_server_mech_request *auth_request,
 			i_unreached();
 		case AUTH_SCRAM_SERVER_ERROR_PROTOCOL_VIOLATION:
 			e_info(auth_request->event, "%s", error);
+			sasl_server_request_failure(auth_request);
 			break;
 		case AUTH_SCRAM_SERVER_ERROR_BAD_USERNAME:
 		case AUTH_SCRAM_SERVER_ERROR_BAD_LOGIN_USERNAME:
 		case AUTH_SCRAM_SERVER_ERROR_LOOKUP_FAILED:
+			sasl_server_request_failure(auth_request);
 			break;
 		case AUTH_SCRAM_SERVER_ERROR_VERIFICATION_FAILED:
-			e_info(auth_request->event,
-			       AUTH_LOG_MSG_PASSWORD_MISMATCH);
+			sasl_server_request_password_mismatch(auth_request);
 			break;
 		}
-		sasl_server_request_failure(auth_request);
 		return;
 	}
 	if (ret == 0)

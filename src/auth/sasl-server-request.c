@@ -428,11 +428,14 @@ sasl_server_request_failure_common(struct sasl_server_mech_request *mreq,
 	req->failed = TRUE;
 	if (data_size > 0) {
 		i_assert(status != SASL_SERVER_OUTPUT_INTERNAL_FAILURE);
+		i_assert(status != SASL_SERVER_OUTPUT_PASSWORD_MISMATCH);
 		i_assert(!req->finished_with_data);
 		req->finished_with_data = TRUE;
 		e_debug(req->event,
 			"Interaction failed with final data (size=%zu)",
 			data_size);
+	} else if (status == SASL_SERVER_OUTPUT_PASSWORD_MISMATCH) {
+		e_debug(req->event, "Interaction failed: Password mismatch");
 	} else if (status == SASL_SERVER_OUTPUT_INTERNAL_FAILURE) {
 		e_debug(req->event, "Interaction failed (internal failure)");
 	} else {
@@ -460,6 +463,13 @@ void sasl_server_request_failure(struct sasl_server_mech_request *mreq)
 {
 	sasl_server_request_failure_common(mreq, SASL_SERVER_OUTPUT_FAILURE,
 					   "", 0);
+}
+
+void sasl_server_request_password_mismatch(
+	struct sasl_server_mech_request *mreq)
+{
+	sasl_server_request_failure_common(
+		mreq, SASL_SERVER_OUTPUT_PASSWORD_MISMATCH, "", 0);
 }
 
 void sasl_server_request_internal_failure(

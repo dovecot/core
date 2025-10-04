@@ -146,6 +146,11 @@ auth_sasl_request_output(struct sasl_server_req_ctx *rctx,
 	case SASL_SERVER_OUTPUT_INTERNAL_FAILURE:
 		auth_request_internal_failure(request);
 		break;
+	case SASL_SERVER_OUTPUT_PASSWORD_MISMATCH:
+		e_info(request->event, "%s", AUTH_LOG_MSG_PASSWORD_MISMATCH);
+		auth_request_fail_with_reply(
+			request, output->data, output->data_size);
+		break;
 	case SASL_SERVER_OUTPUT_FAILURE:
 		auth_request_fail_with_reply(
 			request, output->data, output->data_size);

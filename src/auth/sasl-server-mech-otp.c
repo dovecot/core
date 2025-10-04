@@ -196,7 +196,7 @@ mech_otp_verify(struct otp_auth_request *request, const char *data, bool hex)
 
 	ret = memcmp(cur_hash, state->hash, OTP_HASH_SIZE);
 	if (ret != 0) {
-		sasl_server_request_failure(auth_request);
+		sasl_server_request_password_mismatch(auth_request);
 		otp_unlock(request);
 		return;
 	}
@@ -230,7 +230,7 @@ mech_otp_verify_init(struct otp_auth_request *request, const char *data,
 
 	ret = memcmp(hash, request->state.hash, OTP_HASH_SIZE);
 	if (ret != 0) {
-		sasl_server_request_failure(auth_request);
+		sasl_server_request_password_mismatch(auth_request);
 		otp_unlock(request);
 		return;
 	}

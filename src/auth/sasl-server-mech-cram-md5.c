@@ -71,8 +71,7 @@ verify_credentials(struct sasl_server_mech_request *auth_request,
 
 	if (!mem_equals_timing_safe(response_hex, request->response,
 				    sizeof(digest) * 2)) {
-		e_info(auth_request->event, AUTH_LOG_MSG_PASSWORD_MISMATCH);
-		sasl_server_request_failure(auth_request);
+		sasl_server_request_password_mismatch(auth_request);
 		return;
 	}
 

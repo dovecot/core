@@ -213,9 +213,8 @@ verify_credentials(struct sasl_server_mech_request *auth_request,
 			/* verify response */
 			if (!mem_equals_timing_safe(response_hex,
 						    request->response, 32)) {
-				e_info(auth_request->event,
-				       AUTH_LOG_MSG_PASSWORD_MISMATCH);
-				sasl_server_request_failure(auth_request);
+				sasl_server_request_password_mismatch(
+					auth_request);
 				return;
 			}
 		} else {
@@ -559,7 +558,6 @@ mech_digest_md5_auth_continue(struct sasl_server_mech_request *auth_request,
 		sasl_server_request_failure(auth_request);
 		return;
 	}
-
 	if (!sasl_server_request_set_authid(auth_request,
 					    SASL_SERVER_AUTHID_TYPE_USERNAME,
 					    request->username)) {
