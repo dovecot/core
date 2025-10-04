@@ -153,7 +153,7 @@ mech_otp_auth_phase1(struct otp_auth_request *request,
 	}
 
 	if (count != 1) {
-		e_error(auth_request->mech_event, "invalid input");
+		e_info(auth_request->mech_event, "invalid input");
 		auth_request_fail(auth_request);
 		return;
 	}
@@ -195,7 +195,7 @@ mech_otp_verify(struct otp_auth_request *request, const char *data, bool hex)
 
 	ret = otp_parse_response(data, hash, hex);
 	if (ret < 0) {
-		e_error(auth_request->mech_event, "invalid response");
+		e_info(auth_request->mech_event, "invalid response");
 		auth_request_fail(auth_request);
 		otp_unlock(request);
 		return;
@@ -229,8 +229,8 @@ mech_otp_verify_init(struct otp_auth_request *request, const char *data,
 
 	ret = otp_parse_init_response(data, &new_state, cur_hash, hex, &error);
 	if (ret < 0) {
-		e_error(auth_request->mech_event,
-			"invalid init response, %s", error);
+		e_info(auth_request->mech_event,
+		       "invalid init response, %s", error);
 		auth_request_fail(auth_request);
 		otp_unlock(request);
 		return;
@@ -266,8 +266,8 @@ mech_otp_auth_phase2(struct otp_auth_request *request,
 	else if (str_begins(str, "init-word:", &value))
 		mech_otp_verify_init(request, value, FALSE);
 	else {
-		e_error(auth_request->mech_event,
-			"unsupported response type");
+		e_info(auth_request->mech_event,
+		       "unsupported response type");
 		auth_request_fail(auth_request);
 		otp_unlock(request);
 	}
