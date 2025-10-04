@@ -264,9 +264,11 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 	ret = inflate(&zstream->zs, Z_SYNC_FLUSH);
 
 	out_size -= zstream->zs.avail_out;
-	zstream->crc32 = crc32_data_more(zstream->crc32,
-					 stream->w_buffer + stream->pos,
-					 out_size);
+	/* CRC32 is only needed for GZ trailer. */
+	if (zstream->gz)
+		zstream->crc32 = crc32_data_more(zstream->crc32,
+						 stream->w_buffer + stream->pos,
+						 out_size);
 	stream->pos += out_size;
 
 	size_t bytes_consumed = size - zstream->zs.avail_in;

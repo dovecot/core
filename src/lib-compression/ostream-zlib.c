@@ -228,7 +228,9 @@ o_stream_zlib_send_chunk(struct zlib_ostream *zstream,
 	}
 	size -= zs->avail_in;
 
-	zstream->crc = crc32_data_more(zstream->crc, data, size);
+	/* CRC32 is only needed for GZ trailer. */
+	if (zstream->gz)
+		zstream->crc = crc32_data_more(zstream->crc, data, size);
 	zstream->bytes32 += size;
 	zstream->flushed = FALSE;
 	return size;
