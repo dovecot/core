@@ -139,20 +139,20 @@ mech_cram_md5_auth_continue(struct auth_request *auth_request,
 			     auth_request);
 	const char *error;
 
-	if (parse_cram_response(request, data, data_size, &error)) {
-		if (auth_request_set_username(auth_request, request->username,
-					      &error)) {
-			auth_request_lookup_credentials(auth_request,
-					"CRAM-MD5", credentials_callback);
-			return;
-		}
+	if (!parse_cram_response(request, data, data_size, &error)) {
+		e_info(auth_request->mech_event, "%s", error);
+		auth_request_fail(auth_request);
+		return;
+	}
+	if (!auth_request_set_username(auth_request, request->username,
+				       &error)) {
+		e_info(auth_request->mech_event, "%s", error);
+		auth_request_fail(auth_request);
+		return;
 	}
 
-	if (error == NULL)
-		error = "authentication failed";
-
-        e_info(auth_request->mech_event, "%s", error);
-	auth_request_fail(auth_request);
+	auth_request_lookup_credentials(auth_request, "CRAM-MD5",
+					credentials_callback);
 }
 
 static void
