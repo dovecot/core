@@ -44,7 +44,7 @@ static const char *get_cram_challenge(void)
 			       dec2str(ioloop_time), my_hostname);
 }
 
-static bool
+static void
 verify_credentials(struct auth_request *auth_request,
 		   const unsigned char *credentials, size_t size)
 {
@@ -57,7 +57,8 @@ verify_credentials(struct auth_request *auth_request,
 
 	if (size != CRAM_MD5_CONTEXTLEN) {
 		e_error(auth_request->mech_event, "invalid credentials length");
-		return FALSE;
+		auth_request_fail(auth_request);
+		return;
 	}
 
 	hmac_init(&ctx, NULL, 0, &hash_method_md5);
@@ -71,10 +72,11 @@ verify_credentials(struct auth_request *auth_request,
 				    sizeof(digest) * 2)) {
 		e_info(auth_request->mech_event,
 		       AUTH_LOG_MSG_PASSWORD_MISMATCH);
-		return FALSE;
+		auth_request_fail(auth_request);
+		return;
 	}
 
-	return TRUE;
+	auth_request_success(auth_request, "", 0);
 }
 
 static bool
@@ -117,10 +119,7 @@ credentials_callback(enum passdb_result result,
 {
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		if (verify_credentials(auth_request, credentials, size))
-			auth_request_success(auth_request, "", 0);
-		else
-			auth_request_fail(auth_request);
+		verify_credentials(auth_request, credentials, size);
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(auth_request);
