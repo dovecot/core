@@ -284,13 +284,30 @@ dict_sql_map_settings_get(struct event *event,
 	return 0;
 }
 
+static int
+dict_sql_settings_get_map(struct event *event, const char *name,
+			  struct dict_sql_map_settings *set,
+			  const char **error_r)
+{
+	struct event *map_event = event_create(event);
+	const char *error;
+	int ret;
+	settings_event_add_list_filter_name(map_event, "dict_map", name);
+	if ((ret = dict_sql_map_settings_get(map_event, set, &error)) < 0) {
+		*error_r = t_strdup_printf("Failed to get dict_map %s: %s",
+					   name, error);
+	}
+	event_unref(&map_event);
+	return ret;
+}
+
 int dict_sql_settings_get(struct event *event,
 			  struct dict_sql_map_settings **set_r,
 			  const char **error_r)
 {
 	const struct dict_map_settings *maps_set;
 	struct dict_sql_map_settings *set;
-	const char *name, *error;
+	const char *name;
 	int ret = 0;
 
 	pool_t pool = pool_alloconly_create("dict sql map settings", 128);
@@ -305,17 +322,13 @@ int dict_sql_settings_get(struct event *event,
 	}
 	if (array_is_created(&maps_set->maps)) {
 		array_foreach_elem(&maps_set->maps, name) {
-			struct event *map_event = event_create(event);
-			settings_event_add_list_filter_name(map_event,
-							    "dict_map", name);
-			if (dict_sql_map_settings_get(map_event, set, &error) < 0) {
-				*error_r = t_strdup_printf(
-					"Failed to get dict_map %s: %s", name, error);
+			T_BEGIN {
+				dict_sql_settings_get_map(event, name, set, error_r);
+			} T_END_PASS_STR_IF(ret < 0, error_r);
+			if (ret < 0) {
 				ret = -1;
-			}
-			event_unref(&map_event);
-			if (ret < 0)
 				break;
+			}
 
 		}
 	}
