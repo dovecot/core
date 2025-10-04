@@ -81,19 +81,16 @@ verify_credentials(struct auth_request *auth_request,
 
 static bool
 parse_cram_response(struct cram_auth_request *request,
-		    const unsigned char *data, size_t size,
-		    const char **error_r)
+		    const unsigned char *data, size_t size)
 {
 	struct auth_request *auth_request = &request->auth_request;
 	size_t i, space;
-
-	*error_r = NULL;
 
 	/* <username> SPACE <response>. Username may contain spaces, so assume
 	   the rightmost space is the response separator. */
 	for (i = space = 0; i < size; i++) {
 		if (data[i] == '\0') {
-			*error_r = "NULs in response";
+			e_info(auth_request->mech_event, "NULs in response");
 			return FALSE;
 		}
 		if (data[i] == ' ')
@@ -101,7 +98,7 @@ parse_cram_response(struct cram_auth_request *request,
 	}
 
 	if (space == 0) {
-		*error_r = "missing digest";
+		e_info(auth_request->mech_event, "missing digest");
 		return FALSE;
 	}
 
@@ -139,8 +136,7 @@ mech_cram_md5_auth_continue(struct auth_request *auth_request,
 			     auth_request);
 	const char *error;
 
-	if (!parse_cram_response(request, data, data_size, &error)) {
-		e_info(auth_request->mech_event, "%s", error);
+	if (!parse_cram_response(request, data, data_size)) {
 		auth_request_fail(auth_request);
 		return;
 	}
