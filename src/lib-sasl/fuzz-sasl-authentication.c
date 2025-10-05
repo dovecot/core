@@ -188,7 +188,8 @@ fuzz_server_request_lookup_credentials(
 	i_zero(&result);
 
 #ifdef HAVE_GSSAPI
-	if (strcmp(fctx->params->mech, SASL_MECH_NAME_GSSAPI) == 0) {
+	if (strcmp(fctx->params->mech, SASL_MECH_NAME_GSSAPI) == 0 ||
+	    strcmp(fctx->params->mech, SASL_MECH_NAME_GSS_SPNEGO) == 0) {
 		i_assert(*scheme == '\0');
 		result.status = SASL_PASSDB_RESULT_OK;
 		callback(&fctx->ssrctx, &result);
@@ -642,6 +643,7 @@ static void fuzz_sasl_run(struct istream *input)
 	i_zero(&gssapi_set);
 	gssapi_set.hostname = "localhost";
 	sasl_server_mech_register_gssapi(server_inst, &gssapi_set);
+	sasl_server_mech_register_gss_spnego(server_inst, &gssapi_set);
 #endif
 
 	const struct sasl_server_mech *server_mech;
@@ -656,7 +658,8 @@ static void fuzz_sasl_run(struct istream *input)
 	e_debug(fuzz_event, "run: %s", str_sanitize(params.mech, 1024));
 
 #ifdef HAVE_GSSAPI
-	if (strcmp(params.mech, SASL_MECH_NAME_GSSAPI) == 0) {
+	if (strcmp(params.mech, SASL_MECH_NAME_GSSAPI) == 0 ||
+	    strcmp(params.mech, SASL_MECH_NAME_GSS_SPNEGO) == 0) {
 		gss_dummy_add_principal(params.authid);
 		gss_dummy_kinit(params.authid);
 	}

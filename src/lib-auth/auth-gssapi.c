@@ -5,9 +5,13 @@
 
 static const gss_OID_desc auth_gssapi_mech_krb5_oid_desc =
 	{ 9, "\x2a\x86\x48\x86\xf7\x12\x01\x02\x02" };
+static const gss_OID_desc auth_gssapi_mech_spnego_oid_desc =
+	{ 6, "\x2b\x06\x01\x05\x05\x02" };
 
 const gss_OID_desc *auth_gssapi_mech_krb5_oid =
 	&auth_gssapi_mech_krb5_oid_desc;
+const gss_OID_desc *auth_gssapi_mech_spnego_oid =
+	&auth_gssapi_mech_spnego_oid_desc;
 
 bool auth_gssapi_oid_equal(const gss_OID_desc *oid1, const gss_OID_desc *oid2)
 {

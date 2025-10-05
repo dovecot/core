@@ -37,6 +37,9 @@ struct gssapi_sasl_client {
 	buffer_t *out_buf;
 };
 
+static const struct dsasl_client_mech dsasl_client_mech_gssapi;
+static const struct dsasl_client_mech dsasl_client_mech_gss_spnego;
+
 static void
 mech_gssapi_error_append(string_t *msg, unsigned int *entries,
 			 OM_uint32 status_value, int status_type)
@@ -131,8 +134,15 @@ mech_gssapi_sec_context(struct gssapi_sasl_client *gclient,
 	OM_uint32 major_status, minor_status;
 	OM_uint32 req_flags = GSS_C_REPLAY_FLAG | GSS_C_MUTUAL_FLAG |
 			      GSS_C_SEQUENCE_FLAG | GSS_C_INTEG_FLAG;
-	gss_OID_desc mech_oid = *auth_gssapi_mech_krb5_oid;
+	gss_OID_desc mech_oid;
 	gss_OID ret_mech_oid;
+
+	if (client->mech == &dsasl_client_mech_gssapi)
+		mech_oid = *auth_gssapi_mech_krb5_oid;
+	else if (client->mech == &dsasl_client_mech_gss_spnego)
+		mech_oid = *auth_gssapi_mech_spnego_oid;
+	else
+		i_unreached();
 
 	major_status = gss_init_sec_context(&minor_status, GSS_C_NO_CREDENTIAL,
 					    &gclient->gss_ctx,
@@ -362,6 +372,16 @@ static const struct dsasl_client_mech dsasl_client_mech_gssapi = {
 	.free = mech_gssapi_free,
 };
 
+static const struct dsasl_client_mech dsasl_client_mech_gss_spnego = {
+	.name = "GSS-SPNEGO",
+	.flags = DSASL_MECH_SEC_ALLOW_NULS,
+	.struct_size = sizeof(struct gssapi_sasl_client),
+
+	.input = mech_gssapi_gs1_input,
+	.output = mech_gssapi_gs1_output,
+	.free = mech_gssapi_free,
+};
+
 static bool initialized = FALSE;
 
 void dsasl_clients_init_gssapi(void)
@@ -371,4 +391,5 @@ void dsasl_clients_init_gssapi(void)
 
 	initialized = TRUE;
 	dsasl_client_mech_register(&dsasl_client_mech_gssapi);
+	dsasl_client_mech_register(&dsasl_client_mech_gss_spnego);
 }

@@ -209,7 +209,8 @@ test_server_request_lookup_credentials(
 	i_zero(&result);
 
 #ifdef HAVE_GSSAPI
-	if (strcmp(tctx->test->mech, SASL_MECH_NAME_GSSAPI) == 0) {
+	if (strcmp(tctx->test->mech, SASL_MECH_NAME_GSSAPI) == 0 ||
+	    strcmp(tctx->test->mech, SASL_MECH_NAME_GSS_SPNEGO) == 0) {
 		i_assert(*scheme == '\0');
 		result.status = SASL_PASSDB_RESULT_OK;
 		callback(&tctx->ssrctx, &result);
@@ -529,6 +530,7 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 	i_zero(&gssapi_set);
 	gssapi_set.hostname = "localhost";
 	sasl_server_mech_register_gssapi(server_inst, &gssapi_set);
+	sasl_server_mech_register_gss_spnego(server_inst, &gssapi_set);
 #endif
 
 	const struct sasl_server_mech *server_mech;
@@ -537,7 +539,8 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 	i_assert(server_mech != NULL);
 
 #ifdef HAVE_GSSAPI
-	if (strcmp(test->mech, SASL_MECH_NAME_GSSAPI) == 0) {
+	if (strcmp(test->mech, SASL_MECH_NAME_GSSAPI) == 0 ||
+	    strcmp(test->mech, SASL_MECH_NAME_GSS_SPNEGO) == 0) {
 		gss_dummy_add_principal(test->server.authid);
 		gss_dummy_kinit(test->client.authid != NULL ?
 				test->client.authid : test->server.authid);
@@ -753,6 +756,14 @@ static const struct test_sasl success_tests[] = {
 	/* GSSAPI */
 	{
 		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+	},
+	{
+		.mech = "GSS-SPNEGO",
 		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
 		.server = {
 			.authid = "user",
@@ -1489,6 +1500,19 @@ static const struct test_sasl bad_creds_tests[] = {
 	/* GSSAPI */
 	{
 		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.client = {
+			.authid = "userb",
+		},
+		.failure = TRUE,
+	},
+	/* GSS-SPNEGO */
+	{
+		.mech = "GSS-SPNEGO",
 		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
 		.server = {
 			.authid = "user",

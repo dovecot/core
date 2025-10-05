@@ -130,6 +130,10 @@ gss_init_sec_context(OM_uint32 *minor_status,
 	ctx->req_flags = req_flags;
 	ctx->mech_type = *mech_type;
 
+	/* Morph SPNEGO into normal Kerberos5 */
+	if (auth_gssapi_oid_equal(&ctx->mech_type, auth_gssapi_mech_spnego_oid))
+		ctx->mech_type = *auth_gssapi_mech_krb5_oid;
+
 	size_t src_name_len = strlen(ctx->src_name);
 	size_t cbind_len = 0;
 	if (input_chan_bindings != GSS_C_NO_CHANNEL_BINDINGS) {
