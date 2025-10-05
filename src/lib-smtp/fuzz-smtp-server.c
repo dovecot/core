@@ -26,12 +26,11 @@ server_cmd_data_continue(void *conn_ctx ATTR_UNUSED,
 			 struct smtp_server_transaction *trans ATTR_UNUSED)
 {
 	struct istream *data_input = state.data_input;
-	const unsigned char *data;
 	size_t size;
 	ssize_t ret;
 
 	while ((ret = i_stream_read(data_input)) > 0 || ret == -2) {
-		data = i_stream_get_data(data_input, &size);
+		size = i_stream_get_data_size(data_input);
 		i_stream_skip(data_input, size);
 		if (!smtp_server_cmd_data_check_size(cmd))
 			return -1;
