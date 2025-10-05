@@ -1110,6 +1110,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	}
 
 	i_zero(&sasl_set);
+	sasl_set.event_parent = conn->event;
 	if (*set->imapc_master_user == '\0')
 		sasl_set.authid = set->imapc_user;
 	else {

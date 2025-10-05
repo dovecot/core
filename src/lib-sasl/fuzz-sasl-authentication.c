@@ -646,6 +646,7 @@ static void fuzz_sasl_run(struct istream *input)
 	sasl_server_request_create(&fctx.ssrctx, server_mech, "imap", NULL);
 
 	struct dsasl_client_settings client_set = {
+		.event_parent = fuzz_event,
 		.authid = params.authid,
 		.authzid = params.authzid,
 		.password = params.client_password,

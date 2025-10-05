@@ -11,6 +11,8 @@ enum dsasl_mech_security_flags {
 
 struct dsasl_client {
 	pool_t pool;
+	struct event *event;
+
 	struct dsasl_client_settings set;
 	char *password;
 	const struct dsasl_client_mech *mech;

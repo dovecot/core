@@ -437,6 +437,7 @@ test_sasl_run_once(const struct test_sasl *test,
 				test->server.password);
 
 	struct dsasl_client_settings client_set = {
+		.event_parent = test_event,
 		.authid = (realm == NULL ? authid :
 			   t_strconcat(authid, "@", realm, NULL)),
 		.authzid = authzid,

@@ -4,6 +4,8 @@
 #include "iostream-ssl.h"
 
 struct dsasl_client_settings {
+	struct event *event_parent;
+
 	/* authentication ID - must be set with most mechanisms */
 	const char *authid;
 	/* authorization ID (who to log in as, if authentication ID is a

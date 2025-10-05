@@ -332,6 +332,7 @@ static void cmd_auth_init_sasl_client(struct authtest_input *input)
 		input->sasl_mech = &dsasl_client_mech_plain;
 
 	i_zero(&sasl_set);
+	sasl_set.event_parent = input->event;
 	if (input->master_user == NULL)
 		sasl_set.authid = input->username;
 	else {

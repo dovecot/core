@@ -5,6 +5,10 @@
 #include "safe-memset.h"
 #include "dsasl-client-private.h"
 
+struct event_category event_category_sasl_client = {
+	.name = "sasl-client"
+};
+
 static int init_refcount = 0;
 static ARRAY(const struct dsasl_client_mech *) dsasl_mechanisms = ARRAY_INIT;
 
@@ -75,6 +79,12 @@ struct dsasl_client *dsasl_client_new(const struct dsasl_client_mech *mech,
 	client->set.protocol = p_strdup(pool, set->protocol);
 	client->set.host = p_strdup(pool, set->host);
 	client->set.port = set->port;
+
+	client->event = event_create(set->event_parent);
+	event_add_category(client->event, &event_category_sasl_client);
+	event_set_append_log_prefix(client->event,
+		t_strdup_printf("sasl(%s): ", t_str_lcase(mech->name)));
+
 	return client;
 }
 
@@ -90,6 +100,7 @@ void dsasl_client_free(struct dsasl_client **_client)
 		client->mech->free(client);
 	if (client->password != NULL)
 		safe_memset(client->password, 0, strlen(client->password));
+	event_unref(&client->event);
 	pool_unref(&client->pool);
 }
 

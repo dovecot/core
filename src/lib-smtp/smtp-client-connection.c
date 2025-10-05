@@ -943,6 +943,7 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 	}
 
 	i_zero(&sasl_set);
+	sasl_set.event_parent = conn->event;
 	if (set->master_user == NULL)
 		sasl_set.authid = set->username;
 	else {
