@@ -503,6 +503,9 @@ static void cmd_auth_cache_flush(struct doveadm_cmd_context *cctx)
 static void authtest_input_init(struct authtest_input *input)
 {
 	dsasl_clients_init();
+#ifdef BUILTIN_GSSAPI
+	dsasl_clients_init_gssapi();
+#endif
 
 	i_zero(input);
 	input->pool = pool_alloconly_create("auth input", 256);

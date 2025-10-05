@@ -45,9 +45,18 @@ libs = \
        ../lib-auth/libauth-crypt.la \
 	dsync/libdsync.la \
 	../lib-compression/libcompression.la
+gssapi_libs =
+gssapi_deps =
+if HAVE_GSSAPI
+if !GSSAPI_PLUGIN
+gssapi_libs += $(LIBDOVECOT_GSSAPI)
+gssapi_deps += $(LIBDOVECOT_GSSAPI_DEPS)
+endif
+endif
 
 doveadm_LDADD = \
 	$(libs) \
+	$(gssapi_libs) \
 	$(CRYPT_LIBS) \
 	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT) \
@@ -57,11 +66,13 @@ doveadm_LDADD = \
 
 doveadm_DEPENDENCIES = \
 	$(libs) \
+	$(gssapi_deps) \
 	$(LIBDOVECOT_STORAGE_DEPS) \
 	$(LIBDOVECOT_DEPS)
 
 doveadm_server_LDADD = \
 	$(libs) \
+	$(gssapi_libs) \
 	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT) \
 	$(BINARY_LDFLAGS) \
@@ -69,6 +80,7 @@ doveadm_server_LDADD = \
 
 doveadm_server_DEPENDENCIES = \
 	$(libs) \
+	$(gssapi_deps) \
 	$(LIBDOVECOT_STORAGE_DEPS) \
 	$(LIBDOVECOT_DEPS)
 
