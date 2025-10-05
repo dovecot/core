@@ -10,12 +10,12 @@ mech_anonymous_auth_continue(struct auth_request *request,
 {
 	i_assert(*request->set->anonymous_username != '\0');
 
-	/* temporarily set the user to the one that was given, so that the log
-	   message goes right */
-	auth_request_set_username_forced(request, t_strndup(data, data_size));
-	e_info(request->mech_event, "login");
-	auth_request_set_username_forced(request,
-					 request->set->anonymous_username);
+	if (!sasl_server_request_set_authid(request,
+					    SASL_SERVER_AUTHID_TYPE_ANONYMOUS,
+					    t_strndup(data, data_size))) {
+		sasl_server_request_failure(request);
+		return;
+	}
 
 	request->passdb_success = TRUE;
 	sasl_server_request_success(request, "", 0);

@@ -135,7 +135,7 @@ mech_otp_auth_phase1(struct otp_auth_request *request,
 		     const unsigned char *data, size_t data_size)
 {
 	struct auth_request *auth_request = &request->auth_request;
-	const char *authenid, *error;
+	const char *authenid;
 	size_t i, count;
 
 	/* authorization ID \0 authentication ID
@@ -156,8 +156,9 @@ mech_otp_auth_phase1(struct otp_auth_request *request,
 		return;
 	}
 
-	if (!auth_request_set_username(auth_request, authenid, &error)) {
-		e_info(auth_request->mech_event, "%s", error);
+	if (!sasl_server_request_set_authid(
+			auth_request, SASL_SERVER_AUTHID_TYPE_USERNAME,
+			authenid)) {
 		sasl_server_request_failure(auth_request);
 		return;
 	}

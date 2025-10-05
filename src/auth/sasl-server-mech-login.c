@@ -17,13 +17,14 @@ mech_login_auth_continue(struct auth_request *request,
 			 const unsigned char *data, size_t data_size)
 {
 	static const char prompt2[] = "Password:";
-	const char *username, *error;
+	const char *username;
 
 	if (request->fields.user == NULL) {
 		username = t_strndup(data, data_size);
 
-		if (!auth_request_set_username(request, username, &error)) {
-                        e_info(request->mech_event, "%s", error);
+		if (!sasl_server_request_set_authid(
+				request, SASL_SERVER_AUTHID_TYPE_USERNAME,
+				username)) {
 			sasl_server_request_failure(request);
 			return;
 		}

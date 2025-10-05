@@ -270,7 +270,7 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 	gss_buffer_desc output_token;
 	gss_OID name_type;
 	gss_OID mech_type;
-	const char *username, *error;
+	const char *username;
 	int ret = 0;
 
 	major_status = gss_accept_sec_context (
@@ -304,10 +304,9 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 		} else if (get_display_name(request, request->authn_name,
 					    &name_type, &username) < 0)
 			ret = -1;
-		else if (!auth_request_set_username(auth_request, username,
-						    &error)) {
-			e_info(auth_request->mech_event,
-			       "authn_name: %s", error);
+		else if (!sasl_server_request_set_authid(
+				auth_request, SASL_SERVER_AUTHID_TYPE_USERNAME,
+				username)) {
 			ret = -1;
 		} else {
 			request->sasl_gssapi_state = GSS_STATE_WRAP;
@@ -592,7 +591,9 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	   will be the authorization name, not the authentication name, which
 	   may mean that future log messages should be adjusted to log the right
 	   thing. */
-	if (!auth_request_set_username(auth_request, login_user, &error)) {
+	if (!sasl_server_request_set_authid(auth_request,
+					    SASL_SERVER_AUTHID_TYPE_USERNAME,
+					    login_user)) {
 		e_info(auth_request->mech_event,
 		       "authz_name: %s", error);
 		(void)gss_release_buffer(&minor_status, &outbuf);

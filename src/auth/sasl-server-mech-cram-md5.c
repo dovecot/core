@@ -134,15 +134,14 @@ mech_cram_md5_auth_continue(struct auth_request *auth_request,
 	struct cram_auth_request *request =
 		container_of(auth_request, struct cram_auth_request,
 			     auth_request);
-	const char *error;
 
 	if (!parse_cram_response(request, data, data_size)) {
 		sasl_server_request_failure(auth_request);
 		return;
 	}
-	if (!auth_request_set_username(auth_request, request->username,
-				       &error)) {
-		e_info(auth_request->mech_event, "%s", error);
+	if (!sasl_server_request_set_authid(auth_request,
+					    SASL_SERVER_AUTHID_TYPE_USERNAME,
+					    request->username)) {
 		sasl_server_request_failure(auth_request);
 		return;
 	}

@@ -75,7 +75,6 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 			     auth_request);
 	const unsigned char *tmp, *end, *username = NULL;
 	unsigned long pid, connect_uid, timestamp;
-	const char *error;
 
 	/* pop3-login handles sending the challenge and getting the response.
 	   Our input here is: <challenge> \0 <username> \0 <response> */
@@ -135,9 +134,9 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 		return;
 	}
 
-	if (!auth_request_set_username(auth_request, (const char *)username,
-				       &error)) {
-		e_info(auth_request->mech_event, "%s", error);
+	if (!sasl_server_request_set_authid(auth_request,
+					    SASL_SERVER_AUTHID_TYPE_USERNAME,
+					    (const char *)username)) {
 		sasl_server_request_failure(auth_request);
 		return;
 	}

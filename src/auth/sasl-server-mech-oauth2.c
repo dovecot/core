@@ -167,8 +167,9 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 		oauth2_fail_invalid_request(oauth2_req);
 		return;
 	}
-	if (!auth_request_set_username(request, gs2_header.authzid, &error)) {
-		e_info(request->mech_event, "%s", error);
+	if (!sasl_server_request_set_authid(request,
+					    SASL_SERVER_AUTHID_TYPE_USERNAME,
+					    gs2_header.authzid)) {
 		oauth2_fail_invalid_request(oauth2_req);
 		return;
 	}
@@ -248,7 +249,6 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 	/* split the data from ^A */
 	bool user_given = FALSE;
 	const char *value;
-	const char *error;
 	const char *token = NULL;
 	const char *const *ptr;
 	const char *username;
@@ -276,8 +276,9 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 	}
 
 	if (user_given &&
-	    !auth_request_set_username(request, username, &error)) {
-		e_info(request->mech_event, "%s", error);
+	    !sasl_server_request_set_authid(request,
+					    SASL_SERVER_AUTHID_TYPE_USERNAME,
+					    username)) {
 		oauth2_fail_invalid_request(oauth2_req);
 		return;
 	}

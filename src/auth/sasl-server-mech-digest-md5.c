@@ -569,14 +569,15 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 	} else {
 		username = request->username;
 	}
-	if (!auth_request_set_username(auth_request, username, &error)) {
-		e_info(auth_request->mech_event, "%s", error);
+	if (!sasl_server_request_set_authid(auth_request,
+					    SASL_SERVER_AUTHID_TYPE_USERNAME,
+					    username)) {
 		sasl_server_request_failure(auth_request);
 		return;
 	}
 	if (request->authzid != NULL &&
-	    !auth_request_set_login_username(auth_request, request->authzid,
-					     &error)) {
+	     !auth_request_set_login_username(auth_request, request->authzid,
+					      &error)) {
 		e_info(auth_request->mech_event, "login user: %s", error);
 		sasl_server_request_failure(auth_request);
 		return;

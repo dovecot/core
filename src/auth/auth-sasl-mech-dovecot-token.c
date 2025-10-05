@@ -12,7 +12,7 @@ static void
 mech_dovecot_token_auth_continue(struct auth_request *request,
 			     const unsigned char *data, size_t data_size)
 {
-	const char *session_id, *username, *pid, *service, *error;
+	const char *session_id, *username, *pid, *service;
 	char *auth_token;
 	size_t i, len;
 	int count;
@@ -44,9 +44,9 @@ mech_dovecot_token_auth_continue(struct auth_request *request,
 		/* invalid input */
 		e_info(request->mech_event, "invalid input");
 		sasl_server_request_failure(request);
-	} else if (!auth_request_set_username(request, username, &error)) {
+	} else if (!sasl_server_request_set_authid(
+			request, SASL_SERVER_AUTHID_TYPE_USERNAME, username)) {
 		/* invalid username */
-		e_info(request->mech_event, "%s", error);
 		sasl_server_request_failure(request);
 	} else {
 		const char *valid_token =

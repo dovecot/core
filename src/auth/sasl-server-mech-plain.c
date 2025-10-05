@@ -44,9 +44,9 @@ mech_plain_auth_continue(struct auth_request *request,
 		/* invalid input */
 		e_info(request->mech_event, "invalid input");
 		sasl_server_request_failure(request);
-	} else if (!auth_request_set_username(request, authenid, &error)) {
+	} else if (!sasl_server_request_set_authid(
+			request, SASL_SERVER_AUTHID_TYPE_USERNAME, authenid)) {
 		/* invalid username */
-		e_info(request->mech_event, "%s", error);
 		sasl_server_request_failure(request);
 	} else if (*authid != '\0' &&
 		   !auth_request_set_login_username(request, authid, &error)) {

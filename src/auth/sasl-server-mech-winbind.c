@@ -244,7 +244,7 @@ do_auth_continue(struct winbind_auth_request *request,
 		       "user not authenticated: %s", error);
 		return HR_FAIL;
 	} else if (strcmp(token[0], "AF") == 0) {
-		const char *user, *p, *error;
+		const char *user, *p;
 
 		user = t_strarray_join(gss_spnego ? token+2 : token+1, " ");
 		i_assert(user != NULL);
@@ -257,11 +257,10 @@ do_auth_continue(struct winbind_auth_request *request,
 					   t_strdup_until(user, p), NULL);
 		}
 
-		if (!auth_request_set_username(auth_request, user, &error)) {
-			e_info(auth_request->mech_event,
-			       "%s", error);
+		if (!sasl_server_request_set_authid(
+				auth_request, SASL_SERVER_AUTHID_TYPE_USERNAME,
+				user))
 			return HR_FAIL;
-		}
 
 		request->auth_request.passdb_success = TRUE;
 		if (gss_spnego && strcmp(token[1], "*") != 0) {

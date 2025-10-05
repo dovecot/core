@@ -67,6 +67,10 @@ void mech_oauth2_initialize(void);
  * Request
  */
 
+bool sasl_server_request_set_authid(struct auth_request *request,
+				    enum sasl_server_authid_type authid_type,
+				    const char *authid);
+
 void sasl_server_request_output(struct auth_request *request,
 				const void *data, size_t data_size);
 void sasl_server_request_success(struct auth_request *request,

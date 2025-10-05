@@ -12,32 +12,22 @@ mech_external_auth_continue(struct auth_request *request,
 	const char *authzid, *error;
 
 	authzid = t_strndup(data, data_size);
-	if (request->fields.user == NULL) {
-		e_info(request->mech_event,
-		       "username not known");
+
+	if (!sasl_server_request_set_authid(request,
+					    SASL_SERVER_AUTHID_TYPE_EXTERNAL,
+					    "")) {
 		sasl_server_request_failure(request);
 		return;
 	}
-
-	/* this call is done simply to put the username through translation
-	   settings */
-	if (!auth_request_set_username(request, "", &error)) {
-		e_info(request->mech_event,
-		       "Invalid username");
-		sasl_server_request_failure(request);
-		return;
-	}
-
 	if (*authzid != '\0' &&
 	    !auth_request_set_login_username(request, authzid, &error)) {
-		/* invalid login username */
 		e_info(request->mech_event,
 		       "login user: %s", error);
 		sasl_server_request_failure(request);
-	} else {
-		sasl_server_request_verify_plain(
-			request, "", sasl_server_mech_plain_verify_callback);
+		return;
 	}
+	sasl_server_request_verify_plain(
+		request, "", sasl_server_mech_plain_verify_callback);
 }
 
 static struct auth_request *mech_external_auth_new(void)

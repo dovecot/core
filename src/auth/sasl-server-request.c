@@ -9,6 +9,13 @@
  * Mechanism API
  */
 
+bool sasl_server_request_set_authid(struct auth_request *request,
+				    enum sasl_server_authid_type authid_type,
+				    const char *authid)
+{
+	return auth_sasl_request_set_authid(request, authid_type, authid);
+}
+
 void sasl_server_request_output(struct auth_request *request,
 				const void *data, size_t data_size)
 {
