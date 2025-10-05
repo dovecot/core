@@ -75,6 +75,20 @@ void fs_class_register(const struct fs *fs_class)
 	array_push_back(&fs_classes, &fs_class);
 }
 
+void fs_class_unregister(const struct fs *fs_class)
+{
+	const struct fs *const *p;
+
+	array_foreach(&fs_classes, p) {
+		if (*p == fs_class) {
+			array_delete(&fs_classes,
+				     array_foreach_idx(&fs_classes, p), 1);
+			return;
+		}
+	}
+	i_panic("fs_class_unregister(): Class %s not found", fs_class->name);
+}
+
 static void fs_classes_deinit(void)
 {
 	array_free(&fs_classes);
@@ -90,7 +104,7 @@ static void fs_classes_init(void)
 	fs_class_register(&fs_class_sis);
 	fs_class_register(&fs_class_sis_queue);
 	fs_class_register(&fs_class_test);
-	lib_atexit(fs_classes_deinit);
+	lib_atexit_priority(fs_classes_deinit, LIB_ATEXIT_PRIORITY_LOW);
 }
 
 static const struct fs *fs_class_find(const char *driver)

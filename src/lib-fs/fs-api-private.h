@@ -179,6 +179,7 @@ extern const struct fs fs_class_sis_queue;
 extern const struct fs fs_class_test;
 
 void fs_class_register(const struct fs *fs_class);
+void fs_class_unregister(const struct fs *fs_class);
 
 int fs_init_parent(struct fs *fs, const struct fs_parameters *params,
 		   const char **error_r);
