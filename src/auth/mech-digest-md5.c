@@ -555,32 +555,35 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 			     auth_request);
 	const char *username, *error;
 
-	if (parse_digest_response(request, data, data_size, &error)) {
-		if (auth_request->fields.realm != NULL &&
-		    strchr(request->username, '@') == NULL) {
-			username = t_strconcat(request->username, "@",
-					       auth_request->fields.realm, NULL);
-			auth_request->domain_is_realm = TRUE;
-		} else {
-			username = request->username;
-		}
-
-		if (auth_request_set_username(auth_request, username, &error) &&
-		    (request->authzid == NULL ||
-		     auth_request_set_login_username(auth_request,
-						     request->authzid,
-						     &error))) {
-			auth_request_lookup_credentials(
-				auth_request, "DIGEST-MD5",
-				credentials_callback);
-			return;
-		}
+	if (!parse_digest_response(request, data, data_size, &error)) {
+		e_info(auth_request->mech_event, "%s", error);
+		auth_request_fail(auth_request);
+		return;
 	}
 
-	if (error != NULL)
+	if (auth_request->fields.realm != NULL &&
+	    strchr(request->username, '@') == NULL) {
+		username = t_strconcat(request->username, "@",
+				       auth_request->fields.realm, NULL);
+		auth_request->domain_is_realm = TRUE;
+	} else {
+		username = request->username;
+	}
+	if (!auth_request_set_username(auth_request, username, &error)) {
 		e_info(auth_request->mech_event, "%s", error);
+		auth_request_fail(auth_request);
+		return;
+	}
+	if (request->authzid != NULL &&
+	    !auth_request_set_login_username(auth_request, request->authzid,
+					     &error)) {
+		e_info(auth_request->mech_event, "login user: %s", error);
+		auth_request_fail(auth_request);
+		return;
+	}
 
-	auth_request_fail(auth_request);
+	auth_request_lookup_credentials(auth_request, "DIGEST-MD5",
+					credentials_callback);
 }
 
 static void
