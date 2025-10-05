@@ -55,8 +55,8 @@ static struct fs *fs_crypt_alloc(void)
 }
 
 static int
-fs_crypt_init(struct fs *_fs, const struct fs_parameters *params,
-	      const char **error_r)
+fs_crypt_init_(struct fs *_fs, const struct fs_parameters *params,
+	       const char **error_r)
 {
 	struct crypt_fs *fs = CRYPT_FS(_fs);
 	const char *error;
@@ -308,7 +308,7 @@ const struct fs fs_class_crypt = {
 	.name = "crypt",
 	.v = {
 		.alloc = fs_crypt_alloc,
-		.init = fs_crypt_init,
+		.init = fs_crypt_init_,
 		.deinit = NULL,
 		.free = fs_crypt_free,
 		.get_properties = fs_wrapper_get_properties,
@@ -342,3 +342,16 @@ const struct fs fs_class_crypt = {
 		.get_nlinks = fs_wrapper_get_nlinks,
 	}
 };
+
+void fs_crypt_init(void);
+void fs_crypt_deinit(void);
+
+void fs_crypt_init(void)
+{
+	fs_class_register(&fs_class_crypt);
+}
+
+void fs_crypt_deinit(void)
+{
+	fs_class_unregister(&fs_class_crypt);
+}
