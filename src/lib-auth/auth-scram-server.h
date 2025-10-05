@@ -44,9 +44,9 @@ struct auth_scram_server_backend {
 	/* Pass the authentication and authorization usernames to the
 	   backend. */
 	bool (*set_username)(struct auth_scram_server *server,
-			     const char *username, const char **error_r);
+			     const char *username);
 	bool (*set_login_username)(struct auth_scram_server *server,
-				   const char *username, const char **error_r);
+				   const char *username);
 
 	/* Start channel binding in backend with provided type. */
 	void (*start_channel_binding)(struct auth_scram_server *server,

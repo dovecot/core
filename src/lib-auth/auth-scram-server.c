@@ -25,16 +25,15 @@
 
 static bool
 auth_scram_server_set_username(struct auth_scram_server *server,
-			       const char *username, const char **error_r)
+			       const char *username)
 {
-	return server->backend->set_username(server, username, error_r);
+	return server->backend->set_username(server, username);
 }
 static bool
 auth_scram_server_set_login_username(struct auth_scram_server *server,
-				     const char *username, const char **error_r)
+				     const char *username)
 {
-	return server->backend->set_login_username(server, username,
-						   error_r);
+	return server->backend->set_login_username(server, username);
 }
 
 static void
@@ -517,13 +516,14 @@ auth_scram_server_input_client_first(struct auth_scram_server *server,
 
 	/* Pass usernames to backend */
 	i_assert(username != NULL);
-	if (!auth_scram_server_set_username(server, username, error_r)) {
+	if (!auth_scram_server_set_username(server, username)) {
+		*error_r = "Bad username";
 		*error_code_r =	AUTH_SCRAM_SERVER_ERROR_BAD_USERNAME;
 		return -1;
 	}
 	if (login_username != NULL &&
-	    !auth_scram_server_set_login_username(server, login_username,
-						  error_r)) {
+	    !auth_scram_server_set_login_username(server, login_username)) {
+		*error_r = "Bad login username";
 		*error_code_r = AUTH_SCRAM_SERVER_ERROR_BAD_LOGIN_USERNAME;
 		return -1;
 	}

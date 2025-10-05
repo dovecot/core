@@ -37,36 +37,29 @@ struct backend_context {
 };
 
 static bool
-test_auth_set_username(struct auth_scram_server *asserver, const char *username,
-		       const char **error_r)
+test_auth_set_username(struct auth_scram_server *asserver, const char *username)
 {
 	struct backend_context *bctx =
 		container_of(asserver, struct backend_context, asserver);
 
-	if (bctx->expect_error == AUTH_SCRAM_SERVER_ERROR_BAD_USERNAME) {
-		*error_r = "Bad username";
+	if (bctx->expect_error == AUTH_SCRAM_SERVER_ERROR_BAD_USERNAME)
 		return FALSE;
-	}
 
 	bctx->username = p_strdup(bctx->pool, username);
-	*error_r = NULL;
 	return TRUE;
 }
 
 static bool
 test_auth_set_login_username(struct auth_scram_server *asserver,
-			     const char *username, const char **error_r)
+			     const char *username)
 {
 	struct backend_context *bctx =
 		container_of(asserver, struct backend_context, asserver);
 
-	if (bctx->expect_error == AUTH_SCRAM_SERVER_ERROR_BAD_LOGIN_USERNAME) {
-		*error_r = "Bad login username";
+	if (bctx->expect_error == AUTH_SCRAM_SERVER_ERROR_BAD_LOGIN_USERNAME)
 		return FALSE;
-	}
 
 	bctx->login_username = p_strdup(bctx->pool, username);
-	*error_r = NULL;
 	return TRUE;
 }
 

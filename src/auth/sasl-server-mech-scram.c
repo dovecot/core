@@ -62,24 +62,34 @@ credentials_callback(enum passdb_result result,
 
 static bool
 mech_scram_set_username(struct auth_scram_server *asserver,
-			const char *username, const char **error_r)
+			const char *username)
 {
 	struct scram_auth_request *request =
 		container_of(asserver, struct scram_auth_request, scram_server);
 	struct auth_request *auth_request = &request->auth_request;
+	const char *error;
 
-	return auth_request_set_username(auth_request, username, error_r);
+	if (!auth_request_set_username(auth_request, username, &error)) {
+		e_info(auth_request->mech_event, "%s", error);
+		return FALSE;
+	}
+	return TRUE;
 }
 
 static bool
 mech_scram_set_login_username(struct auth_scram_server *asserver,
-			      const char *username, const char **error_r)
+			      const char *username)
 {
 	struct scram_auth_request *request =
 		container_of(asserver, struct scram_auth_request, scram_server);
 	struct auth_request *auth_request = &request->auth_request;
+	const char *error;
 
-	return auth_request_set_login_username(auth_request, username, error_r);
+	if (!auth_request_set_login_username(auth_request, username, &error)) {
+		e_info(auth_request->mech_event, "login user: %s", error);
+		return FALSE;
+	}
+	return TRUE;
 }
 
 static void
@@ -145,11 +155,20 @@ void mech_scram_auth_continue(struct auth_request *auth_request,
 				      &error_code, &error);
 	if (ret < 0) {
 		i_assert(error != NULL);
-		if (error_code == AUTH_SCRAM_SERVER_ERROR_VERIFICATION_FAILED) {
+		switch (error_code) {
+		case AUTH_SCRAM_SERVER_ERROR_NONE:
+			i_unreached();
+		case AUTH_SCRAM_SERVER_ERROR_PROTOCOL_VIOLATION:
+			e_info(auth_request->mech_event, "%s", error);
+			break;
+		case AUTH_SCRAM_SERVER_ERROR_BAD_USERNAME:
+		case AUTH_SCRAM_SERVER_ERROR_BAD_LOGIN_USERNAME:
+		case AUTH_SCRAM_SERVER_ERROR_LOOKUP_FAILED:
+			break;
+		case AUTH_SCRAM_SERVER_ERROR_VERIFICATION_FAILED:
 			e_info(auth_request->mech_event,
 			       AUTH_LOG_MSG_PASSWORD_MISMATCH);
-		} else {
-			e_info(auth_request->mech_event, "%s", error);
+			break;
 		}
 		sasl_server_request_failure(auth_request);
 		return;
