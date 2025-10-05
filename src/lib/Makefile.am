@@ -244,6 +244,7 @@ liblib_la_SOURCES = \
 	uri-util.c \
 	utc-offset.c \
 	utc-mktime.c \
+	version.c \
 	wildcard-match.c \
 	write-full.c
 
@@ -409,6 +410,7 @@ headers = \
 	uri-util.h \
 	utc-offset.h \
 	utc-mktime.h \
+	version.h \
 	wildcard-match.h \
 	write-full.h
 
@@ -519,6 +521,7 @@ test_lib_SOURCES = \
 	test-unicode-casemap.c \
 	test-utc-mktime.c \
 	test-uri.c \
+	test-version.c \
 	test-wildcard-match.c
 
 test_headers = \

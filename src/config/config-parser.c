@@ -9,9 +9,9 @@
 #include "strescape.h"
 #include "istream.h"
 #include "module-dir.h"
+#include "version.h"
 #include "settings.h"
 #include "service-settings.h"
-#include "master-service.h"
 #include "master-service-settings.h"
 #include "all-settings.h"
 #include "old-set-parser.h"
@@ -22,6 +22,7 @@
 
 #include "default-settings-import.h"
 
+#include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>

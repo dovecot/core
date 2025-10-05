@@ -8,6 +8,7 @@
 #include "execv-const.h"
 #include "write-full.h"
 #include "restrict-access.h"
+#include "version.h"
 #include "master-interface.h"
 #include "master-service.h"
 

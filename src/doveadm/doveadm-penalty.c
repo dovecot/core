@@ -7,7 +7,7 @@
 #include "hash.h"
 #include "strescape.h"
 #include "time-util.h"
-#include "master-service.h"
+#include "version.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
 

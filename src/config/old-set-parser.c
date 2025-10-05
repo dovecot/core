@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
-#include "master-service.h"
+#include "version.h"
 #include "settings-history.h"
 #include "config-parser-private.h"
 #include "old-set-parser.h"

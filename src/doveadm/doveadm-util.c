@@ -7,6 +7,7 @@
 #include "ostream.h"
 #include "net.h"
 #include "time-util.h"
+#include "version.h"
 #include "master-service.h"
 #include "module-dir.h"
 #include "doveadm-settings.h"

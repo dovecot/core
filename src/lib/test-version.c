@@ -1,7 +1,7 @@
-/* Copyright (c) 2023 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2023-2025 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
-#include "master-service.h"
+#include "test-lib.h"
+#include "version.h"
 #include "test-common.h"
 
 static void test_version_is_valid(void)
@@ -56,12 +56,8 @@ static void test_version_cmp(void)
 	test_end();
 }
 
-int main(void)
+void test_version(void)
 {
-	static void (*const test_functions[])(void) = {
-		test_version_is_valid,
-		test_version_cmp,
-		NULL
-	};
-	return test_run(test_functions);
+	test_version_is_valid();
+	test_version_cmp();
 }

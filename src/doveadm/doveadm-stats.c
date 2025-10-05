@@ -6,7 +6,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "write-full.h"
-#include "master-service.h"
+#include "version.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
 #include "stats-settings.h"

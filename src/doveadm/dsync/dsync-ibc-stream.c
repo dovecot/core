@@ -10,7 +10,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"
-#include "master-service.h"
+#include "version.h"
 #include "mail-cache.h"
 #include "mail-storage-private.h"
 #include "dsync-serializer.h"

@@ -7,6 +7,7 @@
 #include "restrict-access.h"
 #include "str.h"
 #include "strescape.h"
+#include "version.h"
 #include "settings-parser.h"
 #include "mail-storage-service.h"
 #include "master-interface.h"

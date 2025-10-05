@@ -7,6 +7,7 @@
 #include "ostream.h"
 #include "ostream-unix.h"
 #include "strescape.h"
+#include "version.h"
 #include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"

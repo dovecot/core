@@ -11,6 +11,7 @@
 #include "connection.h"
 #include "str.h"
 #include "strescape.h"
+#include "version.h"
 #include "master-service.h"
 #include "master-interface.h"
 #include "connect-limit.h"

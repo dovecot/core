@@ -9,7 +9,7 @@
 #include "base64.h"
 #include "str.h"
 #include "strescape.h"
-#include "master-service.h"
+#include "version.h"
 #include "compression.h"
 #include "mailbox-watch.h"
 #include "imap-state.h"

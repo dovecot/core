@@ -8,7 +8,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
-#include "master-service.h"
+#include "version.h"
 #include "auth-client.h"
 #include "client-common.h"
 
