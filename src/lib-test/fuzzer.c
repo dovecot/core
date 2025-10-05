@@ -20,6 +20,7 @@ void fuzzer_init(struct fuzzer_context *fuzz_ctx)
 		lib_signals_ignore(SIGPIPE, TRUE);
 	}
 	fuzz_ctx->fd = -1;
+	fuzz_ctx->fd_pump = -1;
 }
 
 void fuzzer_deinit(struct fuzzer_context *fuzz_ctx)
