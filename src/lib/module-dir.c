@@ -377,7 +377,7 @@ static int
 module_dir_load_real(struct module **_modules,
 		     const char *dir, const char **module_names,
 		     const struct module_dir_load_settings *set,
-		     char **error_r)
+		     const char **error_r)
 {
 	DIR *dirp;
 	struct dirent *d;
@@ -400,7 +400,7 @@ module_dir_load_real(struct module **_modules,
 
 	dirp = opendir(dir);
 	if (dirp == NULL) {
-		*error_r = i_strdup_printf("opendir(%s) failed: %m", dir);
+		*error_r = t_strdup_printf("opendir(%s) failed: %m", dir);
 		if (module_names != NULL) {
 			/* we were given a list of modules to load.
 			   we can't fail. */
@@ -431,9 +431,9 @@ module_dir_load_real(struct module **_modules,
 		array_push_back(&names, &name);
 	}
 	if (errno != 0)
-		*error_r = i_strdup_printf("readdir(%s) failed: %m", dir);
+		*error_r = t_strdup_printf("readdir(%s) failed: %m", dir);
 	if (closedir(dirp) < 0 && *error_r == NULL)
-		*error_r = i_strdup_printf("closedir(%s) failed: %m", dir);
+		*error_r = t_strdup_printf("closedir(%s) failed: %m", dir);
 	if (*error_r != NULL) {
 		pool_unref(&pool);
 		return -1;
@@ -461,7 +461,7 @@ module_dir_load_real(struct module **_modules,
 			if (ret >= 0)
 				;
 			else if (module_names != NULL) {
-				*error_r = i_strdup_printf("Couldn't load required plugin %s: %s",
+				*error_r = t_strdup_printf("Couldn't load required plugin %s: %s",
 							   path, error);
 				i = count;
 			} else {
@@ -480,7 +480,7 @@ module_dir_load_real(struct module **_modules,
 		/* make sure all modules were found */
 		for (; *module_names != NULL; module_names++) {
 			if (**module_names != '\0') {
-				*error_r = i_strdup_printf("Plugin '%s' not found from directory %s",
+				*error_r = t_strdup_printf("Plugin '%s' not found from directory %s",
 					*module_names, dir);
 				break;
 			}
@@ -495,16 +495,13 @@ int module_dir_try_load_missing(struct module **modules,
 				const struct module_dir_load_settings *set,
 				const char **error_r)
 {
-	char *error = NULL;
 	int ret;
 
 	T_BEGIN {
 		ret = module_dir_load_real(modules, dir,
 					   module_names_fix(module_names),
-					   set, &error);
-	} T_END;
-	*error_r = t_strdup(error);
-	i_free(error);
+					   set, error_r);
+	} T_END_PASS_STR_IF(ret < 0, error_r);
 	return ret;
 }
 
