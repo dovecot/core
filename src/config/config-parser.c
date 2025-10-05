@@ -3064,12 +3064,20 @@ config_parser_include_merge(struct config_parser_context *ctx,
 		struct config_filter_parser *dest, *new_src_filter =
 			config_filter_parser_replace_parent(ctx->pool,
 				src_filter, ctx->cur_section->filter_parser);
+		/* If parent filter now has a reverse default_settings,
+		   use the parent with the matching default_settings. */
+		struct config_filter_parser *parent_parser =
+			ctx->cur_section->filter_parser;
+		if (parent_parser->filter.default_settings != new_src_filter->filter.default_settings) {
+			config_parse_fill_reverse_default_siblings(ctx);
+			parent_parser = parent_parser->reverse_default_sibling;
+		}
 
-		dest = config_filters_find_child(ctx->cur_section->filter_parser,
+		dest = config_filters_find_child(parent_parser,
 						 &new_src_filter->filter);
 		if (dest == NULL) {
 			dest = config_add_new_parser(ctx, &new_src_filter->filter,
-						     ctx->cur_section->filter_parser);
+						     parent_parser);
 			dest->filter_required_setting_seen =
 				new_src_filter->filter_required_setting_seen;
 		}
