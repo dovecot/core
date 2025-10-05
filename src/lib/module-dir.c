@@ -502,6 +502,10 @@ int module_dir_try_load_missing(struct module **modules,
 					   module_names_fix(module_names),
 					   set, error_r);
 	} T_END_PASS_STR_IF(ret < 0, error_r);
+	if (ret < 0 && module_names != NULL) {
+		*error_r = t_strdup_printf("%s (trying to load modules: %s)",
+			*error_r, t_strarray_join(module_names, " "));
+	}
 	return ret;
 }
 
