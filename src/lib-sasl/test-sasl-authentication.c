@@ -7,8 +7,10 @@
 #include "randgen.h"
 #include "test-common.h"
 #include "password-scheme.h"
+#include "gssapi-dummy.h"
 #include "sasl-server.h"
 #include "sasl-server-oauth2.h"
+#include "sasl-server-gssapi.h"
 #include "dsasl-client.h"
 #include "dsasl-client-mech-ntlm-dummy.h"
 
@@ -205,6 +207,15 @@ test_server_request_lookup_credentials(
 	struct sasl_passdb_result result;
 
 	i_zero(&result);
+
+#ifdef HAVE_GSSAPI
+	if (strcmp(tctx->test->mech, SASL_MECH_NAME_GSSAPI) == 0) {
+		i_assert(*scheme == '\0');
+		result.status = SASL_PASSDB_RESULT_OK;
+		callback(&tctx->ssrctx, &result);
+		return;
+	}
+#endif
 
 	if (null_strcmp(test->server.authid, tctx->authid) != 0 ||
 	    null_strcmp(test->server.authzid, tctx->authzid) != 0) {
@@ -512,10 +523,26 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 	};
 	sasl_server_mech_register_winbind_ntlm(server_inst, &winbind_set);
 
+#ifdef HAVE_GSSAPI
+	struct sasl_server_gssapi_settings gssapi_set;
+
+	i_zero(&gssapi_set);
+	gssapi_set.hostname = "localhost";
+	sasl_server_mech_register_gssapi(server_inst, &gssapi_set);
+#endif
+
 	const struct sasl_server_mech *server_mech;
 
 	server_mech = sasl_server_mech_find(server_inst, test->mech);
 	i_assert(server_mech != NULL);
+
+#ifdef HAVE_GSSAPI
+	if (strcmp(test->mech, SASL_MECH_NAME_GSSAPI) == 0) {
+		gss_dummy_add_principal(test->server.authid);
+		gss_dummy_kinit(test->client.authid != NULL ?
+				test->client.authid : test->server.authid);
+	}
+#endif
 
 	struct test_sasl_passdb passdb;
 	unsigned int repeat = (test->repeat > 0 ? test->repeat : 1);
@@ -722,6 +749,17 @@ static const struct test_sasl success_tests[] = {
 			.password = "",
 		},
 	},
+#ifdef HAVE_GSSAPI
+	/* GSSAPI */
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+	},
+#endif
 	/* NTLM */
 	{
 		.mech = "NTLM",
@@ -1447,6 +1485,21 @@ static const struct test_sasl bad_creds_tests[] = {
 		},
 		.failure = TRUE,
 	},
+#ifdef HAVE_GSSAPI
+	/* GSSAPI */
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.client = {
+			.authid = "userb",
+		},
+		.failure = TRUE,
+	},
+#endif
 	/* NTLM */
 	{
 		.mech = "NTLM",
@@ -1529,6 +1582,9 @@ int main(int argc, char *argv[])
 	password_schemes_init();
 	dsasl_clients_init();
 	dsasl_client_mech_ntlm_init_dummy();
+#ifdef HAVE_GSSAPI
+	dsasl_clients_init_gssapi();
+#endif
 
 	ret = test_run(test_functions);
 

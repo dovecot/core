@@ -53,6 +53,7 @@ libsasl_la_DEPENDENCIES = \
 
 if HAVE_GSSAPI
 libsasl_gssapi_la_SOURCES = \
+	dsasl-client-mech-gssapi.c \
 	sasl-server-mech-gssapi.c
 libsasl_gssapi_la_LIBADD = $(KRB5_LIBS)
 libsasl_gssapi_la_CPPFLAGS = $(AM_CPPFLAGS) $(KRB5_CFLAGS)
@@ -77,7 +78,8 @@ pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 noinst_HEADERS =\
-	dsasl-client-mech-ntlm-dummy.h
+	dsasl-client-mech-ntlm-dummy.h \
+	gssapi-dummy.h
 
 test_programs = \
 	test-sasl-oauth2 \
@@ -117,6 +119,17 @@ test_sasl_authentication_SOURCES = \
 	test-sasl-authentication.c
 test_sasl_authentication_LDADD = $(test_libs)
 test_sasl_authentication_DEPENDENCIES = $(test_deps)
+if HAVE_GSSAPI
+test_sasl_authentication_SOURCES += \
+	gssapi-dummy.c \
+	krb5-dummy.c \
+	dsasl-client-mech-gssapi.c \
+	sasl-server-mech-gssapi.c
+test_sasl_authentication_LDADD += \
+       ../lib-auth/libauth-gssapi.la
+test_sasl_authentication_DEPENDENCIES += \
+       ../lib-auth/libauth-gssapi.la
+endif
 
 ntlm_dummy_SOURCES = ntlm_dummy.c
 ntlm_dummy_LDADD = ../lib/liblib.la
@@ -130,6 +143,17 @@ fuzz_sasl_authentication_SOURCES = \
 	fuzz-sasl-authentication.c
 fuzz_sasl_authentication_LDADD = $(test_libs)
 fuzz_sasl_authentication_DEPENDENCIES = $(test_deps)
+if HAVE_GSSAPI
+fuzz_sasl_authentication_SOURCES += \
+	gssapi-dummy.c \
+	krb5-dummy.c \
+	dsasl-client-mech-gssapi.c \
+	sasl-server-mech-gssapi.c
+fuzz_sasl_authentication_LDADD += \
+       ../lib-auth/libauth-gssapi.la
+fuzz_sasl_authentication_DEPENDENCIES += \
+       ../lib-auth/libauth-gssapi.la
+endif
 
 check-local:
 	for bin in $(test_programs); do \

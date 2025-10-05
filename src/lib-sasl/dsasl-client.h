@@ -83,4 +83,6 @@ int dsasl_client_get_result(struct dsasl_client *client,
 void dsasl_clients_init(void);
 void dsasl_clients_deinit(void);
 
+void dsasl_clients_init_gssapi(void);
+
 #endif

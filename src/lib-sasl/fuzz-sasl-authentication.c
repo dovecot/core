@@ -9,7 +9,9 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "password-scheme.h"
+#include "gssapi-dummy.h"
 #include "sasl-server.h"
+#include "sasl-server-gssapi.h"
 #include "sasl-server-oauth2.h"
 #include "dsasl-client.h"
 #include "dsasl-client-mech-ntlm-dummy.h"
@@ -183,17 +185,28 @@ fuzz_server_request_lookup_credentials(
 		container_of(rctx, struct fuzz_sasl_context, ssrctx);
 	struct sasl_passdb_result result;
 
-	const struct password_generate_params params = {
-		.user = fctx->params->authid,
-	};
-
 	i_zero(&result);
+
+#ifdef HAVE_GSSAPI
+	if (strcmp(fctx->params->mech, SASL_MECH_NAME_GSSAPI) == 0) {
+		i_assert(*scheme == '\0');
+		result.status = SASL_PASSDB_RESULT_OK;
+		callback(&fctx->ssrctx, &result);
+		return;
+	}
+#endif
+
 	if (null_strcmp(fctx->authid, fctx->params->authid) != 0 ||
 	    null_strcmp(fctx->authzid, fctx->params->authzid) != 0) {
 		result.status = SASL_PASSDB_RESULT_USER_UNKNOWN;
 		callback(&fctx->ssrctx, &result);
 		return;
 	}
+
+	const struct password_generate_params params = {
+		.user = fctx->params->authid,
+	};
+
 	if (!password_generate(fctx->params->server_password, &params, scheme,
 			       &result.credentials.data,
 			       &result.credentials.size)) {
@@ -623,6 +636,14 @@ static void fuzz_sasl_run(struct istream *input)
 	winbind_set.helper_path = TEST_WINBIND_HELPER_PATH;
 	sasl_server_mech_register_winbind_ntlm(server_inst, &winbind_set);
 
+#ifdef HAVE_GSSAPI
+	struct sasl_server_gssapi_settings gssapi_set;
+
+	i_zero(&gssapi_set);
+	gssapi_set.hostname = "localhost";
+	sasl_server_mech_register_gssapi(server_inst, &gssapi_set);
+#endif
+
 	const struct sasl_server_mech *server_mech;
 
 	server_mech = sasl_server_mech_find(server_inst, params.mech);
@@ -633,6 +654,13 @@ static void fuzz_sasl_run(struct istream *input)
 	}
 
 	e_debug(fuzz_event, "run: %s", str_sanitize(params.mech, 1024));
+
+#ifdef HAVE_GSSAPI
+	if (strcmp(params.mech, SASL_MECH_NAME_GSSAPI) == 0) {
+		gss_dummy_add_principal(params.authid);
+		gss_dummy_kinit(params.authid);
+	}
+#endif
 
 	const struct dsasl_client_mech *client_mech;
 	struct fuzz_sasl_context fctx;
@@ -680,6 +708,9 @@ static void fuzz_sasl_run(struct istream *input)
 	}
 
 	pool_unref(&fctx.pool);
+#ifdef HAVE_GSSAPI
+	gss_dummy_deinit();
+#endif
 }
 
 FUZZ_BEGIN_DATA(const unsigned char *data, size_t size)
@@ -690,6 +721,9 @@ FUZZ_BEGIN_DATA(const unsigned char *data, size_t size)
 	password_schemes_init();
 	dsasl_clients_init();
 	dsasl_client_mech_ntlm_init_dummy();
+#ifdef HAVE_GSSAPI
+	dsasl_clients_init_gssapi();
+#endif
 
 	struct istream *input = i_stream_create_from_data(data, size);
 	struct ioloop *ioloop = io_loop_create();
