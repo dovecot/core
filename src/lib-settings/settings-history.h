@@ -15,6 +15,7 @@ struct setting_history_rename {
 struct settings_history {
 	ARRAY(struct setting_history_default) defaults;
 	ARRAY(struct setting_history_rename) renames;
+	bool sort_pending;
 };
 
 struct settings_history *settings_history_get(void);
