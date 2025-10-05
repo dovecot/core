@@ -76,8 +76,8 @@ static struct fs *fs_compress_alloc(void)
 }
 
 static int
-fs_compress_init(struct fs *_fs, const struct fs_parameters *params,
-		 const char **error_r)
+fs_compress_init_(struct fs *_fs, const struct fs_parameters *params,
+		  const char **error_r)
 {
 	struct compress_fs *fs = COMPRESS_FS(_fs);
 	const struct fs_compress_settings *set;
@@ -266,7 +266,7 @@ const struct fs fs_class_compress = {
 	.name = "compress",
 	.v = {
 		.alloc = fs_compress_alloc,
-		.init = fs_compress_init,
+		.init = fs_compress_init_,
 		.deinit = NULL,
 		.free = fs_compress_free,
 		.get_properties = fs_wrapper_get_properties,
@@ -300,3 +300,16 @@ const struct fs fs_class_compress = {
 		.get_nlinks = fs_wrapper_get_nlinks
 	}
 };
+
+void fs_compress_init(void);
+void fs_compress_deinit(void);
+
+void fs_compress_init(void)
+{
+	fs_class_register(&fs_class_compress);
+}
+
+void fs_compress_deinit(void)
+{
+	fs_class_unregister(&fs_class_compress);
+}
