@@ -503,18 +503,6 @@ static void driver_mysql_exec(struct sql_db *_db, const char *query)
 	event_unref(&event);
 }
 
-static void driver_mysql_query(struct sql_db *db, const char *query,
-			       sql_query_callback_t *callback, void *context)
-{
-	struct sql_result *result;
-
-	result = sql_query_s(db, query);
-	result->callback = TRUE;
-	callback(result, context);
-	result->callback = FALSE;
-	sql_result_unref(result);
-}
-
 static struct sql_result *
 driver_mysql_query_s(struct sql_db *_db, const char *query)
 {
@@ -718,19 +706,6 @@ driver_mysql_transaction_begin(struct sql_db *db)
 	return &ctx->ctx;
 }
 
-static void
-driver_mysql_transaction_commit(struct sql_transaction_context *ctx,
-				sql_commit_callback_t *callback, void *context)
-{
-	struct sql_commit_result result;
-	const char *error;
-
-	i_zero(&result);
-	if (sql_transaction_commit_s(&ctx, &error) < 0)
-		result.error = error;
-	callback(&result, context);
-}
-
 static int ATTR_NULL(3)
 transaction_send_query(struct mysql_transaction_context *ctx, const char *query,
 		       unsigned int *affected_rows_r)
@@ -887,11 +862,9 @@ const struct sql_db driver_mysql_db = {
 		.disconnect = driver_mysql_disconnect,
 		.escape_string = driver_mysql_escape_string,
 		.exec = driver_mysql_exec,
-		.query = driver_mysql_query,
 		.query_s = driver_mysql_query_s,
 
 		.transaction_begin = driver_mysql_transaction_begin,
-		.transaction_commit = driver_mysql_transaction_commit,
 		.transaction_commit_s = driver_mysql_transaction_commit_s,
 		.transaction_rollback = driver_mysql_transaction_rollback,
 
