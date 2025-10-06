@@ -84,11 +84,15 @@ struct sql_db_vfuncs {
 	const char *(*escape_string)(struct sql_db *db, const char *string);
 
 	void (*exec)(struct sql_db *db, const char *query);
+	/* Only implement this if the driver can really do asynchronous callbacks,
+	   otherwise let sql API handle it. */
 	void (*query)(struct sql_db *db, const char *query,
 		      sql_query_callback_t *callback, void *context);
 	struct sql_result *(*query_s)(struct sql_db *db, const char *query);
 
 	struct sql_transaction_context *(*transaction_begin)(struct sql_db *db);
+	/* Only implement this if the driver can really do asynchronous callbacks,
+	   otherwise let sql API handle it. */
 	void (*transaction_commit)(struct sql_transaction_context *ctx,
 				   sql_commit_callback_t *callback,
 				   void *context);
@@ -153,6 +157,9 @@ struct sql_db {
 
 	struct event *event;
 	HASH_TABLE(char *, struct sql_prepared_statement *) prepared_stmt_hash;
+
+	struct sql_query_result_delayed *query_delayed_list;
+	struct sql_commit_result_delayed *commit_delayed_list;
 
 	enum sql_db_state state;
 	/* last time we started connecting to this server

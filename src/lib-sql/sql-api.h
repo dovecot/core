@@ -127,7 +127,7 @@ const char *sql_escape_blob(struct sql_db *db,
 void sql_exec(struct sql_db *db, const char *query);
 /* Execute SQL query and return result in callback. If fields list is given,
    the returned fields are validated to be of correct type, and you can use
-   sql_result_next_row_get() */
+   sql_result_next_row_get().  The callback is never called immediately. */
 void sql_query(struct sql_db *db, const char *query,
 	       sql_query_callback_t *callback, void *context);
 #define sql_query(db, query, callback, context) \
@@ -233,7 +233,7 @@ struct sql_transaction_context *sql_transaction_begin(struct sql_db *db);
 /* Don't require transaction to be atomic. Currently this is implemented only
    with Cassandra to use UNLOGGED BATCH operations. */
 void sql_transaction_set_non_atomic(struct sql_transaction_context *ctx);
-/* Commit transaction. */
+/* Commit transaction. The callback is never called immediately. */
 void sql_transaction_commit(struct sql_transaction_context **ctx,
 			    sql_commit_callback_t *callback, void *context);
 #define sql_transaction_commit(ctx, callback, context) \
