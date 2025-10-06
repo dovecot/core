@@ -446,18 +446,6 @@ static void driver_sqlite_exec(struct sql_db *_db, const char *query)
 	(void)driver_sqlite_exec_query(db, query, &error);
 }
 
-static void driver_sqlite_query(struct sql_db *db, const char *query,
-				sql_query_callback_t *callback, void *context)
-{
-	struct sql_result *result;
-
-	result = sql_query_s(db, query);
-	result->callback = TRUE;
-	callback(result, context);
-	result->callback = FALSE;
-	sql_result_unref(result);
-}
-
 static struct sql_result *
 driver_sqlite_query_s(struct sql_db *_db, const char *query)
 {
@@ -713,39 +701,6 @@ driver_sqlite_transaction_rollback(struct sql_transaction_context *_ctx)
 	i_free(ctx);
 }
 
-static void
-driver_sqlite_transaction_commit(struct sql_transaction_context *_ctx,
-				 sql_commit_callback_t *callback, void *context)
-{
-	struct sqlite_transaction_context *ctx =
-		container_of(_ctx, struct sqlite_transaction_context, ctx);
-	struct sql_commit_result commit_result;
-
-	driver_sqlite_transaction_exec(ctx, "COMMIT");
-
-	i_zero(&commit_result);
-	if (!SQLITE_IS_OK(ctx->rc)) {
-		commit_result.error = ctx->error;
-		callback(&commit_result, context);
-		e_debug(sql_transaction_finished_event(_ctx)->
-			add_str("error", commit_result.error)->event(),
-			"Transaction failed");
-		/* From SQLite manual: It is recommended that applications
-		   respond to the errors listed above by explicitly issuing a
-		   ROLLBACK command. If the transaction has already been rolled
-		   back automatically by the error response, then the ROLLBACK
-		   command will fail with an error, but no harm is caused by
-		   this. */
-		driver_sqlite_transaction_rollback(_ctx);
-	} else {
-		e_debug(sql_transaction_finished_event(_ctx)->event(),
-			"Transaction committed");
-		callback(&commit_result, context);
-		event_unref(&_ctx->event);
-		i_free(ctx);
-	}
-}
-
 static int
 driver_sqlite_transaction_commit_s(struct sql_transaction_context *_ctx,
 				   const char **error_r)
@@ -813,11 +768,9 @@ const struct sql_db driver_sqlite_db = {
 		.disconnect = driver_sqlite_disconnect,
 		.escape_string = driver_sqlite_escape_string,
 		.exec = driver_sqlite_exec,
-		.query = driver_sqlite_query,
 		.query_s = driver_sqlite_query_s,
 
 		.transaction_begin = driver_sqlite_transaction_begin,
-		.transaction_commit = driver_sqlite_transaction_commit,
 		.transaction_commit_s = driver_sqlite_transaction_commit_s,
 		.transaction_rollback = driver_sqlite_transaction_rollback,
 
