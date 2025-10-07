@@ -1,5 +1,6 @@
 AC_DEFUN([DOVECOT_WANT_GSSAPI], [
   have_gssapi=no
+  have_gssapi_plugin=no
   AS_IF([test $want_gssapi != no], [
     AC_CHECK_PROG(KRB5CONFIG, krb5-config, krb5-config, missing)
     AS_IF([test $KRB5CONFIG != missing], [
