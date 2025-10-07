@@ -32,6 +32,7 @@ headers = \
 	mycrypt.h \
 	auth-digest.h \
 	auth-gs2.h \
+	auth-gssapi.h \
 	auth-scram.h \
 	auth-scram-client.h \
 	auth-scram-server.h \
