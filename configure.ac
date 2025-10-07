@@ -626,7 +626,7 @@ else
     LIBDOVECOT_LUA='$(top_builddir)/src/lib-lua/libdlua.la'
   fi
   if test $want_gssapi != no; then
-    LIBDOVECOT_GSSAPI='$(top_builddir)/src/lib-sasl/libsasl-gssapi.la'
+    LIBDOVECOT_GSSAPI='$(top_builddir)/src/lib-auth/libauth-gssapi.la $(top_builddir)/src/lib-sasl/libsasl-gssapi.la'
   fi
 fi
 LIBDOVECOT_GSSAPI_DEPS="$LIBDOVECOT_GSSAPI"

@@ -56,7 +56,9 @@ libsasl_gssapi_la_SOURCES = \
 	sasl-server-mech-gssapi.c
 libsasl_gssapi_la_LIBADD = $(KRB5_LIBS)
 libsasl_gssapi_la_CPPFLAGS = $(AM_CPPFLAGS) $(KRB5_CFLAGS)
-libsasl_gssapi_la_DEPENDENCIES = libsasl.la
+libsasl_gssapi_la_DEPENDENCIES = \
+	libsasl.la \
+	../lib-auth/libauth-gssapi.la
 endif
 
 headers = \

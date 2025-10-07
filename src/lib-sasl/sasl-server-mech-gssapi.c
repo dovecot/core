@@ -225,14 +225,6 @@ get_display_name(struct gssapi_auth_request *request, gss_name_t name,
 	return 0;
 }
 
-static bool
-mech_gssapi_oid_cmp(const gss_OID_desc *oid1, const gss_OID_desc *oid2)
-{
-	return (oid1->length == oid2->length &&
-		mem_equals_timing_safe(oid1->elements, oid2->elements,
-				       oid1->length));
-}
-
 static int
 mech_gssapi_sec_context(struct gssapi_auth_request *request,
 			gss_buffer_desc inbuf)
@@ -269,7 +261,7 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 
 	switch (major_status) {
 	case GSS_S_COMPLETE:
-		if (!mech_gssapi_oid_cmp(mech_type, &mech_gssapi_krb5_oid)) {
+		if (!auth_gssapi_oid_equal(mech_type, &mech_gssapi_krb5_oid)) {
 			e_info(auth_request->event,
 			       "GSSAPI mechanism not Kerberos5");
 			ret = -1;
@@ -392,7 +384,7 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 			     &princ_display_name) < 0)
 		return FALSE;
 
-	if (!mech_gssapi_oid_cmp(name_type, GSS_KRB5_NT_PRINCIPAL_NAME) &&
+	if (!auth_gssapi_oid_equal(name_type, GSS_KRB5_NT_PRINCIPAL_NAME) &&
 	    check_name_type) {
 		e_info(auth_request->event, "OID not kerberos principal name");
 		return FALSE;

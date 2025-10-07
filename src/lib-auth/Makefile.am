@@ -1,4 +1,7 @@
 noinst_LTLIBRARIES = libauth-crypt.la libauth.la
+if HAVE_GSSAPI
+noinst_LTLIBRARIES += libauth-gssapi.la
+endif
 
 AM_CPPFLAGS = \
 	$(LIBSODIUM_CFLAGS) \
@@ -27,6 +30,9 @@ libauth_crypt_la_SOURCES = \
 libauth_crypt_la_LIBADD = \
 	$(LIBSODIUM_LIBS) \
 	$(CRYPT_LIBS)
+
+libauth_gssapi_la_SOURCES = \
+	auth-gssapi.c
 
 headers = \
 	mycrypt.h \
