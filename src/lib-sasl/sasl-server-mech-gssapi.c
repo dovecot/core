@@ -54,9 +54,6 @@ struct gssapi_auth_mech {
 	const char *hostname;
 };
 
-static gss_OID_desc mech_gssapi_krb5_oid =
-	{ 9, "\x2a\x86\x48\x86\xf7\x12\x01\x02\x02" };
-
 static int
 mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf);
 
@@ -261,7 +258,8 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 
 	switch (major_status) {
 	case GSS_S_COMPLETE:
-		if (!auth_gssapi_oid_equal(mech_type, &mech_gssapi_krb5_oid)) {
+		if (!auth_gssapi_oid_equal(mech_type,
+					   auth_gssapi_mech_krb5_oid)) {
 			e_info(auth_request->event,
 			       "GSSAPI mechanism not Kerberos5");
 			ret = -1;

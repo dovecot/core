@@ -17,6 +17,8 @@
 #  include <gssapi/gssapi_ext.h>
 #endif
 
+extern const gss_OID_desc *auth_gssapi_mech_krb5_oid;
+
 bool auth_gssapi_oid_equal(const gss_OID_desc *oid1, const gss_OID_desc *oid2);
 
 #endif
