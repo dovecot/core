@@ -1,3 +1,72 @@
+v2.4.2 2025-10-24  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* CVE-2025-30189: Passdb oauth2 (not oauth2 mechanism), passdb passwd,
+	  passdb bsdauth, and userdb passwd drivers would cause users to be
+	  cached with same cache key when auth cache was enabled.
+	* auth: Remove proxy_always field.
+	* config: Change settings history parsing to use python3.
+	* doveadm: Print table formatter - Print empty values as "-".
+	* imapc: Propagate remote error codes properly.
+	* lda: Default mail_home=$HOME environment if not using userdb lookup
+	* lib-dcrypt: Salt for new version 2 keys has been increased to 16 bytes.
+	* lib-dregex: Add libpcre2 based regular expression support to Dovecot,
+	  if the library is missing, disable all regular expressions. This
+	  adds libpcre2-32 as build dependency.
+	* lib-oauth2: jwt - Allow nbf and iat to point 1 second into future.
+	* lib: Replace libicu with our own unicode library. Removes libicu as build
+	  dependency.
+	* login-common: If proxying fails due to remote having invalid SSL cert, don't reconnect.
+	+ auth: Add ssl_client_cert_fp and ssl_client_cert_pubkey_fp fields, see
+	  https://doc.dovecot.org/latest/core/summaries/settings.html#ssl_peer_certificate_fingerprint_hash
+	  for more information.
+	+ config: Add support for $SET:filter/path/setting.
+	+ config: Improve @group includes to work with overwriting their settings.
+	+ doveadm kick: Add support for kicking multiple usernames
+	+ doveadm mailbox status: Add support for deleted status item.
+	+ imap, imap-client: Add experimental partial IMAP4rev2 support.
+	+ imap: Implement support for UTF8=ACCEPT for APPEND
+	+ lib-oauth2, oauth2: Add oauth2_token_expire_grace setting.
+	+ lmtp: lmtp-client - Support command pipelining.
+	+ login-common: Support local/remote blocks better.
+	+ master: accept() unix/inet connections before creating child process
+	  to handle it. This reduces timeouts when child processes are slow to
+	  spawn themselves.
+	- SMTPUTF8 was accepted even when it wasn't enabled.
+	- auth, *-login: Direct logging with -L parameter was not working.
+	- auth: Crash occured when OAUTH token validation failed with
+	  oauth2_use_worker_with_mech=yes.
+	- auth: Invalid field handling crashes were fixed.
+	- auth: ldap - Potential crash could happen at deinit.
+	- auth: mech-gssapi - Server sending empty initial response would cause
+	  errors.
+	- auth: mech-winbind - GSS-SPNEGO mechanism was erroneously marked as
+	  not accepting NUL.
+	- config: Multiple issues with $SET handling has been fixed.
+	- configure: Building without LDAP didn't work.
+	- doveadm: If source user didn't exist, a crash would occur.
+	- imap, pop3, submission, imap-urlauth: USER environment usage was broken
+	  when running standalone.
+	- imap-hibernate: Statistics would get truncated on unhibernation.
+	- imap: "SEARCH MIMEPART FILENAME ENDS" command could have accessed
+          memory outside allocated buffer, resulting in a crash.
+	- imapc: Fetching partial headers would cause other cached headers to
+	  be cached empty, breaking e.g. imap envelope responses when caching to disk.
+	- imapc: Shared namespace's INBOX mailbox was not always uppercased.
+	- imapc: imapc_features=guid-forced GUID generation was not working correctly.
+	- lda: USER environment was not accepted if -d hasn't been specified.
+	- lib-http: http-url - Significant path percent encoding through parse
+	  and create was not preserved. This is mainly important for Dovecot's
+	  Lua bindings for lib-http.
+	- lib-settings: Crash would occur when using %variables in SET_FILE type settings.
+	- lib-storage: Attachment flags were attempted to be added for
+	  readonly mailboxes with mail_attachment_flags=add-flags.
+	- lib-storage: Root directory for unusable shared namespaces was
+	  unnecessarily attempted to be created.
+	- lib: Crash would occur when config was reloaded and logging to syslog.
+	- login-common: Crash might have occured when login proxy was destroyed.
+	- sqlite: The sqlite_journal_mode=wal setting didn't actually do anything.
+	- Many other bugs have been fixed.
+
 v2.4.1 2025-03-28  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* auth: Change unix_listener/auth-userdb/group = $SET:default_internal_group
