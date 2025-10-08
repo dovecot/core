@@ -119,6 +119,12 @@ i_stream_mail_read(struct istream_private *stream)
 	i_stream_seek(stream->parent, stream->parent_start_offset +
 		      stream->istream.v_offset);
 
+	stream->prev_snapshot =
+		stream->snapshot(stream, stream->prev_snapshot);
+	const unsigned char *old_buffer = stream->buffer;
+	const size_t old_skip = stream->skip;
+	const size_t old_pos = stream->pos;
+
 	ret = i_stream_read_copy_from_parent(&stream->istream);
 	size = i_stream_get_data_size(&stream->istream);
 	if (ret > 0) {
@@ -132,9 +138,12 @@ i_stream_mail_read(struct istream_private *stream)
 			/* istream code expects that the position has not changed
 			   when read error occurs, so move pos back. */
 			i_assert(stream->pos >= (size_t)ret);
-			stream->pos -= ret;
+			stream->buffer = old_buffer;
+			stream->skip = old_skip;
+			stream->pos = old_pos;
 			return -1;
 		}
+		i_stream_snapshot_free(&stream->prev_snapshot);
 	} else if (ret == -1 && stream->istream.eof) {
 		if (!mstream->input_has_body) {
 			/* trying to read past the header, but this stream
