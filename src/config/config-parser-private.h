@@ -34,7 +34,8 @@ struct config_line {
 	enum config_line_type type;
 	const char *key;
 	const char *value;
-	/* value is inside "quotes" */
+	/* key/value is inside "quotes" */
+	bool key_quoted;
 	bool value_quoted;
 };
 

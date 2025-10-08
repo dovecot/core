@@ -2185,6 +2185,7 @@ config_parse_line(struct config_parser_context *ctx,
 	   c) } */
 	key = line;
 	if (*key == '"') {
+		config_line_r->key_quoted = TRUE;
 		key++; line++;
 		while (*line != '\0') {
 			if (*line == '\\' && line[1] != '\0')
@@ -3130,7 +3131,8 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 		if (config_write_value(ctx, line) < 0) {
 			if (config_apply_error(ctx, line->key) < 0)
 				break;
-		} else if (line->key[0] == SETTINGS_INCLUDE_GROUP_PREFIX) {
+		} else if (line->key[0] == SETTINGS_INCLUDE_GROUP_PREFIX &&
+			   !line->key_quoted) {
 			if (config_filter_has_include_group(&ctx->cur_section->filter_parser->filter)) {
 				ctx->error = "Recursive include groups not allowed";
 				break;

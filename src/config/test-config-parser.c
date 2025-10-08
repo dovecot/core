@@ -28,6 +28,7 @@ struct test_settings {
 	const char *env_key4;
 	const char *env_key5;
 	const char *protocols;
+	const char *at_group_name;
 };
 
 static const struct setting_define test_settings_defs[] = {
@@ -43,6 +44,7 @@ static const struct setting_define test_settings_defs[] = {
 	SETTING_DEFINE_STRUCT_STR("env_key4", env_key4, struct test_settings),
 	SETTING_DEFINE_STRUCT_STR("env_key5", env_key5, struct test_settings),
 	SETTING_DEFINE_STRUCT_STR("protocols", protocols, struct test_settings),
+	SETTING_DEFINE_STRUCT_STR("@group_name", at_group_name, struct test_settings),
 	SETTING_DEFINE_LIST_END
 };
 
@@ -59,6 +61,7 @@ static const struct test_settings test_settings_defaults = {
 	.env_key4 = "",
 	.env_key5 = "",
 	.protocols = "pop3",
+	.at_group_name = "",
 };
 
 const struct setting_parser_info test_settings_info = {
@@ -111,6 +114,7 @@ static void test_config_parser(void)
 "env_key4 = $ENV:foo $ENV:bar $SET:key\n"
 "env_key5 = $ENV:foo $ENV:foo\n"
 "protocols = $SET:protocols imap\n"
+"\"@group_name\" = value\n"
 	);
 
 	putenv("foo=test1");
@@ -145,6 +149,7 @@ static void test_config_parser(void)
 	test_assert_strcmp(set->env_key4, "test1 test2 value");
 	test_assert_strcmp(set->env_key5, "test1 test1");
 	test_assert_strcmp(set->protocols, "pop3 imap");
+	test_assert_strcmp(set->at_group_name, "value");
 	settings_parser_unref(&set_parser);
 	config_parsed_free(&config);
 
@@ -172,6 +177,7 @@ static void test_config_parser(void)
 	test_assert_strcmp(set->env_key4, "$ENV:foo $ENV:bar $SET:key");
 	test_assert_strcmp(set->env_key5, "$ENV:foo $ENV:foo");
 	test_assert_strcmp(set->protocols, "pop3 imap");
+	test_assert_strcmp(set->at_group_name, "value");
 
 	settings_parser_unref(&set_parser);
 	config_parsed_free(&config);
