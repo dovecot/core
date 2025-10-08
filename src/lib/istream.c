@@ -369,6 +369,7 @@ ssize_t i_stream_read_memarea(struct istream *stream)
 		_stream->io_pending_until_read = FALSE;
 		ret = _stream->read(_stream);
 	}
+	i_assert(_stream->skip <= _stream->pos);
 	i_assert(old_size <= _stream->pos - _stream->skip);
 	switch (ret) {
 	case -2:
