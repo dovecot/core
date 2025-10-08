@@ -12,7 +12,7 @@
 #include "maildir-uidlist.h"
 #include "maildir-keywords.h"
 #include "maildir-sync.h"
-#include "index-mail.h"
+#include "maildir-mail.h"
 
 #include <sys/stat.h>
 
@@ -698,6 +698,22 @@ static enum mail_flags maildir_get_private_flags_mask(struct mailbox *box)
 	return mbox->_private_flags_mask;
 }
 
+static struct mail *
+maildir_mail_alloc(struct mailbox_transaction_context *t,
+		   enum mail_fetch_field wanted_fields,
+		   struct mailbox_header_lookup_ctx *wanted_headers)
+{
+	struct maildir_mail *mail;
+	pool_t pool;
+
+	pool = pool_alloconly_create("mail", 2048);
+	mail = p_new(pool, struct maildir_mail, 1);
+
+	index_mail_init(&mail->imail, t, wanted_fields,
+			wanted_headers, pool, NULL);
+	return &mail->imail.mail.mail;
+}
+
 bool maildir_is_backend_readonly(struct maildir_mailbox *mbox)
 {
 	if (!mbox->backend_readonly_set) {
@@ -763,7 +779,7 @@ struct mailbox maildir_mailbox = {
 		index_transaction_commit,
 		index_transaction_rollback,
 		maildir_get_private_flags_mask,
-		index_mail_alloc,
+		maildir_mail_alloc,
 		index_storage_search_init,
 		index_storage_search_deinit,
 		index_storage_search_next_nonblock,

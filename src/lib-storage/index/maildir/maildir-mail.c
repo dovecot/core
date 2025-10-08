@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "istream.h"
 #include "nfs-workarounds.h"
-#include "index-mail.h"
+#include "maildir-mail.h"
 #include "maildir-storage.h"
 #include "maildir-filename.h"
 #include "maildir-uidlist.h"
@@ -13,6 +13,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
+
+static void maildir_mail_fix_corruption(struct mail *_mail);
 
 struct maildir_open_context {
 	int fd;
@@ -606,6 +608,7 @@ maildir_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 	struct index_mail_data *data = &mail->data;
 	bool deleted;
 
+	maildir_mail_fix_corruption(_mail);
 	if (data->stream == NULL) {
 		data->stream = maildir_open_mail(mbox, _mail, &deleted);
 		if (data->stream == NULL) {
@@ -761,20 +764,40 @@ maildir_mail_remove_sizes_from_filename(struct mail *mail,
 	(void)maildir_file_do(mbox, mail->uid, do_fix_size, &ctx);
 }
 
+static void maildir_mail_fix_corruption(struct mail *_mail)
+{
+	struct maildir_mail *mail =
+		container_of(_mail, struct maildir_mail, imail.mail.mail);
+
+	if (mail->corrupted_field == 0)
+		return;
+
+	mail->corrupted_field = 0;
+	maildir_mail_remove_sizes_from_uidlist(_mail);
+	maildir_mail_remove_sizes_from_filename(_mail, mail->corrupted_field);
+}
+
 static void maildir_mail_set_cache_corrupted(struct mail *_mail,
 					     enum mail_fetch_field field,
 					     const char *reason)
 {
+	struct maildir_mail *mail =
+		container_of(_mail, struct maildir_mail, imail.mail.mail);
+
 	if (field == MAIL_FETCH_PHYSICAL_SIZE ||
-	    field == MAIL_FETCH_VIRTUAL_SIZE) {
-		maildir_mail_remove_sizes_from_uidlist(_mail);
-		maildir_mail_remove_sizes_from_filename(_mail, field);
-	}
+	    field == MAIL_FETCH_VIRTUAL_SIZE)
+		mail->corrupted_field = field;
 	index_mail_set_cache_corrupted(_mail, field, reason);
 }
 
+static void maildir_mail_close(struct mail *_mail)
+{
+	maildir_mail_fix_corruption(_mail);
+	index_mail_close(_mail);
+}
+
 struct mail_vfuncs maildir_mail_vfuncs = {
-	index_mail_close,
+	maildir_mail_close,
 	index_mail_free,
 	index_mail_set_seq,
 	index_mail_set_uid,

@@ -29,6 +29,7 @@ headers = \
 	maildir-filename.h \
 	maildir-filename-flags.h \
 	maildir-keywords.h \
+	maildir-mail.h \
 	maildir-storage.h \
 	maildir-settings.h \
 	maildir-sync.h \
