@@ -102,7 +102,7 @@ struct mailbox_list_index {
 	const char *path;
 	struct mail_index *index;
 	uint32_t ext_id, msgs_ext_id, hmodseq_ext_id, subs_hdr_ext_id;
-	uint32_t vsize_ext_id, first_saved_ext_id;
+	uint32_t vsize_ext_id, first_saved_ext_id, deleted_count_id;
 	struct timeval last_refresh_timeval;
 
 	pool_t mailbox_pool;

@@ -8,7 +8,7 @@
 
 #define CACHED_STATUS_ITEMS \
 	(STATUS_MESSAGES | STATUS_UNSEEN | STATUS_RECENT | \
-	 STATUS_UIDNEXT | STATUS_UIDVALIDITY | STATUS_HIGHESTMODSEQ)
+	 STATUS_UIDNEXT | STATUS_UIDVALIDITY | STATUS_HIGHESTMODSEQ | STATUS_DELETED)
 
 struct index_list_changes {
 	struct mailbox_status status;
@@ -20,6 +20,7 @@ struct index_list_changes {
 	bool rec_changed;
 	bool msgs_changed;
 	bool hmodseq_changed;
+	bool deleted_changed;
 	bool vsize_changed;
 	bool first_saved_changed;
 };
@@ -121,6 +122,19 @@ bool mailbox_list_index_status(struct mailbox_list *list,
 			reason = "HIGHESTMODSEQ=0";
 		else
 			status_r->highest_modseq = *rec;
+	}
+	if ((items & STATUS_DELETED) != 0) {
+		const uint32_t *rec;
+
+		mail_index_lookup_ext(view, seq, ilist->deleted_count_id,
+				      &data, &expunged);
+		rec = data;
+		if (rec == NULL)
+			reason = "Record for DELETED";
+		else if (*rec == 0)
+			reason = "DELETED=0";
+		else
+			status_r->deleted = *rec - 1;
 	}
 	if (vsize_r != NULL) {
 		mail_index_lookup_ext(view, seq, ilist->vsize_ext_id,
@@ -420,6 +434,7 @@ index_list_update_fill_changes(struct mailbox *box,
 		hdr->messages_count - hdr->seen_messages_count;
 	changes_r->status.uidvalidity = hdr->uid_validity;
 	changes_r->status.uidnext = hdr->next_uid;
+	changes_r->status.deleted = hdr->deleted_messages_count;
 
 	if (!mail_index_lookup_seq_range(view, hdr->first_recent_uid,
 					 (uint32_t)-1, &seq1, &seq2))
@@ -480,10 +495,11 @@ index_list_has_changed(struct mailbox *box, struct mail_index_view *list_view,
 	i_zero(&old_status);
 	i_zero(&old_vsize);
 	memset(old_guid, 0, sizeof(old_guid));
-	(void)mailbox_list_index_status(box->list, list_view, changes->seq,
-					CACHED_STATUS_ITEMS,
-					&old_status, old_guid,
-					&old_vsize, &reason);
+	bool all_cached = mailbox_list_index_status(box->list, list_view,
+						    changes->seq,
+						    CACHED_STATUS_ITEMS,
+						    &old_status, old_guid,
+						    &old_vsize, &reason);
 
 	changes->rec_changed =
 		old_status.uidvalidity != changes->status.uidvalidity &&
@@ -503,18 +519,21 @@ index_list_has_changed(struct mailbox *box, struct mail_index_view *list_view,
 		old_status.recent != changes->status.recent ||
 		old_status.uidnext != changes->status.uidnext;
 	/* update highest-modseq only if they're ever been used */
-	if (old_status.highest_modseq == changes->status.highest_modseq) {
-		changes->hmodseq_changed = FALSE;
-	} else {
-		changes->hmodseq_changed = TRUE;
-	}
+	changes->hmodseq_changed =
+		old_status.highest_modseq != changes->status.highest_modseq;
+
+	/* same for deleted count */
+	changes->deleted_changed =
+		old_status.deleted != changes->status.deleted ||
+		(changes->status.deleted == 0 && !all_cached);
+
 	if (memcmp(&old_vsize, &changes->vsize, sizeof(old_vsize)) != 0)
 		changes->vsize_changed = TRUE;
 	index_list_first_saved_update_changes(box, list_view, changes);
 
 	return changes->rec_changed || changes->msgs_changed ||
-		changes->hmodseq_changed || changes->vsize_changed ||
-		changes->first_saved_changed;
+	       changes->hmodseq_changed || changes->vsize_changed ||
+	       changes->first_saved_changed || changes->deleted_changed;
 }
 
 static void
@@ -601,6 +620,12 @@ index_list_update(struct mailbox *box, struct mail_index_view *list_view,
 		mail_index_update_ext(list_trans, changes->seq,
 				      ilist->hmodseq_ext_id,
 				      &changes->status.highest_modseq, NULL);
+	}
+	if (changes->deleted_changed) {
+		uint32_t deleted = changes->status.deleted + 1;
+		mail_index_update_ext(list_trans, changes->seq,
+				      ilist->deleted_count_id,
+				      &deleted, NULL);
 	}
 	if (changes->vsize_changed) {
 		mail_index_update_ext(list_trans, changes->seq,
@@ -863,4 +888,7 @@ void mailbox_list_index_status_init_finish(struct mailbox_list *list)
 	ilist->first_saved_ext_id =
 		mail_index_ext_register(ilist->index, "1saved", 0,
 			sizeof(struct mailbox_index_first_saved), sizeof(uint32_t));
+	ilist->deleted_count_id =
+		mail_index_ext_register(ilist->index, "deleted", 0,
+			sizeof(uint32_t), sizeof(uint32_t));
 }
