@@ -109,10 +109,40 @@ static void driver_sqlite_disconnect(struct sql_db *_db)
 	db->connected = FALSE;
 }
 
+static const char *driver_sqlite_connect_error(struct sqlite_db *db)
+{
+	const char *err;
+
+	switch (db->connect_rc) {
+	/* Should not end here with OK */
+	case SQLITE_OK:
+		i_unreached();
+	case SQLITE_CANTOPEN:
+	case SQLITE_PERM:
+		if (db->connect_errno == ENOENT)
+			err = eacces_error_get_creating("creat", db->set->path);
+		else if (db->connect_errno == EACCES)
+			err = eacces_error_get("open", db->set->path);
+		else {
+			err = t_strdup_printf("open(%s) failed: %s",
+					      db->set->path,
+					      strerror(db->connect_errno));
+		}
+		break;
+	case SQLITE_NOMEM:
+		i_fatal_status(FATAL_OUTOFMEM, "open(%s) failed: %s",
+			       db->set->path, sqlite3_errstr(db->connect_rc));
+	default:
+		err = t_strdup_printf("open(%s) failed: %s", db->set->path,
+				      sqlite3_errstr(db->connect_rc));
+		break;
+	}
+	return err;
+}
+
 static int driver_sqlite_connect(struct sql_db *_db)
 {
 	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
-	const char *err;
 	/* this is default for sqlite_open */
 	int flags;
 
@@ -134,29 +164,10 @@ static int driver_sqlite_connect(struct sql_db *_db)
 		db->connected = TRUE;
 		sqlite3_busy_timeout(db->sqlite, sqlite_busy_timeout);
 		return 1;
-	case SQLITE_READONLY:
-	case SQLITE_CANTOPEN:
-	case SQLITE_PERM:
-		if (db->connect_errno == ENOENT)
-			err = eacces_error_get_creating("creat", db->set->path);
-		else if (db->connect_errno == EACCES)
-			err = eacces_error_get("open", db->set->path);
-		else {
-			err = t_strdup_printf("open(%s) failed: %s",
-					      db->set->path,
-					      strerror(db->connect_errno));
-		}
-		i_free(_db->last_connect_error);
-		_db->last_connect_error = i_strdup(err);
-		e_error(_db->event, "%s", err);
-		break;
-	case SQLITE_NOMEM:
-		i_fatal_status(FATAL_OUTOFMEM, "open(%s) failed: %s",
-			       db->set->path, sqlite3_errstr(db->connect_rc));
 	default:
 		i_free(_db->last_connect_error);
-		_db->last_connect_error = i_strdup_printf("open(%s) failed: %s", db->set->path,
-							  sqlite3_errstr(db->connect_rc));
+		_db->last_connect_error =
+			i_strdup(driver_sqlite_connect_error(db));
 		e_error(_db->event, "%s", _db->last_connect_error);
 		break;
 	}
