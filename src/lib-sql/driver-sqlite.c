@@ -25,6 +25,7 @@ struct sqlite_db {
 	sqlite3 *sqlite;
 	const struct sqlite_settings *set;
 	int connect_rc;
+	int connect_errno;
 	bool connected:1;
 };
 
@@ -108,7 +109,6 @@ static void driver_sqlite_disconnect(struct sql_db *_db)
 
 static int driver_sqlite_connect(struct sql_db *_db)
 {
-	struct stat st;
 	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
 	const char *err;
 	/* this is default for sqlite_open */
@@ -125,6 +125,7 @@ static int driver_sqlite_connect(struct sql_db *_db)
 		flags |= SQLITE_OPEN_WAL;
 
 	db->connect_rc = sqlite3_open_v2(db->set->path, &db->sqlite, flags, NULL);
+	db->connect_errno = sqlite3_system_errno(db->sqlite);
 
 	switch (db->connect_rc) {
 	case SQLITE_OK:
@@ -134,10 +135,15 @@ static int driver_sqlite_connect(struct sql_db *_db)
 	case SQLITE_READONLY:
 	case SQLITE_CANTOPEN:
 	case SQLITE_PERM:
-		if (stat(db->set->path, &st) == -1 && errno == ENOENT)
+		if (db->connect_errno == ENOENT)
 			err = eacces_error_get_creating("creat", db->set->path);
-		else
+		else if (db->connect_errno == EACCES)
 			err = eacces_error_get("open", db->set->path);
+		else {
+			err = t_strdup_printf("open(%s) failed: %s",
+					      db->set->path,
+					      strerror(db->connect_errno));
+		}
 		i_free(_db->last_connect_error);
 		_db->last_connect_error = i_strdup(err);
 		e_error(_db->event, "%s", err);
@@ -524,12 +530,15 @@ static const char *driver_sqlite_result_get_error(struct sql_result *_result)
 					  eacces_error_get("write", db->set->path), NULL);
 		return err;
 	} else if (result->rc == SQLITE_CANTOPEN) {
-		struct stat st;
 		const char *err;
-		if (stat(db->set->path, &st) == -1 && errno == ENOENT) {
+		if (db->connect_errno == ENOENT) {
 			err = eacces_error_get_creating("creat", db->set->path);
-		} else {
+		} else if (db->connect_errno == EACCES) {
 			err = eacces_error_get("open", db->set->path);
+		} else {
+			err = t_strdup_printf("open(%s) failed: %s",
+					      db->set->path,
+					      strerror(db->connect_errno));
 		}
 		return t_strconcat("Cannot connect to database: ", err, NULL);
 	} else {
