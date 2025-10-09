@@ -163,6 +163,8 @@ void sasl_server_request_initial(struct sasl_server_req_ctx *rctx,
 	struct sasl_server_mech_request *mreq = req->mech;
 	const struct sasl_server_mech *mech = mreq->mech;
 
+	i_assert(data != NULL || data_size == 0);
+
 	if (data == NULL) {
 		e_debug(req->event,
 			"Started interaction without initial response");
@@ -190,6 +192,8 @@ void sasl_server_request_input(struct sasl_server_req_ctx *rctx,
 	struct sasl_server_request *req = rctx->request;
 	struct sasl_server_mech_request *mreq = req->mech;
 	const struct sasl_server_mech *mech = mreq->mech;
+
+	i_assert(data != NULL || data_size == 0);
 
 	e_debug(req->event,
 		"Client continued interaction with response (size=%zu)",
