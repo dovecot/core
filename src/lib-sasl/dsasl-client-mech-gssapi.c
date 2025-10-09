@@ -215,7 +215,6 @@ mech_gssapi_gs1_unwrap(struct gssapi_sasl_client *gclient,
 	gss_qop_t qop = GSS_C_QOP_DEFAULT;
 	unsigned char *data;
 	unsigned int sec_layer = 0;
-	unsigned int max_size = 0;
 	buffer_t *buf;
 	size_t authzid_size = (client->set.authzid == NULL ?
 			       0 : strlen(client->set.authzid));
@@ -237,7 +236,6 @@ mech_gssapi_gs1_unwrap(struct gssapi_sasl_client *gclient,
 
 	data = out_buf.value;
 	sec_layer = data[0];
-	max_size = (data[1] << 16) | (data[2] << 8) | data[3];
 	(void)gss_release_buffer(&minor_status, &out_buf);
 
 	/* Check server parameters */
@@ -246,13 +244,12 @@ mech_gssapi_gs1_unwrap(struct gssapi_sasl_client *gclient,
 		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
 	sec_layer = SASL_GSSAPI_QOP_AUTH_ONLY;
-	max_size = 0;
-
+	
 	buf = t_buffer_create(4 + authzid_size);
 	buffer_append_c(buf, sec_layer);
-	buffer_append_c(buf, max_size >> 16);
-	buffer_append_c(buf, max_size >> 8);
-	buffer_append_c(buf, max_size >> 0);
+	buffer_append_c(buf, 0);
+	buffer_append_c(buf, 0);
+	buffer_append_c(buf, 0);
 	if (client->set.authzid != NULL)
 		buffer_append(buf, client->set.authzid, authzid_size);
 
