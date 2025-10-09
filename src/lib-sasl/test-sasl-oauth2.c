@@ -252,12 +252,11 @@ static void test_kvpair_invalid(void)
 			in = in_nul;
 		}
 
-		ret = 0;
-		while (ret == 0 && in < in_end) {
+		do {
 			ret = sasl_oauth2_kvpair_parse(in, in_end - in,
 						       &key, &value, &in,
 						       &error);
-		}
+		} while (ret == 0 && in < in_end);
 		test_out_reason("decode failure", ret < 0, error);
 
 		test_end();
