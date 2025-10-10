@@ -31,9 +31,17 @@ struct sqlite_db {
 	bool connected:1;
 };
 
+struct sqlite_statement {
+	struct sql_statement api;
+	struct event *event;
+	sqlite3_stmt *handle;
+	char *error;
+	int rc;
+};
+
 struct sqlite_result {
 	struct sql_result api;
-	sqlite3_stmt *stmt;
+	struct sqlite_statement *stmt;
 	unsigned int cols;
 	int rc;
 	char *error;
@@ -113,6 +121,9 @@ static struct event_category event_category_sqlite = {
 };
 
 #define SQLITE_IS_OK(rc) ((rc) == SQLITE_OK || (rc) == SQLITE_DONE)
+
+static const char*
+driver_sqlite_result_str(struct sql_db *_db, int rc);
 
 static void driver_sqlite_disconnect(struct sql_db *_db)
 {
@@ -417,6 +428,60 @@ driver_sqlite_result_log(const struct sqlite_result *result, const char *query)
 	return t_strdup_printf("Query '%s'%s", query, error);
 }
 
+static struct sql_statement *
+driver_sqlite_statement_init(struct sql_db *_db, const char *query_template)
+{
+	pool_t pool = pool_alloconly_create("sqlite statement", 1024);
+	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
+	struct sqlite_statement *stmt = p_new(pool, struct sqlite_statement, 1);
+	const char *tail;
+	int rc;
+	stmt->api.db = _db;
+	stmt->api.query_template = p_strdup(pool, query_template);
+	stmt->event = event_create(_db->event);
+
+	if (driver_sqlite_connect(_db) < 0) {
+		rc = db->connect_rc;
+	} else {
+		rc = sqlite3_prepare_v2(db->sqlite, query_template, -1,
+					&stmt->handle, &tail);
+	}
+	if (!SQLITE_IS_OK(rc)) {
+		stmt->error = p_strdup(pool, driver_sqlite_result_str(_db, rc));
+		stmt->rc = rc;
+	} else if (*tail != '\0') {
+		e_warning(_db->event, "Query '%s': '%s' unparsed",
+			  query_template, tail);
+	}
+	return &stmt->api;
+}
+
+static void driver_sqlite_statement_abort(struct sql_statement *_stmt)
+{
+	struct sqlite_statement *stmt =
+		container_of(_stmt, struct sqlite_statement, api);
+	int rc = SQLITE_OK;
+	if (stmt->handle != NULL)
+		rc = sqlite3_finalize(stmt->handle);
+	if (rc == SQLITE_NOMEM) {
+		i_fatal_status(FATAL_OUTOFMEM, "finalize failed: %s (%d)",
+			       sqlite3_errstr(rc), rc);
+	} else if (rc != SQLITE_OK) {
+		e_warning(stmt->event, "finalize failed: %s (%d)",
+			  sqlite3_errstr(rc), rc);
+	}
+	event_unref(&stmt->event);
+}
+
+static void driver_sqlite_statement_free(struct sqlite_statement **_stmt)
+{
+	struct sqlite_statement *stmt = *_stmt;
+	*_stmt = NULL;
+	if (stmt == NULL)
+		return;
+	driver_sqlite_statement_abort(&stmt->api);
+}
+
 static int driver_sqlite_exec_query(struct sqlite_db *db, const char *query,
 				    const char **error_r)
 {
@@ -452,7 +517,6 @@ static void driver_sqlite_exec(struct sql_db *_db, const char *query)
 static struct sql_result *
 driver_sqlite_query_s(struct sql_db *_db, const char *query)
 {
-	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
 	struct sqlite_result *result;
 	struct event *event;
 
@@ -462,35 +526,29 @@ driver_sqlite_query_s(struct sql_db *_db, const char *query)
 	 * overwritten later here and we need to reset it. */
 	event = event_create(_db->event);
 	result->api.event = event;
+	struct sql_statement *_stmt = driver_sqlite_statement_init(_db, query);
+	struct sqlite_statement *stmt =
+		container_of(_stmt, struct sqlite_statement, api);
 
-	if (driver_sqlite_connect(_db) < 0) {
+	if (stmt->error != NULL) {
 		result->api = driver_sqlite_error_result;
-		result->stmt = NULL;
+		result->stmt = stmt;
 		result->cols = 0;
-		result->rc = db->connect_rc;
+		result->error = i_strdup(stmt->error);
+		result->rc = stmt->rc;
 	} else {
-		result->rc = sqlite3_prepare(db->sqlite, query, -1, &result->stmt, NULL);
-		if (SQLITE_IS_OK(result->rc)) {
-			result->api = driver_sqlite_result;
-			result->cols = sqlite3_column_count(result->stmt);
-			if (result->cols == 0)
-				result->row = NULL;
-			else
-				result->row = i_new(const char *, result->cols);
-		} else {
-			result->api = driver_sqlite_error_result;
-			result->stmt = NULL;
-			result->cols = 0;
-		}
+		result->api = driver_sqlite_result;
+		result->stmt = stmt;
+		result->cols = sqlite3_column_count(result->stmt->handle);
+		if (result->cols == 0)
+			result->row = NULL;
+		else
+			result->row = i_new(const char *, result->cols);
 	}
 
 	result->api.db = _db;
 	result->api.refcount = 1;
 	result->api.event = event;
-	if (result->rc != SQLITE_OK && result->rc != SQLITE_DONE) {
-		result->error = i_strdup(driver_sqlite_result_str(result->api.db,
-								  result->rc));
-	}
 	driver_sqlite_result_log(result, query);
 
 	return &result->api;
@@ -500,23 +558,13 @@ static void driver_sqlite_result_free(struct sql_result *_result)
 {
 	struct sqlite_result *result =
 		container_of(_result, struct sqlite_result, api);
-	int rc;
 
 	if (_result->callback)
 		return;
 
-	if (result->stmt != NULL) {
-		rc = sqlite3_finalize(result->stmt);
-		if (rc == SQLITE_NOMEM) {
-			i_fatal_status(FATAL_OUTOFMEM, "finalize failed: %s (%d)",
-				       sqlite3_errstr(rc), rc);
-		} else if (rc != SQLITE_OK) {
-			e_warning(_result->event, "finalize failed: %s (%d)",
-				  sqlite3_errstr(rc), rc);
-		}
-		i_free(result->row);
-	}
+	driver_sqlite_statement_free(&result->stmt);
 	event_unref(&result->api.event);
+	i_free(result->row);
 	i_free(result->error);
 	i_free(result);
 }
@@ -535,7 +583,7 @@ static int driver_sqlite_result_next_row(struct sql_result *_result)
 		return -1;
 	}
 
-	result->rc = sqlite3_step(result->stmt);
+	result->rc = sqlite3_step(result->stmt->handle);
 
 	switch (result->rc) {
 	case SQLITE_ROW:
@@ -569,7 +617,7 @@ driver_sqlite_result_get_field_name(struct sql_result *_result,
 	struct sqlite_result *result =
 		container_of(_result, struct sqlite_result, api);
 
-	return sqlite3_column_name(result->stmt, idx);
+	return sqlite3_column_name(result->stmt->handle, idx);
 }
 
 static int driver_sqlite_result_find_field(struct sql_result *_result,
@@ -580,7 +628,7 @@ static int driver_sqlite_result_find_field(struct sql_result *_result,
 	unsigned int i;
 
 	for (i = 0; i < result->cols; ++i) {
-		const char *col = sqlite3_column_name(result->stmt, i);
+		const char *col = sqlite3_column_name(result->stmt->handle, i);
 
 		if (strcmp(col, field_name) == 0)
 			return i;
@@ -596,7 +644,7 @@ driver_sqlite_result_get_field_value(struct sql_result *_result,
 	struct sqlite_result *result =
 		container_of(_result, struct sqlite_result, api);
 
-	return (const char*)sqlite3_column_text(result->stmt, idx);
+	return (const char*)sqlite3_column_text(result->stmt->handle, idx);
 }
 
 static const unsigned char *
@@ -606,8 +654,8 @@ driver_sqlite_result_get_field_value_binary(struct sql_result *_result,
 	struct sqlite_result *result =
 		container_of(_result, struct sqlite_result, api);
 
-	*size_r = sqlite3_column_bytes(result->stmt, idx);
-	return sqlite3_column_blob(result->stmt, idx);
+	*size_r = sqlite3_column_bytes(result->stmt->handle, idx);
+	return sqlite3_column_blob(result->stmt->handle, idx);
 }
 
 static const char *
