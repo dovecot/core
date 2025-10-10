@@ -514,15 +514,12 @@ static void driver_sqlite_exec(struct sql_db *_db, const char *query)
 	(void)driver_sqlite_exec_query(db, query, &error);
 }
 
-static struct sql_result *
-driver_sqlite_query_s(struct sql_db *_db, const char *query)
+static struct sqlite_result *
+driver_sqlite_statement_result_prepare(struct sqlite_statement *stmt)
 {
 	struct sqlite_result *result;
 
 	result = i_new(struct sqlite_result, 1);
-	struct sql_statement *_stmt = driver_sqlite_statement_init(_db, query);
-	struct sqlite_statement *stmt =
-		container_of(_stmt, struct sqlite_statement, api);
 
 	if (stmt->error != NULL) {
 		result->api = driver_sqlite_error_result;
@@ -540,9 +537,21 @@ driver_sqlite_query_s(struct sql_db *_db, const char *query)
 			result->row = i_new(const char *, result->cols);
 	}
 
-	result->api.db = _db;
+	result->api.db = stmt->api.db;
 	result->api.refcount = 1;
-	result->api.event = event_create(_db->event);
+	result->api.event = event_create(stmt->api.db->event);
+
+	return result;
+}
+
+static struct sql_result *
+driver_sqlite_query_s(struct sql_db *_db, const char *query)
+{
+	struct sql_statement *_stmt = driver_sqlite_statement_init(_db, query);
+	struct sqlite_statement *stmt =
+		container_of(_stmt, struct sqlite_statement, api);
+	struct sqlite_result *result =
+		driver_sqlite_statement_result_prepare(stmt);
 	driver_sqlite_result_log(result, query);
 
 	return &result->api;
