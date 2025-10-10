@@ -518,14 +518,8 @@ static struct sql_result *
 driver_sqlite_query_s(struct sql_db *_db, const char *query)
 {
 	struct sqlite_result *result;
-	struct event *event;
 
 	result = i_new(struct sqlite_result, 1);
-	result->api.db = _db;
-	/* Temporarily store the event since result->api gets
-	 * overwritten later here and we need to reset it. */
-	event = event_create(_db->event);
-	result->api.event = event;
 	struct sql_statement *_stmt = driver_sqlite_statement_init(_db, query);
 	struct sqlite_statement *stmt =
 		container_of(_stmt, struct sqlite_statement, api);
@@ -548,7 +542,7 @@ driver_sqlite_query_s(struct sql_db *_db, const char *query)
 
 	result->api.db = _db;
 	result->api.refcount = 1;
-	result->api.event = event;
+	result->api.event = event_create(_db->event);
 	driver_sqlite_result_log(result, query);
 
 	return &result->api;
