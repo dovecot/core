@@ -1,11 +1,12 @@
 /* Copyright (c) 2023 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+
+#if defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD)
+
 #include "ldap-sasl.h"
 #include "db-ldap.h"
 #include "db-ldap-sasl.h"
-
-#if defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD)
 
 #include <stddef.h>
 #include <unistd.h>
