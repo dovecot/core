@@ -323,7 +323,7 @@ int dict_sql_settings_get(struct event *event,
 	if (array_is_created(&maps_set->maps)) {
 		array_foreach_elem(&maps_set->maps, name) {
 			T_BEGIN {
-				dict_sql_settings_get_map(event, name, set, error_r);
+				ret = dict_sql_settings_get_map(event, name, set, error_r);
 			} T_END_PASS_STR_IF(ret < 0, error_r);
 			if (ret < 0) {
 				ret = -1;
