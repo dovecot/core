@@ -441,8 +441,8 @@ gss_display_name(OM_uint32 *minor_status, gss_name_t input_name,
 {
 	size_t input_name_len = strlen(input_name->name);
 
-	gss_alloc_buffer(output_name_buffer, input_name_len);
-	memcpy(output_name_buffer->value, input_name->name, input_name_len);
+	gss_alloc_buffer(output_name_buffer, input_name_len + 1);
+	memcpy(output_name_buffer->value, input_name->name, input_name_len + 1);
 	output_name_buffer->length = input_name_len;
 
 	if (output_name_type != NULL)
