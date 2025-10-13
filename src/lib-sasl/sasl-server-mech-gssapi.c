@@ -215,6 +215,7 @@ get_display_name(struct gssapi_auth_request *request, gss_name_t name,
 	}
 	if (data_has_nuls(buf.value, buf.length)) {
 		e_info(auth_request->event, "authn_name has NULs");
+		(void)gss_release_buffer(&minor_status, &buf);
 		return -1;
 	}
 	*display_name_r = t_strndup(buf.value, buf.length);
