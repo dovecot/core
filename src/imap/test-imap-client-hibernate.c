@@ -34,6 +34,7 @@ struct test_imap_client_hibernate {
 
 imap_client_created_func_t *hook_client_created = NULL;
 bool imap_debug = FALSE;
+bool verbose_proctitle = FALSE;
 
 static const char *tmpdir;
 static struct mail_storage_service_ctx *storage_service;

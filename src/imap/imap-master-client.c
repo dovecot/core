@@ -311,7 +311,8 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 		i_close_fd(&fd_client);
 		return -1;
 	}
-	process_title_set("[unhibernating]");
+	if (verbose_proctitle)
+		process_title_set("[unhibernating]");
 
 	/* NOTE: before client_create_from_input() on failures we need to close
 	   fd_client, but afterward it gets closed by client_destroy() */

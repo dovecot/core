@@ -23,6 +23,7 @@ typedef void imap_client_created_func_t(struct client **client);
 
 extern imap_client_created_func_t *hook_client_created;
 extern bool imap_debug;
+extern bool verbose_proctitle;
 extern struct event_category event_category_imap;
 
 /* Sets the hook_client_created and returns the previous hook,

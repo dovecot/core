@@ -34,13 +34,13 @@
 
 #define IMAP_DIE_IDLE_SECS 10
 
-static bool verbose_proctitle = FALSE;
 static struct mail_storage_service_ctx *storage_service;
 static struct login_server *login_server = NULL;
 static struct timeout *to_proctitle;
 
 imap_client_created_func_t *hook_client_created = NULL;
 bool imap_debug = FALSE;
+bool verbose_proctitle = FALSE;
 
 struct event_category event_category_imap = {
 	.name = "imap",
