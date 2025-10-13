@@ -232,6 +232,7 @@ mech_gssapi_gs1_unwrap(struct gssapi_sasl_client *gclient,
 
 	if (out_buf.length != 4) {
 		*error_r = "Bad server message: Invalid security data";
+		(void)gss_release_buffer(&minor_status, &out_buf);
 		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
 
