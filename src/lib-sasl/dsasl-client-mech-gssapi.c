@@ -165,6 +165,7 @@ mech_gssapi_sec_context(struct gssapi_sasl_client *gclient,
 		i_assert(ret_mech_oid != NULL);
 		if (!auth_gssapi_oid_equal(ret_mech_oid,
 					   auth_gssapi_mech_krb5_oid)) {
+			(void)gss_release_buffer(&minor_status, out_buf);
 			*error_r = "GSSAPI mechanism not Kerberos5";
 			return -1;
 		}
