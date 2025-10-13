@@ -322,15 +322,19 @@ void auth_sasl_request_deinit(struct auth_request *request)
 
 void auth_sasl_request_initial(struct auth_request *request)
 {
+	auth_request_ref(request);
 	sasl_server_request_initial(&request->sasl.req,
 				    request->initial_response,
 				    request->initial_response_len);
+	auth_request_unref(&request);
 }
 
 void auth_sasl_request_continue(struct auth_request *request,
 				const unsigned char *data, size_t data_size)
 {
+	auth_request_ref(request);
 	sasl_server_request_input(&request->sasl.req, data, data_size);
+	auth_request_unref(&request);
 }
 
 /*
