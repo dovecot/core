@@ -133,7 +133,7 @@ static void test_message_inline_without_filename(void)
 		"\n"
 		"xxxdata\n";
 
-	test_message_part_attachment(test_name, input, FALSE, NULL);
+	test_message_part_attachment(test_name, input, FALSE, "");
 }
 
 static void test_message_attachment_without_filename(void)
@@ -146,7 +146,7 @@ static void test_message_attachment_without_filename(void)
 		"\n"
 		"xxxdata\n";
 
-	test_message_part_attachment(test_name, input, TRUE, NULL);
+	test_message_part_attachment(test_name, input, TRUE, "");
 }
 
 static void test_message_attachment_with_cd_filename_star(void)

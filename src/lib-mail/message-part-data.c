@@ -105,6 +105,12 @@ static bool message_part_data_find_attachment_filename(
 	    get_param_value("name", data->content_type_params,
 			    data->content_type_params_count, filename_r))
 		return TRUE;
+	if (default_return && filename_r != NULL) {
+		/* This is an attachment without filename or name parameter.
+		   Just return the filename as empty string, so the caller
+		   doesn't have to handle NULL filename separately. */
+		*filename_r = "";
+	}
 	return default_return;
 }
 
