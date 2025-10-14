@@ -144,8 +144,9 @@ static int mail_cache_try_open(struct mail_cache *cache)
 	cache->fd = nfs_safe_open(cache->filepath,
 				  cache->index->readonly ? O_RDONLY : O_RDWR);
 	if (cache->fd == -1) {
+		int err = errno;
 		mail_cache_file_close(cache);
-		if (errno == ENOENT) {
+		if (err == ENOENT) {
 			mail_cache_purge_later_reset(cache);
 			return 0;
 		}
