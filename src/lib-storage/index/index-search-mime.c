@@ -30,7 +30,7 @@ struct search_mimepart_context {
 static void search_mime_arg(struct mail_search_mime_arg *arg,
 			      struct search_mimepart_context *mpctx);
 
-static int seach_arg_mime_parent_match(struct search_mimepart_context *mpctx,
+static int search_arg_mime_parent_match(struct search_mimepart_context *mpctx,
 				   struct mail_search_mime_arg *args)
 {
 	struct message_part *part = mpctx->mime_part;
@@ -68,7 +68,7 @@ static int seach_arg_mime_parent_match(struct search_mimepart_context *mpctx,
 	return ret;
 }
 
-static int seach_arg_mime_child_match(struct search_mimepart_context *mpctx,
+static int search_arg_mime_child_match(struct search_mimepart_context *mpctx,
 				   struct mail_search_mime_arg *args)
 {
 	struct message_part *part, *prev_part;
@@ -155,7 +155,7 @@ static int seach_arg_mime_child_match(struct search_mimepart_context *mpctx,
 }
 
 static int
-seach_arg_mime_substring_match(
+search_arg_mime_substring_match(
 	struct search_mimepart_context *mpctx ATTR_UNUSED,
 	const char *key, const char *value)
 {
@@ -167,7 +167,7 @@ seach_arg_mime_substring_match(
 }
 
 static int
-seach_arg_mime_envelope_time_match(
+search_arg_mime_envelope_time_match(
 	struct search_mimepart_context *mpctx ATTR_UNUSED,
 	enum mail_search_mime_arg_type type, time_t search_time,
 	const struct message_part_envelope *envelope)
@@ -200,7 +200,7 @@ seach_arg_mime_envelope_time_match(
 }
 
 static int
-seach_arg_mime_envelope_address_match(
+search_arg_mime_envelope_address_match(
 	struct search_mimepart_context *mpctx ATTR_UNUSED,
 	enum mail_search_mime_arg_type type, const char *key,
 	const struct message_part_envelope *envelope)
@@ -244,7 +244,7 @@ seach_arg_mime_envelope_address_match(
 }
 
 static int
-seach_arg_mime_filename_match(struct search_mimepart_context *mpctx,
+search_arg_mime_filename_match(struct search_mimepart_context *mpctx,
 				   struct mail_search_mime_arg *arg)
 {
 	struct index_search_context *ictx = mpctx->index_ctx;
@@ -303,7 +303,7 @@ search_arg_mime_filename_deinit(
 }
 
 static int
-seach_arg_mime_param_match(const struct message_part_param *params,
+search_arg_mime_param_match(const struct message_part_param *params,
 				   unsigned int params_count,
 				   const char *name, const char *key)
 {
@@ -322,7 +322,7 @@ seach_arg_mime_param_match(const struct message_part_param *params,
 }
 
 static int
-seach_arg_mime_language_match(struct search_mimepart_context *mpctx,
+search_arg_mime_language_match(struct search_mimepart_context *mpctx,
 				   const char *key)
 {
 	struct message_part_data *data = mpctx->mime_part->data;
@@ -364,14 +364,14 @@ static int search_mime_arg_match(struct search_mimepart_context *mpctx,
 		return (part->body_size.virtual_size < arg->value.size ? 1 : 0);
 
 	case SEARCH_MIME_DESCRIPTION:
-		return seach_arg_mime_substring_match(mpctx,
+		return search_arg_mime_substring_match(mpctx,
 			arg->value.str, data->content_description);
 	case SEARCH_MIME_DISPOSITION_TYPE:
 		return (data->content_disposition != NULL &&
 			strcasecmp(data->content_disposition,
 				arg->value.str) == 0 ? 1 : 0);
 	case SEARCH_MIME_DISPOSITION_PARAM:
-		return seach_arg_mime_param_match
+		return search_arg_mime_param_match
 			(data->content_disposition_params,
 				data->content_disposition_params_count,
 				arg->field_name, arg->value.str);
@@ -384,7 +384,7 @@ static int search_mime_arg_match(struct search_mimepart_context *mpctx,
 			strcasecmp(data->content_id,
 				arg->value.str) == 0 ? 1 : 0);
 	case SEARCH_MIME_LANGUAGE:
-		return seach_arg_mime_language_match(mpctx, arg->value.str);
+		return search_arg_mime_language_match(mpctx, arg->value.str);
 	case SEARCH_MIME_LOCATION:
 		return (data->content_location != NULL &&
 			strcasecmp(data->content_location,
@@ -403,7 +403,7 @@ static int search_mime_arg_match(struct search_mimepart_context *mpctx,
 			strcasecmp(data->content_subtype,
 				arg->value.str) == 0 ? 1 : 0);
 	case SEARCH_MIME_PARAM:
-		return seach_arg_mime_param_match
+		return search_arg_mime_param_match
 			(data->content_type_params,
 				data->content_type_params_count,
 				arg->field_name, arg->value.str);
@@ -411,7 +411,7 @@ static int search_mime_arg_match(struct search_mimepart_context *mpctx,
 	case SEARCH_MIME_SENTBEFORE:
 	case SEARCH_MIME_SENTON:
 	case SEARCH_MIME_SENTSINCE:
-		return seach_arg_mime_envelope_time_match
+		return search_arg_mime_envelope_time_match
 			(mpctx, arg->type, arg->value.time, data->envelope);
 
 	case SEARCH_MIME_CC:
@@ -420,23 +420,23 @@ static int search_mime_arg_match(struct search_mimepart_context *mpctx,
 	case SEARCH_MIME_REPLY_TO:
 	case SEARCH_MIME_SENDER:
 	case SEARCH_MIME_TO:
-		return seach_arg_mime_envelope_address_match
+		return search_arg_mime_envelope_address_match
 			(mpctx, arg->type, arg->value.str, data->envelope);
 
 	case SEARCH_MIME_SUBJECT:
 		if (data->envelope == NULL)
 			return 0;
-		return seach_arg_mime_substring_match(mpctx,
+		return search_arg_mime_substring_match(mpctx,
 			arg->value.str, data->envelope->subject);
 	case SEARCH_MIME_IN_REPLY_TO:
 		if (data->envelope == NULL)
 			return 0;
-		return seach_arg_mime_substring_match(mpctx,
+		return search_arg_mime_substring_match(mpctx,
 			arg->value.str, data->envelope->in_reply_to);
 	case SEARCH_MIME_MESSAGE_ID:
 		if (data->envelope == NULL)
 			return 0;
-		return seach_arg_mime_substring_match(mpctx,
+		return search_arg_mime_substring_match(mpctx,
 			arg->value.str, data->envelope->message_id);
 
 	case SEARCH_MIME_DEPTH_EQUAL:
@@ -449,15 +449,15 @@ static int search_mime_arg_match(struct search_mimepart_context *mpctx,
 		return (mpctx->index == arg->value.number ? 1 : 0);
 
 	case SEARCH_MIME_PARENT:
-		return seach_arg_mime_parent_match(mpctx, arg);
+		return search_arg_mime_parent_match(mpctx, arg);
 	case SEARCH_MIME_CHILD:
-		return seach_arg_mime_child_match(mpctx, arg);
+		return search_arg_mime_child_match(mpctx, arg);
 
 	case SEARCH_MIME_FILENAME_IS:
 	case SEARCH_MIME_FILENAME_CONTAINS:
 	case SEARCH_MIME_FILENAME_BEGINS:
 	case SEARCH_MIME_FILENAME_ENDS:
-		return seach_arg_mime_filename_match(mpctx, arg);
+		return search_arg_mime_filename_match(mpctx, arg);
 
 	case SEARCH_MIME_HEADER:
 	case SEARCH_MIME_BODY:
@@ -483,7 +483,7 @@ static void search_mime_arg(struct mail_search_mime_arg *arg,
 	}
 }
 
-static int seach_arg_mime_parts_match(struct search_mimepart_context *mpctx,
+static int search_arg_mime_parts_match(struct search_mimepart_context *mpctx,
 				   struct mail_search_mime_arg *args,
 				   struct message_part *parts)
 {
@@ -553,7 +553,7 @@ static int search_arg_match_mimepart(struct search_mimepart_context *mpctx,
 
 	/* FIXME: implement HEADER, BODY and TEXT (not from BODYSTRUCTURE)
 	   Needs to support FTS */
-	return seach_arg_mime_parts_match
+	return search_arg_mime_parts_match
 		(mpctx, arg->value.mime_part->args, mpctx->mime_parts);
 }
 
