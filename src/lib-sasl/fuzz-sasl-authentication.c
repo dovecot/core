@@ -631,12 +631,13 @@ static void fuzz_sasl_run(struct istream *input)
 	sasl_server_mech_register_xoauth2(server_inst,
 					  &server_oauth2_funcs, &oauth2_set);
 
+#ifdef HAVE_LOCAL_FUZZER
 	struct sasl_server_winbind_settings winbind_set;
 
 	i_zero(&winbind_set);
 	winbind_set.helper_path = TEST_WINBIND_HELPER_PATH;
 	sasl_server_mech_register_winbind_ntlm(server_inst, &winbind_set);
-
+#endif
 #ifdef HAVE_GSSAPI
 	struct sasl_server_gssapi_settings gssapi_set;
 
@@ -723,7 +724,9 @@ FUZZ_BEGIN_DATA(const unsigned char *data, size_t size)
 
 	password_schemes_init();
 	dsasl_clients_init();
+#ifdef HAVE_LOCAL_FUZZER
 	dsasl_client_mech_ntlm_init_dummy();
+#endif
 #ifdef HAVE_GSSAPI
 	dsasl_clients_init_gssapi();
 #endif

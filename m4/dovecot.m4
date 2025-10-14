@@ -332,6 +332,16 @@ AC_DEFUN([DC_DOVECOT_FUZZER],[
 	AC_SUBST([FUZZER_LDFLAGS])
 	AM_CONDITIONAL([USE_FUZZER], [test "x$with_fuzzer" != "xno"])
 
+	AC_ARG_ENABLE(local-fuzzer,
+	AS_HELP_STRING([--enable-local-fuzzer=yes],
+		[Enable fuzzer aspects suitable only for local use (not for e.g. OSS-Fuzz) (default: no)]),
+		enable_local_fuzzer=$enableval,
+		enable_local_fuzzer=no)
+	AC_MSG_CHECKING([Whether to enable fuzzer aspects suitable only for local use (not for e.g. OSS-Fuzz)])
+	AC_MSG_RESULT([$enable_local_fuzzer])
+	AS_IF([test "$enable_local_fuzzer" = "yes"], [
+		AC_DEFINE(HAVE_LOCAL_FUZZER,, [Enable fuzzer aspects suitable only for local use (not for e.g. OSS-Fuzz)])
+	])
 ])
 
 AC_DEFUN([DC_DOVECOT],[
