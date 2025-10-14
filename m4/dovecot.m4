@@ -6,7 +6,7 @@ dnl This file is free software; the authors give
 dnl unlimited permission to copy and/or distribute it, with or without
 dnl modifications, as long as this notice is preserved.
 
-# serial 43
+# serial 44
 
 dnl
 dnl Check for support for D_FORTIFY_SOURCE=2
@@ -359,6 +359,7 @@ AC_DEFUN([DC_DOVECOT],[
 	cd $dovecotdir
 	abs_dovecotdir=`pwd`
 	cd $old
+	AC_SUBST(abs_dovecotdir)
 	DISTCHECK_CONFIGURE_FLAGS="--with-dovecot=$abs_dovecotdir --without-dovecot-install-dirs"
 
 	dnl Make sure dovecot-config doesn't accidentically override flags
