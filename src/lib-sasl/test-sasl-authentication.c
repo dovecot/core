@@ -283,7 +283,6 @@ test_server_request_output(struct sasl_server_req_ctx *rctx,
 	switch (output->status) {
 	case SASL_SERVER_OUTPUT_INTERNAL_FAILURE:
 		e_debug(test_event, "Internal failure");
-		failed = TRUE;
 		test_assert(FALSE);
 		tctx->finished = TRUE;
 		break;
