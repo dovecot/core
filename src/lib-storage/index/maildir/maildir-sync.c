@@ -438,7 +438,9 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final,
 	}
 
 #ifdef HAVE_DIRFD
-	if (fstat(dirfd(dirp), &st) < 0) {
+	int fd = dirfd(dirp);
+	i_assert(fd != -1);
+	if (fstat(fd, &st) < 0) {
 		mailbox_set_critical(&ctx->mbox->box,
 			"fstat(%s) failed: %m", path);
 		(void)closedir(dirp);
