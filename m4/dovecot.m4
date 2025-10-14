@@ -521,6 +521,9 @@ AC_DEFUN([CC_CLANG],[
   AC_MSG_CHECKING([whether $CC is clang 3.3+])
   AS_IF([$CC -dM -E -x c /dev/null | $GREP __clang__ > /dev/null 2>&1], [
       AS_VAR_SET([have_clang], [yes])
+      # buffer_t usage triggers this warning
+      gl_WARN_ADD([-Wno-default-const-init-field-unsafe])
+      AM_CFLAGS="$AM_CFLAGS $WARN_CFLAGS"
   ], [
       AS_VAR_SET([have_clang], [no])
   ])
