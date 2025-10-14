@@ -38,7 +38,7 @@ struct multiplex_ostream {
 	bool destroyed:1;
 };
 
-static unsigned char ostream_multiplex_header[IOSTREAM_MULTIPLEX_HEADER_SIZE] =
+static unsigned char ostream_multiplex_header[IOSTREAM_MULTIPLEX_HEADER_SIZE] ATTR_NONSTRING =
 	"\xFF\xFF\xFF\xFF\xFF\x00\x02"
         IOSTREAM_MULTIPLEX_CHANNEL_SWITCH_PREFIX;
 

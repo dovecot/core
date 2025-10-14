@@ -45,7 +45,7 @@ static const struct hint hints[] = {
 
 struct word {
 	const short value;
-	const char word[4];
+	const char word[4] ATTR_NONSTRING;
 };
 
 static const struct word dictionary[2048] = {

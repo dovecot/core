@@ -49,7 +49,7 @@ enum {
 	HAPROXY_SOCK_DGRAM  = 0x02
 };
 
-static const char haproxy_v2sig[12] =
+static const char haproxy_v2sig[12] ATTR_NONSTRING =
 	"\x0D\x0A\x0D\x0A\x00\x0D\x0A\x51\x55\x49\x54\x0A";
 
 struct haproxy_header_v2 {

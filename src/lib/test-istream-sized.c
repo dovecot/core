@@ -55,7 +55,7 @@ run_test(const char *sized_input, uoff_t sized_size, int stream_errno)
 
 static void test_istream_sized_full(bool exact)
 {
-	const unsigned char test_data[10] = "1234567890";
+	const unsigned char test_data[10] ATTR_NONSTRING = "1234567890";
 	struct istream *test_input, *input;
 	unsigned int i, j;
 	int expected_errno;

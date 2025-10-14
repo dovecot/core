@@ -98,7 +98,8 @@ static void test_imap_utf7_ucs4_cases(void)
 	test_end();
 }
 
-static const char mb64[64]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+,";
+static const char mb64[64] ATTR_NONSTRING =
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+,";
 static void test_imap_utf7_non_utf16(void)
 {
 	string_t *dest, *dest2;

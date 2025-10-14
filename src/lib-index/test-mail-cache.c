@@ -9,7 +9,7 @@
 struct test_header_data {
 	uint32_t line1, line2;
 	uint32_t end_of_lines;
-	char headers[8];
+	char headers[8] ATTR_NONSTRING;
 };
 
 enum {
