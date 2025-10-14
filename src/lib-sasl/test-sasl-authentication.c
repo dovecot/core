@@ -5,6 +5,7 @@
 #include "str.h"
 #include "base64.h"
 #include "randgen.h"
+#include "ioloop.h"
 #include "test-common.h"
 #include "password-scheme.h"
 #include "gssapi-dummy.h"
@@ -1584,6 +1585,7 @@ int main(int argc, char *argv[])
 		test_sasl_bad_credentials,
 		NULL
 	};
+	struct ioloop *ioloop;
 	bool debug = FALSE;
 	int ret, c;
 
@@ -1609,7 +1611,9 @@ int main(int argc, char *argv[])
 	dsasl_clients_init_gssapi();
 #endif
 
+	ioloop = io_loop_create();
 	ret = test_run(test_functions);
+	io_loop_destroy(&ioloop);
 
 	dsasl_clients_deinit();
 	password_schemes_deinit();
