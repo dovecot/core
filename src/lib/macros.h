@@ -127,6 +127,11 @@
 #else
 #  define ATTR_DEPRECATED(str)
 #endif
+#ifdef HAVE_ATTR_NONSTRING
+#  define ATTR_NONSTRING __attribute__((nonstring))
+#else
+#  define ATTR_NONSTRING
+#endif
 
 /* Macros to provide type safety for callback functions' context parameters.
    This is used like:

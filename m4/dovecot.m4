@@ -6,7 +6,7 @@ dnl This file is free software; the authors give
 dnl unlimited permission to copy and/or distribute it, with or without
 dnl modifications, as long as this notice is preserved.
 
-# serial 44
+# serial 45
 
 dnl
 dnl Check for support for D_FORTIFY_SOURCE=2
@@ -79,6 +79,15 @@ AC_DEFUN([DC_DOVECOT_CFLAGS],[
         dnl gcc4
         AM_CFLAGS="$AM_CFLAGS -Wstrict-aliasing=2"
       ],[])
+
+    old_cflags=$CFLAGS
+    CFLAGS="$CFLAGS -Werror"
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+      const unsigned char foo[4] __attribute__((nonstring)) = "1234";
+      ]], [[]])],[
+        AC_DEFINE(HAVE_ATTR_NONSTRING,, [define if you have nonstring attribute])
+      ])
+    CFLAGS="$old_cflags"
   ])
 ])
 
