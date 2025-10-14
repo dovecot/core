@@ -245,7 +245,7 @@ json_tree_node_add_value(struct json_tree_node *parent, const char *name,
 
 	jtnode = json_tree_node_create(parent, name);
 	jtnode->node.type = type;
-	jtnode->node.value = *jvalue;
+	jtnode->node.value.content_type = jvalue->content_type;
 	switch (jvalue->content_type) {
 	case JSON_CONTENT_TYPE_NONE:
 		break;
@@ -269,15 +269,18 @@ json_tree_node_add_value(struct json_tree_node *parent, const char *name,
 		if (!array_is_created(&jtree->istreams))
 			i_array_init(&jtree->istreams, 4);
 		array_append(&jtree->istreams, &jvalue->content.stream, 1);
+		jtnode->node.value.content.stream = jvalue->content.stream;
 		i_stream_ref(jvalue->content.stream);
 		break;
 	case JSON_CONTENT_TYPE_INTEGER:
+		jtnode->node.value.content.intnum = jvalue->content.intnum;
 		break;
 	case JSON_CONTENT_TYPE_TREE:
 		i_assert(jvalue->content.tree != jtree);
 		if (!array_is_created(&jtree->subtrees))
 			i_array_init(&jtree->subtrees, 4);
 		array_append(&jtree->subtrees, &jvalue->content.tree, 1);
+		jtnode->node.value.content.tree = jvalue->content.tree;
 		json_tree_ref(jvalue->content.tree);
 		break;
 	}
