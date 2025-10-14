@@ -1539,7 +1539,7 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 		i_assert(uidlist->initial_hdr_read);
 		if (maildir_uidlist_open_latest(uidlist) < 0)
 			return -1;
-		if (uidlist->recreate_on_change)
+		if (uidlist->fd == -1 || uidlist->recreate_on_change)
 			return maildir_uidlist_recreate(uidlist);
 	}
 	i_assert(ctx->first_unwritten_pos != UINT_MAX);
