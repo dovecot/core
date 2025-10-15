@@ -1862,7 +1862,7 @@ settings_override_set_blocks(struct settings_mmap *mmap,
 		return -1;
 	}
 
-	const char **block_names = p_new(mmap->pool, const char *, count + 1);
+	const char **block_names = p_new(set->pool, const char *, count + 1);
 	for (i = 0; i < count; i++) {
 		memcpy(&block_idx, blocks, sizeof(block_idx));
 		blocks = CONST_PTR_OFFSET(blocks, sizeof(block_idx));
