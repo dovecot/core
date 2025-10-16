@@ -233,9 +233,6 @@ unsigned int master_service_get_socket_count(struct master_service *service);
 /* Returns the name of the listener socket, or "" if none is specified. */
 const char *master_service_get_socket_name(struct master_service *service,
 					   int listen_fd);
-/* Returns the type of the listener socket, or "" if none is specified. */
-const char *
-master_service_get_socket_type(struct master_service *service, int listen_fd);
 
 /* Returns configuration file path. */
 const char *master_service_get_config_path(struct master_service *service);
