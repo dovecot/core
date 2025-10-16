@@ -720,14 +720,14 @@ static void http_client_queue_request_timeout(struct http_client_queue *queue)
 	if (i < count)
 		new_to = reqs[i]->timeout_time;
 
-	str = t_str_new(64);
+	str = str_new(default_pool, 64);
 	str_append(str, "Request ");
 	prefix_size = str_len(str);
 
 	/* Abort all failed request */
 	reqs = array_get(&failed_requests, &count);
 	i_assert(count > 0); /* At least one request timed out */
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < count; i++) T_BEGIN {
 		struct http_client_request *req = reqs[i];
 
 		str_truncate(str, prefix_size);
@@ -741,7 +741,8 @@ static void http_client_queue_request_timeout(struct http_client_queue *queue)
 			t_strdup_printf(
 				"Absolute request timeout expired (%s)",
 				str_c(str)));
-	}
+	} T_END;
+	str_free(&str);
 
 	if (new_to.tv_sec > 0) {
 		e_debug(queue->event, "New timeout");
