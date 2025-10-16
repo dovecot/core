@@ -1756,8 +1756,7 @@ static bool master_service_full(struct master_service *service)
 }
 
 static void
-master_service_accept(struct master_service_listener *l, const char *conn_name,
-		      bool master_admin_conn)
+master_service_accept(struct master_service_listener *l, bool master_admin_conn)
 {
 	struct master_service *service = l->service;
 	struct master_service_connection conn;
@@ -1795,7 +1794,7 @@ master_service_accept(struct master_service_listener *l, const char *conn_name,
 		l->fd = -1;
 	}
 	conn.ssl = l->ssl;
-	conn.name = conn_name;
+	conn.name = (l->name != NULL ? l->name : "");
 	conn.type = (l->type != NULL ? l->type : "");
 
 	(void)net_getsockname(conn.fd, &conn.local_ip, &conn.local_port);
@@ -1820,11 +1819,9 @@ master_service_accept(struct master_service_listener *l, const char *conn_name,
 static void master_service_listen(struct master_service_listener *l)
 {
 	struct master_service *service = l->service;
-	const char *conn_name;
 	bool master_admin_conn;
 
-	conn_name = master_service_get_socket_name(service, l->fd);
-	master_admin_conn = master_admin_client_can_accept(conn_name);
+	master_admin_conn = master_admin_client_can_accept(l->name);
 
 	if (service->master_status.available_count == 0 && !master_admin_conn) {
 		if (master_service_full(service)) {
@@ -1846,7 +1843,7 @@ static void master_service_listen(struct master_service_listener *l)
 		   command. */
 		sigterm_blocked = block_sigterm(&oldmask) == 0;
 	}
-	master_service_accept(l, conn_name, master_admin_conn);
+	master_service_accept(l, master_admin_conn);
 	if (sigterm_blocked) {
 		if (sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0)
 			e_error(service->event,
