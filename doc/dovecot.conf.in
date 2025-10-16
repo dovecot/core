@@ -14,7 +14,7 @@ dovecot_config_version = @DOVECOT_CONFIG_VERSION@
 dovecot_storage_version = @DOVECOT_CONFIG_VERSION@
 
 # The configuration below is a minimal configuration file using system user authentication.
-# See https://@DOVECOT_ASSET_URL@/configuration_manual/quick_configuration/
+# See https://@DOVECOT_ASSET_URL@/latest/core/config/quick.html
 
 !include_try conf.d/*.conf
 
