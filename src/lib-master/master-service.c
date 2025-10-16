@@ -1139,6 +1139,23 @@ unsigned int master_service_get_socket_count(struct master_service *service)
 	return service->socket_count;
 }
 
+static void
+master_service_connection_init_finish(struct master_service_connection *conn,
+				      const struct master_service_listener *l)
+{
+	conn->ssl = l->ssl;
+	conn->name = (l->name != NULL ? l->name : "");
+	conn->type = (l->type != NULL ? l->type : "");
+
+	(void)net_getsockname(conn->fd, &conn->local_ip, &conn->local_port);
+	conn->real_remote_ip = conn->remote_ip;
+	conn->real_remote_port = conn->remote_port;
+	conn->real_local_ip = conn->local_ip;
+	conn->real_local_port = conn->local_port;
+
+	net_set_nonblock(conn->fd, TRUE);
+}
+
 void master_service_set_avail_overflow_callback(struct master_service *service,
 	master_service_avail_overflow_callback_t *callback)
 {
@@ -1780,17 +1797,7 @@ master_service_accept(struct master_service_listener *l, bool master_admin_conn)
 		io_remove(&l->io);
 		l->fd = -1;
 	}
-	conn.ssl = l->ssl;
-	conn.name = (l->name != NULL ? l->name : "");
-	conn.type = (l->type != NULL ? l->type : "");
-
-	(void)net_getsockname(conn.fd, &conn.local_ip, &conn.local_port);
-	conn.real_remote_ip = conn.remote_ip;
-	conn.real_remote_port = conn.remote_port;
-	conn.real_local_ip = conn.local_ip;
-	conn.real_local_port = conn.local_port;
-
-	net_set_nonblock(conn.fd, TRUE);
+	master_service_connection_init_finish(&conn, l);
 
 	if (master_admin_conn) {
 		master_admin_client_create(&conn);
