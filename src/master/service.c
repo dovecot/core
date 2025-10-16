@@ -316,8 +316,10 @@ service_create_real(pool_t pool, struct event *event,
 
 		if (strstr(unix_listeners[i]->path, "%{pid}") == NULL)
 			array_push_back(&service->listeners, &l);
-		else
+		else {
+			l->set.fileset.pid_listener = TRUE;
 			array_push_back(&service->unix_pid_listeners, &l);
+		}
 	}
 	for (i = 0; i < fifo_count; i++) {
 		if (fifo_listeners[i]->mode == 0) {

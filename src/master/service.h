@@ -32,6 +32,7 @@ struct service_listener {
 			const struct file_listener_settings *set;
 			uid_t uid;
 			gid_t gid;
+			bool pid_listener;
 		} fileset;
 		struct {
 			const struct inet_listener_settings *set;

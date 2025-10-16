@@ -46,7 +46,9 @@ struct service_process {
 #define SERVICE_PROCESS_IS_INITIALIZED(process) \
 	((process)->to_status == NULL)
 
-struct service_process *service_process_create(struct service *service);
+struct service_process *
+service_process_create(struct service *service, int accepted_fd,
+		       const struct service_listener *accepted_listener);
 void service_process_destroy(struct service_process *process);
 
 void service_process_ref(struct service_process *process);

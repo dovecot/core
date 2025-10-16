@@ -383,6 +383,7 @@ static void service_drop_connections(struct service_listener *l)
 static void service_accept(struct service_listener *l)
 {
 	struct service *service = l->service;
+	int fd = -1;
 
 	i_assert(service->process_avail == 0);
 
@@ -393,11 +394,31 @@ static void service_accept(struct service_listener *l)
 		return;
 	}
 
-	/* create a child process and let it accept() this connection */
-	if (service_process_create(service) == NULL)
+	if (service->client_limit == 1 &&
+	    (l->type == SERVICE_LISTENER_INET ||
+	     (l->type == SERVICE_LISTENER_UNIX &&
+	      !l->set.fileset.pid_listener))) {
+		/* pre-accept() a client fd for services with client_limit=1,
+		   so we can rapidly create new processes as needed. */
+		fd = net_accept(l->fd, NULL, NULL);
+		if (fd == -1) {
+			if (!NET_ACCEPT_ENOCONN(errno))
+				e_error(service->event, "net_accept() failed: %m");
+			return;
+		}
+		fd_close_on_exec(fd, TRUE);
+	} else {
+		/* the created child process will accept() the connection */
+	}
+
+	if (service_process_create(service, fd, l) == NULL) {
+		/* failed to create the process */
 		service_monitor_throttle(service);
-	else
+	} else if (fd == -1) {
 		service_monitor_listen_stop(service);
+	}
+	if (fd != -1)
+		net_disconnect(fd);
 }
 
 static bool
@@ -414,7 +435,7 @@ service_monitor_start_count(struct service *service, unsigned int limit)
 		count = limit;
 
 	for (i = 0; i < count; i++) {
-		if (service_process_create(service) == NULL) {
+		if (service_process_create(service, -1, NULL) == NULL) {
 			service_monitor_throttle(service);
 			break;
 		}
@@ -597,7 +618,7 @@ void services_monitor_start(struct service_list *service_list)
 		service_monitor_start_extra_avail(service);
 
 	if (service_list->log->status_fd[0] != -1) {
-		if (service_process_create(service_list->log) != NULL)
+		if (service_process_create(service_list->log, -1, NULL) != NULL)
 			service_monitor_listen_stop(service_list->log);
 	}
 
@@ -605,7 +626,7 @@ void services_monitor_start(struct service_list *service_list)
 	array_foreach_elem(&service_list->services, service) {
 		if (service->type == SERVICE_TYPE_STARTUP &&
 		    service->status_fd[0] != -1) {
-			if (service_process_create(service) != NULL)
+			if (service_process_create(service, -1, NULL) != NULL)
 				service_monitor_listen_stop(service);
 		}
 	}
@@ -886,7 +907,7 @@ void services_monitor_reap_children(void)
 			} else if (service == service->list->log &&
 				   service->process_count == 0) {
 				/* log service must always be running */
-				if (service_process_create(service) == NULL)
+				if (service_process_create(service, -1, NULL) == NULL)
 					service_monitor_throttle(service);
 			} else {
 				service_monitor_listen_start(service);

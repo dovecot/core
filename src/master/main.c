@@ -404,7 +404,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 
 	if (services->config->process_avail == 0) {
 		/* we can't reload config if there's no config process. */
-		if (service_process_create(services->config) == NULL) {
+		if (service_process_create(services->config, -1, NULL) == NULL) {
 			i_error("Can't reload configuration because "
 				"we couldn't create a config process");
 			i_sd_notify(0, "READY=1");

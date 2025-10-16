@@ -69,13 +69,17 @@ service_unix_pid_listener_get_path(struct service_listener *l, pid_t pid,
 }
 
 static void
-service_dup_fds(struct service *service)
+service_dup_fds(struct service *service, int accepted_fd,
+		const struct service_listener *accepted_listener,
+		int *accepted_listener_fd_r)
 {
 	struct service_listener *const *listeners;
 	ARRAY_TYPE(dup2) dups;
 	string_t *listener_settings;
 	int fd = MASTER_LISTEN_FD_FIRST;
 	unsigned int i, count, socket_listener_count;
+
+	*accepted_listener_fd_r = -1;
 
 	/* stdin/stdout is already redirected to /dev/null. Other master fds
 	   should have been opened with fd_close_on_exec() so we don't have to
@@ -87,6 +91,12 @@ service_dup_fds(struct service *service)
         socket_listener_count = 0;
 	listeners = array_get(&service->listeners, &count);
 	t_array_init(&dups, count + 10);
+
+	if (accepted_fd != -1) {
+		/* we have a pre-accepted connection */
+		dup2_append(&dups, accepted_fd,
+			    MASTER_ACCEPTED_CLIENT_FD);
+	}
 
 	switch (service->type) {
 	case SERVICE_TYPE_LOG:
@@ -137,6 +147,8 @@ service_dup_fds(struct service *service)
 				}
 			}
 
+			if (listeners[i] == accepted_listener)
+				*accepted_listener_fd_r = fd;
 			dup2_append(&dups, listeners[i]->fd, fd++);
 
 			env_put(t_strdup_printf("SOCKET%d_SETTINGS",
@@ -360,7 +372,9 @@ static void service_process_status_timeout(struct service_process *process)
 	timeout_remove(&process->to_status);
 }
 
-struct service_process *service_process_create(struct service *service)
+struct service_process *
+service_process_create(struct service *service, int accepted_fd,
+		       const struct service_listener *accepted_listener)
 {
 	static unsigned int uid_counter = 0;
 	struct service_process *process;
@@ -411,9 +425,16 @@ struct service_process *service_process_create(struct service *service)
 	}
 	if (pid == 0) {
 		/* child */
+		int accepted_listener_fd;
 		service_process_setup_environment(service, uid, hostdomain);
 		service_reopen_inet_listeners(service);
-		service_dup_fds(service);
+		service_dup_fds(service, accepted_fd, accepted_listener,
+				&accepted_listener_fd);
+		if (accepted_fd != -1) {
+			i_assert(accepted_listener_fd > 0);
+			env_put(DOVECOT_ACCEPTED_CLIENT_LISTENER_FD_ENV,
+				dec2str(accepted_listener_fd));
+		}
 		drop_privileges(service);
 		process_exec(service->executable);
 	}
@@ -431,14 +452,19 @@ struct service_process *service_process_create(struct service *service)
 				    service_process_status_timeout, process);
 	}
 
-	process->available_count = service->client_limit;
-	process->idle_start = ioloop_time;
 	service->process_count_total++;
 	service->process_count++;
-	service->process_avail++;
-	service->process_idling++;
-	DLLIST2_APPEND(&service->idle_processes_head,
-		       &service->idle_processes_tail, process);
+	if (accepted_fd == -1) {
+		process->available_count = service->client_limit;
+		process->idle_start = ioloop_time;
+		service->process_avail++;
+		service->process_idling++;
+		DLLIST2_APPEND(&service->idle_processes_head,
+			       &service->idle_processes_tail, process);
+	} else {
+		i_assert(service->client_limit == 1);
+		DLLIST_PREPEND(&service->busy_processes, process);
+	}
 
 	service_list_ref(service->list);
 	hash_table_insert(service_pids, POINTER_CAST(process->pid), process);
