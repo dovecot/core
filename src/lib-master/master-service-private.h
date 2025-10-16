@@ -43,6 +43,7 @@ struct master_service {
 	int syslog_facility;
 	data_stack_frame_t datastack_frame_id;
 
+	int accepted_listener_fd;
 	struct master_service_listener *listeners;
 	unsigned int socket_count;
 

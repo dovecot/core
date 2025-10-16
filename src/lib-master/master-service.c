@@ -637,6 +637,16 @@ master_service_init(const char *name, enum master_service_flags flags,
 
 	master_service_verify_version_string(service);
 
+	value = getenv(DOVECOT_ACCEPTED_CLIENT_LISTENER_FD_ENV);
+	if (value == NULL)
+		service->accepted_listener_fd = -1;
+	else if (str_to_int(value, &service->accepted_listener_fd) < 0 ||
+		 service->accepted_listener_fd < MASTER_LISTEN_FD_FIRST ||
+		 service->accepted_listener_fd - MASTER_LISTEN_FD_FIRST > (int)service->socket_count) {
+		i_fatal("Invalid DOVECOT_ACCEPTED_CLIENT_SETTINGS environment: "
+			"Invalid listener fd '%s'", value);
+	}
+
 	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
 		env_remove(MASTER_SERVICE_ENV);
 		env_remove(MASTER_SERVICE_SOCKET_COUNT_ENV);
@@ -1193,10 +1203,35 @@ master_service_get_settings_root(struct master_service *service)
 	return service->settings_root;
 }
 
+static void master_service_start_accepted_fd(struct master_service *service)
+{
+	struct master_service_connection conn = {
+		.fd = MASTER_ACCEPTED_CLIENT_FD,
+		.listen_fd = service->accepted_listener_fd,
+	};
+	service->accepted_listener_fd = -1;
+
+	const struct master_service_listener *l =
+		&service->listeners[conn.listen_fd - MASTER_LISTEN_FD_FIRST];
+
+	(void)net_getpeername(conn.fd, &conn.remote_ip, &conn.remote_port);
+	master_service_connection_init_finish(&conn, l);
+
+	/* Note that master admin connections aren't pre-accepted */
+	master_service_client_connection_created(service);
+	if (l->haproxy)
+		master_service_haproxy_new(service, &conn);
+	else
+		master_service_client_connection_callback(service, &conn);
+}
+
 void master_service_run(struct master_service *service,
 			master_service_connection_callback_t *callback)
 {
 	service->callback = callback;
+	if (service->accepted_listener_fd != -1) T_BEGIN {
+		master_service_start_accepted_fd(service);
+	} T_END;
 	io_loop_run(service->ioloop);
 	service->callback = NULL;
 }
@@ -1608,6 +1643,7 @@ static void master_service_deinit_real(struct master_service *service)
 	master_service_category.name = NULL;
 	event_unregister_callback(master_service_event_callback);
 	master_service_unset_process_shutdown_filter(service);
+	i_close_fd(&service->accepted_listener_fd);
 }
 
 static void master_service_free(struct master_service **_service)
