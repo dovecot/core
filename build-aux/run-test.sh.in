@@ -4,8 +4,20 @@
 
 set -eu
 
+function get_test_name() {
+  basename "$1"
+}
+
 top_srcdir="@abs_top_srcdir@"
 VALGRIND="@VALGRIND@"
+
+if [ $# -gt 0 ] && echo "$1" | grep "NOCHILDREN_TESTS=" >/dev/null; then
+  shift
+  test_name=$(get_test_name "$@")
+  if echo "$1" | grep "NOCHILDREN_TESTS=.*\b$test_name\b" >/dev/null; then
+    NOCHILDREN=yes
+  fi
+fi
 
 if test $# -eq 0 || test "$1" = ""; then
   echo "Missing target binary" >&2

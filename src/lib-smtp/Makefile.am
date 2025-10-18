@@ -1,3 +1,6 @@
+NOCHILDREN_TESTS = test-smtp-submit
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libsmtp.la
 
 AM_CPPFLAGS = \
@@ -96,7 +99,7 @@ fuzz_programs += \
 	fuzz-smtp-server
 endif
 
-noinst_PROGRAMS = $(fuzz_programs) $(test_programs) $(test_nocheck_programs)
+noinst_PROGRAMS += $(fuzz_programs) $(test_nocheck_programs)
 
 EXTRA_DIST = \
 	test-bin/sendmail-exit-1.sh \
@@ -204,12 +207,3 @@ fuzz_smtp_server_LDFLAGS = $(FUZZER_LDFLAGS)
 fuzz_smtp_server_SOURCES = fuzz-smtp-server.c
 fuzz_smtp_server_LDADD = $(test_libs)
 fuzz_smtp_server_DEPENDENCIES = $(test_deps)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if test "$$bin" = "test-smtp-submit"; then \
-	    if ! env NOCHILDREN=yes $(RUN_TEST) ./$$bin; then exit 1; fi; \
-          else \
-	    if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	  fi \
-	done

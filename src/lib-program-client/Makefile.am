@@ -1,3 +1,6 @@
+NOCHILDREN_TESTS = test-program-client-local
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libprogram_client.la
 
 AM_CPPFLAGS = \
@@ -28,8 +31,6 @@ test_programs = \
 	test-program-client-unix \
 	test-program-client-net
 
-noinst_PROGRAMS = $(test_programs)
-
 test_libs = \
 	libprogram_client.la \
 	../lib-dns-client/libdns-client.la  \
@@ -52,12 +53,3 @@ test_program_client_unix_LDADD = $(test_libs)
 
 test_program_client_net_SOURCE = test-program-client-net.c
 test_program_client_net_LDADD = $(test_libs)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if test "$$bin" = "test-program-client-local"; then \
-	    if ! env NOCHILDREN=yes $(RUN_TEST) ./$$bin; then exit 1; fi; \
-          else \
-	    if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	  fi \
-	done

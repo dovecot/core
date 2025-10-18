@@ -2,5 +2,5 @@ noinst_PROGRAMS = $(test_programs)
 
 check-local:
 	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	  if ! $(RUN_TEST) NOCHILDREN_TESTS="$(NOCHILDREN_TESTS)" ./$$bin; then exit 1; fi; \
 	done
