@@ -694,15 +694,20 @@ driver_sqlite_transaction_rollback(struct sql_transaction_context *_ctx)
 {
 	struct sqlite_transaction_context *ctx =
 		container_of(_ctx, struct sqlite_transaction_context, ctx);
+	struct sqlite_db *db = container_of(_ctx->db, struct sqlite_db, api);
 
-	if (SQLITE_IS_OK(ctx->rc)) {
+	const char *error;
+	int rc = driver_sqlite_exec_query(db, "ROLLBACK", &error);
+	if (SQLITE_IS_OK(rc)) {
 		e_debug(sql_transaction_finished_event(_ctx)->
 			add_str("error", "Rolled back")->event(),
 			"Transaction rolled back");
+	} else {
+		e_debug(sql_transaction_finished_event(_ctx)->
+			add_str("error", error)->
+			add_int("error_code", rc)->event(),
+			"Transaction rollback failed");
 	}
-	ctx->rc = SQLITE_OK;
-	i_free(ctx->error);
-	driver_sqlite_transaction_exec(ctx, "ROLLBACK");
 	event_unref(&_ctx->event);
 	i_free(ctx->error);
 	i_free(ctx);
