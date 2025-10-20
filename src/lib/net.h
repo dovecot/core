@@ -116,10 +116,15 @@ int net_listen_unix(const char *path, int backlog);
    If it fails with ECONNREFUSED, unlink the socket and try creating it
    again. */
 int net_listen_unix_unlink_stale(const char *path, int backlog);
-/* Accept a connection on a socket. Returns -1 if the connection got closed,
-   -2 for other failures. For UNIX sockets addr_r->family=port=0. */
+/* Accept a connection on a socket. Returns the new connection's fd, or -1 on
+   error. Check the failure with NET_ACCEPT_ENOCONN(errno). For UNIX sockets
+   addr_r->family=port=0. */
 int net_accept(int fd, struct ip_addr *addr_r, in_port_t *port_r)
 	ATTR_NULL(2, 3);
+/* Returns TRUE if the connection was already closed or was accepted by another
+   process, i.e. normal failures that shouldn't be logged. */
+#define NET_ACCEPT_ENOCONN(err) \
+	((err) == EAGAIN || (err) == ECONNABORTED)
 
 /* Read data from socket, return number of bytes read,
    -1 = error, -2 = disconnected */

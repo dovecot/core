@@ -157,10 +157,11 @@ static void client_accept(void *context ATTR_UNUSED)
 	int fd;
 
 	fd = net_accept(fd_listen, &client_ip, &client_port);
-	if (fd == -1)
+	if (fd == -1) {
+		if (!NET_ACCEPT_ENOCONN(errno))
+			i_fatal("accept() failed: %m");
 		return;
-	if (fd == -2)
-		i_fatal("accept() failed: %m");
+	}
 
 	client_init(fd, &client_ip, client_port);
 }

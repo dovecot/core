@@ -1778,11 +1778,11 @@ master_service_accept(struct master_service_listener *l, const char *conn_name,
 	i_zero(&conn);
 	conn.listen_fd = l->fd;
 	conn.fd = net_accept(l->fd, &conn.remote_ip, &conn.remote_port);
-	if (conn.fd < 0) {
+	if (conn.fd == -1) {
 		struct stat st;
 		int orig_errno = errno;
 
-		if (conn.fd == -1)
+		if (NET_ACCEPT_ENOCONN(errno))
 			return;
 
 		if (errno == ENOTSOCK) {

@@ -200,8 +200,8 @@ void master_client_connected(struct service_list *service_list)
 	int fd;
 
 	fd = net_accept(service_list->master_fd, NULL, NULL);
-	if (fd < 0) {
-		if (fd == -2)
+	if (fd == -1) {
+		if (!NET_ACCEPT_ENOCONN(errno))
 			e_error(service_list->event, "net_accept() failed: %m");
 		return;
 	}

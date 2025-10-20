@@ -3914,10 +3914,10 @@ static void server_connection_accept(void *context ATTR_UNUSED)
 
 	/* accept new client */
 	fd = net_accept(fd_listen, NULL, NULL);
-	if (fd == -1)
+	if (fd == -1) {
+		if (!NET_ACCEPT_ENOCONN(errno))
+			i_fatal("test server: accept() failed: %m");
 		return;
-	if (fd == -2) {
-		i_fatal("test server: accept() failed: %m");
 	}
 
 	if (debug)
