@@ -173,7 +173,6 @@ static const struct setting_keyvalue imap_default_settings_keyvalue[] = {
 	{ "service/imap/imap_capability/INPROGRESS", "yes" },
 	{ "service/imap/imap_capability/NOTIFY", "yes" },
 	{ "service/imap/imap_capability/METADATA", "yes" },
-	{ "service/imap/imap_capability/SPECIAL-USE", "yes" },
 	{ "service/imap/imap_capability/LITERAL+", "yes" },
 	{ "service/imap/imap_capability/LITERAL-", "yes" },
 	{ "service/imap/imap_capability/UTF8=ACCEPT", "yes" },
