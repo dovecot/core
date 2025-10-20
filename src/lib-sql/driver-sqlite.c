@@ -150,11 +150,11 @@ static int driver_sqlite_connect(struct sql_db *_db)
 		break;
 	case SQLITE_NOMEM:
 		i_fatal_status(FATAL_OUTOFMEM, "open(%s) failed: %s",
-			       db->set->path, sqlite3_errmsg(db->sqlite));
+			       db->set->path, sqlite3_errstr(db->connect_rc));
 	default:
 		i_free(_db->last_connect_error);
 		_db->last_connect_error = i_strdup_printf("open(%s) failed: %s", db->set->path,
-							  sqlite3_errmsg(db->sqlite));
+							  sqlite3_errstr(db->connect_rc));
 		e_error(_db->event, "%s", _db->last_connect_error);
 		break;
 	}
@@ -391,8 +391,6 @@ static void driver_sqlite_result_free(struct sql_result *_result)
 {
 	struct sqlite_result *result =
 		container_of(_result, struct sqlite_result, api);
-	struct sqlite_db *db =
-		container_of(result->api.db, struct sqlite_db, api);
 	int rc;
 
 	if (_result->callback)
@@ -402,10 +400,10 @@ static void driver_sqlite_result_free(struct sql_result *_result)
 		rc = sqlite3_finalize(result->stmt);
 		if (rc == SQLITE_NOMEM) {
 			i_fatal_status(FATAL_OUTOFMEM, "finalize failed: %s (%d)",
-				       sqlite3_errmsg(db->sqlite), rc);
+				       sqlite3_errstr(rc), rc);
 		} else if (rc != SQLITE_OK) {
 			e_warning(_result->event, "finalize failed: %s (%d)",
-				  sqlite3_errmsg(db->sqlite), rc);
+				  sqlite3_errstr(rc), rc);
 		}
 		i_free(result->row);
 	}
