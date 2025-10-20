@@ -424,6 +424,9 @@ void sql_prepared_statement_unref(struct sql_prepared_statement **_prep_stmt)
 {
 	struct sql_prepared_statement *prep_stmt = *_prep_stmt;
 
+	if (prep_stmt == NULL)
+		return;
+
 	*_prep_stmt = NULL;
 
 	i_assert(prep_stmt->refcount > 0);
