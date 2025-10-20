@@ -622,7 +622,6 @@ driver_sqlite_transaction_commit_s(struct sql_transaction_context *_ctx,
 {
 	struct sqlite_transaction_context *ctx =
 		container_of(_ctx, struct sqlite_transaction_context, ctx);
-	struct sqlite_db *db = container_of(_ctx->db, struct sqlite_db, api);
 
 	if (ctx->rc != SQLITE_OK) {
 		*error_r = t_strdup(ctx->error);
@@ -632,7 +631,7 @@ driver_sqlite_transaction_commit_s(struct sql_transaction_context *_ctx,
 	}
 
 	driver_sqlite_transaction_exec(ctx, "COMMIT");
-	if (db->rc != SQLITE_OK) {
+	if (ctx->rc != SQLITE_OK) {
 		e_debug(sql_transaction_finished_event(_ctx)->
 			add_str("error", *error_r)->event(),
 			"Transaction failed");
@@ -659,7 +658,7 @@ driver_sqlite_update(struct sql_transaction_context *_ctx, const char *query,
 		return;
 
 	driver_sqlite_transaction_exec(ctx, query);
-	if (db->rc == SQLITE_OK && affected_rows != NULL)
+	if (ctx->rc == SQLITE_OK && affected_rows != NULL)
 		*affected_rows = sqlite3_changes(db->sqlite);
 }
 
