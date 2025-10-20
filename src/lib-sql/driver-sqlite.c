@@ -291,7 +291,7 @@ driver_sqlite_result_log(const struct sqlite_result *result, const char *query)
 	if (!db->connected) {
 		suffix = t_strconcat("Cannot connect to database: ",
 				     driver_sqlite_connect_error(db), NULL);
-		e->add_str("error", "Cannot connect to database");
+		e->add_str("error", driver_sqlite_connect_error(db));
 		e->add_int("error_code", db->connect_rc);
 	} else if (result->rc == SQLITE_NOMEM) {
 		suffix = t_strdup_printf(": %s (%d)", sqlite3_errstr(result->rc),
