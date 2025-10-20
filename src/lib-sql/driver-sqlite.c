@@ -285,7 +285,7 @@ driver_sqlite_result_str(struct sql_db *_db, int rc)
 	if (!db->connected) {
 		err = t_strconcat("Cannot connect to database: ",
 				  driver_sqlite_connect_error(db), NULL);
-	} else if (rc == SQLITE_READONLY || rc == SQLITE_CANTOPEN) {
+	} else if (rc == SQLITE_READONLY || rc == SQLITE_CANTOPEN || rc == SQLITE_PERM) {
 		err = eacces_error_get("write", db->set->path);
 	} else if (!SQLITE_IS_OK(rc)) {
 		err = t_strdup_printf("%s (%d)", sqlite3_errstr(rc), rc);
