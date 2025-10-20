@@ -721,8 +721,7 @@ driver_sqlite_transaction_commit(struct sql_transaction_context *_ctx,
 		container_of(_ctx, struct sqlite_transaction_context, ctx);
 	struct sql_commit_result commit_result;
 
-	if (SQLITE_IS_OK(ctx->rc))
-		driver_sqlite_transaction_exec(ctx, "COMMIT");
+	driver_sqlite_transaction_exec(ctx, "COMMIT");
 
 	i_zero(&commit_result);
 	if (!SQLITE_IS_OK(ctx->rc)) {
@@ -754,26 +753,18 @@ driver_sqlite_transaction_commit_s(struct sql_transaction_context *_ctx,
 	struct sqlite_transaction_context *ctx =
 		container_of(_ctx, struct sqlite_transaction_context, ctx);
 
-	if (!SQLITE_IS_OK(ctx->rc)) {
-		*error_r = t_strdup(ctx->error);
-		/* also does i_free(ctx) */
-		driver_sqlite_transaction_rollback(_ctx);
-		return -1;
-	}
-
-	ctx->rc = 0;
-	i_free(ctx->error);
+	/* If context has already failed, commit won't be run */
 	driver_sqlite_transaction_exec(ctx, "COMMIT");
 	if (!SQLITE_IS_OK(ctx->rc)) {
 		e_debug(sql_transaction_finished_event(_ctx)->
 			add_str("error", *error_r)->event(),
 			"Transaction failed");
-		driver_sqlite_exec(_ctx->db, "ROLLBACK");
 		*error_r = t_strdup(ctx->error);
-	} else {
-		e_debug(sql_transaction_finished_event(_ctx)->event(),
-			"Transaction committed");
+		driver_sqlite_transaction_rollback(_ctx);
+		return -1;
 	}
+	e_debug(sql_transaction_finished_event(_ctx)->event(),
+		"Transaction committed");
 	event_unref(&_ctx->event);
 	i_free(ctx);
 	return 0;
