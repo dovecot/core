@@ -677,12 +677,11 @@ i_stream_header_filter_snapshot_free(struct istream_snapshot *_snapshot)
 	struct header_filter_istream_snapshot *snapshot =
 		container_of(_snapshot, struct header_filter_istream_snapshot, snapshot);
 
-	if (snapshot->mstream->hdr_buf != snapshot->hdr_buf)
-		ref_buffer_unref(&snapshot->hdr_buf);
-	else {
+	if (snapshot->mstream->hdr_buf == snapshot->hdr_buf) {
 		i_assert(snapshot->mstream->snapshot_pending_refcount > 0);
 		snapshot->mstream->snapshot_pending_refcount--;
 	}
+	ref_buffer_unref(&snapshot->hdr_buf);
 	i_free(snapshot);
 }
 
