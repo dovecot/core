@@ -93,6 +93,8 @@ static struct event_category event_category_sqlite = {
 	.name = "sqlite"
 };
 
+#define SQLITE_IS_OK(rc) ((rc) == SQLITE_OK || (rc) == SQLITE_DONE)
+
 static void driver_sqlite_disconnect(struct sql_db *_db)
 {
 	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
@@ -267,7 +269,7 @@ static const char *
 driver_sqlite_result_log(const struct sqlite_result *result, const char *query)
 {
 	struct sqlite_db *db = container_of(result->api.db, struct sqlite_db, api);
-	bool success = db->connected && result->rc == SQLITE_OK;
+	bool success = db->connected && SQLITE_IS_OK(result->rc);
 	int duration;
 	const char *suffix = "";
 	struct event_passthrough *e =
@@ -290,7 +292,7 @@ driver_sqlite_result_log(const struct sqlite_result *result, const char *query)
 		suffix = t_strconcat(": ", eacces_err, NULL);
 		e->add_str("error", eacces_err);
 		e->add_int("error_code", result->rc);
-	} else if (result->rc != SQLITE_OK) {
+	} else if (!SQLITE_IS_OK(result->rc)) {
 		suffix = t_strdup_printf(": %s (%d)", sqlite3_errstr(result->rc),
 					 result->rc);
 		e->add_str("error", sqlite3_errstr(result->rc));
@@ -365,7 +367,7 @@ driver_sqlite_query_s(struct sql_db *_db, const char *query)
 		result->rc = db->connect_rc;
 	} else {
 		result->rc = sqlite3_prepare(db->sqlite, query, -1, &result->stmt, NULL);
-		if (result->rc == SQLITE_OK) {
+		if (SQLITE_IS_OK(result->rc)) {
 			result->api = driver_sqlite_result;
 			result->cols = sqlite3_column_count(result->stmt);
 			if (result->cols == 0)
@@ -553,7 +555,7 @@ driver_sqlite_transaction_exec(struct sqlite_transaction_context *ctx,
 	int rc;
 
 	rc = driver_sqlite_exec_query(db, query, &error);
-	if (rc != SQLITE_OK && ctx->rc == SQLITE_OK) {
+	if (!SQLITE_IS_OK(rc) && SQLITE_IS_OK(ctx->rc)) {
 		/* first error in the transaction */
 		ctx->rc = rc;
 		ctx->error = i_strdup(error);
@@ -581,7 +583,7 @@ driver_sqlite_transaction_rollback(struct sql_transaction_context *_ctx)
 	struct sqlite_transaction_context *ctx =
 		container_of(_ctx, struct sqlite_transaction_context, ctx);
 
-	if (ctx->rc == SQLITE_OK) {
+	if (SQLITE_IS_OK(ctx->rc)) {
 		e_debug(sql_transaction_finished_event(_ctx)->
 			add_str("error", "Rolled back")->event(),
 			"Transaction rolled back");
@@ -600,11 +602,11 @@ driver_sqlite_transaction_commit(struct sql_transaction_context *_ctx,
 		container_of(_ctx, struct sqlite_transaction_context, ctx);
 	struct sql_commit_result commit_result;
 
-	if (ctx->rc == SQLITE_OK)
+	if (SQLITE_IS_OK(ctx->rc))
 		driver_sqlite_transaction_exec(ctx, "COMMIT");
 
 	i_zero(&commit_result);
-	if (ctx->rc != SQLITE_OK) {
+	if (!SQLITE_IS_OK(ctx->rc)) {
 		commit_result.error = ctx->error;
 		callback(&commit_result, context);
 		e_debug(sql_transaction_finished_event(_ctx)->
@@ -633,7 +635,7 @@ driver_sqlite_transaction_commit_s(struct sql_transaction_context *_ctx,
 	struct sqlite_transaction_context *ctx =
 		container_of(_ctx, struct sqlite_transaction_context, ctx);
 
-	if (ctx->rc != SQLITE_OK) {
+	if (!SQLITE_IS_OK(ctx->rc)) {
 		*error_r = t_strdup(ctx->error);
 		/* also does i_free(ctx) */
 		driver_sqlite_transaction_rollback(_ctx);
@@ -641,7 +643,7 @@ driver_sqlite_transaction_commit_s(struct sql_transaction_context *_ctx,
 	}
 
 	driver_sqlite_transaction_exec(ctx, "COMMIT");
-	if (ctx->rc != SQLITE_OK) {
+	if (!SQLITE_IS_OK(ctx->rc)) {
 		e_debug(sql_transaction_finished_event(_ctx)->
 			add_str("error", *error_r)->event(),
 			"Transaction failed");
@@ -664,7 +666,7 @@ driver_sqlite_update(struct sql_transaction_context *_ctx, const char *query,
 		container_of(_ctx, struct sqlite_transaction_context, ctx);
 	struct sqlite_db *db = container_of(_ctx->db, struct sqlite_db, api);
 
-	if (ctx->rc != SQLITE_OK)
+	if (!SQLITE_IS_OK(ctx->rc))
 		return;
 
 	driver_sqlite_transaction_exec(ctx, query);
