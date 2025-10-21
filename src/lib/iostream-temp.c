@@ -264,12 +264,6 @@ o_stream_temp_send_istream(struct ostream_private *_outstream,
 	return io_stream_copy(&outstream->ostream.ostream, instream);
 }
 
-static int o_stream_temp_seek(struct ostream_private *_stream, uoff_t offset)
-{
-	_stream->ostream.offset = offset;
-	return 0;
-}
-
 struct ostream *iostream_temp_create(const char *temp_path_prefix,
 				     enum iostream_temp_flags flags)
 {
@@ -296,7 +290,6 @@ struct ostream *iostream_temp_create_sized(const char *temp_path_prefix,
 	tstream->ostream.ostream.blocking = TRUE;
 	tstream->ostream.sendv = o_stream_temp_sendv;
 	tstream->ostream.send_istream = o_stream_temp_send_istream;
-	tstream->ostream.seek = o_stream_temp_seek;
 	tstream->ostream.iostream.close = o_stream_temp_close;
 	tstream->temp_path_prefix = i_strdup(temp_path_prefix);
 	tstream->flags = flags;
