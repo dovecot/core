@@ -200,7 +200,8 @@ static void index_mail_parse_header_register_all_wanted(struct index_mail *mail)
 }
 
 void index_mail_parse_header_init(struct index_mail *mail,
-				  struct mailbox_header_lookup_ctx *headers)
+				  struct mailbox_header_lookup_ctx *headers,
+				  bool full_header_stream)
 {
 	struct index_mail_data *data = &mail->data;
 	const uint8_t *match;
@@ -239,6 +240,18 @@ void index_mail_parse_header_init(struct index_mail *mail,
 		}
 	}
 
+	mail->data.header_parser_initialized = TRUE;
+	mail->data.parse_line_num = 0;
+	i_zero(&mail->data.parse_line);
+
+	if (!full_header_stream) {
+		/* Input stream contains only the specified headers. Don't
+		   initialize any other header matches, because they won't be
+		   in the input. */
+		i_assert(headers != NULL && headers->count > 0);
+		return;
+	}
+
 	if (data->wanted_headers != NULL && data->wanted_headers != headers) {
 		headers = data->wanted_headers;
 		for (i = 0; i < headers->count; i++) {
@@ -268,9 +281,6 @@ void index_mail_parse_header_init(struct index_mail *mail,
 		array_idx_set(&mail->header_match, field_idx,
 			      &mail->header_match_value);
 	}
-	mail->data.header_parser_initialized = TRUE;
-	mail->data.parse_line_num = 0;
-	i_zero(&mail->data.parse_line);
 }
 
 static void index_mail_parse_finish_imap_envelope(struct index_mail *mail)
@@ -408,7 +418,7 @@ index_mail_cache_parse_init(struct mail *_mail, struct istream *input)
 	input = tee_i_stream_create_child(mail->data.tee_stream);
 	input2 = tee_i_stream_create_child(mail->data.tee_stream);
 
-	index_mail_parse_header_init(mail, NULL);
+	index_mail_parse_header_init(mail, NULL, TRUE);
 	mail->data.parser_input = input;
 	mail->data.parser_ctx =
 		message_parser_init(mail->mail.data_pool, input,
@@ -459,7 +469,7 @@ int index_mail_parse_headers_internal(struct index_mail *mail,
 
 	i_assert(data->stream != NULL);
 
-	index_mail_parse_header_init(mail, headers);
+	index_mail_parse_header_init(mail, headers, TRUE);
 
 	if (data->parts == NULL || data->save_bodystructure_header ||
 	    (data->access_part & PARSE_BODY) != 0) {
@@ -984,7 +994,7 @@ int index_mail_get_header_stream(struct mail *_mail,
 	if (mail_get_hdr_stream_because(_mail, NULL, reason, &input) < 0)
 		return -1;
 
-	index_mail_parse_header_init(mail, headers);
+	index_mail_parse_header_init(mail, headers, TRUE);
 	mail->data.filter_stream =
 		i_stream_create_header_filter(mail->data.stream,
 					      HEADER_FILTER_INCLUDE |

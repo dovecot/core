@@ -814,7 +814,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 				index_mail_want_parse_headers(hdr_ctx.imail);
 			if (hdr_ctx.parse_headers) {
 				index_mail_parse_header_init(hdr_ctx.imail,
-							     headers_ctx);
+							     headers_ctx, TRUE);
 			}
 			message_parse_header(input, NULL, hdr_parser_flags,
 					     search_header, &hdr_ctx);

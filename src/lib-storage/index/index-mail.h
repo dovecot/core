@@ -191,7 +191,8 @@ void index_mail_set_message_parts_corrupted(struct mail *mail, const char *error
 
 bool index_mail_want_parse_headers(struct index_mail *mail);
 void index_mail_parse_header_init(struct index_mail *mail,
-				  struct mailbox_header_lookup_ctx *headers)
+				  struct mailbox_header_lookup_ctx *headers,
+				  bool full_header_stream)
 	ATTR_NULL(2);
 void index_mail_parse_header(struct message_part *part,
 			     struct message_header_line *hdr,
