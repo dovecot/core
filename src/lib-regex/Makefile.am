@@ -36,6 +36,12 @@ test_regex_LDADD = libdregex.la \
 		   $(LIBPCRE_LIBS)
 test_regex_DEPENDENCIES = libdregex.la $(LIBPCRE_LIBS)
 
+check-local:
+	for bin in $(test_programs); do \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done
+
+
 else
 libdregex_la_SOURCES = empty.c
 endif
