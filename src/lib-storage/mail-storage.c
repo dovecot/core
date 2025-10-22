@@ -1147,6 +1147,7 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 		}
 
 		if ((new_list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
+		    new_list->ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
 		    str_begins(vname, new_list->ns->prefix, &suffix) &&
 		    strcasecmp(suffix, "INBOX") == 0 &&
 		    strcmp(suffix, "INBOX") != 0) {
