@@ -72,7 +72,8 @@ vfile_object_modify_right(struct acl_object *aclobj, unsigned int idx,
 				    update->rights.neg_rights,
 				    update->neg_modify_mode);
 
-	if (right->rights == NULL && right->neg_rights == NULL) {
+	if ((right->rights == NULL || right->rights[0] == NULL) &&
+	    (right->neg_rights == NULL || right->neg_rights[0] == NULL)) {
 		/* this identifier no longer exists */
 		array_delete(&aclobj->rights, idx, 1);
 		c1 = TRUE;
