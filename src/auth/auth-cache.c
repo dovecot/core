@@ -354,6 +354,8 @@ auth_request_expand_cache_key(const struct auth_request *request,
 	static bool error_logged = FALSE;
 	const char *error;
 
+	i_assert(key != NULL);
+
 	/* Uniquely identify the request's passdb/userdb with the P/U prefix
 	   and by "%{id}", which expands to the passdb/userdb ID number. */
 	key = t_strconcat(request->userdb_lookup ? "U" : "P", "%{id}",

@@ -1146,6 +1146,22 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 			errstr = t_strdup(errstr);
 		}
 
+		if ((new_list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
+		    new_list->ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
+		    str_begins(vname, new_list->ns->prefix, &suffix) &&
+		    strcasecmp(suffix, "INBOX") == 0 &&
+		    strcmp(suffix, "INBOX") != 0) {
+			/* Accessing INBOX explicitly in a shared namespace -
+			   convert to uppercase. This is done regardless of the
+			   mail_shared_explicit_inbox setting, since even with
+			   "no" adding INBOX to the namespace prefix accesses
+			   the same INBOX. When accessing the shared INBOX
+			   as the namespace prefix, the uppercase INBOX is
+			   appended when getting the storage_name in mailbox
+			   list code. */
+			vname = t_strconcat(new_list->ns->prefix, "INBOX", NULL);
+		}
+
 		box = storage->v.mailbox_alloc(storage, new_list, vname, flags);
 		if (open_error != 0) {
 			box->open_error = open_error;

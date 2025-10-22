@@ -26,6 +26,8 @@ struct istream *iostream_temp_finish(struct ostream **output,
 				     size_t max_buffer_size);
 
 /* For internal testing: */
-int o_stream_temp_move_to_memory(struct ostream *output);
+void o_stream_temp_set_writev(struct ostream *output,
+			      ssize_t (*func)(int fd, const struct iovec *iov,
+					      unsigned int iov_count));
 
 #endif

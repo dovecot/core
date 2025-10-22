@@ -161,7 +161,7 @@ bool passdb_cache_lookup_credentials(struct auth_request *request,
 	struct auth_cache_node *node;
 	bool neg_expired;
 
-	if (passdb_cache == NULL)
+	if (passdb_cache == NULL || key == NULL)
 		return FALSE;
 
 	if (!passdb_cache_lookup(request, key, use_expired,
