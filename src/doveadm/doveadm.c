@@ -48,9 +48,10 @@ static void failure_exit_callback(int *status)
 	}
 }
 
-static void
-usage_commands_write(FILE *out, const ARRAY_TYPE(doveadm_cmd_ver2_p) *cmds,
-		     const char *prefix)
+static void usage_commands_write(
+	FILE *out,
+	const ARRAY_TYPE(doveadm_cmd_ver2_p) *cmds,
+	const char *prefix)
 {
 	const struct doveadm_cmd_ver2 *cur_cmd;
 	const char *p, *short_name, *sub_name;
@@ -75,15 +76,17 @@ usage_commands_write(FILE *out, const ARRAY_TYPE(doveadm_cmd_ver2_p) *cmds,
 				fprintf(out, "\n");
 				prev_name = "";
 			}
-			fprintf(out, USAGE_CMDNAME_FMT" %s\n", cmd, args);
+			fprintf(out, USAGE_CMDNAME_FMT " %s\n", cmd, args);
 		} else {
 			short_name = t_strdup_until(cmd, p);
 			if (strcmp(prev_name, short_name) != 0) {
 				if (*prev_name != '\0')
 					fprintf(out, "\n");
 				sub_name = t_strcut(p + 1, ' ');
-				fprintf(out, USAGE_CMDNAME_FMT" %s",
-					short_name, sub_name);
+				fprintf(out,
+				        USAGE_CMDNAME_FMT " %s",
+				        short_name,
+				        sub_name);
 				prev_name = short_name;
 				prev_sub_name = sub_name;
 			} else {
@@ -99,8 +102,9 @@ usage_commands_write(FILE *out, const ARRAY_TYPE(doveadm_cmd_ver2_p) *cmds,
 		fprintf(out, "\n");
 }
 
-static int doveadm_cmd_cmp(const struct doveadm_cmd_ver2 *const *cmd1,
-			   const struct doveadm_cmd_ver2 *const *cmd2)
+static int doveadm_cmd_cmp(
+	const struct doveadm_cmd_ver2 *const *cmd1,
+	const struct doveadm_cmd_ver2 *const *cmd2)
 {
 	return strcmp((*cmd1)->name, (*cmd2)->name);
 }
@@ -135,8 +139,10 @@ void usage(void)
 	usage_prefix(stderr, "", EX_USAGE);
 }
 
-static void ATTR_NORETURN
-print_usage_and_exit(FILE *out, const struct doveadm_cmd_ver2 *cmd, int exit_code)
+static void ATTR_NORETURN print_usage_and_exit(
+	FILE *out,
+	const struct doveadm_cmd_ver2 *cmd,
+	int exit_code)
 {
 	fprintf(out, "doveadm %s %s\n", cmd->name, cmd->usage);
 	lib_exit(exit_code);
@@ -165,9 +171,11 @@ static struct doveadm_cmd_ver2 doveadm_cmd_help = {
 	.name = "help",
 	.cmd = cmd_help,
 	.usage = "[<cmd>]",
-DOVEADM_CMD_PARAMS_START
-DOVEADM_CMD_PARAM('\0', "cmd", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
-DOVEADM_CMD_PARAMS_END
+	DOVEADM_CMD_PARAMS_START DOVEADM_CMD_PARAM(
+		'\0',
+		"cmd",
+		CMD_PARAM_STR,
+		CMD_PARAM_FLAG_POSITIONAL) DOVEADM_CMD_PARAMS_END
 };
 
 static void cmd_config(struct doveadm_cmd_context *cctx)
@@ -178,14 +186,14 @@ static void cmd_config(struct doveadm_cmd_context *cctx)
 		args = NULL;
 
 	env_put(MASTER_CONFIG_FILE_ENV,
-		master_service_get_config_path(master_service));
+	        master_service_get_config_path(master_service));
 
 	unsigned int len = str_array_length(args);
 	argv = t_new(const char *, len + 2);
-	argv[0] = BINDIR"/doveconf";
+	argv[0] = BINDIR "/doveconf";
 	if (len > 0) {
 		i_assert(args != NULL);
-		memcpy(argv+1, args, len * sizeof(args[0]));
+		memcpy(argv + 1, args, len * sizeof(args[0]));
 	}
 	execv_const(argv[0], argv);
 }
@@ -195,17 +203,21 @@ static struct doveadm_cmd_ver2 doveadm_cmd_config = {
 	.cmd = cmd_config,
 	.usage = "[doveconf parameters]",
 	.flags = CMD_FLAG_NO_OPTIONS,
-DOVEADM_CMD_PARAMS_START
-DOVEADM_CMD_PARAM('\0', "args", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
-DOVEADM_CMD_PARAMS_END
+	DOVEADM_CMD_PARAMS_START DOVEADM_CMD_PARAM(
+		'\0',
+		"args",
+		CMD_PARAM_ARRAY,
+		CMD_PARAM_FLAG_POSITIONAL) DOVEADM_CMD_PARAMS_END
 };
+
+/* // GromySkynet Export cmd_exec in external file doveadm-exec.c
 
 static void cmd_exec(struct doveadm_cmd_context *cctx);
 static struct doveadm_cmd_ver2 doveadm_cmd_exec = {
-	.name = "exec",
-	.cmd = cmd_exec,
-	.usage = "<binary> [binary parameters]",
-	.flags = CMD_FLAG_NO_OPTIONS,
+        .name = "exec",
+        .cmd = cmd_exec,
+        .usage = "<binary> [binary parameters]",
+        .flags = CMD_FLAG_NO_OPTIONS,
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('\0', "binary", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "args", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
@@ -214,32 +226,32 @@ DOVEADM_CMD_PARAMS_END
 
 static void cmd_exec(struct doveadm_cmd_context *cctx)
 {
-	const char *path, *binary, *const *args, **argv;
+        const char *path, *binary, *const *args, **argv;
 
-	if (!doveadm_cmd_param_str(cctx, "binary", &binary))
-		help_ver2(&doveadm_cmd_exec);
-	if (!doveadm_cmd_param_array(cctx, "args", &args))
-		args = NULL;
+        if (!doveadm_cmd_param_str(cctx, "binary", &binary))
+                help_ver2(&doveadm_cmd_exec);
+        if (!doveadm_cmd_param_array(cctx, "args", &args))
+                args = NULL;
 
-	/* Avoid re-executing doveconf after the binary is executed */
-	int config_fd = doveadm_settings_get_config_fd();
-	if (config_fd != -1) {
-		fd_close_on_exec(config_fd, FALSE);
-		env_put(DOVECOT_CONFIG_FD_ENV, dec2str(config_fd));
-	}
+//	Avoid re-executing doveconf after the binary is executed
+        int config_fd = doveadm_settings_get_config_fd();
+        if (config_fd != -1) {
+                fd_close_on_exec(config_fd, FALSE);
+                env_put(DOVECOT_CONFIG_FD_ENV, dec2str(config_fd));
+        }
 
-	path = t_strdup_printf("%s/%s", doveadm_settings->libexec_dir, binary);
+        path = t_strdup_printf("%s/%s", doveadm_settings->libexec_dir, binary);
 
-	unsigned int len = str_array_length(args);
-	argv = t_new(const char *, len + 2);
-	argv[0] = path;
-	if (len > 0) {
-		i_assert(args != NULL);
-		memcpy(argv+1, args, len * sizeof(args[0]));
-	}
-	execv_const(argv[0], argv);
+        unsigned int len = str_array_length(args);
+        argv = t_new(const char *, len + 2);
+        argv[0] = path;
+        if (len > 0) {
+                i_assert(args != NULL);
+                memcpy(argv+1, args, len * sizeof(args[0]));
+        }
+        execv_const(argv[0], argv);
 }
-
+*/
 static bool doveadm_has_subcommands(const char *cmd_name)
 {
 	const struct doveadm_cmd_ver2 *cmd2;
@@ -253,8 +265,7 @@ static bool doveadm_has_subcommands(const char *cmd_name)
 	return FALSE;
 }
 
-static const char *
-find_longest_cmd_prefix(char *const argv[])
+static const char *find_longest_cmd_prefix(char *const argv[])
 {
 	string_t *prefix = t_str_new(128);
 	str_append(prefix, argv[0]);
@@ -275,7 +286,8 @@ find_longest_cmd_prefix(char *const argv[])
 static struct doveadm_cmd_ver2 *doveadm_cmdline_commands_ver2[] = {
 	&doveadm_cmd_config,
 	&doveadm_cmd_dump,
-	&doveadm_cmd_exec,
+	// GromySkynet Export cmd_exec in external file doveadm-exec.c
+	//	&doveadm_cmd_exec,
 	&doveadm_cmd_help,
 	&doveadm_cmd_pw,
 	&doveadm_cmd_compress_connect,
@@ -294,11 +306,15 @@ int main(int argc, char *argv[])
 
 	/* "+" is GNU extension to stop at the first non-option.
 	   others just accept -+ option. */
-	master_service = master_service_init("doveadm", service_flags,
-					     &argc, &argv, "+Df:hv");
+	master_service = master_service_init(
+		"doveadm",
+		service_flags,
+		&argc,
+		&argv,
+		"+Df:hv");
 	const struct option longopts[] = {
 		master_service_helpopt,
-		{NULL, 0, NULL, 0},
+		{ NULL, 0, NULL, 0 },
 	};
 	master_service_register_long_options(master_service, longopts);
 
@@ -326,16 +342,17 @@ int main(int argc, char *argv[])
 			doveadm_verbose = TRUE;
 			break;
 		default:
-			fprintf(stderr, "%s\n",
-				"Use doveadm --help for a list of available "
-				"options and commands.");
+			fprintf(stderr,
+			        "%s\n",
+			        "Use doveadm --help for a list of available "
+			        "options and commands.");
 			return EX_USAGE;
 		}
 	}
 	cmd_name = argv[optind];
 
 	if (cmd_name != NULL && strcmp(cmd_name, "help") == 0 &&
-	    argv[optind+1] != NULL) {
+	    argv[optind + 1] != NULL) {
 		/* "help cmd" doesn't need any configuration */
 		quick_init = TRUE;
 	}
@@ -346,10 +363,10 @@ int main(int argc, char *argv[])
 		doveadm_cmd_register_ver2(doveadm_cmdline_commands_ver2[i]);
 	doveadm_register_auth_commands();
 
-	if (cmd_name != NULL && (quick_init ||
-				 strcmp(cmd_name, "config") == 0 ||
-				 strcmp(cmd_name, "stop") == 0 ||
-				 strcmp(cmd_name, "reload") == 0)) {
+	if (cmd_name != NULL &&
+	    (quick_init || strcmp(cmd_name, "config") == 0 ||
+	     strcmp(cmd_name, "stop") == 0 ||
+	     strcmp(cmd_name, "reload") == 0)) {
 		/* special case commands: even if there is something wrong
 		   with the config (e.g. mail_plugins), don't fail these
 		   commands */
@@ -370,8 +387,10 @@ int main(int argc, char *argv[])
 		/* read settings only after loading doveadm plugins, which
 		   may modify what settings are read */
 		doveadm_read_settings();
-		if (doveadm_debug && getenv(DOVECOT_LOG_STDERR_TIMESTAMP_ENV) == NULL)
-			i_set_failure_timestamp_format(master_service->set->log_timestamp);
+		if (doveadm_debug &&
+		    getenv(DOVECOT_LOG_STDERR_TIMESTAMP_ENV) == NULL)
+			i_set_failure_timestamp_format(
+				master_service->set->log_timestamp);
 		master_service_init_stats_client(master_service, TRUE);
 		/* Load mail_plugins */
 		doveadm_mail_init_finish();
@@ -398,29 +417,32 @@ int main(int argc, char *argv[])
 	}
 
 	struct doveadm_cmd_context *cctx = doveadm_cmd_context_create(
-		DOVEADM_CONNECTION_TYPE_CLI, doveadm_debug);
+		DOVEADM_CONNECTION_TYPE_CLI,
+		doveadm_debug);
 	/* this has to be done here because proctitle hack can break
 	   the env pointer */
 	cctx->username = getenv("USER");
 
-	if (!doveadm_cmdline_try_run(cmd_name, argc, (const char**)argv, cctx)) {
-		help_requested = cctx->help_requested != DOVEADM_CMD_VER2_NO_HELP;
+	if (!doveadm_cmdline_try_run(cmd_name, argc, (const char **)argv, cctx)) {
+		help_requested = cctx->help_requested !=
+		                 DOVEADM_CMD_VER2_NO_HELP;
 		FILE *out = help_requested ? stdout : stderr;
 		int exit_code = help_requested ? EX_OK : EX_USAGE;
 		if (cctx->help_requested == DOVEADM_CMD_VER2_HELP_ARGUMENT &&
 		    cctx->cmd != NULL) {
 			print_usage_and_exit(stdout, cctx->cmd, EX_OK);
 		} else {
-			const char *cmd_prefix =
-				find_longest_cmd_prefix(argv);
+			const char *cmd_prefix = find_longest_cmd_prefix(argv);
 			if (doveadm_has_subcommands(cmd_prefix))
 				usage_prefix(out, cmd_prefix, exit_code);
 		}
 
 		if (doveadm_has_unloaded_plugin(cmd_name)) {
 			i_fatal("Unknown command '%s', but plugin %s exists. "
-				"Try to set mail_plugins=%s",
-				cmd_name, cmd_name, cmd_name);
+			        "Try to set mail_plugins=%s",
+			        cmd_name,
+			        cmd_name,
+			        cmd_name);
 		}
 		usage();
 	}

@@ -45,6 +45,18 @@ passdb pam {
 }
 
 ssl_server {
-  cert_file = /etc/dovecot/ssl-cert.pem
-  key_file = /etc/dovecot/ssl-key.pem
+  cert_file = /etc/ssl/dovecot-build-cert.pem
+  key_file = /etc/ssl/dovecot-build-key.pem
+}
+
+doveadm_api_key = abcdef1234567890abcdef1234567890abcdef12
+# doveadm_allowed_commands = ALL exec cmd_exec
+service doveadm {
+   unix_listener doveadm-server {
+      user = dovecot
+   }
+   inet_listener http {
+        port = 12346
+#        ssl = yes
+    }
 }

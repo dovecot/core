@@ -88,6 +88,7 @@ doveadm_common_cmds = \
 	doveadm-auth.c \
 	doveadm-dict.c \
 	doveadm-fs.c \
+	doveadm-exec.c \
 	doveadm-indexer.c \
 	doveadm-instance.c \
 	doveadm-kick.c \

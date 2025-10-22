@@ -32,6 +32,7 @@ static struct doveadm_cmd_ver2 *doveadm_commands_ver2[] = {
 	&doveadm_cmd_indexer_add,
 	&doveadm_cmd_indexer_remove,
 	&doveadm_cmd_indexer_list,
+	&doveadm_cmd_exec
 };
 
 ARRAY_TYPE(doveadm_cmd_ver2) doveadm_cmds_ver2;
@@ -41,7 +42,8 @@ void doveadm_cmd_register_ver2(struct doveadm_cmd_ver2 *cmd)
 	if (cmd->cmd == NULL) {
 		if (cmd->mail_cmd != NULL)
 			cmd->cmd = doveadm_cmd_ver2_to_mail_cmd_wrapper;
-		else i_unreached();
+		else
+			i_unreached();
 	}
 	array_push_back(&doveadm_cmds_ver2, cmd);
 }
@@ -57,9 +59,10 @@ const struct doveadm_cmd_ver2 *doveadm_cmd_find_ver2(const char *cmd_name)
 	return NULL;
 }
 
-const struct doveadm_cmd_ver2 *
-doveadm_cmdline_find_with_args(const char *cmd_name, int *argc,
-			       const char *const *argv[])
+const struct doveadm_cmd_ver2 *doveadm_cmdline_find_with_args(
+	const char *cmd_name,
+	int *argc,
+	const char *const *argv[])
 {
 	int i, k;
 	const struct doveadm_cmd_ver2 *cmd;
@@ -82,7 +85,7 @@ doveadm_cmdline_find_with_args(const char *cmd_name, int *argc,
 			if (strlen(cptr) < alen)
 				break;
 			/* did not match */
-			if (strncmp(cptr, (*argv)[i+k], alen) != 0)
+			if (strncmp(cptr, (*argv)[i + k], alen) != 0)
 				break;
 			/* do not accept abbreviations */
 			if (cptr[alen] != ' ' && cptr[alen] != '\0')
@@ -94,8 +97,8 @@ doveadm_cmdline_find_with_args(const char *cmd_name, int *argc,
 		/* name was fully consumed */
 		if (*cptr == '\0') {
 			if (k > 1) {
-				*argc -= k-1;
-				*argv += k-1;
+				*argc -= k - 1;
+				*argv += k - 1;
 			}
 			return cmd;
 		}
@@ -124,9 +127,11 @@ void doveadm_cmds_deinit(void)
 	array_free(&doveadm_cmds_ver2);
 }
 
-static void
-doveadm_cmdline_check_for_help_request(int argc, const char *const argv[],
-				       struct doveadm_cmd_context *cctx) {
+static void doveadm_cmdline_check_for_help_request(
+	int argc,
+	const char *const argv[],
+	struct doveadm_cmd_context *cctx)
+{
 	for (int i = 0; i < argc; i++) {
 		if (strcmp(argv[i], "--") == 0)
 			break;
@@ -143,9 +148,11 @@ doveadm_cmdline_check_for_help_request(int argc, const char *const argv[],
 	}
 }
 
-bool doveadm_cmdline_try_run(const char *cmd_name,
-			     int argc, const char *const argv[],
-			     struct doveadm_cmd_context *cctx)
+bool doveadm_cmdline_try_run(
+	const char *cmd_name,
+	int argc,
+	const char *const argv[],
+	struct doveadm_cmd_context *cctx)
 {
 	const struct doveadm_cmd_ver2 *cmd;
 
