@@ -781,7 +781,9 @@ db_ldap_add_connection_callback(LDAP *ld ATTR_UNUSED, Sockbuf *sb ATTR_UNUSED,
 {
 	struct ldap_connection *conn = ctx->lc_arg;
 	const char *prefix = t_strdup_printf("ldap(%s://%s:%d): ",
-		srv->lud_scheme, srv->lud_host, srv->lud_port);
+		srv->lud_scheme != NULL ? srv->lud_scheme : "",
+		srv->lud_host != NULL ? srv->lud_host : "",
+		srv->lud_port);
 
 	if (strcmp(conn->log_prefix, prefix) != 0) {
 		i_free(conn->log_prefix);
