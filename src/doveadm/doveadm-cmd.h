@@ -25,14 +25,17 @@ doveadm_cmdv2_wrapper_generate_args(struct doveadm_mail_cmd_context *ctx);
 void doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx);
 
 void doveadm_cmd_register_ver2(struct doveadm_cmd_ver2 *cmd);
-const struct doveadm_cmd_ver2 *
-doveadm_cmdline_find_with_args(const char *cmd_name, int *argc,
-			       const char *const *argv[]);
+const struct doveadm_cmd_ver2 *doveadm_cmdline_find_with_args(
+	const char *cmd_name,
+	int *argc,
+	const char *const *argv[]);
 const struct doveadm_cmd_ver2 *doveadm_cmd_find_ver2(const char *cmd_name);
 /* Returns FALSE if cmd_name doesn't exist, TRUE if it exists. */
-bool doveadm_cmdline_try_run(const char *cmd_name,
-			     int argc, const char *const argv[],
-			     struct doveadm_cmd_context *cctx);
+bool doveadm_cmdline_try_run(
+	const char *cmd_name,
+	int argc,
+	const char *const argv[],
+	struct doveadm_cmd_context *cctx);
 
 extern struct doveadm_cmd_ver2 doveadm_cmd_dump;
 extern struct doveadm_cmd_ver2 doveadm_cmd_service_stop_ver2;
@@ -56,5 +59,6 @@ extern struct doveadm_cmd_ver2 doveadm_cmd_compress_connect;
 extern struct doveadm_cmd_ver2 doveadm_cmd_indexer_add;
 extern struct doveadm_cmd_ver2 doveadm_cmd_indexer_remove;
 extern struct doveadm_cmd_ver2 doveadm_cmd_indexer_list;
+extern struct doveadm_cmd_ver2 doveadm_cmd_exec;
 
 #endif
