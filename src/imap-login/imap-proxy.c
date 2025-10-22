@@ -206,6 +206,13 @@ static int proxy_input_banner(struct imap_client *client,
 	str = t_str_new(128);
 	if (str_begins_icase(line, "[CAPABILITY ", &suffix)) {
 		capabilities = t_strsplit(t_strcut(suffix, ']'), " ");
+		if (!str_array_icase_find(capabilities, "IMAP4rev1")) {
+			login_proxy_failed(client->common.login_proxy,
+				login_proxy_get_event(client->common.login_proxy),
+				LOGIN_PROXY_FAILURE_TYPE_PROTOCOL,
+				"Remote server doesn't support IMAP4rev1");
+			return -1;
+		}
 		if (str_array_icase_find(capabilities, "SASL-IR"))
 			client->proxy_sasl_ir = TRUE;
 		if (str_array_icase_find(capabilities, "LOGINDISABLED"))
@@ -464,6 +471,15 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 				   failure_type, log_line);
 		return -1;
 	} else if (str_begins_icase(line, "* CAPABILITY ", &line)) {
+		const char *const *capabilities = t_strsplit(line, " ");
+
+		if (!str_array_icase_find(capabilities, "IMAP4rev1")) {
+			login_proxy_failed(client->login_proxy,
+				login_proxy_get_event(client->login_proxy),
+				LOGIN_PROXY_FAILURE_TYPE_PROTOCOL,
+				"Remote server doesn't support IMAP4rev1");
+			return -1;
+		}
 		i_free(imap_client->proxy_backend_capability);
 		imap_client->proxy_backend_capability = i_strdup(line);
 		return 0;
