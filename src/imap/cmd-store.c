@@ -160,6 +160,8 @@ bool cmd_store(struct client_command_context *cmd)
 
 	if (client->mailbox_examined) {
 		mail_search_args_unref(&search_args);
+		if (ctx.keywords != NULL)
+			mailbox_keywords_unref(&ctx.keywords);
 		if (ctx.max_modseq < (uint64_t)-1)
 			reply = "NO CONDSTORE failed: Mailbox is read-only.";
 		else
