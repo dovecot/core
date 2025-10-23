@@ -221,6 +221,7 @@ const struct event_exporter_transport event_exporter_transport_file = {
 	.name = "file",
 
 	.init = event_exporter_file_init,
+	.deinit = event_exporter_file_deinit,
 	.send = event_exporter_file_send,
 	.reopen = event_exporter_file_reopen,
 };
