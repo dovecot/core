@@ -111,7 +111,7 @@ int str_parse_uintmax(const char *str, uintmax_t *num_r, const char **endp_r)
 }
 int str_to_uintmax(const char *str, uintmax_t *num_r)
 {
-	const char *endp;
+	const char *endp = NULL;
 	uintmax_t n;
 	int ret = str_parse_uintmax(str, &n, &endp);
 	if ((ret != 0) || (*endp != '\0'))
@@ -206,7 +206,7 @@ int str_parse_uintmax_hex(const char *str, uintmax_t *num_r,
 }
 int str_to_uintmax_hex(const char *str, uintmax_t *num_r)
 {
-	const char *endp;
+	const char *endp = NULL;
 	uintmax_t n;
 	int ret = str_parse_uintmax_hex(str, &n, &endp);
 	if ((ret != 0) || (*endp != '\0'))
@@ -271,7 +271,7 @@ int str_parse_uintmax_oct(const char *str, uintmax_t *num_r,
 }
 int str_to_uintmax_oct(const char *str, uintmax_t *num_r)
 {
-	const char *endp;
+	const char *endp = NULL;
 	uintmax_t n;
 	int ret = str_parse_uintmax_oct(str, &n, &endp);
 	if ((ret != 0) || (*endp != '\0'))
@@ -346,7 +346,7 @@ str_parse_intmax(const char *str, intmax_t *num_r, const char **endp_r)
 }
 int str_to_intmax(const char *str, intmax_t *num_r)
 {
-	const char *endp;
+	const char *endp = NULL;
 	intmax_t n;
 	int ret = str_parse_intmax(str, &n, &endp);
 	if ((ret != 0) || (*endp != '\0'))
