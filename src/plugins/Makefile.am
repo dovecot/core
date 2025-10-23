@@ -16,6 +16,7 @@ endif
 
 SUBDIRS = \
 	acl \
+	doveapi \
 	imap-acl \
 	fts \
 	last-login \

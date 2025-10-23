@@ -36,11 +36,6 @@ make -j V=0
 make install-strip
 
 # Добавление необходимых пользователей
-
-
-echo "Запустить собранный dovecot? (Y/n) [n]: "
-read -t 5 -n 1 -r response
-if [[ $response =~ ^[Yy]$ ]]; then
   useradd --system dovecot
   useradd --system dovenull
   useradd --system vmail
@@ -50,8 +45,10 @@ if [[ $response =~ ^[Yy]$ ]]; then
   chmod 600 "$BUILD_DIRECTORY/ssl/private.key"
   chmod 644 "$BUILD_DIRECTORY/ssl/certificate.crt"
   sed -i "s|cert_file = /etc/ssl/dovecot-build-cert.pem|cert_file = $BUILD_DIRECTORY/ssl/certificate.crt|" $BUILD_DIRECTORY/etc/dovecot/dovecot.conf
-
   sed -i "s|key_file = /etc/ssl/dovecot-build-key.pem|key_file = $BUILD_DIRECTORY/ssl/private.key|" $BUILD_DIRECTORY/etc/dovecot/dovecot.conf
 
+echo "Запустить собранный dovecot? (Y/n) [n]: "
+read -t 5 -n 1 -r response
+if [[ $response =~ ^[Yy]$ ]]; then
   $BUILD_DIRECTORY/sbin/dovecot -c $BUILD_DIRECTORY/etc/dovecot/dovecot.conf -F
 fi
