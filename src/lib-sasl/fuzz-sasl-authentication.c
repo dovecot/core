@@ -384,6 +384,32 @@ fuzz_sasl_amend_data(struct fuzz_sasl_context *fctx,
 	buffer_free(&buf2);
 }
 
+static void fuzz_assert_success_validity(struct fuzz_sasl_context *fctx)
+{
+	static const char *const password_ignore_mechanisms[] = {
+		SASL_MECH_NAME_ANONYMOUS,
+		SASL_MECH_NAME_LOGIN,
+		SASL_MECH_NAME_NTLM,
+		SASL_MECH_NAME_PLAIN,
+		NULL
+	};
+
+	/* Check whether successful authentication is actually a problem. */
+
+	if (strcmp(fctx->params->client_password,
+		   fctx->params->server_password) != 0) {
+		/* For some reason we got here with the wrong password/token.
+		   For plaintext mechanisms, this can easily happen when the
+		   fuzzer mends the password in the SASL interaction by
+		   coincidence. For hashed mechanisms, this will require a hash
+		   collision, which we assume is sufficiently unlikely that
+		   there is a significant chance of something fishy going on.
+		 */
+		i_assert(str_array_icase_find(password_ignore_mechanisms,
+					      fctx->params->mech));
+	}
+}
+
 static void
 fuzz_server_request_output(struct sasl_server_req_ctx *rctx,
 			   const struct sasl_server_output *output)
@@ -402,15 +428,7 @@ fuzz_server_request_output(struct sasl_server_req_ctx *rctx,
 		failed = TRUE;
 		break;
 	case SASL_SERVER_OUTPUT_SUCCESS:
-		if (strcasecmp(fctx->params->mech, SASL_MECH_NAME_ANONYMOUS) != 0 &&
-		    strcasecmp(fctx->params->mech, SASL_MECH_NAME_PLAIN) != 0 &&
-		    strcasecmp(fctx->params->mech, SASL_MECH_NAME_LOGIN) != 0 &&
-		    strcasecmp(fctx->params->mech, SASL_MECH_NAME_NTLM) != 0) {
-			/* hash-based mechanisms should never be able to get
-			   here when password is wrong */
-			i_assert(strcmp(fctx->params->client_password,
-					fctx->params->server_password) == 0);
-		}
+		fuzz_assert_success_validity(fctx);
 		fctx->auth_success = TRUE;
 		fctx->finished = TRUE;
 		/* fall through */
