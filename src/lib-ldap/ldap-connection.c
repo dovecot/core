@@ -36,6 +36,7 @@ void ldap_connection_deinit(struct ldap_connection **_conn)
 				       aqueue_idx(conn->request_queue, i));
 		timeout_remove(&req->to_abort);
 	}
+	aqueue_deinit(&conn->request_queue);
 	settings_free(conn->ssl_set);
 	settings_free(conn->set);
 	event_unref(&conn->event);
