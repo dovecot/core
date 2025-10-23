@@ -390,7 +390,9 @@ static void fuzz_assert_success_validity(struct fuzz_sasl_context *fctx)
 		SASL_MECH_NAME_ANONYMOUS,
 		SASL_MECH_NAME_LOGIN,
 		SASL_MECH_NAME_NTLM,
+		SASL_MECH_NAME_OAUTHBEARER,
 		SASL_MECH_NAME_PLAIN,
+		SASL_MECH_NAME_XOAUTH2,
 		NULL
 	};
 
