@@ -18,7 +18,11 @@
 /* c-nonce length */
 #define SCRAM_CLIENT_NONCE_LEN 64
 /* Max iteration count accepted by the client */
-#define SCRAM_MAX_ITERATE_COUNT (128 * 4096)
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+#  define SCRAM_MAX_ITERATE_COUNT (128 * 4096)
+#else
+#  define SCRAM_MAX_ITERATE_COUNT (2 * 4096)
+#endif
 
 void auth_scram_client_init(struct auth_scram_client *client_r, pool_t pool,
 			    const struct auth_scram_client_settings *set)
