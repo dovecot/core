@@ -1438,6 +1438,8 @@ int mailbox_list_mkdir_missing_index_root(struct mailbox_list *list)
 
 	if (list->index_root_dir_created)
 		return 1;
+	if ((list->ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0)
+		return -1;
 
 	/* If index root dir hasn't been created yet, do it now.
 	   Do this here even if the index directory is the same as mail root
