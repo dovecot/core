@@ -88,7 +88,7 @@ cmd_copy_alloc_source_user(struct copy_cmd_context *ctx)
 	mail_storage_service_io_deactivate_user(ctx->ctx.cur_service_user);
 	if (mail_storage_service_lookup_next(ctx->ctx.storage_service, &input,
 					     &ctx->source_user,
-					     &error) < 0)
+					     &error) <= 0)
 		i_fatal("Couldn't lookup user %s: %s", input.username, error);
 	mail_storage_service_io_deactivate_user(ctx->source_user->service_user);
 	mail_storage_service_io_activate_user(ctx->ctx.cur_service_user);
