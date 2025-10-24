@@ -29,11 +29,12 @@ make distclean || true
 --prefix=$BUILD_DIRECTORY \
 --exec-prefix=$BUILD_DIRECTORY
 
-#Компоновка
+##Компоновка
 make -j V=0
 
-# Сборка
+## Сборка
 make install-strip
+
 
 # Добавление необходимых пользователей
   useradd --system dovecot
@@ -47,6 +48,7 @@ make install-strip
   sed -i "s|cert_file = /etc/ssl/dovecot-build-cert.pem|cert_file = $BUILD_DIRECTORY/ssl/certificate.crt|" $BUILD_DIRECTORY/etc/dovecot/dovecot.conf
   sed -i "s|key_file = /etc/ssl/dovecot-build-key.pem|key_file = $BUILD_DIRECTORY/ssl/private.key|" $BUILD_DIRECTORY/etc/dovecot/dovecot.conf
 
+# Запуск демона
 echo "Запустить собранный dovecot? (Y/n) [n]: "
 read -t 5 -n 1 -r response
 if [[ $response =~ ^[Yy]$ ]]; then

@@ -17,7 +17,7 @@ compile_commands.json
 *~
 vgcore.*
 auth-token-secret.dat
-
+build.log
 /configure
 /config.cache
 /build-aux/config.guess

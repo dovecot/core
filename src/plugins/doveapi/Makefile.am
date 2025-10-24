@@ -30,4 +30,6 @@ AM_CPPFLAGS = \
 	lib10_doveadm_doveapi_plugin.la
 
 lib10_doveadm_doveapi_plugin_la_SOURCES = \
+	r7-ping.c \
+	r7-storages.c \
 	doveadm-doveapi.c
