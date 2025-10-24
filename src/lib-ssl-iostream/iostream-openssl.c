@@ -594,8 +594,10 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 		return openssl_iostream_bio_sync(ssl_io, OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE);
 
 	/* we are being destroyed, so do not do any more handshaking */
-	if (ssl_io->destroyed)
-		return 0;
+	if (ssl_io->destroyed) {
+		errno = EPIPE;
+		return -1;
+	}
 
 	if (ssl_io->ctx->client_ctx) {
 		while ((ret = SSL_connect(ssl_io->ssl)) <= 0) {
