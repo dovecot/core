@@ -225,7 +225,11 @@ config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
 {
 	struct config_filter_parser *orig_filter_parser =
 		ctx->cur_section->filter_parser;
+	string_t *key_with_path = str_new(default_pool, 128);
 	const char *p;
+
+	str_printfa(key_with_path, "service/%s/", service_name);
+	size_t key_prefix_len = str_len(key_with_path);
 
 	for (unsigned int i = 0; defaults[i].key != NULL; i++) T_BEGIN {
 		const char *key = defaults[i].key;
@@ -254,16 +258,26 @@ config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
 			key = p + 1;
 		}
 
+		const char *value = defaults[i].value;
+		if (ctx->dovecot_config_version != NULL) {
+			str_truncate(key_with_path, key_prefix_len);
+			str_append(key_with_path, defaults[i].key);
+
+			(void)old_settings_default(ctx->dovecot_config_version,
+				defaults[i].key, str_c(key_with_path), &value);
+		}
+
 		config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_DEFAULTS);
-		if (config_apply_default(ctx, key, defaults[i].value) < 0) {
+		if (config_apply_default(ctx, key, value) < 0) {
 			i_panic("Failed to add default setting %s=%s for service %s: %s",
-				defaults[i].key, defaults[i].value,
+				defaults[i].key, value,
 				service_name, ctx->error);
 		}
 		config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
 
 		ctx->cur_section->filter_parser = orig_filter_parser;
 	} T_END;
+	str_free(&key_with_path);
 }
 
 static void config_parser_add_services(struct config_parser_context *ctx,
