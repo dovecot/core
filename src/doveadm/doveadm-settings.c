@@ -47,7 +47,9 @@ const struct setting_keyvalue doveadm_service_settings_defaults[] = {
 	{ "unix_listener/doveadm-server/type", "tcp" },
 	{ "unix_listener/doveadm-server/mode", "0600" },
 
-	{ "service_extra_groups", "$SET:default_internal_group" },
+	/* This needs to be here explicitly until the backwards compatibility
+	   is removed from settings-history-core.txt */
+	{ "service_extra_groups", "" },
 
 	{ NULL, NULL }
 };

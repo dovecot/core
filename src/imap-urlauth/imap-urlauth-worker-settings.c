@@ -39,7 +39,9 @@ const struct setting_keyvalue imap_urlauth_worker_service_settings_defaults[] = 
 	{ "unix_listener/"IMAP_URLAUTH_WORKER_SOCKET"/mode", "0600" },
 	{ "unix_listener/"IMAP_URLAUTH_WORKER_SOCKET"/user", "$SET:default_internal_user" },
 
-	{ "service_extra_groups", "$SET:default_internal_group" },
+	/* This needs to be here explicitly until the backwards compatibility
+	   is removed from settings-history-core.txt */
+	{ "service_extra_groups", "" },
 
 	{ NULL, NULL }
 };

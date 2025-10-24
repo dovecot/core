@@ -51,7 +51,9 @@ const struct setting_keyvalue lmtp_service_settings_defaults[] = {
 	{ "inet_listener/lmtp/port", "24" },
 #endif
 
-	{ "service_extra_groups", "$SET:default_internal_group" },
+	/* This needs to be here explicitly until the backwards compatibility
+	   is removed from settings-history-core.txt */
+	{ "service_extra_groups", "" },
 
 	{ NULL, NULL }
 };

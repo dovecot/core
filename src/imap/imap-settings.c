@@ -59,7 +59,9 @@ const struct setting_keyvalue imap_service_settings_defaults[] = {
 	{ "unix_listener/srv.imap\\s%{pid}/type", "admin" },
 	{ "unix_listener/srv.imap\\s%{pid}/mode", "0600" },
 
-	{ "service_extra_groups", "$SET:default_internal_group" },
+	/* This needs to be here explicitly until the backwards compatibility
+	   is removed from settings-history-core.txt */
+	{ "service_extra_groups", "" },
 
 	{ NULL, NULL }
 };

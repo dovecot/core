@@ -1,3 +1,10 @@
+default	service/doveadm/service_extra_groups	$SET:default_internal_group	2.4.3	3.2.0
+default	service/imap/service_extra_groups	$SET:default_internal_group	2.4.3	3.2.0
+default	service/imap-urlauth-worker/service_extra_groups	$SET:default_internal_group	2.4.3	3.2.0
+default	service/indexer-worker/service_extra_groups	$SET:default_internal_group	2.4.3	3.2.0
+default	service/lmtp/service_extra_groups	$SET:default_internal_group	2.4.3	3.2.0
+default	service/pop3/service_extra_groups	$SET:default_internal_group	2.4.3	3.2.0
+default	service/submission/service_extra_groups	$SET:default_internal_group	2.4.3	3.2.0
 default	mail_access_groups		2.4.3	3.2.0
 default	mail_attachment_detection_options		2.4.2	3.2.0
 default	@metric_defaults/proxy/metric	auth_successes,auth_failures,login_aborted	2.4.2	3.2.0
