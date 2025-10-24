@@ -443,11 +443,17 @@ static const struct mail_user_settings mail_user_default_settings = {
 	.postmaster_address = "postmaster@%{user|domain|default(hostname)}",
 };
 
+static const struct setting_keyvalue mail_user_default_settings_keyvalue[] = {
+	{ "mail_access_groups", "$SET:default_internal_group" },
+
+	{ NULL, NULL }
+};
 const struct setting_parser_info mail_user_setting_parser_info = {
 	.name = "mail_user",
 
 	.defines = mail_user_setting_defines,
 	.defaults = &mail_user_default_settings,
+	.default_settings = mail_user_default_settings_keyvalue,
 
 	.struct_size = sizeof(struct mail_user_settings),
 	.pool_offset1 = 1 + offsetof(struct mail_user_settings, pool),
