@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "test-common.h"
+#include "test-dir.h"
 #include "istream.h"
 #include "master-service.h"
 #include "message-size.h"
@@ -748,6 +749,7 @@ int main(int argc, char **argv)
 
 	if (null_strcmp(argv[1], "-D") == 0)
 		event_set_forced_debug(test_event, TRUE);
+	test_dir_init("test-mail");
 	ret = test_run(tests);
 	master_service_deinit(&master_service);
 	return ret;

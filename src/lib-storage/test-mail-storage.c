@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "test-common.h"
+#include "test-dir.h"
 #include "master-service.h"
 #include "test-mail-storage-common.h"
 
@@ -747,7 +748,7 @@ int main(int argc, char **argv)
 					     MASTER_SERVICE_FLAG_NO_SSL_INIT |
 					     MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME,
 					     &argc, &argv, "");
-
+	test_dir_init("test-mail-storage");
 	ret = test_run(tests);
 
 	master_service_deinit(&master_service);

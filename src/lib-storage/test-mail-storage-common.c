@@ -1,6 +1,7 @@
 /* Copyright (c) 2017-2020 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "test-dir.h"
 #include "ioloop.h"
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
@@ -12,17 +13,15 @@
 struct test_mail_storage_ctx *test_mail_storage_init(void)
 {
 	struct test_mail_storage_ctx *ctx;
-	const char *current_dir, *error;
+	const char *error;
 	pool_t pool;
 
 	pool = pool_allocfree_create("test pool");
 	ctx = p_new(pool, struct test_mail_storage_ctx, 1);
 	ctx->pool = pool;
 
-	if (t_get_working_dir(&current_dir, &error) < 0)
-		i_fatal("Failed to get current directory: %s", error);
 	ctx->home_root = p_strdup_printf(ctx->pool, "%s/.test-home/",
-					 current_dir);
+					 test_dir_get());
 
 	if (unlink_directory(ctx->home_root, UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0 &&
 	    errno != ENOENT)
