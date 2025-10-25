@@ -103,6 +103,11 @@ static void test_files_read_dir(const char *path)
 		if (*dp->d_name == '.')
 			continue;
 
+		if (str_ends_with(dp->d_name, ".tmp") ||
+		    str_ends_with(dp->d_name, ".log") ||
+		    str_ends_with(dp->d_name, ".trs"))
+			continue;
+
 		file = t_abspath_to(dp->d_name, path);
 		if (stat(file, &st) == 0) {
 			if (S_ISREG(st.st_mode)) {
