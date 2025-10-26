@@ -43,7 +43,7 @@ static struct stats_settings *read_settings(const char *const settings[],
 	return set;
 }
 
-void test_init(const char *const settings_blob[])
+void test_stats_init(const char *const settings_blob[])
 {
 	const char *error;
 
@@ -70,7 +70,7 @@ void test_init(const char *const settings_blob[])
 	event_unref(&event);
 }
 
-void test_deinit(void)
+void test_stats_deinit(void)
 {
 	stats_metrics_deinit(&stats_metrics);
 	settings_free(stats_set);

@@ -98,7 +98,7 @@ static void test_client_reader(void)
 	test_begin("client reader");
 
 	/* register some stats */
-	test_init(settings_blob_1);
+	test_stats_init(settings_blob_1);
 
 	client_readers_init();
 	conn_list = connection_list_init(&client_set, &client_vfuncs);
@@ -116,7 +116,7 @@ static void test_client_reader(void)
 	/* check output from reader */
 	test_dump_metrics();
 
-	test_deinit();
+	test_stats_deinit();
 
 	client_readers_deinit();
 	connection_list_deinit(&conn_list);
@@ -193,7 +193,7 @@ static void test_client_reader_group_by(void)
 	test_begin("client reader (group by)");
 
 	/* register some stats */
-	test_init(settings_blob_2);
+	test_stats_init(settings_blob_2);
 
 	client_readers_init();
 	conn_list = connection_list_init(&client_set, &client_vfuncs);
@@ -212,7 +212,7 @@ static void test_client_reader_group_by(void)
 	/* check output from reader */
 	test_dump_metrics_group_by();
 
-	test_deinit();
+	test_stats_deinit();
 
 	client_readers_deinit();
 	connection_list_deinit(&conn_list);

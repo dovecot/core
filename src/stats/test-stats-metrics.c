@@ -29,7 +29,7 @@ static void test_stats_metrics(void)
 	test_begin("stats metrics (event counting)");
 
 	/* register some stats */
-	test_init(settings_blob_1);
+	test_stats_init(settings_blob_1);
 
 	/* push event in */
 	struct event *event = event_create(NULL);
@@ -41,7 +41,7 @@ static void test_stats_metrics(void)
 	test_assert(get_stats_dist_field("test", STATS_DIST_COUNT) == 1);
 	test_assert(get_stats_dist_field("test", STATS_DIST_SUM) > 0);
 
-	test_deinit();
+	test_stats_deinit();
 	test_end();
 }
 
@@ -56,7 +56,7 @@ static void test_stats_metrics_filter(void)
 {
 	test_begin("stats metrics (filter)");
 
-	test_init(settings_blob_2);
+	test_stats_init(settings_blob_2);
 
 	/* check filter */
 	struct event_filter *filter =
@@ -88,7 +88,7 @@ static void test_stats_metrics_filter(void)
 	test_assert(get_stats_dist_field("test", STATS_DIST_COUNT) == 1);
 	test_assert(get_stats_dist_field("test", STATS_DIST_SUM) > 0);
 
-	test_deinit();
+	test_stats_deinit();
 	test_end();
 }
 
@@ -197,7 +197,7 @@ test_stats_metrics_group_by_discrete_real(const struct discrete_test *test,
 	const char *const *all_settings = t_strsplit(
 		t_strconcat(t_strarray_join(base_settings, " "), " ",
 			    t_strarray_join(test->settings_blob, " "), NULL), " ");
-	test_init(all_settings);
+	test_stats_init(all_settings);
 
 	for (i = 0; i < test->num_values; i++) {
 		for (j = 0; j < test->num_values; j++) {
@@ -249,7 +249,7 @@ test_stats_metrics_group_by_discrete_real(const struct discrete_test *test,
 		}
 	}
 
-	test_deinit();
+	test_stats_deinit();
 	test_end();
 }
 
@@ -409,7 +409,7 @@ test_stats_metrics_group_by_quantized_real(const struct quantized_test *test,
 	const char *const *all_settings = t_strsplit(
 		t_strconcat(t_strarray_join(base_settings, " "), " ",
 			    t_strarray_join(test->settings_blob, " "), NULL), " ");
-	test_init(all_settings);
+	test_stats_init(all_settings);
 
 	struct event *event;
 
@@ -486,7 +486,7 @@ test_stats_metrics_group_by_quantized_real(const struct quantized_test *test,
 						      METRIC_VALUE_TYPE_BUCKET_INDEX);
 	}
 
-	test_deinit();
+	test_stats_deinit();
 	test_end();
 }
 

@@ -109,7 +109,7 @@ static void test_client_writer(void)
 	test_begin("client writer");
 
 	/* register some stats */
-	test_init(settings_blob_1);
+	test_stats_init(settings_blob_1);
 
 	client_writers_init();
 	conn_list = connection_list_init(&client_set, &client_vfuncs);
@@ -124,7 +124,7 @@ static void test_client_writer(void)
 	test_assert(get_stats_dist_field("test", STATS_DIST_COUNT) == 1);
 	test_assert(get_stats_dist_field("test", STATS_DIST_SUM) > 0);
 
-	test_deinit();
+	test_stats_deinit();
 
 	client_writers_deinit();
 	connection_list_deinit(&conn_list);
