@@ -272,7 +272,7 @@ static void test_cleanup(void)
 		i_error("unlink_directory() failed: %s", error);
 }
 
-static void test_init(void)
+static void test_tmp_dir_init(void)
 {
 	const char *cwd, *error;
 
@@ -323,7 +323,7 @@ int main(int argc, char *argv[])
 	settings_info_register(&test_service_setting_parser_info);
 
 	master_service_init_finish(master_service);
-	test_init();
+	test_tmp_dir_init();
 
 	static void (*const test_functions[])(void) = {
 		test_imap_client_hibernate,
