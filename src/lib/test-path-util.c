@@ -241,7 +241,7 @@ static void test_cleanup(void)
 		i_error("unlink_directory() failed: %s", error);
 }
 
-static void test_init(void)
+static void test_path_util_init(void)
 {
 	const char *error;
 	test_assert(t_get_working_dir(&cwd, &error) == 0);
@@ -259,7 +259,7 @@ void test_path_util(void)
 {
 	test_begin("test_path_util");
 	alarm(20);
-	test_init();
+	test_path_util_init();
 	test_local_path();
 	test_absolute_path_no_change();
 	test_travel_to_root();
