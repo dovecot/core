@@ -101,6 +101,11 @@ DISTCLEANFILES = \
 	$(top_builddir)/dovecot-config \
 	$(top_builddir)/run-test.sh
 
+check-local:
+	rm -rf $(top_builddir)/.test
+clean-local:
+	rm -rf $(top_builddir)/.test
+
 distcheck-hook:
 	if which scan-build > /dev/null; then \
 	  cd $(distdir)/_build; \

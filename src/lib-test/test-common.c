@@ -379,6 +379,8 @@ static void test_cleanup(void)
 	/* Perform any additional important cleanup specific to the test. */
 	if (test_cleanup_callback != NULL)
 		test_cleanup_callback();
+
+	test_dir_cleanup();
 }
 
 static void test_terminate(const siginfo_t *si, void *context ATTR_UNUSED)
@@ -456,6 +458,7 @@ static int test_deinit(void)
 	i_assert(test_prefix == NULL);
 	printf("%u / %u tests failed\n", failure_count, total_count);
 
+	test_dir_deinit();
 	test_subprocesses_deinit();
 
 	event_unref(&test_event);
@@ -469,6 +472,8 @@ static int test_deinit(void)
 
 void test_forked_deinit(void)
 {
+	test_dir_deinit_forked();
+
 	event_unref(&test_event);
 }
 

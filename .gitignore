@@ -53,6 +53,7 @@ auth-token-secret.dat
 /.cache
 /.dir-locals.el
 /.ropeproject
+/.test
 
 /aclocal.m4
 /m4/libtool.m4
