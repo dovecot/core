@@ -960,6 +960,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		}
 	}
 
+	test_init();
 	test_subprocesses_init(debug);
 
 	/* listen on localhost */
@@ -969,7 +970,6 @@ int main(int argc ATTR_UNUSED, char *argv[])
 
 	ret = test_run(test_functions);
 
-	test_subprocesses_deinit();
 	main_deinit();
 	lib_deinit();
 

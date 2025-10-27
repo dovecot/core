@@ -282,8 +282,6 @@ static void test_tmp_dir_init(void)
 	test_cleanup();
 	if (mkdir(tmpdir, 0700) < 0)
 		i_fatal("mkdir() failed: %m");
-
-	test_subprocesses_init(FALSE);
 }
 
 struct test_service_settings {
@@ -324,6 +322,7 @@ int main(int argc, char *argv[])
 
 	master_service_init_finish(master_service);
 	test_tmp_dir_init();
+	test_subprocesses_init(FALSE);
 
 	static void (*const test_functions[])(void) = {
 		test_imap_client_hibernate,
@@ -331,7 +330,6 @@ int main(int argc, char *argv[])
 	};
 	ret = test_run(test_functions);
 
-	test_subprocesses_deinit();
 	test_cleanup();
 	master_service_deinit(&master_service);
 	return ret;

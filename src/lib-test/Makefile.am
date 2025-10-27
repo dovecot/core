@@ -16,6 +16,7 @@ headers = \
 	fuzzer.h \
 	ostream-final-trickle.h \
 	test-common.h \
+	test-private.h \
 	test-subprocess.h
 
 pkginc_libdir=$(pkgincludedir)

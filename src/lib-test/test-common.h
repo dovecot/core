@@ -146,6 +146,8 @@ void test_out_quiet(const char *name, bool success);
 void test_out_reason_quiet(const char *name, bool success, const char *reason)
 	ATTR_NULL(3);
 
+void test_init(void);
+
 int test_run(void (*const test_functions[])(void)) ATTR_WARN_UNUSED_RESULT;
 struct named_test {
 	const char *name;
@@ -203,5 +205,9 @@ void test_exit(int status) ATTR_NORETURN;
 /* Create a temporary file, unlink it immediately and return the fd. The
    function handles failures by calling i_fatal(). */
 int test_create_temp_fd(void);
+
+/* Set a cleanup callback that is executed even when the test program crashes or
+   exit()s unexpectedly. Note that this may be run in signal context. */
+void test_set_cleanup_callback(void (*callback)(void));
 
 #endif

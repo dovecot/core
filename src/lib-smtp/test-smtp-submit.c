@@ -2189,6 +2189,8 @@ int main(int argc, char *argv[])
 	}
 
 	master_service_init_finish(master_service);
+
+	test_init();
 	test_subprocesses_init(debug);
 
 	/* listen on localhost */
@@ -2198,7 +2200,6 @@ int main(int argc, char *argv[])
 
 	ret = test_run(test_functions);
 
-	test_subprocesses_deinit();
 	main_deinit();
 	master_service_deinit(&master_service);
 
