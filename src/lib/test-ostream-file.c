@@ -68,23 +68,26 @@ static void test_ostream_file_send_istream_file(void)
 {
 	struct istream *input, *input2;
 	struct ostream *output;
+	const char *ipath, *opath;
 	char buf[10];
 	int fd;
 
 	test_begin("ostream file send istream file");
 
 	/* temp file istream */
-	fd = open(".temp.istream", O_RDWR | O_CREAT | O_TRUNC, 0600);
+	ipath = test_dir_prepend(".temp1.istream");
+	fd = open(ipath, O_RDWR | O_CREAT | O_TRUNC, 0600);
 	if (fd == -1)
-		i_fatal("creat(.temp.istream) failed: %m");
+		i_fatal("creat(%s) failed: %m", ipath);
 	test_assert(write(fd, "1234567890", 10) == 10);
 	test_assert(lseek(fd, 0, SEEK_SET) == 0);
 	input = i_stream_create_fd_autoclose(&fd, 1024);
 
 	/* temp file ostream */
-	fd = open(".temp.ostream", O_RDWR | O_CREAT | O_TRUNC, 0600);
+	opath = test_dir_prepend(".temp1.ostream");
+	fd = open(opath, O_RDWR | O_CREAT | O_TRUNC, 0600);
 	if (fd == -1)
-		i_fatal("creat(.temp.ostream) failed: %m");
+		i_fatal("creat(%s) failed: %m", opath);
 	output = o_stream_create_fd(fd, 0);
 
 	/* test that writing works between two files */
@@ -125,8 +128,8 @@ static void test_ostream_file_send_istream_file(void)
 	o_stream_destroy(&output);
 	i_close_fd(&fd);
 
-	i_unlink(".temp.istream");
-	i_unlink(".temp.ostream");
+	i_unlink(ipath);
+	i_unlink(opath);
 	test_end();
 }
 
@@ -134,15 +137,17 @@ static void test_ostream_file_send_istream_sendfile(void)
 {
 	struct istream *input, *input2;
 	struct ostream *output;
+	const char *path;
 	char buf[10];
 	int fd, sock_fd[2];
 
 	test_begin("ostream file send istream sendfile()");
 
 	/* temp file istream */
-	fd = open(".temp.istream", O_RDWR | O_CREAT | O_TRUNC, 0600);
+	path = test_dir_prepend(".temp2.istream");
+	fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0600);
 	if (fd == -1)
-		i_fatal("creat(.temp.istream) failed: %m");
+		i_fatal("creat(%s) failed: %m", path);
 	test_assert(write(fd, "abcdefghij", 10) == 10);
 	test_assert(lseek(fd, 0, SEEK_SET) == 0);
 	input = i_stream_create_fd_autoclose(&fd, 1024);
@@ -172,7 +177,7 @@ static void test_ostream_file_send_istream_sendfile(void)
 	o_stream_destroy(&output);
 	i_close_fd(&sock_fd[1]);
 
-	i_unlink(".temp.istream");
+	i_unlink(path);
 	test_end();
 }
 
@@ -180,9 +185,10 @@ static void test_ostream_file_send_over_iov_max(void)
 {
 	test_begin("ostream file send over IOV_MAX");
 
-	int fd = open(".temp.istream", O_RDWR | O_CREAT | O_TRUNC, 0600);
+	const char *path = test_dir_prepend(".temp3.istream");
+	int fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0600);
 	if (fd == -1)
-		i_fatal("creat(.temp.istream) failed: %m");
+		i_fatal("creat(%s) failed: %m", path);
 	struct ostream *output = o_stream_create_fd(fd, 0);
 
 	struct const_iovec iov[IOV_MAX*3];
@@ -204,7 +210,7 @@ static void test_ostream_file_send_over_iov_max(void)
 	test_assert(memcmp(input, readbuf, sizeof(input)) == 0);
 	i_close_fd(&fd);
 
-	i_unlink(".temp.istream");
+	i_unlink(path);
 	test_end();
 }
 
