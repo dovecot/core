@@ -47,7 +47,8 @@ static int test_file_create_locked_basic_child(void *context ATTR_UNUSED)
 			.lock_method = FILE_LOCK_METHOD_FCNTL,
 		},
 	};
-	const char *path = ".test-file-create-locked";
+	const char *path = test_dir_prepend("file-create-locked");
+	const char *tmp_path = test_dir_prepend("temp-file-create-locked-child");
 	struct file_lock *lock = NULL;
 	const char *error;
 	bool created;
@@ -59,7 +60,7 @@ static int test_file_create_locked_basic_child(void *context ATTR_UNUSED)
 	test_assert(created);
 	if (test_has_failed())
 	       return 1;
-	create_file(".test-temp-file-create-locked-child");
+	create_file(tmp_path);
 	i_sleep_intr_secs(60);
 	if (lock != NULL)
 		file_unlock(&lock);
@@ -75,7 +76,8 @@ static void test_file_create_locked_basic(void)
 			.lock_method = FILE_LOCK_METHOD_FCNTL,
 		},
 	};
-	const char *path = ".test-file-create-locked";
+	const char *path = test_dir_prepend("file-create-locked");
+	const char *tmp_path = test_dir_prepend("temp-file-create-locked-child");
 	struct file_lock *lock = NULL;
 	const char *error;
 	pid_t pid;
@@ -84,12 +86,12 @@ static void test_file_create_locked_basic(void)
 	test_begin("file_create_locked()");
 
 	i_unlink_if_exists(path);
-	i_unlink_if_exists(".test-temp-file-create-locked-child");
+	i_unlink_if_exists(tmp_path);
 	pid = test_subprocess_fork(test_file_create_locked_basic_child, NULL,
 				   TRUE);
 
 	/* parent */
-	test_assert(wait_for_file(pid, ".test-temp-file-create-locked-child"));
+	test_assert(wait_for_file(pid, tmp_path));
 	if (!test_has_failed()) {
 		test_assert(file_create_locked(path, &set,
 					       &lock, &created, &error) == -1);
@@ -98,7 +100,7 @@ static void test_file_create_locked_basic(void)
 			file_unlock(&lock);
 	}
 	test_subprocess_kill_all(20);
-	i_unlink_if_exists(".test-temp-file-create-locked-child");
+	i_unlink_if_exists(tmp_path);
 	i_unlink_if_exists(path);
 	test_end();
 }
@@ -119,13 +121,12 @@ static void test_file_create_locked_mkdir(void)
 
 	test_begin("file_create_locked() with mkdir");
 
-	dir = ".test-temp-file-create-locked-dir";
-	if (unlink_directory(dir, UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0)
-		i_fatal("unlink_directory(%s) failed: %s", dir, error);
+	dir = test_dir_prepend("temp-file-create-locked-dir");
 	path = t_strconcat(dir, "/lockfile", NULL);
 
 	/* try without mkdir enabled */
-	test_assert(file_create_locked(path, &set, &lock, &created, &error) == -1);
+	test_assert(file_create_locked(path, &set,
+				       &lock, &created, &error) == -1);
 	test_assert(errno == ENOENT);
 
 	/* try with mkdir enabled */
