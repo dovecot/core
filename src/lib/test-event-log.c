@@ -45,7 +45,7 @@ struct test_log {
 	enum test_log_flag flags;
 };
 
-static const char *temp_log_file = ".temp.log_file";
+static char *temp_log_file = NULL;
 
 static const char *
 test_event_log_prefix_cb(char *prefix)
@@ -63,6 +63,7 @@ test_event_log_message_cb(char *prefix,
 
 static int temp_log_file_init(void)
 {
+	temp_log_file = i_strconcat(test_dir_get_prefix(), "event.log", NULL);
 	int log_fd = open(temp_log_file, O_CREAT | O_TRUNC | O_RDWR, 0600);
 	if (log_fd == -1)
 		i_fatal("open(%s) failed: %m", temp_log_file);
@@ -2518,4 +2519,5 @@ void test_event_log(void)
 	i_set_error_handler(orig_error);
 	i_close_fd(&log_fd);
 	i_unlink(temp_log_file);
+	i_free(temp_log_file);
 }
