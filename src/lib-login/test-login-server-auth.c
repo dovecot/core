@@ -983,8 +983,9 @@ int main(int argc, char *argv[])
 	master_service_init_finish(master_service);
 
 	test_init();
+	event_set_forced_debug(test_event, debug);
 	test_set_cleanup_callback(main_cleanup);
-	test_subprocesses_init(debug);
+	test_subprocesses_init();
 
 	ret = test_run(test_functions);
 

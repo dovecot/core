@@ -55,13 +55,14 @@ typedef void (*test_dns_init_t)(void);
  */
 
 /* common */
+static struct event *common_event;
 static struct ip_addr bind_ip;
 static in_port_t *bind_ports = 0;
 static struct ioloop *ioloop;
 static bool debug = FALSE;
-static struct event *test_event;
 
 /* server */
+static struct event *server_event, *dns_event;
 static struct io *io_listen;
 static int fd_listen = -1;
 static struct connection_list *server_conn_list;
@@ -73,6 +74,7 @@ static void (*test_server_deinit)(struct server_connection *conn);
 static void (*test_server_input)(struct server_connection *conn);
 
 /* client */
+static struct event *client_event;
 static struct timeout *to_client_progress = NULL;
 
 /*
@@ -112,7 +114,7 @@ test_dns_simple_post_input(struct server_connection *conn)
 	while ((line = i_stream_read_next_line(conn->conn.input)) != NULL) {
 		if (str_begins_with(line, "VERSION"))
 			continue;
-		e_debug(test_event, "DNS REQUEST: %s", line);
+		e_debug(dns_event, "DNS REQUEST: %s", line);
 
 		if (strcmp(line, "IP\thosta") == 0) {
 			o_stream_nsend_str(conn->conn.output,
@@ -264,7 +266,7 @@ test_client_simple_post_run_post(struct dlua_script *script, const char *url)
 	if (lua_isinteger(script->L, -1)) {
 		ret = lua_tointeger(script->L, -1);
 		/* not guaranteed to fail, but it will happen often */
-		e_debug(test_event, "http_request_post() returned %d", ret);
+		e_debug(client_event, "http_request_post() returned %d", ret);
 		test_assert(ret == 0);
 	}
 
@@ -277,12 +279,12 @@ static bool test_client_simple_post(void)
 	struct dlua_script *script;
 	const char *error;
 
-	if (event_want_debug(test_event))
+	if (event_want_debug(client_event))
 		test_expect_errors(4);
 
 	if (dlua_script_create_file(
 		TEST_LUA_SCRIPT_DIR "/test-lua-http-client.lua",
-		&script, test_event, &error) < 0)
+		&script, client_event, &error) < 0)
 		i_fatal("dlua_script_create_file() failed: %s", error);
 
 	dlua_dovecot_register(script);
@@ -311,12 +313,12 @@ static bool test_client_second_post(void)
 	struct dlua_script *script;
 	const char *error;
 
-	if (event_want_debug(test_event))
+	if (event_want_debug(client_event))
 		test_expect_errors(4);
 
 	if (dlua_script_create_file(
 		TEST_LUA_SCRIPT_DIR "/test-lua-http-client.lua",
-		&script, test_event, &error) < 0)
+		&script, client_event, &error) < 0)
 		i_fatal("dlua_script_create_file() failed: %s", error);
 
 	dlua_dovecot_register(script);
@@ -384,12 +386,12 @@ static void test_bad_settings(void)
 
 	test_begin("bad settings");
 
-	if (event_want_debug(test_event))
+	if (event_want_debug(common_event))
 		test_expect_errors(4);
 
 	if (dlua_script_create_file(
 		TEST_LUA_SCRIPT_DIR "/test-lua-http-client.lua",
-		&script, test_event, &error) < 0)
+		&script, common_event, &error) < 0)
 		i_fatal("dlua_script_create_file() failed: %s", error);
 
 	dlua_dovecot_register(script);
@@ -634,7 +636,7 @@ static int test_open_server_fd(in_port_t *bind_port)
 {
 	int fd = net_listen(&bind_ip, bind_port, 128);
 
-	e_debug(test_event, "server listening on %u", *bind_port);
+	e_debug(common_event, "server listening on %u", *bind_port);
 	if (fd == -1) {
 		i_fatal("listen(%s:%u) failed: %m",
 			net_ip2addr(&bind_ip), *bind_port);
@@ -646,7 +648,7 @@ static int test_run_server(struct test_server_data *data)
 {
 	i_set_failure_prefix("SERVER[%u]: ", data->index + 1);
 
-	e_debug(test_event, "PID=%s", my_pid);
+	e_debug(server_event, "PID=%s", my_pid);
 
 	server_ssl_ctx = NULL;
 
@@ -655,11 +657,10 @@ static int test_run_server(struct test_server_data *data)
 	data->server_test(data->index);
 	io_loop_destroy(&ioloop);
 
-	e_debug(test_event, "Terminated");
+	e_debug(server_event, "Terminated");
 
 	i_close_fd(&fd_listen);
 	i_free(bind_ports);
-	event_unref(&test_event);
 	main_deinit();
 	master_service_deinit_forked(&master_service);
 	return 0;
@@ -671,18 +672,17 @@ static int test_run_dns(test_dns_init_t dns_test)
 
 	i_set_failure_prefix("DNS: ");
 
-	e_debug(test_event, "PID=%s", my_pid);
+	e_debug(dns_event, "PID=%s", my_pid);
 
 	test_subprocess_notify_signal_send_parent(SIGHUP);
 	ioloop = io_loop_create();
 	dns_test();
 	io_loop_destroy(&ioloop);
 
-	e_debug(test_event, "Terminated");
+	e_debug(dns_event, "Terminated");
 
 	i_close_fd(&fd_listen);
 	i_free(bind_ports);
-	event_unref(&test_event);
 	main_deinit();
 	master_service_deinit_forked(&master_service);
 	return 0;
@@ -692,13 +692,13 @@ static void test_run_client(test_client_init_t client_test)
 {
 	i_set_failure_prefix("CLIENT: ");
 
-	e_debug(test_event, "PID=%s", my_pid);
+	e_debug(client_event, "PID=%s", my_pid);
 
 	ioloop = io_loop_create();
 	test_client_run(client_test);
 	io_loop_destroy(&ioloop);
 
-	e_debug(test_event, "Terminated");
+	e_debug(client_event, "Terminated");
 }
 
 static void
@@ -773,12 +773,25 @@ test_run_client_server(test_client_init_t client_test,
 static void main_init(void)
 {
 	ssl_iostream_openssl_init();
+
+	common_event = test_event;
+	client_event = event_create(common_event);
+	event_set_append_log_prefix(client_event, "test client: ");
+	server_event = event_create(common_event);
+	event_set_append_log_prefix(server_event, "test server: ");
+	dns_event = event_create(common_event);
+	event_set_append_log_prefix(dns_event, "test dns: ");
 }
 
 static void main_deinit(void)
 {
 	ssl_iostream_context_cache_free();
 	ssl_iostream_openssl_deinit();
+
+	event_unref(&client_event);
+	event_unref(&server_event);
+	event_unref(&dns_event);
+	common_event = NULL;
 }
 
 int main(int argc, char *argv[])
@@ -809,24 +822,19 @@ int main(int argc, char *argv[])
 	if (master_service_settings_read_simple(master_service, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
-	main_init();
-
 	master_service_init_finish(master_service);
 
 	test_init();
-	test_subprocesses_init(debug);
+	event_set_forced_debug(test_event, debug);
+	test_subprocesses_init();
+	main_init();
 
 	/* listen on localhost */
 	i_zero(&bind_ip);
 	bind_ip.family = AF_INET;
 	bind_ip.u.ip4.s_addr = htonl(INADDR_LOOPBACK);
 
-	test_event = event_create(NULL);
-	event_set_forced_debug(test_event, debug);
-
 	ret = test_run(test_functions);
-
-	event_unref(&test_event);
 
 	main_deinit();
 	master_service_deinit(&master_service);

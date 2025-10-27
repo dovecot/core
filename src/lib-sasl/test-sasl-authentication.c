@@ -62,8 +62,6 @@ struct test_sasl_context {
 	bool finished:1;
 };
 
-struct event *test_event;
-
 static void
 test_create_channel_binding_data(struct test_sasl_context *tctx, const char *type)
 {
@@ -1602,7 +1600,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	test_event = event_create(NULL);
+	test_init();
 	event_set_forced_debug(test_event, debug);
 	password_schemes_init();
 	dsasl_clients_init();
@@ -1617,7 +1615,6 @@ int main(int argc, char *argv[])
 
 	dsasl_clients_deinit();
 	password_schemes_deinit();
-	event_unref(&test_event);
 	lib_signals_deinit();
 	lib_deinit();
 	return ret;

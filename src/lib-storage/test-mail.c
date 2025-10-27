@@ -7,8 +7,6 @@
 #include "message-size.h"
 #include "test-mail-storage-common.h"
 
-static struct event *test_event;
-
 static int
 test_mail_save_trans(struct mailbox_transaction_context *trans,
 		     struct istream *input)
@@ -748,11 +746,9 @@ int main(int argc, char **argv)
 					     MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME,
 					     &argc, &argv, "");
 
-	test_event = event_create(NULL);
 	if (null_strcmp(argv[1], "-D") == 0)
 		event_set_forced_debug(test_event, TRUE);
 	ret = test_run(tests);
-	event_unref(&test_event);
 	master_service_deinit(&master_service);
 	return ret;
 }

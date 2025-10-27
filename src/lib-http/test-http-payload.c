@@ -38,7 +38,7 @@ enum payload_handling {
 };
 
 static bool debug = FALSE;
-static struct event *test_event, *client_event, *server_event;
+static struct event *common_event, *client_event, *server_event;
 static bool small_socket_buffers = FALSE;
 static const char *failure = NULL;
 static struct timeout *to_continue = NULL;
@@ -141,7 +141,7 @@ static void test_files_read_dir(const char *path)
 
 	/* Close the directory */
 	if (closedir(dirp) < 0)
-		e_error(test_event, "test files: "
+		e_error(common_event, "test files: "
 			"failed to close directory %s: %m", path);
 }
 
@@ -174,7 +174,7 @@ test_file_open(const char *path, unsigned int *status_r, const char **reason_r)
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0) {
-		e_debug(test_event, "test files: open(%s) failed: %m", path);
+		e_debug(common_event, "test files: open(%s) failed: %m", path);
 
 		switch (errno) {
 		case EFAULT:
@@ -1693,7 +1693,7 @@ static int test_run_server(struct test_server_data *data)
 
 	i_set_failure_prefix("SERVER: ");
 
-	e_debug(test_event, "PID=%s", my_pid);
+	e_debug(common_event, "PID=%s", my_pid);
 
 	ioloop_nested = NULL;
 	ioloop_nested_depth = 0;
@@ -1703,7 +1703,7 @@ static int test_run_server(struct test_server_data *data)
 	test_server_deinit();
 	io_loop_destroy(&ioloop);
 
-	e_debug(test_event, "Terminated");
+	e_debug(common_event, "Terminated");
 
 	i_close_fd(&fd_listen);
 	test_files_deinit();
@@ -1722,7 +1722,7 @@ test_run_client(
 
 	i_set_failure_prefix("CLIENT: ");
 
-	e_debug(test_event, "PID=%s", my_pid);
+	e_debug(common_event, "PID=%s", my_pid);
 
 	ioloop_nested = NULL;
 	ioloop_nested_depth = 0;
@@ -1733,7 +1733,7 @@ test_run_client(
 	test_client_deinit();
 	io_loop_destroy(&ioloop);
 
-	e_debug(test_event, "Terminated");
+	e_debug(common_event, "Terminated");
 }
 
 static void
@@ -2435,12 +2435,11 @@ static void (*const test_functions[])(void) = {
 static void main_init(void)
 {
 	ssl_iostream_openssl_init();
-	test_event = event_create(NULL);
-	client_event = event_create(test_event);
+	common_event = test_event;
+	client_event = event_create(common_event);
 	event_set_append_log_prefix(client_event, "test client: ");
-	server_event = event_create(test_event);
+	server_event = event_create(common_event);
 	event_set_append_log_prefix(server_event, "test server: ");
-	event_set_forced_debug(server_event, debug);
 }
 
 static void main_deinit(void)
@@ -2449,7 +2448,7 @@ static void main_deinit(void)
 	ssl_iostream_openssl_deinit();
 	event_unref(&client_event);
 	event_unref(&server_event);
-	event_unref(&test_event);
+	common_event = NULL;
 }
 
 int main(int argc, char *argv[])
@@ -2458,15 +2457,11 @@ int main(int argc, char *argv[])
 	int ret;
 
 	lib_init();
-	main_init();
 
 	while ((c = getopt(argc, argv, "DS")) > 0) {
 		switch (c) {
 		case 'D':
 			debug = TRUE;
-			event_set_forced_debug(test_event, TRUE);
-			event_set_forced_debug(client_event, TRUE);
-			event_set_forced_debug(server_event, TRUE);
 			break;
 		case 'S':
 			small_socket_buffers = TRUE;
@@ -2477,7 +2472,9 @@ int main(int argc, char *argv[])
 	}
 
 	test_init();
-	test_subprocesses_init(debug);
+	event_set_forced_debug(test_event, debug);
+	test_subprocesses_init();
+	main_init();
 
 	/* listen on localhost */
 	i_zero(&bind_ip);

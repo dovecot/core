@@ -42,6 +42,6 @@ void test_subprocess_notify_signal_reset(int signo);
    If the timeout is reached, i_fatal() is called. */
 void test_subprocess_notify_signal_wait(int signo, unsigned int timeout_msecs);
 
-void test_subprocesses_init(bool debug);
+void test_subprocesses_init(void);
 
 #endif

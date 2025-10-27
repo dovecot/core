@@ -22,6 +22,8 @@ static jmp_buf fatal_jmpbuf;
 
 #define OUT_NAME_ALIGN 70
 
+struct event *test_event = NULL;
+
 static char *test_prefix;
 static bool test_success;
 static bool test_running;
@@ -405,7 +407,7 @@ static void test_atexit(void)
 	test_cleanup();
 }
 
-void test_init(void)
+void test_init_no_event(void)
 {
 	if (test_initialized)
 		return;
@@ -423,6 +425,16 @@ void test_init(void)
 
 	i_set_error_handler(test_error_handler);
 	/* Don't set fatal handler until actually needed for fatal testing */
+}
+
+void test_init(void)
+{
+	if (test_initialized)
+		return;
+
+	test_init_no_event();
+	test_event = event_create(NULL);
+	event_set_append_log_prefix(test_event, "test: ");
 }
 
 void test_init_signals(void)
@@ -446,11 +458,18 @@ static int test_deinit(void)
 
 	test_subprocesses_deinit();
 
+	event_unref(&test_event);
+
 	if (test_deinit_lib)
 		lib_deinit();
 	if (test_deinit_lib_signals)
 		lib_signals_deinit();
 	return failure_count == 0 ? 0 : 1;
+}
+
+void test_forked_deinit(void)
+{
+	event_unref(&test_event);
 }
 
 static void test_run_funcs(void (*const test_functions[])(void))
@@ -568,6 +587,8 @@ int test_run_named_with_fatals(const char *match, const struct named_test tests[
 
 void test_forked_end(void)
 {
+	test_forked_deinit();
+
 	i_set_error_handler(default_error_handler);
 	i_set_fatal_handler(default_fatal_handler);
 
@@ -581,6 +602,8 @@ void test_forked_end(void)
 void ATTR_NORETURN
 test_exit(int status)
 {
+	test_forked_deinit();
+
 	i_free_and_null(expected_error_str);
 	i_free_and_null(expected_fatal_str);
 	i_free_and_null(test_prefix);

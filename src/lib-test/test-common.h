@@ -8,6 +8,8 @@
 #  define ON_VALGRIND FALSE
 #endif
 
+extern struct event *test_event;
+
 struct istream *test_istream_create(const char *data);
 struct istream *test_istream_create_data(const void *data, size_t size);
 void test_istream_set_size(struct istream *input, uoff_t size);
@@ -147,6 +149,8 @@ void test_out_reason_quiet(const char *name, bool success, const char *reason)
 	ATTR_NULL(3);
 
 void test_init(void);
+void test_init_no_event(void);
+void test_forked_deinit(void);
 
 int test_run(void (*const test_functions[])(void)) ATTR_WARN_UNUSED_RESULT;
 struct named_test {

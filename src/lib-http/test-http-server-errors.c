@@ -1027,7 +1027,8 @@ int main(int argc, char *argv[])
 	}
 
 	test_init();
-	test_subprocesses_init(debug);
+	event_set_forced_debug(test_event, debug);
+	test_subprocesses_init();
 
 	/* listen on localhost */
 	i_zero(&bind_ip);

@@ -322,7 +322,7 @@ int main(int argc, char *argv[])
 
 	master_service_init_finish(master_service);
 	test_tmp_dir_init();
-	test_subprocesses_init(FALSE);
+	test_subprocesses_init();
 
 	static void (*const test_functions[])(void) = {
 		test_imap_client_hibernate,

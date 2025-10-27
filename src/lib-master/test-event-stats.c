@@ -564,6 +564,7 @@ int main(void)
 	int ret;
 	i_set_info_handler(test_fail_callback);
 	lib_init();
+	test_init_no_event();
 	ret = run_tests();
 	lib_deinit();
 	return ret;

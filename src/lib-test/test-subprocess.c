@@ -21,7 +21,6 @@ struct test_subprocess {
 
 volatile sig_atomic_t test_subprocess_child_mark = 0;
 static volatile bool test_subprocess_notification_signal_received[SIGUSR1 + 1];
-static struct event *test_subprocess_event = NULL;
 static ARRAY(struct test_subprocess *) test_subprocesses = ARRAY_INIT;
 static void
 test_subprocess_notification_signal(const siginfo_t *si, void *context);
@@ -75,7 +74,7 @@ test_subprocess_child(int (*func)(void *context), void *context,
 	/* Prevent race condition */
 	lib_signals_clear_handlers_and_ignore(SIGTERM);
 
-	event_unref(&test_subprocess_event);
+	test_forked_deinit();
 	lib_signals_deinit();
 
 	if (!continue_test) {
@@ -125,20 +124,20 @@ static void test_subprocess_verify_exit_status(int status)
 		       WIFEXITED(status) && WEXITSTATUS(status) == 0);
 	if (WIFEXITED(status)) {
 		if (WEXITSTATUS(status) != 0) {
-			e_warning(test_subprocess_event,
+			e_warning(test_event,
 				  "Sub-process exited with status %d",
 				  WEXITSTATUS(status));
 		}
 	} else if (WIFSIGNALED(status)) {
-		e_warning(test_subprocess_event,
+		e_warning(test_event,
 			  "Sub-process forcibly terminated with signal %d",
 		          WTERMSIG(status));
 	} else if (WIFSTOPPED(status)) {
-		e_warning(test_subprocess_event,
+		e_warning(test_event,
 			  "Sub-process stopped with signal %d",
 			  WSTOPSIG(status));
 	} else {
-		e_warning(test_subprocess_event,
+		e_warning(test_event,
 			  "Sub-process terminated abnormally with status %d",
 			  status);
 	}
@@ -193,7 +192,7 @@ test_subprocess_wait_for_children(unsigned int timeout_secs,
 		test_assert(wret > 0 || errno == ECHILD);
 		if (wret < 0) {
 			if (errno == EINTR) {
-				e_warning(test_subprocess_event,
+				e_warning(test_event,
 					  "Wait for sub-processes timed out");
 				break;
 			}
@@ -210,7 +209,7 @@ test_subprocess_wait_for_children(unsigned int timeout_secs,
 				i_assert(subps_left == 0);
 				break;
 			}
-			e_warning(test_subprocess_event,
+			e_warning(test_event,
 				  "Wait for sub-processes failed: %m");
 			break;
 		}
@@ -219,7 +218,7 @@ test_subprocess_wait_for_children(unsigned int timeout_secs,
 		for (i = 0; i < subps_count; i++) {
 			if (subps[i] == NULL || subps[i]->pid != wret)
 				continue;
-			e_debug(test_subprocess_event,
+			e_debug(test_event,
 				"Terminated sub-process [%u]", i);
 			i_free(subps[i]);
 			subps_left--;
@@ -248,10 +247,10 @@ void test_subprocess_kill_all(unsigned int timeout_secs)
 		if (subps[i] == NULL || subps[i]->pid == (pid_t)-1)
 			continue;
 
-		e_debug(test_subprocess_event,
+		e_debug(test_event,
 			"Terminating sub-process [%u]", i);
 		if (kill(subps[i]->pid, SIGTERM) < 0) {
-			e_error(test_subprocess_event,
+			e_error(test_event,
 				"Failed to kill sub-process [%u] with SIGTERM: "
 				"%m", i);
 		}
@@ -264,8 +263,7 @@ void test_subprocess_kill_all(unsigned int timeout_secs)
 	for (i = 0; i < subps_count; i++) {
 		if (subps[i] == NULL || subps[i]->pid == (pid_t)-1)
 			continue;
-		e_warning(test_subprocess_event,
-			  "Forcibly killed sub-process [%u]", i);
+		e_warning(test_event, "Forcibly killed sub-process [%u]", i);
 		test_subprocess_kill_forced(subps[i]);
 		i_assert(subps_left > 0);
 		i_free(subps[i]);
@@ -381,7 +379,7 @@ test_subprocess_notification_signal(const siginfo_t *si,
 	test_subprocess_notification_signal_received[signo] = TRUE;
 }
 
-void test_subprocesses_init(bool debug)
+void test_subprocesses_init(void)
 {
 	test_init();
 	test_init_signals();
@@ -392,10 +390,6 @@ void test_subprocesses_init(bool debug)
 	lib_signals_set_handler(SIGALRM, 0, test_subprocess_alarm, NULL);
 
 	i_array_init(&test_subprocesses, 8);
-
-	test_subprocess_event = event_create(NULL);
-	event_set_forced_debug(test_subprocess_event, debug);
-	event_set_append_log_prefix(test_subprocess_event, "test: ");
 }
 
 void test_subprocesses_deinit(void)
@@ -403,6 +397,4 @@ void test_subprocesses_deinit(void)
 	test_subprocess_cleanup();
 	test_subprocess_free_all();
 	array_free(&test_subprocesses);
-
-	event_unref(&test_subprocess_event);
 }
