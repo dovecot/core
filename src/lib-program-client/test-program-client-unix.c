@@ -79,6 +79,7 @@ static void test_program_client_destroy(struct test_client **_client)
 static int
 test_program_input_handle(struct test_client *client, const char *line)
 {
+	const char *tmp_prefix = test_dir_prepend("program-client-unix.");
 	int cmp = -1;
 	const char *arg;
 
@@ -113,7 +114,7 @@ test_program_input_handle(struct test_client *client, const char *line)
 	case CLIENT_STATE_BODY:
 		if (client->os_body == NULL) {
 			client->os_body = iostream_temp_create_named(
-				".dovecot.test.", 0, "test_program_input body");
+				tmp_prefix, 0, "test_program_input body");
 		}
 		switch (o_stream_send_istream(client->os_body, client->in)) {
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
@@ -495,6 +496,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	test_dir_init("program-client-unix");
 	ret = test_run(tests);
 
 	event_unref(&event);
