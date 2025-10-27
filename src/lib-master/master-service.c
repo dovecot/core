@@ -1228,11 +1228,20 @@ static void master_service_start_accepted_fd(struct master_service *service)
 void master_service_run(struct master_service *service,
 			master_service_connection_callback_t *callback)
 {
+	bool run = TRUE;
+
 	service->callback = callback;
 	if (service->accepted_listener_fd != -1) T_BEGIN {
+		/* Mark the ioloop as running, so we'll catch if
+		   master_service_stop() -> io_loop_stop() is called.
+		   If it is (e.g. due to restart_request_count=1) we don't
+		   want to continue to io_loop_run() anymore. */
+		io_loop_set_running(service->ioloop);
 		master_service_start_accepted_fd(service);
+		run = io_loop_is_running(service->ioloop);
 	} T_END;
-	io_loop_run(service->ioloop);
+	if (run)
+		io_loop_run(service->ioloop);
 	service->callback = NULL;
 }
 
