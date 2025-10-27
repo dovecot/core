@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
-#define TEMP_DIRNAME ".test-path-util"
+#define TEMP_DIRNAME "path-util"
 
 static const char *tmpdir;
 static const char *cwd;
@@ -243,8 +243,7 @@ static void test_cleanup(void)
 
 static void test_path_util_init(void)
 {
-	const char *error;
-	test_assert(t_get_working_dir(&cwd, &error) == 0);
+	cwd = test_dir_get();
 	tmpdir = t_strconcat(cwd, "/"TEMP_DIRNAME, NULL);
 
 	test_cleanup();
