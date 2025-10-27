@@ -155,7 +155,7 @@ test_subprocess_wait_for_children(unsigned int timeout_secs,
 	struct test_subprocess **subps;
 	unsigned int subps_count, subps_left, i;
 	time_t deadline;
-	
+
 	subps = array_get_modifiable(&test_subprocesses, &subps_count);
 	subps_left = 0;
 	for (i = 0; i < subps_count; i++) {
@@ -168,15 +168,15 @@ test_subprocess_wait_for_children(unsigned int timeout_secs,
 		*subps_left_r = subps_left;
 		return;
 	}
-	
+
 	i_gettimeofday(&tv_now);
 	deadline = tv_now.tv_sec + timeout_secs;
-			
+
 	while (subps_left > 0) {
 		i_gettimeofday(&tv_now);
 		if (tv_now.tv_sec >= deadline)
 			break;
-		
+
 		unsigned int timeout_left = deadline - tv_now.tv_sec;
 		int status;
 		pid_t wret = (pid_t)-1;
@@ -192,7 +192,7 @@ test_subprocess_wait_for_children(unsigned int timeout_secs,
 				e_warning(test_subprocess_event,
 					  "Wait for sub-processes timed out");
 				break;
-			}			
+			}
 			if (errno == ECHILD) {
 				/* No more children apparently */
 				for (i = 0; i < subps_count; i++) {
@@ -221,14 +221,14 @@ test_subprocess_wait_for_children(unsigned int timeout_secs,
 			subps_left--;
 		}
 	}
-	
+
 	*subps_left_r = subps_left;
 }
 
 void test_subprocess_wait_all(unsigned int timeout_secs)
 {
 	unsigned int subps_left ATTR_UNUSED;
-	
+
 	test_subprocess_wait_for_children(timeout_secs, &subps_left);
 }
 
