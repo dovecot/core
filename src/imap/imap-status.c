@@ -34,6 +34,8 @@ int imap_status_parse_items(struct client_command_context *cmd,
 			 ((client_enabled_mailbox_features(cmd->client) &
 			   MAILBOX_FEATURE_IMAP4REV2) == 0))
 			flags |= IMAP_STATUS_ITEM_RECENT;
+		else if (strcmp(item, "DELETED") == 0)
+			flags |= IMAP_STATUS_ITEM_DELETED;
 		else if (strcmp(item, "UIDNEXT") == 0)
 			flags |= IMAP_STATUS_ITEM_UIDNEXT;
 		else if (strcmp(item, "UIDVALIDITY") == 0)
@@ -71,6 +73,8 @@ int imap_status_get_result(struct client *client, struct mailbox *box,
 		status |= STATUS_MESSAGES;
 	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_RECENT))
 		status |= STATUS_RECENT;
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_DELETED))
+		status |= STATUS_DELETED;
 	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_UIDNEXT))
 		status |= STATUS_UIDNEXT;
 	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_UIDVALIDITY))
@@ -143,6 +147,8 @@ int imap_status_send(struct client *client, const char *mailbox_mutf7,
 	if ((client_enabled_mailbox_features(client) & MAILBOX_FEATURE_IMAP4REV2) == 0 &&
 	    HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_RECENT))
 		str_printfa(str, "RECENT %u ", status->recent);
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_DELETED))
+		str_printfa(str, "DELETED %u ", status->deleted);
 	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_UIDNEXT))
 		str_printfa(str, "UIDNEXT %u ", status->uidnext);
 	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_UIDVALIDITY))
