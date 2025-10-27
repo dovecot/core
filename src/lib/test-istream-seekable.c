@@ -11,18 +11,21 @@
 #include <unistd.h>
 
 static int fd_callback_fd = -1;
+static char *fd_callback_path = NULL;
 
 static int fd_callback(const char **path_r, void *context ATTR_UNUSED)
 {
 	int fd;
 
-	*path_r = "test-lib.tmp";
-	fd = open(*path_r, O_RDWR | O_CREAT | O_TRUNC, 0600);
+	i_free(fd_callback_path);
+	fd_callback_path = i_strconcat(test_dir_get(), "/istream_seekable", NULL);
+	fd = open(fd_callback_path, O_RDWR | O_CREAT | O_TRUNC, 0600);
 	if (fd == -1)
-		i_error("creat(%s) failed: %m", *path_r);
+		i_error("creat(%s) failed: %m", fd_callback_path);
 	else
-		i_unlink(*path_r);
+		i_unlink(fd_callback_path);
 	fd_callback_fd = fd;
+	*path_r = fd_callback_path;
 	return fd;
 }
 
@@ -257,7 +260,11 @@ static void test_istream_seekable_failed_writes(void)
 
 	test_assert(i_stream_read(input) == -1);
 	test_assert(input->stream_errno == EBADF);
-	test_assert_strcmp(i_stream_get_error(input), "istream-seekable: write(test-lib.tmp) failed: Bad file descriptor, and attempt to read() it back failed: Bad file descriptor");
+	const char *error = t_strdup_printf(
+		"istream-seekable: write(%s) failed: "
+		"Bad file descriptor, and attempt to read() it back failed: "
+		"Bad file descriptor", fd_callback_path);
+	test_assert_strcmp(i_stream_get_error(input), error);
 
 	test_expect_error_string("file_istream.close((seekable temp-istream for: test seekable)) failed: Bad file descriptor");
 	i_stream_unref(&input);
@@ -287,4 +294,6 @@ void test_istream_seekable(void)
 	test_istream_seekable_invalid_read();
 	test_istream_seekable_get_size();
 	test_istream_seekable_failed_writes();
+
+	i_free(fd_callback_path);
 }
