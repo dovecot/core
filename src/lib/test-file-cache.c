@@ -13,21 +13,23 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#define TEST_FILENAME ".test_file_cache"
+#define TEST_FILENAME "file_cache"
 
 static void test_file_cache_read(void)
 {
+	const char *test_path = test_dir_prepend(TEST_FILENAME);
+
 	test_begin("file_cache_read");
 
 	/* create a file */
-	struct ostream *os = o_stream_create_file(TEST_FILENAME, 0, 0600, 0);
+	struct ostream *os = o_stream_create_file(test_path, 0, 0600, 0);
 	o_stream_nsend_str(os, "initial data\n");
 	test_assert(o_stream_finish(os) == 1);
 	o_stream_destroy(&os);
 
-	int fd = open(TEST_FILENAME, O_RDONLY);
+	int fd = open(test_path, O_RDONLY);
 	i_assert(fd > -1);
-	struct file_cache *cache = file_cache_new_path(fd, TEST_FILENAME);
+	struct file_cache *cache = file_cache_new_path(fd, test_path);
 
 	/* this should be 0 before read */
 	size_t size;
@@ -42,24 +44,26 @@ static void test_file_cache_read(void)
 
 	file_cache_free(&cache);
 	i_close_fd(&fd);
-	i_unlink(TEST_FILENAME);
+	i_unlink(test_path);
 
 	test_end();
 }
 
 static void test_file_cache_write_read(void)
 {
+	const char *test_path = test_dir_prepend(TEST_FILENAME);
+
 	test_begin("file_cache_write_read");
 
 	/* create a file */
-	struct ostream *os = o_stream_create_file(TEST_FILENAME, 0, 0600, 0);
+	struct ostream *os = o_stream_create_file(test_path, 0, 0600, 0);
 	o_stream_nsend_str(os, "initial data\n");
 	test_assert(o_stream_finish(os) == 1);
 	o_stream_destroy(&os);
 
-	int fd = open(TEST_FILENAME, O_RDONLY);
+	int fd = open(test_path, O_RDONLY);
 	i_assert(fd > -1);
-	struct file_cache *cache = file_cache_new_path(fd, TEST_FILENAME);
+	struct file_cache *cache = file_cache_new_path(fd, test_path);
 
 	/* this should be 0 before read */
 	size_t size;
@@ -74,29 +78,31 @@ static void test_file_cache_write_read(void)
 	file_cache_free(&cache);
 	i_close_fd(&fd);
 
-	struct istream *is = i_stream_create_file(TEST_FILENAME, SIZE_MAX);
+	struct istream *is = i_stream_create_file(test_path, SIZE_MAX);
 	const unsigned char *data;
 	test_assert(i_stream_read_more(is, &data, &size) > 0 && size == 13);
 	test_assert(map != NULL && size == 13 && memcmp(data, "initial data\n", 13) == 0);
 	i_stream_destroy(&is);
-	i_unlink(TEST_FILENAME);
+	i_unlink(test_path);
 
 	test_end();
 }
 
 static void test_file_cache_read_invalidate(void)
 {
+	const char *test_path = test_dir_prepend(TEST_FILENAME);
+
 	test_begin("file_cache_read_invalidate");
 
 	/* create a file */
-	struct ostream *os = o_stream_create_file(TEST_FILENAME, 0, 0600, 0);
+	struct ostream *os = o_stream_create_file(test_path, 0, 0600, 0);
 	o_stream_nsend_str(os, "initial data\n");
 	test_assert(o_stream_finish(os) == 1);
 	o_stream_destroy(&os);
 
-	int fd = open(TEST_FILENAME, O_RDONLY);
+	int fd = open(test_path, O_RDONLY);
 	i_assert(fd > -1);
-	struct file_cache *cache = file_cache_new_path(fd, TEST_FILENAME);
+	struct file_cache *cache = file_cache_new_path(fd, test_path);
 
 	/* this should be 0 before read */
 	size_t size;
@@ -105,7 +111,7 @@ static void test_file_cache_read_invalidate(void)
 	test_assert(map != NULL && size == 13 && memcmp(map, "initial data\n", 13) == 0);
 
 	/* update file */
-	os = o_stream_create_file(TEST_FILENAME, 0, 0600, 0);
+	os = o_stream_create_file(test_path, 0, 0600, 0);
 	o_stream_nsend_str(os, "updated data\n");
 	test_assert(o_stream_finish(os) == 1);
 	o_stream_destroy(&os);
@@ -121,17 +127,19 @@ static void test_file_cache_read_invalidate(void)
 	test_assert(map != NULL && size == 13 && memcmp(map, "updated data\n", 13) == 0);
 	file_cache_free(&cache);
 	i_close_fd(&fd);
-	i_unlink(TEST_FILENAME);
+	i_unlink(test_path);
 
 	test_end();
 }
 
 static void test_file_cache_multipage(void)
 {
+	const char *test_path = test_dir_prepend(TEST_FILENAME);
+
 	test_begin("file_cache_multipage");
 
 	size_t page_size = mmap_get_page_size();
-	struct ostream *os = o_stream_create_file(TEST_FILENAME, 0, 0600, 0);
+	struct ostream *os = o_stream_create_file(test_path, 0, 0600, 0);
 	size_t total_size = 0;
 	for (size_t i = 0; i < page_size * 3 + 100; i += 12) {
 		o_stream_nsend_str(os, "initial data");
@@ -140,9 +148,9 @@ static void test_file_cache_multipage(void)
 	test_assert(o_stream_finish(os) == 1);
 	o_stream_destroy(&os);
 
-	int fd = open(TEST_FILENAME, O_RDONLY);
+	int fd = open(test_path, O_RDONLY);
 	i_assert(fd > -1);
-	struct file_cache *cache = file_cache_new_path(fd, TEST_FILENAME);
+	struct file_cache *cache = file_cache_new_path(fd, test_path);
 
 	/* read everything to memory page at a time */
 	test_assert(file_cache_read(cache, 0, page_size) == (ssize_t)page_size);
@@ -179,16 +187,18 @@ static void test_file_cache_multipage(void)
 
 	file_cache_free(&cache);
 	i_close_fd(&fd);
-	i_unlink(TEST_FILENAME);
+	i_unlink(test_path);
 	test_end();
 }
 
 static void test_file_cache_anon(void)
 {
+	const char *test_path = test_dir_prepend(TEST_FILENAME);
+
 	/* file-cache should work as anonymous cache for small files */
 	test_begin("file_cache_anon");
-	test_assert(access(TEST_FILENAME, F_OK) == -1 && errno == ENOENT);
-	struct file_cache *cache = file_cache_new_path(-1, TEST_FILENAME);
+	test_assert(access(test_path, F_OK) == -1 && errno == ENOENT);
+	struct file_cache *cache = file_cache_new_path(-1, test_path);
 
 	test_assert(file_cache_set_size(cache, 1024) == 0);
 	file_cache_write(cache, "initial data", 12, 0);
@@ -198,26 +208,28 @@ static void test_file_cache_anon(void)
 	test_assert(map != NULL && size == 12 && memcmp(map, "initial data", 12) == 0);
 
 	file_cache_free(&cache);
-	i_unlink_if_exists(TEST_FILENAME);
+	i_unlink_if_exists(test_path);
 	test_end();
 }
 
 static void test_file_cache_switch_fd(void)
 {
+	const char *test_path = test_dir_prepend(TEST_FILENAME);
+
 	test_begin("file_cache_switch_fd");
-	test_assert(access(TEST_FILENAME, F_OK) == -1 && errno == ENOENT);
-	struct file_cache *cache = file_cache_new_path(-1, TEST_FILENAME);
+	test_assert(access(test_path, F_OK) == -1 && errno == ENOENT);
+	struct file_cache *cache = file_cache_new_path(-1, test_path);
 
 	test_assert(file_cache_set_size(cache, 13) == 0);
 	file_cache_write(cache, "initial data\n", 13, 0);
 
 	/* create a file */
-	struct ostream *os = o_stream_create_file(TEST_FILENAME, 0, 0600, 0);
+	struct ostream *os = o_stream_create_file(test_path, 0, 0600, 0);
 	o_stream_nsend_str(os, "updated data\n");
 	test_assert(o_stream_finish(os) == 1);
 	o_stream_destroy(&os);
 
-	int fd = open(TEST_FILENAME, O_RDONLY);
+	int fd = open(test_path, O_RDONLY);
 	i_assert(fd > -1);
 	/* map should be invalidated and updated data read
 	   from given file */
@@ -229,23 +241,25 @@ static void test_file_cache_switch_fd(void)
 
 	file_cache_free(&cache);
 	i_close_fd(&fd);
-	i_unlink(TEST_FILENAME);
+	i_unlink(test_path);
 	test_end();
 }
 
 static void test_file_cache_errors(void)
 {
+	const char *test_path = test_dir_prepend(TEST_FILENAME);
+
 	test_begin("file_cache_errors");
 
-	test_assert(access(TEST_FILENAME, F_OK) == -1 && errno == ENOENT);
-	int fd = open(TEST_FILENAME, O_RDONLY);
-	struct file_cache *cache = file_cache_new_path(fd, TEST_FILENAME);
+	test_assert(access(test_path, F_OK) == -1 && errno == ENOENT);
+	int fd = open(test_path, O_RDONLY);
+	struct file_cache *cache = file_cache_new_path(fd, test_path);
 	size_t size;
 
 	/* file does not exist and we try large enough mapping */
 	const char *errstr =
-		t_strdup_printf("fstat(.test_file_cache) failed: %s",
-				strerror(EBADF));
+		t_strdup_printf("fstat(%s) failed: %s",
+				test_path, strerror(EBADF));
 	test_expect_error_string(errstr);
 	test_assert(file_cache_read(cache, 0, 2*1024*1024) == -1);
 	const unsigned char *map = file_cache_get_map(cache, &size);
@@ -261,8 +275,8 @@ static void test_file_cache_errors(void)
 		.rlim_cur = 1,
 		.rlim_max = rl_cur.rlim_max
 	};
-	errstr = t_strdup_printf("mmap_anon(.test_file_cache, %zu) failed: %s",
-				 page_size, strerror(ENOMEM));
+	errstr = t_strdup_printf("mmap_anon(%s, %zu) failed: %s",
+				 test_path, page_size, strerror(ENOMEM));
 	test_assert(setrlimit(RLIMIT_AS, &rl_new) == 0);
 	test_expect_error_string(errstr);
 	int ret = file_cache_set_size(cache, 1024);
@@ -274,8 +288,8 @@ static void test_file_cache_errors(void)
 		test_assert(setrlimit(RLIMIT_AS, &rl_cur) == 0);
 
 		/* same for mremap */
-		errstr = t_strdup_printf("mremap_anon(.test_file_cache, %zu) failed: %s",
-					 page_size*2, strerror(ENOMEM));
+		errstr = t_strdup_printf("mremap_anon(%s, %zu) failed: %s",
+					 test_path, page_size*2, strerror(ENOMEM));
 		test_assert(file_cache_set_size(cache, 1) == 0);
 		test_assert(setrlimit(RLIMIT_AS, &rl_new) == 0);
 		test_expect_error_string(errstr);
@@ -286,7 +300,7 @@ static void test_file_cache_errors(void)
 
 	file_cache_free(&cache);
 	i_close_fd(&fd);
-	i_unlink_if_exists(TEST_FILENAME);
+	i_unlink_if_exists(test_path);
 	test_end();
 }
 
