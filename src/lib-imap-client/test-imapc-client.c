@@ -10,6 +10,7 @@
 #include "unlink-directory.h"
 #include "sleep.h"
 #include "test-common.h"
+#include "test-dir.h"
 #include "test-subprocess.h"
 #include "imapc-client-private.h"
 #include "settings.h"
@@ -70,10 +71,6 @@ test_generate_settings(const char *port, const char *connection_timeout_interval
 
 	return settings;
 }
-
-static const struct imapc_parameters imapc_params = {
-	.temp_path_prefix = ".test-tmp/",
-};
 
 static enum imapc_command_state test_imapc_cmd_last_reply_pop(void)
 {
@@ -264,7 +261,7 @@ static int test_run_server(test_server_init_t *server_test)
 }
 
 static void
-test_run_client(test_client_init_t *client_test)
+test_run_client(test_client_init_t *client_test, const char *temp_path_prefix)
 {
 	struct ioloop *ioloop;
 
@@ -275,6 +272,9 @@ test_run_client(test_client_init_t *client_test)
 
 	i_sleep_msecs(100); /* wait a little for server setup */
 
+	struct imapc_parameters imapc_params = {
+		.temp_path_prefix = temp_path_prefix,
+	};
 	ioloop = io_loop_create();
 	imapc_client = imapc_client_init(&imapc_params, test_set.event);
 	client_test();
@@ -293,6 +293,7 @@ test_run_client_server(test_client_init_t *client_test,
 		       test_server_init_t *server_test,
 		       bool reduce_timeout)
 {
+	static unsigned int run_id = 0;
 	const char *error;
 
 	imapc_client_cmd_tag_counter = 0;
@@ -308,8 +309,10 @@ test_run_client_server(test_client_init_t *client_test,
 						       reduce_timeout ? "500ms" : "5s");
 	settings_simple_init(&test_set, settings);
 
-	if (mkdir(imapc_params.temp_path_prefix, 0700) < 0 && errno != EEXIST)
-		i_fatal("mkdir(%s) failed: %m", imapc_params.temp_path_prefix);
+	const char *temp_path_prefix = t_strdup_printf(
+		"%s/client-run-%u/", test_dir_get(), run_id++);
+	if (mkdir(temp_path_prefix, 0700) < 0 && errno != EEXIST)
+		i_fatal("mkdir(%s) failed: %m", temp_path_prefix);
 
 	if (server_test != NULL) {
 		/* Fork server */
@@ -318,12 +321,12 @@ test_run_client_server(test_client_init_t *client_test,
 	i_close_fd(&server.fd_listen);
 
 	/* Run client */
-	test_run_client(client_test);
+	test_run_client(client_test, temp_path_prefix);
 
 	i_unset_failure_prefix();
 	test_subprocess_kill_all(SERVER_KILL_TIMEOUT_SECS);
-	if (unlink_directory(imapc_params.temp_path_prefix,
-			     UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0)
+	if (unlink_directory(temp_path_prefix, UNLINK_DIRECTORY_FLAG_RMDIR,
+			     &error) < 0)
 		i_fatal("%s", error);
 
 	/* Cleanup the test settings in the main process.
@@ -962,6 +965,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 
 	test_init();
 	event_set_forced_debug(test_event, debug);
+	test_dir_init("test-imapc-client");
 	test_subprocesses_init();
 
 	/* listen on localhost */
