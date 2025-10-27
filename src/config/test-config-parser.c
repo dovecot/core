@@ -6,10 +6,11 @@
 #include "settings-parser.h"
 #include "config-filter.h"
 #include "test-common.h"
+#include "test-dir.h"
 #include "all-settings.h"
 #include "config-parser.h"
 
-#define TEST_CONFIG_FILE ".test-config"
+#define TEST_CONFIG_FILE "config"
 
 static const struct config_service test_config_all_services[] = { { NULL, NULL } };
 const struct config_service *config_all_services = test_config_all_services;
@@ -82,7 +83,8 @@ const struct setting_parser_info *const *all_infos = infos;
 
 static void write_config_file(const char *contents)
 {
-	struct ostream *os = o_stream_create_file(TEST_CONFIG_FILE, 0, 0600, 0);
+	const char *config_file = test_dir_prepend(TEST_CONFIG_FILE);
+	struct ostream *os = o_stream_create_file(config_file, 0, 0600, 0);
 	o_stream_nsend_str(os, contents);
 	test_assert(o_stream_finish(os) == 1);
 	o_stream_unref(&os);
@@ -92,6 +94,7 @@ static void test_config_parser(void)
 {
 	struct config_parsed *config;
 	const char *error = NULL;
+	const char *config_file = test_dir_prepend(TEST_CONFIG_FILE);
 
 	test_begin("config_parse_file");
 
@@ -121,7 +124,7 @@ static void test_config_parser(void)
 	putenv("bar=test2");
 	putenv("FOO$ENV:FOO=works");
 
-	test_assert(config_parse_file(TEST_CONFIG_FILE,
+	test_assert(config_parse_file(config_file,
 				      CONFIG_PARSE_FLAG_EXPAND_VALUES |
 				      CONFIG_PARSE_FLAG_NO_DEFAULTS,
 				      NULL, &config, &error) == 1);
@@ -154,7 +157,7 @@ static void test_config_parser(void)
 	config_parsed_free(&config);
 
 	/* try again unexpanded */
-	test_assert(config_parse_file(TEST_CONFIG_FILE,
+	test_assert(config_parse_file(config_file,
 				      CONFIG_PARSE_FLAG_NO_DEFAULTS,
 				      NULL, &config, &error) == 1);
 
@@ -182,7 +185,7 @@ static void test_config_parser(void)
 	settings_parser_unref(&set_parser);
 	config_parsed_free(&config);
 	config_parser_deinit();
-	i_unlink_if_exists(TEST_CONFIG_FILE);
+	i_unlink_if_exists(config_file);
 	pool_unref(&pool);
 	test_end();
 }
@@ -193,5 +196,7 @@ int main(void)
 		test_config_parser,
 		NULL
 	};
+
+	test_dir_init("config-parser");
 	return test_run(test_functions);
 }
