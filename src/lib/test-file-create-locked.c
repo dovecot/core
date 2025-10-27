@@ -39,6 +39,34 @@ static bool wait_for_file(pid_t pid, const char *path)
 	return FALSE;
 }
 
+static int test_file_create_locked_basic_child(void *context ATTR_UNUSED)
+{
+	struct file_create_settings set = {
+		.lock_timeout_secs = 0,
+		.lock_settings = {
+			.lock_method = FILE_LOCK_METHOD_FCNTL,
+		},
+	};
+	const char *path = ".test-file-create-locked";
+	struct file_lock *lock = NULL;
+	const char *error;
+	bool created;
+	int fd;
+
+	/* child */
+	fd = file_create_locked(path, &set, &lock, &created, &error);
+	test_assert(fd > 0);
+	test_assert(created);
+	if (test_has_failed())
+	       return 1;
+	create_file(".test-temp-file-create-locked-child");
+	i_sleep_intr_secs(60);
+	if (lock != NULL)
+		file_unlock(&lock);
+	i_close_fd(&fd);
+	return 0;
+}
+
 static void test_file_create_locked_basic(void)
 {
 	struct file_create_settings set = {
@@ -48,43 +76,28 @@ static void test_file_create_locked_basic(void)
 		},
 	};
 	const char *path = ".test-file-create-locked";
-	struct file_lock *lock;
+	struct file_lock *lock = NULL;
 	const char *error;
-	bool created;
 	pid_t pid;
-	int fd;
+	bool created;
 
 	test_begin("file_create_locked()");
 
 	i_unlink_if_exists(path);
 	i_unlink_if_exists(".test-temp-file-create-locked-child");
-	pid = fork();
-	switch (pid) {
-	case (pid_t)-1:
-		i_error("fork() failed: %m");
-		break;
-	case 0:
-		/* child */
-		fd = file_create_locked(path, &set, &lock, &created, &error);
-		test_assert(fd > 0);
-		test_assert(created);
-		if (test_has_failed())
-			lib_exit(1);
-		create_file(".test-temp-file-create-locked-child");
-		sleep(60);
-		i_close_fd(&fd);
-		lib_exit(0);
-	default:
-		/* parent */
-		test_assert(wait_for_file(pid, ".test-temp-file-create-locked-child"));
-		if (test_has_failed())
-			break;
-		test_assert(file_create_locked(path, &set, &lock, &created, &error) == -1);
+	pid = test_subprocess_fork(test_file_create_locked_basic_child, NULL,
+				   TRUE);
+
+	/* parent */
+	test_assert(wait_for_file(pid, ".test-temp-file-create-locked-child"));
+	if (!test_has_failed()) {
+		test_assert(file_create_locked(path, &set,
+					       &lock, &created, &error) == -1);
 		test_assert(errno == EAGAIN);
-		if (kill(pid, SIGKILL) < 0)
-			i_error("kill(SIGKILL) failed: %m");
-		break;
+		if (lock != NULL)
+			file_unlock(&lock);
 	}
+	test_subprocess_kill_all(20);
 	i_unlink_if_exists(".test-temp-file-create-locked-child");
 	i_unlink_if_exists(path);
 	test_end();

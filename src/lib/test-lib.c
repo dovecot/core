@@ -26,6 +26,7 @@ int main(int argc, char **argv)
 	};
 
 	test_dir_init("lib");
+	test_subprocesses_init();
 
 	return test_run_named_with_fatals(match, test_functions, fatal_functions);
 }
