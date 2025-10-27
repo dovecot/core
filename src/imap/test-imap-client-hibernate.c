@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "test-common.h"
+#include "test-dir.h"
 #include "test-subprocess.h"
 #include "istream.h"
 #include "istream-unix.h"
@@ -36,7 +37,6 @@ imap_client_created_func_t *hook_client_created = NULL;
 bool imap_debug = FALSE;
 bool verbose_proctitle = FALSE;
 
-static const char *tmpdir;
 static struct mail_storage_service_ctx *storage_service;
 
 void imap_refresh_proctitle(void) { }
@@ -174,8 +174,8 @@ static void test_imap_client_hibernate(void)
 	const char *const input_userdb[] = {
 		"mailbox_list_index=no",
 		"mail_driver=mbox",
-		t_strdup_printf("mail_path=%s/mbox", tmpdir),
-		t_strdup_printf("base_dir=%s", tmpdir),
+		t_strdup_printf("mail_path=%s/mbox", test_dir_get()),
+		t_strdup_printf("base_dir=%s", test_dir_get()),
 		"mail_log_prefix="EVILSTR"%u",
 		NULL
 	};
@@ -212,14 +212,15 @@ static void test_imap_client_hibernate(void)
 
 	/* imap-hibernate socket doesn't exist */
 	test_begin("imap client hibernate: socket not found");
-	test_expect_error_string("/"TEMP_DIRNAME"/imap-hibernate) failed: No such file or directory");
+	test_expect_error_string("/imap-hibernate) failed: No such file or directory");
 	test_assert(!imap_client_hibernate(&client, &error));
 	test_expect_no_more_errors();
 	test_assert(strstr(error, "net_connect_unix") != NULL);
 	test_end();
 
 	/* imap-hibernate socket times out */
-	const char *socket_path = t_strdup_printf("%s/imap-hibernate", tmpdir);
+	const char *socket_path = t_strdup_printf("%s/imap-hibernate",
+						  test_dir_get());
 	ctx.fd_listen = net_listen_unix(socket_path, 1);
 	if (ctx.fd_listen == -1)
 		i_fatal("net_listen_unix(%s) failed: %m", socket_path);
@@ -230,7 +231,7 @@ static void test_imap_client_hibernate(void)
 	ctx.reply = "-notgood\n";
 	test_subprocess_fork(imap_hibernate_server, &ctx, FALSE);
 
-	test_expect_error_string(TEMP_DIRNAME"/imap-hibernate returned failure: notgood");
+	test_expect_error_string("/imap-hibernate returned failure: notgood");
 	test_assert(!imap_client_hibernate(&client, &error));
 	test_expect_no_more_errors();
 	test_assert(strstr(error, "notgood") != NULL);
@@ -262,26 +263,6 @@ static void test_imap_client_hibernate(void)
 
 	i_close_fd(&ctx.fd_listen);
 	mail_storage_service_deinit(&storage_service);
-}
-
-static void test_cleanup(void)
-{
-	const char *error;
-
-	if (unlink_directory(tmpdir, UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0)
-		i_error("unlink_directory() failed: %s", error);
-}
-
-static void test_tmp_dir_init(void)
-{
-	const char *cwd, *error;
-
-	test_assert(t_get_working_dir(&cwd, &error) == 0);
-	tmpdir = t_strconcat(cwd, "/"TEMP_DIRNAME, NULL);
-
-	test_cleanup();
-	if (mkdir(tmpdir, 0700) < 0)
-		i_fatal("mkdir() failed: %m");
 }
 
 struct test_service_settings {
@@ -321,7 +302,8 @@ int main(int argc, char *argv[])
 	settings_info_register(&test_service_setting_parser_info);
 
 	master_service_init_finish(master_service);
-	test_tmp_dir_init();
+
+	test_dir_init("imap-client-hibernate");
 	test_subprocesses_init();
 
 	static void (*const test_functions[])(void) = {
@@ -330,7 +312,6 @@ int main(int argc, char *argv[])
 	};
 	ret = test_run(test_functions);
 
-	test_cleanup();
 	master_service_deinit(&master_service);
 	return ret;
 }
