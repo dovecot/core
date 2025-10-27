@@ -14,7 +14,7 @@
    systems, so we're not checking its upper limit at all. */
 #define ALLOW_MSECS_BELOW 500
 
-static const char *const test_path = ".test.cpulimit";
+static const char *const test_path = "cpulimit";
 
 static struct timeval get_cpu_time(enum cpu_limit_type type)
 {
@@ -33,17 +33,18 @@ static struct timeval get_cpu_time(enum cpu_limit_type type)
 
 static void test_cpu_loop_once(void)
 {
+	const char *path = test_dir_prepend(test_path);
 	guid_128_t guid;
 
 	/* consume some user CPU */
 	for (unsigned int i = 0; i < 10000; i++)
 		guid_128_generate(guid);
 	/* consume some system CPU */
-	int fd = creat(test_path, 0600);
+	int fd = creat(path, 0600);
 	if (fd == -1)
-		i_fatal("creat(%s) failed: %m", test_path);
+		i_fatal("creat(%s) failed: %m", path);
 	if (write(fd, guid, sizeof(guid)) < 0)
-		i_fatal("write(%s) failed: %m", test_path);
+		i_fatal("write(%s) failed: %m", path);
 	i_close_fd(&fd);
 }
 
@@ -74,6 +75,7 @@ test_cpu_limit_simple(enum cpu_limit_type type, const char *type_str)
 
 static void test_cpu_limit_nested(enum cpu_limit_type type, const char *type_str)
 {
+	const char *path = test_dir_prepend(test_path);
 	struct cpu_limit *climit1, *climit2;
 	struct timeval usage1, cpu;
 	unsigned int n;
@@ -128,7 +130,7 @@ static void test_cpu_limit_nested(enum cpu_limit_type type, const char *type_str
 	diff_msecs = timeval_diff_msecs(&cpu, &usage1);
 	test_assert_cmp(diff_msecs, >=, 3000 - ALLOW_MSECS_BELOW);
 
-	i_unlink_if_exists(test_path);
+	i_unlink_if_exists(path);
 	lib_signals_deinit();
 	test_end();
 }
