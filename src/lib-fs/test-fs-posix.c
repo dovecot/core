@@ -7,6 +7,7 @@
 #include "safe-mkdir.h"
 #include "safe-mkstemp.h"
 #include "test-common.h"
+#include "test-dir.h"
 #include "unlink-directory.h"
 #include "settings.h"
 #include <sys/stat.h>
@@ -14,18 +15,6 @@
 
 static void test_fs_posix(void)
 {
-	const char testdir[] = ".test-fs-posix";
-	const char *unlink_err;
-
-	if (unlink_directory(testdir, UNLINK_DIRECTORY_FLAG_RMDIR, &unlink_err) < 0) {
-		i_error("Couldn't prepare test directory (%s): %s", testdir, unlink_err);
-		goto error_no_testdir;
-	}
-	if (safe_mkdir(testdir, 0700, (uid_t)-1, (gid_t)-1) != 1) {
-		/* Something just raced us to create this directory, bail. */
-		goto error_no_testdir;
-	}
-
 	int ret;
 	const char *error;
 	struct fs *fs;
@@ -37,7 +26,7 @@ static void test_fs_posix(void)
 	const char *const settings[] = {
 		"fs", "posix",
 		"fs/posix/fs_driver", "posix",
-		"fs_posix_prefix", t_strconcat(testdir, "/", NULL),
+		"fs_posix_prefix", t_strconcat(test_dir_get(), "/", NULL),
 		NULL
 	};
 	struct settings_simple test_set;
@@ -140,9 +129,6 @@ static void test_fs_posix(void)
 	settings_simple_deinit(&test_set);
 
 error_no_fs:
-	if (unlink_directory(testdir, UNLINK_DIRECTORY_FLAG_RMDIR, &unlink_err) < 0)
-		i_error("Couldn't clean up test directory (%s): %s", testdir, unlink_err);
-error_no_testdir:
 	return;
 }
 
@@ -152,5 +138,8 @@ int main(void)
 		test_fs_posix,
 		NULL
 	};
+
+	test_dir_init("fs-posix");
+
 	return test_run(test_functions);
 }
