@@ -2,6 +2,7 @@
 
 set -eu
 
+destdir="$PWD"
 dest="dovecot-sysreport-$(uname -n)-$(date +'%s').tar.gz"
 conf_flag=""
 binary=""
@@ -19,6 +20,15 @@ fi
 
 while (( "$#" )); do
   case "$1" in
+    -D|--destdir)
+      if [ "$#" -lt "2" ]; then
+        echo "Usage: $0 $1 <destdir>"
+        exit 1
+      fi
+      destdir="$2"
+      shift 2
+      ;;
+
     -d|--destination)
 
       if [ "$#" -lt "2" ] ; then
@@ -102,6 +112,7 @@ while (( "$#" )); do
       echo -e "where:"
       echo ""
       echo -e "\t-h, --help\t\tShow the contents of this help."
+      echo -e "\t-D, --destdir\t\tDestination directory for the file, will be appended to destination if it's not absolute"
       echo -e "\t-d, --destination\tThe file location which the report archive should be put to.
       \t\t\t\tThe default value is dovecot-sysreport-<hostname>-<current_timestamp>.tar.gz"
       echo -e "\t-c, --config\t\tSpecify the root configuration file of dovecot."
@@ -196,11 +207,22 @@ doveadm $conf_flag process status >> $SRTEMP/process_status || :
 uptime >> $SRTEMP/uptime_output
 doveadm $conf_flag stats dump >> $SRTEMP/stats_dump || :
 
-cf=`pwd`
+if [[ "$dest" = /* ]]; then
+  target="$dest"
+else
+  target="$destdir/$dest"
+fi
+target_dir="$(dirname "$target")"
+if ! [ -e "$target_dir" ]; then
+  mkdir -p "$target_dir"
+fi
+
+test -d "$target_dir" || (echo "\`$target_dir' is not a directory!"; exit 1)
+
 cd $SRTEMP
+
 echo "Creating archive ..."
-tar -czf `if [[ "$dest" = /* ]]; then echo $dest; else echo $cf/$dest; fi` --dereference \
-  $copy_files *
+tar -czf "$target" --dereference $copy_files *
 
 function cleanup {
   if [ $keep_temp = 0 ]; then
@@ -213,4 +235,4 @@ function cleanup {
 
 trap cleanup EXIT
 
-echo "All done! Please report file $dest"
+echo "All done! Please report file $target"
