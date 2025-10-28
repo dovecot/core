@@ -141,6 +141,22 @@ void sasl_server_request_destroy(struct sasl_server_req_ctx *rctx)
 }
 
 static bool
+sasl_server_request_fail_on_size(struct sasl_server_request *req,
+				 size_t data_size)
+{
+	if (data_size > (size_t)SASL_MAX_MESSAGE_SIZE) {
+		/* We should normally never get here, because the limit enforced
+		   by the auth service is smaller.
+		 */
+		e_debug(req->event, "Excessive response size (> %d)",
+			SASL_MAX_MESSAGE_SIZE);
+		sasl_server_request_failure(req->mech);
+		return TRUE;
+	}
+	return FALSE;
+}
+
+static bool
 sasl_server_request_fail_on_nuls(struct sasl_server_request *req,
 				 const unsigned char *data, size_t data_size)
 {
@@ -177,6 +193,8 @@ void sasl_server_request_initial(struct sasl_server_req_ctx *rctx,
 	i_assert(req->state == SASL_SERVER_REQUEST_STATE_NEW);
 	req->state = SASL_SERVER_REQUEST_STATE_SERVER;
 
+	if (sasl_server_request_fail_on_size(req, data_size))
+		return;
 	if (sasl_server_request_fail_on_nuls(req, data, data_size))
 		return;
 
@@ -212,6 +230,8 @@ void sasl_server_request_input(struct sasl_server_req_ctx *rctx,
 	i_assert(!req->finished_with_data);
 	req->state = SASL_SERVER_REQUEST_STATE_SERVER;
 
+	if (sasl_server_request_fail_on_size(req, data_size))
+		return;
 	if (sasl_server_request_fail_on_nuls(req, data, data_size))
 		return;
 

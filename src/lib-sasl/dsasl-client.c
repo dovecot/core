@@ -124,6 +124,12 @@ dsasl_client_input(struct dsasl_client *client,
 		*error_r = "Unexpected NUL in input data";
 		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
+	if (input_len > (size_t)SASL_MAX_MESSAGE_SIZE) {
+		*error_r = t_strdup_printf(
+			"Excessive challenge size (> %d)",
+			SASL_MAX_MESSAGE_SIZE);
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
+	}
 	return client->mech->input(client, input, input_len, error_r);
 }
 

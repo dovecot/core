@@ -10,6 +10,10 @@
 
 /* GSSAPI can use quite large packets */
 #define AUTH_CLIENT_MAX_LINE_LENGTH 16384
+/* Make sure AUTH_CLIENT_MAX_LINE_LENGTH does not exceed the absolute maximum */
+#if AUTH_CLIENT_MAX_LINE_LENGTH > SASL_MAX_MESSAGE_SIZE
+#  error "AUTH_CLIENT_MAX_LINE_LENGTH exceeds SASL_MAX_MESSAGE_SIZE"
+#endif
 
 /* auth failure codes */
 #define AUTH_CLIENT_FAIL_CODE_AUTHZFAILED       "authz_fail"
