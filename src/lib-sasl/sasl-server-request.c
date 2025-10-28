@@ -266,6 +266,13 @@ bool sasl_server_request_set_authid(struct sasl_server_mech_request *mreq,
 	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
+	if (strlen(authid) > (size_t)SASL_MAX_AUTHID_SIZE) {
+		e_debug(req->event, "Failed to set authid: "
+			"Maximum length exceeded (> %d)", SASL_MAX_AUTHID_SIZE);
+		req->failed = TRUE;
+		return FALSE;
+	}
+
 	mreq->authid = p_strdup(req->pool, authid);
 
 	i_assert(req->rctx != NULL);
@@ -287,6 +294,13 @@ bool sasl_server_request_set_authzid(struct sasl_server_mech_request *mreq,
 	struct sasl_server_request *req = mreq->req;
 	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
+
+	if (strlen(authzid) > (size_t)SASL_MAX_AUTHID_SIZE) {
+		e_debug(req->event, "Failed to set authzid: "
+			"Maximum length exceeded (> %d)", SASL_MAX_AUTHID_SIZE);
+		req->failed = TRUE;
+		return FALSE;
+	}
 
 	i_assert(req->rctx != NULL);
 	i_assert(funcs->request_set_authzid != NULL);
