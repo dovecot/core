@@ -121,7 +121,7 @@ static void sig_delayed_die(const siginfo_t *si, void *context)
 		    !service->idle_die_callback()) {
 			/* we don't want to die - send a notification to master
 			   so it doesn't think we're ignoring it completely. */
-			master_status_send(service, FALSE);
+			master_status_send(service, TRUE);
 			return;
 		}
 	}
