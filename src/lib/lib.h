@@ -142,7 +142,9 @@ static inline uint32_t i_rand_minmax(uint32_t min_val, uint32_t max_val)
 static inline uint32_t time_to_uint32(time_t ts)
 {
 	i_assert(ts >= 0);
+#if TIME_T_MAX_BITS > 32
 	i_assert(ts <= UINT32_MAX);
+#endif
 	return (uint32_t)(ts & 0xffffffff);
 }
 /* Cast time_t to uint32_t, truncate the value if it does not fit. */
