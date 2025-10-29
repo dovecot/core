@@ -99,6 +99,18 @@ log_killed_signal(struct master_service *service, const siginfo_t *si)
 	service->killed_signal_logged = TRUE;
 }
 
+static bool master_service_can_idle_die(struct master_service *service)
+{
+	if (service->master_status.available_count !=
+	    service->total_available_count)
+		return FALSE;
+
+	if (service->idle_die_callback != NULL &&
+	    !service->idle_die_callback())
+		return FALSE;
+	return TRUE;
+}
+
 static void sig_delayed_die(const siginfo_t *si, void *context)
 {
 	struct master_service *service = context;
@@ -113,14 +125,7 @@ static void sig_delayed_die(const siginfo_t *si, void *context)
 	} else if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
 		/* SIGINT came from master. die only if we're not handling
 		   any clients currently. */
-		if (service->master_status.available_count !=
-		    service->total_available_count) {
-			master_status_send(service, TRUE);
-			return;
-		}
-
-		if (service->idle_die_callback != NULL &&
-		    !service->idle_die_callback()) {
+		if (!master_service_can_idle_die(service)) {
 			/* we don't want to die - send a notification to master
 			   so it doesn't think we're ignoring it completely. */
 			master_status_send(service, TRUE);
