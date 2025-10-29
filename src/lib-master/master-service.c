@@ -114,8 +114,10 @@ static void sig_delayed_die(const siginfo_t *si, void *context)
 		/* SIGINT came from master. die only if we're not handling
 		   any clients currently. */
 		if (service->master_status.available_count !=
-		    service->total_available_count)
+		    service->total_available_count) {
+			master_status_send(service, TRUE);
 			return;
+		}
 
 		if (service->idle_die_callback != NULL &&
 		    !service->idle_die_callback()) {
