@@ -128,22 +128,23 @@ mech_otp_auth_phase1(struct otp_auth_request *request,
 		     const unsigned char *data, size_t data_size)
 {
 	struct sasl_server_mech_request *auth_request = &request->auth_request;
+	const unsigned char *p1, *p2;
 	const char *authenid;
-	size_t i, count;
 
 	/* authorization ID \0 authentication ID
 	   FIXME: we'll ignore authorization ID for now. */
 	authenid = NULL;
 
-	count = 0;
-	for (i = 0; i < data_size; i++) {
-		if (data[i] == '\0') {
-			if (++count == 1)
-				authenid = (const char *) data + i + 1;
-		}
+	p1 = memchr(data, '\0', data_size);
+	if (p1 != NULL) {
+		p1++;
+		size_t len = data_size - (p1 - data);
+		p2 = memchr(p1, '\0', len);
+		if (p2 == NULL)
+			authenid = t_strndup(p1, len);
 	}
 
-	if (count != 1) {
+	if (authenid == NULL) {
 		e_info(auth_request->event, "invalid input");
 		sasl_server_request_failure(auth_request);
 		return;
