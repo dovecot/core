@@ -186,7 +186,8 @@ void io_loop_run(struct ioloop *ioloop);
 /* Stop the ioloop immediately. No further IO or timeout callbacks are called.
    Warning: This is not safe to be called in non-delayed signal handlers. */
 void io_loop_stop(struct ioloop *ioloop);
-/* Stop ioloop after finishing all the pending IOs and timeouts. */
+/* Stop ioloop after finishing the rest of the IOs and timeouts for this
+   ioloop run iteration. Usually this isn't necessary or wanted. */
 void io_loop_stop_delayed(struct ioloop *ioloop);
 
 bool io_loop_is_running(struct ioloop *ioloop);
