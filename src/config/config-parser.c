@@ -2962,6 +2962,7 @@ static bool config_version_find(const char *version, const char **error_r)
 #else
 		"2.4.0",
 		"2.4.1",
+		"2.4.2",
 #endif
 		NULL
 	};
