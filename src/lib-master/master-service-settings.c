@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 
 #define DOVECOT_CONFIG_BIN_PATH BINDIR"/doveconf"
+#define DOVECOT_CONFIG_BIN_PATH_ENV "DOVECONF_PATH"
 #define DOVECOT_CONFIG_SOCKET_PATH PKG_RUNDIR"/config"
 
 #define CONFIG_READ_TIMEOUT_SECS 10
@@ -261,7 +262,10 @@ master_service_exec_config(struct master_service *service,
 		env_put("DOVECONF_PROTOCOL", input->protocol);
 
 	t_array_init(&conf_argv, 11 + (service->argc + 1) + 1);
-	strarr_push(&conf_argv, DOVECOT_CONFIG_BIN_PATH);
+	const char *config_bin_path = getenv(DOVECOT_CONFIG_BIN_PATH_ENV);
+	if (config_bin_path == NULL)
+		config_bin_path = DOVECOT_CONFIG_BIN_PATH;
+	strarr_push(&conf_argv, config_bin_path);
 	if ((service->flags & MASTER_SERVICE_FLAG_CONFIG_DEFAULTS) != 0)
 		strarr_push(&conf_argv, "-d");
 	else {
