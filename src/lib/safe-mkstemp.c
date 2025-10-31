@@ -12,15 +12,14 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-static int ATTR_NULL(5)
-safe_mkstemp_full(string_t *prefix, mode_t mode, uid_t uid, gid_t gid,
-		  const char *gid_origin)
+static int
+safe_mkstemp_create(string_t *prefix, mode_t mode,
+		    int (*create_func)(const char *path, mode_t mode))
 {
 	size_t prefix_len;
 	struct stat st;
 	unsigned char randbuf[8];
-	mode_t old_umask;
-	int fd;
+	int ret;
 
 	prefix_len = str_len(prefix);
 	for (;;) {
@@ -37,19 +36,46 @@ safe_mkstemp_full(string_t *prefix, mode_t mode, uid_t uid, gid_t gid,
 			return -1;
 		}
 
-		old_umask = umask(0666 ^ mode);
-		fd = open(str_c(prefix), O_RDWR | O_EXCL | O_CREAT, 0666);
-		umask(old_umask);
-		if (fd != -1)
+		ret = create_func(str_c(prefix), mode);
+		if (ret != -1)
 			break;
 
 		if (errno != EEXIST) {
-			if (errno != ENOENT && errno != EACCES)
-				i_error("open(%s) failed: %m", str_c(prefix));
 			str_truncate(prefix, prefix_len);
 			return -1;
 		}
 	}
+	return ret;
+}
+
+static int
+safe_mkstemp_create_file(const char *path, mode_t mode)
+{
+	mode_t old_umask;
+	int fd;
+
+	old_umask = umask(0666 ^ mode);
+	fd = open(path, O_RDWR | O_EXCL | O_CREAT, 0666);
+	umask(old_umask);
+
+	if (fd != -1)
+		return fd;
+	if (errno != EEXIST && errno != ENOENT && errno != EACCES)
+		i_error("open(%s) failed: %m", path);
+	return -1;
+}
+
+static int
+safe_mkstemp_full(string_t *prefix, mode_t mode, uid_t uid, gid_t gid,
+		  const char *gid_origin)
+{
+	size_t prefix_len;
+	int fd;
+
+	prefix_len = str_len(prefix);
+	fd = safe_mkstemp_create(prefix, mode, safe_mkstemp_create_file);
+	if (fd == -1)
+		return fd;
 	if (uid == (uid_t)-1 && gid == (gid_t)-1)
 		return fd;
 
