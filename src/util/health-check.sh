@@ -16,6 +16,8 @@ timeout=10
 
 # timeout the read via trap for POSIX shell compatibility
 trap "exit 0" QUIT
+trap 'kill $timeout_pid 2>/dev/null' EXIT INT TERM
+
 {
 	sleep $timeout
 	kill -3 $$ 2>/dev/null
@@ -24,9 +26,6 @@ timeout_pid=$!
 
 read -r input
 exit_code=$?
-
-# Kill the background sleep process
-kill $timeout_pid 2>/dev/null
 
 cleaned_input=$(echo ${input} | sed "s/[^a-zA-Z0-9]//g")
 
