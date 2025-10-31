@@ -34,7 +34,7 @@ test_regex_LDADD = libdregex.la \
 		   ../lib-test/libtest.la \
 		   ../lib/liblib.la \
 		   $(LIBPCRE_LIBS)
-test_regex_DEPENDENCIES = libdregex.la $(LIBPCRE_LIBS)
+test_regex_DEPENDENCIES = libdregex.la
 
 check-local:
 	for bin in $(test_programs); do \
