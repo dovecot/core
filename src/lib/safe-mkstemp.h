@@ -12,4 +12,10 @@ int safe_mkstemp_hostpid(string_t *prefix, mode_t mode, uid_t uid, gid_t gid);
 int safe_mkstemp_hostpid_group(string_t *prefix, mode_t mode,
 			       gid_t gid, const char *gid_origin);
 
+/* Create a new directory with a given prefix. The string is updated to contain
+   the created path. */
+int safe_mkstemp_dir(string_t *prefix, mode_t mode);
+/* Append PID to the prefix. */
+int safe_mkstemp_dir_pid(string_t *prefix, mode_t mode);
+
 #endif

@@ -130,3 +130,37 @@ int safe_mkstemp_hostpid_group(string_t *prefix, mode_t mode,
 		str_truncate(prefix, orig_prefix_len);
 	return fd;
 }
+
+static int
+safe_mkstemp_create_dir(const char *path, mode_t mode)
+{
+	mode_t old_umask;
+	int ret;
+
+	old_umask = umask(0777 ^ mode);
+	ret = mkdir(path, 0777);
+	umask(old_umask);
+
+	if (ret != -1)
+		return ret;
+	if (errno != EEXIST && errno != ENOENT && errno != EACCES)
+		i_error("mkdir(%s) failed: %m", path);
+	return -1;
+}
+
+int safe_mkstemp_dir(string_t *prefix, mode_t mode)
+{
+	return safe_mkstemp_create(prefix, mode, safe_mkstemp_create_dir);
+}
+
+int safe_mkstemp_dir_pid(string_t *prefix, mode_t mode)
+{
+	size_t orig_prefix_len = str_len(prefix);
+
+	str_printfa(prefix, "%s.", my_pid);
+	if (safe_mkstemp_dir(prefix, mode) == -1) {
+		str_truncate(prefix, orig_prefix_len);
+		return -1;
+	}
+	return 0;
+}
