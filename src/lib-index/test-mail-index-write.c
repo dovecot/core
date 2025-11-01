@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "test-common.h"
+#include "test-dir.h"
 #include "mail-index-private.h"
 #include "mail-transaction-log-private.h"
 
@@ -107,7 +108,8 @@ static void test_mail_index_write(void)
 		.dir = ".",
 		.fd = -1,
 		.indexid = TEST_INDEXID,
-		.filepath = TEST_INDEX_FNAME,
+		.filepath = p_strconcat(unsafe_data_stack_pool, test_dir_get(),
+					"/", TEST_INDEX_FNAME, NULL),
 		.log_sync_locked = TRUE,
 	};
 
@@ -137,7 +139,6 @@ static void test_mail_index_write(void)
 	test_assert(!index.reopen_main_index);
 
 	event_unref(&index.event);
-	i_unlink(TEST_INDEX_FNAME);
 	test_end();
 }
 
@@ -147,5 +148,7 @@ int main(void)
 		test_mail_index_write,
 		NULL
 	};
+
+	test_dir_init("test-mail-index-write");
 	return test_run(test_functions);
 }
