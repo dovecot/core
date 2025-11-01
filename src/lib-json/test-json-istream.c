@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "istream-failure-at.h"
 #include "test-common.h"
+#include "test-dir.h"
 
 #include "json-istream.h"
 
@@ -2924,7 +2925,7 @@ static void test_json_istream_read_stream(void)
 		case 1:
 			ret = json_istream_read_stream(
 				jinput, 0, IO_BLOCK_SIZE,
-				"/tmp/dovecot-test-json.", &jnode);
+				test_dir_prepend("json-test."), &jnode);
 			if (ret == 0)
 				continue;
 			if (ret < 0)
@@ -3035,7 +3036,7 @@ static void test_json_istream_read_stream(void)
 		case 3:
 			ret = json_istream_read_stream(
 				jinput, 0, IO_BLOCK_SIZE,
-				"/tmp/dovecot-test-json.", &jnode);
+				test_dir_prepend("json-test."), &jnode);
 			if (ret == 0)
 				continue;
 			if (ret < 0)
@@ -3813,7 +3814,7 @@ static void test_json_istream_error(void)
 	test_begin("json istream error - bad seekable string stream");
 
 	ret = json_istream_read_stream(jinput, 0, IO_BLOCK_SIZE,
-					"/tmp/dovecot-test-json.", &jnode);
+				       test_dir_prepend("json-test."), &jnode);
 	test_assert(ret != 0);
 	ret = json_istream_read(jinput, &jnode);	
 	error = json_istream_get_error(jinput);
@@ -3834,7 +3835,7 @@ static void test_json_istream_error(void)
 	test_begin("json istream error - string stream with bad end");
 
 	ret = json_istream_read_stream(jinput, 0, 16,
-					"/tmp/dovecot-test-json.", &jnode);
+				       test_dir_prepend("json-test."), &jnode);
 	test_out_reason_quiet("read success", ret > 0,
 			      json_istream_get_error(jinput));
 	test_assert(json_node_is_string(&jnode));
@@ -3890,5 +3891,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	test_dir_init("json-istream");
 	return test_run(test_functions);
 }
