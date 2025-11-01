@@ -16,6 +16,7 @@
 #include "iostream-openssl.h"
 #include "connection.h"
 #include "test-common.h"
+#include "test-dir.h"
 #include "test-subprocess.h"
 #include "http-url.h"
 #include "http-request.h"
@@ -44,6 +45,7 @@ static const char *failure = NULL;
 static struct timeout *to_continue = NULL;
 static bool files_finished = FALSE;
 static bool running_continue = FALSE;
+static char *tmp_dir = NULL;
 
 static struct test_settings {
 	/* client */
@@ -613,7 +615,8 @@ client_handle_echo_request(struct client_request *creq,
 		return;
 	}
 
-	payload_output = iostream_temp_create("/tmp/test-http-server", 0);
+	payload_output = iostream_temp_create(
+		t_strconcat(tmp_dir, "/payload.tmp.", NULL), 0);
 
 	if (tset.server_blocking) {
 		struct istream *payload_input;
@@ -2440,6 +2443,8 @@ static void main_init(void)
 	event_set_append_log_prefix(client_event, "test client: ");
 	server_event = event_create(common_event);
 	event_set_append_log_prefix(server_event, "test server: ");
+
+	tmp_dir = i_strdup(test_dir_get());
 }
 
 static void main_deinit(void)
@@ -2449,6 +2454,8 @@ static void main_deinit(void)
 	event_unref(&client_event);
 	event_unref(&server_event);
 	common_event = NULL;
+
+	i_free(tmp_dir);
 }
 
 int main(int argc, char *argv[])
@@ -2473,6 +2480,7 @@ int main(int argc, char *argv[])
 
 	test_init();
 	event_set_forced_debug(test_event, debug);
+	test_dir_init("http-payload");
 	test_subprocesses_init();
 	main_init();
 
