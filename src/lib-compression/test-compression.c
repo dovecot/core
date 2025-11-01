@@ -8,6 +8,7 @@
 #include "sha1.h"
 #include "randgen.h"
 #include "test-common.h"
+#include "test-dir.h"
 #include "settings.h"
 #include "compression.h"
 #include "iostream-lz4.h"
@@ -283,7 +284,8 @@ static void
 test_compression_handler(const struct compression_handler *handler,
 			 bool autodetect)
 {
-	const char *path = "test-compression.tmp";
+	static unsigned int seq = 0;
+	const char *path;
 	struct istream *file_input, *input;
 	struct ostream *file_output, *output;
 	unsigned char buf[IO_BLOCK_SIZE];
@@ -296,6 +298,8 @@ test_compression_handler(const struct compression_handler *handler,
 	int fd;
 	ssize_t ret;
 
+	path = t_strdup_printf("%s/%s-%u", test_dir_get(),
+			       handler->name, seq++);
 	test_begin(t_strdup_printf("compression handler %s (autodetect=%s)",
 				   handler->name, autodetect ? "yes" : "no"));
 
@@ -1138,5 +1142,6 @@ int main(int argc, char *argv[])
 		lib_deinit();
 		return 0;
 	}
+	test_dir_init("compression");
 	return test_run(test_functions);
 }
