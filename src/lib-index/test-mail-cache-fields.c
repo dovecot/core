@@ -110,5 +110,6 @@ int main(void)
 		test_mail_cache_fields_read_write,
 		NULL
 	};
+	test_dir_init("mail-cache-fields");
 	return test_run(test_functions);
 }

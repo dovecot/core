@@ -165,5 +165,6 @@ int main(void)
 		test_mail_index_new_extension,
 		NULL
 	};
+	test_dir_init("mail-index");
 	return test_run(test_functions);
 }

@@ -1111,5 +1111,6 @@ int main(void)
 		test_mail_cache_purge_deadlines,
 		NULL
 	};
+	test_dir_init("mail-cache-purge");
 	return test_run(test_functions);
 }

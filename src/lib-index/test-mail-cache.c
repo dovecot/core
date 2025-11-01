@@ -822,5 +822,6 @@ int main(void)
 		test_mail_cache_duplicate_fields,
 		NULL
 	};
+	test_dir_init("mail-cache");
 	return test_run(test_functions);
 }
