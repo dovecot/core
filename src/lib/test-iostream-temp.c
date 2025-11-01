@@ -76,12 +76,12 @@ static void test_iostream_temp_create_sized_memory(void)
 	test_end();
 }
 
-static void test_iostream_temp_create_sized_disk(void)
+static void test_iostream_temp_create_sized_disk(const char *tmp_prefix)
 {
 	struct ostream *output;
 
 	test_begin("iostream_temp_create_sized() disk");
-	output = iostream_temp_create_sized(".", 0, "test", 4);
+	output = iostream_temp_create_sized(tmp_prefix, 0, "test", 4);
 	test_assert(o_stream_send(output, "123", 3) == 3);
 	test_assert(output->offset == 3);
 	test_assert(o_stream_send(output, "4", 1) == 1);
@@ -94,12 +94,12 @@ static void test_iostream_temp_create_sized_disk(void)
 	test_end();
 }
 
-static void test_iostream_temp_create_sized_disk_mixed(void)
+static void test_iostream_temp_create_sized_disk_mixed(const char *tmp_prefix)
 {
 	struct ostream *output;
 
 	test_begin("iostream_temp_create_sized() disk (mixed)");
-	output = iostream_temp_create_sized(".", 0, "test", 2);
+	output = iostream_temp_create_sized(tmp_prefix, 0, "test", 2);
 	test_assert(o_stream_send(output, "12", 2) == 2);
 	test_assert(o_stream_get_fd(output) == -1);
 	test_assert(o_stream_send(output, "3", 1) == 1);
@@ -111,14 +111,14 @@ static void test_iostream_temp_create_sized_disk_mixed(void)
 	test_end();
 }
 
-static void test_iostream_temp_create_write_error_middle(void)
+static void test_iostream_temp_create_write_error_middle(const char *tmp_prefix)
 {
 	struct ostream *output;
 
 	test_begin("iostream_temp_create_sized() write error (middle)");
 	/* 2 bytes before it's first flushed to disk + 2 bytes in-memory buffer
 	   before more data is written to disk. */
-	output = iostream_temp_create_sized(".", 0, "test", 2);
+	output = iostream_temp_create_sized(tmp_prefix, 0, "test", 2);
 
 	test_assert(o_stream_send(output, "12", 2) == 2);
 	test_assert(o_stream_get_fd(output) == -1);
@@ -128,7 +128,10 @@ static void test_iostream_temp_create_write_error_middle(void)
 
 	o_stream_temp_set_writev(output, test_writev_fail);
 
-	test_expect_error_string("iostream-temp (temp iostream in . for test): write(.*) failed: Input/output error - moving to memory");
+	test_expect_error_string(t_strdup_printf(
+		"iostream-temp (temp iostream in %s for test): "
+		"write(%s*) failed: Input/output error - moving to memory",
+		tmp_prefix, tmp_prefix));
 	test_assert(o_stream_send(output, "5", 1) == 1);
 	test_expect_no_more_errors();
 
@@ -141,13 +144,13 @@ static void test_iostream_temp_create_write_error_middle(void)
 	test_end();
 }
 
-static void test_iostream_temp_create_write_error_finish(void)
+static void test_iostream_temp_create_write_error_finish(const char *tmp_prefix)
 {
 	struct ostream *output;
 
 	test_begin("iostream_temp_create_sized() write error (finish)");
 
-	output = iostream_temp_create_sized(".", 0, "test", 2);
+	output = iostream_temp_create_sized(tmp_prefix, 0, "test", 2);
 
 	test_assert(o_stream_send(output, "12", 2) == 2);
 	test_assert(o_stream_get_fd(output) == -1);
@@ -157,21 +160,24 @@ static void test_iostream_temp_create_write_error_finish(void)
 
 	o_stream_temp_set_writev(output, test_writev_fail);
 
-	test_expect_error_string("iostream-temp (temp iostream in . for test): write(.*) failed: Input/output error - moving to memory");
+	test_expect_error_string(t_strdup_printf(
+		"iostream-temp (temp iostream in %s for test): "
+		"write(%s*) failed: Input/output error - moving to memory",
+		tmp_prefix, tmp_prefix));
 	test_assert_strcmp(test_iostream_temp_finish(output), "1234");
 	test_expect_no_more_errors();
 
 	test_end();
 }
 
-static void test_iostream_temp_create_write_error_mixed(void)
+static void test_iostream_temp_create_write_error_mixed(const char *tmp_prefix)
 {
 	struct ostream *output;
 
 	test_begin("iostream_temp_create_sized() write error (mixed)");
 
 	for (unsigned int i = 0; i < 5; i++) {
-		output = iostream_temp_create_sized(".", 0, "test", 2);
+		output = iostream_temp_create_sized(tmp_prefix, 0, "test", 2);
 		test_assert_idx(o_stream_send(output, "12", 2) == 2, i);
 		test_assert_idx(o_stream_get_fd(output) == -1, i);
 		test_assert_idx(o_stream_send(output, "3", 1) == 1, i);
@@ -185,7 +191,10 @@ static void test_iostream_temp_create_write_error_mixed(void)
 		test_writev_fail_at_left = i;
 		o_stream_temp_set_writev(output, test_writev_fail_at);
 
-		test_expect_error_string("iostream-temp (temp iostream in . for test): write(.*) failed: Input/output error - moving to memory");
+		test_expect_error_string(t_strdup_printf(
+			"iostream-temp (temp iostream in %s for test): "
+			"write(%s*) failed: Input/output error - moving to memory",
+			tmp_prefix, tmp_prefix));
 		test_assert_idx(o_stream_sendv(output, iov, 2) == 4, i);
 		test_expect_no_more_errors();
 
@@ -197,15 +206,17 @@ static void test_iostream_temp_create_write_error_mixed(void)
 	test_end();
 }
 
-static void test_iostream_temp_istream(void)
+static void test_iostream_temp_istream(const char *tmp_prefix)
 {
 	struct istream *input, *input2, *temp_input;
 	struct ostream *output;
+	const char *tmp_input_path;
 	int fd;
 
 	test_begin("iostream_temp istream");
 
-	fd = open(".temp.istream", O_RDWR | O_CREAT | O_TRUNC, 0600);
+	tmp_input_path = t_strconcat(tmp_prefix, ".istream", NULL);
+	fd = open(tmp_input_path, O_RDWR | O_CREAT | O_TRUNC, 0600);
 	if (fd == -1)
 		i_fatal("create(.temp.istream) failed: %m");
 	test_assert(write(fd, "foobar", 6) == 6);
@@ -261,17 +272,19 @@ static void test_iostream_temp_istream(void)
 
 	i_stream_destroy(&input);
 
-	i_unlink(".temp.istream");
+	i_unlink(tmp_input_path);
 	test_end();
 }
 
 void test_iostream_temp(void)
 {
+	const char *tmp_prefix = test_dir_prepend("iostream-temp.");
+
 	test_iostream_temp_create_sized_memory();
-	test_iostream_temp_create_sized_disk();
-	test_iostream_temp_create_sized_disk_mixed();
-	test_iostream_temp_create_write_error_middle();
-	test_iostream_temp_create_write_error_finish();
-	test_iostream_temp_create_write_error_mixed();
-	test_iostream_temp_istream();
+	test_iostream_temp_create_sized_disk(tmp_prefix);
+	test_iostream_temp_create_sized_disk_mixed(tmp_prefix);
+	test_iostream_temp_create_write_error_middle(tmp_prefix);
+	test_iostream_temp_create_write_error_finish(tmp_prefix);
+	test_iostream_temp_create_write_error_mixed(tmp_prefix);
+	test_iostream_temp_istream(tmp_prefix);
 }
