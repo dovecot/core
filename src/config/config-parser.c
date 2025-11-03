@@ -3254,6 +3254,9 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 		if (def->type != SET_STRLIST && def->type != SET_BOOLLIST) {
 			ctx->error = p_strdup_printf(ctx->pool,
 				"Setting %s cannot be used as a section", key);
+		} else if (line->value[0] != '\0') {
+			ctx->error = p_strdup_printf(ctx->pool,
+				"Setting %s cannot have a value for the section", key);
 		}
 		break;
 	}
