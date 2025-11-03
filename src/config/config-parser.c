@@ -3235,7 +3235,9 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 			/* new filter or error */
 			break;
 		}
-		if (hash_table_lookup(ctx->all_keys, key) == NULL) {
+		const struct config_parser_key *config_key =
+			hash_table_lookup(ctx->all_keys, key);
+		if (config_key == NULL) {
 			if ((ctx->flags & CONFIG_PARSE_FLAG_IGNORE_UNKNOWN) != 0)
 				break;
 			if (attempts != NULL)
@@ -3246,7 +3248,13 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 			break;
 		}
 
-		/* This is SET_STRLIST or SET_BOOLLIST */
+		/* This should be SET_STRLIST or SET_BOOLLIST */
+		const struct setting_define *def =
+			&all_infos[config_key->info_idx]->defines[config_key->define_idx];
+		if (def->type != SET_STRLIST && def->type != SET_BOOLLIST) {
+			ctx->error = p_strdup_printf(ctx->pool,
+				"Setting %s cannot be used as a section", key);
+		}
 		break;
 	}
 	case CONFIG_LINE_TYPE_SECTION_END:
