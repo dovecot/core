@@ -20,6 +20,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#define FUZZ_SASL_MAX_PASSWORD_SIZE SASL_MAX_MESSAGE_SIZE
+
 enum fuzz_sasl_modification {
 	FUZZ_SASL_MOD_DELETE = 0,
 	FUZZ_SASL_MOD_REPLACE,
@@ -595,10 +597,14 @@ static void fuzz_sasl_run(struct istream *input)
 	line = i_stream_read_next_line(input);
 	if (line == NULL)
 		return;
+	if (strlen(line) > FUZZ_SASL_MAX_PASSWORD_SIZE)
+		return;
 	params.server_password = t_strdup(line);
 
 	line = i_stream_read_next_line(input);
 	if (line == NULL)
+		return;
+	if (strlen(line) > FUZZ_SASL_MAX_PASSWORD_SIZE)
 		return;
 	if (*line == '\0')
 		params.client_password = params.server_password;
