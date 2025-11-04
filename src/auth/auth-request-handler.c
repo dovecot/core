@@ -751,6 +751,9 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 			auth_request_handler_auth_fail_code(handler, request,
 				AUTH_CLIENT_FAIL_CODE_INVALID_BASE64,
 				"Invalid base64 data in initial response");
+			/* The base64 input came from untrusted client. It's
+			   an expected auth failure, so don't disconnect the
+			   auth client. */
 			return 1;
 		}
 		initial_resp_data =
@@ -823,7 +826,10 @@ int auth_request_handler_auth_continue(struct auth_request_handler *handler,
 			auth_request_handler_auth_fail_code(handler, request,
 				AUTH_CLIENT_FAIL_CODE_INVALID_BASE64,
 				"Invalid base64 data in continued response");
-			return -1;
+			/* The base64 input came from untrusted client. It's
+			   an expected auth failure, so don't disconnect the
+			   auth client. */
+			return 1;
 		}
 	}
 
