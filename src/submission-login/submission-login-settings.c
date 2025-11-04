@@ -71,7 +71,7 @@ static const struct submission_login_settings submission_login_default_settings 
 	.hostname = "",
 	.mail_utf8_extensions = FALSE,
 
-	.submission_max_mail_size = 0,
+	.submission_max_mail_size = 40*1024*1024,
 	.submission_client_workarounds = ARRAY_INIT,
 	.submission_backend_capabilities = ARRAY_INIT,
 };
@@ -81,6 +81,7 @@ static const struct setting_keyvalue submission_login_default_settings_keyvalue[
 	{ "service/submission-login/service_process_limit", "%{system:cpu_count}" },
 	{ "service/submission-login/service_process_min_avail", "%{system:cpu_count}" },
 #endif
+	{ "service/submission-login/submission_max_mail_size", "unlimited" },
 	{ NULL, NULL },
 };
 
