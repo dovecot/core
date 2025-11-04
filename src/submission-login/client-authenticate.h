@@ -13,6 +13,7 @@ int cmd_helo(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_cmd_helo *data);
 int cmd_auth_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 		      const char *response);
+void cmd_auth_begin(struct submission_client *subm_client);
 int cmd_auth(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_cmd_auth *data);
 

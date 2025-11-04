@@ -168,6 +168,15 @@ static void submission_client_notify_auth_ready(struct client *client)
 		smtp_server_connection_start(subm_client->conn);
 }
 
+static void submission_client_notify_auth_connected(struct client *client)
+{
+	struct submission_client *subm_client =
+		container_of(client, struct submission_client, common);
+
+	if (subm_client->auth_cmd_deferred)
+		cmd_auth_begin(subm_client);
+}
+
 static void
 submission_client_notify_disconnect(struct client *_client,
 				    enum client_disconnect_reason reason,
@@ -243,6 +252,7 @@ static void client_connection_disconnect(void *context, const char *reason)
 	struct submission_client *client = context;
 
 	client->auth_cmd = NULL;
+	client->auth_cmd_data = NULL;
 	client_disconnect(&client->common, reason);
 }
 
@@ -323,6 +333,7 @@ static struct client_vfuncs submission_client_vfuncs = {
 	.destroy = submission_client_destroy,
 	.reload_config = submission_client_reload_config,
 	.notify_auth_ready = submission_client_notify_auth_ready,
+	.notify_auth_connected = submission_client_notify_auth_connected,
 	.notify_disconnect = submission_client_notify_disconnect,
 	.auth_send_challenge = submission_client_auth_send_challenge,
 	.auth_result = submission_client_auth_result,
