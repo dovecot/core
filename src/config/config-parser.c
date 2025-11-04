@@ -3284,6 +3284,32 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 }
 
 static void
+check_defaults_equal(const struct setting_parser_info *info1,
+		     const struct setting_define *def1,
+		     const struct setting_parser_info *info2,
+		     const struct setting_define *def2)
+{
+	i_assert(def1->type == def2->type);
+
+	const void *value1 = CONST_PTR_OFFSET(info1->defaults, def1->offset);
+	const void *value2 = CONST_PTR_OFFSET(info2->defaults, def2->offset);
+
+	string_t *str1 = t_str_new(64);
+	if (!config_export_type(str1, value1, def1->type)) {
+		/* Complex type - defaults aren't in this pointer */
+		return;
+	}
+	string_t *str2 = t_str_new(str_len(str1));
+	if (!config_export_type(str2, value2, def2->type))
+		i_unreached();
+	if (strcmp(str_c(str1), str_c(str2)) != 0) {
+		i_panic("Setting key '%s' default value mismatch between infos %s and %s (%s != %s)",
+			def1->key, info1->name, info2->name,
+			str_c(str1), str_c(str2));
+	}
+}
+
+static void
 config_parser_add_info(struct config_parser_context *ctx,
 		       unsigned int info_idx)
 {
@@ -3328,6 +3354,9 @@ config_parser_add_info(struct config_parser_context *ctx,
 				i_panic("Setting key '%s' flags mismatch between infos %s and %s (%d != %d)",
 					def->key, old_info->name, info->name,
 					old_def->flags, def->flags);
+			T_BEGIN {
+				check_defaults_equal(old_info, old_def, info, def);
+			} T_END;
 		}
 		config_key = p_new(ctx->pool, struct config_parser_key, 1);
 		config_key->info_idx = info_idx;
