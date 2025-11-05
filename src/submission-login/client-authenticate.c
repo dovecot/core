@@ -120,19 +120,19 @@ void submission_client_auth_result(struct client *client,
 {
 	struct submission_client *subm_client =
 		container_of(client, struct submission_client, common);
-	struct smtp_server_cmd_ctx *cmd = subm_client->pending_auth;
+	struct smtp_server_cmd_ctx *cmd = subm_client->auth_cmd;
 
 	if (subm_client->conn == NULL)
 		return;
 
-	subm_client->pending_auth = NULL;
+	subm_client->auth_cmd = NULL;
 	i_assert(cmd != NULL);
 
 	switch (result) {
 	case CLIENT_AUTH_RESULT_SUCCESS:
 		/* nothing to be done for SMTP */
 		if (client->login_proxy != NULL)
-			subm_client->pending_auth = cmd;
+			subm_client->auth_cmd = cmd;
 		break;
 	case CLIENT_AUTH_RESULT_REFERRAL_NOLOGIN: {
 		const struct smtp_proxy_redirect predir = {
@@ -285,7 +285,7 @@ void submission_client_auth_send_challenge(struct client *client,
 {
 	struct submission_client *subm_client =
 		container_of(client, struct submission_client, common);
-	struct smtp_server_cmd_ctx *cmd = subm_client->pending_auth;
+	struct smtp_server_cmd_ctx *cmd = subm_client->auth_cmd;
 
 	i_assert(cmd != NULL);
 
@@ -337,8 +337,8 @@ int cmd_auth(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 
 	cmd_auth_set_master_data_prefix(subm_client, NULL);
 
-	i_assert(subm_client->pending_auth == NULL);
-	subm_client->pending_auth = cmd;
+	i_assert(subm_client->auth_cmd == NULL);
+	subm_client->auth_cmd = cmd;
 
 	(void)client_auth_begin(client, data->sasl_mech, data->initial_response);
 	return 0;
@@ -369,8 +369,8 @@ void cmd_mail(struct smtp_server_cmd_ctx *cmd, const char *params)
 
 	cmd_auth_set_master_data_prefix(subm_client, params);
 
-	i_assert(subm_client->pending_auth == NULL);
-	subm_client->pending_auth = cmd;
+	i_assert(subm_client->auth_cmd == NULL);
+	subm_client->auth_cmd = cmd;
 
 	(void)client_auth_begin_implicit(client, SASL_MECH_NAME_EXTERNAL, "=");
 }

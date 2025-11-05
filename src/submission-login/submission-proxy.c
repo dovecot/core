@@ -301,7 +301,7 @@ static int
 proxy_handle_ehlo_reply(struct submission_client *client,
 			struct ostream *output)
 {
-	struct smtp_server_cmd_ctx *cmd = client->pending_auth;
+	struct smtp_server_cmd_ctx *cmd = client->auth_cmd;
 	int ret;
 
 	switch (client->proxy_state) {
@@ -337,7 +337,7 @@ proxy_handle_ehlo_reply(struct submission_client *client,
 		smtp_server_command_add_hook(
 			cmd->cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY,
 			submission_proxy_success_reply_sent, client);
-		client->pending_auth = NULL;
+		client->auth_cmd = NULL;
 
 		smtp_server_reply(cmd, 235, "2.7.0", "Logged in.");
 		return 1;
@@ -491,7 +491,7 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 {
 	struct submission_client *subm_client =
 		container_of(client, struct submission_client, common);
-	struct smtp_server_cmd_ctx *cmd = subm_client->pending_auth;
+	struct smtp_server_cmd_ctx *cmd = subm_client->auth_cmd;
 	struct smtp_server_command *command = cmd->cmd;
 	struct ostream *output;
 	bool last_line = FALSE, invalid_line = FALSE;
@@ -649,7 +649,7 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 			command, SMTP_SERVER_COMMAND_HOOK_DESTROY,
 			submission_proxy_success_reply_sent, subm_client);
 
-		subm_client->pending_auth = NULL;
+		subm_client->auth_cmd = NULL;
 
 		/* Login successful. Send this reply to client. */
 		smtp_server_reply_submit(subm_client->proxy_reply);
@@ -683,7 +683,7 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 		i_assert((status / 100) != 2);
 		i_assert(subm_client->proxy_reply != NULL);
 		smtp_server_reply_submit(subm_client->proxy_reply);
-		subm_client->pending_auth = NULL;
+		subm_client->auth_cmd = NULL;
 	}
 
 	login_proxy_failed(client->login_proxy,
@@ -710,7 +710,7 @@ submission_proxy_send_failure_reply(struct submission_client *subm_client,
 				    enum login_proxy_failure_type type,
 				    const char *reason ATTR_UNUSED)
 {
-	struct smtp_server_cmd_ctx *cmd = subm_client->pending_auth;
+	struct smtp_server_cmd_ctx *cmd = subm_client->auth_cmd;
 
 	switch (type) {
 	case LOGIN_PROXY_FAILURE_TYPE_CONNECT:
@@ -722,12 +722,12 @@ submission_proxy_send_failure_reply(struct submission_client *subm_client,
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT:
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH_NOT_REPLIED:
 		i_assert(cmd != NULL);
-		subm_client->pending_auth = NULL;
+		subm_client->auth_cmd = NULL;
 		smtp_server_reply(cmd, 454, "4.7.0", LOGIN_PROXY_FAILURE_MSG);
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL:
 		i_assert(cmd != NULL);
-		subm_client->pending_auth = NULL;
+		subm_client->auth_cmd = NULL;
 
 		i_assert(subm_client->proxy_reply != NULL);
 		smtp_server_reply_submit(subm_client->proxy_reply);
