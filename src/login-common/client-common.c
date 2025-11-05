@@ -1548,6 +1548,12 @@ void client_notify_auth_ready(struct client *client)
 	}
 }
 
+void client_notify_auth_connected(struct client *client)
+{
+	if (client->v.notify_auth_connected != NULL)
+		client->v.notify_auth_connected(client);
+}
+
 void client_notify_status(struct client *client, bool bad, const char *text)
 {
 	if (client->v.notify_status != NULL)

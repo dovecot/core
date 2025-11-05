@@ -1192,5 +1192,6 @@ void clients_notify_auth_connected(void)
 			client->input_blocked = FALSE;
 			io_set_pending(client->io);
 		}
+		client_notify_auth_connected(client);
 	}
 }

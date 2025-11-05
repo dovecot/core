@@ -125,6 +125,7 @@ struct client_vfuncs {
 	void (*destroy)(struct client *client);
 	int (*reload_config)(struct client *client, const char **error_r);
 	void (*notify_auth_ready)(struct client *client);
+	void (*notify_auth_connected)(struct client *client);
 	void (*notify_disconnect)(struct client *client,
 				  enum client_disconnect_reason reason,
 				  const char *text);
@@ -402,6 +403,7 @@ client_does_custom_io(struct client *client)
 }
 
 void client_notify_auth_ready(struct client *client);
+void client_notify_auth_connected(struct client *client);
 void client_notify_status(struct client *client, bool bad, const char *text);
 void client_notify_disconnect(struct client *client,
 			      enum client_disconnect_reason reason,
