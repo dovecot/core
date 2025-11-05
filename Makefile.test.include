@@ -1,6 +1,5 @@
+AUTOMAKE_OPTIONS = parallel-tests
+check_PROGRAMS = $(test_programs)
 noinst_PROGRAMS = $(test_programs)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) NOCHILDREN_TESTS="$(NOCHILDREN_TESTS)" ./$$bin; then exit 1; fi; \
-	done
+TESTS = $(test_programs)
+TESTS_ENVIRONMENT = $(RUN_TEST) NOCHILDREN_TESTS="$(NOCHILDREN_TESTS)"
