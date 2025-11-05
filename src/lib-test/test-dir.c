@@ -71,16 +71,18 @@ void test_dir_deinit_forked(void)
 
 const char *test_dir_get(void)
 {
+	if (test_dir == NULL)
+		i_panic("test_dir_init() has not been called");
 	return test_dir;
 }
 
 const char *test_dir_get_prefix(void)
 {
-	return t_strconcat(test_dir, "/", NULL);
+	return t_strconcat(test_dir_get(), "/", NULL);
 }
 
 const char *test_dir_prepend(const char *path)
 {
-	return t_strconcat(test_dir, "/", path, NULL);
+	return t_strconcat(test_dir_get(), "/", path, NULL);
 }
 
