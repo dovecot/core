@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 pkgsysconfdir = $(sysconfdir)/dovecot
 pkglibexecdir = $(libexecdir)/dovecot
 exampledir = $(docdir)/example-config
@@ -96,8 +98,6 @@ EXTRA_DIST = \
 test_programs = \
 	test-config-parser
 
-noinst_PROGRAMS = $(test_programs)
-
 test_libs = \
 	$(noinst_LTLIBRARIES) \
 	$(LIBDOVECOT)
@@ -106,8 +106,3 @@ test_config_parser_CFLAGS = $(AM_CFLAGS)
 test_config_parser_SOURCES = test-config-parser.c
 test_config_parser_LDADD = $(test_libs)
 test_config_parser_DEPENDENCIES = $(LIBDOVECOT_DEPS) $(noinst_LTLIBRARIES)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

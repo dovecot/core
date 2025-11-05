@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 doveadm_moduledir = $(moduledir)/doveadm
 pkglibexecdir = $(libexecdir)/dovecot
 
@@ -193,7 +195,6 @@ noinst_HEADERS = \
 test_programs = \
 	test-doveadm-cmd \
 	test-doveadm-util
-noinst_PROGRAMS = $(test_programs)
 
 test_libs = $(LIBDOVECOT)
 test_deps = $(noinst_LTLIBRARIES) $(LIBDOVECOT_DEPS)
@@ -205,8 +206,3 @@ test_doveadm_cmd_DEPENDENCIES = $(test_deps)
 test_doveadm_util_SOURCES = doveadm-util.c test-doveadm-util.c
 test_doveadm_util_LDADD = $(test_libs) $(MODULE_LIBS)
 test_doveadm_util_DEPENDENCIES = $(test_deps)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

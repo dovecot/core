@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libauth-client.la
 
 AM_CPPFLAGS = \
@@ -32,8 +34,6 @@ test_programs = \
 	test-auth-client \
 	test-auth-master
 
-noinst_PROGRAMS = $(test_programs)
-
 test_libs = \
 	$(noinst_LTLIBRARIES) \
 	../lib-master/libmaster.la \
@@ -61,8 +61,3 @@ test_auth_master_DEPENDENCIES = $(test_deps)
 test_auth_client_SOURCES = test-auth-client.c
 test_auth_client_LDADD = $(test_libs)
 test_auth_client_DEPENDENCIES = $(test_deps)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = liblanguage.la
 
 AM_CPPFLAGS = \
@@ -102,8 +104,6 @@ test_programs = \
 	test-lang-filter \
 	test-lang-tokenizer
 
-noinst_PROGRAMS = $(test_programs)
-
 test_libs = ../lib-dovecot/libdovecot.la
 test_deps = $(noinst_LTLIBRARIES) $(test_libs)
 
@@ -125,8 +125,3 @@ endif
 test_lang_tokenizer_SOURCES = test-lang-tokenizer.c
 test_lang_tokenizer_LDADD = liblanguage.la $(test_libs)
 test_lang_tokenizer_DEPENDENCIES = liblanguage.la $(test_deps)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

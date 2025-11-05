@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
@@ -20,8 +22,6 @@ lib05_pop3_migration_plugin_la_SOURCES = \
 noinst_HEADERS = \
 	pop3-migration-plugin.h
 
-noinst_PROGRAMS = $(test_programs)
-
 test_programs = \
 	test-pop3-migration-plugin
 
@@ -36,8 +36,3 @@ test_deps = \
 test_pop3_migration_plugin_SOURCES = test-pop3-migration-plugin.c
 test_pop3_migration_plugin_LDADD = pop3-migration-plugin.lo $(test_libs)
 test_pop3_migration_plugin_DEPENDENCIES = $(test_deps)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

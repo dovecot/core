@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libssl_iostream.la
 
 NOPLUGIN_LDFLAGS =
@@ -57,10 +59,3 @@ test_iostream_ssl_DEPENDENCIES = $(test_libs)
 
 test_programs = \
 	test-iostream-ssl
-
-noinst_PROGRAMS = $(test_programs)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

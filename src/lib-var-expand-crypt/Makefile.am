@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 module_LTLIBRARIES = var_expand_crypt.la
 
 AM_CPPFLAGS = \
@@ -17,8 +19,6 @@ pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
 	test-var-expand-crypt
-
-noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	$(LIBUNWIND_LIBS) \
@@ -42,8 +42,3 @@ endif
 
 test_var_expand_crypt_CFLAGS = $(AM_CFLAGS) \
 	-DDCRYPT_BUILD_DIR=\"$(top_builddir)/src/lib-dcrypt\"
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

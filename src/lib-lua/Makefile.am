@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
@@ -66,8 +68,6 @@ EXTRA_DIST = \
 	test-io-lua.lua \
 	test-lua-base64.lua
 
-noinst_PROGRAMS = $(test_programs)
-
 test_libs_ssl = ../lib-ssl-iostream/libssl_iostream_openssl.la
 
 test_lua_SOURCES = test-lua.c
@@ -95,8 +95,3 @@ test_lua_http_client_LDADD = libdlua.la $(LIBDOVECOT) $(test_libs_ssl) $(LUA_LIB
 test_lua_http_client_DEPENDENCIES = libdlua.la $(LIBDOVECOT_DEPS)
 test_lua_http_client_CFLAGS = $(AM_CFLAGS) \
 	-DTEST_LUA_SCRIPT_DIR=\"$(abs_srcdir)\"
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libdldap.la
 
 AM_CPPFLAGS = \
@@ -47,8 +49,3 @@ test_libs = \
 	../lib-test/libtest.la \
 	../lib-var-expand/libvar_expand.la \
 	../lib/liblib.la
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

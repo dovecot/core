@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libcharset.la
 
 AM_CPPFLAGS = \
@@ -18,8 +20,6 @@ pkginc_lib_HEADERS = $(headers)
 test_programs = \
 	test-charset
 
-noinst_PROGRAMS = $(test_programs)
-
 test_libs = \
 	../lib-test/libtest.la \
 	../lib/liblib.la
@@ -28,8 +28,3 @@ test_deps = $(noinst_LTLIBRARIES) $(test_libs)
 test_charset_SOURCES = test-charset.c
 test_charset_LDADD = libcharset.la $(test_libs)
 test_charset_DEPENDENCIES = libcharset.la $(test_deps)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

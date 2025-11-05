@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 auth_moduledir = $(moduledir)/auth
 
 # automake seems to force making this unconditional..
@@ -221,8 +223,6 @@ test_programs = \
 	test-auth \
 	test-mech
 
-noinst_PROGRAMS = $(test_programs)
-
 noinst_HEADERS = test-auth.h db-lua.h test-auth-master.h
 
 test_auth_cache_SOURCES = auth-cache.c test-auth-cache.c
@@ -270,9 +270,3 @@ test_auth_master_SOURCES = \
 
 test_auth_master_LDADD = $(LIBDOVECOT) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
 test_auth_master_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(LIBDOVECOT_DEPS)
-
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

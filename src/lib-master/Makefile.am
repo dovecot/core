@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 pkgsysconfdir = $(sysconfdir)/dovecot
 
 noinst_LTLIBRARIES = libmaster.la
@@ -48,8 +50,6 @@ test_programs = \
 	test-event-stats \
 	test-master-service-settings
 
-noinst_PROGRAMS = $(test_programs)
-
 test_deps = \
 	libmaster.la \
 	../lib-ssl-iostream/libssl_iostream.la \
@@ -73,8 +73,3 @@ test_event_stats_DEPENDENCIES = $(test_deps)
 test_master_service_settings_SOURCES = test-master-service-settings.c
 test_master_service_settings_LDADD = $(test_libs)
 test_master_service_settings_DEPENDENCIES = $(test_deps)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

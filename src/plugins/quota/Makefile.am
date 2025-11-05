@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 doveadm_moduledir = $(moduledir)/doveadm
 
 pkglibexecdir = $(libexecdir)/dovecot
@@ -119,7 +121,6 @@ clean-generic:
 
 test_programs = \
 	test-quota-util
-noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	$(LIBDOVECOT_STORAGE) \
@@ -131,8 +132,3 @@ test_deps = $(noinst_LTLIBRARIES) \
 test_quota_util_SOURCES = test-quota-util.c
 test_quota_util_LDADD = quota-util.lo $(test_libs)
 test_quota_util_DEPENDENCIES = quota-util.lo $(test_deps)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

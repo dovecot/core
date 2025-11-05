@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libvar_expand.la
 
 # Squelch autoconf error about using .[ly] sources but not defining $(LEX)
@@ -56,8 +58,6 @@ pkginc_lib_HEADERS = $(headers)
 test_programs = \
 	test-var-expand
 
-noinst_PROGRAMS = $(test_programs)
-
 test_libs = \
 	libvar_expand.la \
 	../lib-regex/libdregex.la \
@@ -67,8 +67,3 @@ test_libs = \
 
 test_var_expand_SOURCE = test-var-expand.c
 test_var_expand_LDADD = $(test_libs)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

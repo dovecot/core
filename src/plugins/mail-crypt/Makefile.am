@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
@@ -106,10 +108,3 @@ noinst_HEADERS = \
 	mail-crypt-common.h \
 	mail-crypt-global-key.h \
 	mail-crypt-key.h
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done
-
-noinst_PROGRAMS = $(test_programs)

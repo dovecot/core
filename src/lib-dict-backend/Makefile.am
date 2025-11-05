@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libdict_backend.la
 
 module_dictdir = $(moduledir)/dict
@@ -95,8 +97,6 @@ dict-drivers-register.c: Makefile $(top_builddir)/config.h
 test_programs = \
 	test-dict-sql
 
-noinst_PROGRAMS = $(test_programs)
-
 test_dict_sql_CFLAGS = $(AM_CFLAGS) -DDICT_SRC_DIR=\"$(top_srcdir)/src/lib-dict-backend\"
 test_dict_sql_SOURCES = \
 	test-dict-sql.c
@@ -111,8 +111,3 @@ test_dict_sql_DEPENDENCIES = \
 	../lib-sql/libdriver_test.la \
 	../lib-sql/libsql.la \
 	$(LIBDOVECOT_DEPS)
-
-check-local:
-	for bin in $(test_programs) $(check_PROGRAMS); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

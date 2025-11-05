@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 pkglibexecdir = $(libexecdir)/dovecot
 
 pkglibexec_PROGRAMS = stats
@@ -90,12 +92,6 @@ test_client_reader_LDADD = $(test_libs)
 test_client_reader_DEPENDENCIES = $(test_deps)
 
 test_programs = test-stats-metrics test-client-writer test-client-reader
-noinst_PROGRAMS = $(test_programs)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done
 
 LIBDOVECOT_TEST_DEPS = \
 	../lib-ssl-iostream/libssl_iostream.la \

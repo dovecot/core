@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 pkglibexecdir = $(libexecdir)/dovecot
 
 pkglibexec_PROGRAMS = imap
@@ -127,7 +129,6 @@ endif
 test_programs = \
 	test-imap-storage-callbacks \
 	$(TEST_IMAP_CLIENT_HIBERNATE)
-noinst_PROGRAMS = $(test_programs)
 
 test_imap_storage_callbacks_SOURCES = \
 	test-imap-storage-callbacks.c \
@@ -139,8 +140,3 @@ test_imap_client_hibernate_SOURCES = \
 	test-imap-client-hibernate.c $(common_sources)
 test_imap_client_hibernate_LDADD = $(imap_LDADD)
 test_imap_client_hibernate_DEPENDENCIES = $(imap_DEPENDENCIES)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

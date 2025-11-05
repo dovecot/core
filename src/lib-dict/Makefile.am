@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = \
 	libdict.la
 
@@ -50,8 +52,6 @@ pkginc_lib_HEADERS = $(headers)
 test_programs = \
 	test-dict
 
-noinst_PROGRAMS = $(test_programs)
-
 test_libs = \
 	libdict.la \
 	../lib-settings/libsettings.la \
@@ -64,8 +64,3 @@ test_libs = \
 test_dict_SOURCES = test-dict.c
 test_dict_LDADD = $(test_libs) $(DLLIB)
 test_dict_DEPENDENCIES = $(test_libs)
-
-check-local:
-	for bin in $(test_programs) $(check_PROGRAMS); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

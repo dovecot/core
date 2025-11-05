@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libsettings.la
 
 AM_CPPFLAGS = \
@@ -39,8 +41,6 @@ test_programs = \
 	test-settings-parser \
 	test-settings
 
-noinst_PROGRAMS = $(test_programs)
-
 test_libs = \
 	libsettings.la \
 	../lib-var-expand/libvar_expand.la \
@@ -56,8 +56,3 @@ test_settings_parser_DEPENDENCIES = $(test_libs)
 test_settings_SOURCES = test-settings.c
 test_settings_LDADD = $(test_libs) $(DLLIB)
 test_settings_DEPENDENCIES = $(test_libs)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
@@ -27,20 +29,12 @@ EXTRA_DIST =
 
 test_programs = test-regex
 
-noinst_PROGRAMS = $(test_programs)
-
 test_regex_SOURCES = test-regex.c
 test_regex_LDADD = libdregex.la \
 		   ../lib-test/libtest.la \
 		   ../lib/liblib.la \
 		   $(LIBPCRE_LIBS)
 test_regex_DEPENDENCIES = libdregex.la
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done
-
 
 else
 libdregex_la_SOURCES = empty.c

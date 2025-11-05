@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libdcrypt.la libdcrypt_openssl_static.la
 module_LTLIBRARIES =
 
@@ -47,12 +49,6 @@ EXTRA_DIST = \
 	sample-v2.asc
 
 test_programs = test-crypto test-stream
-noinst_PROGRAMS = $(test_programs)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done
 
 LIBDOVECOT_TEST_DEPS = \
 	../lib-var-expand/libvar_expand.la \

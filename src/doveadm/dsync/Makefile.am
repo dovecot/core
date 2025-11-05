@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 pkglib_LTLIBRARIES = libdovecot-dsync.la
 noinst_LTLIBRARIES = libdsync.la
 
@@ -61,8 +63,6 @@ noinst_HEADERS = \
 test_programs = \
 	test-dsync-mailbox-tree-sync
 
-noinst_PROGRAMS = $(test_programs)
-
 test_libs = \
 	../../lib-test/libtest.la \
 	../../lib/liblib.la
@@ -70,8 +70,3 @@ test_libs = \
 test_dsync_mailbox_tree_sync_SOURCES = test-dsync-mailbox-tree-sync.c
 test_dsync_mailbox_tree_sync_LDADD = dsync-mailbox-tree-sync.lo dsync-mailbox-tree.lo $(test_libs)
 test_dsync_mailbox_tree_sync_DEPENDENCIES = $(pkglib_LTLIBRARIES) $(test_libs)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

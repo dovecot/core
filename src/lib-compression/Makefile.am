@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libcompression.la
 
 AM_CPPFLAGS = \
@@ -40,7 +42,7 @@ libdovecot_compression_la_LDFLAGS = -export-dynamic
 test_programs = \
 	test-compression
 
-noinst_PROGRAMS = $(test_programs) bench-compression
+noinst_PROGRAMS += bench-compression
 
 test_libs = \
 	$(noinst_LTLIBRARIES) \
@@ -55,8 +57,3 @@ test_compression_DEPENDENCIES = $(test_deps)
 bench_compression_SOURCES = bench-compression.c
 bench_compression_LDADD = $(test_libs)
 bench_compression_DEPENDENCIES = $(test_deps)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libjson.la
 
 AM_CPPFLAGS = \
@@ -43,7 +45,7 @@ fuzz_programs += \
         fuzz-json-istream
 endif
 
-noinst_PROGRAMS = json-format $(test_programs) $(fuzz_programs)
+noinst_PROGRAMS += json-format $(fuzz_programs)
 
 json_format_SOURCE = \
 	json-format.c
@@ -128,9 +130,3 @@ fuzz_json_istream_LDADD = \
 	$(test_libs)
 fuzz_json_istream_DEPENDENCIES = \
 	$(test_deps)
-
-check: check-am check-test
-check-test: all-am
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

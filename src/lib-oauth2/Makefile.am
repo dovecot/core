@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
@@ -29,8 +31,6 @@ liboauth2_la_DEPENDENCIES = \
 test_programs = \
 	test-oauth2-json \
 	test-oauth2-jwt
-
-noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	$(noinst_LTLIBRARIES) \
@@ -81,8 +81,3 @@ test_oauth2_jwt_LDFLAGS = \
 	-Wl,$(LD_WHOLE_ARCHIVE),../lib-json/.libs/libjson.a,../lib-ssl-iostream/.libs/libssl_iostream.a,$(LD_NO_WHOLE_ARCHIVE)
 endif
 test_oauth2_jwt_DEPENDENCIES = $(test_deps)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

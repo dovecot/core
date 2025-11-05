@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libdriver_test.la libsql.la
 
 SQL_DRIVER_PLUGINS =
@@ -158,10 +160,3 @@ test_sql_sqlite_SOURCES = test-sql-sqlite.c
 test_sql_sqlite_LDADD = $(SQLITE_LIB) $(pkglib_LTLIBRARIES) $(test_libs) $(DLLIB)
 test_sql_sqlite_DEPENDENCIES = $(SQLITE_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
 endif
-
-noinst_PROGRAMS = $(test_programs)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

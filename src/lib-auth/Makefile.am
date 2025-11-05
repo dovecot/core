@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libauth-crypt.la libauth.la
 if HAVE_GSSAPI
 noinst_LTLIBRARIES += libauth-gssapi.la
@@ -55,8 +57,6 @@ test_programs = \
 	test-auth-gs2 \
 	test-auth-scram
 
-noinst_PROGRAMS = $(test_programs)
-
 test_libs = \
 	$(noinst_LTLIBRARIES) \
         ../lib-otp/libotp.la \
@@ -97,8 +97,3 @@ test_auth_scram_LDADD = \
         ../lib-otp/libotp.la
 test_auth_scram_DEPENDENCIES = \
 	$(test_deps)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

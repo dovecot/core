@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libimap.la
 
 AM_CPPFLAGS = \
@@ -54,8 +56,6 @@ test_programs = \
 	test-imap-utf7 \
 	test-imap-util
 
-noinst_PROGRAMS = $(test_programs)
-
 test_libs = \
 	../lib-charset/libcharset.la \
 	../lib-test/libtest.la \
@@ -98,11 +98,6 @@ test_imap_utf7_DEPENDENCIES = $(test_deps)
 test_imap_util_SOURCES = test-imap-util.c
 test_imap_util_LDADD = imap-util.lo imap-arg.lo $(test_libs)
 test_imap_util_DEPENDENCIES = $(test_deps)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done
 
 if USE_FUZZER
 noinst_PROGRAMS += \

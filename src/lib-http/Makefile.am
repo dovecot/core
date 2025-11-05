@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libhttp.la
 
 AM_CPPFLAGS = \
@@ -77,7 +79,7 @@ test_nocheck_programs = \
 	test-http-client \
 	test-http-server
 
-noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
+noinst_PROGRAMS += $(test_nocheck_programs)
 
 test_libs = \
 	../lib-settings/libsettings.la \
@@ -213,8 +215,3 @@ test_http_server_errors_LDADD = \
 	$(test_http_libs)
 test_http_server_errors_DEPENDENCIES = \
 	$(test_http_deps)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

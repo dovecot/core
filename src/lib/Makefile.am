@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 AM_CPPFLAGS = \
 	$(LIBUNWIND_CFLAGS)
 
@@ -415,7 +417,6 @@ headers = \
 	write-full.h
 
 test_programs = test-lib
-noinst_PROGRAMS = $(test_programs)
 
 test_lib_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-test \
@@ -530,11 +531,6 @@ test_headers = \
 
 test_lib_LDADD = $(test_libs) -lm
 test_lib_DEPENDENCIES = $(test_libs)
-
-check-local: $(UCD_FILES)
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)

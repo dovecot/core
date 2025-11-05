@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libmail.la
 
 AM_CPPFLAGS = \
@@ -126,7 +128,7 @@ fuzz_message_parser_DEPENDENCIES = $(test_deps)
 
 endif
 
-noinst_PROGRAMS = $(fuzz_programs) $(test_programs)
+noinst_PROGRAMS += $(fuzz_programs)
 
 test_libs = \
 	$(noinst_LTLIBRARIES) \
@@ -251,8 +253,3 @@ test_rfc822_parser_DEPENDENCIES = $(test_deps)
 test_message_part_serialize_SOURCES = test-message-part-serialize.c
 test_message_part_serialize_LDADD = $(test_libs)
 test_message_part_serialize_DEPENDENCIES = $(test_deps)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

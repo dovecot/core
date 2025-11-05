@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
@@ -46,8 +48,6 @@ test_libs = \
 	../../lib/liblib.la \
 	$(MODULE_LIBS)
 
-noinst_PROGRAMS = test-solr-response
-
 test_solr_response_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-I$(top_srcdir)/src/lib-test
@@ -59,9 +59,3 @@ test_solr_response_LDADD = \
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
-
-check: check-am check-test
-check-test: all-am
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

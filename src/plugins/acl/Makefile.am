@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 doveadm_moduledir = $(moduledir)/doveadm
 
 AM_CPPFLAGS = \
@@ -76,10 +78,3 @@ test_deps = \
 test_acl_SOURCES = test-acl.c
 test_acl_LDADD = $(test_libs)
 test_acl_DEPENDENCIES = $(test_deps)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! env $(test_options) $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done
-
-noinst_PROGRAMS = $(test_programs)

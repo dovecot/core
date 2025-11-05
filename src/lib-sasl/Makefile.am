@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libsasl.la
 if HAVE_GSSAPI
 noinst_LTLIBRARIES += libsasl-gssapi.la
@@ -92,7 +94,7 @@ fuzz_programs += \
         fuzz-sasl-authentication
 endif
 
-noinst_PROGRAMS = $(test_programs) ntlm_dummy $(fuzz_programs)
+noinst_PROGRAMS += ntlm_dummy $(fuzz_programs)
 
 test_libs = \
 	libsasl.la \
@@ -154,8 +156,3 @@ fuzz_sasl_authentication_LDADD += \
 fuzz_sasl_authentication_DEPENDENCIES += \
        ../lib-auth/libauth-gssapi.la
 endif
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

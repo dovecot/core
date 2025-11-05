@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 pkgsysconfdir = $(sysconfdir)/dovecot
 
 noinst_LTLIBRARIES = liblogin.la
@@ -25,8 +27,6 @@ pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
 	test-login-server-auth
-
-noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	liblogin.la \
@@ -60,8 +60,3 @@ test_deps = \
 test_login_server_auth_SOURCES = test-login-server-auth.c
 test_login_server_auth_LDADD = $(test_libs)
 test_login_server_auth_DEPENDENCIES = $(test_deps)
-
-check-local:
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done
