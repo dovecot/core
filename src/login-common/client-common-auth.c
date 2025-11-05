@@ -1097,6 +1097,8 @@ client_auth_begin_common(struct client *client, const char *mech_name,
 			 enum sasl_server_auth_flags auth_flags,
 			 const char *init_resp)
 {
+	i_assert(!client->authenticating);
+
 	if (!client->connection_secured &&
 	    strcmp(client->ssl_server_set->ssl, "required") == 0) {
 		e_info(client->event_auth, "Login failed: "
