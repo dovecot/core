@@ -127,9 +127,11 @@ passwd_lookup_credentials(struct auth_request *request,
 				  PASSWD_PASS_SCHEME, callback, request);
 }
 
-static int passwd_preinit(pool_t pool, struct event *event,
-			  struct passdb_module **module_r,
-			  const char **error_r )
+static int
+passwd_preinit(pool_t pool, struct event *event,
+	       const struct passdb_parameters *passdb_params ATTR_UNUSED,
+	       struct passdb_module **module_r,
+	       const char **error_r)
 {
 	const struct auth_passdb_post_settings *post_set;
 	struct passdb_module *module = p_new(pool, struct passdb_module, 1);

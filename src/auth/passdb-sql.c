@@ -278,6 +278,7 @@ static void sql_set_credentials(struct auth_request *request,
 
 static int
 passdb_sql_preinit(pool_t pool, struct event *event,
+		   const struct passdb_parameters *passdb_params ATTR_UNUSED,
 		   struct passdb_module **module_r, const char **error_r)
 {
 	struct sql_passdb_module *module;

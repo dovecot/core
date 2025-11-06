@@ -187,7 +187,9 @@ passdb_preinit(pool_t pool, struct event *event,
 	}
 
 	if (iface->preinit != NULL) {
-		if (iface->preinit(pool, event, &passdb, &error) < 0)
+		struct passdb_parameters params;
+		i_zero(&params);
+		if (iface->preinit(pool, event, &params, &passdb, &error) < 0)
 			i_fatal("passdb %s: %s", set->name, error);
 		passdb->default_pass_scheme =
 			set->default_password_scheme;

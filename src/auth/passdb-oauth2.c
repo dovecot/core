@@ -44,7 +44,9 @@ oauth2_verify_plain(struct auth_request *request, const char *password,
 }
 
 static int
-oauth2_preinit(pool_t pool, struct event *event, struct passdb_module **module_r,
+oauth2_preinit(pool_t pool, struct event *event,
+	       const struct passdb_parameters *passdb_params ATTR_UNUSED,
+	       struct passdb_module **module_r,
 	       const char **error_r)
 {
 	struct oauth2_passdb_module *module;

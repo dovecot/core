@@ -106,6 +106,7 @@ passdb_lua_verify_plain(struct auth_request *request, const char *password,
 
 static int
 passdb_lua_preinit(pool_t pool, struct event *event,
+		   const struct passdb_parameters *passdb_params ATTR_UNUSED,
 		   struct passdb_module **module_r, const char **error_r)
 {
 	struct dlua_passdb_module *module;

@@ -89,6 +89,7 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 
 static int
 bsdauth_preinit(pool_t pool, struct event *event,
+		const struct passdb_parameters *passdb_params ATTR_UNUSED,
 		struct passdb_module **module_r,
 		const char **error_r)
 {

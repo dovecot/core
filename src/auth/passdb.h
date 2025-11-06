@@ -34,12 +34,16 @@ typedef void lookup_credentials_callback_t(enum passdb_result result,
 typedef void set_credentials_callback_t(bool success,
 					struct auth_request *request);
 
+struct passdb_parameters {
+};
+
 struct passdb_module_interface {
 	const char *name;
 
 	/* Create a new passdb_module based on the settings looked up via the
 	   given event. */
 	int (*preinit)(pool_t pool, struct event *event,
+		       const struct passdb_parameters *passdb_params,
 		       struct passdb_module **module_r, const char **error_r);
 	void (*init)(struct passdb_module *module);
 	void (*deinit)(struct passdb_module *module);
