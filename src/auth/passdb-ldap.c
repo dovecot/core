@@ -465,6 +465,7 @@ static int passdb_ldap_preinit(pool_t pool, struct event *event,
 
 	module->module.default_cache_key = auth_cache_parse_key_and_fields(
 		pool, t_strconcat(ldap_pre->ldap_base,
+				  ldap_pre->passdb_ldap_bind_userdn,
 				  ldap_pre->passdb_ldap_filter, NULL),
 		&auth_post->fields, NULL);
 
