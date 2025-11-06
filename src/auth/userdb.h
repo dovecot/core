@@ -44,12 +44,16 @@ struct userdb_iterate_context {
 	bool failed;
 };
 
+struct userdb_parameters {
+};
+
 struct userdb_module_interface {
 	const char *name;
 
 	/* Create a new userdb_module based on the settings looked up via the
 	   given event. */
 	int (*preinit)(pool_t pool, struct event *event,
+		       const struct userdb_parameters *userdb_params,
 		       struct userdb_module **module_r, const char **error_r);
 	void (*init)(struct userdb_module *module);
 	void (*deinit)(struct userdb_module *module);

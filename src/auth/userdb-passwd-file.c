@@ -233,6 +233,7 @@ static int passwd_file_iterate_deinit(struct userdb_iterate_context *_ctx)
 
 static int
 passwd_file_preinit(pool_t pool, struct event *event,
+		    const struct userdb_parameters *userdb_params ATTR_UNUSED,
 		    struct userdb_module **module_r, const char **error_r)
 {
 	struct passwd_file_userdb_module *module;

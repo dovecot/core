@@ -104,8 +104,10 @@ static void static_lookup(struct auth_request *auth_request,
 	}
 }
 
-static int static_preinit(pool_t pool, struct event *event,
-			  struct userdb_module **module_r, const char **error_r)
+static int
+static_preinit(pool_t pool, struct event *event,
+	       const struct userdb_parameters *userdb_params ATTR_UNUSED,
+	       struct userdb_module **module_r, const char **error_r)
 
 {
 	struct auth_static_settings *set;

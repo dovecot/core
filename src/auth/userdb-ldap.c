@@ -312,9 +312,11 @@ static int userdb_ldap_iterate_deinit(struct userdb_iterate_context *_ctx)
 	return ret;
 }
 
-static int userdb_ldap_preinit(pool_t pool, struct event *event,
-			       struct userdb_module **module_r,
-			       const char **error_r ATTR_UNUSED)
+static int
+userdb_ldap_preinit(pool_t pool, struct event *event,
+		    const struct userdb_parameters *userdb_params ATTR_UNUSED,
+		    struct userdb_module **module_r,
+		    const char **error_r ATTR_UNUSED)
 {
 	const struct auth_userdb_post_settings *auth_post = NULL;
 	const struct ldap_post_settings *ldap_post = NULL;

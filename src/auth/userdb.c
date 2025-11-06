@@ -121,7 +121,9 @@ userdb_preinit(pool_t pool, struct event *event,
 	}
 
 	if (iface->preinit != NULL) {
-		if (iface->preinit(pool, event, &userdb, &error) < 0)
+		struct userdb_parameters params;
+		i_zero(&params);
+		if (iface->preinit(pool, event, &params, &userdb, &error) < 0)
 			i_fatal("userdb %s: %s", set->name, error);
 		userdb->blocking = set->use_worker;
 	} else {

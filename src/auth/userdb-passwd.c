@@ -217,9 +217,11 @@ static int passwd_iterate_deinit(struct userdb_iterate_context *_ctx)
 	return ret;
 }
 
-static int passwd_preinit(pool_t pool, struct event *event ATTR_UNUSED,
-			  struct userdb_module **module_r,
-			  const char **error_r ATTR_UNUSED)
+static int
+passwd_preinit(pool_t pool, struct event *event ATTR_UNUSED,
+	       const struct userdb_parameters *userdb_params ATTR_UNUSED,
+	       struct userdb_module **module_r,
+	       const char **error_r ATTR_UNUSED)
 {
 	struct passwd_userdb_module *module =
 		p_new(pool, struct passwd_userdb_module, 1);
