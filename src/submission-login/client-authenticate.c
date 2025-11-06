@@ -10,6 +10,7 @@
 #include "safe-memset.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "settings-parser.h"
 #include "auth-client.h"
 #include "ssl-settings.h"
 #include "client.h"
@@ -76,7 +77,8 @@ static void cmd_helo_reply(struct submission_client *subm_client,
 				reply, "ENHANCEDSTATUSCODES");
 		}
 
-		if (subm_client->set->submission_max_mail_size > 0) {
+		if (subm_client->set->submission_max_mail_size > 0 &&
+		    subm_client->set->submission_max_mail_size != SET_SIZE_UNLIMITED) {
 			smtp_server_reply_ehlo_add_param(reply,
 				"SIZE", "%"PRIuUOFF_T,
 				subm_client->set->submission_max_mail_size);

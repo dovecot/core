@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "istream-concat.h"
 #include "istream-seekable.h"
+#include "settings-parser.h"
 #include "mail-storage.h"
 #include "imap-url.h"
 #include "imap-msgpart.h"
@@ -87,7 +88,7 @@ void submission_helo_reply_submit(struct smtp_server_cmd_ctx *cmd,
 			"PIPELINING");
 
 		cap_size = client_get_max_mail_size(client);
-		if (cap_size > 0) {
+		if (cap_size > 0 && cap_size != SET_SIZE_UNLIMITED) {
 			smtp_server_reply_ehlo_add_param(reply,
 				"SIZE", "%"PRIuUOFF_T, cap_size);
 		} else {
