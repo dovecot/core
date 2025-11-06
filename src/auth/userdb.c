@@ -3,6 +3,7 @@
 #include "auth-common.h"
 #include "array.h"
 #include "ipwd.h"
+#include "auth-cache.h"
 #include "auth-worker-connection.h"
 #include "userdb.h"
 
@@ -96,6 +97,21 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 	default:
 		return gr.gr_gid;
 	}
+}
+
+int userdb_set_cache_key(struct userdb_module *module,
+			 const struct userdb_parameters *userdb_params,
+			 pool_t pool, const char *query,
+			 const ARRAY_TYPE(const_string) *fields,
+			 const char *exclude_driver, const char **error_r ATTR_UNUSED)
+{
+	if (!userdb_params->use_cache)
+		return 0;
+
+	module->default_cache_key =
+		auth_cache_parse_key_and_fields(pool, query, fields,
+						exclude_driver);
+	return 0;
 }
 
 struct userdb_module *

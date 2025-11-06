@@ -78,6 +78,12 @@ uid_t userdb_parse_uid(struct auth_request *request, const char *str)
 gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 	ATTR_NULL(1);
 
+int userdb_set_cache_key(struct userdb_module *module,
+			 const struct userdb_parameters *userdb_params,
+			 pool_t pool, const char *query,
+			 const ARRAY_TYPE(const_string) *fields,
+			 const char *exclude_driver, const char **error_r);
+
 struct userdb_module *
 userdb_preinit(pool_t pool, struct event *event,
 	       const struct auth_userdb_settings *set, bool use_cache);

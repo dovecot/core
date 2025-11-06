@@ -8,7 +8,6 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
-#include "auth-cache.h"
 #include "settings.h"
 #include "auth-settings.h"
 #include "db-ldap.h"
@@ -346,14 +345,12 @@ userdb_ldap_preinit(pool_t pool, struct event *event,
 	db_ldap_get_attribute_names(pool, &ldap_post->iterate_fields,
 				    &module->iterate_attributes, NULL, NULL);
 
-	module->module.default_cache_key = !userdb_params->use_cache ? NULL :
-		auth_cache_parse_key_and_fields(pool,
-			t_strconcat(ldap_pre->ldap_base,
-				    ldap_pre->userdb_ldap_filter, NULL),
-			&auth_post->fields, NULL);
+	const char *query = t_strconcat(ldap_pre->ldap_base,
+					ldap_pre->userdb_ldap_filter, NULL);
+	ret = userdb_set_cache_key(&module->module, userdb_params, pool,
+				   query, &auth_post->fields, NULL, error_r);
 
 	*module_r = &module->module;
-	ret = 0;
 
 failed:
 	settings_free(auth_post);
