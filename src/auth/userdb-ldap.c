@@ -201,8 +201,11 @@ static void userdb_ldap_iterate_callback(struct ldap_connection *conn,
 			 &set, &error) < 0) {
 		e_error(event, "%s", error);
 		ctx->ctx.failed = TRUE;
-	}
-	else {
+	} else if (!array_is_created(&set->iterate_fields)) {
+		e_error(event, "iterate: No userdb_ldap_iterate_fields specified");
+		ctx->ctx.failed = TRUE;
+		settings_free(set);
+	} else {
 		unsigned int count;
 		const char *const *items = array_get(&set->iterate_fields, &count);
 		for (unsigned int ndx = 0; ndx < count - 1;) {
