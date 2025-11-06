@@ -87,26 +87,23 @@ static void test_auth_cache_parse_key(void)
 		/* test that other providers are dropped */
 		{ "%{a}%{provider:user}", "%{a}" },
 	};
-	const char *cache_key;
+	const char *cache_key, *error;
 	unsigned int i;
 
 	test_begin("auth cache parse key");
 
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
-		cache_key = auth_cache_parse_key_and_fields(pool_datastack_create(),
-							    tests[i].in, NULL, NULL);
+		test_assert_idx(auth_cache_parse_key_and_fields(
+			pool_datastack_create(), tests[i].in, NULL, NULL,
+			&cache_key, &error) == 0, i);
 		test_assert_strcmp_idx(cache_key, tests[i].out, i);
 	}
 
 	test_end();
 }
 
-static enum fatal_test_state test_cache_key_missing_variable(unsigned int i)
+static void test_auth_cache_parse_key_errors(void)
 {
-	if (i == 0)
-		test_begin("auth cache missing variable");
-
-	/* ensure that we do not accept static string */
 	static const struct {
 		const char *in, *out;
 	} tests_bad[] = {
@@ -116,16 +113,19 @@ static enum fatal_test_state test_cache_key_missing_variable(unsigned int i)
 			    "failed: syntax error, unexpected end of file, " \
 			    "expecting CCBRACE or PIPE" },
 	};
+	const char *cache_key, *error;
+	unsigned int i;
 
-	if (i < N_ELEMENTS(tests_bad)) {
-		test_expect_fatal_string(tests_bad[i].out);
-		(void)auth_cache_parse_key_and_fields(pool_datastack_create(),
-						      tests_bad[i].in, NULL, NULL);
-		return FATAL_TEST_FAILURE;
+	test_begin("auth cache parse key errors");
+
+	for (i = 0; i < N_ELEMENTS(tests_bad); i++) {
+		test_assert_idx(auth_cache_parse_key_and_fields(
+			pool_datastack_create(), tests_bad[i].in, NULL, NULL,
+			&cache_key, &error) < 0, i);
+		test_assert_strcmp_idx(error, tests_bad[i].out, i);
 	}
 
 	test_end();
-	return FATAL_TEST_FINISHED;
 }
 
 int main(void)
@@ -134,15 +134,11 @@ int main(void)
 	auth_event = event_create(NULL);
 	static void (*const test_functions[])(void) = {
 		test_auth_cache_parse_key,
+		test_auth_cache_parse_key_errors,
 		NULL
 	};
 
-	static test_fatal_func_t *const fatal_functions[] = {
-		test_cache_key_missing_variable,
-		NULL,
-	};
-
-	int ret = test_run_with_fatals(test_functions, fatal_functions);
+	int ret = test_run(test_functions);
 
 	event_unref(&auth_event);
 	return ret;

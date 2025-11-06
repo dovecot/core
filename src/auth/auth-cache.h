@@ -19,9 +19,11 @@ struct auth_request;
 /* Parses all %variables from query and compresses them into tab-separated
    list, so it can be used as a cache key. Adds also variables from "fields",
    except variables prefixed with <exclude_driver>":" */
-char *auth_cache_parse_key_and_fields(pool_t pool, const char *query,
-				      const ARRAY_TYPE(const_string) *fields,
-				      const char *exclude_driver);
+int auth_cache_parse_key_and_fields(pool_t pool, const char *query,
+				    const ARRAY_TYPE(const_string) *fields,
+				    const char *exclude_driver,
+				    const char **cache_key_r,
+				    const char **error_r);
 
 /* Create a new cache. max_size specifies the maximum amount of memory in
    bytes to use for cache (it's not fully exact). ttl_secs specifies time to

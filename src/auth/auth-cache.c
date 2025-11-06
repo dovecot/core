@@ -66,7 +66,7 @@ static void auth_cache_key_add_tab_idx(string_t *str, unsigned int i)
 
 static int auth_cache_parse_key_exclude(pool_t pool, const char *query,
 					const char *exclude_driver,
-					char **cache_key_r,
+					const char **cache_key_r,
 					const char **error_r)
 {
 	string_t *str;
@@ -130,9 +130,11 @@ static int auth_cache_parse_key_exclude(pool_t pool, const char *query,
 	return 0;
 }
 
-char *auth_cache_parse_key_and_fields(pool_t pool, const char *query,
-				      const ARRAY_TYPE(const_string) *fields,
-				      const char *exclude_driver)
+int auth_cache_parse_key_and_fields(pool_t pool, const char *query,
+				    const ARRAY_TYPE(const_string) *fields,
+				    const char *exclude_driver,
+				    const char **cache_key_r,
+				    const char **error_r)
 {
 	if (fields != NULL && !array_is_empty(fields)) {
 		unsigned int i, count;
@@ -146,12 +148,13 @@ char *auth_cache_parse_key_and_fields(pool_t pool, const char *query,
 		query = str_c(full_query);
 	}
 
-	char *cache_key;
 	const char *error;
 	if (auth_cache_parse_key_exclude(pool, query, exclude_driver,
-					 &cache_key, &error) < 0)
-		i_fatal("auth-cache: %s", error);
-	return cache_key;
+					 cache_key_r, &error) < 0) {
+		*error_r = t_strdup_printf("auth-cache: %s", error);
+		return -1;
+	}
+	return 0;
 }
 
 static void

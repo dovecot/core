@@ -474,17 +474,21 @@ auth_lua_script_get_default_cache_key(const struct auth_lua_script_parameters *p
 		switch (params->stype) {
 		case AUTH_LUA_SCRIPT_TYPE_PASSDB:
 			i_assert(params->passdb_module != NULL);
-			params->passdb_module->module.default_cache_key =
-				auth_cache_parse_key_and_fields(params->pool,
-						lua_tostring(script->L, -1),
-						&post_set->fields, "lua");
+			if (auth_cache_parse_key_and_fields(params->pool,
+					lua_tostring(script->L, -1),
+					&post_set->fields, "lua",
+					&params->passdb_module->module.default_cache_key,
+					error_r) < 0)
+				return -1;
 			break;
 		case AUTH_LUA_SCRIPT_TYPE_USERDB:
 			i_assert(params->userdb_module != NULL);
-			params->userdb_module->module.default_cache_key =
-				auth_cache_parse_key_and_fields(params->pool,
-						lua_tostring(script->L, -1),
-						&post_set->fields, "lua");
+			if (auth_cache_parse_key_and_fields(params->pool,
+					lua_tostring(script->L, -1),
+					&post_set->fields, "lua",
+					&params->userdb_module->module.default_cache_key,
+					error_r) < 0)
+				return -1;
 			break;
 		default:
 			i_unreached();
