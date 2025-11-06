@@ -9,7 +9,6 @@
 #include "settings.h"
 #include "settings-parser.h"
 #include "password-scheme.h"
-#include "auth-cache.h"
 #include "db-sql.h"
 
 #include <string.h>
@@ -305,14 +304,14 @@ passdb_sql_preinit(pool_t pool, struct event *event,
 		return -1;
 	}
 
-	module->module.default_cache_key = !passdb_params->use_cache ? NULL :
-		auth_cache_parse_key_and_fields(pool, set->query,
-						&post_set->fields, "sql");
+	int ret = passdb_set_cache_key(&module->module, passdb_params, pool,
+				       set->query, &post_set->fields, "sql",
+				       error_r);
 	settings_free(set);
 	settings_free(post_set);
 
 	*module_r = &module->module;
-	return 0;
+	return ret;
 }
 
 static void passdb_sql_init(struct passdb_module *_module)

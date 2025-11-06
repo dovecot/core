@@ -104,6 +104,12 @@ void passdb_handle_credentials(enum passdb_result result,
 			       lookup_credentials_callback_t *callback,
                                struct auth_request *auth_request);
 
+int passdb_set_cache_key(struct passdb_module *module,
+			 const struct passdb_parameters *passdb_params,
+			 pool_t pool, const char *query,
+			 const ARRAY_TYPE(const_string) *fields,
+			 const char *exclude_driver, const char **error_r);
+
 struct passdb_module *
 passdb_preinit(pool_t pool, struct event *event,
 	       const struct auth_passdb_settings *set, bool use_cache);

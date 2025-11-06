@@ -3,6 +3,7 @@
 #include "auth-common.h"
 #include "array.h"
 #include "password-scheme.h"
+#include "auth-cache.h"
 #include "auth-worker-connection.h"
 #include "passdb.h"
 
@@ -162,6 +163,21 @@ void passdb_handle_credentials(enum passdb_result result,
 	}
 
 	callback(result, credentials, size, auth_request);
+}
+
+int passdb_set_cache_key(struct passdb_module *module,
+			 const struct passdb_parameters *passdb_params,
+			 pool_t pool, const char *query,
+			 const ARRAY_TYPE(const_string) *fields,
+			 const char *exclude_driver, const char **error_r ATTR_UNUSED)
+{
+	if (!passdb_params->use_cache)
+		return 0;
+
+	module->default_cache_key =
+		auth_cache_parse_key_and_fields(pool, query, fields,
+						exclude_driver);
+	return 0;
 }
 
 struct passdb_module *

@@ -16,7 +16,6 @@
 #include "str.h"
 #include "net.h"
 #include "safe-memset.h"
-#include "auth-cache.h"
 #include "settings.h"
 
 #include <sys/stat.h>
@@ -415,11 +414,10 @@ pam_preinit(pool_t pool, struct event *event,
 	}
 
 	module = p_new(pool, struct pam_passdb_module, 1);
-	module->module.default_cache_key = !passdb_params->use_cache ? NULL :
-		auth_cache_parse_key_and_fields(pool,
-						t_strdup_printf("%"AUTH_CACHE_KEY_USER"\t%s",
-								set->service_name),
-						&post_set->fields, "pam");
+	const char *query = t_strdup_printf("%"AUTH_CACHE_KEY_USER"\t%s",
+					    set->service_name);
+	int ret = passdb_set_cache_key(&module->module, passdb_params, pool,
+				       query, &post_set->fields, "pam", error_r);
 	module->requests_left = set->max_requests;
 	module->pam_setcred = set->setcred;
 	module->pam_session = set->session;
@@ -429,7 +427,7 @@ pam_preinit(pool_t pool, struct event *event,
 	settings_free(set);
 
 	*module_r = &module->module;
-	return 0;
+	return ret;
 }
 
 struct passdb_module_interface passdb_pam = {

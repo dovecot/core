@@ -9,7 +9,6 @@
 #include "array.h"
 #include "str.h"
 #include "password-scheme.h"
-#include "auth-cache.h"
 #include "settings.h"
 #include "auth-settings.h"
 #include "db-ldap.h"
@@ -465,15 +464,14 @@ passdb_ldap_preinit(pool_t pool, struct event *event,
 				    ldap_pre->passdb_ldap_bind ?
 				    	"password" : NULL);
 
-	module->module.default_cache_key = !passdb_params->use_cache ? NULL :
-		auth_cache_parse_key_and_fields(pool,
-			t_strconcat(ldap_pre->ldap_base,
-				    ldap_pre->passdb_ldap_bind_userdn,
-				    ldap_pre->passdb_ldap_filter, NULL),
-			&auth_post->fields, NULL);
+	const char *query = t_strconcat(ldap_pre->ldap_base,
+					ldap_pre->passdb_ldap_bind_userdn,
+					ldap_pre->passdb_ldap_filter, NULL);
+	ret = passdb_set_cache_key(&module->module, passdb_params, pool,
+				   query, &auth_post->fields,
+				   NULL, error_r);
 
 	*module_r = &module->module;
-	ret = 0;
 
 failed:
 	settings_free(auth_post);
