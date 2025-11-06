@@ -153,9 +153,11 @@ ldap_auth_bind_callback(struct ldap_connection *conn,
 					    NULL, NULL, NULL, NULL, FALSE);
 		if (ret == LDAP_SUCCESS)
 			ret = result;
-		if (ret == LDAP_SUCCESS)
+		if (ret == LDAP_SUCCESS) {
 			passdb_result = PASSDB_RESULT_OK;
-		else if (ret == LDAP_INVALID_CREDENTIALS) {
+			e_debug(authdb_event(auth_request),
+				"binding successful");
+		} else if (ret == LDAP_INVALID_CREDENTIALS) {
 			auth_request_db_log_login_failure(auth_request,
 				AUTH_LOG_MSG_PASSWORD_MISMATCH" (for LDAP bind)");
 			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
@@ -192,6 +194,8 @@ static void ldap_auth_bind(struct ldap_connection *conn,
 				     auth_request);
 		return;
 	}
+
+	e_debug(authdb_event(auth_request), "bind: dn=%s", brequest->dn);
 
 	brequest->request.callback = ldap_auth_bind_callback;
 	db_ldap_request(conn, &brequest->request);
