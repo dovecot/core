@@ -314,7 +314,7 @@ static int userdb_ldap_iterate_deinit(struct userdb_iterate_context *_ctx)
 
 static int
 userdb_ldap_preinit(pool_t pool, struct event *event,
-		    const struct userdb_parameters *userdb_params ATTR_UNUSED,
+		    const struct userdb_parameters *userdb_params,
 		    struct userdb_module **module_r,
 		    const char **error_r ATTR_UNUSED)
 {
@@ -343,10 +343,11 @@ userdb_ldap_preinit(pool_t pool, struct event *event,
 	db_ldap_get_attribute_names(pool, &ldap_post->iterate_fields,
 				    &module->iterate_attributes, NULL, NULL);
 
-	module->module.default_cache_key = auth_cache_parse_key_and_fields(
-		pool, t_strconcat(ldap_pre->ldap_base,
-				  ldap_pre->userdb_ldap_filter, NULL),
-		&auth_post->fields, NULL);
+	module->module.default_cache_key = !userdb_params->use_cache ? NULL :
+		auth_cache_parse_key_and_fields(pool,
+			t_strconcat(ldap_pre->ldap_base,
+				    ldap_pre->userdb_ldap_filter, NULL),
+			&auth_post->fields, NULL);
 
 	*module_r = &module->module;
 	ret = 0;

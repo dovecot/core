@@ -45,6 +45,8 @@ struct userdb_iterate_context {
 };
 
 struct userdb_parameters {
+	/* Enable cache for the userdb */
+	bool use_cache;
 };
 
 struct userdb_module_interface {
@@ -78,7 +80,7 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 
 struct userdb_module *
 userdb_preinit(pool_t pool, struct event *event,
-	       const struct auth_userdb_settings *set);
+	       const struct auth_userdb_settings *set, bool use_cache);
 void userdb_init(struct userdb_module *userdb);
 void userdb_deinit(struct userdb_module *userdb);
 

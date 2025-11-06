@@ -292,7 +292,7 @@ static int userdb_sql_iterate_deinit(struct userdb_iterate_context *_ctx)
 
 static int
 userdb_sql_preinit(pool_t pool, struct event *event,
-		   const struct userdb_parameters *userdb_params ATTR_UNUSED,
+		   const struct userdb_parameters *userdb_params,
 		   struct userdb_module **module_r, const char **error_r)
 {
 	struct sql_userdb_module *module;
@@ -319,7 +319,7 @@ userdb_sql_preinit(pool_t pool, struct event *event,
 		return -1;
 	}
 
-	module->module.default_cache_key =
+	module->module.default_cache_key = !userdb_params->use_cache ? NULL :
 		auth_cache_parse_key_and_fields(pool, set->query,
 						&post_set->fields, "sql");
 	settings_free(set);

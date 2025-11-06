@@ -100,7 +100,7 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 
 struct userdb_module *
 userdb_preinit(pool_t pool, struct event *event,
-	       const struct auth_userdb_settings *set)
+	       const struct auth_userdb_settings *set, bool use_cache)
 {
 	static unsigned int auth_userdb_id = 0;
 	struct userdb_module_interface *iface;
@@ -121,8 +121,9 @@ userdb_preinit(pool_t pool, struct event *event,
 	}
 
 	if (iface->preinit != NULL) {
-		struct userdb_parameters params;
-		i_zero(&params);
+		struct userdb_parameters params = {
+			.use_cache = use_cache && set->use_cache,
+		};
 		if (iface->preinit(pool, event, &params, &userdb, &error) < 0)
 			i_fatal("userdb %s: %s", set->name, error);
 		userdb->blocking = set->use_worker;
