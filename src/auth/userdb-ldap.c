@@ -172,7 +172,7 @@ static void userdb_ldap_iterate_callback(struct ldap_connection *conn,
 		return;
 	}
 
-	if (ctx->deinitialized)
+	if (ctx->deinitialized || ctx->ctx.failed)
 		return;
 
 	/* the iteration can take a while. reset the request's create time so
