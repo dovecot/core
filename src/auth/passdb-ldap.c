@@ -440,7 +440,7 @@ static void ldap_lookup_credentials(struct auth_request *request,
 
 static int
 passdb_ldap_preinit(pool_t pool, struct event *event,
-		    const struct passdb_parameters *passdb_params ATTR_UNUSED,
+		    const struct passdb_parameters *passdb_params,
 		    struct passdb_module **module_r,
 		    const char **error_r)
 {
@@ -465,11 +465,12 @@ passdb_ldap_preinit(pool_t pool, struct event *event,
 				    ldap_pre->passdb_ldap_bind ?
 				    	"password" : NULL);
 
-	module->module.default_cache_key = auth_cache_parse_key_and_fields(
-		pool, t_strconcat(ldap_pre->ldap_base,
-				  ldap_pre->passdb_ldap_bind_userdn,
-				  ldap_pre->passdb_ldap_filter, NULL),
-		&auth_post->fields, NULL);
+	module->module.default_cache_key = !passdb_params->use_cache ? NULL :
+		auth_cache_parse_key_and_fields(pool,
+			t_strconcat(ldap_pre->ldap_base,
+				    ldap_pre->passdb_ldap_bind_userdn,
+				    ldap_pre->passdb_ldap_filter, NULL),
+			&auth_post->fields, NULL);
 
 	*module_r = &module->module;
 	ret = 0;

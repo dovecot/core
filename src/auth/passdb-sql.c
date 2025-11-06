@@ -278,7 +278,7 @@ static void sql_set_credentials(struct auth_request *request,
 
 static int
 passdb_sql_preinit(pool_t pool, struct event *event,
-		   const struct passdb_parameters *passdb_params ATTR_UNUSED,
+		   const struct passdb_parameters *passdb_params,
 		   struct passdb_module **module_r, const char **error_r)
 {
 	struct sql_passdb_module *module;
@@ -305,7 +305,7 @@ passdb_sql_preinit(pool_t pool, struct event *event,
 		return -1;
 	}
 
-	module->module.default_cache_key =
+	module->module.default_cache_key = !passdb_params->use_cache ? NULL :
 		auth_cache_parse_key_and_fields(pool, set->query,
 						&post_set->fields, "sql");
 	settings_free(set);

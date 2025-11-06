@@ -89,7 +89,7 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 
 static int
 bsdauth_preinit(pool_t pool, struct event *event,
-		const struct passdb_parameters *passdb_params ATTR_UNUSED,
+		const struct passdb_parameters *passdb_params,
 		struct passdb_module **module_r,
 		const char **error_r)
 {
@@ -102,8 +102,9 @@ bsdauth_preinit(pool_t pool, struct event *event,
 			 SETTINGS_GET_FLAG_NO_EXPAND,
 			 &post_set, error_r) < 0)
 		return -1;
-	module->default_cache_key = auth_cache_parse_key_and_fields(
-		pool, AUTH_CACHE_KEY_USER, &post_set->fields, "bsdauth");
+	module->default_cache_key = !passdb_params->use_cache ? NULL :
+		auth_cache_parse_key_and_fields(pool, AUTH_CACHE_KEY_USER,
+						&post_set->fields, "bsdauth");
 
 	settings_free(post_set);
 	*module_r = module;

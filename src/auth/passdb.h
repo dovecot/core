@@ -35,6 +35,8 @@ typedef void set_credentials_callback_t(bool success,
 					struct auth_request *request);
 
 struct passdb_parameters {
+	/* Enable cache for the passdb */
+	bool use_cache;
 };
 
 struct passdb_module_interface {
@@ -104,7 +106,7 @@ void passdb_handle_credentials(enum passdb_result result,
 
 struct passdb_module *
 passdb_preinit(pool_t pool, struct event *event,
-	       const struct auth_passdb_settings *set);
+	       const struct auth_passdb_settings *set, bool use_cache);
 void passdb_init(struct passdb_module *passdb);
 void passdb_deinit(struct passdb_module *passdb);
 

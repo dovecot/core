@@ -393,7 +393,7 @@ pam_verify_plain(struct auth_request *request, const char *password,
 
 static int
 pam_preinit(pool_t pool, struct event *event,
-	    const struct passdb_parameters *passdb_params ATTR_UNUSED,
+	    const struct passdb_parameters *passdb_params,
 	    struct passdb_module **module_r, const char **error_r)
 {
 	const struct auth_pam_settings *set;
@@ -415,7 +415,7 @@ pam_preinit(pool_t pool, struct event *event,
 	}
 
 	module = p_new(pool, struct pam_passdb_module, 1);
-	module->module.default_cache_key =
+	module->module.default_cache_key = !passdb_params->use_cache ? NULL :
 		auth_cache_parse_key_and_fields(pool,
 						t_strdup_printf("%"AUTH_CACHE_KEY_USER"\t%s",
 								set->service_name),

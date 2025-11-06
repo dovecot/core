@@ -125,7 +125,8 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *_set,
 	for (dest = passdbs; *dest != NULL; dest = &(*dest)->next) ;
 	*dest = auth_passdb;
 
-	auth_passdb->passdb = passdb_preinit(auth->pool, event, set);
+	auth_passdb->passdb = passdb_preinit(auth->pool, event, set,
+					     auth->protocol_set->cache_size > 0);
 	if (auth_passdb->passdb->default_cache_key != NULL && set->use_cache) {
 		auth_passdb->cache_key = auth_passdb->passdb->default_cache_key;
 	} else {
