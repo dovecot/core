@@ -308,30 +308,11 @@ static const char *
 driver_sqlite_escape_string(struct sql_db *_db ATTR_UNUSED,
 			    const char *string)
 {
-	const char *p;
-	char *dest, *destbegin;
-
-	/* find the first ' */
-	for (p = string; *p != '\''; p++) {
-		if (*p == '\0')
-			return t_strdup_noconst(string);
-	}
-
-	/* @UNSAFE: escape ' with '' */
-	dest = destbegin = t_buffer_get((p - string) + strlen(string) * 2 + 1);
-
-	memcpy(dest, string, p - string);
-	dest += p - string;
-
-	for (; *p != '\0'; p++) {
-		*dest++ = *p;
-		if (*p == '\'')
-			*dest++ = *p;
-	}
-	*dest++ = '\0';
-	t_buffer_alloc(dest - destbegin);
-
-	return destbegin;
+	const size_t len = strlen(string) * 2 + 1;
+	char *escaped = t_malloc_no0(len);
+	if (sqlite3_snprintf(len, escaped, "%q", string) == NULL)
+		i_unreached();
+	return escaped;
 }
 
 static const char *driver_sqlite_readonly_error(struct sqlite_db *db)
