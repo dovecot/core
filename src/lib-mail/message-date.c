@@ -129,7 +129,8 @@ message_date_parser_tokens(struct message_date_parser_context *ctx,
 	if (next_token(ctx, &value, &len) <= 0)
 		return FALSE;
 	if (len == 3) {
-		if (*ctx->parser.data != ',')
+		if (ctx->parser.data == ctx->parser.end ||
+		    *ctx->parser.data != ',')
 			return FALSE;
 		ctx->parser.data++;
 		rfc822_skip_lwsp(&ctx->parser);
@@ -194,7 +195,8 @@ message_date_parser_tokens(struct message_date_parser_context *ctx,
 	}
 
 	/* :mm (may be the last token) */
-	if (!IS_TIME_SEP(*ctx->parser.data))
+	if (ctx->parser.data == ctx->parser.end ||
+	    !IS_TIME_SEP(*ctx->parser.data))
 		return FALSE;
 	ctx->parser.data++;
 	rfc822_skip_lwsp(&ctx->parser);
