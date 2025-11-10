@@ -13,7 +13,7 @@ YACC=/bin/false
 # and cleaner to make this rule ourselves instead of working around ylwrap
 # and yywrap's antiquated notion of what is happening.
 .l.c:
-	$(AM_V_GEN)$(FLEX) -o $@ $<
+	$(AM_V_GEN)$(FLEX) -8 -o $@ $<
 
 .y.c:
 	$(AM_V_GEN)$(BISON) -o $@ $<
