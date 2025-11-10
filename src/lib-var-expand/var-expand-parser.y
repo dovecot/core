@@ -174,10 +174,19 @@ push_argument(VAR_EXPAND_PARSER_STYPE *state,
 
 static void make_new_program(VAR_EXPAND_PARSER_STYPE *pstate)
 {
-	struct var_expand_program *p =
+	struct var_expand_program *plast, *pp, *p =
 		p_new(pstate->plist->pool, struct var_expand_program, 1);
 	p->pool = pstate->plist->pool;
-	pstate->pp->next = p;
+	pp = pstate->plist;
+	plast = NULL;
+	while (pp != NULL) {
+		plast = pp;
+		pp = pp->next;
+	}
+	if (plast != NULL)
+		plast->next = p;
+	else
+		pstate->plist = p;
 	pstate->p = p;
 }
 

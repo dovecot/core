@@ -95,6 +95,15 @@ static void test_var_expand_builtin_filters(void) {
 	};
 
 	const struct var_expand_test tests[] = {
+		/* syntax */
+		{ .in = "%{}", .out = "", .ret = 0 },
+		{
+			.in = "%{",
+			.out = "syntax error, unexpected end of file, expecting "
+			       "CCBRACE or PIPE or NAME",
+			.ret = -1
+		},
+		{ .in = "hello%{}world", .out = "helloworld", .ret = 0 },
 		/* basic lookup */
 		{ .in = "%{first}", .out = "hello", .ret = 0 },
 		{ .in = "%{lookup('first')}", .out = "hello", .ret = 0 },
