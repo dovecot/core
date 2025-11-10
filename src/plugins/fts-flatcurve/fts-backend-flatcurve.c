@@ -540,6 +540,7 @@ fts_backend_flatcurve_iterate_ns(struct fts_backend *_backend,
 			backend, box, &error) < 0) {
 			e_error(backend->event, "%s", error);
 			failed = TRUE;
+			mailbox_free(&box);
 			continue;
 		}
 
