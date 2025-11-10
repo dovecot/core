@@ -67,3 +67,23 @@ test_libs = \
 
 test_var_expand_SOURCE = test-var-expand.c
 test_var_expand_LDADD = $(test_libs)
+
+if USE_FUZZER
+fuzz_programs = fuzz-var-expand
+
+nodist_EXTRA_fuzz_var_expand_SOURCES = force-cxx-linking.cxx
+
+fuzz_var_expand_CPPFLAGS = $(FUZZER_CPPFLAGS)
+fuzz_var_expand_LDFLAGS = $(FUZZER_LDFLAGS)
+fuzz_var_expand_SOURCES = fuzz-var-expand.c
+fuzz_var_expand_LDADD = $(test_libs)
+fuzz_var_expand_DEPENDENCIES = libvar_expand.la
+
+noinst_PROGRAMS += $(fuzz_programs)
+
+endif
+
+check-local:
+	for bin in $(test_programs); do \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done
