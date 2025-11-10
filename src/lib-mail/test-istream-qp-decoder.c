@@ -68,7 +68,7 @@ static bool is_hex(char c) {
 }
 
 static unsigned int
-get_encoding_size_diff(const char *qp_input, unsigned int limit)
+get_encoding_size_diff(const char *qp_input, const unsigned int limit)
 {
 	unsigned int encoded_chars = 0;
 	unsigned int soft_line_breaks = 0;
@@ -78,11 +78,9 @@ get_encoding_size_diff(const char *qp_input, unsigned int limit)
 			if (qp_input[i+1] == '\r' && qp_input[i+2] == '\n') {
 				soft_line_breaks++;
 				i += 2;
-				limit += 3;
 			} else if (is_hex(qp_input[i+1]) && is_hex(qp_input[i+2])) {
 				encoded_chars++;
 				i += 2;
-				limit += 2;
 			}
 		}
 	}
