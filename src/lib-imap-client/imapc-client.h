@@ -181,7 +181,7 @@ void imapc_client_stop(struct imapc_client *client);
 bool imapc_client_is_running(struct imapc_client *client);
 
 struct imapc_client_mailbox *
-imapc_client_mailbox_open(struct imapc_client *client,
+imapc_client_mailbox_open(struct imapc_client *client, const char *name,
 			  void *untagged_box_context);
 void imapc_client_mailbox_set_reopen_cb(struct imapc_client_mailbox *box,
 					void (*callback)(void *context),

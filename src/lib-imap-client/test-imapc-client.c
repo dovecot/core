@@ -691,7 +691,7 @@ static void test_imapc_reconnect_mailbox_client(void)
 	imapc_login_last_reply = IMAPC_COMMAND_STATE_INVALID;
 
 	/* select a mailbox */
-	box = imapc_client_mailbox_open(imapc_client, NULL);
+	box = imapc_client_mailbox_open(imapc_client, NULL, NULL);
 	imapc_client_mailbox_set_reopen_cb(box, imapc_reopen_callback, box);
 
 	cmd = imapc_client_mailbox_cmd(box, imapc_command_callback, NULL);

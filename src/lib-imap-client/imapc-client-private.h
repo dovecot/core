@@ -56,6 +56,7 @@ struct imapc_client_mailbox {
 	void *reopen_context;
 
 	void *untagged_box_context;
+	char *name;
 
 	bool reconnect_ok;
 	bool reconnecting;

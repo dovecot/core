@@ -785,7 +785,8 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 	}
 
 	mbox->client_box =
-		imapc_client_mailbox_open(mbox->storage->client->client, mbox);
+		imapc_client_mailbox_open(mbox->storage->client->client,
+					  mailbox_get_name(&mbox->box), mbox);
 	imapc_client_mailbox_set_reopen_cb(mbox->client_box,
 					   imapc_mailbox_reopen, mbox);
 
