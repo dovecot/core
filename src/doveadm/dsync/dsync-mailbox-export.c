@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
 #include "hash.h"
 #include "istream.h"
 #include "mail-index-modseq.h"
@@ -428,8 +429,11 @@ dsync_mailbox_export_search(struct dsync_mailbox_exporter *exporter)
 	exporter->trans = mailbox_transaction_begin(exporter->box,
 						MAILBOX_TRANSACTION_FLAG_SYNC,
 						__func__);
+	string_t *search_str = t_str_new(128);
+	mail_search_args_to_cmdline(search_str, search_args->args);
 	search_ctx = mailbox_search_init(exporter->trans, search_args, NULL,
 					 wanted_fields, wanted_headers);
+	e_debug(exporter->event, "Using search: %s", str_c(search_str));
 	mail_search_args_unref(&search_args);
 
 	while (mailbox_search_next(search_ctx, &mail)) {
