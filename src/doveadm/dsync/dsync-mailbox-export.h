@@ -15,6 +15,8 @@ struct dsync_mailbox_export_settings {
 	enum dsync_mailbox_exporter_flags flags;
 	unsigned int hdr_hash_version;
 	const char *const *hashed_headers;
+	time_t sync_since_timestamp;
+	time_t sync_until_timestamp;
 	struct event *parent_event;
 };
 
