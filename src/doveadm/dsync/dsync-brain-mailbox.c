@@ -357,6 +357,7 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 		.hdr_hash_version = brain->hdr_hash_version,
 		.sync_since_timestamp = brain->sync_since_timestamp,
 		.sync_until_timestamp = brain->sync_until_timestamp,
+		.sync_max_size = brain->sync_max_size,
 		.hashed_headers = brain->hashed_headers,
 		.parent_event = brain->event,
 	};

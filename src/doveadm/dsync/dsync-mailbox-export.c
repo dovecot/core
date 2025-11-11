@@ -59,6 +59,7 @@ struct dsync_mailbox_exporter {
 
 	time_t sync_since_timestamp;
 	time_t sync_until_timestamp;
+	uoff_t sync_max_size;
 
 	const char *error;
 	enum mail_error mail_error;
@@ -418,6 +419,12 @@ dsync_mailbox_export_search(struct dsync_mailbox_exporter *exporter)
 		sarg->value.time = exporter->sync_until_timestamp;
 	}
 
+	if (exporter->sync_max_size != 0) {
+		sarg = mail_search_build_add(search_args, SEARCH_SMALLER);
+		/* the limit is <= but search criteria is < */
+		sarg->value.size = exporter->sync_max_size + 1;
+	}
+
 	exporter->trans = mailbox_transaction_begin(exporter->box,
 						MAILBOX_TRANSACTION_FLAG_SYNC,
 						__func__);
@@ -545,6 +552,7 @@ dsync_mailbox_export_init(struct mailbox *box,
 	exporter->hashed_headers = set->hashed_headers;
 	exporter->sync_since_timestamp = set->sync_since_timestamp;
 	exporter->sync_until_timestamp = set->sync_until_timestamp;
+	exporter->sync_max_size = set->sync_max_size;
 	exporter->event = event_create(set->parent_event);
 
 	p_array_init(&exporter->requested_uids, pool, 16);

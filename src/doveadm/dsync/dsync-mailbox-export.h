@@ -17,6 +17,7 @@ struct dsync_mailbox_export_settings {
 	const char *const *hashed_headers;
 	time_t sync_since_timestamp;
 	time_t sync_until_timestamp;
+	uoff_t sync_max_size;
 	struct event *parent_event;
 };
 
