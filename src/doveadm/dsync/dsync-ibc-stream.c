@@ -714,7 +714,7 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 	}
 	if (set->sync_until_timestamp > 0) {
 		dsync_serializer_encode_add(encoder, "sync_until_timestamp",
-			t_strdup_printf("%ld", (long)set->sync_since_timestamp));
+			t_strdup_printf("%ld", (long)set->sync_until_timestamp));
 	}
 	if (set->sync_max_size > 0) {
 		dsync_serializer_encode_add(encoder, "sync_max_size",
