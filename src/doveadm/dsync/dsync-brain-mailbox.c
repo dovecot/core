@@ -345,13 +345,17 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_NO_HDR_HASHES;
 	}
 
+	const struct dsync_mailbox_export_settings export_set = {
+		.last_common_uid = last_common_uid,
+		.flags = exporter_flags,
+		.hdr_hash_version = brain->hdr_hash_version,
+		.hashed_headers = brain->hashed_headers,
+		.parent_event = brain->event,
+	};
+
 	brain->box_exporter = brain->backup_recv ? NULL :
 		dsync_mailbox_export_init(brain->box, brain->log_scan,
-					  last_common_uid,
-					  exporter_flags,
-					  brain->hdr_hash_version,
-					  brain->hashed_headers,
-					  brain->event);
+					  &export_set);
 	dsync_brain_sync_mailbox_init_remote(brain, remote_dsync_box);
 	return 1;
 }

@@ -502,11 +502,7 @@ dsync_mailbox_export_log_scan(struct dsync_mailbox_exporter *exporter,
 struct dsync_mailbox_exporter *
 dsync_mailbox_export_init(struct mailbox *box,
 			  struct dsync_transaction_log_scan *log_scan,
-			  uint32_t last_common_uid,
-			  enum dsync_mailbox_exporter_flags flags,
-			  unsigned int hdr_hash_version,
-			  const char *const *hashed_headers,
-			  struct event *parent_event)
+			  const struct dsync_mailbox_export_settings *set)
 {
 	struct dsync_mailbox_exporter *exporter;
 	pool_t pool;
@@ -517,22 +513,22 @@ dsync_mailbox_export_init(struct mailbox *box,
 	exporter->pool = pool;
 	exporter->box = box;
 	exporter->log_scan = log_scan;
-	exporter->last_common_uid = last_common_uid;
+	exporter->last_common_uid = set->last_common_uid;
 	exporter->auto_export_mails =
-		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_AUTO_EXPORT_MAILS) != 0;
+		(set->flags & DSYNC_MAILBOX_EXPORTER_FLAG_AUTO_EXPORT_MAILS) != 0;
 	exporter->mails_have_guids =
-		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_MAILS_HAVE_GUIDS) != 0;
+		(set->flags & DSYNC_MAILBOX_EXPORTER_FLAG_MAILS_HAVE_GUIDS) != 0;
 	exporter->minimal_dmail_fill =
-		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_MINIMAL_DMAIL_FILL) != 0;
+		(set->flags & DSYNC_MAILBOX_EXPORTER_FLAG_MINIMAL_DMAIL_FILL) != 0;
 	exporter->export_received_timestamps =
-		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_TIMESTAMPS) != 0;
+		(set->flags & DSYNC_MAILBOX_EXPORTER_FLAG_TIMESTAMPS) != 0;
 	exporter->export_virtual_sizes =
-		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_VSIZES) != 0;
-	exporter->hdr_hash_version = hdr_hash_version;
+		(set->flags & DSYNC_MAILBOX_EXPORTER_FLAG_VSIZES) != 0;
+	exporter->hdr_hash_version = set->hdr_hash_version;
 	exporter->no_hdr_hashes =
-		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_NO_HDR_HASHES) != 0;
-	exporter->hashed_headers = hashed_headers;
-	exporter->event = event_create(parent_event);
+		(set->flags & DSYNC_MAILBOX_EXPORTER_FLAG_NO_HDR_HASHES) != 0;
+	exporter->hashed_headers = set->hashed_headers;
+	exporter->event = event_create(set->parent_event);
 
 	p_array_init(&exporter->requested_uids, pool, 16);
 	p_array_init(&exporter->search_uids, pool, 16);
