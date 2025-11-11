@@ -2811,9 +2811,18 @@ static int dsync_mailbox_import_finish(struct dsync_mailbox_importer *importer,
 
 	ret = dsync_mailbox_import_commit(importer, TRUE);
 
+	/* sync mailbox to finish flag changes and expunges. */
+	if (mailbox_sync(importer->box, 0) < 0) {
+		e_error(importer->event, "Sync failed: %s",
+			mailbox_get_last_internal_error(
+				importer->box, &importer->mail_error));
+		ret = -1;
+	}
+
 	if (ret == 0) {
-		/* update mailbox metadata if we successfully saved
-		   everything. */
+		/* Update mailbox metadata if we successfully saved
+		   everything. Do this after syncing, which may update
+		   modseqs. */
 		i_zero(&update);
 		update.min_next_uid = importer->remote_uid_next;
 		update.min_first_recent_uid =
@@ -2837,13 +2846,6 @@ static int dsync_mailbox_import_finish(struct dsync_mailbox_importer *importer,
 		}
 	}
 
-	/* sync mailbox to finish flag changes and expunges. */
-	if (mailbox_sync(importer->box, 0) < 0) {
-		e_error(importer->event, "Sync failed: %s",
-			mailbox_get_last_internal_error(
-				importer->box, &importer->mail_error));
-		ret = -1;
-	}
 	if (ret == 0) {
 		/* give new UIDs to messages that got saved with unwanted UIDs.
 		   do it only if the whole transaction succeeded. */
