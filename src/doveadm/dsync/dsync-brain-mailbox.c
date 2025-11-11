@@ -220,24 +220,30 @@ dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 	if (brain->no_header_hashes)
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_NO_HEADER_HASHES;
 
+	const struct dsync_mailbox_import_settings import_set = {
+		.virtual_all_box = brain->virtual_all_box,
+		.last_common_uid = last_common_uid,
+		.last_common_modseq = last_common_modseq,
+		.last_common_pvt_modseq = last_common_pvt_modseq,
+		.remote_uid_next = remote_dsync_box->uid_next,
+		.remote_first_recent_uid = remote_dsync_box->first_recent_uid,
+		.remote_highest_modseq = remote_dsync_box->highest_modseq,
+		.remote_highest_pvt_modseq = remote_dsync_box->highest_pvt_modseq,
+		.sync_since_timestamp = brain->sync_since_timestamp,
+		.sync_until_timestamp = brain->sync_until_timestamp,
+		.sync_max_size = brain->sync_max_size,
+		.sync_flag = brain->sync_flag,
+		.commit_msgs_interval = brain->import_commit_msgs_interval,
+		.flags = import_flags,
+		.hdr_hash_version = brain->hdr_hash_version,
+		.hashed_headers = brain->hashed_headers,
+		.parent_event = brain->event,
+	};
+
 	brain->box_importer = brain->backup_send ? NULL :
 		dsync_mailbox_import_init(brain->box,
-					  brain->virtual_all_box,
 					  brain->log_scan,
-					  last_common_uid, last_common_modseq,
-					  last_common_pvt_modseq,
-					  remote_dsync_box->uid_next,
-					  remote_dsync_box->first_recent_uid,
-					  remote_dsync_box->highest_modseq,
-					  remote_dsync_box->highest_pvt_modseq,
-					  brain->sync_since_timestamp,
-					  brain->sync_until_timestamp,
-					  brain->sync_max_size,
-					  brain->sync_flag,
-					  brain->import_commit_msgs_interval,
-					  import_flags, brain->hdr_hash_version,
-					  brain->hashed_headers,
-					  brain->event);
+					  &import_set);
 }
 
 int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,

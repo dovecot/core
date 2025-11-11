@@ -204,53 +204,38 @@ dsync_mailbox_import_transaction_begin(struct dsync_mailbox_importer *importer)
 
 struct dsync_mailbox_importer *
 dsync_mailbox_import_init(struct mailbox *box,
-			  struct mailbox *virtual_all_box,
 			  struct dsync_transaction_log_scan *log_scan,
-			  uint32_t last_common_uid,
-			  uint64_t last_common_modseq,
-			  uint64_t last_common_pvt_modseq,
-			  uint32_t remote_uid_next,
-			  uint32_t remote_first_recent_uid,
-			  uint64_t remote_highest_modseq,
-			  uint64_t remote_highest_pvt_modseq,
-			  time_t sync_since_timestamp,
-			  time_t sync_until_timestamp,
-			  uoff_t sync_max_size,
-			  const char *sync_flag,
-			  unsigned int commit_msgs_interval,
-			  enum dsync_mailbox_import_flags flags,
-			  unsigned int hdr_hash_version,
-			  const char *const *hashed_headers,
-			  struct event *parent_event)
+			  const struct dsync_mailbox_import_settings *set)
 {
 	struct dsync_mailbox_importer *importer;
 	struct mailbox_status status;
 	pool_t pool;
+	const char *sync_flag = set->sync_flag;
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"dsync mailbox importer",
 				     10240);
 	importer = p_new(pool, struct dsync_mailbox_importer, 1);
 	importer->pool = pool;
-	importer->event = event_create(parent_event);
+	importer->event = event_create(set->parent_event);
 	event_set_append_log_prefix(importer->event, t_strdup_printf(
 		"Import mailbox %s: ", mailbox_get_vname(box)));
 
 	importer->box = box;
-	importer->virtual_all_box = virtual_all_box;
-	importer->last_common_uid = last_common_uid;
-	importer->last_common_modseq = last_common_modseq;
-	importer->last_common_pvt_modseq = last_common_pvt_modseq;
+	importer->virtual_all_box = set->virtual_all_box;
+	importer->last_common_uid = set->last_common_uid;
+	importer->last_common_modseq = set->last_common_modseq;
+	importer->last_common_pvt_modseq = set->last_common_pvt_modseq;
 	importer->last_common_uid_found =
-		last_common_uid != 0 || last_common_modseq != 0;
-	importer->remote_uid_next = remote_uid_next;
-	importer->remote_first_recent_uid = remote_first_recent_uid;
-	importer->remote_highest_modseq = remote_highest_modseq;
-	importer->remote_highest_pvt_modseq = remote_highest_pvt_modseq;
-	importer->sync_since_timestamp = sync_since_timestamp;
-	importer->sync_until_timestamp = sync_until_timestamp;
-	importer->sync_max_size = sync_max_size;
+		set->last_common_uid != 0 || set->last_common_modseq != 0;
+	importer->remote_uid_next = set->remote_uid_next;
+	importer->remote_first_recent_uid = set->remote_first_recent_uid;
+	importer->remote_highest_modseq = set->remote_highest_modseq;
+	importer->remote_highest_pvt_modseq = set->remote_highest_pvt_modseq;
+	importer->sync_since_timestamp = set->sync_since_timestamp;
+	importer->sync_until_timestamp = set->sync_until_timestamp;
+	importer->sync_max_size = set->sync_max_size;
 	importer->stateful_import = importer->last_common_uid_found;
-	importer->hashed_headers = hashed_headers;
+	importer->hashed_headers = set->hashed_headers;
 
 	if (sync_flag != NULL) {
 		if (sync_flag[0] == '-') {
@@ -262,9 +247,9 @@ dsync_mailbox_import_init(struct mailbox *box,
 		else
 			importer->sync_keyword = p_strdup(pool, sync_flag);
 	}
-	importer->commit_msgs_interval = commit_msgs_interval;
+	importer->commit_msgs_interval = set->commit_msgs_interval;
 	importer->transaction_flags = MAILBOX_TRANSACTION_FLAG_SYNC;
-	if ((flags & DSYNC_MAILBOX_IMPORT_FLAG_NO_NOTIFY) != 0)
+	if ((set->flags & DSYNC_MAILBOX_IMPORT_FLAG_NO_NOTIFY) != 0)
 		importer->transaction_flags |= MAILBOX_TRANSACTION_FLAG_NO_NOTIFY;
 
 	hash_table_create(&importer->import_guids, pool, 0, str_hash, strcmp);
@@ -277,23 +262,23 @@ dsync_mailbox_import_init(struct mailbox *box,
 
 	dsync_mailbox_import_transaction_begin(importer);
 
-	if ((flags & DSYNC_MAILBOX_IMPORT_FLAG_WANT_MAIL_REQUESTS) != 0) {
+	if ((set->flags & DSYNC_MAILBOX_IMPORT_FLAG_WANT_MAIL_REQUESTS) != 0) {
 		i_array_init(&importer->mail_requests, 128);
 		importer->want_mail_requests = TRUE;
 	}
 	importer->master_brain =
-		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MASTER_BRAIN) != 0;
+		(set->flags & DSYNC_MAILBOX_IMPORT_FLAG_MASTER_BRAIN) != 0;
 	importer->revert_local_changes =
-		(flags & DSYNC_MAILBOX_IMPORT_FLAG_REVERT_LOCAL_CHANGES) != 0;
+		(set->flags & DSYNC_MAILBOX_IMPORT_FLAG_REVERT_LOCAL_CHANGES) != 0;
 	importer->mails_have_guids =
-		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MAILS_HAVE_GUIDS) != 0;
+		(set->flags & DSYNC_MAILBOX_IMPORT_FLAG_MAILS_HAVE_GUIDS) != 0;
 	importer->mails_use_guid128 =
-		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MAILS_USE_GUID128) != 0;
-	importer->hdr_hash_version = hdr_hash_version;
+		(set->flags & DSYNC_MAILBOX_IMPORT_FLAG_MAILS_USE_GUID128) != 0;
+	importer->hdr_hash_version = set->hdr_hash_version;
 	importer->empty_hdr_workaround =
-		(flags & DSYNC_MAILBOX_IMPORT_FLAG_EMPTY_HDR_WORKAROUND) != 0;
+		(set->flags & DSYNC_MAILBOX_IMPORT_FLAG_EMPTY_HDR_WORKAROUND) != 0;
 	importer->no_header_hashes =
-		(flags & DSYNC_MAILBOX_IMPORT_FLAG_NO_HEADER_HASHES) != 0;
+		(set->flags & DSYNC_MAILBOX_IMPORT_FLAG_NO_HEADER_HASHES) != 0;
 	mailbox_get_open_status(importer->box, STATUS_UIDNEXT |
 				STATUS_HIGHESTMODSEQ | STATUS_HIGHESTPVTMODSEQ,
 				&status);
@@ -306,20 +291,20 @@ dsync_mailbox_import_init(struct mailbox *box,
 
 	if (!importer->stateful_import)
 		;
-	else if (importer->local_uid_next <= last_common_uid) {
+	else if (importer->local_uid_next <= set->last_common_uid) {
 		dsync_import_unexpected_state(importer, t_strdup_printf(
 			"local UIDNEXT %u <= last common UID %u",
-			importer->local_uid_next, last_common_uid));
-	} else if (importer->local_initial_highestmodseq < last_common_modseq) {
+			importer->local_uid_next, set->last_common_uid));
+	} else if (importer->local_initial_highestmodseq < set->last_common_modseq) {
 		dsync_import_unexpected_state(importer, t_strdup_printf(
 			"local HIGHESTMODSEQ %"PRIu64" < last common HIGHESTMODSEQ %"PRIu64,
 			importer->local_initial_highestmodseq,
-			last_common_modseq));
-	} else if (importer->local_initial_highestpvtmodseq < last_common_pvt_modseq) {
+			set->last_common_modseq));
+	} else if (importer->local_initial_highestpvtmodseq < set->last_common_pvt_modseq) {
 		dsync_import_unexpected_state(importer, t_strdup_printf(
 			"local HIGHESTMODSEQ %"PRIu64" < last common HIGHESTMODSEQ %"PRIu64,
 			importer->local_initial_highestpvtmodseq,
-			last_common_pvt_modseq));
+			set->last_common_pvt_modseq));
 	}
 
 	importer->local_changes = dsync_transaction_log_scan_get_hash(log_scan);

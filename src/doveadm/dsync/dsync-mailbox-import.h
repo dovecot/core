@@ -20,26 +20,30 @@ struct dsync_mail;
 struct dsync_mail_change;
 struct dsync_transaction_log_scan;
 
+struct dsync_mailbox_import_settings {
+	struct mailbox *virtual_all_box;
+	uint32_t last_common_uid;
+	uint64_t last_common_modseq;
+	uint64_t last_common_pvt_modseq;
+	uint32_t remote_uid_next;
+	uint32_t remote_first_recent_uid;
+	uint64_t remote_highest_modseq;
+	uint64_t remote_highest_pvt_modseq;
+	time_t sync_since_timestamp;
+	time_t sync_until_timestamp;
+	uoff_t sync_max_size;
+	const char *sync_flag;
+	unsigned int commit_msgs_interval;
+	enum dsync_mailbox_import_flags flags;
+	unsigned int hdr_hash_version;
+	const char *const *hashed_headers;
+	struct event *parent_event;
+};
+
 struct dsync_mailbox_importer *
 dsync_mailbox_import_init(struct mailbox *box,
-			  struct mailbox *virtual_all_box,
 			  struct dsync_transaction_log_scan *log_scan,
-			  uint32_t last_common_uid,
-			  uint64_t last_common_modseq,
-			  uint64_t last_common_pvt_modseq,
-			  uint32_t remote_uid_next,
-			  uint32_t remote_first_recent_uid,
-			  uint64_t remote_highest_modseq,
-			  uint64_t remote_highest_pvt_modseq,
-			  time_t sync_since_timestamp,
-			  time_t sync_until_timestamp,
-			  uoff_t sync_max_size,
-			  const char *sync_flag,
-			  unsigned int commit_msgs_interval,
-			  enum dsync_mailbox_import_flags flags,
-			  unsigned int hdr_hash_version,
-			  const char *const *hashed_headers,
-			  struct event *event);
+			  const struct dsync_mailbox_import_settings *set);
 int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
 				   const struct dsync_mailbox_attribute *attr);
 int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
