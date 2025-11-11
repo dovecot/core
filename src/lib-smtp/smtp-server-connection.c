@@ -529,7 +529,10 @@ smtp_server_connection_handle_input(struct smtp_server_connection *conn,
 			if (conn->closing)
 				break;
 
-			if (!smtp_server_connection_check_pipeline(conn)) {
+			if (!smtp_server_connection_check_pipeline(conn))
+				pipeline_blocked = TRUE;
+			if (pipeline_blocked &&
+			    !smtp_command_parser_pending_data(conn->smtp_parser)) {
 				smtp_server_connection_input_halt(conn);
 				return;
 			}
@@ -603,7 +606,7 @@ smtp_server_connection_handle_input(struct smtp_server_connection *conn,
 
 		if (conn->disconnected)
 			return;
-		if (conn->input_broken || conn->closing || pipeline_blocked) {
+		if (conn->input_broken || conn->closing) {
 			smtp_server_connection_input_halt(conn);
 			return;
 		}
@@ -613,6 +616,12 @@ smtp_server_connection_handle_input(struct smtp_server_connection *conn,
 			/* Previous command is now fully read and ready to
 			   reply */
 			smtp_server_command_ready_to_reply(pending_command);
+		}
+
+		if (pipeline_blocked &&
+		    !smtp_command_parser_pending_data(conn->smtp_parser)) {
+			smtp_server_connection_input_halt(conn);
+			return;
 		}
 	}
 }
