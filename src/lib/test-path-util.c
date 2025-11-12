@@ -243,7 +243,10 @@ static void test_cleanup(void)
 
 static void test_path_util_init(void)
 {
+	const char *error;
 	cwd = test_dir_get();
+	if (t_normpath(cwd, &cwd, &error) < 0)
+		i_fatal("t_normpath(%s) failed: %s", cwd, error);
 	tmpdir = t_strconcat(cwd, "/"TEMP_DIRNAME, NULL);
 
 	test_cleanup();
