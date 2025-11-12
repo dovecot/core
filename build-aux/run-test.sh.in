@@ -1,6 +1,6 @@
 #!/bin/sh
 
-## serial 2
+## serial 3
 
 set -eu
 
@@ -36,6 +36,10 @@ function cat_log_file() {
 
 top_srcdir="@abs_top_srcdir@"
 VALGRIND="@VALGRIND@"
+
+if [ "@DOVECONF_PATH@" != "" ]; then
+  export DOVECONF_PATH="@DOVECONF_PATH@"
+fi
 
 if [ $# -gt 0 ] && echo "$1" | grep "NOCHILDREN_TESTS=" >/dev/null; then
   shift
