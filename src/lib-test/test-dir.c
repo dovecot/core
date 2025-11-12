@@ -24,7 +24,7 @@ void test_dir_init(const char *top_test_dir, const char *name)
 
 	ret = mkdir(top_test_dir, 0700);
 	if (ret < 0 && errno != EEXIST)
-		i_fatal("mkdir(%s) failed: %m", TEST_DIR);
+		i_fatal("mkdir(%s) failed: %m", top_test_dir);
 
 	dir = t_str_new(256);
 	str_append(dir, top_test_dir);
