@@ -6,7 +6,7 @@ dnl This file is free software; the authors give
 dnl unlimited permission to copy and/or distribute it, with or without
 dnl modifications, as long as this notice is preserved.
 
-# serial 45
+# serial 46
 
 dnl
 dnl Check for support for D_FORTIFY_SOURCE=2
@@ -425,6 +425,10 @@ AC_DEFUN([DC_DOVECOT],[
 	AS_IF([test x$DOVECOT_HAVE_MAIL_UTF8 = xyes], [
 		AC_DEFINE([DOVECOT_HAVE_MAIL_UTF8],,"Define if Dovecot has mail UTF-8 support")
 	])
+        AS_IF([test "$DOVECOT_INSTALLED" != "yes"],
+          AC_SUBST([DOVECONF_PATH], [$dovecotdir/src/config/doveconf]),
+          AC_SUBST([DOVECONF_PATH], []))
+
 	AM_CONDITIONAL(DOVECOT_INSTALLED, test "$DOVECOT_INSTALLED" = "yes")
 
 	DC_PLUGIN_DEPS
