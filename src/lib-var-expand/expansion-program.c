@@ -31,7 +31,7 @@ int var_expand_program_create(const char *str,
 	T_BEGIN {
 		state.str = NULL;
 		state.pool =
-			pool_alloconly_create(MEMPOOL_GROWING"var expand parser", 32768);
+			pool_allocfree_create("var expand parser");
 		p_array_init(&state.variables, pool, 1);
 		state.input = str;
 		state.left = strlen(str);
