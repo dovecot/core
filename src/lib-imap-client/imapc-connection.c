@@ -1583,7 +1583,7 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 	    (cmd->flags & IMAPC_COMMAND_FLAG_SELECT) != 0 &&
 	    conn->selected_box != NULL) {
 		/* EXAMINE/SELECT failed: mailbox is no longer selected */
-		imapc_connection_unselect(conn->selected_box, TRUE);
+		imapc_connection_mailbox_closed(conn->selected_box, TRUE);
 	}
 
 	if (conn->reconnect_command_count > 0 &&
@@ -2581,8 +2581,8 @@ bool imapc_cmd_has_imap4rev2(struct imapc_command *cmd)
 	return cmd->conn->imap4rev2_enabled;
 }
 
-void imapc_connection_unselect(struct imapc_client_mailbox *box,
-			       bool via_tagged_reply)
+void imapc_connection_mailbox_closed(struct imapc_client_mailbox *box,
+				     bool via_tagged_reply)
 {
 	struct imapc_connection *conn = box->conn;
 
