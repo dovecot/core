@@ -789,7 +789,7 @@ SETTING_LINKED_FILES=`echo $libdovecot_c_files | $SED -e s,$srcdir/src,./src,g -
 AC_SUBST(SETTING_FILES)
 AC_SUBST(SETTING_LINKED_FILES)
 
-TEST_CFLAGS="-DTEST_DIR=\\\"\$(abs_top_builddir)/.test\\\""
+TEST_CFLAGS="-DTEST_DIR=\\\"\\\$(abs_top_builddir)/.test\\\""
 AM_CFLAGS="$AM_CFLAGS $TEST_CFLAGS $EXTRA_CFLAGS"
 AM_CXXFLAGS="$AM_CXXFLAGS $TEST_CFLAGS $EXTRA_CFLAGS"
 AC_SUBST([AM_CFLAGS])
