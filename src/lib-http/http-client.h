@@ -174,6 +174,9 @@ enum http_client_request_error {
 	/* The request timed out (either this was the last attempt or the
 	   absolute timeout was hit) */
 	HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT = 9008,
+	/* The request is already known to fail as acquiring authorization
+	   token already failed. Mark the request as failed before sending it */
+	HTTP_CLIENT_REQUEST_ERROR_PREREQUISITE_FAILED = 9009,
 };
 
 enum http_request_state {
