@@ -277,6 +277,14 @@ imapc_client_cmd(struct imapc_client *client,
 	return imapc_connection_cmd(conn, callback, context);
 }
 
+bool imapc_client_is_server_selected(struct imapc_client *client,
+				     const char *name)
+{
+	struct imapc_connection *conn = imapc_client_find_connection(client);
+	const char *conn_name = imapc_connection_get_selected_mailbox_name(conn);
+	return null_strcmp(conn_name, name) == 0;
+}
+
 static struct imapc_client_connection *
 imapc_client_get_unboxed_connection(struct imapc_client *client)
 {

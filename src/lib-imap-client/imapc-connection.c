@@ -158,10 +158,10 @@ struct imapc_connection {
 	bool idle_plus_waiting:1;
 	bool imap4rev2_enabled:1;
 	bool select_waiting_reply:1;
-	/* TRUE if IMAP server is in SELECTED state. select_box may be NULL
+	/* The name of the folder if in SELECTED state. select_box may be NULL
 	   though, if we already closed the mailbox from client point of
 	   view. */
-	bool selected_on_server:1;
+	char *selected_on_server;
 };
 
 static void imapc_connection_capability_cb(const struct imapc_command_reply *reply,
@@ -262,6 +262,7 @@ static void imapc_connection_unref(struct imapc_connection **_conn)
 	array_free(&conn->aborted_cmd_tags);
 	imapc_client_unref(&conn->client);
 	event_unref(&conn->event);
+	i_free(conn->selected_on_server);
 	i_free(conn->ips);
 	i_free(conn);
 }
@@ -422,7 +423,7 @@ static void imapc_connection_set_state(struct imapc_connection *conn,
 		conn->select_waiting_reply = FALSE;
 		conn->qresync_selecting_box = NULL;
 		conn->selected_box = NULL;
-		conn->selected_on_server = FALSE;
+		i_free_and_null(conn->selected_on_server);
 		/* fall through */
 	case IMAPC_CONNECTION_STATE_DONE:
 		/* if we came from imapc_client_get_capabilities(), stop so
@@ -838,7 +839,7 @@ imapc_connection_handle_resp_text_code(struct imapc_connection *conn,
 			conn->selected_box = conn->qresync_selecting_box;
 			conn->qresync_selecting_box = NULL;
 		} else {
-			conn->selected_on_server = FALSE;
+			i_free_and_null(conn->selected_on_server);
 		}
 	}
 	return 0;
@@ -2218,7 +2219,7 @@ static void imapc_connection_set_selecting(struct imapc_client_mailbox *box)
 
 	i_assert(conn->qresync_selecting_box == NULL);
 
-	if (conn->selected_on_server &&
+	if (conn->selected_on_server != NULL &&
 	    (conn->capabilities & IMAPC_CAPABILITY_QRESYNC) != 0) {
 		/* server will send a [CLOSED] once selected mailbox is
 		   closed */
@@ -2226,8 +2227,9 @@ static void imapc_connection_set_selecting(struct imapc_client_mailbox *box)
 	} else {
 		/* we'll have to assume that all the future untagged messages
 		   are for the mailbox we're selecting */
+		i_free_and_null(conn->selected_on_server);
+		conn->selected_on_server = i_strdup(box->name);
 		conn->selected_box = box;
-		conn->selected_on_server = TRUE;
 	}
 	conn->select_waiting_reply = TRUE;
 }
@@ -2605,7 +2607,7 @@ void imapc_connection_mailbox_closed(struct imapc_client_mailbox *box,
 		conn->qresync_selecting_box = NULL;
 		conn->selected_box = NULL;
 		if (via_tagged_reply)
-			conn->selected_on_server = FALSE;
+			i_free_and_null(conn->selected_on_server);
 		else {
 			/* We didn't actually send UNSELECT command, so don't
 			   touch selected_on_server state. */
@@ -2683,4 +2685,10 @@ imapc_client_find_command_by_tag(struct imapc_client *client, const char *tag_st
 struct timeval imapc_command_get_start_time(struct imapc_command *cmd)
 {
 	return cmd->start_time;
+}
+
+const char *
+imapc_connection_get_selected_mailbox_name(struct imapc_connection *conn)
+{
+	return conn->selected_on_server;
 }
