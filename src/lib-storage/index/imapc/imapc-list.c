@@ -938,14 +938,8 @@ imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	if (!imapc_command_connection_is_selected(cmd))
 		imapc_command_abort(&cmd);
-	else {
-		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
-		if ((capa & IMAPC_CAPABILITY_UNSELECT) != 0)
-			imapc_command_sendf(cmd, "UNSELECT");
-		else
-			imapc_command_sendf(cmd, "SELECT \"~~~\"");
-		imapc_simple_run(&ctx, &cmd);
-	}
+	else if (imapc_server_unselect(list->client) < 0)
+		return -1;
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);

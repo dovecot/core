@@ -274,5 +274,6 @@ void imapc_untagged_fetch_update_flags(struct imapc_mailbox *mbox,
 				       struct mail_index_view *view,
 				       uint32_t lseq);
 bool imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, uint32_t first_uid);
+int imapc_server_unselect(struct imapc_storage_client *client);
 
 #endif

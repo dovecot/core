@@ -1153,6 +1153,28 @@ static int imapc_mailbox_delete(struct mailbox *box)
 	return index_storage_mailbox_delete(box);
 }
 
+int imapc_server_unselect(struct imapc_storage_client *client)
+{
+	enum imapc_capability caps;
+	if (imapc_client_get_capabilities(client->client, &caps) < 0)
+		return -1;
+
+	struct imapc_simple_context sctx;
+	imapc_simple_context_init(&sctx, client);
+
+	struct imapc_command *cmd = imapc_client_cmd(client->client,
+						     imapc_simple_callback, &sctx);
+
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
+	if ((caps & IMAPC_CAPABILITY_UNSELECT) != 0)
+		imapc_command_sendf(cmd, "UNSELECT");
+	else
+		imapc_command_sendf(cmd, "SELECT \"~~~\"");
+
+	imapc_simple_run(&sctx, &cmd);
+	return 0;
+}
+
 static int imapc_mailbox_run_status(struct mailbox *box,
 				    enum mailbox_status_items items,
 				    struct mailbox_status *status_r)
