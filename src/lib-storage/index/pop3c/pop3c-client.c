@@ -384,7 +384,8 @@ pop3c_client_get_sasl_plain_request(struct pop3c_client *client)
 static void pop3c_client_login_finished(struct pop3c_client *client)
 {
 	io_remove(&client->io);
-	client->io = io_add(client->fd, IO_READ, pop3c_client_input, client);
+	client->io = io_add_istream(client->input,
+				    pop3c_client_input, client);
 
 	timeout_remove(&client->to);
 	client->state = POP3C_CLIENT_STATE_DONE;
@@ -596,6 +597,11 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 		iostream_rawlog_create(client->set.rawlog_dir,
 				       &client->input, &client->output);
 	}
+
+	i_assert(client->io != NULL);
+	io_remove(&client->io);
+	client->io = io_add_istream(client->input,
+				    pop3c_client_prelogin_input, client);
 	return 0;
 }
 
