@@ -190,6 +190,7 @@ int doveadm_blocking_connect(const char *path,
 		alarm(0);
 	}
 	if (ret < 0) {
+		o_stream_ignore_last_errors(*output_r);
 		o_stream_destroy(output_r);
 		i_stream_destroy(input_r);
 	}
