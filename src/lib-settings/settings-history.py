@@ -107,6 +107,9 @@ def process(input_file: str, contents: str, pro: bool) -> (str, str):
         line = line + 1
         values = data.split("\t")
 
+        if data.startswith("#") or data.isspace() or data == "":
+            continue
+
         if len(values) != 5:
             die(
                 f"{input_file}:{line}: "
