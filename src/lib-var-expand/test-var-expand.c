@@ -101,8 +101,7 @@ static void test_var_expand_builtin_filters(void) {
 		{ .in = "%{}", .out = "", .ret = 0 },
 		{
 			.in = "%{",
-			.out = "syntax error, unexpected end of file, expecting "
-			       "CCBRACE or PIPE or NAME",
+			.out = "expecting CCBRACE or PIPE or NAME",
 			.ret = -1
 		},
 		{ .in = "hello%{}world", .out = "helloworld", .ret = 0 },
