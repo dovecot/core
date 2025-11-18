@@ -1169,8 +1169,11 @@ int imapc_server_unselect(struct imapc_storage_client *client)
 		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_UNSELECT);
 		imapc_command_sendf(cmd, "UNSELECT");
 	} else {
+		char sep = client->_list->root_sep;
+		char nonexistent_mailbox[] = { sep, sep, sep, '\0' };
+
 		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
-		imapc_command_sendf(cmd, "SELECT \"~~~\"");
+		imapc_command_sendf(cmd, "SELECT %s", nonexistent_mailbox);
 	}
 
 	imapc_simple_run(&sctx, &cmd);
