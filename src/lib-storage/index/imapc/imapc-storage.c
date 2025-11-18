@@ -1165,11 +1165,13 @@ int imapc_server_unselect(struct imapc_storage_client *client)
 	struct imapc_command *cmd = imapc_client_cmd(client->client,
 						     imapc_simple_callback, &sctx);
 
-	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
-	if ((caps & IMAPC_CAPABILITY_UNSELECT) != 0)
+	if ((caps & IMAPC_CAPABILITY_UNSELECT) != 0) {
+		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_UNSELECT);
 		imapc_command_sendf(cmd, "UNSELECT");
-	else
+	} else {
+		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
 		imapc_command_sendf(cmd, "SELECT \"~~~\"");
+	}
 
 	imapc_simple_run(&sctx, &cmd);
 	return 0;

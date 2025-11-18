@@ -57,7 +57,9 @@ enum imapc_command_flags {
 	/* This is the LOGOUT command. Use a small timeout for it. */
 	IMAPC_COMMAND_FLAG_LOGOUT	= 0x08,
 	/* Command is being resent after a reconnection. */
-	IMAPC_COMMAND_FLAG_RECONNECTED	= 0x10
+	IMAPC_COMMAND_FLAG_RECONNECTED	= 0x10,
+	/* The command unselects the mailbox (UNSELECT) */
+	IMAPC_COMMAND_FLAG_UNSELECT	= 0x20,
 };
 
 struct imapc_command_reply {

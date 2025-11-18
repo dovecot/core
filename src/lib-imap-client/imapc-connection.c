@@ -1585,7 +1585,10 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 	    conn->selected_box != NULL) {
 		/* EXAMINE/SELECT failed: mailbox is no longer selected */
 		imapc_connection_mailbox_closed(conn->selected_box, TRUE);
-	}
+	} else if (reply.state == IMAPC_COMMAND_STATE_OK &&
+                   (cmd->flags & IMAPC_COMMAND_FLAG_UNSELECT) != 0) {
+               	i_free_and_null(conn->selected_on_server);
+        }
 
 	if (conn->reconnect_command_count > 0 &&
 	    (cmd->flags & IMAPC_COMMAND_FLAG_RECONNECTED) != 0) {
