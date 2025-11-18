@@ -450,6 +450,13 @@ service_process_create(struct service *service, int accepted_fd,
 		process->to_status =
 			timeout_add(SERVICE_FIRST_STATUS_TIMEOUT_SECS * 1000,
 				    service_process_status_timeout, process);
+	} else {
+		/* anvil process is being reused after config reload. Make sure
+		   last status update is not 0, since it has been already sent
+		   and CI testing relies on this. Other status fields might not
+		   be correct either, but hopefully anvil will soon do a status
+		   update that corrects them. */
+		process->last_status_update = ioloop_time;
 	}
 
 	service->process_count_total++;
