@@ -83,7 +83,7 @@ $(srcdir)/unicode-data-tables.c $(srcdir)/unicode-data-tables.h \
 	$(srcdir)/unicode-ucd-compile.py $(UCD_FILES)
 	$(AM_V_GEN)$(PYTHON) $(srcdir)/unicode-ucd-compile.py $(UCD_DIR) $(srcdir)
 
-liblib_la_LIBADD = $(LIBUNWIND_LIBS) $(ZLIB_LIBS)
+liblib_la_LIBADD = $(LIBUNWIND_LIBS) $(ZLIB_LIBS_STATIC) $(ZLIB_LIBS)
 liblib_la_SOURCES = \
 	array.c \
 	aqueue.c \

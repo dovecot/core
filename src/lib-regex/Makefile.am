@@ -23,7 +23,7 @@ noinst_LTLIBRARIES=libdregex.la
 
 if BUILD_LIBREGEX
 libdregex_la_SOURCES = regex.c
-libdregex_la_LIBADD = $(LIBPCRE_LIBS)
+libdregex_la_LIBADD = $(LIBPCRE_LIBS_STATIC) $(LIBPCRE_LIBS)
 
 EXTRA_DIST =
 
