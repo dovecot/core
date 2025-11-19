@@ -268,6 +268,10 @@ int main(int argc, char *argv[])
 
 	lib_init();
 
+	/* Extend idle timeout with valgrind to avoid random failures. */
+	if (ON_VALGRIND)
+		pc_params.input_idle_timeout_msecs *= 2;
+
 	event = event_create(NULL);
 	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
