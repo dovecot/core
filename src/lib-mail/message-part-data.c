@@ -621,7 +621,7 @@ bool message_part_has_content_types(const struct message_part *part,
 }
 
 bool message_part_is_attachment(
-	struct message_part *part,
+	const struct message_part *part,
 	const struct message_part_attachment_settings *settings)
 {
 	return message_part_get_attachment_filename(part, settings, NULL);
