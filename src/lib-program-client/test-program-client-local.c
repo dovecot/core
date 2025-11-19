@@ -43,6 +43,7 @@ static void test_program_success(void)
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
 	struct ostream *os = test_ostream_create(output);
+	o_stream_set_no_error_handling(os, TRUE);
 	program_client_set_output(pc, os);
 
 	test_assert(program_client_run(pc) == 1);
@@ -73,6 +74,7 @@ static void test_program_io_sync(void)
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
 	struct ostream *os = test_ostream_create(output);
+	o_stream_set_no_error_handling(os, TRUE);
 	program_client_set_output(pc, os);
 
 	test_assert(program_client_run(pc) == 1);
@@ -116,6 +118,7 @@ static void test_program_io_async(void)
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
 	struct ostream *os = test_ostream_create(output);
+	o_stream_set_no_error_handling(os, TRUE);
 	program_client_set_output(pc, os);
 
 	program_client_run_async(pc, test_program_io_async_callback, &ret);
@@ -151,6 +154,7 @@ static void test_program_failure(void)
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
 	struct ostream *os = test_ostream_create(output);
+	o_stream_set_no_error_handling(os, TRUE);
 	program_client_set_output(pc, os);
 
 	test_assert(program_client_run(pc) == 0);
@@ -205,6 +209,8 @@ static void test_program_io_big(void)
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
 	struct ostream *os = test_ostream_create(output);
+	o_stream_set_no_error_handling(os, TRUE);
+
 	program_client_set_output(pc, os);
 
 	test_assert(program_client_run(pc) == 1);
