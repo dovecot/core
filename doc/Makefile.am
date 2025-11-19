@@ -26,7 +26,7 @@ all-local: stamp-man
 install-data-hook:
 	$(INSTALL) -d $(DESTDIR)$(sysconfdir)/dovecot
 	test -e $(DESTDIR)$(sysconfdir)/dovecot/dovecot.conf || \
-	$(INSTALL) dovecot.conf $(DESTDIR)$(sysconfdir)/dovecot/dovecot.conf
+	$(INSTALL_DATA) dovecot.conf $(DESTDIR)$(sysconfdir)/dovecot/dovecot.conf
 
 install-data-local:
 	$(MKDIR_P) $(DESTDIR)$(docdir); \
