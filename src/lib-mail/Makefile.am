@@ -113,6 +113,13 @@ test_programs = \
 	test-rfc2231-parser \
 	test-rfc822-parser
 
+test_deps = $(noinst_LTLIBRARIES) \
+	../lib-charset/libcharset.la \
+	../lib-test/libtest.la \
+	../lib/liblib.la
+
+test_libs = $(test_deps) $(LIBDOVECOT_TEST_LIBS)
+
 fuzz_programs =
 
 if USE_FUZZER
@@ -157,13 +164,6 @@ endif
 
 noinst_PROGRAMS += $(fuzz_programs)
 
-test_libs = \
-	$(noinst_LTLIBRARIES) \
-	../lib-charset/libcharset.la \
-	../lib-test/libtest.la \
-	../lib/liblib.la
-
-test_deps = $(noinst_LTLIBRARIES) $(test_libs)
 
 test_istream_dot_SOURCES = test-istream-dot.c
 test_istream_dot_LDADD = $(test_libs)

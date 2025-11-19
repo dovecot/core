@@ -31,7 +31,7 @@ test_libs = \
 	../lib/liblib.la
 
 test_dns_lookup_SOURCES = test-dns-lookup.c
-test_dns_lookup_LDADD = $(test_libs) $(DLLIB)
+test_dns_lookup_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)

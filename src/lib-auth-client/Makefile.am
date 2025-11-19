@@ -44,7 +44,7 @@ test_libs = \
 	../lib-regex/libdregex.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
-	$(MODULE_LIBS)
+	$(LIBDOVECOT_TEST_LIBS)
 
 test_deps = \
 	$(noinst_LTLIBRARIES) \

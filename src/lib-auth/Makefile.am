@@ -62,7 +62,7 @@ test_libs = \
         ../lib-otp/libotp.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
-	$(MODULE_LIBS)
+	$(LIBDOVECOT_TEST_LIBS)
 
 test_deps = \
 	$(noinst_LTLIBRARIES) \

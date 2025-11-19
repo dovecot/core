@@ -49,8 +49,7 @@ test_libs = \
 	../lib-var-expand/libvar_expand.la \
 	../lib-regex/libdregex.la \
 	../lib-test/libtest.la \
-	../lib/liblib.la \
-	$(MODULE_LIBS)
+	../lib/liblib.la
 test_deps = \
 	$(noinst_LTLIBRARIES) \
 	../lib-dcrypt/libdcrypt_openssl_static.la \
@@ -71,11 +70,11 @@ test_deps = \
 	../lib/liblib.la
 
 test_oauth2_json_SOURCES = test-oauth2-json.c
-test_oauth2_json_LDADD = $(test_libs)
+test_oauth2_json_LDADD = $(test_libs) $(SSL_LIBS) $(LIBDOVECOT_TEST_LIBS)
 test_oauth2_json_DEPENDENCIES = $(test_deps)
 
 test_oauth2_jwt_SOURCES = test-oauth2-jwt.c
-test_oauth2_jwt_LDADD = $(test_libs)
+test_oauth2_jwt_LDADD = $(test_libs) $(SSL_LIBS) $(LIBDOVECOT_TEST_LIBS)
 if HAVE_WHOLE_ARCHIVE
 test_oauth2_jwt_LDFLAGS = \
 	-Wl,$(LD_WHOLE_ARCHIVE),../lib-json/.libs/libjson.a,../lib-ssl-iostream/.libs/libssl_iostream.a,$(LD_NO_WHOLE_ARCHIVE)

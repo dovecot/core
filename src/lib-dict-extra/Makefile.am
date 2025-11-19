@@ -39,5 +39,5 @@ test_libs = \
 	../lib/liblib.la
 
 test_dict_fs_SOURCES = test-dict-fs.c
-test_dict_fs_LDADD = $(noinst_LTLIBRARIES) ../lib-fs/libfs.la $(test_libs) $(MODULE_LIBS)
+test_dict_fs_LDADD = $(noinst_LTLIBRARIES) ../lib-fs/libfs.la $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_dict_fs_DEPENDENCIES = $(noinst_LTLIBRARIES) ../lib-fs/libfs.la $(test_libs)

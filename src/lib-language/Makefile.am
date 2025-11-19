@@ -108,20 +108,20 @@ test_libs = ../lib-dovecot/libdovecot.la
 test_deps = $(noinst_LTLIBRARIES) $(test_libs)
 
 test_lang_icu_SOURCES = test-lang-icu.c
-test_lang_icu_LDADD = lang-icu.lo $(LIBICU_LIBS) $(test_libs)
+test_lang_icu_LDADD = lang-icu.lo $(LIBICU_LIBS) $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_lang_icu_DEPENDENCIES = lang-icu.lo $(test_deps)
 
 test_lang_filter_SOURCES = test-lang-filter.c
-test_lang_filter_LDADD = liblanguage.la $(test_libs)
+test_lang_filter_LDADD = liblanguage.la $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_lang_filter_DEPENDENCIES = liblanguage.la $(test_deps)
 
 if BUILD_LANG_EXTTEXTCAT
 TEST_LANGUAGE = test-language
 test_language_SOURCES = test-language.c
-test_language_LDADD = language.lo $(test_libs) $(TEXTCAT_LIBS)
+test_language_LDADD = language.lo $(test_libs) $(LIBDOVECOT_TEST_LIBS) $(TEXTCAT_LIBS)
 test_language_DEPENDENCIES = $(test_deps)
 endif
 
 test_lang_tokenizer_SOURCES = test-lang-tokenizer.c
-test_lang_tokenizer_LDADD = liblanguage.la $(test_libs)
+test_lang_tokenizer_LDADD = liblanguage.la $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_lang_tokenizer_DEPENDENCIES = liblanguage.la $(test_deps)

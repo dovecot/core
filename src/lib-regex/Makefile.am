@@ -33,7 +33,7 @@ test_regex_SOURCES = test-regex.c
 test_regex_LDADD = libdregex.la \
 		   ../lib-test/libtest.la \
 		   ../lib/liblib.la \
-		   $(LIBPCRE_LIBS)
+		   $(LIBDOVECOT_TEST_LIBS)
 test_regex_DEPENDENCIES = libdregex.la
 
 else

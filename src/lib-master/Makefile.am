@@ -63,13 +63,12 @@ test_deps = \
 	../lib/liblib.la
 
 test_libs = \
-	$(test_deps) \
-	$(MODULE_LIBS)
+	$(test_deps)
 
 test_event_stats_SOURCES = test-event-stats.c
-test_event_stats_LDADD = $(test_libs)
+test_event_stats_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_event_stats_DEPENDENCIES = $(test_deps)
 
 test_master_service_settings_SOURCES = test-master-service-settings.c
-test_master_service_settings_LDADD = $(test_libs)
+test_master_service_settings_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_master_service_settings_DEPENDENCIES = $(test_deps)

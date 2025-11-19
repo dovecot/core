@@ -40,8 +40,7 @@ test_libs = \
 	../lib-var-expand/libvar_expand.la \
 	../lib-regex/libdregex.la \
 	../lib-test/libtest.la \
-	../lib/liblib.la \
-	$(MODULE_LIBS)
+	../lib/liblib.la
 
 test_deps = \
 	liblogin.la \
@@ -58,5 +57,5 @@ test_deps = \
 	../lib/liblib.la
 
 test_login_server_auth_SOURCES = test-login-server-auth.c
-test_login_server_auth_LDADD = $(test_libs)
+test_login_server_auth_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_login_server_auth_DEPENDENCIES = $(test_deps)

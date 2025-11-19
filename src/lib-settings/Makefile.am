@@ -50,9 +50,9 @@ test_libs = \
 	../lib/liblib.la
 
 test_settings_parser_SOURCES = test-settings-parser.c
-test_settings_parser_LDADD = $(test_libs) $(DLLIB)
+test_settings_parser_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_settings_parser_DEPENDENCIES = $(test_libs)
 
 test_settings_SOURCES = test-settings.c
-test_settings_LDADD = $(test_libs) $(DLLIB)
+test_settings_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_settings_DEPENDENCIES = $(test_libs)

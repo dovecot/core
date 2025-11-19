@@ -53,14 +53,14 @@ json_format_LDADD = \
 	libjson.la \
 	../lib-charset/libcharset.la \
 	../lib/liblib.la \
-	$(MODULE_LIBS)
+	$(LIBDOVECOT_TEST_LIBS)
 
 test_libs = \
 	libjson.la \
 	../lib-test/libtest.la \
 	../lib-charset/libcharset.la \
 	../lib/liblib.la \
-	$(MODULE_LIBS)
+	$(LIBDOVECOT_TEST_LIBS)
 test_deps = \
 	libjson.la \
 	../lib-test/libtest.la \

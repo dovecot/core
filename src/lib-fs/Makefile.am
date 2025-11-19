@@ -60,7 +60,7 @@ test_deps = \
 
 test_libs = \
 	$(test_deps) \
-	$(MODULE_LIBS)
+	$(LIBDOVECOT_TEST_LIBS)
 
 test_fs_metawrap_SOURCES = test-fs-metawrap.c
 test_fs_metawrap_LDADD = $(test_libs)

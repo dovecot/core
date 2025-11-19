@@ -38,7 +38,7 @@ test_deps = \
 
 test_libs = \
 	$(test_deps) \
-	$(MODULE_LIBS)
+	$(LIBDOVECOT_TEST_LIBS)
 
 test_imapc_client_SOURCES = test-imapc-client.c
 test_imapc_client_LDADD = $(test_libs)

@@ -42,14 +42,13 @@ test_libs = \
 	../lib-charset/libcharset.la \
 	../lib-var-expand/libvar_expand.la \
 	../lib-regex/libdregex.la \
-	../lib/liblib.la \
-	$(MODULE_LIBS)
+	../lib/liblib.la
 
 test_program_client_local_SOURCE = test-program-client-local.c
-test_program_client_local_LDADD = $(test_libs)
+test_program_client_local_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 
 test_program_client_unix_SOURCE = test-program-client-unix.c
-test_program_client_unix_LDADD = $(test_libs)
+test_program_client_unix_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 
 test_program_client_net_SOURCE = test-program-client-net.c
-test_program_client_net_LDADD = $(test_libs)
+test_program_client_net_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)

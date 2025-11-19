@@ -87,8 +87,7 @@ test_libs = \
 	../lib-var-expand/libvar_expand.la \
 	../lib-regex/libdregex.la \
 	../lib-test/libtest.la \
-	../lib/liblib.la \
-	$(MODULE_LIBS)
+	../lib/liblib.la
 
 test_deps = \
 	$(noinst_LTLIBRARIES) \
@@ -100,15 +99,15 @@ test_deps = \
 	../lib/liblib.la
 
 test_http_url_SOURCES = test-http-url.c
-test_http_url_LDADD = http-url.lo http-header.lo $(test_libs)
+test_http_url_LDADD = http-url.lo http-header.lo $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_http_url_DEPENDENCIES = $(test_deps)
 
 test_http_date_SOURCES = test-http-date.c
-test_http_date_LDADD = http-date.lo  $(test_libs)
+test_http_date_LDADD = http-date.lo  $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_http_date_DEPENDENCIES = $(test_deps)
 
 test_http_header_parser_SOURCES = test-http-header-parser.c
-test_http_header_parser_LDADD = http-parser.lo http-header-parser.lo http-header.lo $(test_libs)
+test_http_header_parser_LDADD = http-parser.lo http-header-parser.lo http-header.lo $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_http_header_parser_DEPENDENCIES = $(test_deps)
 
 test_http_transfer_SOURCES = test-http-transfer.c
@@ -117,14 +116,14 @@ test_http_transfer_LDADD = \
 	http-header-parser.lo \
 	http-transfer-chunked.lo \
 	http-header.lo \
-	$(test_libs)
+	$(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_http_transfer_DEPENDENCIES = $(test_deps)
 
 test_http_auth_SOURCES = test-http-auth.c
 test_http_auth_LDADD = \
 	http-auth.lo \
 	http-parser.lo \
-	$(test_libs)
+	$(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_http_auth_DEPENDENCIES = $(test_deps)
 
 test_http_response_parser_SOURCES = test-http-response-parser.c
@@ -136,7 +135,7 @@ test_http_response_parser_LDADD = \
 	http-transfer-chunked.lo \
 	http-message-parser.lo \
 	http-response-parser.lo \
-	$(test_libs)
+	$(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_http_response_parser_DEPENDENCIES = $(test_deps)
 
 test_http_request_parser_SOURCES = test-http-request-parser.c
@@ -149,7 +148,7 @@ test_http_request_parser_LDADD = \
 	http-transfer-chunked.lo \
 	http-message-parser.lo \
 	http-request-parser.lo \
-	$(test_libs)
+	$(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_http_request_parser_DEPENDENCIES = $(test_deps)
 
 test_http_libs = \
@@ -159,7 +158,7 @@ test_http_libs = \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-master/libmaster.la \
 	../lib-auth-client/libauth-client.la \
-	$(test_libs)
+	$(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_http_deps = \
 	libhttp.la \
 	../lib-dns-client/libdns-client.la  \
@@ -169,7 +168,7 @@ test_http_deps = \
 	../lib-auth-client/libauth-client.la \
 	$(test_deps)
 
-test_http_libs_ssl = ../lib-ssl-iostream/libssl_iostream_openssl.la
+test_http_libs_ssl = ../lib-ssl-iostream/libssl_iostream_openssl.la $(LIBDOVECOT_TEST_LIBS)
 
 test_http_payload_SOURCES = test-http-payload.c
 test_http_payload_LDFLAGS = -export-dynamic

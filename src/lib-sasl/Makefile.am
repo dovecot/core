@@ -109,17 +109,17 @@ test_libs = \
 test_deps = $(test_libs)
 
 test_sasl_oauth2_SOURCES = test-sasl-oauth2.c
-test_sasl_oauth2_LDADD = $(test_libs)
+test_sasl_oauth2_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_sasl_oauth2_DEPENDENCIES = $(test_deps)
 
 test_sasl_client_SOURCES = test-sasl-client.c
-test_sasl_client_LDADD = $(test_libs)
+test_sasl_client_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_sasl_client_DEPENDENCIES = $(test_deps)
 
 test_sasl_authentication_SOURCES = \
 	dsasl-client-mech-ntlm-dummy.c \
 	test-sasl-authentication.c
-test_sasl_authentication_LDADD = $(test_libs)
+test_sasl_authentication_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_sasl_authentication_DEPENDENCIES = $(test_deps)
 if HAVE_GSSAPI
 test_sasl_authentication_SOURCES += \
@@ -143,7 +143,7 @@ fuzz_sasl_authentication_LDFLAGS = $(FUZZER_LDFLAGS)
 fuzz_sasl_authentication_SOURCES = \
 	dsasl-client-mech-ntlm-dummy.c \
 	fuzz-sasl-authentication.c
-fuzz_sasl_authentication_LDADD = $(test_libs)
+fuzz_sasl_authentication_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 fuzz_sasl_authentication_DEPENDENCIES = $(test_deps)
 if HAVE_GSSAPI
 fuzz_sasl_authentication_SOURCES += \

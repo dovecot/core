@@ -62,11 +62,10 @@ test_libs = \
 	libvar_expand.la \
 	../lib-regex/libdregex.la \
 	../lib-test/libtest.la \
-	../lib/liblib.la \
-	$(MODULE_LIBS)
+	../lib/liblib.la
 
 test_var_expand_SOURCE = test-var-expand.c
-test_var_expand_LDADD = $(test_libs)
+test_var_expand_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 
 if USE_FUZZER
 fuzz_programs = fuzz-var-expand
@@ -76,7 +75,7 @@ nodist_EXTRA_fuzz_var_expand_SOURCES = force-cxx-linking.cxx
 fuzz_var_expand_CPPFLAGS = $(FUZZER_CPPFLAGS)
 fuzz_var_expand_LDFLAGS = $(FUZZER_LDFLAGS)
 fuzz_var_expand_SOURCES = fuzz-var-expand.c
-fuzz_var_expand_LDADD = $(test_libs)
+fuzz_var_expand_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 fuzz_var_expand_DEPENDENCIES = libvar_expand.la
 
 noinst_PROGRAMS += $(fuzz_programs)

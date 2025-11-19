@@ -62,5 +62,5 @@ test_libs = \
 	../lib/liblib.la
 
 test_dict_SOURCES = test-dict.c
-test_dict_LDADD = $(test_libs) $(DLLIB)
+test_dict_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_dict_DEPENDENCIES = $(test_libs)

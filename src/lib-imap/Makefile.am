@@ -59,9 +59,10 @@ test_programs = \
 test_libs = \
 	../lib-charset/libcharset.la \
 	../lib-test/libtest.la \
-	../lib/liblib.la
+	../lib/liblib.la \
+	$(LIBDOVECOT_TEST_LIBS)
 
-test_deps = $(noinst_LTLIBRARIES) $(test_libs)
+test_deps = $(noinst_LTLIBRARIES)
 
 test_imap_bodystructure_SOURCES = test-imap-bodystructure.c
 test_imap_bodystructure_LDADD = imap-bodystructure.lo imap-envelope.lo imap-quote.lo imap-parser.lo imap-arg.lo ../lib-mail/libmail.la $(test_libs)

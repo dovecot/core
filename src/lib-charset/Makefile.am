@@ -26,5 +26,5 @@ test_libs = \
 test_deps = $(noinst_LTLIBRARIES) $(test_libs)
 
 test_charset_SOURCES = test-charset.c
-test_charset_LDADD = libcharset.la $(test_libs)
+test_charset_LDADD = libcharset.la $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_charset_DEPENDENCIES = libcharset.la $(test_deps)

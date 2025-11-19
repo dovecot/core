@@ -529,12 +529,12 @@ test_headers = \
 	test-lib.h \
 	test-lib.inc
 
-test_lib_LDADD = $(test_libs) -lm
+test_lib_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_lib_DEPENDENCIES = $(test_libs)
 
 test_cpu_limit_SOURCES = \
 	test-cpu-limit.c
-test_cpu_limit_LDADD = $(test_libs) -lm
+test_cpu_limit_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_cpu_limit_DEPENDENCIES = $(test_libs)
 
 pkginc_libdir=$(pkgincludedir)
