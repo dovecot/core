@@ -428,6 +428,7 @@ imap_notify_box_send_status(struct client_command_context *cmd,
 			    struct imap_notify_context *ctx,
 			    const struct mailbox_info *info)
 {
+	struct client *client = cmd->client;
 	struct mailbox *box;
 	struct imap_status_items items;
 	struct imap_status_result result;
@@ -436,8 +437,8 @@ imap_notify_box_send_status(struct client_command_context *cmd,
 		return;
 
 	/* don't send STATUS to selected mailbox */
-	if (cmd->client->mailbox != NULL &&
-	    mailbox_equals(cmd->client->mailbox, info->ns, info->vname))
+	if (client->mailbox != NULL &&
+	    mailbox_equals(client->mailbox, info->ns, info->vname))
 		return;
 
 	i_zero(&items);
@@ -450,17 +451,17 @@ imap_notify_box_send_status(struct client_command_context *cmd,
 		items.flags |= IMAP_STATUS_ITEM_HIGHESTMODSEQ;
 
 	box = mailbox_alloc(info->ns->list, info->vname, MAILBOX_FLAG_READONLY);
-	(void)mailbox_enable(box, client_enabled_mailbox_features(ctx->client));
+	(void)mailbox_enable(box, client_enabled_mailbox_features(client));
 
 	if (imap_status_get(cmd, info->ns, info->vname, &items, &result) < 0) {
 		if (result.error == MAIL_ERROR_PERM)
-			imap_notify_box_list_noperm(ctx->client, box);
+			imap_notify_box_list_noperm(client, box);
 		else if (result.error != MAIL_ERROR_NOTFOUND) {
-			client_send_line(ctx->client,
+			client_send_line(client,
 				t_strconcat("* ", result.errstr, NULL));
 		}
 	} else {
-		imap_status_send(ctx->client, info->vname, &items, &result);
+		imap_status_send(client, info->vname, &items, &result);
 	}
 	mailbox_free(&box);
 }
