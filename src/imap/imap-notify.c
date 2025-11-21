@@ -8,6 +8,7 @@
 #include "mailbox-list-notify.h"
 #include "mail-search.h"
 #include "mail-search-build.h"
+#include "imap-utf7.h"
 #include "imap-commands.h"
 #include "imap-fetch.h"
 #include "imap-list.h"
@@ -21,8 +22,9 @@ static int imap_notify_list(struct imap_notify_namespace *notify_ns,
 			    enum mailbox_info_flags flags)
 {
 	struct client *client = notify_ns->ctx->client;
-	string_t *str = t_str_new(128);
+	string_t *str = t_str_new(128), *mutf7_vname;
 	char ns_sep = mail_namespace_get_sep(notify_ns->ns);
+	const char *vname, *old_vname;
 
 	str_append(str, "* LIST (");
 	imap_mailbox_flags2str(str, flags);
@@ -32,10 +34,22 @@ static int imap_notify_list(struct imap_notify_namespace *notify_ns,
 	str_append_c(str, ns_sep);
 	str_append(str, "\" ");
 
-	imap_append_astring(str, rec->vname);
+	vname = rec->vname;
+	mutf7_vname = t_str_new(128);
+	if (imap_utf8_to_utf7(vname, mutf7_vname) < 0)
+		i_panic("Mailbox name not UTF-8: %s", vname);
+	vname = str_c(mutf7_vname);
+	imap_append_astring(str, vname);
 	if (rec->old_vname != NULL) {
+		old_vname = rec->old_vname;
+		str_truncate(mutf7_vname, 0);
+		if (imap_utf8_to_utf7(old_vname, mutf7_vname) < 0) {
+			i_panic("Mailbox name not UTF-8: %s",
+				old_vname);
+		}
+		old_vname = str_c(mutf7_vname);
 		str_append(str, " (\"OLDNAME\" (");
-		imap_append_astring(str, rec->old_vname);
+		imap_append_astring(str, old_vname);
 		str_append(str, "))");
 	}
 	return client_send_line_next(client, str_c(str));
@@ -80,7 +94,13 @@ static int imap_notify_status(struct imap_notify_namespace *notify_ns,
 		if (error != MAIL_ERROR_PERM)
 			ret = -1;
 	} else {
-		ret = imap_status_send(client, rec->vname, &items, &result);
+		const char *vname = rec->vname;
+
+		string_t *mutf7_vname = t_str_new(128);
+		if (imap_utf8_to_utf7(vname, mutf7_vname) < 0)
+			i_panic("Mailbox name not UTF-8: %s", vname);
+		vname = str_c(mutf7_vname);
+		ret = imap_status_send(client, vname, &items, &result);
 	}
 	mailbox_free(&box);
 	return ret;
