@@ -20,6 +20,7 @@ static int imap_notify_list(struct imap_notify_namespace *notify_ns,
 			    const struct mailbox_list_notify_rec *rec,
 			    enum mailbox_info_flags flags)
 {
+	struct client *client = notify_ns->ctx->client;
 	string_t *str = t_str_new(128);
 	char ns_sep = mail_namespace_get_sep(notify_ns->ns);
 
@@ -37,7 +38,7 @@ static int imap_notify_list(struct imap_notify_namespace *notify_ns,
 		imap_append_astring(str, rec->old_vname);
 		str_append(str, "))");
 	}
-	return client_send_line_next(notify_ns->ctx->client, str_c(str));
+	return client_send_line_next(client, str_c(str));
 }
 
 static int imap_notify_status(struct imap_notify_namespace *notify_ns,
