@@ -4,6 +4,7 @@
 #include "str.h"
 #include "mailbox-list-iter.h"
 #include "imap-quote.h"
+#include "imap-utf7.h"
 #include "imap-commands.h"
 #include "imap-fetch.h"
 #include "imap-list.h"
@@ -405,10 +406,17 @@ imap_notify_box_list_noperm(struct client *client, struct mailbox *box)
 	string_t *str = t_str_new(128);
 	char ns_sep = mail_namespace_get_sep(mailbox_get_namespace(box));
 	enum mailbox_info_flags mailbox_flags;
+	const char *vname;
 
 	if (mailbox_list_mailbox(mailbox_get_namespace(box)->list,
 				 mailbox_get_name(box), &mailbox_flags) < 0)
 		mailbox_flags = 0;
+
+	vname = mailbox_get_vname(box);
+	string_t *mutf7_name = t_str_new(128);
+	if (imap_utf8_to_utf7(vname, mutf7_name) < 0)
+		i_panic("LIST: Mailbox name not UTF-8: %s", vname);
+	vname = str_c(mutf7_name);
 
 	str_append(str, "* LIST (");
 	if (imap_mailbox_flags2str(str, mailbox_flags))
@@ -419,7 +427,7 @@ imap_notify_box_list_noperm(struct client *client, struct mailbox *box)
 	str_append_c(str, ns_sep);
 	str_append(str, "\" ");
 
-	imap_append_astring(str, mailbox_get_vname(box), FALSE);
+	imap_append_astring(str, vname, FALSE);
 	client_send_line(client, str_c(str));
 }
 
@@ -461,7 +469,16 @@ imap_notify_box_send_status(struct client_command_context *cmd,
 				t_strconcat("* ", result.errstr, NULL));
 		}
 	} else {
-		imap_status_send(client, info->vname, &items, &result);
+		bool utf8 = client_has_enabled(client, imap_feature_utf8accept);
+		const char *vname = info->vname;
+
+		if (!utf8) {
+			string_t *mutf7_vname = t_str_new(128);
+			if (imap_utf8_to_utf7(vname, mutf7_vname) < 0)
+				i_panic("Mailbox name not UTF-8: %s", vname);
+			vname = str_c(mutf7_vname);
+		}
+		imap_status_send(client, vname, &items, &result);
 	}
 	mailbox_free(&box);
 }
