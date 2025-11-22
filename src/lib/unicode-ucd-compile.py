@@ -1197,10 +1197,13 @@ def write_tables_h():
 
 
 def write_tables_c_cpd(cpd):
-    print(
-        "\t\t.general_category = %s,"
-        % get_general_category_def(cpd.general_category)
-    )
+    if hasattr(cpd, "general_category"):
+        print(
+            "\t\t.general_category = %s,"
+            % get_general_category_def(cpd.general_category)
+        )
+    else:
+        print("\t\t.general_category = UNICODE_GENERAL_CATEGORY_CN,")
     if (
         hasattr(cpd, "canonical_combining_class")
         and cpd.canonical_combining_class > 0
@@ -1389,13 +1392,8 @@ def write_tables_c():
         for cpd in ud_codepoints_defaults:
             print("\t{ // [%04X] <defaults>" % n)
             n = n + 1
-            if hasattr(cpd, "general_category"):
-                print(
-                    "\t\t.general_category = %s,"
-                    % get_general_category_def(cpd.general_category)
-                )
-            else:
-                print("\t\t.general_category = UNICODE_GENERAL_CATEGORY_CN,")
+
+            write_tables_c_cpd(cpd)
             print("\t},")
         for cpr in ud_codepoints:
             cpd = cpr.data
