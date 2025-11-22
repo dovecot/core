@@ -5,6 +5,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "unichar.h"
 #include "imap-match.h"
 
 #include <ctype.h>
@@ -230,88 +231,115 @@ bool imap_match_globs_equal(const struct imap_match_glob *glob1,
 	return p1->pattern == p2->pattern;
 }
 
-#define CMP_CUR_CHR(ctx, data, pattern) \
-	(*(data) == *(pattern) || \
-	 (i_toupper(*(data)) == i_toupper(*(pattern)) && \
-	 (data) < (ctx)->inboxcase_end))
+static inline bool
+match_gc(struct imap_match_context *ctx,
+	 struct uni_gc_scanner *gcsc_data, struct uni_gc_scanner *gcsc_pattern)
+{
+	const unsigned char *pat_gc, *data_gc;
+	size_t pat_gc_size, data_gc_size;
+
+	pat_gc = uni_gc_scan_get(gcsc_pattern, &pat_gc_size);
+	data_gc = uni_gc_scan_get(gcsc_data, &data_gc_size);
+
+	if (pat_gc_size != data_gc_size)
+		return FALSE;
+	if (memcmp(data_gc, pat_gc, data_gc_size) == 0)
+		return TRUE;
+	if (data_gc_size != 1)
+		return FALSE;
+	return ((const char *)data_gc < ctx->inboxcase_end &&
+		i_toupper(data_gc[0]) == i_toupper(pat_gc[0]));
+}
 
 static enum imap_match_result
-match_sub(struct imap_match_context *ctx, const char **data_p,
-	  const char **pattern_p)
+match_sub(struct imap_match_context *ctx,
+	  struct uni_gc_scanner *gcsc_data_p,
+	  struct uni_gc_scanner *gcsc_pattern_p)
 {
 	enum imap_match_result ret, match;
-	unsigned int i;
-	const char *data = *data_p, *pattern = *pattern_p;
+	struct uni_gc_scanner gcsc_data = *gcsc_data_p;
+	struct uni_gc_scanner gcsc_pattern = *gcsc_pattern_p;
+	const unsigned char *pat_gc_prev = NULL, *data_gc_prev = NULL;
+	size_t pat_gc_prev_size = 0, data_gc_prev_size = 0;
 
 	/* match all non-wildcards */
-	i = 0;
-	while (pattern[i] != '\0' && pattern[i] != '*' && pattern[i] != '%') {
-		if (!CMP_CUR_CHR(ctx, data+i, pattern+i)) {
-			if (data[i] != '\0')
+	while (!uni_gc_scan_at_end(&gcsc_pattern) &&
+	       !uni_gc_scan_ascii_equals(&gcsc_pattern, '*') &&
+	       !uni_gc_scan_ascii_equals(&gcsc_pattern, '%')) {
+		if (!match_gc(ctx, &gcsc_data, &gcsc_pattern)) {
+			if (!uni_gc_scan_at_end(&gcsc_data))
 				return IMAP_MATCH_NO;
-			if (pattern[i] == ctx->sep)
+			if (uni_gc_scan_ascii_equals(&gcsc_pattern, ctx->sep))
 				return IMAP_MATCH_CHILDREN;
-			if (i > 0 && pattern[i-1] == ctx->sep) {
+			if (pat_gc_prev_size == 1 &&
+			    pat_gc_prev[0] == ctx->sep) {
 				/* data="foo/" pattern = "foo/bar/%" */
 				return IMAP_MATCH_CHILDREN;
 			}
 			return IMAP_MATCH_NO;
 		}
-		i++;
-	}
-	data += i;
-	pattern += i;
 
-	if (*data == '\0' && *data_p != data && data[-1] == ctx->sep &&
-	    *pattern != '\0') {
+		pat_gc_prev = uni_gc_scan_get(&gcsc_pattern, &pat_gc_prev_size);
+		data_gc_prev = uni_gc_scan_get(&gcsc_data, &data_gc_prev_size);
+		uni_gc_scan_shift(&gcsc_pattern);
+		uni_gc_scan_shift(&gcsc_data);
+	}
+	if (uni_gc_scan_at_end(&gcsc_data) &&
+	    data_gc_prev_size == 1 && data_gc_prev[0] == ctx->sep &&
+	    !uni_gc_scan_at_end(&gcsc_pattern)) {
 		/* data="/" pattern="/%..." */
 		match = IMAP_MATCH_CHILDREN;
 	} else {
 		match = IMAP_MATCH_NO;
 	}
-	while (*pattern == '%') {
-		pattern++;
+	while (uni_gc_scan_ascii_equals(&gcsc_pattern, '%')) {
+		uni_gc_scan_shift(&gcsc_pattern);
 
-		if (*pattern == '\0') {
+		if (uni_gc_scan_at_end(&gcsc_pattern)) {
 			/* match, if this is the last hierarchy */
-			while (*data != '\0' && *data != ctx->sep)
-				data++;
+			while (!uni_gc_scan_at_end(&gcsc_data) &&
+			       !uni_gc_scan_ascii_equals(&gcsc_data, ctx->sep))
+				uni_gc_scan_shift(&gcsc_data);
 			break;
 		}
 
 		/* skip over this hierarchy */
-		while (*data != '\0') {
-			if (CMP_CUR_CHR(ctx, data, pattern)) {
-				ret = match_sub(ctx, &data, &pattern);
+		while (!uni_gc_scan_at_end(&gcsc_data)) {
+			if (match_gc(ctx, &gcsc_data, &gcsc_pattern)) {
+				ret = match_sub(ctx, &gcsc_data,
+						&gcsc_pattern);
 				if (ret == IMAP_MATCH_YES)
 					break;
 
 				match |= ret;
 			}
 
-			if (*data == ctx->sep)
+			if (uni_gc_scan_ascii_equals(&gcsc_data, ctx->sep))
 				break;
 
-			data++;
+			uni_gc_scan_shift(&gcsc_data);
 		}
 	}
 
-	if (*pattern != '*') {
-		if (*data == '\0' && *pattern != '\0') {
-			if (*pattern == ctx->sep)
+	if (!uni_gc_scan_ascii_equals(&gcsc_pattern, '*')) {
+		if (uni_gc_scan_at_end(&gcsc_data) &&
+		    !uni_gc_scan_at_end(&gcsc_pattern)) {
+			if (uni_gc_scan_ascii_equals(&gcsc_pattern,
+						     ctx->sep))
 				match |= IMAP_MATCH_CHILDREN;
 			return match;
 		}
 
-		if (*data != '\0') {
-			if (*pattern == '\0' && *data == ctx->sep)
+		if (!uni_gc_scan_at_end(&gcsc_data)) {
+			if (uni_gc_scan_at_end(&gcsc_pattern) &&
+			    uni_gc_scan_ascii_equals(&gcsc_data, ctx->sep))
 				match |= IMAP_MATCH_PARENT;
 			return match;
 		}
 	}
 
-	*data_p = data;
-	*pattern_p = pattern;
+	*gcsc_data_p = gcsc_data;
+	*gcsc_pattern_p = gcsc_pattern;
 	return IMAP_MATCH_YES;
 }
 
@@ -329,34 +357,41 @@ imap_match_pattern(struct imap_match_context *ctx,
 		ctx->inboxcase_end += INBOXLEN;
 	}
 
-	if (*pattern != '*') {
+	struct uni_gc_scanner gcsc_data;
+	struct uni_gc_scanner gcsc_pattern;
+
+	uni_gc_scanner_init(&gcsc_data, data, strlen(data));
+	uni_gc_scanner_init(&gcsc_pattern, pattern, strlen(pattern));
+
+	if (!uni_gc_scan_ascii_equals(&gcsc_pattern, '*')) {
 		/* handle the pattern up to the first '*' */
-		ret = match_sub(ctx, &data, &pattern);
-		if (ret != IMAP_MATCH_YES || *pattern == '\0')
+		ret = match_sub(ctx, &gcsc_data, &gcsc_pattern);
+		if (ret != IMAP_MATCH_YES ||
+		    uni_gc_scan_at_end(&gcsc_pattern))
 			return ret;
 	}
 
 	match = IMAP_MATCH_CHILDREN;
-	while (*pattern == '*') {
-		pattern++;
+	while (uni_gc_scan_ascii_equals(&gcsc_pattern, '*')) {
+		uni_gc_scan_shift(&gcsc_pattern);
 
-		if (*pattern == '\0')
+		if (uni_gc_scan_at_end(&gcsc_pattern))
 			return IMAP_MATCH_YES;
 
-		while (*data != '\0') {
-			if (CMP_CUR_CHR(ctx, data, pattern)) {
-				ret = match_sub(ctx, &data, &pattern);
+		while (!uni_gc_scan_at_end(&gcsc_data)) {
+			if (match_gc(ctx, &gcsc_data, &gcsc_pattern)) {
+				ret = match_sub(ctx, &gcsc_data, &gcsc_pattern);
 				if (ret == IMAP_MATCH_YES)
 					break;
 				match |= ret;
 			}
-
-			data++;
+			uni_gc_scan_shift(&gcsc_data);
 		}
 	}
 
-	return *data == '\0' && *pattern == '\0' ?
-		IMAP_MATCH_YES : match;
+	return ((uni_gc_scan_at_end(&gcsc_data) &&
+	         uni_gc_scan_at_end(&gcsc_pattern)) ?
+	        IMAP_MATCH_YES : match);
 }
 
 enum imap_match_result

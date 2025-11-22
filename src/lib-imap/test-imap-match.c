@@ -37,7 +37,15 @@ static void test_imap_match(void)
 		{ "%/%o/%", "foo/", IMAP_MATCH_CHILDREN },
 		{ "%/%o/%", "foo", IMAP_MATCH_CHILDREN },
 		{ "inbox", "inbox", IMAP_MATCH_YES },
-		{ "inbox", "INBOX", IMAP_MATCH_NO }
+		{ "inbox", "INBOX", IMAP_MATCH_NO },
+		/* Grapheme cluster: normal a */
+		{ "ha*", "ha", IMAP_MATCH_YES },
+		/* Grapheme cluster: a with diacritic; precomposed (NFC) */
+		{ "ha*", "h\xC3\xA3", IMAP_MATCH_NO },
+		/* Grapheme cluster: a with diacritic; not composable
+		   -> More than a single code point per grapheme cluster.
+		   -> This is where a naive matching algorithm fails. */
+		{ "ha*", "ha\xCC\x85", IMAP_MATCH_NO },
 	};
 	struct test_imap_match inbox_test[] = {
 		{ "inbox", "inbox", IMAP_MATCH_YES },
