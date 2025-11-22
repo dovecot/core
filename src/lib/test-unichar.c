@@ -168,6 +168,52 @@ static void test_unichar_collation(void)
 	test_end();
 }
 
+static void test_unichar_grapheme_clusters(void)
+{
+	const char *in[] = {
+		/* Simple ASCII */
+		"frop",
+		/* U+1019 U+1039 U+1018 U+102C U+1037 */
+		"\xE1\x80\x99\xE1\x80\xB9\xE1\x80\x98\xE1\x80\xAC\xE1\x80\xB7"
+	};
+	/* Use TAB to mark grapheme boundaries */
+	const char *tb[] = {
+		/* Simple ASCII: break points after every byte */
+		"f\tr\to\tp\t",
+		/* U+1019 U+1039 U+1018 U+102C U+1037 */
+		"\xE1\x80\x99\xE1\x80\xB9\xE1\x80\x98\t\xE1\x80\xAC\xE1\x80\xB7\t",
+	};
+	unsigned int n_in = N_ELEMENTS(in), n_tb = N_ELEMENTS(tb), i;
+
+	i_assert(n_in == n_tb);
+
+	test_begin("unichar grapheme clusters");
+
+	string_t *tb_buf = t_str_new(256);
+	for (i = 0; i < n_in; i++) {
+		struct uni_gc_scanner gcsc;
+
+		str_truncate(tb_buf, 0);
+		uni_gc_scanner_init(&gcsc, in[i], strlen(in[i]));
+
+		while (!uni_gc_scan_at_end(&gcsc)) {
+			const unsigned char *gc;
+			size_t gc_size;
+
+			gc = uni_gc_scan_get(&gcsc, &gc_size);
+			if (gc_size == 0)
+				break;
+
+			str_append_data(tb_buf, gc, gc_size);
+			str_append_c(tb_buf, '\t');
+			uni_gc_scan_shift(&gcsc);
+		}
+
+		test_assert_strcmp_idx(str_c(tb_buf), tb[i], i);
+	}
+	test_end();
+}
+
 void test_unichar(void)
 {
 	static const char overlong_utf8[] = "\xf8\x80\x95\x81\xa1";
@@ -222,4 +268,6 @@ void test_unichar(void)
 	test_unichar_uni_utf8_partial_strlen_n();
 	test_unichar_valid_unicode();
 	test_unichar_surrogates();
+
+	test_unichar_grapheme_clusters();
 }

@@ -602,3 +602,42 @@ size_t uni_utf8_data_truncate(const unsigned char *data, size_t old_size,
 		max_new_size--;
 	return max_new_size;
 }
+
+/*
+ * Grapheme clusters
+ */
+
+void uni_gc_scanner_init(struct uni_gc_scanner *gcsc,
+			 const void *input, size_t size)
+{
+	i_zero(gcsc);
+	unicode_gc_break_init(&gcsc->gcbrk);
+	gcsc->p = input;
+	gcsc->pend = gcsc->p + size;
+}
+
+bool uni_gc_scan_shift(struct uni_gc_scanner *gcsc)
+{
+	bool first = TRUE;
+
+	gcsc->poffset = gcsc->p;
+	while (gcsc->p < gcsc->pend) {
+		if (gcsc->cp_data == NULL) {
+			gcsc->cp_size = uni_utf8_get_char_n(
+				gcsc->p, gcsc->pend - gcsc->p, &gcsc->cp);
+			i_assert(gcsc->cp_size > 0);
+		}
+		if (unicode_gc_break_cp(&gcsc->gcbrk, gcsc->cp,
+					&gcsc->cp_data)) {
+			if (!first) {
+				i_assert(gcsc->p > gcsc->poffset);
+				return TRUE;
+			}
+			first = FALSE;
+		}
+
+		gcsc->cp_data = NULL;
+		gcsc->p += gcsc->cp_size;
+	}
+	return (gcsc->p > gcsc->poffset);
+}
