@@ -1196,6 +1196,170 @@ def write_tables_h():
     sys.stdout = orig_stdout
 
 
+def write_tables_c_cpd(cpd):
+    print(
+        "\t\t.general_category = %s,"
+        % get_general_category_def(cpd.general_category)
+    )
+    if (
+        hasattr(cpd, "canonical_combining_class")
+        and cpd.canonical_combining_class > 0
+    ):
+        print(
+            "\t\t.canonical_combining_class = %u,"
+            % cpd.canonical_combining_class
+        )
+    if (
+        hasattr(cpd, "nfd_quick_check")
+        or hasattr(cpd, "nfkd_quick_check")
+        or hasattr(cpd, "nfc_quick_check")
+        or hasattr(cpd, "nfkc_quick_check")
+    ):
+        print("\t\t.nf_quick_check = (", end="")
+        if hasattr(cpd, "nfkc_quick_check"):
+            if cpd.nfkc_quick_check == "N":
+                print("UNICODE_NFKC_QUICK_CHECK_NO", end="")
+            elif cpd.nfkc_quick_check == "M":
+                print("UNICODE_NFKC_QUICK_CHECK_MAYBE", end="")
+        if hasattr(cpd, "nfkc_quick_check") and hasattr(cpd, "nfc_quick_check"):
+            print(" |")
+            print("\t\t\t\t   ", end="")
+        if hasattr(cpd, "nfc_quick_check"):
+            if cpd.nfc_quick_check == "N":
+                print("UNICODE_NFC_QUICK_CHECK_NO", end="")
+            elif cpd.nfc_quick_check == "M":
+                print("UNICODE_NFC_QUICK_CHECK_MAYBE", end="")
+        if (
+            hasattr(cpd, "nfkc_quick_check") or hasattr(cpd, "nfc_quick_check")
+        ) and hasattr(cpd, "nfkd_quick_check"):
+            print(" |")
+            print("\t\t\t\t   ", end="")
+        if hasattr(cpd, "nfkd_quick_check"):
+            if cpd.nfkd_quick_check == "N":
+                print("UNICODE_NFKD_QUICK_CHECK_NO", end="")
+            elif cpd.nfkd_quick_check == "M":
+                print("UNICODE_NFKD_QUICK_CHECK_MAYBE", end="")
+        if (
+            hasattr(cpd, "nfkc_quick_check")
+            or hasattr(cpd, "nfc_quick_check")
+            or hasattr(cpd, "nfkd_quick_check")
+        ) and hasattr(cpd, "nfd_quick_check"):
+            print(" |")
+            print("\t\t\t\t   ", end="")
+        if hasattr(cpd, "nfd_quick_check"):
+            if cpd.nfd_quick_check == "N":
+                print("UNICODE_NFD_QUICK_CHECK_NO", end="")
+            elif cpd.nfd_quick_check == "M":
+                print("UNICODE_NFD_QUICK_CHECK_MAYBE", end="")
+        print("),")
+    if hasattr(cpd, "decomposition_type"):
+        print(
+            "\t\t.decomposition_type = %s,"
+            % decomposition_type_def(cpd.decomposition_type)
+        )
+    if hasattr(cpd, "decomposition_length"):
+        print("\t\t.decomposition_first_length = %u," % cpd.decomposition_length)
+        print("\t\t.decomposition_first_offset = %u," % cpd.decomposition_offset)
+    if hasattr(cpd, "decomposition_full_length"):
+        print(
+            "\t\t.decomposition_full_length = %u,"
+            % cpd.decomposition_full_length
+        )
+        print(
+            "\t\t.decomposition_full_offset = %u,"
+            % cpd.decomposition_full_offset
+        )
+    if hasattr(cpd, "decomposition_full_k_length"):
+        print(
+            "\t\t.decomposition_full_k_length = %u,"
+            % cpd.decomposition_full_k_length
+        )
+        print(
+            "\t\t.decomposition_full_k_offset = %u,"
+            % cpd.decomposition_full_k_offset
+        )
+    if hasattr(cpd, "composition_count"):
+        print("\t\t.composition_count = %u," % cpd.composition_count)
+        print("\t\t.composition_offset = %u," % cpd.composition_offset)
+    if (
+        hasattr(cpd, "lowercase_mapping_length")
+        and cpd.lowercase_mapping_length > 0
+    ):
+        print(
+            "\t\t.lowercase_mapping_length = %s," % cpd.lowercase_mapping_length
+        )
+        print(
+            "\t\t.lowercase_mapping_offset = %s," % cpd.lowercase_mapping_offset
+        )
+    if (
+        hasattr(cpd, "uppercase_mapping_length")
+        and cpd.uppercase_mapping_length > 0
+    ):
+        print(
+            "\t\t.uppercase_mapping_length = %s," % cpd.uppercase_mapping_length
+        )
+        print(
+            "\t\t.uppercase_mapping_offset = %s," % cpd.uppercase_mapping_offset
+        )
+    if (
+        hasattr(cpd, "casefold_mapping_length")
+        and cpd.casefold_mapping_length > 0
+    ):
+        print("\t\t.casefold_mapping_length = %s," % cpd.casefold_mapping_length)
+        print("\t\t.casefold_mapping_offset = %s," % cpd.casefold_mapping_offset)
+    if hasattr(cpd, "simple_titlecase_mapping"):
+        print(
+            "\t\t.simple_titlecase_mapping = 0x%04X,"
+            % cpd.simple_titlecase_mapping
+        )
+    if hasattr(cpd, "pb_g_white_space"):
+        print("\t\t.pb_g_white_space = TRUE,")
+    if hasattr(cpd, "pb_i_pattern_white_space"):
+        print("\t\t.pb_i_pattern_white_space = TRUE,")
+    if hasattr(cpd, "pb_m_quotation_mark"):
+        print("\t\t.pb_m_quotation_mark = TRUE,")
+    if hasattr(cpd, "pb_m_dash"):
+        print("\t\t.pb_m_dash = TRUE,")
+    if hasattr(cpd, "pb_m_sentence_terminal"):
+        print("\t\t.pb_m_sentence_terminal = TRUE,")
+    if hasattr(cpd, "pb_m_terminal_punctuation"):
+        print("\t\t.pb_m_terminal_punctuation = TRUE,")
+    if hasattr(cpd, "pb_wb_cr"):
+        print("\t\t.pb_wb_cr = TRUE,")
+    if hasattr(cpd, "pb_wb_lf"):
+        print("\t\t.pb_wb_lf = TRUE,")
+    if hasattr(cpd, "pb_wb_newline"):
+        print("\t\t.pb_wb_newline = TRUE,")
+    if hasattr(cpd, "pb_wb_extend"):
+        print("\t\t.pb_wb_extend = TRUE,")
+    if hasattr(cpd, "pb_wb_zwj"):
+        print("\t\t.pb_wb_zwj = TRUE,")
+    if hasattr(cpd, "pb_wb_regional_indicator"):
+        print("\t\t.pb_wb_regional_indicator = TRUE,")
+    if hasattr(cpd, "pb_wb_format"):
+        print("\t\t.pb_wb_format = TRUE,")
+    if hasattr(cpd, "pb_wb_katakana"):
+        print("\t\t.pb_wb_katakana = TRUE,")
+    if hasattr(cpd, "pb_wb_hebrew_letter"):
+        print("\t\t.pb_wb_hebrew_letter = TRUE,")
+    if hasattr(cpd, "pb_wb_aletter"):
+        print("\t\t.pb_wb_aletter = TRUE,")
+    if hasattr(cpd, "pb_wb_single_quote"):
+        print("\t\t.pb_wb_single_quote = TRUE,")
+    if hasattr(cpd, "pb_wb_double_quote"):
+        print("\t\t.pb_wb_double_quote = TRUE,")
+    if hasattr(cpd, "pb_wb_midnumlet"):
+        print("\t\t.pb_wb_midnumlet = TRUE,")
+    if hasattr(cpd, "pb_wb_midletter"):
+        print("\t\t.pb_wb_midletter = TRUE,")
+    if hasattr(cpd, "pb_wb_midnum"):
+        print("\t\t.pb_wb_midnum = TRUE,")
+    if hasattr(cpd, "pb_wb_numeric"):
+        print("\t\t.pb_wb_numeric = TRUE,")
+    if hasattr(cpd, "pb_wb_extendnumlet"):
+        print("\t\t.pb_wb_extendnumlet = TRUE,")
+
+
 def write_tables_c():
     global output_dir
     global ud_codepoints
@@ -1245,167 +1409,7 @@ def write_tables_c():
             print("\t{ // [%04X] %s: %s" % (n, range_str, cpd.name))
             n = n + 1
 
-            print(
-                "\t\t.general_category = %s,"
-                % get_general_category_def(cpd.general_category)
-            )
-            if (
-                hasattr(cpd, "canonical_combining_class")
-                and cpd.canonical_combining_class > 0
-            ):
-                print(
-                    "\t\t.canonical_combining_class = %u,"
-                    % cpd.canonical_combining_class
-                )
-            if (
-                hasattr(cpd, "nfd_quick_check")
-                or hasattr(cpd, "nfkd_quick_check")
-                or hasattr(cpd, "nfc_quick_check")
-                or hasattr(cpd, "nfkc_quick_check")
-            ):
-                print("\t\t.nf_quick_check = (", end="")
-                if hasattr(cpd, "nfkc_quick_check"):
-                    if cpd.nfkc_quick_check == "N":
-                        print("UNICODE_NFKC_QUICK_CHECK_NO", end="")
-                    elif cpd.nfkc_quick_check == "M":
-                        print("UNICODE_NFKC_QUICK_CHECK_MAYBE", end="")
-                if hasattr(cpd, "nfkc_quick_check") and hasattr(cpd, "nfc_quick_check"):
-                    print(" |")
-                    print("\t\t\t\t   ", end="")
-                if hasattr(cpd, "nfc_quick_check"):
-                    if cpd.nfc_quick_check == "N":
-                        print("UNICODE_NFC_QUICK_CHECK_NO", end="")
-                    elif cpd.nfc_quick_check == "M":
-                        print("UNICODE_NFC_QUICK_CHECK_MAYBE", end="")
-                if (
-                    hasattr(cpd, "nfkc_quick_check") or hasattr(cpd, "nfc_quick_check")
-                ) and hasattr(cpd, "nfkd_quick_check"):
-                    print(" |")
-                    print("\t\t\t\t   ", end="")
-                if hasattr(cpd, "nfkd_quick_check"):
-                    if cpd.nfkd_quick_check == "N":
-                        print("UNICODE_NFKD_QUICK_CHECK_NO", end="")
-                    elif cpd.nfkd_quick_check == "M":
-                        print("UNICODE_NFKD_QUICK_CHECK_MAYBE", end="")
-                if (
-                    hasattr(cpd, "nfkc_quick_check")
-                    or hasattr(cpd, "nfc_quick_check")
-                    or hasattr(cpd, "nfkd_quick_check")
-                ) and hasattr(cpd, "nfd_quick_check"):
-                    print(" |")
-                    print("\t\t\t\t   ", end="")
-                if hasattr(cpd, "nfd_quick_check"):
-                    if cpd.nfd_quick_check == "N":
-                        print("UNICODE_NFD_QUICK_CHECK_NO", end="")
-                    elif cpd.nfd_quick_check == "M":
-                        print("UNICODE_NFD_QUICK_CHECK_MAYBE", end="")
-                print("),")
-            if hasattr(cpd, "decomposition_type"):
-                print(
-                    "\t\t.decomposition_type = %s,"
-                    % decomposition_type_def(cpd.decomposition_type)
-                )
-            if hasattr(cpd, "decomposition_length"):
-                print("\t\t.decomposition_first_length = %u," % cpd.decomposition_length)
-                print("\t\t.decomposition_first_offset = %u," % cpd.decomposition_offset)
-            if hasattr(cpd, "decomposition_full_length"):
-                print(
-                    "\t\t.decomposition_full_length = %u,"
-                    % cpd.decomposition_full_length
-                )
-                print(
-                    "\t\t.decomposition_full_offset = %u,"
-                    % cpd.decomposition_full_offset
-                )
-            if hasattr(cpd, "decomposition_full_k_length"):
-                print(
-                    "\t\t.decomposition_full_k_length = %u,"
-                    % cpd.decomposition_full_k_length
-                )
-                print(
-                    "\t\t.decomposition_full_k_offset = %u,"
-                    % cpd.decomposition_full_k_offset
-                )
-            if hasattr(cpd, "composition_count"):
-                print("\t\t.composition_count = %u," % cpd.composition_count)
-                print("\t\t.composition_offset = %u," % cpd.composition_offset)
-            if (
-                hasattr(cpd, "lowercase_mapping_length")
-                and cpd.lowercase_mapping_length > 0
-            ):
-                print(
-                    "\t\t.lowercase_mapping_length = %s," % cpd.lowercase_mapping_length
-                )
-                print(
-                    "\t\t.lowercase_mapping_offset = %s," % cpd.lowercase_mapping_offset
-                )
-            if (
-                hasattr(cpd, "uppercase_mapping_length")
-                and cpd.uppercase_mapping_length > 0
-            ):
-                print(
-                    "\t\t.uppercase_mapping_length = %s," % cpd.uppercase_mapping_length
-                )
-                print(
-                    "\t\t.uppercase_mapping_offset = %s," % cpd.uppercase_mapping_offset
-                )
-            if (
-                hasattr(cpd, "casefold_mapping_length")
-                and cpd.casefold_mapping_length > 0
-            ):
-                print("\t\t.casefold_mapping_length = %s," % cpd.casefold_mapping_length)
-                print("\t\t.casefold_mapping_offset = %s," % cpd.casefold_mapping_offset)
-            if hasattr(cpd, "simple_titlecase_mapping"):
-                print(
-                    "\t\t.simple_titlecase_mapping = 0x%04X,"
-                    % cpd.simple_titlecase_mapping
-                )
-            if hasattr(cpd, "pb_g_white_space"):
-                print("\t\t.pb_g_white_space = TRUE,")
-            if hasattr(cpd, "pb_i_pattern_white_space"):
-                print("\t\t.pb_i_pattern_white_space = TRUE,")
-            if hasattr(cpd, "pb_m_quotation_mark"):
-                print("\t\t.pb_m_quotation_mark = TRUE,")
-            if hasattr(cpd, "pb_m_dash"):
-                print("\t\t.pb_m_dash = TRUE,")
-            if hasattr(cpd, "pb_m_sentence_terminal"):
-                print("\t\t.pb_m_sentence_terminal = TRUE,")
-            if hasattr(cpd, "pb_m_terminal_punctuation"):
-                print("\t\t.pb_m_terminal_punctuation = TRUE,")
-            if hasattr(cpd, "pb_wb_cr"):
-                print("\t\t.pb_wb_cr = TRUE,")
-            if hasattr(cpd, "pb_wb_lf"):
-                print("\t\t.pb_wb_lf = TRUE,")
-            if hasattr(cpd, "pb_wb_newline"):
-                print("\t\t.pb_wb_newline = TRUE,")
-            if hasattr(cpd, "pb_wb_extend"):
-                print("\t\t.pb_wb_extend = TRUE,")
-            if hasattr(cpd, "pb_wb_zwj"):
-                print("\t\t.pb_wb_zwj = TRUE,")
-            if hasattr(cpd, "pb_wb_regional_indicator"):
-                print("\t\t.pb_wb_regional_indicator = TRUE,")
-            if hasattr(cpd, "pb_wb_format"):
-                print("\t\t.pb_wb_format = TRUE,")
-            if hasattr(cpd, "pb_wb_katakana"):
-                print("\t\t.pb_wb_katakana = TRUE,")
-            if hasattr(cpd, "pb_wb_hebrew_letter"):
-                print("\t\t.pb_wb_hebrew_letter = TRUE,")
-            if hasattr(cpd, "pb_wb_aletter"):
-                print("\t\t.pb_wb_aletter = TRUE,")
-            if hasattr(cpd, "pb_wb_single_quote"):
-                print("\t\t.pb_wb_single_quote = TRUE,")
-            if hasattr(cpd, "pb_wb_double_quote"):
-                print("\t\t.pb_wb_double_quote = TRUE,")
-            if hasattr(cpd, "pb_wb_midnumlet"):
-                print("\t\t.pb_wb_midnumlet = TRUE,")
-            if hasattr(cpd, "pb_wb_midletter"):
-                print("\t\t.pb_wb_midletter = TRUE,")
-            if hasattr(cpd, "pb_wb_midnum"):
-                print("\t\t.pb_wb_midnum = TRUE,")
-            if hasattr(cpd, "pb_wb_numeric"):
-                print("\t\t.pb_wb_numeric = TRUE,")
-            if hasattr(cpd, "pb_wb_extendnumlet"):
-                print("\t\t.pb_wb_extendnumlet = TRUE,")
+            write_tables_c_cpd(cpd)
             print("\t},")
         print("};")
         print("")
