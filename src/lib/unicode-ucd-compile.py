@@ -615,11 +615,11 @@ def read_ucd_files():
             prop = cols[1].strip()
             if prop == "CR":
                 cpd = CodePointData()
-                cpd.pb_wb_cr = True
+                cpd.pb_b_cr = True
                 CodePointRange(cprng[0], cprng[1], cpd)
             elif prop == "LF":
                 cpd = CodePointData()
-                cpd.pb_wb_lf = True
+                cpd.pb_b_lf = True
                 CodePointRange(cprng[0], cprng[1], cpd)
             elif prop == "Newline":
                 cpd = CodePointData()
@@ -631,11 +631,11 @@ def read_ucd_files():
                 CodePointRange(cprng[0], cprng[1], cpd)
             elif prop == "ZWJ":
                 cpd = CodePointData()
-                cpd.pb_wb_zwj = True
+                cpd.pb_b_zwj = True
                 CodePointRange(cprng[0], cprng[1], cpd)
             elif prop == "Regional_Indicator":
                 cpd = CodePointData()
-                cpd.pb_wb_regional_indicator = True
+                cpd.pb_b_regional_indicator = True
                 CodePointRange(cprng[0], cprng[1], cpd)
             elif prop == "Format":
                 cpd = CodePointData()
@@ -1327,18 +1327,18 @@ def write_tables_c_cpd(cpd):
         print("\t\t.pb_m_sentence_terminal = TRUE,")
     if hasattr(cpd, "pb_m_terminal_punctuation"):
         print("\t\t.pb_m_terminal_punctuation = TRUE,")
-    if hasattr(cpd, "pb_wb_cr"):
-        print("\t\t.pb_wb_cr = TRUE,")
-    if hasattr(cpd, "pb_wb_lf"):
-        print("\t\t.pb_wb_lf = TRUE,")
+    if hasattr(cpd, "pb_b_cr"):
+        print("\t\t.pb_b_cr = TRUE,")
+    if hasattr(cpd, "pb_b_lf"):
+        print("\t\t.pb_b_lf = TRUE,")
+    if hasattr(cpd, "pb_b_zwj"):
+        print("\t\t.pb_b_zwj = TRUE,")
+    if hasattr(cpd, "pb_b_regional_indicator"):
+        print("\t\t.pb_b_regional_indicator = TRUE,")
     if hasattr(cpd, "pb_wb_newline"):
         print("\t\t.pb_wb_newline = TRUE,")
     if hasattr(cpd, "pb_wb_extend"):
         print("\t\t.pb_wb_extend = TRUE,")
-    if hasattr(cpd, "pb_wb_zwj"):
-        print("\t\t.pb_wb_zwj = TRUE,")
-    if hasattr(cpd, "pb_wb_regional_indicator"):
-        print("\t\t.pb_wb_regional_indicator = TRUE,")
     if hasattr(cpd, "pb_wb_format"):
         print("\t\t.pb_wb_format = TRUE,")
     if hasattr(cpd, "pb_wb_katakana"):

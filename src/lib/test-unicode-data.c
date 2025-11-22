@@ -512,17 +512,17 @@ test_word_break_property_line(const char *line, unsigned int line_num)
 			unicode_code_point_get_data(cp);
 
 		if (strcmp(prop, "CR") == 0)
-			test_assert_idx(cp_data->pb_wb_cr, cp);
+			test_assert_idx(cp_data->pb_b_cr, cp);
 		else if (strcmp(prop, "LF") == 0)
-			test_assert_idx(cp_data->pb_wb_lf, cp);
+			test_assert_idx(cp_data->pb_b_lf, cp);
 		else if (strcmp(prop, "Newline") == 0)
 			test_assert_idx(cp_data->pb_wb_newline, cp);
 		else if (strcmp(prop, "Extend") == 0)
 			test_assert_idx(cp_data->pb_wb_extend, cp);
 		else if (strcmp(prop, "ZWJ") == 0)
-			test_assert_idx(cp_data->pb_wb_zwj, cp);
+			test_assert_idx(cp_data->pb_b_zwj, cp);
 		else if (strcmp(prop, "Regional_Indicator") == 0)
-			test_assert_idx(cp_data->pb_wb_regional_indicator, cp);
+			test_assert_idx(cp_data->pb_b_regional_indicator, cp);
 		else if (strcmp(prop, "Format") == 0)
 			test_assert_idx(cp_data->pb_wb_format, cp);
 		else if (strcmp(prop, "Katakana") == 0)

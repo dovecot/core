@@ -389,15 +389,15 @@ static enum letter_type letter_type(unichar_t c)
 	const struct unicode_code_point_data *cpd =
 		unicode_code_point_get_data(c);
 
-	if (cpd->pb_wb_cr)
+	if (cpd->pb_b_cr)
 		return LETTER_TYPE_CR;
-	if (cpd->pb_wb_lf)
+	if (cpd->pb_b_lf)
 		return LETTER_TYPE_LF;
 	if (cpd->pb_wb_newline)
 		return LETTER_TYPE_NEWLINE;
 	if (cpd->pb_wb_extend)
 		return LETTER_TYPE_EXTEND;
-	if (cpd->pb_wb_regional_indicator)
+	if (cpd->pb_b_regional_indicator)
 		return LETTER_TYPE_REGIONAL_INDICATOR;
 	if (cpd->pb_wb_format)
 		return LETTER_TYPE_FORMAT;

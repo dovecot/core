@@ -156,13 +156,15 @@ struct unicode_code_point_data {
 	bool pb_m_sentence_terminal:1;
 	bool pb_m_terminal_punctuation:1;
 
+	/* Common Break */
+	bool pb_b_cr:1;
+	bool pb_b_lf:1;
+	bool pb_b_zwj:1; // Not currently used
+	bool pb_b_regional_indicator:1;
+
 	/* Word_Break (UAX #29, Section 4.1) */
-	bool pb_wb_cr:1;
-	bool pb_wb_lf:1;
 	bool pb_wb_newline:1;
 	bool pb_wb_extend:1;
-	bool pb_wb_zwj:1; // Not currently used
-	bool pb_wb_regional_indicator:1;
 	bool pb_wb_format:1;
 	bool pb_wb_katakana:1;
 	bool pb_wb_hebrew_letter:1;
