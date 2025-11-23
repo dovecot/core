@@ -111,7 +111,9 @@ test_case_mapping(uint32_t cp, const char *const *parsed_mapping,
 	}
 }
 
-static void test_case_folding_line(const char *line, unsigned int line_num)
+static void
+test_case_folding_line(const char *line, unsigned int line_num,
+		       const char *comment_data ATTR_UNUSED)
 {
 	const char *const *columns = t_strsplit(line, ";");
 	size_t num_columns = str_array_length(columns);
@@ -164,7 +166,8 @@ static void test_case_folding_line(const char *line, unsigned int line_num)
 }
 
 static void
-test_composition_exclusions_line(const char *line, unsigned int line_num)
+test_composition_exclusions_line(const char *line, unsigned int line_num,
+				 const char *comment_data ATTR_UNUSED)
 {
 	uint32_t cp_first, cp_last, cp;
 
@@ -181,7 +184,8 @@ test_composition_exclusions_line(const char *line, unsigned int line_num)
 }
 
 static void
-test_derived_normalization_props_line(const char *line, unsigned int line_num)
+test_derived_normalization_props_line(const char *line, unsigned int line_num,
+				      const char *comment_data ATTR_UNUSED)
 {
 	uint32_t cp_first, cp_last, cp;
 	const char *prop, *value;
@@ -228,7 +232,8 @@ test_derived_normalization_props_line(const char *line, unsigned int line_num)
 }
 
 static void
-test_grapheme_break_property_line(const char *line, unsigned int line_num)
+test_grapheme_break_property_line(const char *line, unsigned int line_num,
+				  const char *comment_data ATTR_UNUSED)
 {
 	uint32_t cp_first, cp_last, cp;
 	const char *prop;
@@ -270,7 +275,9 @@ test_grapheme_break_property_line(const char *line, unsigned int line_num)
 	}
 }
 
-static void test_prop_list_line(const char *line, unsigned int line_num)
+static void
+test_prop_list_line(const char *line, unsigned int line_num,
+		    const char *comment_data ATTR_UNUSED)
 {
 	uint32_t cp_first, cp_last, cp;
 	const char *prop;
@@ -298,7 +305,9 @@ static void test_prop_list_line(const char *line, unsigned int line_num)
 	}
 }
 
-static void test_special_casing_line(const char *line, unsigned int line_num)
+static void
+test_special_casing_line(const char *line, unsigned int line_num,
+			 const char *comment_data ATTR_UNUSED)
 {
 	const char *const *columns = t_strsplit(line, ";");
 	size_t num_columns = str_array_length(columns);
@@ -350,7 +359,9 @@ static void test_special_casing_line(const char *line, unsigned int line_num)
 	test_case_mapping(cp, lower_map, case_map, case_map_len);
 }
 
-static void test_unicode_data_line(const char *line, unsigned int line_num)
+static void
+test_unicode_data_line(const char *line, unsigned int line_num,
+		       const char *comment_data ATTR_UNUSED)
 {
 	static uint32_t cp_first = 0;
 
@@ -543,7 +554,8 @@ static void test_unicode_data_line(const char *line, unsigned int line_num)
 }
 
 static void
-test_word_break_property_line(const char *line, unsigned int line_num)
+test_word_break_property_line(const char *line, unsigned int line_num,
+			      const char *comment_data ATTR_UNUSED)
 {
 	uint32_t cp_first, cp_last, cp;
 	const char *prop;
@@ -594,7 +606,8 @@ test_word_break_property_line(const char *line, unsigned int line_num)
 }
 
 static void
-test_idna_mapping_table_line(const char *line, unsigned int line_num)
+test_idna_mapping_table_line(const char *line, unsigned int line_num,
+			     const char *comment_data ATTR_UNUSED)
 {
 	if (*line == '\0')
 		return;
@@ -659,7 +672,8 @@ test_idna_mapping_table_line(const char *line, unsigned int line_num)
 
 static void
 test_ucd_file(const char *filename,
-	      void (*test_line)(const char *line, unsigned int line_num))
+	      void (*test_line)(const char *line, unsigned int line_num,
+				const char *comment_data))
 {
 	const char *file_path = t_strconcat(UCD_DIR, "/", filename, NULL);
 	struct istream *input;
@@ -683,14 +697,17 @@ test_ucd_file(const char *filename,
 		line_num++;
 
 		char *comment = strchr(line, '#');
+		const char *comment_data = NULL;
 
-		if (comment != NULL)
+		if (comment != NULL) {
+			comment_data = t_str_trim(comment + 1, " ");
 			*comment = '\0';
-		if (*line == '\0')
+		}
+		if (*line == '\0' && comment_data == NULL)
 			continue;
 
 		T_BEGIN {
-			test_line(line, line_num);
+			test_line(line, line_num, comment_data);
 		} T_END;
 	}
 
