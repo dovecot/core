@@ -15,6 +15,7 @@ ud_codepoints = []
 ud_codepoints_first = []
 ud_codepoints_last = []
 ud_codepoints_index = {}
+ud_codepoints_defaults = []
 
 ud_codepoints_index8 = {}
 ud_codepoints_index16 = {}
@@ -74,6 +75,39 @@ class CodePointData:
             if default and hasattr(self, attr):
                 continue
             setattr(self, attr, getattr(data, attr))
+
+    def isEmpty(self):
+        empty = True
+        for attr in dir(self):
+            if callable(getattr(self, attr)):
+                continue
+            if attr.startswith("__"):
+                continue
+            empty = False
+        return empty
+
+    def equals(self, data):
+        for attr in dir(data):
+            if attr == "default_index":
+                continue
+            if callable(getattr(data, attr)):
+                continue
+            if attr.startswith("__"):
+                continue
+            if not hasattr(self, attr):
+                return False
+            if getattr(self, attr) != getattr(data, attr):
+                return False
+        for attr in dir(self):
+            if attr == "default_index":
+                continue
+            if callable(getattr(self, attr)):
+                continue
+            if attr.startswith("__"):
+                continue
+            if not hasattr(data, attr):
+                return False
+        return True
 
 
 class CodePointRange:
@@ -1036,14 +1070,45 @@ def update_cp_index_tables(cp_first, cp_last, cp_pos):
 
 def create_cp_index_tables():
     global ud_codepoints
+    global ud_codepoints_defaults
 
-    # Create code point index
+    # Create index for defaults
     for n in range(0, len(ud_codepoints)):
         cpr = ud_codepoints[n]
         cp_first = cpr.cp_first
         cp_last = cpr.cp_last
+        cpd = cpr.data
+        if cpd.isEmpty():
+            continue
+        if hasattr(cpd, "name"):
+            continue
 
-        update_cp_index_tables(cp_first, cp_last, n)
+        found = False
+        for d in ud_codepoints_defaults:
+            if cpd.equals(d):
+                cpr.data = d
+                found = True
+                break
+        if found:
+            continue
+
+        cpd.default_index = len(ud_codepoints_defaults)
+        ud_codepoints_defaults.append(cpd)
+
+    idx = len(ud_codepoints_defaults)
+    for n in range(0, len(ud_codepoints)):
+        cpr = ud_codepoints[n]
+        cp_first = cpr.cp_first
+        cp_last = cpr.cp_last
+        cpd = cpr.data
+
+        if cpd.isEmpty():
+            continue
+        if hasattr(cpd, "name"):
+            update_cp_index_tables(cp_first, cp_last, idx)
+            idx += 1
+        else:
+            update_cp_index_tables(cp_first, cp_last, cpd.default_index)
 
 
 def get_general_category_def(gc):
@@ -1134,6 +1199,7 @@ def write_tables_h():
 def write_tables_c():
     global output_dir
     global ud_codepoints
+    global ud_codepoints_defaults
     global ud_decompositions
     global ud_compositions
     global ud_composition_primaries
@@ -1156,8 +1222,21 @@ def write_tables_c():
         print("\t\t.general_category = UNICODE_GENERAL_CATEGORY_CN,")
         print("\t},")
         n = 2
+        for cpd in ud_codepoints_defaults:
+            print("\t{ // [%04X] <defaults>" % n)
+            n = n + 1
+            if hasattr(cpd, "general_category"):
+                print(
+                    "\t\t.general_category = %s,"
+                    % get_general_category_def(cpd.general_category)
+                )
+            else:
+                print("\t\t.general_category = UNICODE_GENERAL_CATEGORY_CN,")
+            print("\t},")
         for cpr in ud_codepoints:
             cpd = cpr.data
+            if not hasattr(cpd, "name"):
+                continue
 
             if cpr.cp_last > cpr.cp_first:
                 range_str = "U+%04X..U+%04X" % (cpr.cp_first, cpr.cp_last)
