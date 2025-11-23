@@ -16,6 +16,7 @@ BUILT_SOURCES = $(srcdir)/unicode-data-tables.c \
 
 UCD_URL = https://dovecot.org/res
 UCD_DIR = $(srcdir)/ucd
+UCD_ABS_DIR = $(abs_srcdir)/ucd
 UCD_FILES = \
 	$(UCD_DIR)/CaseFolding.txt \
 	$(UCD_DIR)/CompositionExclusions.txt \
@@ -421,7 +422,7 @@ test_programs = test-lib test-cpu-limit
 
 test_lib_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-test \
-	-DUCD_DIR=\"$(UCD_DIR)\"
+	-DUCD_DIR=\"$(UCD_ABS_DIR)\"
 
 test_libs = \
 	../lib-test/libtest.la \
