@@ -418,8 +418,8 @@ stats_client_init_unittest(buffer_t *buf, const char *filter)
 		stats_global_init();
 
 	client = i_new(struct stats_client, 1);
-	connection_init_client_unix(stats_clients, &client->conn, "(unit test)");
 	client->conn.output = o_stream_create_buffer(buf);
+	connection_init_client_unix(stats_clients, &client->conn, "(unit test)");
 	o_stream_set_no_error_handling(client->conn.output, TRUE);
 	client->handshaked = TRUE;
 
