@@ -1009,6 +1009,7 @@ const char *connection_disconnect_reason(struct connection *conn)
 	case CONNECTION_DISCONNECT_CONN_CLOSED:
 		if (!conn->client_connect_succeeded) {
 			/* connect() error is in the error istream */
+			i_assert(conn->input != NULL);
 			return i_stream_get_error(conn->input);
 		}
 		/* fall through */
