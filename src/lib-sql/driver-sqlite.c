@@ -353,7 +353,8 @@ static const char *driver_sqlite_readonly_error(struct sqlite_db *db)
 		}
 	}
 
-	return sqlite3_errstr(SQLITE_READONLY);
+	return t_strdup_printf("%s (errno=%d)", sqlite3_errstr(SQLITE_READONLY),
+			       sqlite3_system_errno(db->sqlite));
 }
 
 static const char*
@@ -377,7 +378,8 @@ driver_sqlite_result_str(struct sql_db *_db, int rc)
 	} else if (rc == SQLITE_CANTOPEN || rc == SQLITE_PERM) {
 		err = driver_sqlite_get_eacces_error(db, "write");
 	} else if (!SQLITE_IS_OK(rc)) {
-		err = t_strdup_printf("%s (%d)", sqlite3_errstr(rc), rc);
+		err = t_strdup_printf("%s (rc=%d, errno=%d)", sqlite3_errstr(rc),
+				      rc, sqlite3_system_errno(db->sqlite));
 	}
 	return err;
 }
