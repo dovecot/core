@@ -368,7 +368,8 @@ driver_sqlite_result_str(struct sql_db *_db, int rc)
 	} else if (rc == SQLITE_READONLY) {
 		if (db->set->readonly) {
 			/* Expected to happen */
-			err = sqlite3_errstr(rc);
+			err = t_strdup_printf("%s (because of sqlite_readonly=on)",
+					      sqlite3_errstr(rc));
 		} else {
 			/* Check why the database is read only */
 			err = driver_sqlite_readonly_error(db);
