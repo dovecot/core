@@ -1,5 +1,5 @@
-VERSION="${1:-2.4.2-patch1}"
-BUILD_DIRECTORY="${2:-/opt/r7-mailserver/mdaserver}"
+VERSION=$1
+BUILD_DIRECTORY=$2/Pack/src
 
 #Пакеты компилятора и зависимости
 sudo apt-get update -y && sudo apt-get install -y apt-utils && sudo apt-get install -y gettext-base gettext openssh-client ca-certificates pkg-config wget git coreutils ed
