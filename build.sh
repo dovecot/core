@@ -14,26 +14,27 @@ sudo apt-get install -y \
 CFLAGS="$CFLAGS -ffile-prefix-map=$PWD=." LDFLAGS="$LDFLAGS" CXXFLAGS="$CFLAGS -ffile-prefix-map=$PWD=. "
 
 # Создание директории назначения
-mkdir -p $BUILD_DIRECTORY
+sudo mkdir -p $BUILD_DIRECTORY
 
 #Чистка предыдущей установки, если такая была
-make distclean || true
+sudo make distclean || true
 
 #Сборка Ядра:
 
 ## Automake
-./autogen.sh $VERSION
+sudo ./autogen.sh $VERSION
 
 ## Конфигурирование пакетов
-./configure --with-ldap=plugin --with-sql=plugin --with-lua=plugin --with-pgsql --with-mysql --with-sqlite --with-gssapi=plugin --with-solr --with-flatcurve --with-icu --with-lz4 --with-zstd --with-bzlib --with-stemmer --with-textcat --with-libcap --enable-experimental-mail-utf8 --with-retpoline=thunk --disable-static \
+sudo ./configure --with-ldap=plugin --with-sql=plugin --with-lua=plugin --with-pgsql --with-mysql --with-sqlite --with-gssapi=plugin --with-solr --with-flatcurve --with-icu --with-lz4 --with-zstd --with-bzlib --with-stemmer --with-textcat --with-libcap --enable-experimental-mail-utf8 --with-retpoline=thunk --disable-static \
 --prefix=$BUILD_DIRECTORY \
---exec-prefix=$BUILD_DIRECTORY
+--exec-prefix=$BUILD_DIRECTORY \
+--without-systemd
 
 ##Компоновка
-make -j V=0
+sudo make -j V=0
 
 ## Сборка
-make install-strip
+sudo make install-strip
 
 
 # Добавление необходимых пользователей
