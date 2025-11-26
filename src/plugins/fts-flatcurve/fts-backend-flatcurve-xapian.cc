@@ -166,14 +166,14 @@ struct flatcurve_fts_query_xapian_maybe {
 	Xapian::Query *query;
 };
 
- struct flatcurve_fts_query_xapian {
+struct flatcurve_fts_query_xapian {
 	Xapian::Query *query;
 	ARRAY(struct flatcurve_fts_query_xapian_maybe) maybe_queries;
 
 	bool and_search:1;
 	bool maybe:1;
 	bool start:1;
- };
+};
 
 struct flatcurve_xapian_db_iter {
 	struct flatcurve_fts_backend *backend;
