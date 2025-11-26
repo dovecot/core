@@ -15,4 +15,9 @@ void auth_refresh_proctitle(void);
 void auth_worker_refresh_proctitle(const char *state);
 void auth_module_load(const char *name);
 
+static inline const char *auth_driver_filter(const char *prefix, const char *driver)
+{
+	return t_strconcat(prefix, "_", t_str_replace(driver, '-', '_'), NULL);
+}
+
 #endif
