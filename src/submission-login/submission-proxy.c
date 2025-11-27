@@ -651,6 +651,7 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 			command, SMTP_SERVER_COMMAND_HOOK_DESTROY,
 			submission_proxy_success_reply_sent, subm_client);
 
+		login_proxy_input_halt(client->login_proxy);
 		subm_client->auth_cmd = NULL;
 
 		/* Login successful. Send this reply to client. */
