@@ -453,6 +453,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 	data_stack_frame_t datastack_frame_id = 0;
 	unsigned int count;
 	const char *service_configured_name, *value;
+	bool lib_initialized_externally = FALSE;
 
 	i_assert(name != NULL);
 
@@ -476,7 +477,10 @@ master_service_init(const char *name, enum master_service_flags flags,
 
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
-	lib_init();
+	if (lib_is_initialized())
+		lib_initialized_externally = TRUE;
+	else
+		lib_init();
 	/* Get the service name from environment. This usually differs from the
 	   service name parameter if the executable is used for multiple
 	   services. For example "auth" vs "auth-worker". It can also be a
@@ -501,7 +505,8 @@ master_service_init(const char *name, enum master_service_flags flags,
 		datastack_frame_id = t_push("master_service_init");
 
 	/* ignore these signals as early as possible */
-	lib_signals_init();
+	if (!lib_initialized_externally)
+		lib_signals_init();
 	lib_signals_ignore(SIGPIPE, TRUE);
 	lib_signals_ignore(SIGALRM, FALSE);
 
@@ -525,6 +530,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 	service->name = i_strdup(name);
 	service->configured_name = i_strdup(service_configured_name);
 	service->settings_root = settings_root_init();
+	service->lib_initialized_externally = lib_initialized_externally;
 
 	master_service_category_name =
 		i_strdup_printf("service:%s", service->configured_name);
@@ -1694,16 +1700,20 @@ static void master_service_free(struct master_service **_service)
 void master_service_deinit(struct master_service **_service)
 {
 	struct master_service *service = *_service;
+	bool lib_initialized_externally = service->lib_initialized_externally;
 
 	master_service_deinit_real(service);
 
-	lib_signals_deinit();
-	/* run atexit callbacks before destroying ioloop */
-	lib_atexit_run();
+	if (!lib_initialized_externally) {
+		lib_signals_deinit();
+		/* run atexit callbacks before destroying ioloop */
+		lib_atexit_run();
+	}
 	io_loop_destroy(&service->ioloop);
 
 	master_service_free(_service);
-	lib_deinit();
+	if (!lib_initialized_externally)
+		lib_deinit();
 }
 
 void master_service_deinit_forked(struct master_service **_service)

@@ -91,6 +91,7 @@ struct master_service {
 	struct master_service_haproxy_conn *haproxy_conns;
 	struct event_filter *process_shutdown_filter;
 
+	bool lib_initialized_externally:1;
 	bool stopping:1;
 	bool keep_environment:1;
 	bool options_parsed:1;
