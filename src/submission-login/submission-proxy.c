@@ -489,17 +489,19 @@ submission_proxy_handle_redirect(struct client *client, unsigned int status,
 
 int submission_proxy_parse_line(struct client *client, const char *line)
 {
+	i_assert(!client->destroyed);
+
 	struct submission_client *subm_client =
 		container_of(client, struct submission_client, common);
 	struct smtp_server_cmd_ctx *cmd = subm_client->auth_cmd;
+
+	i_assert(cmd != NULL);
+
 	struct smtp_server_command *command = cmd->cmd;
 	struct ostream *output;
 	bool last_line = FALSE, invalid_line = FALSE;
 	const char *suffix, *text = NULL, *enh_code = NULL;
 	unsigned int status = 0;
-
-	i_assert(!client->destroyed);
-	i_assert(cmd != NULL);
 
 	if ((line[3] != ' ' && line[3] != '-') ||
 	    str_parse_uint(line, &status, &text) < 0 ||
