@@ -8,6 +8,8 @@ struct fuzzer_context {
 	int fd, fd_pump;
 	struct iostream_pump *pump;
 	struct ioloop *ioloop;
+
+	bool lib_initialized:1;
 };
 
 #define FUZZ_BEGIN_DATA(data_arg, size_arg) \
