@@ -113,6 +113,8 @@ bool login_proxy_is_ourself(const struct client *client, const char *host,
 		            const struct ip_addr *hostip,
 			    in_port_t port, const char *destuser);
 
+/* Halt input from proxy server early */
+void login_proxy_input_halt(struct login_proxy *proxy);
 /* Detach proxy from client. This is done after the authentication is
    successful and all that is left is the dummy proxying. */
 void login_proxy_detach(struct login_proxy *proxy);

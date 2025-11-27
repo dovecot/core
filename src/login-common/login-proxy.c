@@ -1354,6 +1354,11 @@ bool login_proxy_failed_because_invalid_cert(struct login_proxy *proxy)
 		state == SSL_IOSTREAM_STATE_NAME_MISMATCH;
 }
 
+void login_proxy_input_halt(struct login_proxy *proxy)
+{
+	io_remove(&proxy->server_io);
+}
+
 void login_proxy_multiplex_input_start(struct login_proxy *proxy)
 {
 	struct istream *input = i_stream_create_multiplex(proxy->server_input,
