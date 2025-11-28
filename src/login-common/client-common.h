@@ -123,6 +123,7 @@ struct client_auth_reply {
 struct client_vfuncs {
 	struct client *(*alloc)(pool_t pool);
 	int (*create)(struct client *client);
+	void (*disconnect)(struct client *client, const char *reason);
 	void (*destroy)(struct client *client);
 	int (*reload_config)(struct client *client, const char **error_r);
 	void (*notify_auth_ready)(struct client *client);

@@ -466,6 +466,8 @@ void client_disconnect(struct client *client, const char *reason)
 	if (!client->login_success) {
 		bool unref = FALSE;
 
+		if (client->v.disconnect != NULL)
+			client->v.disconnect(client, reason);
 		io_remove(&client->io);
 		ssl_iostream_destroy(&client->ssl_iostream);
 		if (client->iostream_fd_proxy != NULL) {
