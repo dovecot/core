@@ -1,0 +1,2 @@
+interest-noawait register-dovecot-plugin
+interest-noawait /usr/lib/dovecot/modules

@@ -1,0 +1,116 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "configure" ]; then
+  CONFFILES="dovecot.conf \
+    conf.d/20-doveadm.conf"
+
+#  CONFFILES="dovecot.conf \
+#    conf.d/10-auth.conf \
+#    conf.d/10-logging.conf \
+#    conf.d/10-pgsql.conf \
+#    conf.d/10-ssl.conf \
+#    conf.d/20-doveadm.conf \
+#    conf.d/20-lmtp.conf \
+#    conf.d/90-acl.conf \
+#    conf.d/90-notify.conf \
+#    conf.d/90-quota.conf \
+#    conf.d/10-mail.conf \
+#    conf.d/10-protocols.conf \
+#    conf.d/15-mailboxes.conf \
+#    conf.d/20-imap.conf \
+#    conf.d/20-managesieve.conf \
+#    conf.d/90-dict.conf \
+#    conf.d/90-plugin.conf \
+#    conf.d/90-sieve.conf"
+
+  ## Users
+  #
+
+  adduser --system --group --home /opt/dovecot/usr/lib/dovecot --gecos "Dovecot mail server" \
+          --no-create-home --disabled-password --quiet dovecot || true
+
+  adduser --system --group --home /nonexistent --no-create-home --gecos "Dovecot login user" \
+          --disabled-password --quiet dovenull || true
+
+  for conffile in $CONFFILES ; do
+    # Tell ucf that the file in /opt/dovecot/usr/share/dovecot is the latest
+    # maintainer version, and let it handle how to manage the real
+    # configuration file in /etc/dovecot.
+    ucf --three-way "/opt/dovecot/usr/share/dovecot/$conffile" "/etc/dovecot/$conffile"
+    ucfr dovecot-core "/etc/dovecot/$conffile"
+    if [ "$conffile" != "dovecot.conf" ] && [ -f "/etc/dovecot/$conffile" ] &&
+		[ "$(echo "$conffile" | cut -b -7)" != "conf.d/" ]; then
+      chmod 0640 "/etc/dovecot/$conffile"
+      chgrp dovecot "/etc/dovecot/$conffile"
+    fi
+  done
+
+  if ! dpkg-statoverride --list /etc/dovecot/private >/dev/null; then
+    dpkg-statoverride --quiet --update --add root root 0700 /etc/dovecot/private
+  fi
+
+fi
+
+# End automatically added section
+# Automatically added by dh_installsystemd/13.11.4+b4
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
+	# The following line should be removed in trixie or trixie+1
+	deb-systemd-helper unmask 'dovecot.service' >/dev/null || true
+
+	# was-enabled defaults to true, so new installations run enable.
+	if deb-systemd-helper --quiet was-enabled 'dovecot.service'; then
+		# Enables the unit on first installation, creates new
+		# symlinks on upgrades if the unit file has changed.
+		deb-systemd-helper enable 'dovecot.service' >/dev/null || true
+	else
+		# Update the statefile to add new symlinks (if any), which need to be
+		# cleaned up on purge. Also remove old symlinks.
+		deb-systemd-helper update-state 'dovecot.service' >/dev/null || true
+	fi
+fi
+# End automatically added section
+# Automatically added by dh_installsystemd/13.11.4+b4
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
+	if [ -d /run/systemd/system ]; then
+		systemctl --system daemon-reload >/dev/null || true
+		if [ -n "$2" ]; then
+			_dh_action=restart
+		else
+			_dh_action=start
+		fi
+		deb-systemd-invoke $_dh_action 'dovecot.service' >/dev/null || true
+	fi
+fi
+# End automatically added section
+# Automatically added by dh_installsystemd/13.11.4+b4
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
+	if deb-systemd-helper debian-installed 'dovecot.socket'; then
+		# The following line should be removed in trixie or trixie+1
+		deb-systemd-helper unmask 'dovecot.socket' >/dev/null || true
+
+		if deb-systemd-helper --quiet was-enabled 'dovecot.socket'; then
+			# Create new symlinks, if any.
+			deb-systemd-helper enable 'dovecot.socket' >/dev/null || true
+		fi
+	fi
+
+	# Update the statefile to add new symlinks (if any), which need to be cleaned
+	# up on purge. Also remove old symlinks.
+	deb-systemd-helper update-state 'dovecot.socket' >/dev/null || true
+fi
+# End automatically added section
+# Automatically added by dh_installsystemd/13.11.4+b4
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
+	if [ -d /run/systemd/system ]; then
+		systemctl --system daemon-reload >/dev/null || true
+		if [ -n "$2" ]; then
+			_dh_action=restart
+		else
+			_dh_action=start
+		fi
+		deb-systemd-invoke $_dh_action 'dovecot.socket' >/dev/null || true
+	fi
+fi
+# End automatically added section
+

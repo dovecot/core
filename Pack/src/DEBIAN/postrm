@@ -1,0 +1,67 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "purge" ] ; then
+    for conffile in $(ucfq --with-colons dovecot-core | cut -d: -f1); do
+        # we mimic dpkg as closely as possible, so we remove configuration
+        # files with dpkg backup extensions too:
+        ### Some of the following is from Tore Anderson:
+        for ext in '~' '%' .bak .dpkg-tmp .dpkg-new .dpkg-old .dpkg-dist .ucf-new .ucf-old .ucf-dist;  do
+            rm -f "$conffile$ext"
+        done
+        # remove the configuration file itself
+        rm -f "$conffile"
+        # and finally clear it out from the ucf database
+        if which ucf >/dev/null; then
+            ucf --purge "$conffile"
+        fi
+        if which ucfr >/dev/null; then
+            ucfr --purge dovecot-core "$conffile"
+        fi
+    done
+
+    userdel dovecot || true;
+    userdel dovenull || true;
+
+    if [ -d /run/dovecot ]; then
+        rm -rf /run/dovecot
+    fi
+
+    # Remove dovecot.pem and dovecot.key only if they are symlinks; otherwise
+    # we might remove CA-issued certificates that are difficult and/or
+    # expensive to replace.
+    for file in /etc/dovecot/private/dovecot.pem /etc/dovecot/private/dovecot.key; do
+        if [ -h "$file" ]; then
+            rm -f "$file"
+        else
+            echo "${file} is not a symbolic link, skipping removal." >&2
+        fi
+    done
+fi
+
+# End automatically added section
+# Automatically added by dh_installsystemd/13.11.4+b4
+if [ "$1" = remove ] && [ -d /run/systemd/system ] ; then
+	systemctl --system daemon-reload >/dev/null || true
+fi
+# End automatically added section
+# Automatically added by dh_installsystemd/13.11.4+b4
+if [ "$1" = "purge" ]; then
+	if [ -x "/usr/bin/deb-systemd-helper" ]; then
+		deb-systemd-helper purge 'dovecot.socket' >/dev/null || true
+	fi
+fi
+# End automatically added section
+# Automatically added by dh_installsystemd/13.11.4+b4
+if [ "$1" = remove ] && [ -d /run/systemd/system ] ; then
+	systemctl --system daemon-reload >/dev/null || true
+fi
+# End automatically added section
+# Automatically added by dh_installsystemd/13.11.4+b4
+if [ "$1" = "purge" ]; then
+	if [ -x "/usr/bin/deb-systemd-helper" ]; then
+		deb-systemd-helper purge 'dovecot.service' >/dev/null || true
+	fi
+fi
+# End automatically added section
+
