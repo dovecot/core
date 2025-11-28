@@ -478,6 +478,7 @@ void smtp_server_connection_set_ssl_streams(struct smtp_server_connection *conn,
 
 void smtp_server_connection_close(struct smtp_server_connection **_conn,
 				  const char *reason) ATTR_NULL(2);
+bool smtp_server_connection_is_closed(struct smtp_server_connection *conn);
 void smtp_server_connection_terminate(struct smtp_server_connection **_conn,
 				      const char *enh_code, const char *reason)
 				      ATTR_NULL(3);

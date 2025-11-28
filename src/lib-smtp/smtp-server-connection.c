@@ -1444,6 +1444,11 @@ void smtp_server_connection_close(struct smtp_server_connection **_conn,
 	smtp_server_connection_unref(&conn);
 }
 
+bool smtp_server_connection_is_closed(struct smtp_server_connection *conn)
+{
+	return conn->closed;
+}
+
 void smtp_server_connection_terminate(struct smtp_server_connection **_conn,
 				      const char *enh_code, const char *reason)
 {

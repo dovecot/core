@@ -148,6 +148,21 @@ static int submission_client_create(struct client *client)
 	return 0;
 }
 
+static void
+submission_client_disconnect(struct client *client, const char *reason)
+{
+	struct submission_client *subm_client =
+		container_of(client, struct submission_client, common);
+
+	/* If the smtp-server connection is already in its close cascade (i.e.
+	   we're being called via its conn_disconnect callback), skip closing
+	   it again. Doing so would null subm_client->conn and prevent the
+	   conn_free callback from invoking client_destroy(). */
+	if (subm_client->conn != NULL &&
+	    !smtp_server_connection_is_closed(subm_client->conn))
+		smtp_server_connection_close(&subm_client->conn, reason);
+}
+
 static void submission_client_destroy(struct client *client)
 {
 	struct submission_client *subm_client =
@@ -345,6 +360,7 @@ static const struct smtp_server_callbacks smtp_callbacks = {
 static struct client_vfuncs submission_client_vfuncs = {
 	.alloc = submission_client_alloc,
 	.create = submission_client_create,
+	.disconnect = submission_client_disconnect,
 	.destroy = submission_client_destroy,
 	.reload_config = submission_client_reload_config,
 	.notify_auth_ready = submission_client_notify_auth_ready,
