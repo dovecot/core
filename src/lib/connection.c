@@ -566,6 +566,7 @@ static void connection_client_connected(struct connection *conn, bool success)
 	connection_update_properties(conn);
 
 	conn->connect_finished = ioloop_timeval;
+	conn->client_connect_succeeded = success;
 
 	struct event_passthrough *e = event_create_passthrough(conn->event)->
 		set_name("server_connection_connected");
@@ -598,6 +599,7 @@ connection_init_full(struct connection_list *list, struct connection *conn,
 
 	i_zero(&conn->connect_started);
 	i_zero(&conn->connect_finished);
+	conn->client_connect_succeeded = FALSE;
 
 	conn->ioloop = current_ioloop;
 	conn->fd_in = fd_in;

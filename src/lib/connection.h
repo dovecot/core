@@ -188,6 +188,8 @@ struct connection {
 	/* Reason for disconnection */
 	enum connection_disconnect_reason disconnect_reason;
 
+	/* Client connect() succeeded. */
+	bool client_connect_succeeded:1;
 	/* We have received a version from remote end. */
 	bool version_received:1;
 	/* Set if this is a unix socket. */
