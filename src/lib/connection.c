@@ -78,7 +78,7 @@ static inline bool connection_output_throttle(struct connection *conn)
 {
 	/* not enabled */
 	if (conn->list->set.output_throttle_size != 0 &&
-	    conn->output != NULL &&
+	    !conn->output->closed &&
 	    o_stream_get_buffer_used_size(conn->output) >=
 	    conn->list->set.output_throttle_size) {
 		conn->flush_callback =
@@ -279,7 +279,7 @@ connection_input_resume_full(struct connection *conn, bool set_io_pending)
 
 	if (conn->io != NULL) {
 		/* do nothing */
-	} else if (conn->input != NULL) {
+	} else if (conn->input != NULL && !conn->input->closed) {
 		conn->io = io_add_istream_to(conn->ioloop, conn->input,
 					     *conn->v.input, conn);
 		if (set_io_pending)
@@ -507,9 +507,17 @@ static void connection_init_streams(struct connection *conn)
 {
 	const struct connection_settings *set = &conn->list->set;
 
+	/* If we're reconnecting, the iostreams still exist */
+	if (conn->input != NULL) {
+		i_assert(conn->input->closed);
+		i_stream_destroy(&conn->input);
+	}
+	if (conn->output != NULL) {
+		i_assert(conn->output->closed);
+		o_stream_destroy(&conn->output);
+	}
+
 	i_assert(conn->io == NULL);
-	i_assert(conn->input == NULL);
-	i_assert(conn->output == NULL);
 	i_assert(conn->to == NULL);
 
 	i_zero(&conn->handshake_finished);
@@ -622,6 +630,18 @@ connection_init_full(struct connection_list *list, struct connection *conn,
 		conn->event = event_create(conn->event_parent);
 	if (list->set.debug)
 		event_set_forced_debug(conn->event, TRUE);
+
+	/* Use error iostreams until the client is connected.
+	   This way caller can rely on them always being non-NULL. */
+	const char *conn_error = "connect() not finished yet";
+	if (list->set.client && conn->input == NULL) {
+		conn->input = i_stream_create_error_str(EINPROGRESS, "%s",
+							conn_error);
+	}
+	if (list->set.client && conn->output == NULL) {
+		conn->output = o_stream_create_error_str(EINPROGRESS, "%s",
+							 conn_error);
+	}
 
 	if (conn->list != NULL) {
 		i_assert(conn->list == list);
@@ -760,13 +780,13 @@ void connection_init_from_streams(struct connection_list *list,
 	i_assert(conn->fd_in >= 0);
 	i_assert(conn->fd_out >= 0);
 	i_assert(conn->io == NULL);
-	i_assert(conn->input == NULL);
-	i_assert(conn->output == NULL);
 	i_assert(conn->to == NULL);
 
+	i_stream_destroy(&conn->input);
 	conn->input = input;
 	i_stream_ref(conn->input);
 
+	o_stream_destroy(&conn->output);
 	conn->output = output;
 	o_stream_ref(conn->output);
 	o_stream_set_no_error_handling(conn->output, TRUE);
@@ -780,12 +800,26 @@ void connection_init_from_streams(struct connection_list *list,
 		conn->v.client_connected(conn, TRUE);
 }
 
+static void connection_set_connect_error_streams(struct connection *conn)
+{
+	int stream_errno = errno;
+	const char *error = t_strdup_printf("connect(%s) failed: %m",
+					    conn->name);
+	i_stream_destroy(&conn->input);
+	o_stream_destroy(&conn->output);
+	conn->input = i_stream_create_error_str(stream_errno, "%s", error);
+	conn->output = o_stream_create_error_str(stream_errno, "%s", error);
+	errno = stream_errno;
+}
+
 static void connection_socket_connected(struct connection *conn)
 {
 	io_remove(&conn->io);
 	timeout_remove(&conn->to);
 
 	errno = net_geterror(conn->fd_in);
+	if (errno != 0)
+		connection_set_connect_error_streams(conn);
 	connection_client_connected(conn, errno == 0);
 }
 
@@ -809,8 +843,10 @@ int connection_client_connect_with_retries(struct connection *conn,
 	} else {
 		fd = net_connect_unix_with_retries(conn->base_name, msecs);
 	}
-	if (fd == -1)
+	if (fd == -1) {
+		connection_set_connect_error_streams(conn);
 		return -1;
+	}
 	conn->fd_in = conn->fd_out = fd;
 	conn->connect_started = ioloop_timeval;
 	conn->disconnected = FALSE;
@@ -891,9 +927,7 @@ void connection_disconnect(struct connection *conn)
 	timeout_remove(&conn->to);
 	io_remove(&conn->io);
 	i_stream_close(conn->input);
-	i_stream_destroy(&conn->input);
 	o_stream_close(conn->output);
-	o_stream_destroy(&conn->output);
 	if (conn->fd_in == conn->fd_out)
 		(void)shutdown(conn->fd_out, SHUT_RDWR);
 	fd_close_maybe_stdio(&conn->fd_in, &conn->fd_out);
@@ -908,6 +942,8 @@ void connection_deinit(struct connection *conn)
 	DLLIST_REMOVE(&conn->list->connections, conn);
 
 	connection_disconnect(conn);
+	i_stream_destroy(&conn->input);
+	o_stream_destroy(&conn->output);
 	i_free(conn->base_name);
 	i_free(conn->label);
 	i_free(conn->property_label);
@@ -971,9 +1007,10 @@ const char *connection_disconnect_reason(struct connection *conn)
 	case CONNECTION_DISCONNECT_IDLE_TIMEOUT:
 		return "Idle timeout";
 	case CONNECTION_DISCONNECT_CONN_CLOSED:
-		if (conn->input == NULL)
-			return t_strdup_printf("connect(%s) failed: %m",
-						conn->name);
+		if (!conn->client_connect_succeeded) {
+			/* connect() error is in the error istream */
+			return i_stream_get_error(conn->input);
+		}
 		/* fall through */
 	case CONNECTION_DISCONNECT_NOT:
 	case CONNECTION_DISCONNECT_BUFFER_FULL:
