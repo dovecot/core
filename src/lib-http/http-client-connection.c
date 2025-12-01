@@ -907,7 +907,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 		/* Request is dereferenced in payload destroy callback */
 		i_stream_unref(&payload);
 
-		if (conn->to_input != NULL && conn->conn.input != NULL) {
+		if (conn->to_input != NULL && !conn->conn.input->closed) {
 			/* Already finished reading the payload */
 			http_client_payload_finished(conn);
 		}
@@ -916,7 +916,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 		http_client_connection_unref_request(conn, &req);
 	}
 
-	if (conn->incoming_payload == NULL && conn->conn.input != NULL) {
+	if (conn->incoming_payload == NULL && !conn->conn.input->closed) {
 		i_assert(conn->conn.io != NULL ||
 			 pshared->addr.type == HTTP_CLIENT_PEER_ADDR_RAW);
 		return http_client_connection_unref(&conn);

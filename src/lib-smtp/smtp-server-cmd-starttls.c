@@ -80,7 +80,7 @@ cmd_starttls_destroy(struct smtp_server_cmd_ctx *cmd, void *context ATTR_UNUSED)
 	struct smtp_server_command *command = cmd->cmd;
 	int ret;
 
-	if (conn->conn.output == NULL)
+	if (conn->conn.output->closed)
 		return;
 
 	if (smtp_server_command_replied_success(command)) {

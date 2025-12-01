@@ -767,7 +767,7 @@ void smtp_server_connection_cork(struct smtp_server_connection *conn)
 void smtp_server_connection_uncork(struct smtp_server_connection *conn)
 {
 	conn->corked = FALSE;
-	if (conn->conn.output != NULL) {
+	if (!conn->conn.output->closed) {
 		if (o_stream_uncork_flush(conn->conn.output) < 0) {
 			smtp_server_connection_handle_output_error(conn);
 			return;

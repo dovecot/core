@@ -366,7 +366,7 @@ int http_server_response_finish_payload_out(struct http_server_response *resp)
 		o_stream_unref(&resp->payload_output);
 		resp->payload_output = NULL;
 	}
-	if (conn->conn.output != NULL &&
+	if (!conn->conn.output->closed &&
 	    o_stream_get_buffer_used_size(conn->conn.output) > 0) {
 		e_debug(resp->event,
 			"Not quite finished sending response");
@@ -378,7 +378,7 @@ int http_server_response_finish_payload_out(struct http_server_response *resp)
 
 	http_server_connection_ref(conn);
 	conn->output_locked = FALSE;
-	if (conn->conn.output != NULL && !conn->conn.output->closed) {
+	if (!conn->conn.output->closed) {
 		if (resp->payload_corked &&
 			o_stream_uncork_flush(conn->conn.output) < 0)
 			http_server_connection_handle_output_error(conn);
@@ -772,7 +772,7 @@ static int http_server_response_send_real(struct http_server_response *resp)
 			return -1;
 	}
 
-	if (conn->conn.output != NULL && !resp->payload_corked &&
+	if (!conn->conn.output->closed && !resp->payload_corked &&
 	    o_stream_uncork_flush(conn->conn.output) < 0) {
 		http_server_connection_handle_output_error(conn);
 		return -1;

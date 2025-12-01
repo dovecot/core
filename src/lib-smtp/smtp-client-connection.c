@@ -269,7 +269,7 @@ void smtp_client_connection_cork(struct smtp_client_connection *conn)
 void smtp_client_connection_uncork(struct smtp_client_connection *conn)
 {
 	conn->corked = FALSE;
-	if (conn->conn.output != NULL) {
+	if (!conn->conn.output->closed) {
 		if (o_stream_uncork_flush(conn->conn.output) < 0) {
 			smtp_client_connection_handle_output_error(conn);
 			return;
@@ -1326,7 +1326,7 @@ smtp_client_connection_input_reply(struct smtp_client_connection *conn,
 	ret = smtp_client_command_input_reply(conn->cmd_wait_list_head, reply);
 
 	if (conn->state == SMTP_CLIENT_CONNECTION_STATE_DISCONNECTED ||
-	    conn->conn.output == NULL)
+	    conn->conn.output->closed)
 		return -1;
 	return ret;
 }
@@ -1436,7 +1436,7 @@ static void smtp_client_connection_input(struct connection *_conn)
 				error);
 		}
 	}
-	if (ret >= 0 && conn->conn.output != NULL && !conn->corked) {
+	if (ret >= 0 && !conn->conn.output->closed && !conn->corked) {
 		if (o_stream_uncork_flush(conn->conn.output) < 0)
 			smtp_client_connection_handle_output_error(conn);
 	}
@@ -1461,7 +1461,7 @@ static int smtp_client_connection_output(struct smtp_client_connection *conn)
 	o_stream_cork(conn->conn.output);
 	if (smtp_client_command_send_more(conn) < 0)
 		ret = -1;
-	if (ret >= 0 && conn->conn.output != NULL && !conn->corked) {
+	if (ret >= 0 && !conn->conn.output->closed && !conn->corked) {
 		if (o_stream_uncork_flush(conn->conn.output) < 0)
 			smtp_client_connection_handle_output_error(conn);
 	}
