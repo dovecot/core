@@ -1,0 +1,4 @@
+# /etc/default/dovecot
+
+# Set to '1' to allow Dovecot daemons to produce core dumps
+#ALLOW_COREDUMPS=1

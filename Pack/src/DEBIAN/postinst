@@ -27,7 +27,7 @@ if [ "$1" = "configure" ]; then
   ## Users
   #
 
-  adduser --system --group --home /opt/dovecot/usr/lib/dovecot --gecos "Dovecot mail server" \
+  adduser --system --group --home /opt/r7mdaserver/usr/lib/dovecot --gecos "Dovecot mail server" \
           --no-create-home --disabled-password --quiet dovecot || true
 
   adduser --system --group --home /nonexistent --no-create-home --gecos "Dovecot login user" \
@@ -37,7 +37,7 @@ if [ "$1" = "configure" ]; then
     # Tell ucf that the file in /opt/dovecot/usr/share/dovecot is the latest
     # maintainer version, and let it handle how to manage the real
     # configuration file in /etc/dovecot.
-    ucf --three-way "/opt/dovecot/usr/share/dovecot/$conffile" "/etc/dovecot/$conffile"
+    ucf --three-way "/opt/r7mdaserver/usr/share/dovecot/$conffile" "/etc/dovecot/$conffile"
     ucfr dovecot-core "/etc/dovecot/$conffile"
     if [ "$conffile" != "dovecot.conf" ] && [ -f "/etc/dovecot/$conffile" ] &&
 		[ "$(echo "$conffile" | cut -b -7)" != "conf.d/" ]; then

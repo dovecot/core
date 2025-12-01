@@ -1,2 +1,2 @@
 interest-noawait register-dovecot-plugin
-interest-noawait /usr/lib/dovecot/modules
+interest-noawait /opt/r7mdaserver/usr/lib/dovecot/modules
