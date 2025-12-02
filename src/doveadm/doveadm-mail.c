@@ -577,6 +577,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 		cctx->username = user;
 		T_BEGIN {
 			ret = doveadm_mail_next_user(ctx, &error);
+			doveadm_print_flush();
 			if (ret < 0)
 				e_error(ctx->cctx->event, "%s", error);
 			else if (ret == 0)
