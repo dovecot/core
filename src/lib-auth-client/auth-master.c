@@ -1379,8 +1379,9 @@ auth_master_user_do_list_next(struct auth_master_user_list_ctx *ctx)
 		ctx->req = NULL;
 	connection_input_halt(&conn->conn);
 
-	if (ctx->finished || ctx->failed)
+	if (ctx->finished || ctx->failed || ctx->req == NULL)
 		return NULL;
+	i_assert(str_len(ctx->username) > 0);
 	return str_c(ctx->username);
 }
 
