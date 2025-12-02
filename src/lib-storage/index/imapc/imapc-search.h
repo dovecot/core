@@ -14,5 +14,7 @@ void imapc_search_reply_search(const struct imap_arg *args,
 			       struct imapc_mailbox *mbox);
 void imapc_search_reply_esearch(const struct imap_arg *args,
 				struct imapc_mailbox *mbox);
+void imapc_search_reply_sort(const struct imap_arg *args,
+			     struct imapc_mailbox *mbox);
 
 #endif

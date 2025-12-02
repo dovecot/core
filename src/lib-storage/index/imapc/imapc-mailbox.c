@@ -840,6 +840,19 @@ static void imapc_untagged_search(const struct imapc_untagged_reply *reply,
 	imapc_search_reply_search(reply->args, mbox);
 }
 
+static void imapc_untagged_sort(const struct imapc_untagged_reply *reply,
+				struct imapc_mailbox *mbox)
+{
+	if (mbox == NULL)
+		return;
+	if (!IMAPC_MAILBOX_IS_FULLY_SELECTED(mbox)) {
+		/* SELECTing another mailbox - this SORT is still for the
+		   previous selected mailbox. */
+		return;
+	}
+	imapc_search_reply_sort(reply->args, mbox);
+}
+
 static void imapc_untagged_esearch(const struct imapc_untagged_reply *reply,
 				   struct imapc_mailbox *mbox)
 {
@@ -1003,6 +1016,8 @@ void imapc_mailbox_register_callbacks(struct imapc_mailbox *mbox)
 					imapc_untagged_expunge);
 	imapc_mailbox_register_untagged(mbox, "SEARCH",
 					imapc_untagged_search);
+	imapc_mailbox_register_untagged(mbox, "SORT",
+					imapc_untagged_sort);
 	imapc_mailbox_register_untagged(mbox, "ESEARCH",
 					imapc_untagged_esearch);
 	imapc_mailbox_register_resp_text(mbox, "UIDVALIDITY",
