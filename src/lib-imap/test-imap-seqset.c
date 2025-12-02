@@ -156,12 +156,52 @@ static void test_imap_seq_range_parse(void)
 	test_end();
 }
 
+static void test_imap_seq_set_ordered_parse(void)
+{
+	static const struct {
+		const char *input;
+		const char *output;
+		int ret;
+	} tests[] = {
+		{ "", "", -1 },
+		{ "0", "", -1 },
+		{ "1,", "", -1 },
+		{ "1:", "", -1 },
+		{ ":1", "", -1 },
+		{ "0:1", "", -1 },
+		{ "*", "", -1 },
+		{ "1:*", "", -1 },
+		{ "1", "1", 0 },
+		{ "3:4,1:2,5,700,500:503", "3 4 1 2 5 700 500 501 502 503", 0 },
+	};
+	ARRAY_TYPE(uint32_t) dest;
+	string_t *str = t_str_new(64);
+
+	test_begin("imap_seq_set_ordered_parse()");
+
+	t_array_init(&dest, 8);
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		array_clear(&dest);
+		int ret = imap_seq_set_ordered_parse(tests[i].input, &dest);
+		test_assert_idx(ret == tests[i].ret, i);
+		if (ret == 0) {
+			str_truncate(str, 0);
+			const uint32_t *seqp;
+			array_foreach(&dest, seqp)
+				str_printfa(str, " %u", *seqp);
+			test_assert_strcmp_idx(str_c(str) + 1, tests[i].output, i);
+		}
+	}
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_imap_seq_set_parse,
 		test_imap_seq_set_nostar_parse,
 		test_imap_seq_range_parse,
+		test_imap_seq_set_ordered_parse,
 		NULL
 	};
 	return test_run(test_functions);

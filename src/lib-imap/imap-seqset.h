@@ -8,6 +8,9 @@
 int imap_seq_set_parse(const char *str, ARRAY_TYPE(seq_range) *dest);
 /* Like imap_seq_set_parse(), but fail if '*' is used. */
 int imap_seq_set_nostar_parse(const char *str, ARRAY_TYPE(seq_range) *dest);
+/* Parse IMAP sequence-set where the order of the sequences matter, such as
+   ESORT response. */
+int imap_seq_set_ordered_parse(const char *str, ARRAY_TYPE(uint32_t) *dest);
 
 /* Parse IMAP seq-number / seq-range. */
 int imap_seq_range_parse(const char *str, uint32_t *seq1_r, uint32_t *seq2_r);
