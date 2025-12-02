@@ -44,6 +44,17 @@ if [ "$1" = "configure" ]; then
       chmod 0640 "/etc/dovecot/$conffile"
       chgrp dovecot "/etc/dovecot/$conffile"
     fi
+
+  openssl dhparam -out /opt/r7mdaserver/etc/dovecot/ssl/dhparam.pem 2048
+  openssl genrsa -out "/opt/r7mdaserver/etc/dovecot/ssl/privkey1.pem" 2048
+  openssl req -new -x509 -key "/opt/r7mdaserver/etc/dovecot/ssl/privkey1.pem" -out "/opt/r7mdaserver/etc/dovecot/ssl/fullchain1.pem" -days 365 -subj "/C=RU/ST=Moscow/L=Moscow/O=Company/CN=localhost"
+  chmod 600 "/opt/r7mdaserver/etc/dovecot/ssl/privkey1.pem"
+  chmod 644 "/opt/r7mdaserver/etc/dovecot/ssl/fullchain1.pem"
+  sed -i "s|cert_file = .*|cert_file = /opt/r7mdaserver/etc/dovecot/ssl/fullchain1.pem|" /opt/r7mdaserver/etc/dovecot/etc/dovecot/conf.d/10-ssl.conf
+  sed -i "s|key_file = .*|key_file = /opt/r7mdaserver/etc/dovecot/ssl/privkey1.pem|" /opt/r7mdaserver/etc/dovecot/etc/dovecot/conf.d/10-ssl.conf
+
+  openssl dhparam -out /opt/r7mdaserver/etc/dovecot/ssl/dhparam.pem 2048
+
   done
 
   if ! dpkg-statoverride --list /etc/dovecot/private >/dev/null; then

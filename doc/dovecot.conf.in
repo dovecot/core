@@ -19,44 +19,44 @@ dovecot_storage_version = @DOVECOT_CONFIG_VERSION@
 !include_try conf.d/*.conf
 
 # Enable wanted protocols:
-protocols {
-  imap = yes
-  lmtp = yes
-}
+#protocols {
+#  imap = yes
+#  lmtp = yes
+#}
 
-mail_home = /srv/mail/%{user}
-mail_driver = sdbox
-mail_path = ~/mail
+#mail_home = /srv/mail/%{user}
+#mail_driver = sdbox
+#mail_path = ~/mail
 
-mail_uid = vmail
-mail_gid = vmail
+#mail_uid = vmail
+#mail_gid = vmail
 
 # By default first_valid_uid is 500. If your vmail user's UID is smaller,
 # you need to modify this:
 #first_valid_uid = uid-number-of-vmail-user
 
-namespace inbox {
-  inbox = yes
-  separator = /
-}
+#namespace inbox {
+#  inbox = yes
+#  separator = /
+#}
 
 # Authenticate as system users:
-passdb pam {
-}
+#passdb pam {
+#}
 
-ssl_server {
-  cert_file = /etc/ssl/dovecot-build-cert.pem
-  key_file = /etc/ssl/dovecot-build-key.pem
-}
+#ssl_server {
+#  cert_file = /etc/ssl/dovecot-build-cert.pem
+#  key_file = /etc/ssl/dovecot-build-key.pem
+#}
 
-doveadm_api_key = abcdef1234567890abcdef1234567890abcdef12
+#doveadm_api_key = abcdef1234567890abcdef1234567890abcdef12
 # doveadm_allowed_commands = ALL exec cmd_exec
-service doveadm {
-   unix_listener doveadm-server {
-      user = dovecot
-   }
-   inet_listener http {
-        port = 12346
+#service doveadm {
+#   unix_listener doveadm-server {
+#      user = dovecot
+#   }
+#   inet_listener http {
+#        port = 12346
 #        ssl = yes
-    }
-}
+#    }
+#}
