@@ -65,7 +65,15 @@ imapc_build_sort_query(struct imapc_mailbox *mbox,
 			str_append(str, "TO");
 			break;
 		case MAIL_SORT_DISPLAYFROM:
+			if ((mbox->capabilities & IMAPC_CAPABILITY_SORT_DISPLAY) == 0)
+				return FALSE;
+			str_append(str, "DISPLAYFROM");
+			break;
 		case MAIL_SORT_DISPLAYTO:
+			if ((mbox->capabilities & IMAPC_CAPABILITY_SORT_DISPLAY) == 0)
+				return FALSE;
+			str_append(str, "DISPLAYTO");
+			break;
 		case MAIL_SORT_RELEVANCY:
 		case MAIL_SORT_POP3_ORDER:
 			return FALSE;
