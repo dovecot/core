@@ -72,16 +72,14 @@ int imap_seq_set_parse(const char *str, ARRAY_TYPE(seq_range) *dest)
 {
 	uint32_t seq1, seq2;
 
-	while (*str != '\0') {
+	do {
 		if (get_next_seq_range(&str, &seq1, &seq2) < 0)
 			return -1;
 		seq_range_array_add_range(dest, seq1, seq2);
 
 		if (*str == ',')
 			str++;
-		else if (*str != '\0')
-			return -1;
-	}
+	} while (*str != '\0');
 	return 0;
 }
 
