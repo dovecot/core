@@ -35,7 +35,10 @@ imapc_build_sort_query(struct imapc_mailbox *mbox,
 		return FALSE;
 	}
 
-	str_append(str, "UID SORT (");
+	str_append(str, "UID SORT ");
+	if ((mbox->capabilities & IMAPC_CAPABILITY_ESORT) != 0)
+		str_append(str, "RETURN (ALL) ");
+	str_append_c(str, '(');
 	for (i = 0; sort_program[i] != MAIL_SORT_END; i++) {
 		if ((sort_program[i] & MAIL_SORT_FLAG_REVERSE) != 0)
 			str_append(str, "REVERSE ");
@@ -407,6 +410,20 @@ void imapc_search_reply_search(const struct imap_arg *args,
 	}
 }
 
+static void imapc_search_reply_esort(const struct imap_arg *args,
+				     struct imapc_mailbox *mbox)
+{
+	const char *atom;
+
+	/* It should contain UID ALL <uidset> or just UID if nothing matched */
+	if (!imap_arg_atom_equals(&args[0], "UID") ||
+	    (args[1].type != IMAP_ARG_EOL &&
+	     (!imap_arg_atom_equals(&args[1], "ALL") ||
+	      !imap_arg_get_atom(&args[2], &atom) ||
+	      imap_seq_set_ordered_parse(atom, &mbox->search_ctx->sorted_uids) < 0)))
+		e_error(mbox->box.event, "Invalid ESEARCH reply for SORT");
+}
+
 void imapc_search_reply_esearch(const struct imap_arg *args,
 				struct imapc_mailbox *mbox)
 {
@@ -415,6 +432,11 @@ void imapc_search_reply_esearch(const struct imap_arg *args,
 
 	if (mbox->search_ctx == NULL) {
 		e_error(event, "Unexpected ESEARCH reply");
+		return;
+	}
+
+	if (mbox->search_ctx->sorted) {
+		imapc_search_reply_esort(args, mbox);
 		return;
 	}
 
