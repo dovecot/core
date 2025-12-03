@@ -202,6 +202,9 @@ static void imapc_search_callback(const struct imapc_command_reply *reply,
 	if (reply->state == IMAPC_COMMAND_STATE_OK) {
 		seq_range_array_iter_init(&ictx->iter, &ictx->rseqs);
 		ictx->success = TRUE;
+	} else if (reply->state == IMAPC_COMMAND_STATE_NO) {
+		imapc_copy_error_from_reply(mbox->storage, MAIL_ERROR_PARAMS,
+					    reply);
 	} else if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED) {
 		mail_storage_set_internal_error(mbox->box.storage);
 	} else {
