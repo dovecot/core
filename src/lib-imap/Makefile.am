@@ -58,6 +58,7 @@ test_programs = \
 	test-imap-util
 
 test_libs = \
+	../lib-mail/libmail.la \
 	../lib-charset/libcharset.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
