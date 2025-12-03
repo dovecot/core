@@ -1467,6 +1467,10 @@ bool client_get_extra_disconnect_reason(struct client *client,
 			event_reason = "redirected";
 			last_reason = "redirected";
 			break;
+		case LOGIN_PROXY_FAILURE_TYPE_AUTH_LIMIT_REACHED_REPLIED:
+			event_reason = "connection_limit";
+			last_reason = "connection limit reached";
+			break;
 		default:
 			i_unreached();
 		}

@@ -733,6 +733,7 @@ submission_proxy_send_failure_reply(struct submission_client *subm_client,
 		smtp_server_reply_submit(subm_client->proxy_reply);
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH_REPLIED:
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH_LIMIT_REACHED_REPLIED:
 		/* reply was already sent */
 		i_assert(cmd == NULL);
 		break;

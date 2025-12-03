@@ -44,6 +44,9 @@ enum login_proxy_failure_type {
 	/* Authentication requests connecting to another host. The reason
 	   string contains the host (and optionally :port). */
 	LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT,
+	/* Authentication failed because user has reached some limit.
+	   The LOGIN/AUTH command reply was already sent to the client. */
+	LOGIN_PROXY_FAILURE_TYPE_AUTH_LIMIT_REACHED_REPLIED,
 };
 
 struct login_proxy_settings {

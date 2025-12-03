@@ -289,6 +289,12 @@ static bool auth_resp_code_is_serverbug(const char *resp)
 			   strlen(IMAP_RESP_CODE_SERVERBUG"]")) == 0;
 }
 
+static bool auth_resp_code_is_limit(const char *resp)
+{
+	return strncasecmp(resp, IMAP_RESP_CODE_LIMIT"]",
+			   strlen(IMAP_RESP_CODE_LIMIT"]")) == 0;
+}
+
 static bool
 auth_resp_code_parse_referral(struct client *client, const char *resp,
 			      const char **userhostport_r)
@@ -435,6 +441,8 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			else if (auth_resp_code_is_serverbug(line + 4))
 				failure_type = LOGIN_PROXY_FAILURE_TYPE_REMOTE;
 			else {
+				if (auth_resp_code_is_limit(line + 4))
+					failure_type = LOGIN_PROXY_FAILURE_TYPE_AUTH_LIMIT_REACHED_REPLIED;
 				client_send_raw(client, t_strconcat(
 					imap_client->cmd_tag, " ", line, "\r\n", NULL));
 			}
@@ -575,6 +583,7 @@ imap_proxy_send_failure_reply(struct imap_client *imap_client,
 			imap_client->cmd_tag, " NO ", reason, "\r\n", NULL));
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH_REPLIED:
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH_LIMIT_REACHED_REPLIED:
 		/* reply was already sent */
 		break;
 	}

@@ -316,6 +316,8 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 	} else if (pop3_proxy_parse_referral(client, line + 5, &line)) {
 		failure_type = LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT;
 	} else {
+		if (str_begins_with(line, "-ERR [IN-USE]"))
+			failure_type = LOGIN_PROXY_FAILURE_TYPE_AUTH_LIMIT_REACHED_REPLIED;
 		client_send_raw(client, t_strconcat(line, "\r\n", NULL));
 		line += 5;
 	}
@@ -358,6 +360,7 @@ pop3_proxy_send_failure_reply(struct client *client,
 		client_send_reply(client, POP3_CMD_REPLY_ERROR, reason);
 		break;
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH_REPLIED:
+	case LOGIN_PROXY_FAILURE_TYPE_AUTH_LIMIT_REACHED_REPLIED:
 		/* reply was already sent */
 		break;
 	}
