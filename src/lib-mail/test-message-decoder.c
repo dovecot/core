@@ -10,13 +10,6 @@
 #include "message-part-data.h"
 #include "test-common.h"
 
-void message_header_decode_utf8(const unsigned char *data, size_t size,
-				buffer_t *dest,
-				normalizer_func_t *normalizer ATTR_UNUSED)
-{
-	buffer_append(dest, data, size);
-}
-
 static void test_message_decoder(void)
 {
 	struct message_decoder_context *ctx;
