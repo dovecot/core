@@ -89,6 +89,9 @@ void pop3_client_auth_result(struct client *client,
 	case CLIENT_AUTH_RESULT_TEMPFAIL:
 		client_send_reply(client, POP3_CMD_REPLY_TEMPFAIL, text);
 		break;
+	case CLIENT_AUTH_RESULT_LIMIT_REACHED:
+		client_send_reply(client, POP3_CMD_REPLY_LIMIT, text);
+		break;
 	case CLIENT_AUTH_RESULT_AUTHFAILED:
 	case CLIENT_AUTH_RESULT_AUTHFAILED_REASON:
 	case CLIENT_AUTH_RESULT_AUTHZFAILED:

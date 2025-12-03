@@ -302,6 +302,9 @@ void client_send_reply(struct client *client, enum pop3_cmd_reply reply,
 	case POP3_CMD_REPLY_TEMPFAIL:
 		prefix = "-ERR [SYS/TEMP]";
 		break;
+	case POP3_CMD_REPLY_LIMIT:
+		prefix = "-ERR [IN-USE]";
+		break;
 	case POP3_CMD_REPLY_AUTH_ERROR:
 		if (text[0] == '[')
 			prefix = "-ERR";

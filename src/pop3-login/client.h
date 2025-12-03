@@ -31,7 +31,8 @@ enum pop3_cmd_reply {
 	POP3_CMD_REPLY_OK,
 	POP3_CMD_REPLY_ERROR,
 	POP3_CMD_REPLY_AUTH_ERROR,
-	POP3_CMD_REPLY_TEMPFAIL
+	POP3_CMD_REPLY_TEMPFAIL,
+	POP3_CMD_REPLY_LIMIT,
 };
 
 void client_send_reply(struct client *client, enum pop3_cmd_reply reply,
