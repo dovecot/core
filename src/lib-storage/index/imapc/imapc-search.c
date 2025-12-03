@@ -278,12 +278,17 @@ bool imapc_search_next_update_seq(struct mail_search_context *ctx)
 int imapc_search_deinit(struct mail_search_context *ctx)
 {
 	struct imapc_search_context *ictx = IMAPC_SEARCHCTX(ctx);
+	int ret = 0;
 
 	if (ictx != NULL) {
+		if (!ictx->success)
+			ret = -1;
 		array_free(&ictx->rseqs);
 		i_free(ictx);
 	}
-	return index_storage_search_deinit(ctx);
+	if (index_storage_search_deinit(ctx) < 0)
+		return -1;
+	return ret;
 }
 
 void imapc_search_reply_search(const struct imap_arg *args,
