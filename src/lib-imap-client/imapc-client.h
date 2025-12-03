@@ -16,34 +16,6 @@ enum imapc_command_state {
 };
 extern const char *imapc_command_state_names[];
 
-enum imapc_capability {
-	IMAPC_CAPABILITY_SASL_IR	= 0x01,
-	IMAPC_CAPABILITY_LITERALPLUS	= 0x02,
-	IMAPC_CAPABILITY_QRESYNC	= 0x04,
-	IMAPC_CAPABILITY_IDLE		= 0x08,
-	IMAPC_CAPABILITY_UIDPLUS	= 0x10,
-	IMAPC_CAPABILITY_AUTH_PLAIN	= 0x20,
-	IMAPC_CAPABILITY_STARTTLS	= 0x40,
-	IMAPC_CAPABILITY_X_GM_EXT_1	= 0x80,
-	IMAPC_CAPABILITY_CONDSTORE	= 0x100,
-	IMAPC_CAPABILITY_NAMESPACE	= 0x200,
-	IMAPC_CAPABILITY_UNSELECT	= 0x400,
-	IMAPC_CAPABILITY_ESEARCH	= 0x800,
-	IMAPC_CAPABILITY_WITHIN		= 0x1000,
-	IMAPC_CAPABILITY_QUOTA		= 0x2000,
-	IMAPC_CAPABILITY_ID		= 0x4000,
-	IMAPC_CAPABILITY_SAVEDATE	= 0x8000,
-	IMAPC_CAPABILITY_METADATA	= 0x10000,
-
-	IMAPC_CAPABILITY_IMAP4REV2	= 0x20000000,
-	IMAPC_CAPABILITY_IMAP4REV1	= 0x40000000,
-};
-struct imapc_capability_name {
-	const char *name;
-	enum imapc_capability capability;
-};
-extern const struct imapc_capability_name imapc_capability_names[];
-
 enum imapc_command_flags {
 	/* The command changes the selected mailbox (SELECT, EXAMINE) */
 	IMAPC_COMMAND_FLAG_SELECT	= 0x01,
