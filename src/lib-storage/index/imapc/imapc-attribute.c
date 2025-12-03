@@ -234,17 +234,13 @@ imapc_storage_attribute_handling(struct mailbox *box,
 	/* If we got here then we want to access metadata in the imapc backend.
 	   Check if that is possible. */
 	struct imapc_mailbox *mbox = IMAPC_MAILBOX(box);
-	enum imapc_capability capabilities = 0;
 
-	if (!IMAPC_HAS_FEATURE(mbox->storage, IMAPC_FEATURE_NO_METADATA)) {
-		if (mbox->capabilities == 0 &&
-		    imapc_client_get_capabilities(mbox->storage->client->client,
-					 	  &mbox->capabilities) < 0)
-			return HANDLE_ERROR;
-		capabilities = mbox->capabilities;
-	}
+	if (mbox->capabilities == 0 &&
+	    imapc_client_get_capabilities(mbox->storage->client->client,
+					  &mbox->capabilities) < 0)
+		return HANDLE_ERROR;
 
-	if (!HAS_ALL_BITS(capabilities, IMAPC_CAPABILITY_METADATA)) {
+	if (!HAS_ALL_BITS(mbox->capabilities, IMAPC_CAPABILITY_METADATA)) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_UNAVAILABLE,
 				       "Can't access metadata on imapc backend");
 		return HANDLE_UNAVAILABLE;

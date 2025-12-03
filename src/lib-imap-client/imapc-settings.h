@@ -25,9 +25,6 @@ enum imapc_features {
 	IMAPC_FEATURE_FETCH_EMPTY_IS_EXPUNGED	= 0x4000,
 	IMAPC_FEATURE_NO_MSN_UPDATES		= 0x8000,
 	IMAPC_FEATURE_NO_ACL 			= 0x10000,
-	IMAPC_FEATURE_NO_METADATA		= 0x20000,
-	IMAPC_FEATURE_NO_QRESYNC		= 0x40000,
-	IMAPC_FEATURE_NO_IMAP4REV2		= 0x80000,
 };
 
 enum imapc_capability {
@@ -89,6 +86,8 @@ struct imapc_settings {
 	const char *pop3_deleted_flag;
 
 	enum imapc_features parsed_features;
+	enum imapc_capability parsed_disabled_capabilities;
+
 	unsigned int throttle_init_msecs;
 	unsigned int throttle_max_msecs;
 	unsigned int throttle_shrink_min_msecs;
@@ -96,6 +95,8 @@ struct imapc_settings {
 
 extern const struct setting_parser_info imapc_setting_parser_info;
 
+/* <settings checks> */
 enum imapc_capability imapc_capability_lookup(const char *str);
+/* </settings checks> */
 
 #endif

@@ -149,9 +149,6 @@ static const struct imapc_feature_list imapc_feature_list[] = {
 	{ "fetch-empty-is-expunged", IMAPC_FEATURE_FETCH_EMPTY_IS_EXPUNGED },
 	{ "no-msn-updates", IMAPC_FEATURE_NO_MSN_UPDATES },
 	{ "no-acl", IMAPC_FEATURE_NO_ACL },
-	{ "no-metadata", IMAPC_FEATURE_NO_METADATA },
-	{ "no-qresync", IMAPC_FEATURE_NO_QRESYNC },
-	{ "no-imap4rev2", IMAPC_FEATURE_NO_IMAP4REV2 },
 	{ NULL, 0 }
 };
 
@@ -193,6 +190,14 @@ imapc_settings_parse_features(struct imapc_settings *set,
 			if (imapc_settings_parse_throttle(set, value, error_r) < 0)
 				return -1;
 			continue;
+		}
+		if (str_begins(*str, "no-", &value)) {
+			enum imapc_capability capa =
+				imapc_capability_lookup(value);
+			if (capa != 0) {
+				set->parsed_disabled_capabilities |= capa;
+				continue;
+			}
 		}
 		if (list->name == NULL) {
 			*error_r = t_strdup_printf("imapc_features: "
