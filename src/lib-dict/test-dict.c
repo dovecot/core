@@ -4,10 +4,6 @@
 #include "dict-private.h"
 #include "test-common.h"
 
-struct dict dict_driver_client;
-struct dict dict_driver_file;
-struct dict dict_driver_redis;
-
 static void test_dict_escape(void)
 {
 	static const char *input[] = {
