@@ -784,7 +784,6 @@ imapc_connection_parse_capability(struct imapc_connection *conn,
 				  const char *value)
 {
 	const char *const *tmp;
-	unsigned int i;
 
 	e_debug(conn->event, "Server capabilities: %s", value);
 
@@ -793,17 +792,8 @@ imapc_connection_parse_capability(struct imapc_connection *conn,
 		p_strsplit_free(default_pool, conn->capabilities_list);
 	conn->capabilities_list = p_strsplit(default_pool, value, " ");
 
-	for (tmp = t_strsplit(value, " "); *tmp != NULL; tmp++) {
-		for (i = 0; imapc_capability_names[i].name != NULL; i++) {
-			const struct imapc_capability_name *cap =
-				&imapc_capability_names[i];
-
-			if (strcasecmp(*tmp, cap->name) == 0) {
-				conn->capabilities |= cap->capability;
-				break;
-			}
-		}
-	}
+	for (tmp = t_strsplit(value, " "); *tmp != NULL; tmp++)
+		conn->capabilities |= imapc_capability_lookup(*tmp);
 
 	if ((conn->capabilities & IMAPC_CAPABILITY_IMAP4REV1) == 0) {
 		imapc_connection_input_error(conn,

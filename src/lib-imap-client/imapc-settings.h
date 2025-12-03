@@ -96,4 +96,6 @@ struct imapc_settings {
 
 extern const struct setting_parser_info imapc_setting_parser_info;
 
+enum imapc_capability imapc_capability_lookup(const char *str);
+
 #endif

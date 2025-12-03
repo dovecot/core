@@ -117,6 +117,15 @@ const struct imapc_capability_name imapc_capability_names[] = {
 	{ NULL, 0 }
 };
 
+enum imapc_capability imapc_capability_lookup(const char *str)
+{
+	for (unsigned int i = 0; imapc_capability_names[i].name != NULL; i++) {
+		if (strcasecmp(imapc_capability_names[i].name, str) == 0)
+			return imapc_capability_names[i].capability;
+	}
+	return 0;
+}
+
 struct imapc_feature_list {
 	const char *name;
 	enum imapc_features num;
