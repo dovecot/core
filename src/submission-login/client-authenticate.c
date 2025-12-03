@@ -146,6 +146,7 @@ void submission_client_auth_result(struct client *client,
 		break;
 	}
 	case CLIENT_AUTH_RESULT_TEMPFAIL:
+	case CLIENT_AUTH_RESULT_LIMIT_REACHED:
 		/* RFC4954, Section 6:
 
 		   454 4.7.0 Temporary authentication failure
