@@ -480,13 +480,13 @@ imapc_rollback_send_expunge(struct imapc_save_context *ctx)
 					    uid)) {
 			/* Maximum length is reached send the rollback
 			   and wait for it to be finished. */
+			seqset_builder_deinit(&seqset_builder);
 			imapc_expunge_send_cmd_str(ctx, uids_str);
 			while (ctx->src_mbox->rollback_pending)
 				imapc_mailbox_run_nofetch(ctx->src_mbox);
 
 			/* Truncate the uids_str and create a new
 			   seqset_builder for the next command */
-			seqset_builder_deinit(&seqset_builder);
 			str_truncate(uids_str, 0);
 			seqset_builder = seqset_builder_init(uids_str);
 			/* Make sure the current uid which is part of
@@ -494,6 +494,7 @@ imapc_rollback_send_expunge(struct imapc_save_context *ctx)
 			seqset_builder_add(seqset_builder, uid);
 		}
 	}
+	seqset_builder_deinit(&seqset_builder);
 	if (str_len(uids_str) > 0)
 		imapc_expunge_send_cmd_str(ctx, uids_str);
 	while (ctx->src_mbox->rollback_pending)
