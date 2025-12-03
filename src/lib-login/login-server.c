@@ -586,10 +586,10 @@ static void login_server_conn_unref(struct login_server_connection **_conn)
 	o_stream_unref(&conn->output);
 
 	DLLIST_REMOVE(&conn->server->conns, conn);
-	login_server_proctitle_refresh(conn->server);
-
-	if (!conn->login_success)
+	if (!conn->login_success) {
+		login_server_proctitle_refresh(conn->server);
 		master_service_client_connection_destroyed(conn->server->service);
+	}
 	event_unref(&conn->event);
 	i_free(conn);
 }
