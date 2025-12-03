@@ -345,6 +345,7 @@ static struct client_vfuncs submission_client_vfuncs = {
 
 static struct login_binary submission_login_binary = {
 	.protocol = "submission",
+	.service_name = "submission",
 	.process_name = "submission-login",
 	.default_port = 587,
 

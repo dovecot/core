@@ -17,9 +17,11 @@
 #define LOGIN_TOKEN_DEFAULT_SOCKET "tokenlogin"
 
 struct login_binary {
-	/* e.g. imap, pop3 */
+	/* e.g. imap, pop3, sieve */
 	const char *protocol;
-	/* e.g. imap-login, pop3-login */
+	/* e.g. imap, pop3, managesieve */
+	const char *service_name;
+	/* e.g. imap-login, pop3-login, managesieve-login */
 	const char *process_name;
 	/* e.g. ManageSieve, h2.. */
 	const char *const *application_protocols;

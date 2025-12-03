@@ -607,6 +607,7 @@ static struct client_vfuncs imap_client_vfuncs = {
 
 static struct login_binary imap_login_binary = {
 	.protocol = "imap",
+	.service_name = "imap",
 	.process_name = "imap-login",
 	.default_port = 143,
 	.default_ssl_port = 993,

@@ -187,6 +187,7 @@ static struct client_vfuncs imap_urlauth_vfuncs = {
 
 static struct login_binary imap_urlauth_login_binary = {
 	.protocol = "imap-urlauth",
+	.service_name = "imap-urlauth",
 	.process_name = "imap-urlauth-login",
 	.default_login_socket = LOGIN_TOKEN_DEFAULT_SOCKET,
 

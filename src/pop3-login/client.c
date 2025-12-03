@@ -379,6 +379,7 @@ static struct client_vfuncs pop3_client_vfuncs = {
 
 static struct login_binary pop3_login_binary = {
 	.protocol = "pop3",
+	.service_name = "pop3",
 	.process_name = "pop3-login",
 	.default_port = POP3_DEFAULT_PORT,
 	.default_ssl_port = POP3S_DEFAULT_PORT,
