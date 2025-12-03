@@ -175,12 +175,12 @@ imapc_settings_parse_features(struct imapc_settings *set,
 	for (; *str != NULL; str++) {
 		list = imapc_feature_list;
 		for (; list->name != NULL; list++) {
-			if (strcasecmp(*str, list->name) == 0) {
+			if (strcmp(*str, list->name) == 0) {
 				features |= list->num;
 				break;
 			}
 		}
-		if (str_begins_icase(*str, "throttle:", &value)) {
+		if (str_begins(*str, "throttle:", &value)) {
 			if (imapc_settings_parse_throttle(set, value, error_r) < 0)
 				return -1;
 			continue;
