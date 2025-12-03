@@ -101,8 +101,17 @@ test_libs = \
 	../lib-auth/libauth-crypt.la \
 	../lib-auth/libauth.la \
 	../lib-oauth2/liboauth2.la \
+	../lib-dcrypt/libdcrypt.la \
+	../lib-http/libhttp.la \
+	../lib-ssl-iostream/libssl_iostream.la \
+	../lib-dns-client/libdns-client.la \
+	../lib-dns/libdns.la \
 	../lib-otp/libotp.la \
+	../lib-dict/libdict.la \
 	../lib-json/libjson.la \
+	../lib-settings/libsettings.la \
+	../lib-var-expand/libvar_expand.la \
+	../lib-regex/libdregex.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
