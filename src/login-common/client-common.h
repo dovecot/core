@@ -249,6 +249,7 @@ struct client {
 
 	unsigned int bad_counter;
 	unsigned int auth_attempts, auth_successes;
+	char *last_proxy_auth_failure_reason;
 	enum client_auth_fail_code last_auth_fail;
 	enum login_proxy_failure_type proxy_last_failure;
 	pid_t mail_pid;

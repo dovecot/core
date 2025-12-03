@@ -883,6 +883,10 @@ bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
 		return TRUE;
 	}
 
+	i_free(proxy->client->last_proxy_auth_failure_reason);
+	proxy->client->last_proxy_auth_failure_reason =
+		i_strdup_printf("%s%s", log_prefix, reason);
+
 	if (type != LOGIN_PROXY_FAILURE_TYPE_AUTH_REPLIED &&
 	    type != LOGIN_PROXY_FAILURE_TYPE_AUTH_NOT_REPLIED &&
 	    type != LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL)
