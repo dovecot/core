@@ -756,7 +756,9 @@ void data_stack_init(void)
 	outofmem_area.block.size = outofmem_area.block.left =
 		sizeof(outofmem_area) - sizeof(outofmem_area.block);
 	outofmem_area.block.canary = BLOCK_CANARY;
+	outofmem = FALSE;
 
+	unused_block = NULL;
 	current_block = mem_block_alloc(INITIAL_STACK_SIZE);
 	current_frame = NULL;
 
@@ -764,6 +766,9 @@ void data_stack_init(void)
 	last_buffer_size = 0;
 
 	root_frame_id = t_push("data_stack_init");
+
+	event_datastack = NULL;
+	event_datastack_deinitialized = FALSE;
 }
 
 void data_stack_deinit_event(void)
@@ -781,4 +786,5 @@ void data_stack_deinit(void)
 	free(current_block);
 	current_block = NULL;
 	data_stack_free_unused();
+	data_stack_initialized = FALSE;
 }
