@@ -33,6 +33,7 @@ static unsigned int process_title_counter = 0;
 static char *process_title;
 static size_t process_title_len, process_title_clean_pos;
 static void *argv_memblock, *environ_memblock;
+static char *environ_dummy = NULL;
 
 static void proctitle_hack_init(char *argv[], char *env[])
 {
@@ -128,6 +129,9 @@ static void proctitle_hack_set(const char *title)
 
 void process_title_init(int argc ATTR_UNUSED, char **argv[])
 {
+	process_name = NULL;
+	process_title_counter = 0;
+
 #ifdef PROCTITLE_HACK
 	char ***environ_p = env_get_environ_p();
 	char **orig_argv = *argv;
@@ -188,7 +192,7 @@ void process_title_deinit(void)
 	   Alternatively we could remove the free() calls above, but that would
 	   annoy memory leak checking tools. Also we could attempt to restore
 	   the environ_p to its original state, but that's a bit complicated. */
-	*environ_p = NULL;
+	*environ_p = &environ_dummy;
 #endif
 	i_free(current_process_title);
 }
