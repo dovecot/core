@@ -5,7 +5,7 @@ Architecture: amd64
 Maintainer: Dovecot Maintainers <dovecot@packages.debian.org>, АО "Р7" <support@r7-office.ru>
 Installed-Size: 11516
 Pre-Depends: init-system-helpers (>= 1.54~)
-Depends: adduser, libpam-runtime, lsb-base, openssl, ssl-cert, ucf, libapparmor1 (>= 2.7.0~beta1+bzr1772), libbz2-1.0, libc6 (>= 2.36), libcap2 (>= 1:2.10), libcrypt1 (>= 1:4.1.0), libexttextcat-2.0-0 (>= 3.3.0), libicu72 (>= 72.1~rc-1~), liblua5.4-0 (>= 5.4.4), liblz4-1 (>= 0.0~r130), liblzma5 (>= 5.1.1alpha+20120614), libpam0g (>= 0.99.7.1), libparsec-base3, libpdp, libsodium23 (>= 1.0.13), libssl3 (>= 3.0.0), libstemmer0d (>= 0+svn527), libsystemd0, libtirpc3 (>= 1.0.2), libunwind8, libwrap0 (>= 7.6-4~), libzstd1 (>= 1.5.2), zlib1g (>= 1:1.1.4)
+Depends: adduser, libpam-runtime, lsb-base, openssl, ssl-cert, ucf, libapparmor1 (>= 2.7.0~beta1+bzr1772), libbz2-1.0, libc6 (>= 2.36), libcap2 (>= 1:2.10), libcrypt1 (>= 1:4.1.0), libexttextcat-2.0-0 (>= 3.3.0), libicu72 (>= 72.1~rc-1~), liblua5.4-0 (>= 5.4.4), liblz4-1 (>= 0.0~r130), liblzma5 (>= 5.1.1alpha+20120614), libpam0g (>= 0.99.7.1), libparsec-base3, libpdp, libsodium23 (>= 1.0.13), libssl3 (>= 3.0.0), libstemmer0d (>= 0+svn527), libsystemd0, libtirpc3 (>= 1.0.2), libunwind8, libwrap0 (>= 7.6-4~), libzstd1 (>= 1.5.2), zlib1g (>= 1:1.1.4), debconf
 Suggests: ntp
 Breaks: dovecot-common (<< 1:2.0.14-2~), mailavenger (<< 0.8.1-4), dovecot-core
 Replaces: dovecot-common (<< 1:2.0.14-2~), mailavenger (<< 0.8.1-4), dovecot-core
