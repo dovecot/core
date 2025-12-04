@@ -6,7 +6,7 @@ dnl This file is free software; the authors give
 dnl unlimited permission to copy and/or distribute it, with or without
 dnl modifications, as long as this notice is preserved.
 
-# serial 46
+# serial 47
 
 dnl
 dnl Check for support for D_FORTIFY_SOURCE=2
@@ -374,13 +374,13 @@ AC_DEFUN([DC_DOVECOT_FUZZER],[
                 with_fuzzer=$withval,
                 with_fuzzer=no)
 	AS_IF([test x$with_fuzzer = xclang], [
-		AM_CFLAGS="$AM_CFLAGS -fsanitize=fuzzer-no-link"
+		AM_CFLAGS="$AM_CFLAGS -fsanitize=fuzzer-no-link -fsanitize=address"
 		AM_CFLAGS="$AM_CFLAGS -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION"
 		# use $LIB_FUZZING_ENGINE for linking if it exists
-		FUZZER_LDFLAGS=${LIB_FUZZING_ENGINE--fsanitize=fuzzer}
+		FUZZER_LDFLAGS=${LIB_FUZZING_ENGINE--fsanitize=fuzzer -fsanitize=address}
 		# May need to use CXXLINK for linking, which wants sources to
 		# be compiled with -fPIE
-		FUZZER_CPPFLAGS='$(AM_CPPFLAGS) -fPIE -DPIE'
+		FUZZER_CPPFLAGS='$(AM_CPPFLAGS) -fPIE -DPIE -fsanitize=address'
 	], [test x$with_fuzzer != xno], [
 		AC_MSG_ERROR([Unknown fuzzer $with_fuzzer])
 	])
