@@ -1,0 +1,23 @@
+#!/bin/sh
+
+set -e
+
+. /usr/share/debconf/confmodule
+
+case "$1" in
+    configure|reconfigure)
+        # Задаем вопросы
+        db_input critical r7mdaserver/db-host || true
+        db_input critical r7mdaserver/db-port || true
+        db_input critical r7mdaserver/db-name || true
+        db_input critical r7mdaserver/db-user || true
+        db_input critical r7mdaserver/db-pwd || true
+        db_input critical r7mdaserver/mda-ssl-cert || true
+        db_input critical r7mdaserver/mda-ssl-key || true
+        db_input critical r7mdaserver/mda-dh-key || true
+        db_input critical r7mdaserver/mda-doveadm-key || true
+        db_go
+        ;;
+esac
+
+exit 0

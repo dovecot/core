@@ -1,0 +1,48 @@
+Template: r7mdaserver/db-host
+Type: string
+Default: localhost
+Description: Database host:
+
+Template: r7mdaserver/db-port
+Type: string
+Default:5432
+Description: Database port:
+
+Template: r7mdaserver/db-name
+Type: string
+Default: r7mailserver
+Description: Database name:
+
+Template: r7mdaserver/db-user
+Type: string
+Default: r7mailuser
+Description: Database user:
+
+Template: r7mdaserver/db-pwd
+Type: password
+Default: saSA123$
+Description: Database password:
+
+Template: r7mdaserver/mda-ssl-cert
+Type: string
+Default: fullchain1.pem
+Description: Certificate filename for MDA server:
+
+Template: r7mdaserver/mda-ssl-key
+Type: string
+Default: privkey1.pem
+Description: Key filename for MDA server:
+
+Template: r7mdaserver/mda-dh-key
+Type: string
+Default: dhparam.pem
+Description: Diffie–Hellman key filename for MDA server:
+
+Template: r7mdaserver/mda-doveadm-key
+Type: password
+Description: Key for API:
+
+Template: r7mdaserver/upgrade
+Type: boolean
+Default: false
+Description: upgrade

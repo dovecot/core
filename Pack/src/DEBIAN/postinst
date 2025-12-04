@@ -1,6 +1,83 @@
 #!/bin/sh
 set -e
 
+MDA_CONF_DIR=/etc/dovecot
+MDA_CONF_ENV=$MDA_CONF_DIR/conf.d/00-environment.conf
+
+read_params_debconf()
+{
+    db_get r7mdaserver/mda-doveadm-key || true
+    MDA_API_KEY="${RET:-$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 32)}"
+
+    db_get r7mdaserver/mda-ssl-cert || true
+    MDA_CERT_FILENAME="$(realpath -m "$RET" 2>/dev/null)"
+    db_get r7mdaserver/mda-ssl-key || true
+    MDA_KEY_FILENAME="$(realpath -m "$RET" 2>/dev/null)"
+    db_get r7mdaserver/mda-dh-key || true
+    MDA_DH_FILENAME="$(realpath -m "$RET" 2>/dev/null)"
+
+    db_get r7mailfrontend/db-host || true
+    MDA_DB_HOST="${RET:-localhost}"
+    db_get r7mailfrontend/db-port || true
+    MDA_DB_PORT="${RET:-5432}"
+	db_get r7mailfrontend/db-name || true
+    MDA_DB_NAME="${RET:-r7mailserver}"
+    db_get r7mailfrontend/db-user || true
+    MDA_DB_USER="${RET:-r7mailuser}"
+    db_get r7mailfrontend/db-pwd || true
+    MDA_DB_PWD="${RET:-saSA123$}"
+#    db_get r7mailserver/upgrade
+#    UPGRADE="$RET"
+#    echo "ADMIN_NAME: $ADMIN_NAME"
+#    echo "SITE_DOMAIN: $SITE_DOMAIN"
+#    echo "API_CERT_FILENAME: $API_CERT_FILENAME"
+#    echo "API_KEY_FILENAME: $API_KEY_FILENAME"
+#    echo "API_ENDPOINT: $API_ENDPOINT"
+#    echo "API_FILTER_ENDPOINT: $API_FILTER_ENDPOINT"
+}
+
+conf_cert()
+{
+#	MDA_CONF_SSL=$MDA_CONF_DIR/conf.d/10-ssl.conf
+	if [ -f "$MDA_CERT_FILENAME" ] && [ -f "$MDA_KEY_FILENAME" ] && [ -f "$MDA_DH_FILENAME" ]; then
+        cp "$MDA_CERT_FILENAME" "$MDA_CONF_DIR/ssl/$(basename "$MDA_CERT_FILENAME")"
+        cp "$MDA_KEY_FILENAME" "$MDA_CONF_DIR/ssl/$(basename "$MDA_KEY_FILENAME")"
+		cp "$MDA_DH_FILENAME" "$MDA_CONF_DIR/ssl/$(basename "$MDA_DH_FILENAME")"
+    else
+        echo "key or cert not found. generate certificate..."
+        MDA_KEY_FILENAME=$MDA_CONF_DIR/ssl/temp-cert.pem
+        MDA_CERT_FILENAME=$MDA_CONF_DIR/ssl/temp-key.pem
+		MDA_DH_FILENAME=$MDA_CONF_DIR/ssl/dhparam.pem
+        openssl genrsa -out "$MDA_KEY_FILENAME" 2048
+        openssl req -new -x509 -key "$MDA_KEY_FILENAME" -out "$MDA_CERT_FILENAME" -days 365 -subj "/C=RU/ST=Moscow/L=Moscow/O=Company/CN=localhost"
+		openssl dhparam -dsaparam -out $MDA_DH_FILENAME 2048
+    fi
+    chmod 644 "$MDA_CERT_FILENAME"
+    chmod 600 "$MDA_KEY_FILENAME"
+	chmod 600 "$MDA_DH_FILENAME"
+
+	sed -i "s#{{ MDA_SSL_CERT }}#$MDA_CERT_FILENAME#g" $MDA_CONF_ENV
+	sed -i "s#{{ MDA_SSL_KEY }}#$MDA_KEY_FILENAME#g" $MDA_CONF_ENV
+	sed -i "s#{{ MDA_DH_KEY }}#$MDA_DH_FILENAME#g" $MDA_CONF_ENV
+}
+
+conf_db()
+{
+#	MDA_CONF_DB=$MDA_CONF_DIR/conf.d/10-pgsql.conf
+	sed -i "s#{{ MDA_DB_HOST }}#$MDA_DB_HOST#g" $MDA_CONF_ENV
+	sed -i "s#{{ MDA_DB_PORT }}#$MDA_DB_PORT#g" $MDA_CONF_ENV
+	sed -i "s#{{ MDA_DB_NAME }}#$MDA_DB_NAME#g" $MDA_CONF_ENV
+	sed -i "s#{{ MDA_DB_USER }}#$MDA_DB_USER#g" $MDA_CONF_ENV
+	sed -i "s#{{ MDA_DB_PWD }}#$MDA_DB_PWD#g" $MDA_CONF_ENV
+}
+
+
+conf_api()
+{
+#	MDA_CONF_API=$MDA_CONF_DIR/conf.d/20-doveadm.conf
+	sed -i "s#{{ MDA_DOVEADM_KEY }}#$MDA_API_KEY#g" $MDA_CONF_ENV
+}
+
 if [ "$1" = "configure" ]; then
   CONFFILES="dovecot.conf \
     conf.d/20-doveadm.conf"
@@ -27,40 +104,31 @@ if [ "$1" = "configure" ]; then
   ## Users
   #
 
-  adduser --system --group --home /opt/r7mdaserver/usr/lib/dovecot --gecos "Dovecot mail server" \
-          --no-create-home --disabled-password --quiet dovecot || true
+  	adduser --system --group --home /opt/r7mdaserver/usr/lib/dovecot --gecos "Dovecot mail server" \
+        --no-create-home --disabled-password --quiet dovecot || true
 
-  adduser --system --group --home /nonexistent --no-create-home --gecos "Dovecot login user" \
-          --disabled-password --quiet dovenull || true
+  	adduser --system --group --home /nonexistent --no-create-home --gecos "Dovecot login user" \
+        --disabled-password --quiet dovenull || true
 
-  for conffile in $CONFFILES ; do
+  	for conffile in $CONFFILES ; do
     # Tell ucf that the file in /opt/dovecot/usr/share/dovecot is the latest
     # maintainer version, and let it handle how to manage the real
     # configuration file in /etc/dovecot.
-    ucf --three-way "/opt/r7mdaserver/etc/dovecot/$conffile" "/etc/dovecot/$conffile"
-    ucfr r7mdaserver "/etc/dovecot/$conffile"
-    if [ "$conffile" != "dovecot.conf" ] && [ -f "/etc/dovecot/$conffile" ] &&
-		[ "$(echo "$conffile" | cut -b -7)" != "conf.d/" ]; then
-      chmod 0640 "/etc/dovecot/$conffile"
-      chgrp dovecot "/etc/dovecot/$conffile"
-    fi
+    	ucf --three-way "/opt/r7mdaserver/etc/dovecot/$conffile" "/etc/dovecot/$conffile"
+	    ucfr r7mdaserver "/etc/dovecot/$conffile"
+    	if [ "$conffile" != "dovecot.conf" ] && [ -f "/etc/dovecot/$conffile" ] && [ "$(echo "$conffile" | cut -b -7)" != "conf.d/" ]; then
+      		chmod 0640 "/etc/dovecot/$conffile"
+      		chgrp dovecot "/etc/dovecot/$conffile"
+    	fi
+  	done
 
-  openssl dhparam -out /opt/r7mdaserver/etc/dovecot/ssl/dhparam.pem 2048
-  openssl genrsa -out "/opt/r7mdaserver/etc/dovecot/ssl/privkey1.pem" 2048
-  openssl req -new -x509 -key "/opt/r7mdaserver/etc/dovecot/ssl/privkey1.pem" -out "/opt/r7mdaserver/etc/dovecot/ssl/fullchain1.pem" -days 365 -subj "/C=RU/ST=Moscow/L=Moscow/O=Company/CN=localhost"
-  chmod 600 "/opt/r7mdaserver/etc/dovecot/ssl/privkey1.pem"
-  chmod 644 "/opt/r7mdaserver/etc/dovecot/ssl/fullchain1.pem"
-  sed -i "s|cert_file = .*|cert_file = /opt/r7mdaserver/etc/dovecot/ssl/fullchain1.pem|" /opt/r7mdaserver/etc/dovecot/etc/dovecot/conf.d/10-ssl.conf
-  sed -i "s|key_file = .*|key_file = /opt/r7mdaserver/etc/dovecot/ssl/privkey1.pem|" /opt/r7mdaserver/etc/dovecot/etc/dovecot/conf.d/10-ssl.conf
+	conf_cert
+	conf_db
+	conf_api
 
-  openssl dhparam -out /opt/r7mdaserver/etc/dovecot/ssl/dhparam.pem 2048
-
-  done
-
-  if ! dpkg-statoverride --list /etc/dovecot/private >/dev/null; then
-    dpkg-statoverride --quiet --update --add root root 0700 /etc/dovecot/private
-  fi
-
+  	if ! dpkg-statoverride --list /etc/dovecot/private >/dev/null; then
+    	dpkg-statoverride --quiet --update --add root root 0700 /etc/dovecot/private
+  	fi
 fi
 
 # End automatically added section
