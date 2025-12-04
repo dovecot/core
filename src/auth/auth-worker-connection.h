@@ -5,6 +5,9 @@ struct auth_request;
 struct auth_stream_reply;
 struct auth_worker_connection;
 
+/* Returns TRUE if worker input can be read more, FALSE if input
+   reading should be stopped until auth_worker_connection_resume_input() is
+   called again. */
 typedef bool auth_worker_callback_t(struct auth_worker_connection *conn,
 				    const char *const *args, void *context);
 
