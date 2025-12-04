@@ -121,7 +121,8 @@ if [ "$1" = "configure" ]; then
       		chgrp dovecot "/etc/dovecot/$conffile"
     	fi
   	done
-
+	
+	read_params_debconf
 	conf_cert
 	conf_db
 	conf_api
