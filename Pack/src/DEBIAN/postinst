@@ -30,12 +30,17 @@ read_params_debconf()
     MDA_DB_PWD="${RET:-saSA123$}"
 #    db_get r7mailserver/upgrade
 #    UPGRADE="$RET"
-#    echo "ADMIN_NAME: $ADMIN_NAME"
-#    echo "SITE_DOMAIN: $SITE_DOMAIN"
-#    echo "API_CERT_FILENAME: $API_CERT_FILENAME"
-#    echo "API_KEY_FILENAME: $API_KEY_FILENAME"
-#    echo "API_ENDPOINT: $API_ENDPOINT"
-#    echo "API_FILTER_ENDPOINT: $API_FILTER_ENDPOINT"
+
+    echo "MDA_API_KEY: $MDA_API_KEY"
+    echo "MDA_CERT_FILENAME: $MDA_CERT_FILENAME"
+    echo "MDA_KEY_FILENAME: $MDA_KEY_FILENAME"
+    echo "MDA_DH_FILENAME: $MDA_DH_FILENAME"
+    echo "MDA_DB_HOST: $MDA_DB_HOST"
+    echo "MDA_DB_PORT: $MDA_DB_PORT"
+    echo "MDA_DB_NAME: $MDA_DB_NAME"
+    echo "MDA_DB_USER: $MDA_DB_USER"
+    echo "MDA_DB_PWD: $MDA_DB_PWD"
+
 }
 
 conf_cert()
