@@ -78,6 +78,9 @@ static struct event *event_last_passthrough = NULL;
 static ARRAY(event_callback_t *) event_handlers;
 static ARRAY(event_category_callback_t *) event_category_callbacks;
 static ARRAY(struct event_internal_category *) event_registered_categories_internal;
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+static ARRAY(struct event_category *) event_registered_categories;
+#endif
 static ARRAY(struct event_category *) event_registered_categories_representative;
 static ARRAY(struct event *) global_event_stack;
 static uint64_t event_id_counter = 0;
@@ -892,6 +895,22 @@ event_category_register(struct event_category *category)
 	}
 
 	category->internal = internal;
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+	/* Record the registered category for later cleanup upon lib_deinit().
+	   For normal operation, calling lib_init() a second time never occurs,
+	   so this cleanup (clearing state) is not necessary normally. However,
+	   some fuzzers rely on fuzzing some sub-system from the very inception
+	   of the Dovecot library, so cycling lib_init() and lib_deinit()
+	   becomes a concern. Sadly, clearing event category state will only
+	   work when that is not located in some loaded plugin module, which
+	   would be unloaded long before lib_deinit(). Since Dovecot supports
+	   loading modules at many subsystems, this would cause crashes during
+	   normal operation. Therefore, the cleanup of category state is omitted
+	   entirely for normal operation and is only compiled in for the benefit
+	   of fuzzing where loading such modules is either omitted or handled
+	   specially. */
+	array_push_back(&event_registered_categories, &category);
+#endif
 
 	if (!allocated) {
 		/* not the first registration of this category */
@@ -1867,15 +1886,27 @@ void event_enable_user_cpu_usecs(struct event *event)
 
 void lib_event_init(void)
 {
+	events = NULL;
+	current_global_event = NULL;
+	event_last_passthrough = NULL;
+	event_id_counter = 0;
+
 	i_array_init(&event_handlers, 4);
 	i_array_init(&event_category_callbacks, 4);
 	i_array_init(&event_registered_categories_internal, 16);
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+	/* Refer to earlier commment in event_category_register(). */
+	i_array_init(&event_registered_categories, 32);
+#endif
 	i_array_init(&event_registered_categories_representative, 16);
 }
 
 void lib_event_deinit(void)
 {
 	struct event_internal_category *internal;
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+	struct event_category *category;
+#endif
 
 	event_unset_global_debug_log_filter();
 	event_unset_global_debug_send_filter();
@@ -1890,6 +1921,12 @@ void lib_event_deinit(void)
 		i_free(internal->name);
 		i_free(internal);
 	}
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+	/* Refer to earlier commment in event_category_register(). */
+	array_foreach_elem(&event_registered_categories, category)
+		category->internal = NULL;
+	array_free(&event_registered_categories);
+#endif
 	array_free(&event_handlers);
 	array_free(&event_category_callbacks);
 	array_free(&event_registered_categories_internal);
