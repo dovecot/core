@@ -8,14 +8,8 @@ static uint32_t get_next_number(const char **str)
 {
 	uint32_t num;
 
-	num = 0;
-	while (**str != '\0') {
-		if (**str < '0' || **str > '9')
-			break;
-
-		num = num*10 + (**str - '0');
-		(*str)++;
-	}
+	if (str_parse_uint32(*str, &num, str) < 0)
+		return 0;
 
 	if (num == (uint32_t)-1) {
 		/* FIXME: ugly hack, we're using this number to mean the
