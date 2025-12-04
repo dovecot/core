@@ -222,9 +222,12 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 	case SEARCH_MAILBOX_GUID:
 	case SEARCH_MAILBOX_GLOB:
 	case SEARCH_REAL_UID:
-	case SEARCH_MIMEPART:
 		/* not supported for now */
 		break;
+	case SEARCH_MIMEPART:
+		if ((mbox->capabilities & IMAPC_CAPABILITY_SEARCH_MIMEPART) == 0)
+			return FALSE;
+		return mail_search_arg_to_imap(str, arg, &error);
 	}
 	return FALSE;
 }
