@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+. /usr/share/debconf/confmodule
+
 MDA_CONF_DIR=/etc/dovecot
 MDA_CONF_ENV=$MDA_CONF_DIR/conf.d/00-environment.conf
 
