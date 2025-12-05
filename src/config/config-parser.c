@@ -571,6 +571,35 @@ setting_value_can_check(const char *value, bool expand_values)
 	return TRUE;
 }
 
+static int settings_value_check_vars(struct config_parser_context *ctx,
+				     const char *value)
+{
+	if (strstr(value, "%{") != NULL) {
+		/* Verify that the program can be parsed. The expansion is done
+		   by config clients. */
+		struct var_expand_program *program;
+		const char *error;
+		int ret = var_expand_program_create(value, &program, &error);
+		if (ret < 0) {
+			ctx->error = p_strdup_printf(ctx->pool, "%s: %s",
+						     value, error);
+			return -1;
+		}
+		var_expand_program_free(&program);
+	}
+	return 0;
+}
+
+static int settings_value_check_common(struct config_parser_context *ctx,
+				       const char *value)
+{
+	if (settings_value_check_vars(ctx, value) < 0)
+		return -1;
+	if (!setting_value_can_check(value, ctx->expand_values))
+		return 0;
+	return 1;
+}
+
 static int
 settings_value_check(struct config_parser_context *ctx,
 		     const struct setting_parser_info *info,
@@ -582,12 +611,13 @@ settings_value_check(struct config_parser_context *ctx,
 	if (prefixed_value[0] != CONFIG_VALUE_PREFIX_EXPANDED)
 		return 0;
 	const char *value = prefixed_value + 1;
+	int ret;
 
 	switch (def->type) {
 	case SET_BOOL: {
 		bool b;
-		if (!setting_value_can_check(value, ctx->expand_values))
-			break;
+		if ((ret = settings_value_check_common(ctx, value)) <= 0)
+			return ret;
 		if (str_parse_get_bool(value, &b, &error) < 0) {
 			ctx->error = p_strdup(ctx->pool, error);
 			return -1;
@@ -597,8 +627,8 @@ settings_value_check(struct config_parser_context *ctx,
 	case SET_UINTMAX: {
 		uintmax_t num;
 
-		if (!setting_value_can_check(value, ctx->expand_values))
-			break;
+		if ((ret = settings_value_check_common(ctx, value)) <= 0)
+			return ret;
 		if (str_to_uintmax(value, &num) < 0) {
 			ctx->error = p_strdup_printf(ctx->pool,
 				"Invalid number %s: %s", value,
@@ -610,8 +640,8 @@ settings_value_check(struct config_parser_context *ctx,
 	case SET_UINT_OCT:
 		if (*value == '0') {
 			unsigned long long octal;
-			if (!setting_value_can_check(value, ctx->expand_values))
-				break;
+			if ((ret = settings_value_check_common(ctx, value)) <= 0)
+				return ret;
 			if (str_to_ullong_oct(value, &octal) < 0) {
 				ctx->error = p_strconcat(ctx->pool,
 					"Invalid number: ", value, NULL);
@@ -623,8 +653,8 @@ settings_value_check(struct config_parser_context *ctx,
 	case SET_UINT: {
 		unsigned int num;
 
-		if (!setting_value_can_check(value, ctx->expand_values))
-			break;
+		if ((ret = settings_value_check_common(ctx, value)) <= 0)
+			return ret;
 		if (settings_value_is_unlimited(value))
 			break;
 		if (str_to_uint(value, &num) < 0) {
@@ -637,8 +667,8 @@ settings_value_check(struct config_parser_context *ctx,
 	}
 	case SET_TIME: {
 		unsigned int interval;
-		if (!setting_value_can_check(value, ctx->expand_values))
-			break;
+		if ((ret = settings_value_check_common(ctx, value)) <= 0)
+			return ret;
 		if (settings_value_is_unlimited(value))
 			break;
 		if (str_parse_get_interval(value, &interval, &error) < 0) {
@@ -649,8 +679,8 @@ settings_value_check(struct config_parser_context *ctx,
 	}
 	case SET_TIME_MSECS: {
 		unsigned int interval;
-		if (!setting_value_can_check(value, ctx->expand_values))
-			break;
+		if ((ret = settings_value_check_common(ctx, value)) <= 0)
+			return ret;
 		if (settings_value_is_unlimited(value))
 			break;
 		if (str_parse_get_interval_msecs(value, &interval, &error) < 0) {
@@ -661,8 +691,8 @@ settings_value_check(struct config_parser_context *ctx,
 	}
 	case SET_SIZE: {
 		uoff_t size;
-		if (!setting_value_can_check(value, ctx->expand_values))
-			break;
+		if ((ret = settings_value_check_common(ctx, value)) <= 0)
+			return ret;
 		if (settings_value_is_unlimited(value))
 			break;
 		if (str_parse_get_size(value, &size, &error) < 0) {
@@ -673,8 +703,8 @@ settings_value_check(struct config_parser_context *ctx,
 	}
 	case SET_IN_PORT: {
 		in_port_t port;
-		if (!setting_value_can_check(value, ctx->expand_values))
-			break;
+		if ((ret = settings_value_check_common(ctx, value)) <= 0)
+			return ret;
 		if (net_str2port_zero(value, &port) < 0) {
 			ctx->error = p_strdup_printf(ctx->pool,
 				"Invalid port number %s", value);
@@ -683,12 +713,15 @@ settings_value_check(struct config_parser_context *ctx,
 		break;
 	}
 	case SET_STR:
+		if (settings_value_check_vars(ctx, value) < 0)
+			return -1;
+		break;
 	case SET_STR_NOVARS:
 		break;
 	case SET_ENUM:
 		/* get the available values from default string */
-		if (!setting_value_can_check(value, ctx->expand_values))
-			break;
+		if ((ret = settings_value_check_common(ctx, value)) <= 0)
+			return ret;
 		i_assert(info->defaults != NULL);
 		const char *const *default_value =
 			CONST_PTR_OFFSET(info->defaults, def->offset);
@@ -700,10 +733,11 @@ settings_value_check(struct config_parser_context *ctx,
 		}
 		break;
 	case SET_FILE:
-		break;
 	case SET_STRLIST:
 	case SET_BOOLLIST:
 	case SET_FILTER_ARRAY:
+		if (settings_value_check_vars(ctx, value) < 0)
+			return -1;
 		break;
 	case SET_FILTER_NAME:
 		ctx->error = p_strdup_printf(ctx->pool,
