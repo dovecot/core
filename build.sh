@@ -1,6 +1,6 @@
 VERSION=$1
 BUILD_DIRECTORY=/opt/r7-mailserver/mdaserver
-PACK_DIRECTORY=$2/Pack/src/opt/r7-mailserver/mdaserver
+PACK_DIRECTORY=$2/Pack/src/opt/r7-mailserver/
 
 
 #Пакеты компилятора и зависимости
