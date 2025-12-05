@@ -1,5 +1,7 @@
 VERSION=$1
-BUILD_DIRECTORY=$2/Pack/src/opt/r7mdaserver
+BUILD_DIRECTORY=/opt/r7-mailserver/mdaserver
+PACK_DIRECTORY=$2/Pack/src/opt/r7-mailserver/mdaserver
+
 
 #Пакеты компилятора и зависимости
 sudo apt-get update -y && sudo apt-get install -y apt-utils && sudo apt-get install -y gettext-base gettext openssh-client ca-certificates pkg-config wget git coreutils ed
@@ -13,8 +15,9 @@ sudo apt-get install -y \
 #Переменная окружения:
 CFLAGS="$CFLAGS -ffile-prefix-map=$PWD=." LDFLAGS="$LDFLAGS" CXXFLAGS="$CFLAGS -ffile-prefix-map=$PWD=. "
 
-# Создание директории назначения
+# Создание директории назначения и очистка
 sudo mkdir -p $BUILD_DIRECTORY
+sudo rm -rf $BUILD_DIRECTORY/*
 
 #Чистка предыдущей установки, если такая была
 sudo make distclean || true
@@ -35,6 +38,8 @@ sudo make -j V=0
 
 ## Сборка
 sudo make install-strip
+
+cp -r $BUILD_DIRECTORY $PACK_DIRECTORY
 
 
 # Добавление необходимых пользователей

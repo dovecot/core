@@ -15,9 +15,9 @@ After=local-fs.target network-online.target
 
 [Service]
 Type=notify
-ExecStart=/opt/r7mdaserver/usr/sbin/dovecot -F -c "/etc/dovecot/dovecot.conf"
-ExecReload=/opt/r7mdaserver/usr/bin/doveadm reload
-ExecStop=/opt/r7mdaserver/usr/bin/doveadm stop
+ExecStart=/opt/r7mdaserver/sbin/dovecot -F -c "/etc/dovecot/dovecot.conf"
+ExecReload=/opt/r7mdaserver/bin/doveadm reload
+ExecStop=/opt/r7mdaserver/bin/doveadm stop
 PrivateTmp=true
 NonBlocking=yes
 ProtectSystem=full
