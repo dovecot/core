@@ -489,6 +489,7 @@ int main(int argc, char *argv[])
 	struct master_service_settings_input set_input = {
 		.preserve_user = TRUE,
 		.preserve_home = TRUE,
+		.use_sysexits = TRUE,
 	};
 	struct master_service_settings_output set_output;
 	if (master_service_settings_read(master_service, &set_input,
