@@ -15,7 +15,7 @@ sudo apt-get install -y \
 #Переменная окружения:
 CFLAGS="$CFLAGS -ffile-prefix-map=$PWD=." LDFLAGS="$LDFLAGS" CXXFLAGS="$CFLAGS -ffile-prefix-map=$PWD=. "
 
-# Создание директории назначения и очистка
+# Создание директории сборки и очистка
 sudo mkdir -p $BUILD_DIRECTORY
 sudo rm -rf $BUILD_DIRECTORY/*
 
