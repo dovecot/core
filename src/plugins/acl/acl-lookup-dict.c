@@ -99,8 +99,9 @@ acl_rights_is_same_user(const struct acl_rights *right, struct mail_user *user)
 		strcmp(right->identifier, user->username) == 0;
 }
 
-static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
-					       ARRAY_TYPE(const_string) *ids)
+static int
+acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns, pool_t pool,
+				    ARRAY_TYPE(const_string) *ids)
 {
 	struct acl_backend *backend;
 	struct acl_mailbox_list_context *ctx;
@@ -121,7 +122,7 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 
 	id = t_str_new(128);
 	ctx = acl_backend_nonowner_lookups_iter_init(backend);
-	while (acl_backend_nonowner_lookups_iter_next(ctx, &name)) {
+	while (acl_backend_nonowner_lookups_iter_next(ctx, &name)) T_BEGIN {
 		aclobj = acl_object_init_from_name(backend, name);
 
 		iter = acl_object_list_init(aclobj);
@@ -134,13 +135,13 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 				acl_lookup_dict_write_rights_id(id, &rights);
 				str_append_c(id, '/');
 				str_append(id, ns->owner->username);
-				id_dup = t_strdup(str_c(id));
+				id_dup = p_strdup(pool, str_c(id));
 				array_push_back(ids, &id_dup);
 			}
 		}
 		if (acl_object_list_deinit(&iter) < 0) ret = -1;
 		acl_object_deinit(&aclobj);
-	}
+	} T_END;
 	if (acl_backend_nonowner_lookups_iter_deinit(&ctx) < 0) ret = -1;
 	return ret;
 }
@@ -267,11 +268,12 @@ int acl_lookup_dict_rebuild(struct acl_lookup_dict *dict, bool acl_dict_index)
 		return 0;
 
 	/* get all ACL identifiers with a positive lookup right */
-	t_array_init(&ids_arr, 128);
-	for (ns = dict->user->namespaces; ns != NULL; ns = ns->next) {
-		if (acl_lookup_dict_rebuild_add_backend(ns, &ids_arr) < 0)
+	pool_t pool = pool_alloconly_create("acl dict rebuild", 1024);
+	p_array_init(&ids_arr, pool, 128);
+	for (ns = dict->user->namespaces; ns != NULL; ns = ns->next) T_BEGIN {
+		if (acl_lookup_dict_rebuild_add_backend(ns, pool, &ids_arr) < 0)
 			ret = -1;
-	}
+	} T_END;
 
 	/* sort identifiers and remove duplicates */
 	array_sort(&ids_arr, i_strcmp_p);
@@ -291,6 +293,7 @@ int acl_lookup_dict_rebuild(struct acl_lookup_dict *dict, bool acl_dict_index)
 	if (acl_lookup_dict_rebuild_update(dict, &ids_arr, ret < 0,
 					   acl_dict_index) < 0)
 		ret = -1;
+	pool_unref(&pool);
 	return ret;
 }
 
