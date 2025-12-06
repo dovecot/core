@@ -112,6 +112,7 @@ struct mailbox_list_index_node {
 
 struct mailbox_list_index {
 	union mailbox_list_module_context module_ctx;
+	struct mailbox_list *list;
 
 	const char *path;
 	struct mail_index *index;
@@ -143,6 +144,8 @@ struct mailbox_list_index {
 
 	/* uint32_t uid => node */
 	HASH_TABLE(void *, struct mailbox_list_index_node *) mailbox_hash;
+	/* full storage name => node */
+	HASH_TABLE(const char *, struct mailbox_list_index_node *) mailbox_storage_name_hash;
 	struct mailbox_list_index_node *mailbox_tree;
 
 	enum mail_index_error_code index_error_code;
@@ -188,6 +191,12 @@ mailbox_list_index_lookup_uid(struct mailbox_list_index *ilist, uint32_t uid);
 void mailbox_list_index_node_get_path(struct mailbox_list *list,
 				      const struct mailbox_list_index_node *node,
 				      string_t *storage_name);
+void mailbox_list_index_node_hash_insert(struct mailbox_list_index *ilist,
+					 struct mailbox_list_index_node *node);
+void mailbox_list_index_subtree_hash_remove(struct mailbox_list_index *ilist,
+					    struct mailbox_list_index_node *node);
+void mailbox_list_index_subtree_hash_insert(struct mailbox_list_index *ilist,
+					    struct mailbox_list_index_node *node);
 void mailbox_list_index_node_unlink(struct mailbox_list_index *ilist,
 				    struct mailbox_list_index_node *node);
 

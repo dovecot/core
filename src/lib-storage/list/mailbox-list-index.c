@@ -43,6 +43,7 @@ void mailbox_list_index_reset(struct mailbox_list_index *ilist)
 {
 	hash_table_destroy(&ilist->mailbox_names);
 	hash_table_destroy(&ilist->mailbox_hash);
+	hash_table_destroy(&ilist->mailbox_storage_name_hash);
 	pool_unref(&ilist->mailbox_pool);
 
 	ilist->mailbox_tree = NULL;
@@ -117,6 +118,29 @@ int mailbox_list_index_index_open(struct mailbox_list *list)
 	return 0;
 }
 
+static void
+mailbox_list_index_vname_hash_create(struct mailbox_list_index *ilist,
+				     struct mail_index_view *view)
+{
+	uint32_t count = mail_index_view_get_messages_count(view);
+	hash_table_create(&ilist->mailbox_storage_name_hash,
+			  ilist->mailbox_pool, count,
+			  str_hash, strcmp);
+	string_t *name = t_str_new(128);
+	for (uint32_t seq = 1; seq <= count; seq++) {
+		uint32_t uid;
+		mail_index_lookup_uid(view, seq, &uid);
+		struct mailbox_list_index_node *node =
+			mailbox_list_index_lookup_uid(ilist, uid);
+		i_assert(node != NULL);
+
+		str_truncate(name, 0);
+		mailbox_list_index_node_get_path(ilist->list, node, name);
+		const char *key = p_strdup(ilist->mailbox_pool, str_c(name));
+		hash_table_insert(ilist->mailbox_storage_name_hash, key, node);
+	}
+}
+
 struct mailbox_list_index_node *
 mailbox_list_index_node_find_sibling(struct mailbox_list *list,
 				     struct mailbox_list_index_node *node,
@@ -149,11 +173,14 @@ static struct mailbox_list_index_node *
 mailbox_list_index_lookup_real(struct mailbox_list *list, const char *name)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
-	struct mailbox_list_index_node *node = ilist->mailbox_tree;
 	const char *const *path;
 	unsigned int i;
 	char sep[2];
 
+	if (hash_table_is_created(ilist->mailbox_storage_name_hash))
+		return hash_table_lookup(ilist->mailbox_storage_name_hash, name);
+
+	struct mailbox_list_index_node *node = ilist->mailbox_tree;
 	if (*name == '\0')
 		return mailbox_list_index_node_find_sibling(list, node, "");
 
@@ -222,10 +249,66 @@ void mailbox_list_index_node_get_path(struct mailbox_list *list,
 	mailbox_list_get_escaped_mailbox_name(list, node, storage_name);
 }
 
+void mailbox_list_index_node_hash_insert(struct mailbox_list_index *ilist,
+					 struct mailbox_list_index_node *node)
+{
+	if (!hash_table_is_created(ilist->mailbox_storage_name_hash))
+		return;
+	T_BEGIN {
+		string_t *storage_name = t_str_new(128);
+		mailbox_list_index_node_get_path(ilist->list, node,
+						 storage_name);
+		const char *key = p_strdup(ilist->mailbox_pool,
+					   str_c(storage_name));
+		hash_table_insert(ilist->mailbox_storage_name_hash, key, node);
+	} T_END;
+}
+
+static void
+mailbox_list_index_node_hash_remove(struct mailbox_list_index *ilist,
+				    struct mailbox_list_index_node *node)
+{
+	if (!hash_table_is_created(ilist->mailbox_storage_name_hash))
+		return;
+	T_BEGIN {
+		string_t *storage_name = t_str_new(128);
+		mailbox_list_index_node_get_path(ilist->list, node,
+						 storage_name);
+		hash_table_remove(ilist->mailbox_storage_name_hash,
+				  str_c(storage_name));
+	} T_END;
+}
+
+void mailbox_list_index_subtree_hash_remove(struct mailbox_list_index *ilist,
+					    struct mailbox_list_index_node *node)
+{
+	struct mailbox_list_index_node *child;
+
+	for (child = node->children; child != NULL; child = child->next)
+		mailbox_list_index_subtree_hash_remove(ilist, child);
+	mailbox_list_index_node_hash_remove(ilist, node);
+}
+
+void mailbox_list_index_subtree_hash_insert(struct mailbox_list_index *ilist,
+					    struct mailbox_list_index_node *node)
+{
+	struct mailbox_list_index_node *child;
+
+	mailbox_list_index_node_hash_insert(ilist, node);
+	for (child = node->children; child != NULL; child = child->next)
+		mailbox_list_index_subtree_hash_insert(ilist, child);
+}
+
 void mailbox_list_index_node_unlink(struct mailbox_list_index *ilist,
 				    struct mailbox_list_index_node *node)
 {
 	struct mailbox_list_index_node **prev;
+
+	if (hash_table_is_created(ilist->mailbox_storage_name_hash)) T_BEGIN {
+		string_t *name = t_str_new(128);
+		mailbox_list_index_node_get_path(ilist->list, node, name);
+		hash_table_remove(ilist->mailbox_storage_name_hash, str_c(name));
+	} T_END;
 
 	prev = node->parent == NULL ?
 		&ilist->mailbox_tree : &node->parent->children;
@@ -531,6 +614,11 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			ilist->mailbox_tree = node;
 		}
 	}
+
+	if (*error_r == NULL) T_BEGIN {
+		mailbox_list_index_vname_hash_create(ilist, view);
+	} T_END;
+
 	hash_table_destroy(&duplicate_hash);
 	if (!ilist->has_backing_store)
 		hash_table_destroy(&duplicate_guid);
@@ -1230,6 +1318,7 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 
 	ilist = p_new(list->pool, struct mailbox_list_index, 1);
 	ilist->module_ctx.super = *v;
+	ilist->list = list;
 	list->vlast = &ilist->module_ctx.super;
 	ilist->has_backing_store = has_backing_store;
 	ilist->pending_init = TRUE;

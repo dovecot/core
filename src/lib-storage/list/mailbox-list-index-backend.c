@@ -857,9 +857,19 @@ index_list_rename_mailbox(struct mailbox_list *_oldlist, const char *oldname,
 	/* copy all the data from old node to new node */
 	newnode->uid = oldnode->uid;
 	newnode->flags = oldnode->flags;
+
+	/* the children move from oldnode to newnode, so their full storage
+	   paths change. drop their stale hash entries before reparenting and
+	   re-insert with the new paths afterwards. */
+	for (child = oldnode->children; child != NULL; child = child->next)
+		mailbox_list_index_subtree_hash_remove(sync_ctx->ilist, child);
+
 	newnode->children = oldnode->children; oldnode->children = NULL;
 	for (child = newnode->children; child != NULL; child = child->next)
 		child->parent = newnode;
+
+	for (child = newnode->children; child != NULL; child = child->next)
+		mailbox_list_index_subtree_hash_insert(sync_ctx->ilist, child);
 
 	/* remove the old node from existence */
 	mailbox_list_index_node_unlink(sync_ctx->ilist, oldnode);

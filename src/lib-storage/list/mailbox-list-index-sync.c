@@ -97,6 +97,8 @@ mailbox_list_index_node_add(struct mailbox_list_index_sync_context *ctx,
 	hash_table_insert(ctx->ilist->mailbox_names,
 			  POINTER_CAST(node->name_id), dup_name);
 
+	mailbox_list_index_node_hash_insert(ctx->ilist, node);
+
 	node_add_to_index(ctx, node, seq_r);
 	return node;
 }
@@ -109,6 +111,9 @@ mailbox_list_index_node_add_inbox_inbox(struct mailbox_list_index_sync_context *
 		mailbox_list_index_node_add_common(ctx, NULL);
 	node->raw_name = ctx->ilist->raw_inbox_inbox_name_ptr;
 	ctx->ilist->inbox_inbox_name_id = node->name_id;
+
+	mailbox_list_index_node_hash_insert(ctx->ilist, node);
+
 	node_add_to_index(ctx, node, seq_r);
 	return node;
 }
