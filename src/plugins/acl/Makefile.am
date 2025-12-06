@@ -31,7 +31,6 @@ lib01_acl_plugin_la_SOURCES = \
 	acl-backend-vfile-acllist.c \
 	acl-backend-vfile-update.c \
 	acl-cache.c \
-	acl-global-file.c \
 	acl-lookup-dict.c \
 	acl-mailbox.c \
 	acl-mailbox-list.c \
@@ -50,7 +49,6 @@ pkginc_lib_HEADERS = \
 	acl-api.h \
 	acl-api-private.h \
 	acl-cache.h \
-	acl-global-file.h \
 	acl-lookup-dict.h \
 	acl-plugin.h \
 	acl-rights.h \

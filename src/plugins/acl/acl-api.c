@@ -7,7 +7,6 @@
 #include "hash.h"
 #include "mail-user.h"
 #include "mailbox-list.h"
-#include "acl-global-file.h"
 #include "acl-cache.h"
 #include "acl-api-private.h"
 
@@ -383,16 +382,3 @@ void acl_object_remove_all_access(struct acl_object *aclobj)
 	array_push_back(&aclobj->rights, &rights);
 }
 
-void acl_object_add_global_acls(struct acl_object *aclobj)
-{
-	struct acl_backend *backend = aclobj->backend;
-	const char *vname, *error;
-
-	if (mailbox_list_is_valid_name(backend->list, aclobj->name, &error))
-		vname = mailbox_list_get_vname(backend->list, aclobj->name);
-	else
-		vname = "";
-
-	acl_global_file_get(backend->global_file, vname,
-			    aclobj->rights_pool, &aclobj->rights);
-}

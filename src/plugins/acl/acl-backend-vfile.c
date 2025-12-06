@@ -7,7 +7,6 @@
 #include "nfs-workarounds.h"
 #include "settings.h"
 #include "mailbox-list-private.h"
-#include "acl-global-file.h"
 #include "acl-cache.h"
 #include "acl-backend-vfile.h"
 
@@ -30,27 +29,8 @@ static struct acl_backend *acl_backend_vfile_alloc(void)
 }
 
 static int
-acl_backend_vfile_init(struct acl_backend *_backend, const char **error_r)
+acl_backend_vfile_init(struct acl_backend *_backend, const char **error_r ATTR_UNUSED)
 {
-	struct event *event = _backend->event;
-	struct stat st;
-
-	const char *global_path = _backend->set->acl_global_path;
-
-	if (*global_path != '\0') {
-		if (stat(global_path, &st) < 0) {
-			*error_r = t_strdup_printf("stat(%s) failed: %m", global_path);
-			return -1;
-		} else if (S_ISDIR(st.st_mode)) {
-			*error_r = t_strdup_printf("Global ACL directories are no longer supported");
-			return -1;
-		} else {
-			_backend->global_file =	acl_global_file_init(
-				global_path, _backend->set->acl_cache_ttl / 1000, event);
-			e_debug(event, "vfile: Deprecated Global ACL file: %s", global_path);
-		}
-	}
-
 	_backend->cache =
 		acl_cache_init(_backend,
 			       sizeof(struct acl_backend_vfile_validity));
@@ -66,8 +46,6 @@ static void acl_backend_vfile_deinit(struct acl_backend *_backend)
 		array_free(&backend->acllist);
 		pool_unref(&backend->acllist_pool);
 	}
-	if (_backend->global_file != NULL)
-		acl_global_file_deinit(&_backend->global_file);
 	pool_unref(&backend->backend.pool);
 }
 
@@ -174,19 +152,7 @@ acl_backend_vfile_has_acl(struct acl_backend *_backend, const char *name)
 	struct mailbox *box =
 		mailbox_alloc(_backend->list, vname,
 			      MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
-	if (_backend->global_file != NULL) {
-		/* check global ACL file */
-		ret = acl_global_file_refresh(_backend->global_file);
-		if (ret == 0 && acl_global_file_have_any(_backend->global_file, box->vname))
-			ret = 1;
-	} else {
-		/* global ACLs disabled */
-		ret = 0;
-	}
-
-	if (ret != 0) {
-		/* error / global ACL found */
-	} else if (mailbox_open(box) == 0) {
+	if (mailbox_open(box) == 0) {
 		/* mailbox exists */
 		ret = 1;
 	} else {
@@ -432,28 +398,9 @@ int acl_backend_vfile_object_get_mtime(struct acl_object *aclobj,
 
 	if (validity->local_validity.last_mtime != 0)
 		*mtime_r = validity->local_validity.last_mtime;
-	else if (validity->global_validity.last_mtime != 0)
-		*mtime_r = validity->global_validity.last_mtime;
 	else
 		*mtime_r = 0;
 	return 0;
-}
-
-static int
-acl_backend_global_file_refresh(struct acl_object *_aclobj,
-				struct acl_vfile_validity *validity)
-{
-	struct acl_backend_vfile *backend =
-		container_of(_aclobj->backend, struct acl_backend_vfile, backend);
-	struct stat st;
-
-	if (acl_global_file_refresh(_aclobj->backend->global_file) < 0)
-		return -1;
-
-	acl_global_file_last_stat(_aclobj->backend->global_file, &st);
-	if (validity == NULL)
-		return 1;
-	return acl_vfile_validity_has_changed(backend, validity, &st) ? 1 : 0;
 }
 
 static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
@@ -465,18 +412,13 @@ static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 	struct acl_backend_vfile_validity *old_validity;
 	struct acl_backend_vfile_validity validity;
 	time_t mtime;
-	int ret = 0;
+	int ret;
 
 	old_validity = acl_cache_get_validity(_aclobj->backend->cache,
 					      _aclobj->name);
-	if (_aclobj->backend->global_file != NULL)
-		ret = acl_backend_global_file_refresh(_aclobj, old_validity == NULL ? NULL :
-						      &old_validity->global_validity);
-	if (ret == 0) {
-		ret = acl_backend_vfile_refresh(_aclobj, aclobj->local_path,
-						old_validity == NULL ? NULL :
-						&old_validity->local_validity);
-	}
+	ret = acl_backend_vfile_refresh(_aclobj, aclobj->local_path,
+					old_validity == NULL ? NULL :
+					&old_validity->local_validity);
 	if (ret <= 0)
 		return ret;
 
@@ -491,16 +433,6 @@ static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 	}
 
 	i_zero(&validity);
-	if (_aclobj->backend->global_file != NULL) {
-		struct stat st;
-
-		acl_object_add_global_acls(_aclobj);
-		acl_global_file_last_stat(_aclobj->backend->global_file, &st);
-		validity.global_validity.last_read_time = ioloop_time;
-		validity.global_validity.last_mtime = st.st_mtime;
-		validity.global_validity.last_size = st.st_size;
-	}
-
 	if (acl_backend_get_mailbox_acl(_aclobj->backend, _aclobj) < 0)
 		return -1;
 

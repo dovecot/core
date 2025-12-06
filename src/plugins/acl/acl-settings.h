@@ -19,7 +19,6 @@ struct acl_settings {
 	ARRAY_TYPE(const_string) acl_groups;
 	ARRAY_TYPE(const_string) acl_rights;
 	const char *acl_driver;
-	const char *acl_global_path;
 	unsigned int acl_cache_ttl;
 	bool acl_globals_only;
 	bool acl_defaults_from_inbox;

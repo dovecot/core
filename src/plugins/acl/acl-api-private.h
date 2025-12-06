@@ -44,7 +44,6 @@ struct acl_backend {
 	struct event *event;
 	struct mailbox_list *list;
 	struct acl_cache *cache;
-	struct acl_global_file *global_file;
 
 	struct acl_object *default_aclobj;
 	struct acl_mask *default_aclmask;
@@ -100,7 +99,6 @@ int acl_backend_get_default_rights(struct acl_backend *backend,
 void acl_rights_sort(struct acl_object *aclobj);
 void acl_object_rebuild_cache(struct acl_object *aclobj);
 void acl_object_remove_all_access(struct acl_object *aclobj);
-void acl_object_add_global_acls(struct acl_object *aclobj);
 
 int acl_backend_get_mailbox_acl(struct acl_backend *backend,
 				struct acl_object *aclobj);
