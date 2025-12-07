@@ -103,7 +103,9 @@ push_notification_ox_settings_check(void *_set, pool_t pool,
 	struct push_notification_ox_settings *set = _set;
 	const char *error;
 
-	if (set->url[0] != '\0') {
+	/* value can be set_value_unknown in config/doveconf if it contains
+	   variables that couldn't be expanded. */
+	if (set->url[0] != '\0' && set->url != set_value_unknown) {
 		if (http_url_parse(set->url, NULL, HTTP_URL_ALLOW_USERINFO_PART,
 				   pool, &set->parsed_url, &error) < 0) {
 			*error_r = t_strdup_printf(
