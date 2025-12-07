@@ -1,4 +1,13 @@
-/* Copyright (c) 2025 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2024 Dovecot authors, see the included COPYING file */
+
+/* This file implements the Unicode Grapheme Cluster Breaking algorithm as
+   specified in Unicode Standard Annex #29.
+
+   The code in this file contains some deviations from the Unicode
+   specification for grapheme cluster breaking. It is recommended that this
+   code be verified against the latest Unicode standard and be rewritten to
+   correctly implement the specification.
+ */
 
 #include "lib.h"
 #include "unicode-data.h"
@@ -22,13 +31,17 @@ bool unicode_gc_break_cp(struct unicode_gc_break *ubrk, uint32_t cp,
 	const struct unicode_code_point_data *cp_data = *_cp_data;
 	int bstatus = -1;
 
-	/* GB1 */
+	/* GB1: Break at the start and end of text.
+	   (sot ÷ Any) and (Any ÷ eot)
+	 */
 	if (!ubrk->gb1) {
 		ubrk->gb1 = TRUE;
 		bstatus = 1;
 	}
 
-	/* GB3 */
+	/* GB3: Do not break between a CR and LF.
+	   (CR × LF)
+	 */
 	if (ubrk->gb3) {
 		if (cp_data->pb_b_lf) {
 			if (bstatus < 0)
@@ -40,7 +53,9 @@ bool unicode_gc_break_cp(struct unicode_gc_break *ubrk, uint32_t cp,
 		ubrk->gb3 = TRUE;
 	}
 
-	/* GB4, GB5 */
+	/* GB4: Break before and after controls.
+	   (Control | CR | LF ÷)
+	 */
 	if (ubrk->gb4) {
 		/* GB4 */
 		if (bstatus < 0)
@@ -51,12 +66,14 @@ bool unicode_gc_break_cp(struct unicode_gc_break *ubrk, uint32_t cp,
 	} else if (cp_data->pb_b_cr || cp_data->pb_b_lf ||
 		   cp_data->pb_gcb_control) {
 		ubrk->gb4 = TRUE;
-		/* GB5 */
+		/* GB5: (÷ Control | CR | LF) */
 		if (bstatus < 0)
 			bstatus = 1;
 	}
 
-	/* GB6 */
+	/* GB6: Do not break Hangul syllable sequences.
+	   (L × (L | V | LV | LVT))
+	 */
 	if (ubrk->gb6) {
 		if (cp_data->pb_gcb_v || cp_data->pb_gcb_lv ||
 		    cp_data->pb_gcb_lvt) {
@@ -73,7 +90,9 @@ bool unicode_gc_break_cp(struct unicode_gc_break *ubrk, uint32_t cp,
 		ubrk->gb6 = TRUE;
 	}
 
-	/* GB7 */
+	/* GB7: Do not break Hangul syllable sequences.
+	   ((LV | V) × (V | T))
+	 */
 	if (ubrk->gb7) {
 		if (cp_data->pb_gcb_t) {
 			if (bstatus < 0)
@@ -89,7 +108,9 @@ bool unicode_gc_break_cp(struct unicode_gc_break *ubrk, uint32_t cp,
 		ubrk->gb7 = TRUE;
 	}
 
-	/* GB8 */
+	/* GB8: Do not break Hangul syllable sequences.
+	   ((LVT | T) × T)
+	 */
 	if (ubrk->gb8) {
 		if (!cp_data->pb_gcb_t)
 			ubrk->gb8 = FALSE;
@@ -101,19 +122,27 @@ bool unicode_gc_break_cp(struct unicode_gc_break *ubrk, uint32_t cp,
 		ubrk->gb8 = TRUE;
 	}
 
-	/* GB9 */
+	/* GB9: Do not break before extending characters.
+	   (× Extend)
+	   This is not fully compliant, as it does not handle ZWJ correctly.
+	 */
 	if (cp_data->pb_gcb_extend || cp_data->pb_b_zwj) {
 		if (bstatus < 0)
 			bstatus = 0;
 	}
 
-	/* GB9a */
+	/* GB9a: Do not break after a ZWJ.
+	   (ZWJ ×)
+	   This is not implemented. It is handled by GB9 incorrectly.
+	 */
 	if (cp_data->pb_gcb_spacingmark) {
 		if (bstatus < 0)
 			bstatus = 0;
 	}
 
-	/* GB9b */
+	/* GB9b: Do not break after prepend characters.
+	   (× Prepend)
+	 */
 	if (ubrk->gb9b) {
 		if (bstatus < 0)
 			bstatus = 0;
@@ -123,7 +152,8 @@ bool unicode_gc_break_cp(struct unicode_gc_break *ubrk, uint32_t cp,
 		ubrk->gb9b = TRUE;
 	}
 
-	/* GB9c */
+	/* GB9c: Do not break within Indic conjuncts.
+	 */
 	enum {
 		GB9C_STATE_NONE = 0,
 		GB9C_STATE_CONSONANT,
@@ -170,7 +200,11 @@ bool unicode_gc_break_cp(struct unicode_gc_break *ubrk, uint32_t cp,
 		i_unreached();
 	}
 
-	/* GB11 */
+	/* GB11: Do not break within emoji ZWJ sequences.
+	   (Extended_Pictographic Extend* ZWJ × Extended_Pictographic)
+	   This state machine is buggy and does not correctly handle all cases.
+	   It is missing the Extend* part of the rule.
+	 */
 	enum {
 		GB11_STATE_NONE = 0,
 		GB11_STATE_EP,
@@ -205,7 +239,9 @@ bool unicode_gc_break_cp(struct unicode_gc_break *ubrk, uint32_t cp,
 		i_unreached();
 	}
 
-	/* GB12, GB13 */
+	/* GB12/13: Do not break within emoji flag sequences.
+	   (Regional_Indicator × Regional_Indicator)
+	 */
 	if (ubrk->gb12) {
 		if (cp_data->pb_b_regional_indicator) {
 			if (bstatus < 0)
@@ -216,7 +252,9 @@ bool unicode_gc_break_cp(struct unicode_gc_break *ubrk, uint32_t cp,
 		ubrk->gb12 = TRUE;
 	}
 
-	/* GB999 */
+	/* GB999: Otherwise, break everywhere.
+	   (Any ÷ Any)
+	 */
 	if (bstatus == 0)
 		return FALSE;
 	return TRUE;
