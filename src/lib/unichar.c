@@ -602,3 +602,59 @@ size_t uni_utf8_data_truncate(const unsigned char *data, size_t old_size,
 		max_new_size--;
 	return max_new_size;
 }
+
+/*
+ * Grapheme clusters
+ */
+
+void uni_gc_scanner_init(struct uni_gc_scanner *gcsc,
+			 const void *input, size_t size)
+{
+	i_zero(gcsc);
+	unicode_gc_break_init(&gcsc->gcbrk);
+	gcsc->p = input;
+	gcsc->pend = gcsc->p + size;
+}
+
+bool uni_gc_scan_shift(struct uni_gc_scanner *gcsc)
+{
+	bool first = (gcsc->poffset == NULL);
+
+	/* Reset offset to last grapheme boundary (after the last grapheme
+	   cluster we indicated). */
+	gcsc->poffset = gcsc->p;
+	/* Shift pointer past last code point; starts the next grapheme cluster
+	   we shall compose in this call. */
+	gcsc->p += gcsc->cp_size;
+	gcsc->cp_size = 0;
+	while (gcsc->p < gcsc->pend) {
+		/* Decode next UTF-8 code point */
+		gcsc->cp_size = uni_utf8_get_char_n(
+			gcsc->p, gcsc->pend - gcsc->p, &gcsc->cp);
+		/* We expect valid and complete UTF-8 input */
+		i_assert(gcsc->cp_size > 0);
+
+		/* Determine whether there exists a grapheme cluster boundary
+		   before this code point. */
+		const struct unicode_code_point_data *cp_data = NULL;
+		if (unicode_gc_break_cp(&gcsc->gcbrk, gcsc->cp, &cp_data)) {
+			/* Yes, but ignore the very first grapheme boundary that
+			   occurs at the start of input. */
+			if (!first) {
+				/* Grapheme cluster detected, but it does *NOT*
+				   include the last code point we decoded just
+				   now. */
+				i_assert(gcsc->p > gcsc->poffset);
+				return TRUE;
+			}
+			first = FALSE;
+		}
+
+		/* Shift pointer past last code point; include this in the next
+		   grapheme cluster we shall compose in this call. */
+		gcsc->p += gcsc->cp_size;
+		gcsc->cp_size = 0;
+	}
+	/* Return whether there is any last remaining grapheme cluster. */
+	return (gcsc->p > gcsc->poffset);
+}

@@ -1,6 +1,8 @@
 #ifndef UNICHAR_H
 #define UNICHAR_H
 
+#include "unicode-break.h"
+
 /* Character used to replace invalid input. */
 #define UNICODE_REPLACEMENT_CHAR 0xfffd
 #define UNICODE_REPLACEMENT_CHAR_UTF8 "\xEF\xBF\xBD"
@@ -207,4 +209,67 @@ static inline void uni_split_surrogate(unichar_t chr, unichar_t *high_r, unichar
 	*high_r = UTF16_SURROGATE_HIGH(chr);
 	*low_r = UTF16_SURROGATE_LOW(chr);
 }
+
+/*
+ * Grapheme clusters
+ */
+
+/* The grapheme cluster scanner is used to split a Unicode string into a
+   sequence of grapheme clusters, which are in essence the Unicode characters as
+   perceived by the user. These can be longer than a single code point and by
+   consequence longer than a single octet. The Unicode standard defines what
+   constitutes a grapheme cluster in Annex #29. */
+
+struct uni_gc_scanner {
+	pool_t pool;
+	struct unicode_gc_break gcbrk;
+
+	const unsigned char *poffset, *p, *pend;
+
+	unichar_t cp;
+	int cp_size;
+};
+
+/* Initialize the scanner. */
+void uni_gc_scanner_init(struct uni_gc_scanner *gcsc,
+			 const void *input, size_t size);
+/* Shift scanner position to next grapheme cluster. Returns TRUE when scanner
+   points to a valid grapheme cluster and has not reached the end. */
+bool uni_gc_scan_shift(struct uni_gc_scanner *gcsc) ATTR_NOWARN_UNUSED_RESULT;
+
+
+/* Obtain a pointer to the current grapheme cluster the scanner points to.
+   Returns the size of the cluster in octets in size_r. */
+static inline const unsigned char *
+uni_gc_scan_get(struct uni_gc_scanner *gcsc, size_t *size_r)
+{
+	if (gcsc->poffset == NULL)
+		uni_gc_scan_shift(gcsc);
+	if (size_r != NULL)
+		*size_r = gcsc->p - gcsc->poffset;
+	return gcsc->poffset;
+}
+
+/* Convenience function for checking whether current grapheme cluster is a
+   particular (single-octet) ASCII character.  */
+static inline bool
+uni_gc_scan_ascii_equals(struct uni_gc_scanner *gcsc, unsigned int c)
+{
+	size_t gc_size;
+	const unsigned char *gc = uni_gc_scan_get(gcsc, &gc_size);
+
+	if (gc_size != 1)
+		return FALSE;
+
+	return (*gc == (unsigned char)c);
+}
+
+/* Returns TRUE when the scanner has reached the end of input. */
+static inline bool uni_gc_scan_at_end(struct uni_gc_scanner *gcsc)
+{
+	size_t gc_size;
+	(void)uni_gc_scan_get(gcsc, &gc_size);
+	return (gc_size == 0);
+}
+
 #endif

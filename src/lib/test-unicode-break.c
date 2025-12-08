@@ -18,10 +18,10 @@
 static void
 test_gcb_line(const char *file, const char *line, unsigned int line_num)
 {
-	struct unicode_gc_break ubrk;
+	struct unicode_gc_break gcbrk;
 	const char *const *tokens = t_strsplit(line, " ");
 
-	unicode_gc_break_init(&ubrk);
+	unicode_gc_break_init(&gcbrk);
 	while (tokens[0] != NULL && tokens[1] != NULL && !test_has_failed()) {
 		const char *brk = tokens[0];
 		const char *cp_hex = tokens[1];
@@ -47,7 +47,7 @@ test_gcb_line(const char *file, const char *line, unsigned int line_num)
 		const struct unicode_code_point_data *cp_data = NULL;
 		bool break_m1;
 
-		break_m1 = unicode_gc_break_cp(&ubrk, cp, &cp_data);
+		break_m1 = unicode_gc_break_cp(&gcbrk, cp, &cp_data);
 
 		test_assert_idx(break_m1 == break_m1_test, line_num);
 
