@@ -193,6 +193,12 @@ struct client *client_create(int fd_in, int fd_out,
 		imap_write_capability(client->capability_string,
 				      &modified_set->imap_capability);
 		settings_free(modified_set);
+		uoff_t max_size = mail_user_get_mail_max_size(client->user);
+		/* For safety reasons, we prohibit 0 */
+		if (max_size > 0 && max_size < UOFF_T_MAX) {
+			str_printfa(client->capability_string, " APPENDLIMIT=%"PRIuUOFF_T,
+				    max_size);
+		}
 	}
 
 	struct master_service_anvil_session anvil_session;
