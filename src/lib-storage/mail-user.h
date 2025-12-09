@@ -16,6 +16,7 @@ struct mail_user;
 struct dict_op_settings;
 
 struct mail_user_vfuncs {
+	uoff_t (*get_mail_max_size)(struct mail_user *user);
 	void (*deinit)(struct mail_user *user);
 	void (*deinit_pre)(struct mail_user *user);
 };
@@ -234,5 +235,7 @@ mail_user_get_postmaster_smtp(struct mail_user *user,
 	return mail_user_set_get_postmaster_smtp(user->set, address_r,
 						 error_r);
 }
+
+uoff_t mail_user_get_mail_max_size(struct mail_user *user);
 
 #endif

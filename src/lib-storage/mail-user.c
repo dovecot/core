@@ -31,6 +31,11 @@
 struct mail_user_module_register mail_user_module_register = { 0 };
 struct auth_master_connection *mail_user_auth_master_conn;
 
+static uoff_t mail_user_get_mail_max_size_base(struct mail_user *user ATTR_UNUSED)
+{
+	return UOFF_T_MAX;
+}
+
 static void mail_user_deinit_base(struct mail_user *user)
 {
 	if (user->_attr_dict != NULL) {
@@ -99,6 +104,7 @@ mail_user_alloc(struct mail_storage_service_user *service_user)
 	event_set_ptr(user->event,
 		      SETTINGS_EVENT_VAR_EXPAND_CALLBACK_CONTEXT, user);
 
+	user->v.get_mail_max_size = mail_user_get_mail_max_size_base;
 	user->v.deinit = mail_user_deinit_base;
 	user->v.deinit_pre = mail_user_deinit_pre_base;
 	p_array_init(&user->module_contexts, user->pool, 5);
@@ -184,6 +190,11 @@ void mail_user_deinit(struct mail_user **user)
 {
 	i_assert((*user)->refcount == 1);
 	mail_user_unref(user);
+}
+
+uoff_t mail_user_get_mail_max_size(struct mail_user *user)
+{
+	return user->v.get_mail_max_size(user);
 }
 
 struct mail_user *mail_user_find(struct mail_user *user, const char *name)
