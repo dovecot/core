@@ -183,6 +183,7 @@ struct client *client_create(int fd_in, int fd_out,
 		SMTP_CAPABILITY_8BITMIME |
 		SMTP_CAPABILITY_CHUNKING |
 		SMTP_CAPABILITY_XCLIENT |
+		SMTP_CAPABILITY_SIZE |
 		SMTP_CAPABILITY__ORCPT;
 
 #ifdef EXPERIMENTAL_MAIL_UTF8
@@ -193,7 +194,7 @@ struct client *client_create(int fd_in, int fd_out,
 		lmtp_set.capabilities |= SMTP_CAPABILITY_STARTTLS;
 	lmtp_set.hostname = client->lda_set->hostname;
 	lmtp_set.login_greeting = client->lmtp_set->login_greeting;
-	lmtp_set.max_message_size = UOFF_T_MAX;
+	lmtp_set.max_message_size = mail_user_get_mail_max_size(client->raw_mail_user);
 	lmtp_set.rcpt_param_extensions = rcpt_param_extensions;
 	lmtp_set.rcpt_domain_optional = TRUE;
 	lmtp_set.max_client_idle_time_msecs = CLIENT_IDLE_TIMEOUT_MSECS;
