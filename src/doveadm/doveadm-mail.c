@@ -80,6 +80,7 @@ void doveadm_mail_failed_error(struct doveadm_mail_cmd_context *ctx,
 		break;
 	case MAIL_ERROR_INUSE:
 	case MAIL_ERROR_LIMIT:
+	case MAIL_ERROR_TOOBIG:
 		exit_code = DOVEADM_EX_NOTPOSSIBLE;
 		break;
 	case MAIL_ERROR_LOOKUP_ABORTED:

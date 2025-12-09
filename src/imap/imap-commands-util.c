@@ -181,6 +181,9 @@ imap_get_error_string(const char *error_string, enum mail_error error)
 	case MAIL_ERROR_LIMIT:
 		resp_code = IMAP_RESP_CODE_LIMIT;
 		break;
+	case MAIL_ERROR_TOOBIG:
+		resp_code = IMAP_RESP_CODE_TOOBIG;
+		break;
 	case MAIL_ERROR_INTERRUPTED:
 		break;
 	}

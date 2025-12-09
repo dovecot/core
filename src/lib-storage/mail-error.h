@@ -57,6 +57,9 @@ enum mail_error {
 	MAIL_ERROR_LOOKUP_ABORTED,
 	/* Interrupted (due to a signal). */
 	MAIL_ERROR_INTERRUPTED,
+	/* Message size exceeds configured limit. This is different from
+	   reaching quota, which returns MAIL_ERROR_LIMIT. */
+	MAIL_ERROR_TOOBIG,
 };
 
 /* Convert errno to mail_error and an error string. Returns TRUE if successful,
