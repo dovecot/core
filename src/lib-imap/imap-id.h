@@ -1,6 +1,8 @@
 #ifndef IMAP_ID_H
 #define IMAP_ID_H
 
+#include "imap-quote.h"
+
 struct imap_arg;
 
 struct imap_id_log_entry {
@@ -19,7 +21,9 @@ struct imap_id_log_entry {
 #define IMAP_ID_PARAMS_LOG_MAX_LEN 1024
 
 /* Return ID reply based on given settings. */
-const char *imap_id_reply_generate(const ARRAY_TYPE(const_string) *args);
+const char *
+imap_id_reply_generate(const ARRAY_TYPE(const_string) *args,
+		       enum imap_quote_flags qflags);
 /* Format the IMAP ID parameters into string-fields of the given event, and
    into a printable log message. */
 void imap_id_add_log_entry(struct imap_id_log_entry *log_entry,
