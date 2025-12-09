@@ -136,7 +136,7 @@ static const struct auth_passdb_settings auth_passdb_default_settings = {
 	.mechanisms_filter = ARRAY_INIT,
 	.username_filter = "",
 
-	.default_password_scheme = "PLAIN",
+	.default_password_scheme = "CRYPT",
 
 	.skip = "never:authenticated:unauthenticated",
 	.result_success = "return-ok:return:return-fail:continue:continue-ok:continue-fail",

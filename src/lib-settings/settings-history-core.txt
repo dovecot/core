@@ -9,6 +9,9 @@ default	service/pop3/service_extra_groups	$SET:default_internal_group	2.4.3	3.2.
 default	service/submission/service_extra_groups	$SET:default_internal_group	2.4.3	3.2.0
 default	mail_access_groups		2.4.3	3.2.0
 default	lazy_expunge_only_last_instance	no	2.4.3	3.2.0
+default	passdb_ldap/passdb_default_password_scheme	CRYPT	2.4.3	3.2.0
+default	passdb_passwd/passdb_default_password_scheme	CRYPT	2.4.3	3.2.0
+default	passdb_default_password_scheme	PLAIN	2.4.3	3.2.0
 default	mail_attachment_detection_options		2.4.2	3.2.0
 default	@metric_defaults/proxy/metric	auth_successes,auth_failures,login_aborted	2.4.2	3.2.0
 default	fts_search_read_fallback	yes	-	3.2.0
