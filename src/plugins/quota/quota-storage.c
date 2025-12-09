@@ -58,7 +58,7 @@ static void quota_set_storage_error(struct quota_transaction_context *qt,
 	struct mail_storage *storage = box->storage;
 	switch (res) {
 	case QUOTA_ALLOC_RESULT_OVER_MAXSIZE:
-		mail_storage_set_error(storage, MAIL_ERROR_LIMIT, errstr);
+		mail_storage_set_error(storage, MAIL_ERROR_TOOBIG, errstr);
 		break;
 	case QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT:
 	case QUOTA_ALLOC_RESULT_OVER_QUOTA_MAILBOX_LIMIT:
