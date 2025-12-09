@@ -75,3 +75,26 @@ function test_invalid_set_value_3()
   })
   return 0
 end
+
+function test_http_request_set_event(event, url)
+  local request = http_client:request {
+    url = url,
+    method = "POST"
+  }
+  request:add_header("Cache-Control", "no-cache")
+  request:add_header("Content-Type", "application/x-www-form-urlencoded")
+  request:set_payload("some+foolish+payload+for+funsies\r\n", true)
+  request:set_event(event)
+  return request:get_event()
+end
+
+function test_http_request_set_no_event(event, url)
+  local request = http_client:request {
+    url = url,
+    method = "POST"
+  }
+  request:add_header("Cache-Control", "no-cache")
+  request:add_header("Content-Type", "application/x-www-form-urlencoded")
+  request:set_payload("some+foolish+payload+for+funsies\r\n", true)
+  return request:get_event()
+end

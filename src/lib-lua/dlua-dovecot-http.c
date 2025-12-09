@@ -126,11 +126,35 @@ static int dlua_http_request_submit(lua_State *L)
 	return 1;
 }
 
+static int dlua_http_request_set_event(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 2);
+
+	struct http_client_request *req = dlua_check_http_request(L, 1);
+	struct event *event = dlua_check_event(L, 2);
+
+	http_client_request_set_event(req, event);
+
+	return 0;
+}
+
+static int dlua_http_request_get_event(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 1);
+
+	struct http_client_request *req = dlua_check_http_request(L, 1);
+	dlua_push_event(L, req->event);
+
+	return 1;
+}
+
 static luaL_Reg lua_dovecot_http_request_methods[] = {
 	{ "add_header", dlua_http_request_add_header },
 	{ "remove_header", dlua_http_request_remove_header },
 	{ "set_payload", dlua_http_request_set_payload },
 	{ "submit", dlua_http_request_submit },
+	{ "set_event", dlua_http_request_set_event },
+	{ "get_event", dlua_http_request_get_event },
 	{ NULL, NULL }
 };
 

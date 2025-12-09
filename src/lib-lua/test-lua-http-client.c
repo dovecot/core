@@ -430,6 +430,69 @@ static void test_bad_settings(void)
 	test_end();
 }
 
+static void test_set_event(void)
+{
+	struct dlua_script *script;
+	const char *error;
+
+	test_begin("set event");
+
+	if (dlua_script_create_file(
+		TEST_LUA_SCRIPT_DIR "/test-lua-http-client.lua",
+		&script, common_event, &error) < 0)
+		i_fatal("dlua_script_create_file() failed: %s", error);
+
+
+	dlua_dovecot_register(script);
+	if (dlua_script_init(script, &error) < 0)
+		i_fatal("dlua_script_init() failed: %s", error);
+
+	struct event *event = event_create(NULL);
+	event_set_forced_debug(event, TRUE);
+	dlua_push_event(script->L, event);
+	lua_pushstring(script->L, "https://localhost");
+	test_assert(dlua_pcall(script->L, "test_http_request_set_event", 2, 1, &error) == 1);
+	struct event *child_event = dlua_check_event(script->L, 1);
+	test_assert(event_get_parent(child_event) == event);
+	test_assert(event_get_parent(child_event) != common_event);
+	event_unref(&event);
+	dlua_script_unref(&script);
+
+	test_end();
+}
+
+static void test_set_no_event(void)
+{
+	struct dlua_script *script;
+	const char *error;
+
+	test_begin("set no event");
+
+	if (dlua_script_create_file(
+		TEST_LUA_SCRIPT_DIR "/test-lua-http-client.lua",
+		&script, common_event, &error) < 0)
+		i_fatal("dlua_script_create_file() failed: %s", error);
+
+
+	dlua_dovecot_register(script);
+	if (dlua_script_init(script, &error) < 0)
+		i_fatal("dlua_script_init() failed: %s", error);
+
+	struct event *event = event_create(NULL);
+	event_set_forced_debug(event, TRUE);
+	dlua_push_event(script->L, event);
+	lua_pushstring(script->L, "https://localhost");
+	test_assert(dlua_pcall(script->L, "test_http_request_set_no_event", 2, 1, &error) == 1);
+	struct event *child_event = dlua_check_event(script->L, 1);
+	/* if request:set_event() is not used the returned event
+	   will not be a child of the event previously created */
+	test_assert(event_get_parent(child_event) != event);
+	event_unref(&event);
+	dlua_script_unref(&script);
+
+	test_end();
+}
+
 /*
  * All tests
  */
@@ -438,6 +501,8 @@ static void (*const test_functions[])(void) = {
 	test_simple_post,
 	test_second_post,
 	test_bad_settings,
+	test_set_event,
+	test_set_no_event,
 	NULL
 };
 
