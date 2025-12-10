@@ -35,6 +35,20 @@ static const struct quota_settings quota_default_settings = {
 	.quota_exceeded_message = "Quota exceeded (mailbox for user is full)",
 };
 
+/* <settings checks> */
+static bool quota_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+				 const char **error_r)
+{
+	const struct quota_settings *set = _set;
+	if (set->quota_mail_size == 0) {
+		*error_r = "quota_mail_size must not be 0. "
+			   "(Did you mean \"unlimited\"?)";
+		return FALSE;
+	}
+	return TRUE;
+}
+/* </settings checks> */
+
 const struct setting_parser_info quota_setting_parser_info = {
 	.name = "quota",
 	.plugin_dependency = "lib10_quota_plugin",
@@ -42,6 +56,7 @@ const struct setting_parser_info quota_setting_parser_info = {
 	.defaults = &quota_default_settings,
 	.struct_size = sizeof(struct quota_settings),
 	.pool_offset1 = 1 + offsetof(struct quota_settings, pool),
+	.check_func = quota_settings_check,
 };
 
 #undef DEF
