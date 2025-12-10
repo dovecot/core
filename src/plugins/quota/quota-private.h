@@ -13,6 +13,7 @@ extern unsigned int quota_module_id;
 struct quota {
 	struct mail_user *user;
 	struct event *event;
+	const struct quota_settings *set;
 
 	/* Global quota roots. These are filled when initializing the user.
 	   These quota roots will be used only for private namespaces. */

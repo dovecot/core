@@ -282,6 +282,8 @@ int quota_init(struct mail_user *user, struct quota **quota_r,
 	event_set_append_log_prefix(quota->event, "quota: ");
 	quota->user = user;
 	quota->test_alloc = quota_default_test_alloc;
+	quota->set = set;
+
 	i_array_init(&quota->global_private_roots, 8);
 	i_array_init(&quota->all_roots, 8);
 
@@ -300,7 +302,6 @@ int quota_init(struct mail_user *user, struct quota **quota_r,
 				array_push_back(&quota->global_private_roots, &root);
 		}
 	}
-	settings_free(set);
 	*quota_r = quota;
 	return 0;
 }
@@ -320,6 +321,7 @@ void quota_deinit(struct quota **_quota)
 
 	array_free(&quota->global_private_roots);
 	array_free(&quota->all_roots);
+	settings_free(quota->set);
 	event_unref(&quota->event);
 	i_free(quota);
 }
