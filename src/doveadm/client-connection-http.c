@@ -217,9 +217,9 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 		"cmd %s: ", cctx->cmd->name));
 
 	if (doveadm_cmd_param_str(cctx, "user", &user))
-		e_info(cctx->event, "Executing command as '%s'", user);
+		e_debug(cctx->event, "Executing command as '%s'", user);
 	else
-		e_info(cctx->event, "Executing command");
+		e_debug(cctx->event, "Executing command");
 	cctx->cmd->cmd(cctx);
 
 	event_drop_parent_log_prefixes(cctx->event, 1);
@@ -231,9 +231,9 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 	if ((cctx->cmd->flags & CMD_FLAG_NO_PRINT) == 0)
 		doveadm_print_deinit();
 	if (o_stream_finish(doveadm_print_ostream) < 0) {
-		e_info(cctx->event, "Error writing output in command %s: %s",
-		       req->cmd->name,
-		       o_stream_get_error(doveadm_print_ostream));
+		e_error(cctx->event, "Error writing output in command %s: %s",
+			req->cmd->name,
+			o_stream_get_error(doveadm_print_ostream));
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 
@@ -695,7 +695,7 @@ doveadm_http_server_read_request_v1(struct client_request_http *req)
 	if (req->input->stream_errno != 0) {
 		http_server_request_fail_close(http_sreq,
 			400, "Client disconnected");
-		e_info(req->conn->conn.event,
+		e_error(req->conn->conn.event,
 			"read(%s) failed: %s",
 		       i_stream_get_name(req->input),
 		       i_stream_get_error(req->input));
@@ -873,9 +873,9 @@ static void doveadm_http_server_send_response(struct client_request_http *req)
 
 	if (req->output != NULL) {
 		if (o_stream_finish(req->output) == -1) {
-			e_info(req->conn->conn.event,
-			       "error writing output: %s",
-			       o_stream_get_error(req->output));
+			e_error(req->conn->conn.event,
+				"error writing output: %s",
+				o_stream_get_error(req->output));
 			o_stream_destroy(&req->output);
 			http_server_request_fail(http_sreq,
 				500, "Internal server error");
