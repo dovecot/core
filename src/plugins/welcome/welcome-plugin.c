@@ -12,7 +12,7 @@
 #include "write-full.h"
 #include "module-context.h"
 #include "settings.h"
-#include "settings-parser.h"
+#include "welcome-settings.h"
 #include "mail-storage-private.h"
 
 #define WELCOME_CONTEXT(obj) \
@@ -27,33 +27,6 @@ static struct welcome_client_list {
 	struct welcome_client_list *prev, *next;
 	struct program_client *client;
 } *welcome_clients = NULL;
-
-struct welcome_settings {
-	pool_t pool;
-	bool welcome_wait;
-};
-
-#undef DEF
-#define DEF(type, name) \
-	SETTING_DEFINE_STRUCT_##type(#name, name, struct welcome_settings)
-static const struct setting_define welcome_setting_defines[] = {
-	{ .type = SET_FILTER_NAME, .key = "welcome",
-	  .required_setting = "execute", },
-	DEF(BOOL, welcome_wait),
-
-	SETTING_DEFINE_LIST_END
-};
-static const struct welcome_settings welcome_default_settings = {
-	.welcome_wait = FALSE,
-};
-const struct setting_parser_info welcome_setting_parser_info = {
-	.name = "welcome",
-	.plugin_dependency = "lib99_welcome_plugin",
-	.defines = welcome_setting_defines,
-	.defaults = &welcome_default_settings,
-	.struct_size = sizeof(struct welcome_settings),
-	.pool_offset1 = 1 + offsetof(struct welcome_settings, pool),
-};
 
 static MODULE_CONTEXT_DEFINE_INIT(welcome_storage_module,
 				  &mail_storage_module_register);

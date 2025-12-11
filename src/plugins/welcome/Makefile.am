@@ -14,4 +14,10 @@ module_LTLIBRARIES = \
 	lib99_welcome_plugin.la
 
 lib99_welcome_plugin_la_SOURCES = \
-	welcome-plugin.c
+	welcome-plugin.c \
+	welcome-settings.c
+
+settingsdir = $(dovecot_moduledir)/settings
+
+noinst_HEADERS = \
+	welcome-settings.h
