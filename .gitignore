@@ -40,6 +40,7 @@ auth-token-secret.dat
 /stamp.h
 /stamp-h1
 /stamp-h2
+/build-aux/test-driver
 /build-aux/ylwrap
 /autom4te.cache
 /cc-wrapper.sh
