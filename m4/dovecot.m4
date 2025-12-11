@@ -28,6 +28,23 @@ AC_DEFUN([AC_CC_D_FORTIFY_SOURCE],[
     ])
 ])
 
+AC_DEFUN([DC_HARDEN_SLS], [
+  AC_ARG_WITH([harden-sls],
+    [AS_HELP_STRING([--with-harden-sls=<choice>], [Straight-Line Speculation (SLS) mitigations (default: none)])],
+    [harden_sls=$withval],
+    [harden_sls=none])
+  AS_IF([test "x$harden_sls" != "xnone"], [
+    case "$host" in
+      *)
+        gl_COMPILER_OPTION_IF([-mharden-sls=$harden_sls],
+          [AM_CFLAGS="$AM_CFLAGS -mharden-sls=$harden_sls"],
+          [AC_MSG_ERROR([-mharden-sls=$harden_sls not supported by compiler])],
+          [AC_LANG_PROGRAM()])
+      ;;
+    esac
+  ])
+])
+
 AC_DEFUN([DC_LTO], [
   AC_ARG_ENABLE([lto],
     [AS_HELP_STRING([--enable-lto], [Enable Link Time Optimization (LTO)])],
@@ -329,6 +346,7 @@ AC_DEFUN([DC_DOVECOT_HARDENING],[
 	AC_CC_RETPOLINE
 	AC_LD_RELRO
         DC_LTO
+        DC_HARDEN_SLS
 	DOVECOT_WANT_UBSAN
 ])
 
