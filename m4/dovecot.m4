@@ -28,6 +28,23 @@ AC_DEFUN([AC_CC_D_FORTIFY_SOURCE],[
     ])
 ])
 
+AC_DEFUN([DC_FCF_PROTECTION], [
+  AC_ARG_WITH([fcf-protection],
+    [AS_HELP_STRING([--with-fcf-protection=<choice>], [Set Control-flow protection level (default: none)])],
+    [fcf_protection=$withval],
+    [fcf_protection=none])
+  AS_IF([test "x$fcf_protection" != "xnone"], [
+    case "$host" in
+      *)
+        gl_COMPILER_OPTION_IF([-fcf-protection=$fcf_protection],
+          [AM_CFLAGS="$AM_CFLAGS -fcf-protection=$fcf_protection"],
+          [AC_MSG_ERROR([-fcf-protection=$fcf_protection not supported by compiler])],
+          [AC_LANG_PROGRAM()])
+      ;;
+    esac
+  ])
+])
+
 AC_DEFUN([DC_HARDEN_SLS], [
   AC_ARG_WITH([harden-sls],
     [AS_HELP_STRING([--with-harden-sls=<choice>], [Straight-Line Speculation (SLS) mitigations (default: none)])],
@@ -347,6 +364,7 @@ AC_DEFUN([DC_DOVECOT_HARDENING],[
 	AC_LD_RELRO
         DC_LTO
         DC_HARDEN_SLS
+        DC_FCF_PROTECTION
 	DOVECOT_WANT_UBSAN
 ])
 
