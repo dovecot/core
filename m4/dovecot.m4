@@ -28,6 +28,25 @@ AC_DEFUN([AC_CC_D_FORTIFY_SOURCE],[
     ])
 ])
 
+AC_DEFUN([DC_LTO], [
+  AC_ARG_ENABLE([lto],
+    [AS_HELP_STRING([--enable-lto], [Enable Link Time Optimization (LTO)])],
+    [enable_lto=yes],
+    [enable_lto=no])
+  AS_IF([test "x$enable_lto" = xyes], [
+    case "$host" in
+      *)
+        gl_COMPILER_OPTION_IF([-flto=auto -ffat-lto-objects], [
+          AM_CFLAGS="$AM_CFLAGS -flto=auto -ffat-lto-objects"
+          AM_LDFLAGS="-flto"
+        ],
+        [AC_MSG_ERROR([LTO support requested but not present])],
+        [AC_LANG_PROGRAM()])
+      ;;
+    esac
+  ])
+])
+
 dnl * gcc specific options
 AC_DEFUN([DC_DOVECOT_CFLAGS],[
   m4_version_prereq(2.70, [AC_PROG_CC], [AC_PROG_CC_C99])
@@ -309,6 +328,7 @@ AC_DEFUN([DC_DOVECOT_HARDENING],[
 	AC_CC_D_FORTIFY_SOURCE
 	AC_CC_RETPOLINE
 	AC_LD_RELRO
+        DC_LTO
 	DOVECOT_WANT_UBSAN
 ])
 
@@ -345,7 +365,7 @@ AC_DEFUN([DC_DOVECOT_FUZZER],[
 ])
 
 AC_DEFUN([DC_DOVECOT],[
-	AC_ARG_WITH(dovecot,
+        AC_ARG_WITH(dovecot,
 	  [  --with-dovecot=DIR      Dovecot base directory],
 			[ dovecotdir="$withval" ], [
 			  dc_prefix=$prefix
