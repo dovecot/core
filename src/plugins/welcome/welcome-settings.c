@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "settings-parser.h"
 #include "welcome-settings.h"
+#include "service-settings.h"
 
 #undef DEF
 #define DEF(type, name) \
@@ -27,4 +28,21 @@ const struct setting_parser_info welcome_setting_parser_info = {
 	.defaults = &welcome_default_settings,
 	.struct_size = sizeof(struct welcome_settings),
 	.pool_offset1 = 1 + offsetof(struct welcome_settings, pool),
+};
+
+struct service_settings welcome_service_settings = {
+	.name = "welcome",
+	.protocol = "",
+	.type = "",
+	.user = "$SET:default_internal_user",
+	.group = "",
+	.privileged_group = "",
+	.extra_groups = ARRAY_INIT,
+	.chroot = "",
+
+	.drop_priv_before_exec = FALSE,
+
+	.unix_listeners = ARRAY_INIT,
+	.fifo_listeners = ARRAY_INIT,
+	.inet_listeners = ARRAY_INIT,
 };
