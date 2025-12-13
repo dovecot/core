@@ -10,6 +10,8 @@
 #include "var-expand-parser.h"
 #include "expansion.h"
 
+#define MAX_PROGRAM_SIZE 8192
+
 extern void var_expand_parser_lex_init_extra(void*, void*);
 
 static const struct var_expand_params empty_params = {
@@ -22,6 +24,13 @@ int var_expand_program_create(const char *str,
 	int ret;
 	struct var_expand_parser_state state;
 	i_zero(&state);
+
+	if (strlen(str) > MAX_PROGRAM_SIZE) {
+		*error_r = t_strdup_printf("Program size exceeds maximum of %d bytes",
+					   MAX_PROGRAM_SIZE);
+		return -1;
+	}
+
 	pool_t pool =
 		pool_alloconly_create(MEMPOOL_GROWING"var expand program", 1024);
 	state.p = state.plist = p_new(pool, struct var_expand_program, 1);
