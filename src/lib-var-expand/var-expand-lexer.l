@@ -22,6 +22,9 @@
 
 #pragma GCC diagnostic push
 
+/* If we hit here, the program has prematurely ended */
+#define ECHO STMT_START { scanner_error(yyscanner, "Premature program end"); } STMT_END;
+
 /* ignore strict bool warnings in generated code */
 #ifdef HAVE_STRICT_BOOL
 #  pragma GCC diagnostic ignored "-Wstrict-bool"

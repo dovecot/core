@@ -104,6 +104,7 @@ static void test_var_expand_builtin_filters(void) {
 			.out = "expecting CCBRACE or PIPE or NAME",
 			.ret = -1
 		},
+		{ .in = "%{\\", .out = "Premature program end", .ret = -1 },
 		{ .in = "hello%{}world", .out = "helloworld", .ret = 0 },
 		/* basic lookup */
 		{ .in = "%{first}", .out = "hello", .ret = 0 },
