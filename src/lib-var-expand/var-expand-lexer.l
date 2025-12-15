@@ -120,7 +120,7 @@ static bool append_valid_utf8(void *yyscanner, YYSTYPE *state, const char *value
   ["]       { yy_push_state(stringdq, yyscanner); INIT_STR; }
   [0-9]+    { INIT_STR; str_append(yylval->str, yytext); return NUMBER; }
 }
-y
+
 "%{"	  { yy_push_state(expr, yyscanner); return OCBRACE; }
 "%%{"     { INIT_STR; str_append(yylval->str, "%{"); return VALUE; }
 "%"	  { return PERC; }
