@@ -132,7 +132,8 @@ extern void var_expand_parser_error(YYLTYPE *loc, YYSTYPE *state, const char *er
 void var_expand_parser_error(YYLTYPE *loc ATTR_UNUSED, YYSTYPE *state, const char *error)
 {
 	state->failed = TRUE;
-	state->error = p_strdup(state->pool, error);
+	if (state->error == NULL)
+		state->error = p_strdup(state->pool, error);
 }
 
 static int scanner_error(void *scanner, const char *msg)
