@@ -189,7 +189,10 @@ acl_default_object_list_init(struct acl_object *aclobj)
 	if (aclobj->backend->v->object_refresh_cache(aclobj) < 0)
 		iter->failed = TRUE;
 
-	aclobj_rights = array_get(&aclobj->rights, &iter->count);
+	iter->count = 0;
+	if (array_not_empty(&aclobj->rights))
+		aclobj_rights = array_get(&aclobj->rights, &iter->count);
+
 	if (iter->count > 0) {
 		iter->rights = p_new(pool, struct acl_rights, iter->count);
 		for (i = 0; i < iter->count; i++)

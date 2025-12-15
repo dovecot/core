@@ -49,36 +49,50 @@ static void acl_backend_vfile_deinit(struct acl_backend *_backend)
 	pool_unref(&backend->backend.pool);
 }
 
-static const char *
+static int
 acl_backend_vfile_get_local_dir(struct acl_backend *backend,
-				const char *name, const char *vname)
+				const char *name, const char *vname,
+				const char **dir_r)
 {
 	struct mail_namespace *ns = mailbox_list_get_namespace(backend->list);
 	struct mailbox_list *list = ns->list;
 	struct mail_storage *storage;
 	enum mailbox_list_path_type type;
-	const char *dir, *inbox;
+	const char *inbox;
 
 	if (*name == '\0')
 		name = NULL;
 
-	if (backend->set->acl_globals_only)
-		return NULL;
+	if (backend->set->acl_globals_only) {
+		*dir_r = NULL;
+		return 0;
+	}
 
 	/* ACL files are very important. try to keep them among the main
 	   mail files. that's not possible though with a) if the mailbox is
 	   a file or b) if the mailbox path doesn't point to filesystem. */
-	if (mailbox_list_get_storage(&list, &vname, 0, &storage) < 0)
-		return NULL;
+	if (mailbox_list_get_storage(&list, &vname, 0, &storage) < 0) {
+		*dir_r = NULL;
+		return -1;
+	}
+
 	i_assert(list == ns->list);
 
 	type = mail_storage_get_acl_list_path_type(storage);
 	if (name == NULL) {
-		if (!mailbox_list_get_root_path(list, type, &dir))
-			return NULL;
+		if (!mailbox_list_get_root_path(list, type, dir_r)) {
+			*dir_r = NULL;
+			return 0;
+		}
 	} else {
-		if (mailbox_list_get_path(list, name, type, &dir) <= 0)
-			return NULL;
+		int ret = mailbox_list_get_path(list, name, type, dir_r);
+		if (ret <= 0) {
+			if (ret < 0 &&
+			    mailbox_list_get_last_mail_error(list) == MAIL_ERROR_NOTFOUND)
+				ret = 0;
+			*dir_r = NULL;
+			return ret;
+		}
 	}
 
 	/* verify that the directory isn't same as INBOX's directory.
@@ -86,11 +100,12 @@ acl_backend_vfile_get_local_dir(struct acl_backend *backend,
 	if (name == NULL &&
 	    mailbox_list_get_path(list, "INBOX",
 				  MAILBOX_LIST_PATH_TYPE_MAILBOX, &inbox) > 0 &&
-	    strcmp(inbox, dir) == 0) {
+	    strcmp(inbox, *dir_r) == 0) {
 		/* can't have default ACLs with this setup */
-		return NULL;
+		*dir_r = NULL;
+		return 0;
 	}
-	return dir;
+	return 0;
 }
 
 static struct acl_object *
@@ -110,9 +125,12 @@ acl_backend_vfile_object_init(struct acl_backend *_backend,
 			vname = *name == '\0' ? "" :
 				mailbox_list_get_vname(_backend->list, name);
 
-			dir = acl_backend_vfile_get_local_dir(_backend, name, vname);
+			int ret = acl_backend_vfile_get_local_dir(_backend, name,
+								  vname, &dir);
 			aclobj->local_path = dir == NULL ? NULL :
 				i_strconcat(dir, "/"ACL_FILENAME, NULL);
+			if (ret < 0)
+				aclobj->failed = TRUE;
 		} else {
 			/* Invalid mailbox name, just use the default
 			   global ACL files */
@@ -413,6 +431,9 @@ static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 	struct acl_backend_vfile_validity validity;
 	time_t mtime;
 	int ret;
+
+	if (aclobj->failed)
+		return -1;
 
 	old_validity = acl_cache_get_validity(_aclobj->backend->cache,
 					      _aclobj->name);
