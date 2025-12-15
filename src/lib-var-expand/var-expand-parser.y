@@ -241,8 +241,10 @@ static void push_function(VAR_EXPAND_PARSER_STYPE *state, const char *func)
 
 static void push_new_program(VAR_EXPAND_PARSER_STYPE *pstate)
 {
-	pstate->pp = pstate->p;
-	pstate->p = NULL;
+	if (pstate->p != NULL) {
+		pstate->pp = pstate->p;
+		pstate->p = NULL;
+	}
 }
 
 /* Special optimization: If the previous program was also a literal, reuse it

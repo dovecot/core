@@ -648,6 +648,7 @@ static void test_var_expand_escape(void)
 		{ .in = "no variables", .out = "no variables", .ret = 0 },
 		{ .in = "%{literal('hello')}", .out = "'hello'", .ret = 0 },
 		{ .in = "hello\\tworld", .out = "hello\\tworld", .ret = 0 },
+		{ .in = "%%%%%%%%%%%%%%%%%%", .out = "%%%%%%%%%%%%%%%%%%", .ret = 0 },
 		{ .in = "%{literal('hello\r\n\tworld')}", .out = "'hello\r\n\tworld'", .ret = 0 },
 		/* Hello */
 		{ .in = "\\110\\145\\154\\154\\157", .out = "\\110\\145\\154\\154\\157", .ret = 0},
