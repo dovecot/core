@@ -119,7 +119,8 @@ i_stream_dot_return(struct istream_private *stream, size_t dest, ssize_t ret)
 static ssize_t i_stream_dot_read(struct istream_private *stream)
 {
 	/* @UNSAFE */
-	struct dot_istream *dstream = (struct dot_istream *)stream;
+	struct dot_istream *dstream =
+		container_of(stream, struct dot_istream, istream);
 	const unsigned char *data;
 	size_t i, dest, size, avail;
 	ssize_t ret, ret1;
