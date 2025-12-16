@@ -22,7 +22,8 @@ struct dot_ostream {
 
 static int o_stream_dot_finish(struct ostream_private *stream)
 {
-	struct dot_ostream *dstream = (struct dot_ostream *)stream;
+	struct dot_ostream *dstream =
+		container_of(stream, struct dot_ostream, ostream);
 	int ret;
 
 	if (dstream->state == STREAM_STATE_DONE)
@@ -65,7 +66,10 @@ o_stream_dot_flush(struct ostream_private *stream)
 static void
 o_stream_dot_close(struct iostream_private *stream, bool close_parent)
 {
-	struct dot_ostream *dstream = (struct dot_ostream *)stream;
+	struct ostream_private *ostream =
+		container_of(stream, struct ostream_private, iostream);
+	struct dot_ostream *dstream =
+		container_of(ostream, struct dot_ostream, ostream);
 
 	if (close_parent)
 		o_stream_close(dstream->ostream.parent);
@@ -75,7 +79,8 @@ static ssize_t
 o_stream_dot_sendv(struct ostream_private *stream,
 		    const struct const_iovec *iov, unsigned int iov_count)
 {
-	struct dot_ostream *dstream = (struct dot_ostream *)stream;
+	struct dot_ostream *dstream =
+		container_of(stream, struct dot_ostream, ostream);
 	ARRAY(struct const_iovec) iov_arr;
 	const struct const_iovec *iov_new;
 	size_t max_bytes, sent, added;
