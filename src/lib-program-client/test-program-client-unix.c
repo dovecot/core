@@ -303,7 +303,7 @@ static void test_program_success(void)
 	io_loop_run(current_ioloop);
 
 	test_assert(ret == 1);
-	test_assert(strcmp(str_c(output), "hello world\n") == 0);
+	test_assert_strcmp(str_c(output), "hello world\n");
 
 	program_client_destroy(&pc);
 
@@ -333,7 +333,7 @@ static void test_program_io_common(const char *const *args)
 	io_loop_run(current_ioloop);
 
 	test_assert(ret == 1);
-	test_assert(strcmp(str_c(output), pclient_test_io_string) == 0);
+	test_assert_strcmp(str_c(output), pclient_test_io_string);
 	if (o_stream_finish(os) < 0)
 		i_error("o_stream_finish() failed: %s", o_stream_get_error(os));
 

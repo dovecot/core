@@ -47,7 +47,7 @@ static void test_program_success(void)
 	program_client_set_output(pc, os);
 
 	test_assert(program_client_run(pc) == 1);
-	test_assert(strcmp(str_c(output), "hello world\n") == 0);
+	test_assert_strcmp(str_c(output), "hello world\n");
 
 	program_client_destroy(&pc);
 
@@ -78,7 +78,7 @@ static void test_program_io_sync(void)
 	program_client_set_output(pc, os);
 
 	test_assert(program_client_run(pc) == 1);
-	test_assert(strcmp(str_c(output), pclient_test_io_string) == 0);
+	test_assert_strcmp(str_c(output), pclient_test_io_string);
 
 	program_client_destroy(&pc);
 
@@ -126,7 +126,7 @@ static void test_program_io_async(void)
 	if (ret == -2)
 		io_loop_run(ioloop);
 
-	test_assert(strcmp(str_c(output), pclient_test_io_string) == 0);
+	test_assert_strcmp(str_c(output), pclient_test_io_string);
 
 	program_client_destroy(&pc);
 
@@ -158,7 +158,7 @@ static void test_program_failure(void)
 	program_client_set_output(pc, os);
 
 	test_assert(program_client_run(pc) == 0);
-	test_assert(strcmp(str_c(output), "") == 0);
+	test_assert_strcmp(str_c(output), "");
 
 	program_client_destroy(&pc);
 

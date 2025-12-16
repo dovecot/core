@@ -351,7 +351,7 @@ static void test_program_success(void)
 		test_program_io_loop_run();
 
 	test_assert(ret == 1);
-	test_assert(strcmp(str_c(output), "hello world") == 0);
+	test_assert_strcmp(str_c(output), "hello world");
 
 	program_client_destroy(&pc);
 
@@ -385,7 +385,7 @@ static void test_program_io_common(const char *const *args)
 		test_program_io_loop_run();
 
 	test_assert(ret == 1);
-	test_assert(strcmp(str_c(output), pclient_test_io_string) == 0);
+	test_assert_strcmp(str_c(output), pclient_test_io_string);
 
 	program_client_destroy(&pc);
 
