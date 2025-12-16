@@ -120,7 +120,7 @@ void test_assert_failed_memcmp_idx(const char *code, const char *file, unsigned 
 	print_memcmp_data(src, len);
 	printf("\" != \"");
 	print_memcmp_data(dst, len);
-	printf("\" (len == %zu)", len);
+	printf("\" (len == %zu)\n", len);
 	fflush(stdout);
 	test_success = FALSE;
 #ifdef STATIC_CHECKER
