@@ -52,9 +52,15 @@ static const struct ldap_settings ldap_default_settings = {
 };
 
 static const struct setting_keyvalue ldap_default_settings_keyvalue[] = {
-	{ "passdb_ldap/passdb_default_password_scheme", "crypt" },
 	{ "passdb_ldap/passdb_fields_import_all", "no" },
 	{ "userdb_ldap/userdb_fields_import_all", "no" },
+
+	/* This now now the same as the default passdb_default_password_scheme,
+	   but it needs to be here explicitly as long as settings-history-core.txt
+	   supports dovecot_config_version with
+	   passdb_default_password_scheme=PLAIN default */
+	{ "passdb_ldap/passdb_default_password_scheme", "CRYPT" },
+
 	{ NULL, NULL }
 };
 

@@ -28,8 +28,14 @@ static const struct setting_define auth_passwd_setting_defines[] = {
 
 static const struct setting_keyvalue auth_passwd_default_settings_keyvalue[] = {
 	{ "passdb_passwd/passdb_use_worker", "yes" },
-	{ "passdb_passwd/passdb_default_password_scheme", "crypt" },
 	{ "userdb_passwd/userdb_use_worker", "yes" },
+
+	/* This now now the same as the default passdb_default_password_scheme,
+	   but it needs to be here explicitly as long as settings-history-core.txt
+	   supports dovecot_config_version with
+	   passdb_default_password_scheme=PLAIN default */
+	{ "passdb_passwd/passdb_default_password_scheme", "CRYPT" },
+
 	{ NULL, NULL }
 };
 
