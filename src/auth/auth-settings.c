@@ -268,11 +268,17 @@ static const struct auth_static_settings auth_static_default_settings = {
 	.userdb_static_allow_all_users = FALSE,
 };
 
+static const struct setting_keyvalue auth_static_default_settings_keyvalue[] = {
+       { "passdb_static/passdb_default_password_scheme", "PLAIN" },
+       { NULL, NULL }
+};
+
 const struct setting_parser_info auth_static_setting_parser_info = {
 	.name = "auth_static",
 
 	.defines = auth_static_setting_defines,
 	.defaults = &auth_static_default_settings,
+	.default_settings = auth_static_default_settings_keyvalue,
 
 	.struct_size = sizeof(struct auth_static_settings),
 	.pool_offset1 = 1 + offsetof(struct auth_static_settings, pool),
