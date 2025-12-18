@@ -66,7 +66,7 @@ imap_storage_callback_line(const struct mail_storage_progress_details *dtl,
 
 	/* The "]" character is totally legit in command tags, but it is
 	   problematic inside IMAP resp-text-code(s), which are terminated
-	   with "]". If the caracter appears inside the tag, we avoid
+	   with "]". If the character appears inside the tag, we avoid
 	   emitting the tag and replace it with NIL. */
 	bool has_tag = tag != NULL && *tag != '\0' && strchr(tag, ']') == NULL;
 
