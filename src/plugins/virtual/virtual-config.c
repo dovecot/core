@@ -343,17 +343,22 @@ static int virtual_config_box_metadata_match(struct mailbox *box,
 {
 	struct imap_metadata_transaction *imtrans;
 	struct mail_attribute_value value;
+	enum mail_error mail_error = MAIL_ERROR_NONE;
 	int ret;
 
 	imtrans = imap_metadata_transaction_begin(box);
 	ret = imap_metadata_get(imtrans, bbox->metadata_entry, &value);
 	if (ret < 0)
-		*error_r = t_strdup(imap_metadata_transaction_get_last_error(imtrans, NULL));
+		*error_r = t_strdup(imap_metadata_transaction_get_last_error(imtrans, &mail_error));
 	if (ret > 0)
 		ret = wildcard_match(value.value, bbox->metadata_value) ? 1 : 0;
 	if (ret >= 0 && bbox->negative_match)
 		ret = ret > 0 ? 0 : 1;
 	(void)imap_metadata_transaction_commit(&imtrans, NULL, NULL);
+	if (ret < 0 && mail_error == MAIL_ERROR_NOTFOUND) {
+		/* Ignore nonexistent / \NoSelect mailboxes */
+		ret = 0;
+	}
 	return ret;
 }
 
