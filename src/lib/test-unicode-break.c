@@ -76,8 +76,10 @@ test_ucd_file(const char *file,
 		line_num++;
 
 		/* remove any trailing whitespace and comment */
+		if (*line == '\0')
+			continue;
 		char *end = strchr(line, '#');
-		if (end == NULL && *line != '\0')
+		if (end == NULL)
 			end = &line[strlen(line) - 1];
 		while ((end - 1) >= line && (end[-1] == '\t' || end[-1] == ' '))
 			end--;
