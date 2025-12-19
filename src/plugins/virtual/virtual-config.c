@@ -417,7 +417,8 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx,
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		/* skip non-selectable mailboxes (especially mbox
 		   directories) */
-		if ((info->flags & MAILBOX_NOSELECT) != 0)
+		if ((info->flags & (MAILBOX_NOSELECT |
+				    MAILBOX_NONEXISTENT)) != 0)
 			continue;
 		if (strcmp(info->vname, ctx->mbox->box.vname) == 0) {
 			/* don't allow virtual folder to point to itself */
