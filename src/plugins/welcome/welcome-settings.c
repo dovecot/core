@@ -46,3 +46,13 @@ struct service_settings welcome_service_settings = {
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT,
 };
+
+const struct setting_keyvalue welcome_service_settings_defaults[] = {
+#ifdef DOVECOT_PRO_EDITION
+	{ "unix_listener", "welcome" },
+	{ "unix_listener/welcome/user", "vmail" },
+	{ "unix_listener/welcome/mode", "0600" },
+	{ "unix_listener/welcome/path", "welcome" },
+#endif
+	{ NULL, NULL }
+};
