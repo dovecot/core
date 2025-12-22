@@ -158,19 +158,21 @@ static void test_dregex_match(void)
 			"{1}[a-z0-9]+[.]{1}(([a-z]{2,3})|([a-z]{2,3}[.]"
 			"{1}[a-z]{2,3}))$",
 			"thisisabstractly.andtotally.long.email@"
-			REP10("a") "." REP10("a") "." REP10("a")
+			REP10(REP10("a") "." REP10("a") "." REP10("a") "." REP10("a"))
 			".has",
-			"match limit exceeded",
+			"matching depth limit exceeded",
 			0,
 			-1
 		),
 		MATCH_CASE_FULL(
 			"(a|a?)+",
-			REP10("a") REP10("a"),
-			"match limit exceeded",
+			REP10(REP10("a") REP10("a") REP10("a")),
+			"matching depth limit exceeded",
 			0,
 			-1
 		),
+		/* Live test cases */
+		MATCH_CASE("\\[.*PATCH.*\\]", "Subject: Re: [PATCH v2 3/6] arm64: dts: qcom: qcm6490-shift-otter: Ad"),
 		/* IEEE.1003-2.1992 */
 		MATCH_CASE("me(\\+.*)?@company\\.com",
 			"me+hello@company.com"),
