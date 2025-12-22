@@ -336,12 +336,9 @@ int dregex_code_match_groups(struct dregex_code *code, const char *subject,
 
 	T_BEGIN {
 		pcre2_match_data *mdata =
-			pcre2_match_data_create_from_pattern(code->pat, code->gctx);
+			pcre2_match_data_create(code->max_capture_groups, code->gctx);
 		ret = dregex_code_match_int(code, subject, mdata, error_r);
-		/* Avoid extracting way too many capture groups */
-		if (ret > (int)code->max_capture_groups + 1)
-			ret = handle_error(PCRE2_ERROR_TOO_MANY_CAPTURES, error_r);
-		else if (ret > 1) {
+		if (ret > 1) {
 			bool skip_empty = HAS_ALL_BITS(code->flags, DREGEX_NO_EMPTY_SUB);
 			/* ret is number of groups */
 			extract_matches((uint32_t)ret, mdata, skip_empty, groups_r);
