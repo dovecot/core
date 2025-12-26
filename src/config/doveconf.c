@@ -5,8 +5,6 @@
 #include "path-util.h"
 #include "module-dir.h"
 #include "env-util.h"
-#include "guid.h"
-#include "hash.h"
 #include "hostpid.h"
 #include "ostream.h"
 #include "str.h"
@@ -948,110 +946,6 @@ config_dump_human(enum config_dump_scope scope,
 	return ret;
 }
 
-struct hostname_format {
-	const char *prefix, *suffix;
-	unsigned int numcount;
-	bool zeropadding;
-};
-
-static void
-hostname_format_write(string_t *str, const struct hostname_format *fmt,
-		      unsigned int num)
-{
-	str_truncate(str, 0);
-	str_append(str, fmt->prefix);
-	if (!fmt->zeropadding)
-		str_printfa(str, "%d", num);
-	else
-		str_printfa(str, "%0*d", fmt->numcount, num);
-	str_append(str, fmt->suffix);
-}
-
-static void hostname_verify_format(const char *arg)
-{
-	struct hostname_format fmt;
-	const char *p;
-	unsigned char hash[GUID_128_HOST_HASH_SIZE];
-	unsigned int n, limit;
-	HASH_TABLE(void *, void *) hosts;
-	void *key, *value;
-	string_t *host;
-	const char *host2;
-	bool duplicates = FALSE;
-
-	i_zero(&fmt);
-	if (arg != NULL) {
-		/* host%d, host%2d, host%02d */
-		p = strchr(arg, '%');
-		if (p == NULL)
-			i_fatal("Host parameter missing %%d");
-		fmt.prefix = t_strdup_until(arg, p++);
-		if (*p == '0') {
-			fmt.zeropadding = TRUE;
-			p++;
-		}
-		if (!i_isdigit(*p))
-			fmt.numcount = 1;
-		else
-			fmt.numcount = *p++ - '0';
-		if (*p++ != 'd')
-			i_fatal("Host parameter missing %%d");
-		fmt.suffix = p;
-	} else {
-		/* detect host1[suffix] vs host01[suffix] */
-		size_t len = strlen(my_hostname);
-		while (len > 0 && !i_isdigit(my_hostname[len-1]))
-			len--;
-		fmt.suffix = my_hostname + len;
-		fmt.numcount = 0;
-		while (len > 0 && i_isdigit(my_hostname[len-1])) {
-			len--;
-			fmt.numcount++;
-		}
-		if (my_hostname[len] == '0')
-			fmt.zeropadding = TRUE;
-		fmt.prefix = t_strndup(my_hostname, len);
-		if (fmt.numcount == 0) {
-			i_fatal("Hostname '%s' has no digits, can't verify",
-				my_hostname);
-		}
-	}
-	for (n = 0, limit = 1; n < fmt.numcount; n++)
-		limit *= 10;
-	host = t_str_new(128);
-	hash_table_create_direct(&hosts, default_pool, limit);
-	for (n = 0; n < limit; n++) {
-		hostname_format_write(host, &fmt, n);
-
-		guid_128_host_hash_get(str_c(host), hash);
-		i_assert(sizeof(key) >= sizeof(hash));
-		key = NULL; memcpy(&key, hash, sizeof(hash));
-
-		value = hash_table_lookup(hosts, key);
-		if (value != NULL) {
-			host2 = t_strdup(str_c(host));
-			hostname_format_write(host, &fmt,
-				POINTER_CAST_TO(value, unsigned int)-1);
-			i_error("Duplicate host hashes: %s and %s",
-				str_c(host), host2);
-			duplicates = TRUE;
-		} else {
-			hash_table_insert(hosts, key, POINTER_CAST(n+1));
-		}
-	}
-	hash_table_destroy(&hosts);
-
-	if (duplicates)
-		lib_exit(EX_CONFIG);
-	else {
-		host2 = t_strdup(str_c(host));
-		hostname_format_write(host, &fmt, 0);
-		printf("No duplicate host hashes in %s .. %s\n",
-		       str_c(host), host2);
-		lib_exit(0);
-	}
-}
-
 static void check_wrong_config(const char *config_path)
 {
 	const char *base_dir, *symlink_path, *prev_path, *error;
@@ -1094,7 +988,7 @@ int main(int argc, char *argv[])
 	struct config_filter dump_filter = { .parent = &dump_filter_parent };
 	bool config_path_specified, hide_key = FALSE, have_dump_filter = FALSE;
 	bool simple_output = FALSE, check_full_config = FALSE;
-	bool dump_defaults = FALSE, host_verify = FALSE, dump_full = FALSE;
+	bool dump_defaults = FALSE, dump_full = FALSE;
 	bool print_banners = FALSE, hide_passwords = TRUE;
 	enum config_parse_flags flags = CONFIG_PARSE_FLAG_RETURN_BROKEN_CONFIG;
 	bool dump_config_import = FALSE;
@@ -1144,9 +1038,6 @@ int main(int argc, char *argv[])
 		case 'h':
 			hide_key = TRUE;
 			break;
-		case 'H':
-			host_verify = TRUE;
-			break;
 		case 'I':
 			dump_config_import = TRUE;
 			break;
@@ -1180,9 +1071,6 @@ int main(int argc, char *argv[])
 	/* use strcmp() instead of !=, because dovecot -n always gives us
 	   -c parameter */
 	config_path_specified = strcmp(config_path, orig_config_path) != 0;
-
-	if (host_verify)
-		hostname_verify_format(argv[optind]);
 
 	if (scope == CONFIG_DUMP_SCOPE_DEFAULT) {
 		if (argv[optind] == NULL) {
