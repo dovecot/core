@@ -178,7 +178,7 @@ imap_urlauth_check_access(struct imap_urlauth_context *uctx,
 				*client_error_r = "URLAUTH `user' access is missing userid";
 				return FALSE;
 			}
-			if (!uctx->access_anonymous ||
+			if (!uctx->access_anonymous &&
 			    strcasecmp(url->uauth_access_user,
 				       uctx->access_user) == 0)
 				return TRUE;
