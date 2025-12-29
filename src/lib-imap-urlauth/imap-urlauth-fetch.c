@@ -282,8 +282,7 @@ static int
 imap_urlauth_fetch_request_callback(struct imap_urlauth_fetch_reply *reply,
 				    void *context)
 {
-	struct imap_urlauth_fetch *ufetch =
-		(struct imap_urlauth_fetch *)context;
+	struct imap_urlauth_fetch *ufetch = context;
 	struct imap_urlauth_fetch_reply error_reply;
 	int ret = 1;
 
