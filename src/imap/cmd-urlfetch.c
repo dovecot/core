@@ -33,8 +33,7 @@ struct cmd_urlfetch_url {
 
 static void cmd_urlfetch_finish(struct client_command_context *cmd)
 {
-	struct cmd_urlfetch_context *ctx =
-		(struct cmd_urlfetch_context *)cmd->context;
+	struct cmd_urlfetch_context *ctx = cmd->context;
 
 	if (ctx->finished)
 		return;
@@ -61,8 +60,7 @@ static void cmd_urlfetch_finish(struct client_command_context *cmd)
 
 static bool cmd_urlfetch_cancel(struct client_command_context *cmd)
 {
-	struct cmd_urlfetch_context *ctx =
-		(struct cmd_urlfetch_context *)cmd->context;
+	struct cmd_urlfetch_context *ctx = cmd->context;
 
 	if (!cmd->cancel)
 		return FALSE;
@@ -79,8 +77,7 @@ static bool cmd_urlfetch_cancel(struct client_command_context *cmd)
 static int cmd_urlfetch_transfer_literal(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
-	struct cmd_urlfetch_context *ctx =
-		(struct cmd_urlfetch_context *)cmd->context;
+	struct cmd_urlfetch_context *ctx = cmd->context;
 	enum ostream_send_istream_result res;
 	int ret;
 
@@ -124,8 +121,7 @@ static int cmd_urlfetch_transfer_literal(struct client_command_context *cmd)
 static bool cmd_urlfetch_continue(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
-	struct cmd_urlfetch_context *ctx =
-		(struct cmd_urlfetch_context *)cmd->context;
+	struct cmd_urlfetch_context *ctx = cmd->context;
 	bool urls_pending;
 	int ret = 1;
 
