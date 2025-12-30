@@ -1,6 +1,7 @@
 /* Copyright (c) 2024 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "var-expand-private.h"
 #include "expansion.h"
 #include "dregex.h"
@@ -247,6 +248,150 @@ int expansion_filter_if(const struct var_expand_statement *stmt,
 	}
 
 	var_expand_state_set_transfer(state, value);
+
+	return 0;
+}
+
+struct switch_cond {
+	const struct var_expand_parameter *cond;
+	const struct var_expand_parameter *value;
+};
+
+/* Accepts switch('lhs', 'op', 'cond', 'value, 'cond, 'value' ..., 'default')
+ *
+ * default is optional. lhs can be input. */
+int expansion_filter_switch(const struct var_expand_statement *stmt,
+			    struct var_expand_state *state,
+			    const char **error_r)
+{
+	ARRAY(struct switch_cond) conds;
+	const char *_op;
+	bool use_first_as_lhs = !state->transfer_set;
+
+	const struct var_expand_parameter *p_lhs = NULL;
+	const struct var_expand_parameter *p_cond = NULL;
+
+	enum {
+		STATE_LHS = 0,
+		STATE_OP,
+		STATE_COND,
+		STATE_VALUE,
+		STATE_DONE,
+	} parse_state;
+
+	if (use_first_as_lhs)
+		parse_state = STATE_LHS;
+	else
+		parse_state = STATE_OP;
+
+	t_array_init(&conds, 8);
+
+	struct var_expand_parameter_iter_context *ctx =
+		var_expand_parameter_iter_init(stmt);
+	while (var_expand_parameter_iter_more(ctx)) {
+		const struct var_expand_parameter *par =
+			var_expand_parameter_iter_next(ctx);
+		const char *key = var_expand_parameter_key(par);
+		struct switch_cond *cond;
+		if (key != NULL)
+			ERROR_UNSUPPORTED_KEY(key);
+		switch (parse_state) {
+		case STATE_LHS:
+			p_lhs = par;
+			parse_state = STATE_OP;
+			break;
+		case STATE_OP:
+			if (var_expand_parameter_string_or_var(state, par, &_op, error_r) < 0) {
+				*error_r = t_strdup_printf("Comparator: %s", *error_r);
+				return -1;
+			}
+			parse_state = STATE_COND;
+			break;
+		case STATE_COND:
+			p_cond = par;
+			parse_state = STATE_VALUE;
+			break;
+		case STATE_VALUE:
+			cond = array_append_space(&conds);
+			cond->cond = p_cond;
+			cond->value = par;
+			p_cond = NULL;
+			parse_state = STATE_COND;
+			break;
+		case STATE_DONE:
+			ERROR_TOO_MANY_UNNAMED_PARAMETERS;
+		}
+	}
+
+	if (parse_state > STATE_OP && array_is_empty(&conds)) {
+		*error_r = "At least one condition-value pair is required";
+		return -1;
+	} else if (parse_state == STATE_VALUE && p_cond != NULL) {
+		struct switch_cond *cond = array_append_space(&conds);
+		cond->value = p_cond;
+	} else if (parse_state == STATE_COND) {
+		/* no default, use empty */
+		array_append_zero(&conds);
+	} else if (parse_state != STATE_DONE) {
+		*error_r = "Missing parameters";
+		return -1;
+	}
+
+	enum var_expand_if_op op = var_expand_if_str_to_comp(_op);
+
+	if (op == OP_UNKNOWN) {
+		*error_r = t_strdup_printf("Unsupported comparator '%s'", _op);
+		return -1;
+	}
+
+	if (!use_first_as_lhs) {
+		if (var_expand_parameter_from_state(state, op < OP_STR_EQ,
+						    &p_lhs) < 0) {
+			if (op < OP_STR_EQ)
+				*error_r = "Input is not a number";
+			else
+				*error_r = "No value to use as left-hand in switch";
+			return -1;
+		}
+	}
+
+	i_assert(p_lhs != NULL);
+
+	/* then start matching */
+	struct switch_cond *cond;
+	const struct var_expand_parameter *res = NULL;
+	unsigned int cond_num = 0;
+	/* There has to be at least one cond */
+	array_foreach_modifiable(&conds, cond) {
+		bool match;
+		if (cond->cond == NULL) {
+			res = cond->value;
+			break;
+		}
+		int ret = fn_if_cmp(state, p_lhs, op, cond->cond, &match, error_r);
+		if (ret < 0)
+			return -1;
+		if (match) {
+			res = cond->value;
+			break;
+		}
+		cond_num++;
+	}
+
+	const char *value;
+
+	if (res == NULL) {
+		/* Since there was no default, leave it unset */
+		*error_r = "No default value provided";
+		var_expand_state_unset_transfer(state);
+		return -1;
+	} else if (var_expand_parameter_any_or_var(state, res, &value, error_r) < 0) {
+		*error_r = t_strdup_printf("in condition #%u: %s",
+					   cond_num, *error_r);
+		return -1;
+	} else {
+		var_expand_state_set_transfer(state, value);
+	}
 
 	return 0;
 }
