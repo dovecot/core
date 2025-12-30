@@ -380,8 +380,6 @@ static void test_var_expand_if(void)
 		{ .in = "%{one | if('eq', one, one, two)}", .out = "1", .ret = 0 },
 		{ .in = "%{one | if('gt', two, one, two)}", .out = "2", .ret = 0 },
 		{ .in = "%{evil1 | if('eq', ';\\', \\':', evil2, 'no')}", .out = ";test;", .ret = 0 },
-		/* FIXME: add inner if support? */
-/*		{ "%{if;%{if;%{one};eq;1;1;0};eq;%{if;%{two};eq;2;2;3};yes;no}", "no", 1 }, */
 		/* Errors */
 		{ .in = "%{if('gt', two, one, two)}", .out = "if: Missing parameters", .ret = -1 },
 		{ .in = "%{if(1, '', 1, 'yes', 'no')}", .out = "if: Unsupported comparator ''", .ret = -1 },
