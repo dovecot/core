@@ -746,7 +746,8 @@ static void fuzz_sasl_run(struct istream *input)
 FUZZ_BEGIN_DATA(const unsigned char *data, size_t size)
 {
 	fuzz_event = event_create(NULL);
-	event_set_forced_debug(fuzz_event, TRUE);
+	if (getenv("DEBUG") != NULL)
+		event_set_forced_debug(fuzz_event, TRUE);
 
 	password_schemes_init();
 	dsasl_clients_init();
