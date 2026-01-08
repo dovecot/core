@@ -21,6 +21,8 @@ kiss_init(unsigned int seed)
 	kiss_z = 1 ^ (kiss_w = kiss_jcong = seed); /* w=z=0 is bad, see Rose */
 	kiss_in_use = TRUE;
 }
+ATTR_NO_SANITIZE_UNDEFINED
+ATTR_NO_SANITIZE_INTEGER
 static unsigned int
 kiss_rand(void)
 {
@@ -124,7 +126,7 @@ void random_fill(void *buf, size_t size)
 #if defined(DEBUG) || defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
 	if (kiss_in_use) {
 		for (size_t pos = 0; pos < size; pos++)
-			((unsigned char*)buf)[pos] = kiss_rand();
+			((unsigned char*)buf)[pos] = (unsigned char)(kiss_rand() % 256);
 		return;
 	}
 #endif
