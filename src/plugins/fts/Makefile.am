@@ -65,9 +65,6 @@ xml2text_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
 xml2text_LDADD = $(LIBDOVECOT) $(BINARY_LDFLAGS)
 xml2text_DEPENDENCIES = $(module_LTLIBRARIES) $(LIBDOVECOT_DEPS)
 
-pkglibexec_SCRIPTS = decode2text.sh
-EXTRA_DIST = $(pkglibexec_SCRIPTS)
-
 doveadm_module_LTLIBRARIES = \
 	lib20_doveadm_fts_plugin.la
 
