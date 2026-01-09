@@ -570,14 +570,13 @@ static int trash_mailbox_priority_cmp(const struct trash_mailbox *t1,
 	return strcmp(t1->name, t2->name);
 }
 
-static int trash_try_mailbox(struct mail_namespace *ns, const char *box_name,
+static int trash_try_mailbox(struct mail_namespace *ns, struct event *mbox_event,
 			     const char **error_r)
 {
 	struct trash_user *tuser = TRASH_USER_CONTEXT_REQUIRE(ns->user);
 	const struct trash_settings *trash_set;
-	if (settings_try_get_filter(ns->list->event, "mailbox", box_name,
-				    &trash_setting_parser_info, 0,
-				    &trash_set, error_r) < 0)
+	if (settings_get(mbox_event, &trash_setting_parser_info, 0,
+			 &trash_set, error_r) < 0)
 		return -1;
 	unsigned int trash_priority = trash_set->trash_priority;
 	settings_free(trash_set);
@@ -586,9 +585,8 @@ static int trash_try_mailbox(struct mail_namespace *ns, const char *box_name,
 		return 0;
 
 	const struct mailbox_settings *box_set;
-	if (settings_try_get_filter(ns->list->event, "mailbox", box_name,
-				    &mailbox_setting_parser_info, 0,
-				    &box_set, error_r) < 0)
+	if (settings_get(mbox_event, &mailbox_setting_parser_info, 0,
+			 &box_set, error_r) < 0)
 		return -1;
 
 	const char *vname =
@@ -618,10 +616,14 @@ static int trash_find_mailboxes(struct mail_user *user)
 			continue;
 
 		array_foreach_elem(&ns->set->mailboxes, box_name) {
-			if (trash_try_mailbox(ns, box_name, &error) < 0) {
+			struct event *mbox_event =
+				mail_storage_mailbox_create_event(ns->list->event, ns->list, box_name);
+			if (trash_try_mailbox(ns, mbox_event, &error) < 0) {
 				user->error = p_strdup(user->pool, error);
+				event_unref(&mbox_event);
 				return -1;
 			}
+			event_unref(&mbox_event);
 		}
 	}
 
