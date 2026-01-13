@@ -213,6 +213,8 @@ static const struct setting_keyvalue mail_storage_default_settings_keyvalue[] = 
 	   useful. Even when using imapc with shared folders, the missing
 	   attachment flags would normally be added by the remote server. */
 	{ "imapc/mail_attachment_detection_options", "" },
+	/* The unprefixed default breaks store to new/ directory */
+	{ "maildir/mail_attachment_detection_options", "" },
 	{ NULL, NULL }
 };
 
