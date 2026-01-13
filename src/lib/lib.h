@@ -76,6 +76,7 @@ static inline void *i_memcpy(void *dest, const void *src, size_t n) {
 	return memcpy(dest, src, n);
 }
 #ifndef __cplusplus
+#  undef memcpy
 #  define memcpy(dest, src, n) i_memcpy(dest, src, n)
 #endif
 
