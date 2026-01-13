@@ -12,7 +12,7 @@ libdovecot_la_LIBADD = \
 	$(RELRO_LDFLAGS)
 
 libdovecot_la_DEPENDENCIES = $(LIBDOVECOT_LA_LIBS)
-libdovecot_la_LDFLAGS = -export-dynamic
+libdovecot_la_LDFLAGS = -export-dynamic -liconv
 
 if HAVE_GSSAPI
 libdovecot_gssapi_la_CPPFLAGS = $(AM_CPPFLAGS) $(KRB5_CFLAGS)
