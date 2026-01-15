@@ -47,7 +47,7 @@
    them. So this implementation does a best-effort "garbage-in garbage-out" sort
    of thing. */
 
-static inline int decode_hex_digit(const unsigned char digit)
+static inline int decode_hex_digit(char digit)
 {
 	if (digit >= '0' && digit <= '9')
 		return digit - '0';
@@ -58,9 +58,7 @@ static inline int decode_hex_digit(const unsigned char digit)
 	return -1;
 }
 
-static inline bool decode_hex_byte(const unsigned char digit_a,
-				   const unsigned char digit_b,
-				   unsigned char *result_r)
+static inline bool decode_hex_byte(char digit_a, char digit_b, char *result_r)
 {
 	int decoded = decode_hex_digit(digit_a);
 	if (decoded < 0)
@@ -81,7 +79,7 @@ static string_t *rfc2231_decode_value(const char *value)
 	while ((p = strchr(plast, '%')) != NULL) {
 		/* Append whatever we've seen so far. */
 		str_append_data(str, plast, (p - plast));
-		unsigned char ch;
+		char ch;
 		if (*(p+1) == '\0' || *(p+2) == '\0' ||
 		    !decode_hex_byte(*(p+1), *(p+2), &ch))
 			return NULL;
