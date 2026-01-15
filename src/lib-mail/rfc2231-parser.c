@@ -58,16 +58,17 @@ static inline int decode_hex_digit(char digit)
 	return -1;
 }
 
-static inline bool decode_hex_byte(char digit_a, char digit_b, char *result_r)
+static inline bool decode_hex_byte(const char *digits, char *result_r)
 {
-	int decoded = decode_hex_digit(digit_a);
-	if (decoded < 0)
+	int higher = decode_hex_digit(digits[0]);
+	if (higher < 0)
 		return FALSE;
-	*result_r = decoded;
-	decoded = decode_hex_digit(digit_b);
-	if (decoded < 0)
+
+	int lower = decode_hex_digit(digits[1]);
+	if (lower < 0)
 		return FALSE;
-	*result_r = (*result_r << 4) + decoded;
+
+	*result_r = (char)((higher << 4) + lower);
 	return TRUE;
 }
 
@@ -80,8 +81,7 @@ static string_t *rfc2231_decode_value(const char *value)
 		/* Append whatever we've seen so far. */
 		str_append_data(str, plast, (p - plast));
 		char ch;
-		if (*(p+1) == '\0' || *(p+2) == '\0' ||
-		    !decode_hex_byte(*(p+1), *(p+2), &ch))
+		if (!decode_hex_byte(p+1, &ch))
 			return NULL;
 		plast = p + 3;
 		str_append_data(str, &ch, 1);
