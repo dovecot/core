@@ -47,7 +47,7 @@
    them. So this implementation does a best-effort "garbage-in garbage-out" sort
    of thing. */
 
-static inline int _decode_hex_digit(const unsigned char digit)
+static inline int decode_hex_digit(const unsigned char digit)
 {
 	if (digit >= '0' && digit <= '9')
 		return digit - '0';
@@ -58,15 +58,15 @@ static inline int _decode_hex_digit(const unsigned char digit)
 	return -1;
 }
 
-static inline bool _decode_percent_encoding(const unsigned char digit_a,
-					    const unsigned char digit_b,
-					    unsigned char *result_r)
+static inline bool decode_hex_byte(const unsigned char digit_a,
+				   const unsigned char digit_b,
+				   unsigned char *result_r)
 {
-	int decoded = _decode_hex_digit(digit_a);
+	int decoded = decode_hex_digit(digit_a);
 	if (decoded < 0)
 		return FALSE;
 	*result_r = decoded;
-	decoded = _decode_hex_digit(digit_b);
+	decoded = decode_hex_digit(digit_b);
 	if (decoded < 0)
 		return FALSE;
 	*result_r = (*result_r << 4) + decoded;
@@ -83,7 +83,7 @@ static string_t *rfc2231_decode_value(const char *value)
 		str_append_data(str, plast, (p - plast));
 		unsigned char ch;
 		if (*(p+1) == '\0' || *(p+2) == '\0' ||
-		    !_decode_percent_encoding(*(p+1), *(p+2), &ch))
+		    !decode_hex_byte(*(p+1), *(p+2), &ch))
 			return NULL;
 		plast = p + 3;
 		str_append_data(str, &ch, 1);
