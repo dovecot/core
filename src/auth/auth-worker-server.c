@@ -775,7 +775,6 @@ static void auth_worker_handle_token_continue(struct db_oauth2_request *db_reque
 		str_printfa(str, "FAIL\t%d\t%s", result, error);
 	else {
 		str_printfa(str, "OK\t%d\t%s\t", result, db_request->username);
-		auth_request_set_field(auth_request, "token", db_request->token, "PLAIN");
 		reply_append_extra_fields(str, auth_request);
 	}
 	str_append_c(str, '\n');

@@ -136,8 +136,6 @@ mech_oauth2_verify_token_local_continue(struct db_oauth2_request *db_req,
 
 	if (result == PASSDB_RESULT_OK) {
 		auth_request_set_password_verified(auth_request);
-		auth_request_set_field(auth_request, "token",
-				       db_req->token, NULL);
 		auth_request_lookup_credentials(auth_request, "",
 						oauth2_verify_callback);
 		auth_request_unref(&auth_request);
