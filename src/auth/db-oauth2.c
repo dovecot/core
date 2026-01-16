@@ -388,8 +388,14 @@ db_oauth2_add_extra_fields(struct db_oauth2_request *req, const char **error_r)
 		{ "oauth2", db_oauth2_var_expand_func_oauth2 },
 		{ NULL, NULL }
 	};
+	/* include token */
+	unsigned int count = 1;
+	struct var_expand_table *table =
+		auth_request_get_var_expand_table_full(req->auth_request, req->username, &count);
+	table[0].key = "token";
+	table[0].value = req->token;
 	struct var_expand_params params = {
-		.table = auth_request_get_var_expand_table(req->auth_request),
+		.table = table,
 		.providers = func_table,
 		.context = req,
 	};
