@@ -1,4 +1,8 @@
-pkglib_LTLIBRARIES = libdovecot.la libdovecot-gssapi.la
+pkglib_LTLIBRARIES = libdovecot.la
+
+if HAVE_GSSAPI
+pkglib_LTLIBRARIES += libdovecot-gssapi.la
+endif
 
 libdovecot_la_SOURCES =
 
