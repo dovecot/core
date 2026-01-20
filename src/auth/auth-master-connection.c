@@ -159,7 +159,7 @@ static int master_input_cache_flush(struct auth_master_connection *conn,
 {
 	unsigned int count;
 
-	/* <id> [<user> [<user> [..]] */
+	/* <id> [<user-mask> [<user-mask> [..]] */
 	if (args[0] == NULL) {
 		e_error(conn->conn.event, "BUG: doveadm sent broken CACHE-FLUSH");
 		return -1;

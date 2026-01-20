@@ -1463,7 +1463,7 @@ auth_cache_flush_reply_callback(const struct auth_master_reply *reply,
 }
 
 int auth_master_cache_flush(struct auth_master_connection *conn,
-			    const char *const *users, unsigned int *count_r)
+			    const char *const *user_masks, unsigned int *count_r)
 {
 	struct auth_master_cache_ctx ctx;
 	struct auth_master_request *req;
@@ -1476,11 +1476,11 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 	ctx.conn = conn;
 
 	args = t_str_new(128);
-	if (users != NULL) {
-		for (; *users != NULL; users++) {
+	if (user_masks != NULL) {
+		for (; *user_masks != NULL; user_masks++) {
 			if (str_len(args) > 0)
 				str_append_c(args, '\t');
-			str_append_tabescaped(args, *users);
+			str_append_tabescaped(args, *user_masks);
 		}
 	}
 

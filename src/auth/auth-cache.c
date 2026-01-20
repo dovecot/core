@@ -7,6 +7,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "var-expand.h"
+#include "wildcard-match.h"
 #include "auth-request.h"
 #include "auth-cache.h"
 
@@ -284,9 +285,10 @@ unsigned int auth_cache_clear(struct auth_cache *cache)
 }
 
 static bool auth_cache_node_is_user(struct auth_cache_node *node,
-				    const char *username)
+				    const char *user_mask)
 {
-	const char *data = node->data, *suffix;
+	const char *data = node->data;
+	bool ret = FALSE;
 
 	/* The cache nodes begin with "P"/"U", passdb/userdb ID, optional
 	   "+" master user, "\t" and then usually followed by the username.
@@ -295,7 +297,7 @@ static bool auth_cache_node_is_user(struct auth_cache_node *node,
 	   cache key instead of '%u', it means that cache entries can be
 	   removed only when @domain isn't in the username parameter. */
 	if (*data != 'P' && *data != 'U')
-		return FALSE;
+		return ret;
 	data++;
 
 	while (*data >= '0' && *data <= '9')
@@ -306,34 +308,36 @@ static bool auth_cache_node_is_user(struct auth_cache_node *node,
 			data++;
 	}
 	if (*data != '\t')
-		return FALSE;
+		return ret;
 	data++;
 
-	return str_begins(data, username, &suffix) &&
-		(suffix[0] == '\t' || suffix[0] == '\0');
+	T_BEGIN {
+		ret = wildcard_match(t_strcut(data, '\t'), user_mask);
+	} T_END;
+	return ret;
 }
 
 static bool auth_cache_node_is_one_of_users(struct auth_cache_node *node,
-					    const char *const *usernames)
+					    const char *const *user_masks)
 {
 	unsigned int i;
 
-	for (i = 0; usernames[i] != NULL; i++) {
-		if (auth_cache_node_is_user(node, usernames[i]))
+	for (i = 0; user_masks[i] != NULL; i++) {
+		if (auth_cache_node_is_user(node, user_masks[i]))
 			return TRUE;
 	}
 	return FALSE;
 }
 
 unsigned int auth_cache_clear_users(struct auth_cache *cache,
-				    const char *const *usernames)
+				    const char *const *user_masks)
 {
 	struct auth_cache_node *node, *next;
 	unsigned int ret = 0;
 
 	for (node = cache->tail; node != NULL; node = next) {
 		next = node->next;
-		if (auth_cache_node_is_one_of_users(node, usernames)) {
+		if (auth_cache_node_is_one_of_users(node, user_masks)) {
 			auth_cache_node_destroy(cache, node);
 			ret++;
 		}

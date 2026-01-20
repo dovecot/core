@@ -37,7 +37,7 @@ void auth_cache_free(struct auth_cache **cache);
 unsigned int ATTR_NOWARN_UNUSED_RESULT
 auth_cache_clear(struct auth_cache *cache);
 unsigned int auth_cache_clear_users(struct auth_cache *cache,
-				    const char *const *usernames);
+				    const char *const *user_masks);
 
 /* Look key from cache. key should be the same string as returned by
    auth_cache_parse_key(). Returned node can't be used after any other
