@@ -177,7 +177,7 @@ cmd_user_list(struct doveadm_cmd_context *cctx,
 
 static void cmd_auth_cache_flush(struct doveadm_cmd_context *cctx)
 {
-	const char *master_socket_path, *const *users;
+	const char *master_socket_path, *const *user_masks = NULL;
 	struct auth_master_connection *conn;
 	unsigned int count;
 
@@ -185,11 +185,10 @@ static void cmd_auth_cache_flush(struct doveadm_cmd_context *cctx)
 		master_socket_path = t_strconcat(doveadm_settings->base_dir,
 						 "/auth-master", NULL);
 	}
-	if (!doveadm_cmd_param_array(cctx, "user", &users))
-		i_fatal("Missing user parameter");
+	(void)doveadm_cmd_param_array(cctx, "user-mask", &user_masks);
 
 	conn = doveadm_get_auth_master_conn(master_socket_path);
-	if (auth_master_cache_flush(conn, users, &count) < 0) {
+	if (auth_master_cache_flush(conn, user_masks, &count) < 0) {
 		e_error(cctx->event, "Cache flush failed");
 		doveadm_exit_code = EX_TEMPFAIL;
 	} else {
@@ -441,10 +440,10 @@ struct doveadm_cmd_ver2 doveadm_cmd_auth_server[] = {
 {
 	.name = "auth cache flush",
 	.cmd = cmd_auth_cache_flush,
-	.usage = "[-a <master socket path>] [<user> [...]]",
+	.usage = "[-a <master socket path>] [<user-mask> [...]]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
-DOVEADM_CMD_PARAM('\0', "user", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "user-mask", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 },
 {
