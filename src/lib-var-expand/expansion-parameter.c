@@ -142,7 +142,7 @@ void var_expand_parameter_dump(string_t *dest, const struct var_expand_parameter
 		str_printfa(dest, "'%s'", par->value.str);
 		break;
 	case VAR_EXPAND_PARAMETER_VALUE_TYPE_INT:
-		str_printfa(dest, "%ld", par->value.num);
+		str_printfa(dest, "%jd", par->value.num);
 		break;
 	case VAR_EXPAND_PARAMETER_VALUE_TYPE_VARIABLE:
 		str_append(dest, par->value.str);
