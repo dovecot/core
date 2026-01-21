@@ -1013,14 +1013,14 @@ http_server_connection_create(struct http_server *server,
 	    net_set_send_buffer_size(fd_out,
 				     conn->set->socket_send_buffer_size) < 0) {
 		e_error(conn->event,
-			"net_set_send_buffer_size(%zu) failed: %m",
+			"net_set_send_buffer_size(%"PRIuUOFF_T") failed: %m",
 			conn->set->socket_send_buffer_size);
 	}
 	if (conn->set->socket_recv_buffer_size > 0 &&
 	    net_set_recv_buffer_size(fd_in,
 				     conn->set->socket_recv_buffer_size) < 0) {
 		e_error(conn->event,
-			"net_set_recv_buffer_size(%zu) failed: %m",
+			"net_set_recv_buffer_size(%"PRIuUOFF_T") failed: %m",
 			conn->set->socket_recv_buffer_size);
 	}
 
