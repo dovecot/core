@@ -35,8 +35,9 @@ test_libs = \
 test_var_expand_crypt_SOURCES = test-var-expand-crypt.c
 test_var_expand_crypt_LDADD = $(test_libs) $(SSL_LIBS) $(LIBDOVECOT_TEST_LIBS)
 test_var_expand_crypt_DEPENDENCIES = $(module_LTLIBRARIES)
+test_var_expand_crypt_LDFLAGS = -static
 if HAVE_WHOLE_ARCHIVE
-test_var_expand_crypt_LDFLAGS = -export-dynamic -Wl,$(LD_WHOLE_ARCHIVE),../lib/.libs/liblib.a,../lib-json/.libs/libjson.a,../lib-ssl-iostream/.libs/libssl_iostream.a,$(LD_NO_WHOLE_ARCHIVE)
+test_var_expand_crypt_LDFLAGS += -export-dynamic -Wl,$(LD_WHOLE_ARCHIVE),../lib/.libs/liblib.a,../lib-json/.libs/libjson.a,../lib-ssl-iostream/.libs/libssl_iostream.a,$(LD_NO_WHOLE_ARCHIVE)
 endif
 
 test_var_expand_crypt_CFLAGS = $(AM_CFLAGS) \
