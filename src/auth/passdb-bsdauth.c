@@ -23,7 +23,7 @@ static const struct setting_define passdb_bsdauth_setting_defines[] = {
 	SETTING_DEFINE_LIST_END,
 };
 
-static const struct setting_keyvalue passdb_bsdauth_settings_keyvalue[] = {
+static const struct setting_keyvalue passdb_bsdauth_default_settings_keyvalue[] = {
 	{ "passdb_bsdauth/passdb_use_worker", "yes"},
 	{ NULL, NULL }
 };
@@ -32,7 +32,7 @@ const struct setting_parser_info passdb_bsdauth_setting_parser_info = {
 	.name = "auth_bsdauth",
 
 	.defines = passdb_bsdauth_setting_defines,
-	.default_settings = passdb_bsdauth_settings_keyvalue,
+	.default_settings = passdb_bsdauth_default_settings_keyvalue,
 
 	.struct_size = sizeof(struct passdb_bsdauth_settings),
 	.pool_offset1 = 1 + offsetof(struct passdb_bsdauth_settings, pool),
