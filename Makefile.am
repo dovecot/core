@@ -23,6 +23,7 @@ EXTRA_DIST = \
 	version \
 	build-aux/git-abi-version-gen \
 	build-aux/git-version-gen \
+	build-aux/config.rpath \
 	$(conf_DATA)
 
 noinst_DATA = dovecot-config
