@@ -18,6 +18,10 @@
 #include "imap-state.h"
 #include "imap-master-client.h"
 
+#if defined(HAVE_SYS_MKDEV_H)
+#  include <sys/mkdev.h> /* Solaris */
+#endif
+
 struct imap_master_client {
 	struct connection conn;
 	bool imap_client_created;

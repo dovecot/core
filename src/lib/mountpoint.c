@@ -27,6 +27,7 @@
 #  include <stdio.h>
 #  include <sys/mnttab.h> /* Solaris */
 #  include <sys/mntent.h>
+#  include <sys/mkdev.h>
 #  define MOUNTPOINT_SOLARIS
 #else
 #  define MOUNTPOINT_UNKNOWN

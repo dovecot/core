@@ -12,6 +12,10 @@
 #include "imap-client.h"
 #include "imap-hibernate-client.h"
 
+#if defined(HAVE_SYS_MKDEV_H)
+#  include <sys/mkdev.h> /* Solaris */
+#endif
+
 struct imap_hibernate_client {
 	struct connection conn;
 	struct imap_client *imap_client;
