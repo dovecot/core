@@ -28,6 +28,8 @@ PKG_PROG_PKG_CONFIG
 ACLOCAL_AMFLAGS='-I $(top_srcdir)/m4'
 AC_SUBST(ACLOCAL_AMFLAGS)
 
+AM_ICONV
+
 AC_ARG_ENABLE(devel-checks,
 AS_HELP_STRING([--enable-devel-checks], [Enable some extra expensive checks for developers]),
 	if test x$enableval = xyes; then
@@ -809,7 +811,7 @@ NOPLUGIN_LDFLAGS="-no-undefined"
 if test "$with_gnu_ld" = yes; then
   NOPLUGIN_LDFLAGS="$NOPLUGIN_LDFLAGS -Wl,--as-needed"
 fi
-LDFLAGS="\$(NOPLUGIN_LDFLAGS) $LDFLAGS $EXTRA_LDFLAGS"
+LDFLAGS="\$(NOPLUGIN_LDFLAGS) $LDFLAGS $EXTRA_LDFLAGS $LTLIBICONV"
 AC_SUBST(NOPLUGIN_LDFLAGS)
 
 DC_CC_WRAPPER
