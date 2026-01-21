@@ -2008,17 +2008,35 @@ driver_cassandra_result_get_fields_count(struct sql_result *_result)
 }
 
 static const char *
-driver_cassandra_result_get_field_name(struct sql_result *_result ATTR_UNUSED,
-				       unsigned int idx ATTR_UNUSED)
+driver_cassandra_result_get_field_name(struct sql_result *_result,
+				       unsigned int idx)
 {
-	i_unreached();
+	struct cassandra_result *result =
+		container_of(_result, struct cassandra_result, api);
+	const char *name;
+	size_t name_len;
+	int rc = cass_result_column_name(result->result, idx, &name, &name_len);
+	if (rc != CASS_OK) {
+		i_panic("cass_result_column_name() unexpectedly failed: %s",
+			cass_error_desc(rc));
+	}
+	return name;
 }
 
 static int
-driver_cassandra_result_find_field(struct sql_result *_result ATTR_UNUSED,
-				   const char *field_name ATTR_UNUSED)
+driver_cassandra_result_find_field(struct sql_result *_result,
+				   const char *field_name)
 {
-	i_unreached();
+	struct cassandra_result *result =
+		container_of(_result, struct cassandra_result, api);
+
+	for (unsigned int i = 0; i < array_count(&result->fields); i++) {
+		const char *idx_name =
+			driver_cassandra_result_get_field_name(_result, i);
+		if (strcmp(idx_name, field_name) == 0)
+			return i;
+	}
+	return -1;
 }
 
 static const char *
