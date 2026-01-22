@@ -28,6 +28,7 @@ auth-token-secret.dat
 /build-aux/config.sub
 /build-aux/compile
 /build-aux/depcomp
+/build-aux/test-driver
 /dummy-config.h
 /dummy-config.h.in
 /fts-config.h
