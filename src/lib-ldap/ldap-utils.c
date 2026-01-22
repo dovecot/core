@@ -101,14 +101,6 @@ int ldap_set_tls_options(LDAP *ld, bool starttls, const char *uris,
 
 	bool requires = ssl_set->ssl_client_require_valid_cert;
 	int opt = requires ? LDAP_OPT_X_TLS_HARD : LDAP_OPT_X_TLS_ALLOW;
-
-	/* required for Bookworm */
-	if (ldap_set_opt(NULL, LDAP_OPT_X_TLS_REQUIRE_CERT, &opt,
-			 "ssl_client_require_valid_cert",
-			 requires ? "yes" : "no", error_r) < 0)
-		return -1;
-
-	/* required for RHEL9 */
 	if (ldap_set_opt(ld, LDAP_OPT_X_TLS_REQUIRE_CERT, &opt,
 			 "ssl_client_require_valid_cert",
 			 requires ? "yes" : "no", error_r) < 0)
@@ -128,6 +120,12 @@ int ldap_set_tls_options(LDAP *ld, bool starttls, const char *uris,
 			 "ssl_min_protocol", ssl_set->ssl_min_protocol,
 			 error_r) < 0)
 		return -1;
+
+#ifdef LDAP_OPT_X_TLS_NEWCTX
+	bool is_server = false;
+	opt = is_server;
+	ldap_set_option(ld, LDAP_OPT_X_TLS_NEWCTX, &opt);
+#endif
 
 	return 0;
 }
