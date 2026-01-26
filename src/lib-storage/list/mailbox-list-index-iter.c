@@ -62,6 +62,8 @@ mailbox_list_index_iter_init(struct mailbox_list *list,
 static void
 mailbox_list_index_update_info(struct mailbox_list_index_iterate_context *ctx)
 {
+	struct mailbox_list_index *ilist =
+		INDEX_LIST_CONTEXT_REQUIRE(ctx->ctx.list);
 	struct mailbox_list_index_node *node = ctx->next_node;
 	struct mailbox *box;
 
@@ -94,7 +96,11 @@ mailbox_list_index_update_info(struct mailbox_list_index_iterate_context *ctx)
 		/* listing INBOX/INBOX */
 		ctx->info.vname = p_strconcat(ctx->ctx.info_pool,
 			ctx->ctx.list->ns->prefix, "INBOX", NULL);
-		ctx->info.flags |= MAILBOX_NONEXISTENT;
+		if (node->raw_name != ilist->raw_inbox_inbox_name_ptr) {
+			/* We can't access it without escape character
+			   configured. */
+			ctx->info.flags |= MAILBOX_NONEXISTENT;
+		}
 	}
 	if ((node->flags & MAILBOX_LIST_INDEX_FLAG_NONEXISTENT) != 0)
 		ctx->info.flags |= MAILBOX_NONEXISTENT;

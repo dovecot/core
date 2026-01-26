@@ -62,6 +62,15 @@ struct mailbox_list_index_header {
 	/* array of { uint32_t id; char name[]; } */
 };
 
+struct mailbox_list_index_header2 {
+	/* ID number in mailbox_list_index_header which should be considered
+	   as the <prefix>/INBOX mailbox, which would be escaped as
+	   <escape char>49NBOX to differentiate it from the actual INBOX.
+	   The name in the header can be anything - it would be used only by
+	   old Dovecot versions. */
+	uint32_t inbox_inbox_name_id;
+};
+
 struct mailbox_list_index_record {
 	/* points to given id in header */
 	uint32_t name_id;
@@ -93,6 +102,11 @@ struct mailbox_list_index_node {
 	bool corrupted_ext;
 	/* flags are corrupted on disk - need to update it */
 	bool corrupted_flags;
+	/* Raw (unescaped) mailbox name. Unfortunately for now, it may be
+	   either in UTF8 or mUTF-7 depending on the mailbox_list_utf8 setting.
+
+	   As a special case, if raw_name points to ilist->inbox_inbox_name,
+	   it's actually the <ns prefix>/INBOX mailbox (not INBOX). */
 	const char *raw_name;
 };
 
@@ -101,7 +115,7 @@ struct mailbox_list_index {
 
 	const char *path;
 	struct mail_index *index;
-	uint32_t ext_id, msgs_ext_id, hmodseq_ext_id, subs_hdr_ext_id;
+	uint32_t ext_id, ext2_id, msgs_ext_id, hmodseq_ext_id, subs_hdr_ext_id;
 	uint32_t vsize_ext_id, first_saved_ext_id, deleted_count_id;
 	struct timeval last_refresh_timeval;
 
@@ -115,6 +129,17 @@ struct mailbox_list_index {
 	uoff_t sync_log_file_offset;
 	uint32_t sync_stamp;
 	struct timeout *to_refresh;
+
+	/* If mailbox_list_index_node.raw_name contains this pointer, it's
+	   the <ns prefix>/INBOX (not INBOX). Note: Compare this against the
+	   raw_name pointer directly - not the string content. */
+	void *raw_inbox_inbox_name_ptr;
+	/* <escape char>49NBOX, if mailbox_list_storage_escape_char is specified.
+	   Otherwise NULL. */
+	const char *inbox_inbox_storage_name;
+	/* If mailbox_list_index_record.name_id contains this (non-0) ID, it's
+	   the <ns prefix>/INBOX (not INBOX). */
+	uint32_t inbox_inbox_name_id;
 
 	/* uint32_t uid => node */
 	HASH_TABLE(void *, struct mailbox_list_index_node *) mailbox_hash;
