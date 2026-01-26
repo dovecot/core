@@ -57,6 +57,10 @@ static void test_ostream_dot(void)
 		{ "foo\n.\n", "foo\r\n..\r\n.\r\n" },
 		{ ".foo\r\n.\r\nfoo\r\n", "..foo\r\n..\r\nfoo\r\n.\r\n" },
 		{ ".foo\n.\nfoo\n", "..foo\r\n..\r\nfoo\r\n.\r\n" },
+		{
+			"foo.\r\nfoo\r\n.foo\r\n.",
+			"foo.\r\nfoo\r\n..foo\r\n..\r\n.\r\n"
+		},
 		{ "\r\n", "\r\n.\r\n" },
 		{ "\n", "\r\n.\r\n" },
 		{ "", "\r\n.\r\n" },

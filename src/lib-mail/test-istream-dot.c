@@ -177,6 +177,7 @@ static void test_istream_dot_error(const char *input_str,
 }
 
 static const struct dot_test tests[] = {
+	{ LOOSE_EOT, "foo.\nfoo\n..foo\n..\n.\n", "foo.\nfoo\n.foo\n.\n", "" },
 	{ LOOSE_EOT, "..foo\n..\n.foo\n.\nfoo", ".foo\n.\nfoo\n", "foo" },
 	{ LOOSE_EOT, "\r\n.\rfoo\n.\n", "\r\n\rfoo\n", "" },
 	{ LOOSE_EOT, "\n.\r\n", "\n", "" },
@@ -184,6 +185,7 @@ static const struct dot_test tests[] = {
 	{ LOOSE_EOT, ".\n", "", "" },
 
 	{ STRICT_EOT, "..foo\r\n..\r\n.foo\r\n.\r\nfoo", ".foo\r\n.\r\nfoo\r\n", "foo" },
+	{ STRICT_EOT, "foo.\r\nfoo\r\n..foo\r\n..\r\n.\r\n", "foo.\r\nfoo\r\n.foo\r\n.\r\n", "" },
 	{ STRICT_EOT, "\r.\r\n.\r\n", "\r.\r\n", "" },
 	{ STRICT_EOT, "\n\r.\r\r\n.\r\n", "\n\r.\r\r\n", "" },
 	{ STRICT_EOT, "\r\n.\r\n", "\r\n", "" },
@@ -213,6 +215,7 @@ static const struct dot_test tests[] = {
 	{ NO_EOT, "\n.\rx", NULL, NULL },
 	{ NO_EOT, "\n..\r\n", NULL, NULL },
 	{ NO_EOT, "..foo\r\nbar\r\nbaz", NULL, NULL },
+	{ NO_EOT, "foo.\r\n", NULL, NULL },
 
 	{ END_OF_TESTS, NULL, NULL, NULL }
 };
