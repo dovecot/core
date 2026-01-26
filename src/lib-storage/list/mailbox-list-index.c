@@ -193,7 +193,7 @@ void mailbox_list_index_node_get_path(struct mailbox_list *list,
 		mailbox_list_index_node_get_path(list, node->parent, str);
 		str_append_c(str, mailbox_list_get_hierarchy_sep(list));
 	}
-	str_append(str, node->raw_name);
+	mailbox_list_get_escaped_mailbox_name(list, node, str);
 }
 
 void mailbox_list_index_node_unlink(struct mailbox_list_index *ilist,
