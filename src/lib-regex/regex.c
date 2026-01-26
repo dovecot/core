@@ -379,7 +379,7 @@ int dregex_code_replace_full(struct dregex_code *code,
 #endif
 	}
 
-	PCRE2_UCHAR *result32 = U"";
+	PCRE2_UCHAR *result32 = NULL;
 	PCRE2_SIZE result_len = 0;
 
 	int ret;
@@ -416,7 +416,7 @@ int dregex_code_replace_full(struct dregex_code *code,
 		}
 
 		if (result_len > 0)
-			result32 = t_new(PCRE2_UCHAR, result_len);
+			result32 = i_new(PCRE2_UCHAR, result_len);
 
 		/* Run it again as we know the buffer size now */
 		code->climit = cpu_limit_init(code->max_cpu_seconds,
@@ -428,10 +428,14 @@ int dregex_code_replace_full(struct dregex_code *code,
 		pcre2_match_data_free(mdata);
 	} while(0); T_END;
 
-	if (ret < 0)
+	if (ret < 0) {
+		i_free(result32);
 		return handle_error(ret, error_r);
-	else if (ret > 0)
+	} else if (ret > 0) {
+		i_assert(result32 != NULL);
 		uni_ucs4_to_utf8(result32, result_len, result_r);
+		i_free(result32);
+	}
 
 	return ret > 0 ? 1 : 0;
 }
