@@ -114,9 +114,17 @@ o_stream_dot_sendv(struct ostream_private *stream,
 		for (; p < pend && ((size_t)(p - data) + 2) < max_bytes; p++) {
 			char add = 0;
 
+			size = pend - p;
 			switch (dstream->state) {
 			/* none */
-			case STREAM_STATE_NONE:
+			case STREAM_STATE_NONE: {
+				size_t maxlen = I_MIN(size, max_bytes - ((size_t)(p - data) + 2));
+				p = CONST_PTR_OFFSET(p, i_memcspn(p, maxlen, "\r\n", 2));
+				i_assert(p <= pend);
+				if (p == pend) {
+					p--;
+					continue;
+				}
 				switch (*p) {
 				case '\n':
 					dstream->state = STREAM_STATE_CRLF;
@@ -130,8 +138,10 @@ o_stream_dot_sendv(struct ostream_private *stream,
 					break;
 				}
 				break;
+			}
 			/* got CR */
 			case STREAM_STATE_CR:
+				i_assert(p < pend);
 				switch (*p) {
 				case '\r':
 					break;
@@ -146,6 +156,7 @@ o_stream_dot_sendv(struct ostream_private *stream,
 			/* got CRLF, or the first line */
 			case STREAM_STATE_INIT:
 			case STREAM_STATE_CRLF:
+				i_assert(p < pend);
 				switch (*p) {
 				case '\r':
 					dstream->state = STREAM_STATE_CR;
@@ -194,6 +205,7 @@ o_stream_dot_sendv(struct ostream_private *stream,
 
 		if (max_bytes == 0)
 			break;
+		i_assert(p <= pend);
 		chunk = ((size_t)(p - data) >= max_bytes ?
 			 max_bytes : (size_t)(p - data));
 		if (chunk > 0) {
