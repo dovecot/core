@@ -45,7 +45,9 @@ static void test_ostream_dot_one(const struct dot_test *test)
 	o_stream_unref(&output);
 	o_stream_unref(&test_output);
 
-	test_assert(strcmp(str_c(output_data), test->output) == 0);
+	test_assert_ucmp(str_len(output_data), ==, strlen(test->output));
+	test_assert_memcmp(str_c(output_data), str_len(output_data),
+			   test->output, strlen(test->output));
 
 	i_stream_unref(&test_input);
 }
