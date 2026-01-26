@@ -269,10 +269,13 @@ void mailbox_list_name_unescape(const char **_name, char escape_char)
 }
 
 static bool
-mailbox_list_vname_prepare(struct mailbox_list *list, const char **_vname)
+mailbox_list_vname_prepare(struct mailbox_list *list, const char **_vname,
+			   const char **prefix_r)
 {
 	struct mail_namespace *ns = list->ns;
-	const char *vname = *_vname;
+	const char *suffix, *vname = *_vname;
+
+	*prefix_r = "";
 
 	if (strcasecmp(vname, "INBOX") == 0 &&
 	    (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
@@ -282,16 +285,24 @@ mailbox_list_vname_prepare(struct mailbox_list *list, const char **_vname)
 		/* skip namespace prefix, except if this is INBOX */
 		if (strncmp(ns->prefix, vname, ns->prefix_len) == 0) {
 			vname += ns->prefix_len;
-			if (strcmp(vname, "INBOX") == 0 &&
+			if (str_begins(vname, "INBOX", &suffix) &&
 			    (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
-			    list->mail_set->mailbox_list_storage_escape_char[0] != '\0') {
+			    list->mail_set->mailbox_list_storage_escape_char[0] != '\0' &&
+			    (suffix[0] == '\0' ||
+			     suffix[0] == mail_namespace_get_sep(ns))) {
 				/* prefix/INBOX - this is troublesome, because
 				   it ends up conflicting with the INBOX name.
 				   Handle this in a bit kludgy way by escaping
 				   the initial "I" character. */
-				*_vname = t_strdup_printf("%c49NBOX",
+				*prefix_r = t_strdup_printf("%c49NBOX",
 					list->mail_set->mailbox_list_storage_escape_char[0]);
-				return TRUE;
+				if (suffix[0] == '\0') {
+					*_vname = *prefix_r;
+					return TRUE;
+				}
+				/* still need to convert the child mailboxes */
+				*_vname = suffix + 1;
+				return FALSE;
 			}
 		} else if (strncmp(ns->prefix, vname, ns->prefix_len-1) == 0 &&
 			 strlen(vname) == ns->prefix_len-1 &&
@@ -346,11 +357,11 @@ mailbox_list_default_get_storage_name_part(struct mailbox_list *list,
 const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 						  const char *vname)
 {
-	const char *prepared_name = vname;
+	const char *prefix, *prepared_name = vname;
 	const char list_sep = mailbox_list_get_hierarchy_sep(list);
 	const char ns_sep = mail_namespace_get_sep(list->ns);
 
-	if (mailbox_list_vname_prepare(list, &prepared_name))
+	if (mailbox_list_vname_prepare(list, &prepared_name, &prefix))
 		return prepared_name;
 	if (list->ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
 	    (list->ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0 &&
@@ -371,6 +382,11 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 	const char sep[] = { ns_sep, '\0' };
 	const char *const *parts = t_strsplit(prepared_name, sep);
 	string_t *storage_name = t_str_new(128);
+	if (prefix[0] != '\0') {
+		/* INBOX/INBOX handling - the prefix contains <escape>49NBOX */
+		str_append(storage_name, prefix);
+		str_append_c(storage_name, list_sep);
+	}
 	for (unsigned int i = 0; parts[i] != NULL; i++) {
 		if (i > 0)
 			str_append_c(storage_name, list_sep);
