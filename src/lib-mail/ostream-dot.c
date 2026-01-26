@@ -106,7 +106,7 @@ o_stream_dot_sendv(struct ostream_private *stream,
 	sent = added = 0;
 	for (i = 0; i < iov_count && max_bytes > 0; i++) {
 		size_t size = iov[i].iov_len, chunk;
-		const char *data = iov[i].iov_base, *p, *pend;
+		const unsigned char *data = iov[i].iov_base, *p, *pend;
 		struct const_iovec iovn;
 
 		p = data;
