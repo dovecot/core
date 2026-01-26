@@ -173,6 +173,18 @@ mailbox_list_index_lookup_uid(struct mailbox_list_index *ilist, uint32_t uid)
 	return hash_table_lookup(ilist->mailbox_hash, POINTER_CAST(uid));
 }
 
+void mailbox_list_get_escaped_mailbox_name(struct mailbox_list *list,
+					   const struct mailbox_list_index_node *node,
+					   string_t *escaped_name)
+{
+	const char escape_chars[] = {
+		list->mail_set->mailbox_list_storage_escape_char[0],
+		mailbox_list_get_hierarchy_sep(list),
+		'\0'
+	};
+	mailbox_list_name_escape(node->raw_name, escape_chars, escaped_name);
+}
+
 void mailbox_list_index_node_get_path(const struct mailbox_list_index_node *node,
 				      char sep, string_t *str)
 {

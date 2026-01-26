@@ -165,6 +165,10 @@ void mailbox_list_index_node_get_path(const struct mailbox_list_index_node *node
 void mailbox_list_index_node_unlink(struct mailbox_list_index *ilist,
 				    struct mailbox_list_index_node *node);
 
+void mailbox_list_get_escaped_mailbox_name(struct mailbox_list *list,
+					   const struct mailbox_list_index_node *node,
+					   string_t *escaped_name);
+
 /* Return mailbox name encoded into box-name header. */
 const unsigned char *
 mailbox_name_hdr_encode(struct mailbox_list *list, const char *storage_name,
