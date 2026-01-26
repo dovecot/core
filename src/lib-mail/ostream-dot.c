@@ -125,6 +125,8 @@ o_stream_dot_sendv(struct ostream_private *stream,
 				case '\r':
 					dstream->state = STREAM_STATE_CR;
 					break;
+				default:
+					break;
 				}
 				break;
 			/* got CR */
