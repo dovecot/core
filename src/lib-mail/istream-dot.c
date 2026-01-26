@@ -156,8 +156,28 @@ static ssize_t i_stream_dot_read(struct istream_private *stream)
 	data = i_stream_get_data(stream->parent, &size);
 	for (i = 0; i < size && dest < stream->buffer_size; i++) {
 		switch (dstream->state) {
-		case DOT_STATE_SEEN_NONE:
+		case DOT_STATE_SEEN_NONE: {
+			/* ensure we don't read too far, since we can only
+			   fill w_buffer up to it's size */
+			size_t maxlen =
+				I_MIN(size - i, stream->buffer_size - dest);
+			size_t len;
+			if (dstream->accept_bare_lf)
+				len = i_memcspn(data + i, maxlen, "\r\n", 2);
+			else /* we only need to find new CR */
+				len = i_memcspn(data + i, maxlen, "\r", 1);
+
+			/* if there was data, copy it and try again */
+			if (len > 0) {
+				memcpy(PTR_OFFSET(stream->w_buffer, dest),
+				       data + i, len);
+				dest += len;
+				i += len;
+			}
+			if (i == size || dest == stream->buffer_size)
+				goto end;
 			break;
+		}
 		case DOT_STATE_SEEN_CR:
 			/* CR seen */
 			if (data[i] == '\n')

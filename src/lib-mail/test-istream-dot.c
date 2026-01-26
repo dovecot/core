@@ -178,6 +178,7 @@ static void test_istream_dot_error(const char *input_str,
 
 static const struct dot_test tests[] = {
 	{ LOOSE_EOT, "foo.\nfoo\n..foo\n..\n.\n", "foo.\nfoo\n.foo\n.\n", "" },
+	{ LOOSE_EOT, "lorem ipsum.\nlorem ipsum \nfoo\n..foo\n..\n.\n", "lorem ipsum.\nlorem ipsum \nfoo\n.foo\n.\n", "" },
 	{ LOOSE_EOT, "..foo\n..\n.foo\n.\nfoo", ".foo\n.\nfoo\n", "foo" },
 	{ LOOSE_EOT, "\r\n.\rfoo\n.\n", "\r\n\rfoo\n", "" },
 	{ LOOSE_EOT, "\n.\r\n", "\n", "" },
