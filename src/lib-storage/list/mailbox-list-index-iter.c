@@ -61,7 +61,7 @@ mailbox_list_index_iter_init(struct mailbox_list *list,
 
 static void
 mailbox_list_get_escaped_mailbox_name(struct mailbox_list *list,
-				      const char *raw_name,
+				      const struct mailbox_list_index_node *node,
 				      string_t *escaped_name)
 {
 	const char escape_chars[] = {
@@ -69,7 +69,7 @@ mailbox_list_get_escaped_mailbox_name(struct mailbox_list *list,
 		mailbox_list_get_hierarchy_sep(list),
 		'\0'
 	};
-	mailbox_list_name_escape(raw_name, escape_chars, escaped_name);
+	mailbox_list_name_escape(node->raw_name, escape_chars, escaped_name);
 }
 
 static void
@@ -86,7 +86,7 @@ mailbox_list_index_update_info(struct mailbox_list_index_iterate_context *ctx)
 		str_append_c(ctx->path,
 			     mailbox_list_get_hierarchy_sep(ctx->ctx.list));
 	}
-	mailbox_list_get_escaped_mailbox_name(ctx->ctx.list, node->raw_name,
+	mailbox_list_get_escaped_mailbox_name(ctx->ctx.list, node,
 					      ctx->path);
 
 	ctx->info.vname = mailbox_list_get_vname(ctx->ctx.list, str_c(ctx->path));
