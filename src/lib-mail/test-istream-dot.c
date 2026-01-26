@@ -91,7 +91,7 @@ static void test_istream_dot_one(const struct dot_test *test,
 			test_assert(i_stream_read(input) == 1);
 			test_assert(i_stream_read(input) == -2);
 			data = i_stream_get_data(input, &size);
-			test_assert(memcmp(data, test->output, size) == 0);
+			test_assert_memcmp(data, size, test->output, i);
 		}
 		i_stream_set_max_buffer_size(input, i+2);
 		if (size < output_len)
@@ -104,7 +104,7 @@ static void test_istream_dot_one(const struct dot_test *test,
 	}
 	test_assert(input->stream_errno == 0);
 	test_assert(str_len(str) == output_len);
-	test_assert(memcmp(str_data(str), test->output, output_len) == 0);
+	test_assert_memcmp(str_data(str), str_len(str), test->output, output_len);
 
 	/* read the data after the '.' line and verify it's still there */
 	i_stream_set_max_buffer_size(test_input, SIZE_MAX);
@@ -112,7 +112,7 @@ static void test_istream_dot_one(const struct dot_test *test,
 	data = i_stream_get_data(test_input, &size);
 	test_assert(size == strlen(test->parent_input));
 	if (size > 0)
-		test_assert(memcmp(data, test->parent_input, size) == 0);
+		test_assert_memcmp(data, size, test->parent_input, strlen(test->parent_input));
 
 	i_stream_unref(&test_input);
 	i_stream_unref(&input);
