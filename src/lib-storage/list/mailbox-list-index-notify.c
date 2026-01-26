@@ -643,7 +643,6 @@ mailbox_list_index_notify_lookup(struct mailbox_list_notify_index *inotify,
 	struct mailbox_list_notify_rec *rec = &inotify->notify_rec;
 	struct mailbox_list_index_node *index_node;
 	const char *storage_name;
-	char ns_sep = mailbox_list_get_hierarchy_sep(inotify->notify.list);
 
 	i_zero(rec);
 	index_node = notify_lookup_guid(inotify, view, uid,
@@ -653,7 +652,8 @@ mailbox_list_index_notify_lookup(struct mailbox_list_notify_index *inotify,
 
 	/* get storage_name */
 	str_truncate(inotify->rec_name, 0);
-	mailbox_list_index_node_get_path(index_node, ns_sep, inotify->rec_name);
+	mailbox_list_index_node_get_path(inotify->notify.list, index_node,
+					 inotify->rec_name);
 	storage_name = str_c(inotify->rec_name);
 
 	rec->storage_name = storage_name;

@@ -722,7 +722,7 @@ index_list_try_delete_nonexistent_parent(struct mailbox_list *_list,
 			/* The parent mailbox has no other children and is not
 			   existant or not selectable, delete it */
 			str_truncate(full_name, 0);
-			mailbox_list_index_node_get_path(node, sep, full_name);
+			mailbox_list_index_node_get_path(_list, node, full_name);
 			if (index_list_delete_entry(list, str_c(full_name), FALSE) < 0)
 				return -1;
 

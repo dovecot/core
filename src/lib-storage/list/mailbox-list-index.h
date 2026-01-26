@@ -160,8 +160,9 @@ struct mailbox_list_index_node *
 mailbox_list_index_lookup(struct mailbox_list *list, const char *name);
 struct mailbox_list_index_node *
 mailbox_list_index_lookup_uid(struct mailbox_list_index *ilist, uint32_t uid);
-void mailbox_list_index_node_get_path(const struct mailbox_list_index_node *node,
-				      char sep, string_t *str);
+void mailbox_list_index_node_get_path(struct mailbox_list *list,
+				      const struct mailbox_list_index_node *node,
+				      string_t *str);
 void mailbox_list_index_node_unlink(struct mailbox_list_index *ilist,
 				    struct mailbox_list_index_node *node);
 

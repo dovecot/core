@@ -185,12 +185,13 @@ void mailbox_list_get_escaped_mailbox_name(struct mailbox_list *list,
 	mailbox_list_name_escape(node->raw_name, escape_chars, escaped_name);
 }
 
-void mailbox_list_index_node_get_path(const struct mailbox_list_index_node *node,
-				      char sep, string_t *str)
+void mailbox_list_index_node_get_path(struct mailbox_list *list,
+				      const struct mailbox_list_index_node *node,
+				      string_t *str)
 {
 	if (node->parent != NULL) {
-		mailbox_list_index_node_get_path(node->parent, sep, str);
-		str_append_c(str, sep);
+		mailbox_list_index_node_get_path(list, node->parent, str);
+		str_append_c(str, mailbox_list_get_hierarchy_sep(list));
 	}
 	str_append(str, node->raw_name);
 }

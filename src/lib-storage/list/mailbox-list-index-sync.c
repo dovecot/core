@@ -17,9 +17,8 @@ node_lookup_guid(struct mailbox_list_index_sync_context *ctx,
 	struct mailbox_metadata metadata;
 	const char *vname;
 	string_t *str = t_str_new(128);
-	char ns_sep = mailbox_list_get_hierarchy_sep(ctx->list);
 
-	mailbox_list_index_node_get_path(node, ns_sep, str);
+	mailbox_list_index_node_get_path(ctx->list, node, str);
 
 	vname = mailbox_list_get_vname(ctx->list, str_c(str));
 	box = mailbox_alloc(ctx->list, vname, MAILBOX_FLAG_RAW_NAME);
