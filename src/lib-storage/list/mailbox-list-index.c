@@ -118,7 +118,7 @@ int mailbox_list_index_index_open(struct mailbox_list *list)
 }
 
 struct mailbox_list_index_node *
-mailbox_list_index_node_find_sibling(const struct mailbox_list *list,
+mailbox_list_index_node_find_sibling(struct mailbox_list *list,
 				     struct mailbox_list_index_node *node,
 				     const char *name)
 {
