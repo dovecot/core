@@ -140,12 +140,8 @@ static const char *get_box_name(struct mail_storage_list_index_rebuild_ctx *ctx,
 				mailbox_list_get_root_forced(box->list, MAILBOX_LIST_PATH_TYPE_MAILBOX),
 				guid_128_to_string(box->guid));
 	const char *box_name;
-	bool inbox_ns = (box->list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0;
 
 	if (try_get_mailbox_name(ctx, box->list, path, &box_name)) {
-		/* special case handling */
-		if (inbox_ns && strcmp(box_name, "INBOX") == 0)
-			box_name = "INBOX";
 		e_debug(ctx->storage->event, "Found '%s' from storage %s",
 			box_name, path);
 	} else {
@@ -456,8 +452,15 @@ static int mail_storage_list_index_add_missing(struct mail_storage_list_index_re
 		const char *name = box->index_name;
 		if (name == NULL)
 			name = get_box_name(ctx, box);
-		const char *orig_vname =
-			t_strconcat(box->list->ns->prefix, name, NULL);
+
+		/* Differentiate between INBOX and <ns prefix>/INBOX */
+		const char *orig_vname;
+		if ((box->list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+		    strcmp(name, "INBOX") == 0)
+			orig_vname = "INBOX";
+		else
+			orig_vname = t_strconcat(box->list->ns->prefix, name, NULL);
+
 		const char *vname = orig_vname;
 		for (unsigned int i = 0; ; i++) {
 			_node =	mailbox_tree_get(tree, vname, &created);
