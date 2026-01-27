@@ -19,7 +19,6 @@
 struct mail_storage_list_index_rebuild_mailbox {
 	guid_128_t guid;
 	const char *index_name;
-	const char *storage_name;
 	struct mailbox_list *list;
 };
 
