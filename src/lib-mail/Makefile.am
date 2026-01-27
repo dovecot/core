@@ -83,6 +83,7 @@ pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
+	test-iostream-dot \
 	test-istream-dot \
 	test-istream-attachment \
 	test-istream-binary-converter \
@@ -168,6 +169,10 @@ noinst_PROGRAMS += $(fuzz_programs)
 test_istream_dot_SOURCES = test-istream-dot.c
 test_istream_dot_LDADD = $(test_libs)
 test_istream_dot_DEPENDENCIES = $(test_deps)
+
+test_iostream_dot_SOURCES = test-iostream-dot.c
+test_iostream_dot_LDADD = $(test_libs)
+test_iostream_dot_DEPENDENCIES = $(test_deps)
 
 test_istream_qp_decoder_SOURCES = test-istream-qp-decoder.c
 test_istream_qp_decoder_LDADD = $(test_libs)
