@@ -485,14 +485,14 @@ static void test_stream_safe(void)
 		"\xCC\x88\xCC\x88\xCC\x88";
 
 	test_assert(nf_data[0] == '2');                    /* digit 2 */
-	test_assert_memcmp(&nf_data[1], safe_block, 60);   /* 30 umlauts */
-	test_assert_memcmp(&nf_data[61], "\xCD\x8F", 2);   /* CGJ */
-	test_assert_memcmp(&nf_data[63], safe_block, 60);  /* 30 umlauts */
-	test_assert_memcmp(&nf_data[123], "\xCD\x8F", 2);  /* CGJ */
-	test_assert_memcmp(&nf_data[125], safe_block, 60); /* 30 umlauts */
-	test_assert_memcmp(&nf_data[185], "\xCD\x8F", 2);  /* CGJ */
-	test_assert_memcmp(&nf_data[187], "\xCC\xA3", 2);  /* dot-below */
-	test_assert_memcmp(&nf_data[189], last_block, 20); /* 10 umlauts */
+	test_assert_memcmp(&nf_data[1], 60, safe_block, 60);   /* 30 umlauts */
+	test_assert_memcmp(&nf_data[61], 2, "\xCD\x8F", 2);   /* CGJ */
+	test_assert_memcmp(&nf_data[63], 60, safe_block, 60);  /* 30 umlauts */
+	test_assert_memcmp(&nf_data[123], 2, "\xCD\x8F", 2);  /* CGJ */
+	test_assert_memcmp(&nf_data[125], 60, safe_block, 60); /* 30 umlauts */
+	test_assert_memcmp(&nf_data[185], 2, "\xCD\x8F", 2);  /* CGJ */
+	test_assert_memcmp(&nf_data[187], 2, "\xCC\xA3", 2);  /* dot-below */
+	test_assert_memcmp(&nf_data[189], 20, last_block, 20); /* 10 umlauts */
 	test_assert(nf_data[209] == '3');                  /* digit 3 */
 }
 

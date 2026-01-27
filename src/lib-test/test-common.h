@@ -45,8 +45,8 @@ void test_begin(const char *name);
 /* Additional parameters are m1 (source) and m2 (destination) memory and len
  * in memcmp().
  */
-#define test_assert_memcmp(m1, m2, len) STMT_START { \
-		test_assert_memcmp_idx(m1, m2, len, LLONG_MIN); \
+#define test_assert_memcmp(m1, len1, m2, len2) STMT_START { \
+		test_assert_memcmp_idx(m1, len1, m2, len2, LLONG_MIN); \
 	} STMT_END
 
 /* Same as test_assert_strcmp except that it takes an additional i as input.
@@ -65,12 +65,14 @@ void test_begin(const char *name);
  * When i is greater than or equals 0 it is used to identify the barrage of
  * tests failed like in test_assert_idx.
 */
-#define test_assert_memcmp_idx(_m1, _m2, _len, i) STMT_START { \
+#define test_assert_memcmp_idx(_m1, _len1, _m2, _len2, i) STMT_START { \
 		const void *_temp_m1 = (_m1); \
 		const void *_temp_m2 = (_m2); \
-		const size_t _temp_len = (_len); \
-		if ((memcmp(_temp_m1,_temp_m2, _temp_len) != 0)) \
-			test_assert_failed_memcmp_idx("memcmp(" #_m1 ","  #_m2 ","  #_len ")", \
+		const size_t _temp_len = I_MIN((_len1), (_len2)); \
+		if ((_len1) != (_len2)) \
+			test_assert_failed_ucmp_intmax_idx(#_len1 " == " #_len2, __FILE__, __LINE__, _len1, _len2, "=", i); \
+		if ((memcmp(_temp_m1, _temp_m2, _temp_len) != 0)) \
+			test_assert_failed_memcmp_idx("memcmp(" #_m1 ","  #_m2 ","  #_len2 ")", \
 						      __FILE__, __LINE__, _temp_m1, _temp_m2, _temp_len, i); \
 	} STMT_END
 

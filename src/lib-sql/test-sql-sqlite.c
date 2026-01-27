@@ -108,7 +108,7 @@ static void test_sql_sqlite(void)
 	const unsigned char *value =
 		sql_result_get_field_value_binary(cursor, 3, &size);
 	test_assert_ucmp(size, ==, 5);
-	test_assert_memcmp(value, "\xFF\xFF\x00\x00\xFF", 5);
+	test_assert_memcmp(value, size, "\xFF\xFF\x00\x00\xFF", 5);
 	sql_result_unref(cursor);
 
 	prep_stmt = sql_prepared_statement_init(sql, "SELECT foo FROM bar WHERE foo = ?");
