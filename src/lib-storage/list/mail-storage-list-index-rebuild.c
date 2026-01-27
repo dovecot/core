@@ -18,7 +18,7 @@
 
 struct mail_storage_list_index_rebuild_mailbox {
 	guid_128_t guid;
-	const char *index_name;
+	const char *storage_name;
 	struct mailbox_list *list;
 };
 
@@ -209,9 +209,9 @@ mail_storage_list_remove_duplicate(struct mail_storage_list_index_rebuild_ctx *c
 	if (strncmp(box->name, ctx->storage->set->mailbox_list_lost_mailbox_prefix,
 		    strlen(ctx->storage->set->mailbox_list_lost_mailbox_prefix)) == 0) {
 		delete_name = box->name;
-		keep_name = rebuild_box->index_name;
+		keep_name = rebuild_box->storage_name;
 	} else {
-		delete_name = rebuild_box->index_name;
+		delete_name = rebuild_box->storage_name;
 		keep_name = p_strdup(ctx->pool, box->name);
 	}
 
@@ -228,7 +228,7 @@ mail_storage_list_remove_duplicate(struct mail_storage_list_index_rebuild_ctx *c
 	}
 	e_warning(box->event, "List rebuild: Duplicated mailbox GUID %s found - deleting mailbox entry %s (and keeping %s)",
 		  guid_128_to_string(rebuild_box->guid), delete_name, keep_name);
-	rebuild_box->index_name = keep_name;
+	rebuild_box->storage_name = keep_name;
 	return 0;
 }
 
@@ -267,11 +267,12 @@ mail_storage_list_index_find_indexed_mailbox(struct mail_storage_list_index_rebu
 			char *hk_dup = p_strdup(ctx->pool, hk);
 			rebuild_box = p_new(ctx->pool, struct mail_storage_list_index_rebuild_mailbox, 1);
 			rebuild_box->list = info->ns->list;
-			rebuild_box->index_name = p_strdup(ctx->pool, box->name);
+			rebuild_box->storage_name =
+				p_strdup(ctx->pool, box->name);
 			guid_128_copy(rebuild_box->guid, metadata.guid);
 			hash_table_insert(ctx->mailboxes, hk_dup, rebuild_box);
-		} else if (rebuild_box->index_name == NULL) {
-			rebuild_box->index_name =
+		} else if (rebuild_box->storage_name == NULL) {
+			rebuild_box->storage_name =
 				p_strdup(ctx->pool, box->name);
 			e_debug(box->event,
 				"Mailbox GUID %s exists in list index and in storage",
@@ -448,7 +449,7 @@ static int mail_storage_list_index_add_missing(struct mail_storage_list_index_re
 	while (ret == 0 &&
 	       hash_table_iterate(iter, ctx->mailboxes, &key, &box)) T_BEGIN {
 		bool created;
-		const char *name = box->index_name;
+		const char *name = box->storage_name;
 		if (name == NULL)
 			name = get_box_name(ctx, box);
 
@@ -500,7 +501,7 @@ static int mail_storage_list_index_add_missing(struct mail_storage_list_index_re
 		if (node->box == NULL)
 			continue;
 		/* this node needs to be created */
-		if (node->box->index_name == NULL) {
+		if (node->box->storage_name == NULL) {
 			if (mail_storage_list_index_create(ctx, node->box->list,
 							   box_name,
 							   node->box->guid) < 0)
