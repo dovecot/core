@@ -30,6 +30,8 @@ struct mail_storage_list_index_rebuild_ns {
 struct mail_storage_list_index_rebuild_ctx {
 	struct mail_storage *storage;
 	pool_t pool;
+	/* List of seen mailboxes, both in filesystem or in list index.
+	   Hash table key is <ns prefix>/<mailbox guid>. */
 	HASH_TABLE(char*, struct mail_storage_list_index_rebuild_mailbox *) mailboxes;
 	ARRAY(struct mail_storage_list_index_rebuild_ns) rebuild_namespaces;
 };
@@ -449,6 +451,9 @@ static int mail_storage_list_index_add_missing(struct mail_storage_list_index_re
 	while (ret == 0 &&
 	       hash_table_iterate(iter, ctx->mailboxes, &key, &box)) T_BEGIN {
 		bool created;
+		/* If the mailbox exists in list index, use it. Otherwise
+		   fallback to trying to find the box-name header from the
+		   mailbox's index. */
 		const char *name = box->storage_name;
 		if (name == NULL)
 			name = get_box_name(ctx, box);
