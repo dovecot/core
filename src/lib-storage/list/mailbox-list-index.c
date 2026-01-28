@@ -584,6 +584,9 @@ mailbox_name_hdr_encode(struct mailbox_list *list, const char *storage_name,
 		mailbox_list_get_hierarchy_sep(list),
 		'\0'
 	};
+	/* NOTE: The stored mailbox name may be UTF-8 or mUTF-7 depending on
+	   mailbox_list_utf8 setting. Ideally it would be UTF-8 always.
+	   However, the name is stored unescaped. */
 	const char **name_parts =
 		(const char **)p_strsplit(unsafe_data_stack_pool, storage_name, sep);
 	if (list->mail_set->mailbox_list_storage_escape_char[0] != '\0') {
@@ -609,9 +612,14 @@ mailbox_name_hdr_decode_storage_name(struct mailbox_list *list,
 				     const unsigned char *name_hdr,
 				     size_t name_hdr_size)
 {
-	const char list_sep = mailbox_list_get_hierarchy_sep(list);
-	const char escape_char = list->mail_set->mailbox_list_storage_escape_char[0];
+	ARRAY_TYPE(const_string) raw_parts;
+	const char *raw_part;
+
+	/* NOTE: The stored mailbox name may be UTF-8 or mUTF-7 depending on
+	   mailbox_list_utf8 setting. Ideally it would be UTF-8 always.
+	   However, the name is stored unescaped. */
 	string_t *storage_name = t_str_new(name_hdr_size);
+	t_array_init(&raw_parts, 8);
 	while (name_hdr_size > 0) {
 		const unsigned char *p = memchr(name_hdr, '\0', name_hdr_size);
 		size_t name_part_len;
@@ -624,20 +632,25 @@ mailbox_name_hdr_decode_storage_name(struct mailbox_list *list,
 			name_hdr_size -= name_part_len + 1;
 		}
 
+		raw_part = t_strndup(name_hdr, name_part_len);
+		array_push_back(&raw_parts, &raw_part);
+
+		if (p != NULL)
+			name_hdr += name_part_len + 1;
+	}
+
+	const char list_sep = mailbox_list_get_hierarchy_sep(list);
+	const char escape_char = list->mail_set->mailbox_list_storage_escape_char[0];
+	array_foreach_elem(&raw_parts, raw_part) {
+		if (str_len(storage_name) > 0)
+			str_append_c(storage_name, list_sep);
 		if (escape_char == '\0')
-			str_append_data(storage_name, name_hdr, name_part_len);
+			str_append(storage_name, raw_part);
 		else {
-			const char *name_part =
-				t_strndup(name_hdr, name_part_len);
 			str_append(storage_name,
-				   mailbox_list_escape_name_params(name_part,
+				   mailbox_list_escape_name_params(raw_part,
 					"", '\0', list_sep, escape_char,
 					list->mail_set->mailbox_directory_name));
-		}
-
-		if (p != NULL) {
-			name_hdr += name_part_len + 1;
-			str_append_c(storage_name, list_sep);
 		}
 	}
 	return str_c(storage_name);
