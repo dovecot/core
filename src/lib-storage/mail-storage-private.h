@@ -390,9 +390,22 @@ struct mailbox_index_first_saved {
 };
 
 struct mailbox {
+	/* Mailbox's "storage name". This uses the hierarchy separator from
+	   mailbox_list_get_hierarchy_sep(). It's mUTF-7 encoded, if
+	   mailbox_list_utf8=no. Special characters are encoded using
+	   mailbox_list_storage_escape_char. The namespace prefix is not
+	   included in this name. */
 	const char *name;
-	/* mailbox's virtual name (from mail_namespace_get_vname()) */
+	/* Mailbox's "virtual name". This uses the hierarchy separator from
+	   mail_namespace_get_vname(). It's always UTF-8 encoded. Special
+	   characters are encoded using mailbox_list_visible_escape_char.
+	   (Storage name's special characters are not encoded.) The namespace
+	   prefix is included in this name. This virtual name will be used
+	   as the visible name in e.g. doveadm output. For IMAP it is still
+	   encoded into mUTF-7, unless IMAP4rev2 / UTF-8 extensions are
+	   enabled. The vname is always stored as NFC normalized. */
 	const char *vname;
+	/* Same as vname, but before NFC normalization. */
 	const char *vname_raw;
 	struct mail_storage *storage;
 	struct mailbox_list *list;
