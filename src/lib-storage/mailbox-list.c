@@ -325,33 +325,25 @@ mailbox_list_vname_prepare(struct mailbox_list *list, const char **_vname,
 }
 
 static const char *
-mailbox_list_default_get_storage_name_part(struct mailbox_list *list,
-					   const char *vname_part)
+mailbox_list_vname_part_to_raw(struct mailbox_list *list,
+			       const char *vname_part)
 {
-	const char *storage_name = vname_part;
+	const char *raw_name = vname_part;
 	string_t *str;
 
 	if (!list->mail_set->mailbox_list_utf8) {
 		/* UTF-8 -> mUTF-7 conversion */
-		str = t_str_new(strlen(storage_name)*2);
-		if (imap_escaped_utf8_to_utf7(storage_name,
+		str = t_str_new(strlen(raw_name)*2);
+		if (imap_escaped_utf8_to_utf7(raw_name,
 				list->mail_set->mailbox_list_visible_escape_char[0],
 				str) < 0)
 			i_panic("Mailbox name not UTF-8: %s", vname_part);
-		storage_name = str_c(str);
+		return str_c(str);
 	} else if (list->mail_set->mailbox_list_visible_escape_char[0] != '\0') {
-		mailbox_list_name_unescape(&storage_name,
+		mailbox_list_name_unescape(&raw_name,
 			list->mail_set->mailbox_list_visible_escape_char[0]);
 	}
-	if (list->mail_set->mailbox_list_storage_escape_char[0] != '\0') {
-		storage_name = mailbox_list_escape_name_params(storage_name,
-				list->ns->prefix,
-				'\0', /* no separator conversion */
-				mailbox_list_get_hierarchy_sep(list),
-				list->mail_set->mailbox_list_storage_escape_char[0],
-				list->mail_set->mailbox_directory_name);
-	}
-	return storage_name;
+	return raw_name;
 }
 
 const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
@@ -381,17 +373,31 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 
 	const char sep[] = { ns_sep, '\0' };
 	const char *const *parts = t_strsplit(prepared_name, sep);
+	unsigned int parts_count = str_array_length(parts);
+	const char **raw_parts = t_new(const char *, parts_count + 1);
+	for (unsigned int i = 0; i < parts_count; i++)
+		raw_parts[i] = mailbox_list_vname_part_to_raw(list, parts[i]);
+
 	string_t *storage_name = t_str_new(128);
 	if (prefix[0] != '\0') {
 		/* INBOX/INBOX handling - the prefix contains <escape>49NBOX */
 		str_append(storage_name, prefix);
 		str_append_c(storage_name, list_sep);
 	}
-	for (unsigned int i = 0; parts[i] != NULL; i++) {
+	for (unsigned int i = 0; raw_parts[i] != NULL; i++) {
 		if (i > 0)
 			str_append_c(storage_name, list_sep);
-		str_append(storage_name,
-			   mailbox_list_default_get_storage_name_part(list, parts[i]));
+		if (list->mail_set->mailbox_list_storage_escape_char[0] == '\0')
+			str_append(storage_name, raw_parts[i]);
+		else {
+			str_append(storage_name,
+				   mailbox_list_escape_name_params(raw_parts[i],
+				   list->ns->prefix,
+				   '\0', /* no separator conversion */
+				   mailbox_list_get_hierarchy_sep(list),
+				   list->mail_set->mailbox_list_storage_escape_char[0],
+				   list->mail_set->mailbox_directory_name));
+		}
 	}
 	return str_c(storage_name);
 }
