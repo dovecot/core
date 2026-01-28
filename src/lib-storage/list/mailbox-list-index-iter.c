@@ -149,20 +149,18 @@ mailbox_list_index_update_next(struct mailbox_list_index_iterate_context *ctx,
 				ctx->next_node = NULL;
 				return;
 			}
-			T_BEGIN {
-				/* The storage name kept in the iteration context
-				   is escaped. To calculate the right truncation
-				   margin, the length of the name must be
-				   calculated from the escaped storage name and
-				   not from node->raw_name. */
-				string_t *escaped_name = t_str_new(64);
-				mailbox_list_get_escaped_mailbox_name(ctx->ctx.list,
-								      node->raw_name,
-								      escaped_name);
-				ctx->parent_len -= str_len(escaped_name);
-				if (node->parent != NULL)
-					ctx->parent_len--;
-			} T_END;
+
+			/* update parent_len by dropping the last name
+			   from the hierarchy. */
+			str_truncate(ctx->path, ctx->parent_len);
+			const char *p = strrchr(str_c(ctx->path),
+				mailbox_list_get_hierarchy_sep(ctx->ctx.list));
+			if (p != NULL)
+				ctx->parent_len = p - str_c(ctx->path);
+			else {
+				i_assert(node->parent == NULL);
+				ctx->parent_len = 0;
+			}
 		}
 		ctx->next_node = node->next;
 	}
