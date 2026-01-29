@@ -123,6 +123,49 @@ static void prepare_state(const struct var_expand_params *params,
 	state_r->transfer = str_new(default_pool, 32);
 }
 
+static int
+var_expand_program_execute_one_real(const struct var_expand_program *program,
+				    const struct var_expand_params *params,
+				    struct var_expand_state *state,
+				    const char **error_r)
+{
+	int ret = 0;
+	const struct var_expand_statement *stmt = program->first;
+	if (stmt == NULL) {
+		/* skip empty programs */
+		program = program->next;
+		return 0;
+	}
+	T_BEGIN {
+		while (stmt != NULL) {
+			bool first = stmt == program->first;
+			if (!var_expand_execute_stmt(state, stmt,
+						     first, error_r)) {
+				ret = -1;
+				break;
+			}
+			stmt = stmt->next;
+		}
+	} T_END_PASS_STR_IF(ret < 0, error_r);
+	if (ret < 0)
+		return ret;
+	if (state->transfer_binary)
+		var_expand_state_set_transfer(state,
+				binary_to_hex(state->transfer->data, state->transfer->used));
+	if (state->transfer_set) {
+		if (!program->only_literal && params->escape_func != NULL) {
+			str_append(state->result, params->escape_func(str_c(state->transfer),
+								      params->escape_context));
+			} else
+				str_append_str(state->result, state->transfer);
+	} else {
+		*error_r = t_strdup(state->delayed_error);
+		ret = -1;
+	}
+	var_expand_state_unset_transfer(state);
+	return ret;
+}
+
 int var_expand_program_execute(string_t *dest, const struct var_expand_program *program,
 			       const struct var_expand_params *params, const char **error_r)
  {
@@ -135,40 +178,9 @@ int var_expand_program_execute(string_t *dest, const struct var_expand_program *
 	*error_r = NULL;
 
 	while (program != NULL) {
-		const struct var_expand_statement *stmt = program->first;
-		if (stmt == NULL) {
-			/* skip empty programs */
-			program = program->next;
-			continue;
-		}
-		T_BEGIN {
-			while (stmt != NULL) {
-				bool first = stmt == program->first;
-				if (!var_expand_execute_stmt(&state, stmt,
-							     first, error_r)) {
-					ret = -1;
-					break;
-				}
-				stmt = stmt->next;
-			}
-		} T_END_PASS_STR_IF(ret < 0, error_r);
-		if (ret < 0)
+		ret = var_expand_program_execute_one_real(program, params, &state, error_r);
+		if (ret == -1)
 			break;
-		if (state.transfer_binary)
-			var_expand_state_set_transfer(&state, binary_to_hex(state.transfer->data, state.transfer->used));
-		if (state.transfer_set) {
-			if (!program->only_literal && params->escape_func != NULL) {
-				str_append(state.result,
-					   params->escape_func(str_c(state.transfer),
-							       params->escape_context));
-			} else
-				str_append_str(state.result, state.transfer);
-		} else {
-			*error_r = t_strdup(state.delayed_error);
-			ret = -1;
-			break;
-		}
-		var_expand_state_unset_transfer(&state);
 		program = program->next;
 	};
 	str_free(&state.transfer);
