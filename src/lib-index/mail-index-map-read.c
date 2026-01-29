@@ -188,6 +188,9 @@ mail_index_try_read_map(struct mail_index_map *map,
 		records_size = (size_t)hdr->messages_count * hdr->record_size;
 		records_count = hdr->messages_count;
 
+		/* the whole header_size was just successfully read into
+		   hdr_copy_buf. */
+		i_assert(hdr->header_size <= file_size);
 		if (file_size - hdr->header_size < records_size ||
 		    (hdr->record_size != 0 &&
 		     records_size / hdr->record_size != hdr->messages_count)) {
