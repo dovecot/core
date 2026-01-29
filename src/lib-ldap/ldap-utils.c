@@ -38,6 +38,30 @@ int ldap_set_tls_options(LDAP *ld ATTR_UNUSED, bool starttls ATTR_UNUSED,
 	return 0;
 }
 #else
+static const struct {
+	const char *name;
+	int opt;
+} protocol_versions[] = {
+	{ "ANY", LDAP_OPT_X_TLS_PROTOCOL_SSL3 },
+	{ "TLSv1", LDAP_OPT_X_TLS_PROTOCOL_TLS1_0 },
+	{ "TLSv1.1", LDAP_OPT_X_TLS_PROTOCOL_TLS1_1 },
+	{ "TLSv1.2", LDAP_OPT_X_TLS_PROTOCOL_TLS1_2 },
+	{ "TLSv1.3", LDAP_OPT_X_TLS_PROTOCOL_TLS1_3 },
+	{ "LATEST", LDAP_OPT_X_TLS_PROTOCOL_TLS1_3 }
+};
+
+static int ldap_min_protocol_to_option(const char *min_protocol, int *opt_r)
+{
+	unsigned int i = 0;
+	for (; i < N_ELEMENTS(protocol_versions); i++) {
+		if (strcasecmp(protocol_versions[i].name, min_protocol) == 0) {
+			*opt_r = protocol_versions[i].opt;
+			return 0;
+		}
+	}
+	return -1;
+}
+
 int ldap_set_tls_options(LDAP *ld, bool starttls, const char *uris,
 			 const struct ssl_settings *ssl_set,
 			 const char **error_r)
@@ -70,10 +94,6 @@ int ldap_set_tls_options(LDAP *ld, bool starttls, const char *uris,
 			     ssl_set->ssl_cipher_list,
 			     "ssl_cipher_list", error_r) < 0)
 		return -1;
-	if (ldap_set_opt_str(ld, LDAP_OPT_X_TLS_PROTOCOL_MIN,
-			     ssl_set->ssl_min_protocol,
-			     "ssl_min_protocol", error_r) < 0)
-		return -1;
 	if (ldap_set_opt_str(ld, LDAP_OPT_X_TLS_ECNAME,
 			     ssl_set->ssl_curve_list,
 			     "ssl_curve_list", error_r) < 0)
@@ -81,18 +101,32 @@ int ldap_set_tls_options(LDAP *ld, bool starttls, const char *uris,
 
 	bool requires = ssl_set->ssl_client_require_valid_cert;
 	int opt = requires ? LDAP_OPT_X_TLS_HARD : LDAP_OPT_X_TLS_ALLOW;
-
-	/* required for Bookworm */
-	if (ldap_set_opt(NULL, LDAP_OPT_X_TLS_REQUIRE_CERT, &opt,
-			 "ssl_client_require_valid_cert",
-			 requires ? "yes" : "no", error_r) < 0)
-		return -1;
-
-	/* required for RHEL9 */
 	if (ldap_set_opt(ld, LDAP_OPT_X_TLS_REQUIRE_CERT, &opt,
 			 "ssl_client_require_valid_cert",
 			 requires ? "yes" : "no", error_r) < 0)
 		return -1;
+
+	if (ldap_min_protocol_to_option(
+		*ssl_set->ssl_min_protocol != '\0'
+			? ssl_set->ssl_min_protocol
+			: "ANY",
+		&opt) < 0) {
+		*error_r = t_strdup_printf("Can't set option %s to %s: %s",
+			 "ssl_min_protocol", ssl_set->ssl_min_protocol,
+			 "Unknown value");
+		return -1;
+	}
+	if (ldap_set_opt(ld, LDAP_OPT_X_TLS_PROTOCOL_MIN, &opt,
+			 "ssl_min_protocol", ssl_set->ssl_min_protocol,
+			 error_r) < 0)
+		return -1;
+
+#ifdef LDAP_OPT_X_TLS_NEWCTX
+	bool is_server = false;
+	opt = is_server;
+	ldap_set_option(ld, LDAP_OPT_X_TLS_NEWCTX, &opt);
+#endif
+
 	return 0;
 }
 
