@@ -88,15 +88,11 @@ void var_expand_program_dump(const struct var_expand_program *prog, string_t *de
 	}
 }
 
-int var_expand_program_execute(string_t *dest, const struct var_expand_program *program,
-			       const struct var_expand_params *params, const char **error_r)
- {
-	int ret = 0;
-	struct var_expand_state state;
-	i_zero(&state);
-
-	if (params == NULL)
-		params = &empty_params;
+static void prepare_state(const struct var_expand_params *params,
+			  struct var_expand_state *state_r)
+{
+	i_zero(state_r);
+	i_assert(params != NULL);
 
 	i_assert((params->table == NULL && params->tables_arr == NULL) ||
 		 (params->table != NULL && params->tables_arr == NULL) ||
@@ -122,9 +118,19 @@ int var_expand_program_execute(string_t *dest, const struct var_expand_program *
 	i_assert(params->contexts == NULL ||
 		 params->contexts[num_contexts] == var_expand_contexts_end);
 
-	state.params = params;
-	state.result = str_new(default_pool, 32);
-	state.transfer = str_new(default_pool, 32);
+	state_r->params = params;
+	state_r->result = str_new(default_pool, 32);
+	state_r->transfer = str_new(default_pool, 32);
+}
+
+int var_expand_program_execute(string_t *dest, const struct var_expand_program *program,
+			       const struct var_expand_params *params, const char **error_r)
+ {
+	int ret = 0;
+	struct var_expand_state state;
+	if (params == NULL)
+		params = &empty_params;
+	prepare_state(params, &state);
 
 	*error_r = NULL;
 
