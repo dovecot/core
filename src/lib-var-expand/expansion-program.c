@@ -224,6 +224,28 @@ var_expand_program_variables(const struct var_expand_program *program)
 	return program->variables;
 }
 
+bool var_expand_program_has_variable(const struct var_expand_program *program,
+				     const char *variable, bool first_program_only)
+{
+	if (!first_program_only)
+		return str_array_find(var_expand_program_variables(program), variable);
+
+	const struct var_expand_statement *stmt = program->first;
+	if (stmt->params == NULL && strcmp(stmt->function, variable) == 0)
+		return TRUE;
+	while (stmt != NULL) {
+		const struct var_expand_parameter *par = stmt->params;
+		while (par != NULL) {
+			if (par->value_type == VAR_EXPAND_PARAMETER_VALUE_TYPE_VARIABLE &&
+			    strcmp(par->value.str, variable) == 0)
+				return TRUE;
+			par = par->next;
+		}
+		stmt = stmt->next;
+	}
+	return FALSE;
+}
+
 void var_expand_program_free(struct var_expand_program **_program)
 {
 	struct var_expand_program *program = *_program;

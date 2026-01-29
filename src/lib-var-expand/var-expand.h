@@ -106,6 +106,14 @@ int var_expand_program_create(const char *str, struct var_expand_program **progr
 			      const char **error_r);
 /* Lists all seen variables in a program */
 const char *const *var_expand_program_variables(const struct var_expand_program *program);
+/* Checks if the program has a variable, if first_program_only is set, checks the
+  first program only, otherwise it checks the variables using var_expand_program_variables().
+
+  The check is done to all filters and parameters on the first program, so it can detect
+  if the variable is used anywhere in the program.
+*/
+bool var_expand_program_has_variable(const struct var_expand_program *program,
+				     const char *variable, bool first_program_only);
 /* Dumps the program into a dest for debugging */
 void var_expand_program_dump(const struct var_expand_program *program, string_t *dest);
 /* Executes the program with given params. Params can be left NULL, in which case
