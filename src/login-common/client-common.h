@@ -195,6 +195,9 @@ struct client {
 	const char *session_id, *listener_name, *postlogin_socket_path;
 	const char *local_name;
 	const char *client_cert_common_name;
+	struct var_expand_program *log_progam;
+	const char *const *const log_template;
+	ARRAY_TYPE(const_expansion_program) *log_elements;
 
 	string_t *client_id;
 	ARRAY_TYPE(const_string) forward_fields;

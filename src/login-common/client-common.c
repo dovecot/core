@@ -30,6 +30,8 @@
 #include "login-proxy.h"
 #include "settings-parser.h"
 #include "client-common.h"
+#include "var-expand-split.h"
+#include "login-log.h"
 
 struct client *clients = NULL;
 struct client *destroyed_clients = NULL;
@@ -1282,6 +1284,42 @@ client_var_expand_callback(void *context, struct var_expand_params *params_r)
 	*params_r = *params;
 }
 
+static int expand_element(string_t *dest, const char *elem,
+			  const struct login_log_settings *log_set, unsigned int *i,
+			  const struct var_expand_params *params,
+			  bool *has_user_r, const char **errelem_r,
+			  const char **error_r)
+{
+	if (strchr(elem, *LOG_ELEMENT_PLACEHOLDER) == NULL) {
+		str_append(dest, elem);
+		return 0;
+	}
+
+	const char *ptr = elem;
+	const char *pptr = ptr;
+	int ret = 0;
+
+	/* Find all placeholders in this element, and try expand corresponding
+	   program. If it fails, reconstruct the original program for error
+	   logging. */
+	while ((ptr = strchr(pptr, *LOG_ELEMENT_PLACEHOLDER)) != NULL) {
+		str_append_data(dest, pptr, ptr - pptr);
+		const struct var_expand_program *prog =
+			array_idx_elem(&log_set->elements, *i);
+		*has_user_r = var_expand_program_has_variable(prog, "user", TRUE);
+		(*i)++;
+		if (var_expand_program_execute_one(dest, prog, params, error_r) < 0) {
+			/* write the failed program here */
+			if (errelem_r != NULL)
+				*errelem_r = var_expand_program_to_string_one(prog);
+			ret = -1;
+		}
+		pptr = ptr + 1;
+	}
+	str_append(dest, pptr);
+	return ret;
+}
+
 static const char *
 client_get_log_str(struct client *client, const char *msg)
 {
@@ -1295,43 +1333,60 @@ client_get_log_str(struct client *client, const char *msg)
 		.event = client->event,
 	};
 	static bool expand_error_logged = FALSE;
-	char *const *e;
-	const char *error;
+	const char *const *e;
+	const char *errelem, *error;
 	string_t *str, *str2;
 
 	str = t_str_new(256);
 	str2 = t_str_new(256);
+
 	size_t pos = 0;
-	for (e = client->set->log_format_elements_split; *e != NULL; e++) {
-		pos = str->used;
-		struct var_expand_program *prog;
-		if (var_expand_program_create(*e, &prog, &error) < 0 ||
-		    var_expand_program_execute(str, prog, params, &error) < 0) {
+	unsigned int i = 0, i2;
+
+	for (e = client->set->log_set->template; *e != NULL; e++) {
+		pos = str_len(str);
+		bool has_user = FALSE;
+		str_truncate(str2, 0);
+		/* Keep track which program we were at, as expand_element
+		   is called twice, so we can rewind back to where we were. */
+		i2 = i;
+		int ret = expand_element(str2, *e, client->set->log_set, &i,
+					 params, &has_user, &errelem, &error);
+		if (ret < 0) {
 			if (!expand_error_logged) {
 				/* NOTE: Don't log via client->event -
 				   it would cause recursion. */
 				i_error("Failed to expand log_format_elements=%s: %s",
-					*e, error);
+					errelem, error);
 				expand_error_logged = TRUE;
 			}
 		}
-		const char *const *vars = var_expand_program_variables(prog);
-		if (str_array_find(vars, "user")) {
-			/* username is added even if it's empty */
-			var_expand_program_free(&prog);
-		} else {
+		str_append(str, str_c(str2));
+		if (has_user) {
+			/* if the element contained username somehow, we will
+			   print it even if it would expand to empty. */
+		} else if (strchr(*e, *LOG_ELEMENT_PLACEHOLDER) != NULL) {
+			/* render the element again against empty client
+			   so we can drop any elements that would've actually
+			   rendered as empty. */
+			i = i2;
 			str_truncate(str2, 0);
-			int ret = var_expand_program_execute(str2, prog,
-							     &empty_params, &error);
-			var_expand_program_free(&prog);
+			ret = expand_element(str2, *e, client->set->log_set, &i,
+					     &empty_params, &has_user, NULL,
+					     &error);
 			if (ret < 0 || strcmp(str_c(str)+pos, str_c(str2)) == 0) {
-				/* we just logged this error above. no need
-				   to do it again. */
+				/* so either it still errored or, the element
+				  was rendered without any acttual value.
+
+				  any errors were already logged in the previous
+				  expansion, so we can ignore it here.
+
+				  drop the element from output. */
 				str_truncate(str, pos);
 				continue;
 			}
 		}
-		pos = str->used;
+		pos = str_len(str);
 		if (str_len(str) > 0)
 			str_append(str, ", ");
 	}

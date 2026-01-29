@@ -1,9 +1,13 @@
 /* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "login-common.h"
+#include "array.h"
+#include "var-expand-private.h"
+#include "var-expand-split.h"
 #include "settings-parser.h"
 #include "master-service-settings.h"
 #include "login-settings.h"
+#include "login-log.h"
 #include "settings-parser.h"
 
 #include <unistd.h>
@@ -88,14 +92,35 @@ const struct setting_parser_info login_setting_parser_info = {
 };
 
 /* <settings checks> */
-static bool login_settings_check(void *_set, pool_t pool,
+static bool login_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				 const char **error_r)
 {
 	struct login_settings *set = _set;
 
-	set->log_format_elements_split =
-		p_strsplit(pool, set->login_log_format_elements, " ");
+	struct var_expand_program *program;
+	/* Replace any \001, as we are using it for placeholder for elements. */
+	const char *login_log_format =
+		t_str_replace(set->login_log_format_elements,
+			      *LOG_ELEMENT_PLACEHOLDER, '\002');
+	if (var_expand_program_create(login_log_format, &program, error_r) < 0)
+		return FALSE;
+#ifndef CONFIG_BINARY
+	struct login_log_settings *log_set = p_new(pool, struct login_log_settings, 1);
+	/* we want the expansion program to be free'd when the settings are free'd */
+	pool_add_external_ref(pool, program->pool);
+	pool_unref(&program->pool);
+	const char *template;
 
+	p_array_init(&log_set->elements, pool, 16);
+	var_expand_program_template(pool, program, LOG_ELEMENT_PLACEHOLDER,
+				    &template, &log_set->elements);
+	/* and finally we split it like before */
+	log_set->template = (const char *const *) p_strsplit(pool, template, " ");
+	log_set->program = program;
+	set->log_set = log_set;
+#else
+	var_expand_program_free(&program);
+#endif
 	if (strcmp(set->ssl, "required") == 0 && set->auth_allow_cleartext) {
 		*error_r = "auth_allow_cleartext=yes has no effect with ssl=required";
 		return FALSE;

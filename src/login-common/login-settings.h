@@ -1,6 +1,12 @@
 #ifndef LOGIN_SETTINGS_H
 #define LOGIN_SETTINGS_H
 
+/* <settings checks> */
+#define LOG_ELEMENT_PLACEHOLDER "\001"
+/* </settings checks> */
+
+struct login_log_settings;
+
 struct login_settings {
 	pool_t pool;
 	ARRAY_TYPE(const_string) login_trusted_networks;
@@ -30,7 +36,7 @@ struct login_settings {
 	unsigned int mail_max_userip_connections;
 
 	/* generated: */
-	char *const *log_format_elements_split;
+	const struct login_log_settings *log_set;
 };
 
 extern const struct setting_parser_info login_setting_parser_info;

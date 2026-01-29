@@ -28,6 +28,7 @@ headers = \
 	login-proxy.h \
 	login-proxy-state.h \
 	login-settings.h \
+	login-log.h \
 	sasl-server.h
 
 pkginc_libdir=$(pkgincludedir)
