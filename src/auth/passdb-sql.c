@@ -5,6 +5,7 @@
 
 #ifdef PASSDB_SQL
 
+#include "str.h"
 #include "safe-memset.h"
 #include "settings.h"
 #include "settings-parser.h"
@@ -35,7 +36,7 @@ struct passdb_sql_settings {
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type("passdb_sql_"#name, name, struct passdb_sql_settings)
 static const struct setting_define passdb_sql_setting_defines[] = {
-	DEF(STR, query),
+	DEF(STR_NOVARS, query),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -162,13 +163,6 @@ static void sql_query_callback(struct sql_result *result,
 	auth_request_unref(&auth_request);
 }
 
-static int passdb_sql_escape(const char *str, const char **output_r,
-			     void *context, const char **error_r)
-{
-	struct sql_db *db = context;
-	return sql_escape_string(db, str, output_r, error_r);
-}
-
 static void sql_lookup_pass(struct passdb_sql_request *sql_request)
 {
 	struct passdb_module *_module =
@@ -176,6 +170,7 @@ static void sql_lookup_pass(struct passdb_sql_request *sql_request)
 	struct sql_passdb_module *module =
 		container_of(_module, struct sql_passdb_module, module);
 	const struct passdb_sql_settings *set;
+	struct sql_statement *stmt;
 	const char *error;
 
 	if (sql_connect(module->db) < 0) {
@@ -186,13 +181,9 @@ static void sql_lookup_pass(struct passdb_sql_request *sql_request)
 			sql_request->auth_request);
 		return;
 	}
-	const struct settings_get_params params = {
-		.escape_func = passdb_sql_escape,
-		.escape_context = module->db,
-	};
-	if (settings_get_params(authdb_event(sql_request->auth_request),
-				&passdb_sql_setting_parser_info, &params,
-				&set, &error) < 0) {
+	if (settings_get(authdb_event(sql_request->auth_request),
+			 &passdb_sql_setting_parser_info, 0,
+			 &set, &error) < 0) {
 		e_error(authdb_event(sql_request->auth_request), "%s", error);
 		sql_request->callback.verify_plain(
 			PASSDB_RESULT_INTERNAL_FAILURE,
@@ -200,11 +191,23 @@ static void sql_lookup_pass(struct passdb_sql_request *sql_request)
 		return;
 	}
 
+	if (db_sql_create_statement(module->db, set->query, sql_request->auth_request,
+				    &stmt, &error) < 0) {
+		e_error(authdb_event(sql_request->auth_request), "%s", error);
+		settings_free(set);
+		sql_request->callback.verify_plain(
+			PASSDB_RESULT_INTERNAL_FAILURE,
+			sql_request->auth_request);
+		return;
+	}
+
 	e_debug(authdb_event(sql_request->auth_request),
-		"query: %s", set->query);
+		"passdb_sql_query: %s", sql_statement_get_log_query(stmt));
 
 	auth_request_ref(sql_request->auth_request);
-	sql_query(module->db, set->query, sql_query_callback, sql_request);
+
+	sql_statement_query(&stmt, sql_query_callback, sql_request);
+
 	settings_free(set);
 }
 
