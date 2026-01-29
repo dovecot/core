@@ -19,6 +19,19 @@
 
   The function var_expand_program_create() parses a string that can contain
   one or more programs, and chains them together. This is usually what is wanted.
+
+  There are some cases though when you need to deal with programs one by one,
+  and this is handled by 'var-expand-split.h', and there are a few functions here
+  that do not seem to make much sense alone:
+
+  The var_expand_program_execute_one() and var_expand_program_has_variable() are
+  such ones. The execute_one() only makes sense to use with individual programs
+  that can be extracted with var_expand_program_template() or
+  var_expand_program_split(), which are in their own header as they have
+  array.h dependency.
+
+  The var_expand_program_has_variable() can be used for generic purposes too
+  by leaving the first_program_only as FALSE.
 */
 
 /* Used for getting either prefix:key values, or dynamic values for keys

@@ -1,11 +1,13 @@
 /* Copyright (c) 2024 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "test-common.h"
 #include "cpu-count.h"
 #include "str.h"
 #include "hostpid.h"
 #include "var-expand-private.h"
+#include "var-expand-split.h"
 #include "expansion.h"
 #include "dovecot-version.h"
 #include "time-util.h"
@@ -1325,6 +1327,65 @@ static void test_var_expand_bench(void)
 	test_end();
 }
 
+static void test_var_expand_split(void)
+{
+	test_begin("var_expand_split");
+	pool_t pool = pool_datastack_create();
+	const struct var_expand_params params = {
+		.table = (const struct var_expand_table[]) {
+			{ .key = "login", .value = "user" },
+			{ .key = "host", .value = "localhost" },
+			{ .key = "user", .value = "remote user" },
+			VAR_EXPAND_TABLE_END
+		},
+	};
+
+	const char *prog =
+		"ssh -l%{login} -- %{host} doveadm dsync-server "
+		"-u%{user | upper | lower}";
+	ARRAY_TYPE(const_expansion_program) parts = ARRAY_INIT;
+	const char *const *template;
+	const char *const *ptr;
+	const char *template2;
+	struct var_expand_program *program;
+	const char *error;
+
+	var_expand_program_create(prog, &program, &error);
+
+	const char *placeholder = ";";
+	t_array_init(&parts, 8);
+	var_expand_program_split(pool, program, placeholder, " ", &template, &parts);
+
+	/* expand the split program */
+	unsigned int i = 0;
+	string_t *result = t_str_new(32);
+
+	for (ptr = template; *ptr != NULL; ptr++) {
+		if (*ptr == placeholder) {
+			const struct var_expand_program *p =
+				array_idx_elem(&parts, i++);
+			var_expand_program_execute_one(result, p, &params, &error);
+		} else {
+			str_append(result, *ptr);
+		}
+		if (ptr[1] != NULL)
+			str_append_c(result, ':');
+	}
+
+	test_assert_strcmp("ssh:-l:user:--:localhost:doveadm:dsync-server:"
+			   "-u:remote user", str_c(result));
+
+	array_free(&parts);
+	t_array_init(&parts, 8);
+	var_expand_program_template(pool, program, placeholder, &template2, &parts);
+
+	test_assert_strcmp("ssh -l; -- ; doveadm dsync-server -u;", template2);
+
+	var_expand_program_free(&program);
+
+	test_end();
+}
+
 int main(int argc, char *const argv[])
 {
 	void (*const tests[])(void) = {
@@ -1345,6 +1406,7 @@ int main(int argc, char *const argv[])
 		test_var_expand_set_copy,
 		test_var_expand_generate,
 		test_var_expand_export_import,
+		test_var_expand_split,
 		test_var_expand_bench,
 		NULL
 	};

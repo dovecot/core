@@ -35,6 +35,7 @@ libvar_expand_la_SOURCES = \
 	expansion-filter-crypt.c \
 	expansion-program.c \
 	var-expand.c \
+	var-expand-split.c \
 	var-expand-parser.y \
 	var-expand-lexer.l
 
@@ -50,6 +51,7 @@ noinst_HEADERS = \
 
 headers = \
 	var-expand.h \
+	var-expand-split.h \
 	var-expand-private.h
 
 pkginc_libdir=$(pkgincludedir)
