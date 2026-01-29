@@ -82,17 +82,14 @@ static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 	if (!mail_index_hdr_check_indexid(index, hdr))
 		return -1;
 
-	rec_map->mmap_used_size = hdr->header_size +
-		hdr->messages_count * hdr->record_size;
+	/* header_size was checked by mail_index_check_header_compat() */
+	i_assert(hdr->header_size <= rec_map->mmap_size);
+	rec_map->records_count = (rec_map->mmap_size - hdr->header_size) /
+		hdr->record_size;
 
-	if (rec_map->mmap_used_size <= rec_map->mmap_size)
+	if (hdr->messages_count <= rec_map->records_count)
 		rec_map->records_count = hdr->messages_count;
 	else {
-		rec_map->records_count =
-			(rec_map->mmap_size - hdr->header_size) /
-			hdr->record_size;
-		rec_map->mmap_used_size = hdr->header_size +
-			rec_map->records_count * hdr->record_size;
 		mail_index_set_error(index, "Corrupted index file %s: "
 				     "messages_count too large (%u > %u)",
 				     index->filepath, hdr->messages_count,

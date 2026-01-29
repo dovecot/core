@@ -125,7 +125,7 @@ struct mail_index_record_map {
 	ARRAY(struct mail_index_map *) maps;
 
 	void *mmap_base;
-	size_t mmap_size, mmap_used_size;
+	size_t mmap_size;
 
 	buffer_t *buffer;
 
