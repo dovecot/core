@@ -100,6 +100,10 @@ void var_expand_program_dump(const struct var_expand_program *program, string_t 
 int var_expand_program_execute(string_t *dest, const struct var_expand_program *program,
 			       const struct var_expand_params *params,
 			       const char **error_r) ATTR_NULL(3);
+/* Execute the first program only */
+int var_expand_program_execute_one(string_t *dest, const struct var_expand_program *program,
+				   const struct var_expand_params *params,
+				   const char **error_r);
 /* Free up program */
 void var_expand_program_free(struct var_expand_program **_program);
 

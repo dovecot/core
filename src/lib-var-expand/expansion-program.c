@@ -166,6 +166,30 @@ var_expand_program_execute_one_real(const struct var_expand_program *program,
 	return ret;
 }
 
+int var_expand_program_execute_one(string_t *dest, const struct var_expand_program *program,
+				   const struct var_expand_params *params, const char **error_r)
+{
+	int ret = 0;
+	struct var_expand_state state;
+	if (params == NULL)
+		params = &empty_params;
+	prepare_state(params, &state);
+
+	*error_r = NULL;
+
+	ret = var_expand_program_execute_one_real(program, params, &state, error_r);
+
+	str_free(&state.transfer);
+	i_free(state.delayed_error);
+	/* only write to dest on success */
+	if (ret == 0)
+		str_append_str(dest, state.result);
+	str_free(&state.result);
+	i_assert(ret == 0 || *error_r != NULL);
+
+	return ret;
+}
+
 int var_expand_program_execute(string_t *dest, const struct var_expand_program *program,
 			       const struct var_expand_params *params, const char **error_r)
  {
