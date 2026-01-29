@@ -157,7 +157,6 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 	}
 
 	ctx = list->v.iter_init(list, patterns, flags);
-	ctx->info_pool = pool_alloconly_create("mailbox list iter info", 128);
 	if ((flags & (MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
 		      MAILBOX_LIST_ITER_RETURN_SUBSCRIBED)) != 0) {
 		char sep = mail_namespace_get_sep(list->ns);
@@ -180,6 +179,7 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 			return &mailbox_list_iter_failed;
 		}
 	}
+	ctx->info_pool = pool_alloconly_create("mailbox list iter info", 128);
 	return ctx;
 }
 
@@ -851,17 +851,15 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 	bool nfc = mail_set->mailbox_list_normalize_names_to_nfc;
 	struct ns_list_iterate_context *ctx;
 	unsigned int i, count;
-	pool_t pool, info_pool;
+	pool_t pool;
 	int ret;
 
 	i_assert(namespaces != NULL);
 
 	pool = pool_alloconly_create("mailbox list namespaces", 1024);
-	info_pool = pool_alloconly_create("mailbox list iter info", 128);
 	ctx = p_new(pool, struct ns_list_iterate_context, 1);
 	ctx->pool = pool;
 	ctx->type_mask = type_mask;
-	ctx->ctx.info_pool = info_pool;
 	ctx->ctx.flags = flags;
 	ctx->ctx.list = p_new(pool, struct mailbox_list, 1);
 	ctx->ctx.list->v.iter_next = mailbox_list_ns_iter_next;
@@ -907,6 +905,8 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 
 	ctx->cur_ns = namespaces;
 	ctx->ctx.list->ns = namespaces;
+	ctx->ctx.info_pool =
+		pool_alloconly_create("mailbox list iter info", 128);
 	return &ctx->ctx;
 }
 
