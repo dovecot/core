@@ -453,7 +453,9 @@ event_create_passthrough(struct event *parent, const char *source_filename,
 		if (event_last_passthrough != NULL) {
 			/* API is being used in a wrong or dangerous way */
 			i_panic("Can't create multiple passthrough events - "
-				"finish the earlier with ->event()");
+				"finish the earlier event (%s:%d) with ->event()",
+				event_last_passthrough->source_filename,
+				event_last_passthrough->source_linenum);
 		}
 		struct event *event =
 			event_create(parent, source_filename, source_linenum);
