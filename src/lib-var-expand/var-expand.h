@@ -1,6 +1,26 @@
 #ifndef VAR_EXPAND_NEW_H
 #define VAR_EXPAND_NEW_H
 
+/** Variable expansion programs **
+
+  A variable expansion program is a set of filters delineated with %{},
+  or a literal-only program which expands to the string it contains.
+  See https://doc.dovecot.org/latest/core/settings/syntax.html#variable-expansion.
+
+  The normal usage is to call t_var_expand() to get rendition of a program from
+  data stack memory, or var_expand() if you want to provide the string yourself.
+  The string is appended to, or truncated to where it was on starting on failure.
+
+  If you need to expand the program multiple times, you should use
+  var_expand_program_create() to create a reusable program chain and then call
+  var_expand_program_execute() to expand it. Since parameters are given to execute
+  you can get the same program executed with different parameters, so you don't
+  have to rebuild the program if your variables are changed.
+
+  The function var_expand_program_create() parses a string that can contain
+  one or more programs, and chains them together. This is usually what is wanted.
+*/
+
 /* Used for getting either prefix:key values, or dynamic values for keys
    in value tables.
 
