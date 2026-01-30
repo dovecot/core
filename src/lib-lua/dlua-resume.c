@@ -124,6 +124,7 @@ static void dlua_pcall_yieldable_continue(lua_State *L)
 	dlua_tls_clear(L, RESUME_NARGS);
 
 	ret = lua_resume(L, L, nargs, &nresults);
+	dlua_event_passthrough_abort(dlua_script_from_state(L));
 	if (ret == LUA_YIELD) {
 		/*
 		 * thread yielded - nothing to do
@@ -192,6 +193,7 @@ int dlua_pcall_yieldable(lua_State *L, const char *func_name, int nargs,
 
 	/* stack: func, args (top) */
 	ret = lua_resume(L, L, nargs, &nresults);
+	dlua_event_passthrough_abort(dlua_script_from_state(L));
 	if (ret == LUA_YIELD) {
 		/*
 		 * thread yielded - nothing to do

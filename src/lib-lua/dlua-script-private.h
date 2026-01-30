@@ -53,6 +53,7 @@ struct dlua_script {
 	lua_State *L; /* base lua context */
 
 	struct event *event;
+	struct event_passthrough *pending_event_passthrough;
 	const char *filename;
 	struct istream *in;
 	ssize_t last_read;
@@ -93,6 +94,8 @@ struct dlua_script *dlua_script_from_state(lua_State *L);
 
 /* register 'dovecot' global */
 void dlua_dovecot_register(struct dlua_script *script);
+
+void dlua_event_passthrough_abort(struct dlua_script *script);
 
 /* push 'dovecot' global on top of stack */
 void dlua_get_dovecot(lua_State *L);

@@ -154,6 +154,8 @@ int dlua_pcall(lua_State *L, const char *func_name, int nargs, int nresults,
 				nresults = lua_gettop(L) - top;
 			ret = nresults;
 		}
+		struct dlua_script *script = dlua_script_from_state(L);
+		dlua_event_passthrough_abort(script);
 	} else {
 		/* ensure stack is clean, remove function and arguments */
 		lua_pop(L, nargs + 1);
@@ -280,6 +282,7 @@ static int dlua_run_script(struct dlua_script *script, const char **error_r)
 		loaded script as function
 	*/
 	int err = lua_pcall(script->L, 0, 0, 1);
+	dlua_event_passthrough_abort(script);
 	if (err != LUA_OK) {
 		*error_r = t_strdup_printf("lua_pcall(%s) failed: %s",
 					   script->filename,
