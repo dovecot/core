@@ -575,6 +575,7 @@ driver_sqlite_statement_init(struct sql_db *_db, const char *query_template)
 
 	if (driver_sqlite_connect(_db) < 0) {
 		stmt->rc = db->connect_rc;
+		tail = NULL;
 	} else {
 		stmt->rc = sqlite3_prepare_v2(db->sqlite, query_template, -1,
 					&stmt->handle, &tail);
@@ -583,7 +584,7 @@ driver_sqlite_statement_init(struct sql_db *_db, const char *query_template)
 		stmt->error = p_strdup(pool,
 				       driver_sqlite_result_str(_db,
 								stmt->rc));
-	} else if (*tail != '\0') {
+	} else if (tail != NULL && *tail != '\0') {
 		stmt->error = p_strdup_printf(stmt->api.pool, "'%s' unparsed",
 					      tail);
 		stmt->rc = SQLITE_ERROR;
