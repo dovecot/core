@@ -6,6 +6,7 @@
 #include "connection.h"
 #include "imap-parser.h"
 #include "imap-quote.h"
+#include "imap-resp-code.h"
 #include "imap-login-settings.h"
 #include "imap-login-client.h"
 
@@ -30,6 +31,7 @@ struct imap_id_params {
 
 enum imap_id_param_flag {
 	IMAP_ID_PARAM_FLAG_KEY_IS_PREFIX = BIT(0),
+	IMAP_ID_PARAM_FLAG_RELOAD_SETTINGS = BIT(1),
 };
 
 struct imap_id_param_handler {
@@ -146,11 +148,16 @@ cmd_id_x_connected_name(struct imap_id_params *params,
 }
 
 static const struct imap_id_param_handler imap_login_id_params[] = {
-	{ "x-originating-ip", 0, cmd_id_x_originating_ip },
-	{ "x-originating-port", 0, cmd_id_x_originating_port },
-	{ "x-connected-ip", 0, cmd_id_x_connected_ip },
-	{ "x-connected-port", 0, cmd_id_x_connected_port },
-	{ "x-connected-name", 0, cmd_id_x_connected_name },
+	{ "x-originating-ip", IMAP_ID_PARAM_FLAG_RELOAD_SETTINGS,
+	  cmd_id_x_originating_ip },
+	{ "x-originating-port", IMAP_ID_PARAM_FLAG_RELOAD_SETTINGS,
+	  cmd_id_x_originating_port },
+	{ "x-connected-ip", IMAP_ID_PARAM_FLAG_RELOAD_SETTINGS,
+	  cmd_id_x_connected_ip },
+	{ "x-connected-port", IMAP_ID_PARAM_FLAG_RELOAD_SETTINGS,
+	  cmd_id_x_connected_port },
+	{ "x-connected-name", IMAP_ID_PARAM_FLAG_RELOAD_SETTINGS,
+	  cmd_id_x_connected_name },
 	{ "x-proxy-ttl", 0, cmd_id_x_proxy_ttl },
 	{ "x-session-id", 0, cmd_id_x_session_id },
 	{ "x-session-ext-id", 0, cmd_id_x_session_id },
@@ -204,6 +211,8 @@ static bool cmd_id_handle_keyvalue(struct imap_client *client,
 				"Client sent invalid ID parameter '%s'", key);
 			return FALSE;
 		}
+		if ((handler->flags & IMAP_ID_PARAM_FLAG_RELOAD_SETTINGS) != 0)
+			client->cmd_id->reload_settings = TRUE;
 	}
 
 	if (client->set->imap_id_retain && !is_login_id_param &&
@@ -297,7 +306,7 @@ static void cmd_id_copy_params(struct imap_client *client,
 	}
 }
 
-static void cmd_id_finish(struct imap_client *client)
+static int cmd_id_finish(struct imap_client *client)
 {
 	if (!client->id_logged) {
 		client->id_logged = TRUE;
@@ -335,7 +344,20 @@ static void cmd_id_finish(struct imap_client *client)
 		cmd_id_copy_params(client, client->cmd_id->params);
 		msg = "Trusted ID completed.";
 	}
+
+	if (client->cmd_id->reload_settings) {
+		const char *error;
+		if (client_addresses_changed(&client->common, &error) < 0) {
+			client_send_reply_code(&client->common,
+					       IMAP_CMD_REPLY_NO,
+					       IMAP_RESP_CODE_SERVERBUG,
+					       "Failed to reload configuration");
+			client_destroy(&client->common, error);
+			return -1;
+		}
+	}
 	client_send_reply(&client->common, IMAP_CMD_REPLY_OK, msg);
+	return 0;
 }
 
 void cmd_id_free(struct imap_client *client)
@@ -406,7 +428,8 @@ int cmd_id(struct imap_client *client)
 	}
 	if (ret == 0) {
 		/* finished the line */
-		cmd_id_finish(client);
+		if (cmd_id_finish(client) < 0)
+			return -1;
 		cmd_id_free(client);
 		return 1;
 	} else if (ret == -1) {

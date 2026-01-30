@@ -705,6 +705,24 @@ void clients_destroy_all(void)
 	clients_destroy_all_reason(MASTER_SERVICE_SHUTTING_DOWN_MSG);
 }
 
+int client_addresses_changed(struct client *client, const char **error_r)
+{
+	const char *error;
+
+	event_add_ip(client->event, "local_ip", &client->local_ip);
+	event_add_int(client->event, "local_port", client->local_port);
+	event_add_ip(client->event, "remote_ip", &client->ip);
+	event_add_int(client->event, "remote_port", client->remote_port);
+	event_add_str(client->event, "local_name", client->local_name);
+
+	if (client_settings_reload(client, &error) < 0) {
+		e_error(client->event, "%s", error);
+		*error_r = error;
+		return -1;
+	}
+	return 0;
+}
+
 int client_settings_reload(struct client *client, const char **error_r)
 {
 	const struct login_settings *old_set = client->set;

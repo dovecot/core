@@ -361,6 +361,8 @@ bool client_unref(struct client **client) ATTR_NOWARN_UNUSED_RESULT;
 
 int client_settings_reload(struct client *client, const char **error_r)
 	ATTR_WARN_UNUSED_RESULT;
+int client_addresses_changed(struct client *client, const char **error_r)
+	ATTR_WARN_UNUSED_RESULT;
 
 void client_rawlog_init(struct client *client);
 void client_rawlog_deinit(struct client *client);

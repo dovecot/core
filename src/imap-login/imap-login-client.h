@@ -55,6 +55,9 @@ struct imap_client_cmd_id {
 	   an ID command with some parameters. Note that Dovecot proxy can
 	   send an ID command with both internal and external keys. */
 	bool seen_external_keys;
+	/* ID contained internal x-* keys which can affect settings. Reload
+	   the login settings after the ID command handling is finished. */
+	bool reload_settings;
 };
 
 struct imap_client {

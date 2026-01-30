@@ -250,6 +250,14 @@ client_connection_cmd_xclient(void *context,
 			}
 		}
 	}
+
+	const char *error;
+	if (client_addresses_changed(&client->common, &error) < 0) {
+		client_notify_disconnect(&client->common,
+			CLIENT_DISCONNECT_INTERNAL_ERROR,
+			"Failed to reload configuration");
+		client_disconnect(&client->common, error);
+	}
 }
 
 static void client_connection_disconnect(void *context, const char *reason)
