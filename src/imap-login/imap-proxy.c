@@ -483,12 +483,24 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			return 1;
 		}
 		return 0;
-	} else if (str_begins_icase_with(line, "I ")) {
+	} else if (str_begins_icase(line, "I ", &line)) {
 		/* Reply to ID command we sent, ignore it unless
 		   pipelining is disabled, in which case send
 		   either STARTTLS or login */
 		imap_client->proxy_sent_state &= ENUM_NEGATE(IMAP_PROXY_SENT_STATE_ID);
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_ID;
+
+		if (str_begins_icase(line, "NO ["IMAP_RESP_CODE_SERVERBUG"] ", &line)) {
+			login_proxy_failed(client->login_proxy,
+				login_proxy_get_event(client->login_proxy),
+				LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG,
+				t_strdup_printf("ID command failed: %s", line));
+			return -1;
+		} else if (!str_begins_icase(line, "OK", &line)) {
+			e_debug(login_proxy_get_event(client->login_proxy),
+				"ID command failed, ignoring: %s",
+				str_sanitize(line, 160));
+		}
 
 		if (client->proxy_nopipelining) {
 			str = t_str_new(128);
