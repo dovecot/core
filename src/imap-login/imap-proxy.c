@@ -439,7 +439,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 							       &log_line))
 				failure_type = LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT;
 			else if (auth_resp_code_is_serverbug(line + 4))
-				failure_type = LOGIN_PROXY_FAILURE_TYPE_REMOTE;
+				failure_type = LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG;
 			else {
 				if (auth_resp_code_is_limit(line + 4))
 					failure_type = LOGIN_PROXY_FAILURE_TYPE_AUTH_LIMIT_REACHED_REPLIED;
