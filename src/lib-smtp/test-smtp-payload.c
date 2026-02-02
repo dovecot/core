@@ -705,7 +705,7 @@ static void client_init(int fd)
 	client->pool = pool;
 
 	client->smtp_conn = smtp_server_connection_create(
-		smtp_server, fd, fd, NULL, 0,
+		smtp_server, fd, fd, NULL, 0, NULL, 0,
 		(tset.ssl_mode == TEST_SSL_MODE_IMMEDIATE),
 		NULL, &server_callbacks, client);
 	smtp_server_connection_start(client->smtp_conn);

@@ -425,6 +425,7 @@ void smtp_server_switch_ioloop(struct smtp_server *server);
 struct smtp_server_connection *
 smtp_server_connection_create(
 	struct smtp_server *server, int fd_in, int fd_out,
+	const struct ip_addr *local_ip, in_port_t local_port,
 	const struct ip_addr *remote_ip, in_port_t remote_port, bool ssl_start,
 	const struct smtp_server_settings *set,
 	const struct smtp_server_callbacks *callbacks, void *context)
@@ -433,6 +434,7 @@ struct smtp_server_connection *
 smtp_server_connection_create_from_streams(
 	struct smtp_server *server,
 	struct istream *input, struct ostream *output,
+	const struct ip_addr *local_ip, in_port_t local_port,
 	const struct ip_addr *remote_ip, in_port_t remote_port,
 	const struct smtp_server_settings *set,
 	const struct smtp_server_callbacks *callbacks, void *context)

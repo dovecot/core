@@ -236,7 +236,8 @@ client_create(int fd_in, int fd_out, struct event *event,
 	p_array_init(&client->module_contexts, client->pool, 5);
 
 	conn = client->conn = smtp_server_connection_create(smtp_server,
-		fd_in, fd_out, user->conn.remote_ip, user->conn.remote_port,
+		fd_in, fd_out, user->conn.local_ip, user->conn.local_port,
+		user->conn.remote_ip, user->conn.remote_port,
 		FALSE, &smtp_set, &smtp_callbacks, client);
 	smtp_server_connection_set_proxy_data(conn, proxy_data);
 	smtp_server_connection_login(conn, client->user->username, helo,

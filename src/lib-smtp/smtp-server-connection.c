@@ -1072,6 +1072,7 @@ static void smtp_server_connection_created(struct smtp_server_connection *conn)
 struct smtp_server_connection *
 smtp_server_connection_create(
 	struct smtp_server *server, int fd_in, int fd_out,
+	const struct ip_addr *local_ip, in_port_t local_port,
 	const struct ip_addr *remote_ip, in_port_t remote_port,
 	bool ssl_start, const struct smtp_server_settings *set,
 	const struct smtp_server_callbacks *callbacks, void *context)
@@ -1085,6 +1086,9 @@ smtp_server_connection_create(
 	conn->conn.event_parent = conn_event;
 	connection_init_server_ip(server->conn_list, &conn->conn, NULL,
 				  fd_in, fd_out, remote_ip, remote_port);
+	if (local_ip != NULL && local_ip->family != 0)
+		conn->conn.local_ip = *local_ip;
+	conn->conn.local_port = local_port;
 	conn->event = conn->conn.event;
 	smtp_server_connection_update_event(conn);
 	event_unref(&conn_event);
@@ -1102,6 +1106,7 @@ struct smtp_server_connection *
 smtp_server_connection_create_from_streams(
 	struct smtp_server *server,
 	struct istream *input, struct ostream *output,
+	const struct ip_addr *local_ip, in_port_t local_port,
 	const struct ip_addr *remote_ip, in_port_t remote_port,
 	const struct smtp_server_settings *set,
 	const struct smtp_server_callbacks *callbacks, void *context)
@@ -1117,6 +1122,9 @@ smtp_server_connection_create_from_streams(
 
 	conn = smtp_server_connection_alloc(server, set, fd_in, fd_out,
 					    callbacks, context);
+	if (local_ip != NULL && local_ip->family != 0)
+		conn->conn.local_ip = *local_ip;
+	conn->conn.local_port = local_port;
 	if (remote_ip != NULL && remote_ip->family != 0)
 		conn->conn.remote_ip = *remote_ip;
 	if (remote_port != 0)

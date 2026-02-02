@@ -89,7 +89,7 @@ FUZZ_BEGIN_FD
 	to = timeout_add_short(10, test_server_continue, &fuzz_ctx);
 	smtp_server = smtp_server_init(&smtp_server_set);
 
-	conn = smtp_server_connection_create(smtp_server, fuzz_ctx.fd, fuzz_ctx.fd, NULL, 0,
+	conn = smtp_server_connection_create(smtp_server, fuzz_ctx.fd, fuzz_ctx.fd, NULL, 0, NULL, 0,
 					     FALSE, NULL, &server_callbacks, &fuzz_ctx);
 	smtp_server_connection_start(conn);
 

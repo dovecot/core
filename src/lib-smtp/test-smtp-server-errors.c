@@ -3931,7 +3931,8 @@ static void server_connection_accept(void *context ATTR_UNUSED)
 
 	if (server_io_buffer_size == 0) {
 		conn = smtp_server_connection_create(
-			smtp_server, fd, fd, NULL, 0, (test_ssl_host != NULL),
+			smtp_server, fd, fd, NULL, 0, NULL, 0,
+			(test_ssl_host != NULL),
 			NULL, &server_callbacks, sconn);
 	} else {
 		struct istream *input;
@@ -3942,7 +3943,7 @@ static void server_connection_accept(void *context ATTR_UNUSED)
 		o_stream_set_no_error_handling(output, TRUE);
 
 		conn = smtp_server_connection_create_from_streams(
-			smtp_server, input, output, NULL, 0, NULL,
+			smtp_server, input, output, NULL, 0, NULL, 0, NULL,
 			&server_callbacks, sconn);
 
 		i_stream_unref(&input);

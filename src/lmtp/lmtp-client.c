@@ -213,7 +213,7 @@ struct client *client_create(int fd_in, int fd_out,
 	}
 
 	client->conn = smtp_server_connection_create(
-		lmtp_server, fd_in, fd_out,
+		lmtp_server, fd_in, fd_out, &conn->local_ip, conn->local_port,
 		&conn->remote_ip, conn->remote_port, conn->ssl,
 		&lmtp_set, &lmtp_callbacks, client);
 	if (smtp_server_connection_is_trusted(client->conn)) {

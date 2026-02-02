@@ -141,6 +141,7 @@ static int submission_client_create(struct client *client)
 
 	subm_client->conn = smtp_server_connection_create_from_streams(
 		smtp_server, client->input, client->output,
+		&client->real_local_ip, client->real_local_port,
 		&client->real_remote_ip, client->real_remote_port,
 		&smtp_set, &smtp_callbacks, subm_client);
 	return 0;
