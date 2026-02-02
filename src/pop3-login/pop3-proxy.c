@@ -253,9 +253,11 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		if (!str_begins_with(line, "+OK")) {
 			const char *reason = t_strdup_printf(
 				"XCLIENT failed: %s", str_sanitize(line, 160));
+			/* XCLIENT failure is some misconfiguration - don't try
+			   to reconnect. */
 			login_proxy_failed(client->login_proxy,
 				login_proxy_get_event(client->login_proxy),
-				LOGIN_PROXY_FAILURE_TYPE_REMOTE, reason);
+				LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG, reason);
 			return -1;
 		}
 		pop3_client->proxy_state = client->proxy_sasl_client == NULL ?
