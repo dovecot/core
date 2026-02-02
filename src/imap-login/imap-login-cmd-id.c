@@ -183,8 +183,13 @@ static bool cmd_id_handle_keyvalue(struct imap_client *client,
 		imap_id_param_handler_find(key);
 	bool is_login_id_param = handler != NULL;
 
-	if (is_login_id_param && client->common.connection_trusted &&
-	    !client->id_logged && value != NULL) {
+	if (!is_login_id_param) {
+		/* not an internal key */
+	} else if (client->id_logged) {
+		/* using ID multiple times - ignore */
+	} else if (value == NULL) {
+		/* there should have been a value - ignore */
+	} else if (client->common.connection_trusted) {
 		if (!handler->callback(client->cmd_id->params, key, value)) {
 			e_debug(client->common.event,
 				"Client sent invalid ID parameter '%s'", key);
