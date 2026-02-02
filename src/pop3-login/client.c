@@ -39,7 +39,7 @@ static bool cmd_quit(struct pop3_client *client)
 static bool cmd_xclient(struct pop3_client *client, const char *args)
 {
 	const char *const *tmp, *value;
-	in_port_t remote_port;
+	in_port_t remote_port, local_port;
 	bool args_ok = TRUE;
 
 	if (!client->common.connection_trusted) {
@@ -56,6 +56,14 @@ static bool cmd_xclient(struct pop3_client *client, const char *args)
 				args_ok = FALSE;
 			else
 				client->common.remote_port = remote_port;
+		} else if (str_begins_icase(*tmp, "DESTADDR=", &value)) {
+			if (net_addr2ip(value, &client->common.local_ip) < 0)
+				args_ok = FALSE;
+		} else if (str_begins_icase(*tmp, "DESTPORT=", &value)) {
+			if (net_str2port(value, &local_port) < 0)
+				args_ok = FALSE;
+			else
+				client->common.local_port = local_port;
 		} else if (str_begins_icase(*tmp, "SESSION=", &value)) {
 			if (strlen(value) <= LOGIN_MAX_SESSION_ID_LEN) {
 				client->common.session_id =
