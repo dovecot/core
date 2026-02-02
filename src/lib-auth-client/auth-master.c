@@ -101,6 +101,7 @@ auth_master_connection_failure(struct auth_master_connection *conn,
 
 	if (conn->connected)
 		e_debug(conn->conn.event, "%s", reason);
+	connection_disconnect(&conn->conn);
 
 	conn->connected = FALSE;
 	conn->sent_handshake = FALSE;
@@ -136,7 +137,6 @@ auth_master_connection_abort_requests(struct auth_master_connection *conn)
 
 void auth_master_disconnect(struct auth_master_connection *conn)
 {
-	connection_disconnect(&conn->conn);
 	auth_master_connection_failure(conn, NULL);
 }
 
@@ -190,9 +190,6 @@ static void auth_master_destroy(struct connection *_conn)
 {
 	struct auth_master_connection *conn =
 		container_of(_conn, struct auth_master_connection, conn);
-
-	if (conn->connected)
-		connection_disconnect(&conn->conn);
 
 	switch (_conn->disconnect_reason) {
 	case CONNECTION_DISCONNECT_HANDSHAKE_FAILED:
