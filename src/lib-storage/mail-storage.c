@@ -1747,9 +1747,10 @@ static int mailbox_verify_existing_name_int(struct mailbox *box)
 		if (ret == 0) {
 			i_assert(box->storage->error == MAIL_ERROR_NOTFOUND);
 			ret = -1;
+		} else {
+			ret = mailbox_get_path_to(box,
+				MAILBOX_LIST_PATH_TYPE_MAILBOX, &path);
 		}
-		ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX,
-					  &path);
 	}
 
 	if (ret < 0) {
