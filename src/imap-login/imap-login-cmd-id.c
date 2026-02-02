@@ -231,8 +231,6 @@ static int cmd_id_handle_args(struct imap_client *client,
 			return 1;
 		if (arg->type != IMAP_ARG_LIST)
 			return -1;
-		if (!client->id_logged)
-			id->log_reply = str_new(default_pool, 64);
 		id->state = IMAP_CLIENT_ID_STATE_KEY;
 		break;
 	case IMAP_CLIENT_ID_STATE_KEY:
@@ -245,7 +243,7 @@ static int cmd_id_handle_args(struct imap_client *client,
 	case IMAP_CLIENT_ID_STATE_VALUE:
 		if (!imap_arg_get_nstring(arg, &value))
 			return -1;
-		if (!client->id_logged && id->log_reply != NULL) {
+		if (!client->id_logged) {
 			log_entry->reply = id->log_reply;
 			if (!cmd_id_handle_keyvalue(client, log_entry, id->key, value))
 				return -1;
@@ -295,8 +293,7 @@ static void cmd_id_finish(struct imap_client *client)
 	if (!client->id_logged) {
 		client->id_logged = TRUE;
 
-		if (client->cmd_id->log_reply != NULL &&
-		    str_len(client->cmd_id->log_reply) > 0) {
+		if (str_len(client->cmd_id->log_reply) > 0) {
 			e_debug(client->cmd_id->params_event,
 				"Pre-login ID sent: %s",
 				str_sanitize(str_c(client->cmd_id->log_reply),
@@ -352,6 +349,7 @@ int cmd_id(struct imap_client *client)
 		id->parser = imap_parser_create(client->common.input,
 						client->common.output,
 						IMAP_LOGIN_MAX_LINE_LENGTH);
+		id->log_reply = str_new(default_pool, 64);
 		if (client->set->imap_literal_minus)
 			imap_parser_enable_literal_minus(id->parser);
 		parser_flags = IMAP_PARSE_FLAG_STOP_AT_LIST;
