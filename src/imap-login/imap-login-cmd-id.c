@@ -293,12 +293,10 @@ static void cmd_id_finish(struct imap_client *client)
 	if (!client->id_logged) {
 		client->id_logged = TRUE;
 
-		if (str_len(client->cmd_id->log_reply) > 0) {
-			e_debug(client->cmd_id->params_event,
-				"Pre-login ID sent: %s",
-				str_sanitize(str_c(client->cmd_id->log_reply),
-					     IMAP_ID_PARAMS_LOG_MAX_LEN));
-		}
+		e_debug(client->cmd_id->params_event,
+			"Pre-login ID sent: %s",
+			str_sanitize(str_c(client->cmd_id->log_reply),
+				     IMAP_ID_PARAMS_LOG_MAX_LEN));
 	}
 
 	client_send_raw(&client->common,
