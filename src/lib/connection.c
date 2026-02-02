@@ -441,6 +441,11 @@ void connection_update_event(struct connection *conn)
 			      "source_ip" : "local_ip",
 			      net_ip2addr(&conn->local_ip));
 	}
+	if (conn->local_port > 0) {
+		event_add_int(conn->event, conn->list->set.client ?
+			      "source_port" : "local_port",
+			      conn->local_port);
+	}
 
 	if (conn->remote_ip.family > 0) {
 		event_add_str(conn->event, conn->list->set.client ?

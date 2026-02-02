@@ -167,8 +167,8 @@ struct connection {
 
 	/* Local and remote IP for TCP connections. */
 	struct ip_addr local_ip, remote_ip;
-	/* Remote port for TCP connections. */
-	in_port_t remote_port;
+	/* Local and remote port for TCP connections. */
+	in_port_t local_port, remote_port;
 	/* Remote pid, UNIX socket only. */
 	pid_t remote_pid;
 	/* Remote user id, UNIX socket only. */
