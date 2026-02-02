@@ -184,6 +184,17 @@ proxy_send_xclient(struct submission_client *client, struct ostream *output)
 			addr = t_strconcat("IPV6:", addr, NULL);
 		proxy_send_xclient_more(client, output, str, "ADDR", addr);
 	}
+	if (str_array_icase_find(client->proxy_xclient, "DESTPORT")) {
+		proxy_send_xclient_more(
+			client, output, str, "DESTPORT",
+			t_strdup_printf("%u", client->common.local_port));
+	}
+	if (str_array_icase_find(client->proxy_xclient, "DESTADDR")) {
+		const char *addr = net_ip2addr(&client->common.local_ip);
+		if (client->common.local_ip.family == AF_INET6)
+			addr = t_strconcat("IPV6:", addr, NULL);
+		proxy_send_xclient_more(client, output, str, "DESTADDR", addr);
+	}
 	if (str_array_icase_find(client->proxy_xclient, "SESSION")) {
 		proxy_send_xclient_more(client, output, str, "SESSION",
 					client_get_session_id(&client->common));

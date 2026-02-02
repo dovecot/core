@@ -218,6 +218,10 @@ client_connection_cmd_xclient(void *context,
 		client->common.ip = data->source_ip;
 	if (data->source_port != 0)
 		client->common.remote_port = data->source_port;
+	if (data->dest_ip.family != 0)
+		client->common.local_ip = data->dest_ip;
+	if (data->dest_port != 0)
+		client->common.local_port = data->dest_port;
 	if (data->ttl_plus_1 > 0)
 		client->common.proxy_ttl = data->ttl_plus_1 - 1;
 	if (data->session != NULL) {
