@@ -623,9 +623,11 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 		if (invalid_line || (status / 100) != 2) {
 			const char *reason = t_strdup_printf(
 				"XCLIENT failed: %s", str_sanitize(line, 160));
+			/* XCLIENT failure is some misconfiguration - don't try
+			   to reconnect. */
 			login_proxy_failed(client->login_proxy,
 				login_proxy_get_event(client->login_proxy),
-				LOGIN_PROXY_FAILURE_TYPE_REMOTE, reason);
+				LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG, reason);
 			return -1;
 		}
 		if (!last_line)
