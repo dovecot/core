@@ -49,6 +49,12 @@ struct imap_client_cmd_id {
 	struct event *params_event;
 	struct imap_id_params *params;
 	string_t *log_reply;
+	/* ID contained internal x-* keys containing IPs/session/etc */
+	bool seen_internal_keys;
+	/* ID contained non-internal keys, i.e. the end user client had sent
+	   an ID command with some parameters. Note that Dovecot proxy can
+	   send an ID command with both internal and external keys. */
+	bool seen_external_keys;
 };
 
 struct imap_client {

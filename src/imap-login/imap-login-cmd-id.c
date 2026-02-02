@@ -183,6 +183,11 @@ static bool cmd_id_handle_keyvalue(struct imap_client *client,
 		imap_id_param_handler_find(key);
 	bool is_login_id_param = handler != NULL;
 
+	if (is_login_id_param)
+		client->cmd_id->seen_internal_keys = TRUE;
+	else
+		client->cmd_id->seen_external_keys = TRUE;
+
 	if (!is_login_id_param) {
 		/* not an internal key */
 	} else if (client->id_logged) {
@@ -293,8 +298,22 @@ static void cmd_id_finish(struct imap_client *client)
 	if (!client->id_logged) {
 		client->id_logged = TRUE;
 
-		e_debug(client->cmd_id->params_event,
-			"Pre-login ID sent: %s",
+		if (client->cmd_id->seen_internal_keys)
+			event_add_str(client->cmd_id->params_event, "internal", "yes");
+		if (client->cmd_id->seen_external_keys)
+			event_add_str(client->cmd_id->params_event, "external", "yes");
+		if (client->common.connection_trusted)
+			event_add_str(client->cmd_id->params_event, "trusted", "yes");
+
+		const char *prefix;
+		if (!client->cmd_id->seen_internal_keys)
+			prefix = "Pre-login ID sent";
+		else if (client->common.connection_trusted) {
+			prefix = "Pre-login internal ID sent from trusted client";
+		} else {
+			prefix = "Pre-login internal ID sent from untrusted client - ignoring";
+		}
+		e_debug(client->cmd_id->params_event, "%s: %s", prefix,
 			str_sanitize(str_c(client->cmd_id->log_reply),
 				     IMAP_ID_PARAMS_LOG_MAX_LEN));
 	}
