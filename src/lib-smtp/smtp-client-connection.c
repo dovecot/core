@@ -718,6 +718,31 @@ void smtp_client_connection_send_xclient(struct smtp_client_connection *conn)
 						   "ADDR", addr);
 	}
 
+	/* DESTPORT */
+	if (xclient->dest_port != 0 &&
+	    str_array_icase_find(xclient_args, "DESTPORT")) {
+		smtp_client_connection_xclient_addf(conn, str, offset,
+						    "DESTPORT", "%u",
+						    xclient->dest_port);
+	}
+
+	/* DESTADDR */
+	if (xclient->dest_ip.family != 0 &&
+	    str_array_icase_find(xclient_args, "DESTADDR")) {
+		const char *addr = net_ip2addr(&xclient->dest_ip);
+
+		/* Older versions of Dovecot LMTP don't quite follow Postfix'
+		   specification of the XCLIENT command regarding IPv6
+		   addresses: the "IPV6:" prefix is omitted. For now, we
+		   maintain this deviation for LMTP. Newer versions of Dovecot
+		   LMTP can work with or without the prefix. */
+		if (conn->protocol != SMTP_PROTOCOL_LMTP &&
+			xclient->dest_ip.family == AF_INET6)
+			addr = t_strconcat("IPV6:", addr, NULL);
+		smtp_client_connection_xclient_add(conn, str, offset,
+						   "DESTADDR", addr);
+	}
+
 	/* final XCLIENT command */
 	if (str_len(str) > offset)
 		smtp_client_connection_xclient_submit(conn, str_c(str));

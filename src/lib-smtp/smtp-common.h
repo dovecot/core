@@ -98,6 +98,10 @@ struct smtp_proxy_data {
 	struct ip_addr source_ip;
 	/* PORT */
 	in_port_t source_port;
+	/* DESTADDR */
+	struct ip_addr dest_ip;
+	/* DESTPORT */
+	in_port_t dest_port;
 	/* HELO, LOGIN */
 	const char *helo, *login;
 	/* SESSION */

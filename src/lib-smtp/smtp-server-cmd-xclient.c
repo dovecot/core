@@ -150,6 +150,18 @@ void smtp_server_cmd_xclient(struct smtp_server_cmd_ctx *cmd,
 					"Invalid ADDR parameter");
 				return;
 			}
+		} else if (strcmp(param.keyword, "DESTADDR") == 0) {
+			bool ipv6 = FALSE;
+			if (strcasecmp(param.value, "[UNAVAILABLE]") == 0)
+				continue;
+			if (str_begins_icase(param.value, "IPV6:", &param.value))
+				ipv6 = TRUE;
+			if (net_addr2ip(param.value, &proxy_data->dest_ip) < 0 ||
+				(ipv6 && proxy_data->dest_ip.family != AF_INET6)) {
+				smtp_server_reply(cmd, 501, "5.5.4",
+					"Invalid DESTADDR parameter");
+				return;
+			}
 		} else if (strcmp(param.keyword, "HELO") == 0) {
 			if (strcasecmp(param.value, "[UNAVAILABLE]") == 0)
 				continue;
@@ -167,6 +179,14 @@ void smtp_server_cmd_xclient(struct smtp_server_cmd_ctx *cmd,
 			if (net_str2port(param.value, &proxy_data->source_port) < 0) {
 				smtp_server_reply(cmd, 501, "5.5.4",
 					"Invalid PORT parameter");
+				return;
+			}
+		} else if (strcmp(param.keyword, "DESTPORT") == 0) {
+			if (strcasecmp(param.value, "[UNAVAILABLE]") == 0)
+				continue;
+			if (net_str2port(param.value, &proxy_data->dest_port) < 0) {
+				smtp_server_reply(cmd, 501, "5.5.4",
+					"Invalid DESTPORT parameter");
 				return;
 			}
 		} else if (strcmp(param.keyword, "PROTO") == 0) {

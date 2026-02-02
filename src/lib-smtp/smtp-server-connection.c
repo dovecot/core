@@ -1679,6 +1679,8 @@ void smtp_server_connection_get_proxy_data(struct smtp_server_connection *conn,
 	i_zero(proxy_data);
 	proxy_data->source_ip = conn->conn.remote_ip;
 	proxy_data->source_port = conn->conn.remote_port;
+	proxy_data->dest_ip = conn->conn.local_ip;
+	proxy_data->dest_port = conn->conn.local_port;
 	if (conn->proxy_helo != NULL)
 		proxy_data->helo = conn->proxy_helo;
 	else if (conn->helo.domain_valid)
