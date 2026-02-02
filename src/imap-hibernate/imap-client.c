@@ -148,7 +148,7 @@ imap_client_parse_userdb_fields(struct imap_client *client,
 	}
 }
 
-static void
+static int
 imap_client_move_back_send_callback(void *context, struct ostream *output)
 {
 	struct imap_client *client = context;
@@ -239,7 +239,7 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 		const char *error = t_strdup_printf(
 			"fd_send(%s) failed: %m", o_stream_get_name(output));
 		imap_client_unhibernate_failed(&client, error);
-		return;
+		return -1;
 	}
 	/* If unhibernation fails after this, shutdown() the fd to make sure
 	   the imap process won't later on finish unhibernation after all and
@@ -247,6 +247,7 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 	client->shutdown_fd_on_destroy = TRUE;
 	i_assert(ret > 0);
 	o_stream_nsend(output, str_data(str) + 1, str_len(str) - 1);
+	return 0;
 }
 
 static void

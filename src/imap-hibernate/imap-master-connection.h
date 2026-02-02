@@ -3,7 +3,7 @@
 
 struct imap_master_connection;
 
-typedef void
+typedef int
 imap_master_connection_send_callback_t(void *context, struct ostream *output);
 typedef void
 imap_master_connection_read_callback_t(void *context, const char *reply);

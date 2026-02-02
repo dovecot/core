@@ -104,8 +104,7 @@ imap_master_client_input_line(struct connection *_conn, const char *line)
 		if (connection_input_line_default(_conn, line) < 0)
 			return -1;
 
-		conn->send_callback(conn->context, _conn->output);
-		return 1;
+		return conn->send_callback(conn->context, _conn->output) < 0 ? -1 : 1;
 	} else {
 		imap_master_read_callback(&conn, line);
 		/* we're finished now with this connection - disconnect it */
