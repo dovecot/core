@@ -28,9 +28,13 @@ struct imap_id_params {
 	bool multiplex;
 };
 
+enum imap_id_param_flag {
+	IMAP_ID_PARAM_FLAG_KEY_IS_PREFIX = BIT(0),
+};
+
 struct imap_id_param_handler {
 	const char *key;
-	bool key_is_prefix;
+	enum imap_id_param_flag flags;
 
 	bool (*callback)(struct imap_id_params *params,
 			 const char *key, const char *value);
@@ -142,19 +146,19 @@ cmd_id_x_connected_name(struct imap_id_params *params,
 }
 
 static const struct imap_id_param_handler imap_login_id_params[] = {
-	{ "x-originating-ip", FALSE, cmd_id_x_originating_ip },
-	{ "x-originating-port", FALSE, cmd_id_x_originating_port },
-	{ "x-connected-ip", FALSE, cmd_id_x_connected_ip },
-	{ "x-connected-port", FALSE, cmd_id_x_connected_port },
-	{ "x-connected-name", FALSE, cmd_id_x_connected_name },
-	{ "x-proxy-ttl", FALSE, cmd_id_x_proxy_ttl },
-	{ "x-session-id", FALSE, cmd_id_x_session_id },
-	{ "x-session-ext-id", FALSE, cmd_id_x_session_id },
-	{ "x-client-transport", FALSE, cmd_id_x_client_transport },
-	{ "x-forward-", TRUE, cmd_id_x_forward_ },
-	{ "x-multiplex", FALSE, cmd_id_x_multiplex },
+	{ "x-originating-ip", 0, cmd_id_x_originating_ip },
+	{ "x-originating-port", 0, cmd_id_x_originating_port },
+	{ "x-connected-ip", 0, cmd_id_x_connected_ip },
+	{ "x-connected-port", 0, cmd_id_x_connected_port },
+	{ "x-connected-name", 0, cmd_id_x_connected_name },
+	{ "x-proxy-ttl", 0, cmd_id_x_proxy_ttl },
+	{ "x-session-id", 0, cmd_id_x_session_id },
+	{ "x-session-ext-id", 0, cmd_id_x_session_id },
+	{ "x-client-transport", 0, cmd_id_x_client_transport },
+	{ "x-forward-", IMAP_ID_PARAM_FLAG_KEY_IS_PREFIX, cmd_id_x_forward_ },
+	{ "x-multiplex", 0, cmd_id_x_multiplex },
 
-	{ NULL, FALSE, NULL }
+	{ NULL, 0, NULL }
 };
 
 static const struct imap_id_param_handler *
@@ -165,7 +169,7 @@ imap_id_param_handler_find(const char *key)
 	for (unsigned int i = 0; imap_login_id_params[i].key != NULL; i++) {
 		if (str_begins_icase(key, imap_login_id_params[i].key, &suffix) &&
 		    (suffix[0] == '\0' ||
-		     imap_login_id_params[i].key_is_prefix))
+		     (imap_login_id_params[i].flags & IMAP_ID_PARAM_FLAG_KEY_IS_PREFIX) != 0))
 			return &imap_login_id_params[i];
 	}
 	return NULL;
