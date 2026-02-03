@@ -62,6 +62,8 @@ static void doveadm_print_formatted_print(const char *value)
 	entry->value = value;
 
 	if (ctx.idx >= array_count(&ctx.headers)) {
+		array_append_zero(&ctx.headers);
+		array_pop_back(&ctx.headers);
 		const struct var_expand_params params = {
 			.table = array_front(&ctx.headers),
 		};
