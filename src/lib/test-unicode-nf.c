@@ -405,7 +405,7 @@ static void test_long(void)
 	test_assert_strcmp(nfkd, str_c(nf_out));
 
 	buffer_set_used_size(nf_out, 0);
-	ret = uni_utf8_write_nfkc(nfc, strlen(nfkd), nf_out);
+	ret = uni_utf8_write_nfkc(nfc, strlen(nfc), nf_out);
 	test_assert(ret == 0);
 	test_assert_strcmp(nfkd, str_c(nf_out));
 
@@ -415,7 +415,7 @@ static void test_long(void)
 	test_assert_strcmp(nfkd, str_c(nf_out));
 
 	buffer_set_used_size(nf_out, 0);
-	ret = uni_utf8_write_nfkd(nfc, strlen(nfkd), nf_out);
+	ret = uni_utf8_write_nfkd(nfc, strlen(nfc), nf_out);
 	test_assert(ret == 0);
 	test_assert_strcmp(nfkd, str_c(nf_out));
 
