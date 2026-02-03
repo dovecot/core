@@ -299,6 +299,7 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 		/* Buffered also in the parser */
 		buffer_append(parser->line_buffer, parser->cur,
 			      (mp - parser->cur));
+		buffer_nul_terminate(parser->line_buffer);
 		parser->state.cmd_params =
 			buffer_free_without_data(&parser->line_buffer);
 	}
