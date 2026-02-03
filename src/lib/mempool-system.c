@@ -98,7 +98,7 @@ static void pool_system_unref(pool_t *pool ATTR_UNUSED)
 static void *pool_system_malloc(pool_t pool ATTR_UNUSED, size_t size)
 {
 	void *mem;
-#ifdef DEBUG
+#ifdef DEBUG_FAST
 	int old_errno = errno;
 #endif
 
@@ -107,7 +107,7 @@ static void *pool_system_malloc(pool_t pool ATTR_UNUSED, size_t size)
 		i_fatal_status(FATAL_OUTOFMEM, "pool_system_malloc(%zu): "
 			       "Out of memory", size);
 	}
-#ifdef DEBUG
+#ifdef DEBUG_FAST
 	/* we rely on errno not changing. it shouldn't. */
 	i_assert(errno == old_errno);
 #endif
@@ -116,14 +116,14 @@ static void *pool_system_malloc(pool_t pool ATTR_UNUSED, size_t size)
 
 void pool_system_free(pool_t pool ATTR_UNUSED, void *mem ATTR_UNUSED)
 {
-#ifdef DEBUG
+#ifdef DEBUG_FAST
 	int old_errno = errno;
 #endif
 #if defined(HAVE_MALLOC_USABLE_SIZE) && defined(DEBUG)
 	safe_memset(mem, CLEAR_CHR, malloc_usable_size(mem));
 #endif
 	free(mem);
-#ifdef DEBUG
+#ifdef DEBUG_FAST
 	/* we rely on errno not changing. it shouldn't. */
 	i_assert(errno == old_errno);
 #endif

@@ -35,7 +35,7 @@ struct setting_parser_context {
 
 const char *set_value_unknown = "UNKNOWN_VALUE_WITH_VARIABLES";
 
-#ifdef DEBUG
+#ifdef DEBUG_FAST
 static const char *boollist_eol_sentry = "boollist-eol";
 #endif
 static const char *set_array_stop = "array-stop";
@@ -477,7 +477,7 @@ const char *const *settings_boollist_get(const ARRAY_TYPE(const_string) *array)
 	if (array_not_empty(array)) {
 		strings = array_get(array, &count);
 		i_assert(strings[count] == NULL);
-#ifdef DEBUG
+#ifdef DEBUG_FAST
 	i_assert(strings[count+1] == boollist_eol_sentry ||
 		 (strings[count+1] == set_array_stop &&
 		  strings[count+2] == boollist_eol_sentry));
@@ -533,7 +533,7 @@ void settings_boollist_finish(ARRAY_TYPE(const_string) *array, bool stop)
 	array_append_zero(array);
 	if (stop)
 		array_push_back(array, &set_array_stop);
-#ifdef DEBUG
+#ifdef DEBUG_FAST
 	array_push_back(array, &boollist_eol_sentry);
 	array_pop_back(array);
 #endif

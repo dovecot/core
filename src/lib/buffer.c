@@ -167,7 +167,7 @@ buffer_t *buffer_create_dynamic_max(pool_t pool, size_t init_size,
 {
 	struct real_buffer *buf;
 
-#ifdef DEBUG
+#ifdef DEBUG_FAST
 	/* we increment this by 1 later on, so if it's SIZE_MAX
 	   it turns into 0 and hides a potential bug.
 
