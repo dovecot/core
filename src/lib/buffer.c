@@ -348,6 +348,18 @@ void buffer_insert_zero(buffer_t *_buf, size_t pos, size_t data_size)
 	}
 }
 
+void buffer_nul_terminate(buffer_t *_buf)
+{
+	struct real_buffer *buf = container_of(_buf, struct real_buffer, buf);
+
+	/* +1 extra byte is always kept for NUL termination */
+	i_assert(buf->used < buf->alloc);
+	/* Buffer might not be writable, so check first if the NUL is
+	   already there. */
+	if (((const char *)buf->r_buffer)[buf->used] != '\0')
+		buf->w_buffer[buf->used] = '\0';
+}
+
 void buffer_copy(buffer_t *_dest, size_t dest_pos,
 		 const buffer_t *_src, size_t src_pos, size_t copy_size)
 {

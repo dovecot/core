@@ -84,6 +84,9 @@ void buffer_replace(buffer_t *buf, size_t pos, size_t size,
 void buffer_write_zero(buffer_t *buf, size_t pos, size_t data_size);
 void buffer_append_zero(buffer_t *buf, size_t data_size);
 void buffer_insert_zero(buffer_t *buf, size_t pos, size_t data_size);
+/* Terminate the buffer with a NUL character after the buffer's used size.
+   The NUL will not be included in the used size. */
+void buffer_nul_terminate(buffer_t *buf);
 
 /* Copy data from buffer to another. The buffers may be same in which case
    it's internal copying, possibly with overlapping positions (ie. memmove()
