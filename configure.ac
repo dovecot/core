@@ -31,9 +31,12 @@ AC_SUBST(ACLOCAL_AMFLAGS)
 AM_ICONV
 
 AC_ARG_ENABLE(devel-checks,
-AS_HELP_STRING([--enable-devel-checks], [Enable some extra expensive checks for developers]),
+AS_HELP_STRING([--enable-devel-checks@<:@=fast@:>@], [Enable some extra expensive checks for developers (fast enables only some of them)]),
 	if test x$enableval = xyes; then
 		AC_DEFINE(DEBUG,, [Build with extra debugging checks])
+		AC_DEFINE(DEBUG_FAST,, [Build with extra fast debugging checks])
+	elif test x$enableval = xfast; then
+		AC_DEFINE(DEBUG_FAST,, [Build with extra fast debugging checks])
 	fi)
 
 AC_ARG_ENABLE(static-checker,
