@@ -6,6 +6,8 @@
 #include "safe-memset.h"
 #include "buffer.h"
 
+#define BUFFER_TRAILING_SENTRY_CHR 0xAB
+
 /* Disable our memcpy() safety wrapper. This file is very performance sensitive
    and it's been checked to work correctly with memcpy(). */
 #undef memcpy
@@ -110,6 +112,14 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 		buf->used = new_size;
 	i_assert(buf->used <= buf->alloc);
 	i_assert(buf->w_buffer != NULL);
+
+#ifdef DEBUG_FAST
+	if (new_size == buf->used && new_size < buf->alloc &&
+	    buf->dirty <= new_size && buf->w_buffer != NULL) {
+		buf->w_buffer[new_size] = BUFFER_TRAILING_SENTRY_CHR;
+		buf->dirty = new_size + 1;
+	}
+#endif
 }
 
 static inline void
@@ -118,10 +128,15 @@ buffer_check_append_limits(struct real_buffer *buf, size_t data_size)
 	/* Fast path: See if data to be appended fits into allocated buffer.
 	   If it does, we don't even need to memset() the dirty buffer since
 	   it's going to be filled with the newly appended data. */
+#ifndef DEBUG_FAST
 	if (buf->writable_size - buf->used < data_size)
 		buffer_check_limits(buf, buf->used, data_size);
 	else
 		buf->used += data_size;
+#else
+	/* Always add trailing sentry with debug checks */
+	buffer_check_limits(buf, buf->used, data_size);
+#endif
 }
 
 #undef buffer_create_from_data
