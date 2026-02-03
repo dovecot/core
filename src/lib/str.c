@@ -46,34 +46,21 @@ void str_free(string_t **str)
 	buffer_free(str);
 }
 
-static void str_add_nul(string_t *str)
-{
-	const unsigned char *data = str_data(str);
-	size_t len = str_len(str);
-	size_t alloc = buffer_get_size(str);
-
-	if (len == alloc || data[len] != '\0') {
-		buffer_write(str, len, "", 1);
-		/* remove the \0 - we don't want to keep it */
-		buffer_set_used_size(str, len);
-	}
-}
-
 char *str_free_without_data(string_t **str)
 {
-	str_add_nul(*str);
+	buffer_nul_terminate(*str);
 	return buffer_free_without_data(str);
 }
 
 const char *str_c(string_t *str)
 {
-	str_add_nul(str);
+	buffer_nul_terminate(str);
 	return str->data;
 }
 
 char *str_c_modifiable(string_t *str)
 {
-	str_add_nul(str);
+	buffer_nul_terminate(str);
 	return buffer_get_modifiable_data(str, NULL);
 }
 
