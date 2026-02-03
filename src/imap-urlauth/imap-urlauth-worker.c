@@ -596,6 +596,9 @@ client_handle_user_command(struct client *client, const char *cmd,
 	config.access_user = client->access_user;
 	config.access_service = client->access_service;
 	config.access_anonymous = client->access_anonymous;
+
+	array_append_zero(&client->access_apps);
+	array_pop_back(&client->access_apps);
 	config.access_applications =
 		(const void *)array_get(&client->access_apps, &count);
 
