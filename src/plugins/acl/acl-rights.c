@@ -441,8 +441,8 @@ bool acl_right_names_modify(pool_t pool,
 				array_push_back(&rights, &old_rights[i]);
 		}
 		new_rights = empty_str_array;
-		modify_rights = array_count(&rights) == 0 ? NULL :
-			array_front(&rights);
+		array_append_zero(&rights);
+		modify_rights = array_front(&rights);
 		acl_right_names_merge(pool, &new_rights, modify_rights, TRUE);
 		break;
 	case ACL_MODIFY_MODE_ADD:
