@@ -396,7 +396,7 @@ oauth2_jwt_copy_fields(ARRAY_TYPE(oauth2_field) *fields,
 				else
 					root->prefix = t_strconcat(jnode->name, "_", NULL);
 			} else {
-				struct oauth2_field *field;
+				struct oauth2_field *field = NULL, *field_iter;
 				const char *name;
 
 				if (subroot->array) {
@@ -405,11 +405,13 @@ oauth2_jwt_copy_fields(ARRAY_TYPE(oauth2_field) *fields,
 						name = t_strdup_until(subroot->prefix, name);
 					else
 						name = subroot->prefix;
-					array_foreach_modifiable(fields, field) {
-						if (strcmp(field->name, name) == 0)
+					array_foreach_modifiable(fields, field_iter) {
+						if (strcmp(field_iter->name, name) == 0) {
+							field = field_iter;
 							break;
+						}
 					}
-					if (field == NULL || field->name == NULL) {
+					if (field == NULL) {
 						field = array_append_space(fields);
 						field->name = p_strdup(pool, name);
 					}
