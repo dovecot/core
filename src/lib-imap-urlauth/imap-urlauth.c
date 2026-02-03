@@ -138,11 +138,14 @@ access_applications_have_access(struct imap_urlauth_context *uctx,
 		bool have_userid = FALSE;
 		size_t len = strlen(app);
 
-		if (app[len-1] == '+')
+		if (len > 0 && app[len-1] == '+') {
 			have_userid = TRUE;
+			len--;
+		}
 
 		if (strncasecmp(url->uauth_access_application,
-				app, len-1) == 0) {
+				app, len) == 0 &&
+		    url->uauth_access_application[len] == '\0') {
 			if (!have_userid) {
 				/* This access application must have no userid
 				 */
