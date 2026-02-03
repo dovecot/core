@@ -140,8 +140,10 @@ static int ldap_parse_attributes(struct dict_ldap_map_settings *set,
 				 struct dict_ldap_map_post_settings *post,
 				 const char **error_r)
 {
+	ARRAY_TYPE(const_string) parsed_attributes;
 	const char *value;
-	p_array_init(&set->parsed_attributes, set->pool, 2);
+
+	p_array_init(&parsed_attributes, set->pool, 2);
 	array_foreach_elem(&post->values, value) {
 		struct var_expand_program *prog;
 
@@ -161,10 +163,12 @@ static int ldap_parse_attributes(struct dict_ldap_map_settings *set,
 			/* When we free program, this name would be invalid,
 			   so dup it here. */
 			ldap_attr = p_strdup(set->pool, ldap_attr);
-			array_push_back(&set->parsed_attributes, &ldap_attr);
+			array_push_back(&parsed_attributes, &ldap_attr);
 		}
 		var_expand_program_free(&prog);
 	}
+	array_append_zero(&parsed_attributes);
+	set->parsed_attributes = array_front(&parsed_attributes);
 	return 0;
 }
 

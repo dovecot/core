@@ -10,7 +10,7 @@ struct dict_ldap_map_settings {
 
 	/* parsed */
 
-	ARRAY_TYPE(const_string) parsed_attributes;
+	const char *const *parsed_attributes;
 
 	/* attributes sorted by the position in parsed_pattern. */
 	ARRAY_TYPE(const_string) parsed_pattern_keys;

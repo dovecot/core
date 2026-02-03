@@ -241,8 +241,8 @@ ldap_dict_lookup_cb_values(const struct ldap_entry *entry, struct dict_ldap_op *
 	e_debug(op->event, "got dn %s",
 		ldap_entry_dn(entry));
 
-	const char *attribute;
-	array_foreach_elem(&op->map->parsed_attributes, attribute) {
+	for (unsigned int i = 0; op->map->parsed_attributes[i] != NULL; i++) {
+		const char *attribute = op->map->parsed_attributes[i];
 		const char *const *values = ldap_entry_get_attribute(entry, attribute);
 		bool no_attribute = values == NULL;
 		e_debug(op->event, "%s attribute %s",
@@ -478,9 +478,8 @@ void ldap_dict_lookup_async(struct dict *dict,
 		input.scope = op->map->parsed_scope;
 		/* Guaranteed to be NULL-terminated by
 		   dict_ldap_map_settings_postcheck() */
-		input.attributes =
-			array_is_empty(&op->map->parsed_attributes) ? NULL :
-			array_front(&op->map->parsed_attributes);
+		input.attributes = op->map->parsed_attributes[0] == NULL ? NULL :
+			op->map->parsed_attributes;
 		ctx->pending++;
 		ldap_search_start(ctx->client, &input, ldap_dict_lookup_callback, op);
 		settings_free(pre);
