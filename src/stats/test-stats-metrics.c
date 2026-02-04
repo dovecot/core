@@ -342,6 +342,48 @@ static const struct quantized_test quantized_tests[] = {
 		}
 	},
 	{
+		(const char *const []){
+		  "metric/test/group_by/foobar/method=linear",
+		  "metric/test/group_by/foobar/method/linear/method=linear",
+		  "metric/test/group_by/foobar/method/linear/min=500",
+		  "metric/test/group_by/foobar/method/linear/max=10000",
+		  "metric/test/group_by/foobar/method/linear/step=450",
+		  NULL },
+		26,
+		{
+			0, 50, 100, 101, 200, 201, 250, 301, 900, 901, 1000, 1001, 1500,
+			2000, 2001, 2200, 8000, 8001, 8200, 8500, 9000, 9001,
+			10000, 10001, 10500, 15000,
+		},
+		10,
+		24,
+		{ { { INTMAX_MIN, 500 }, 8 },
+		  { { 500, 950 }, 2 },
+		  { { 950, 1400 }, 2 },
+		  { { 1400, 1850 }, 1 },
+		  { { 1850, 2300 }, 3 },
+		  { { 2300, 2750 }, 0 },
+		  { { 2750, 3200 }, 0 },
+		  { { 3200, 3650 }, 0 },
+		  { { 3650, 4100 }, 0 },
+		  { { 4100, 4550 }, 0 },
+		  { { 4550, 5000 }, 0 },
+		  { { 5000, 5450 }, 0 },
+		  { { 5450, 5900 }, 0 },
+		  { { 5900, 6350 }, 0 },
+		  { { 6350, 6800 }, 0 },
+		  { { 6800, 7250 }, 0 },
+		  { { 7250, 7700 }, 0 },
+		  { { 7700, 8150 }, 2 },
+		  { { 8150, 8600 }, 2 },
+		  { { 8600, 9050 }, 2 },
+		  { { 9050, 9500 }, 0 },
+		  { { 9500, 9950 }, 0 },
+		  { { 9950, 10000 }, 1 },
+		  { { 10000, INTMAX_MAX }, 3 },
+		}
+	},
+	{
 		/* start at 0 */
 		(const char *const []){
 		  "metric/test/group_by/foobar/method=exponential",

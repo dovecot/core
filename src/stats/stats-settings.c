@@ -358,7 +358,11 @@ void metrics_group_by_linear_init(struct stats_metric_settings_group_by *group_b
 	 * 'min + 1 * step + 1', the fourth at 'min + 2 * step + 1', and so on.
 	 */
 	i_assert(step > 0);
-	group_by->num_ranges = (max - min) / step + 2;
+
+	/* num_ranges=ceil((max-min)/(double)step)+2 */
+	group_by->num_ranges = (((max - min) + step - 1) / step);
+	/* +2 is for the [-inf, min] bucket and the [max, inf] bucket. */
+	group_by->num_ranges += 2;
 	group_by->ranges = p_new(pool, struct stats_metric_settings_bucket_range,
 				 group_by->num_ranges);
 
@@ -369,7 +373,7 @@ void metrics_group_by_linear_init(struct stats_metric_settings_group_by *group_b
 	/* the [min, max] group-by buckets */
 	for (unsigned int i = 1; i < group_by->num_ranges - 1; i++) {
 		group_by->ranges[i].min = min + (i - 1) * step;
-		group_by->ranges[i].max = min + i * step;
+		group_by->ranges[i].max = I_MIN(min + i * step, max);
 	}
 
 	/* set up the [max, inf] group-by bucket */
