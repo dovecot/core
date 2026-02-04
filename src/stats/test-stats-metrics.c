@@ -261,7 +261,7 @@ static void test_stats_metrics_group_by_discrete(void)
 		test_stats_metrics_group_by_discrete_real(&discrete_tests[i], i);
 }
 
-#define QUANTIZED_TEST_VAL_COUNT	15
+#define QUANTIZED_TEST_VAL_COUNT	30
 struct quantized_test {
 	const char *const *settings_blob;
 	unsigned int num_inputs;
@@ -300,6 +300,45 @@ static const struct quantized_test quantized_tests[] = {
 		  { { 800, 900 }, 1 },
 		  { { 900, 1000 }, 2 },
 		  { { 1000, INTMAX_MAX }, 2 },
+		}
+	},
+	{
+		(const char *const []){
+		  "metric/test/group_by/foobar/method=linear",
+		  "metric/test/group_by/foobar/method/linear/method=linear",
+		  "metric/test/group_by/foobar/method/linear/min=500",
+		  "metric/test/group_by/foobar/method/linear/max=10000",
+		  "metric/test/group_by/foobar/method/linear/step=500",
+		  NULL },
+		26,
+		{
+			0, 50, 100, 101, 200, 201, 250, 301, 900, 901, 1000, 1001, 1500,
+			2000, 2001, 2200, 8000, 8001, 8200, 8500, 9000, 9001,
+			10000, 10001, 10500, 15000,
+		},
+		11,
+		21,
+		{ { { INTMAX_MIN, 500 }, 8 },
+		  { { 500, 1000 }, 3 },
+		  { { 1000, 1500 }, 2 },
+		  { { 1500, 2000 }, 1 },
+		  { { 2000, 2500 }, 2 },
+		  { { 2500, 3000 }, 0 },
+		  { { 3000, 3500 }, 0 },
+		  { { 3500, 4000 }, 0 },
+		  { { 4000, 4500 }, 0 },
+		  { { 4500, 5000 }, 0 },
+		  { { 5000, 5500 }, 0 },
+		  { { 5500, 6000 }, 0 },
+		  { { 6000, 6500 }, 0 },
+		  { { 6500, 7000 }, 0 },
+		  { { 7000, 7500 }, 0 },
+		  { { 7500, 8000 }, 1 },
+		  { { 8000, 8500 }, 3 },
+		  { { 8500, 9000 }, 1 },
+		  { { 9000, 9500 }, 1 },
+		  { { 9500, 10000 }, 1 },
+		  { { 10000, INTMAX_MAX }, 3 },
 		}
 	},
 	{
