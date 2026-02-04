@@ -38,6 +38,10 @@ struct submission_settings {
 	in_port_t submission_relay_port;
 	bool submission_relay_trusted;
 
+	/* submission BCC: */
+	const char *submission_bcc;
+	bool submission_bcc_ignore_errors;
+
 	const char *submission_relay_user;
 	const char *submission_relay_master_user;
 	const char *submission_relay_password;
