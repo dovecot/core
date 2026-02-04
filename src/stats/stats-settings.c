@@ -362,17 +362,19 @@ void metrics_group_by_linear_init(struct stats_metric_settings_group_by *group_b
 	group_by->ranges = p_new(pool, struct stats_metric_settings_bucket_range,
 				 group_by->num_ranges);
 
-	/* set up min & max buckets */
+	/* set up the [-inf, min] bucket */
 	group_by->ranges[0].min = INTMAX_MIN;
 	group_by->ranges[0].max = min;
-	group_by->ranges[group_by->num_ranges - 1].min = max;
-	group_by->ranges[group_by->num_ranges - 1].max = INTMAX_MAX;
 
-	/* remaining buckets */
+	/* the [min, max] group-by buckets */
 	for (unsigned int i = 1; i < group_by->num_ranges - 1; i++) {
 		group_by->ranges[i].min = min + (i - 1) * step;
 		group_by->ranges[i].max = min + i * step;
 	}
+
+	/* set up the [max, inf] group-by bucket */
+	group_by->ranges[group_by->num_ranges - 1].min = max;
+	group_by->ranges[group_by->num_ranges - 1].max = INTMAX_MAX;
 }
 /* </settings checks> */
 
