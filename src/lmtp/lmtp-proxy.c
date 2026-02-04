@@ -122,6 +122,8 @@ lmtp_proxy_init(struct client *client,
 
 	smtp_server_connection_get_proxy_data(client->conn,
 					      &lmtp_set.proxy_data);
+	lmtp_set.proxy_data.dest_ip = client->local_ip;
+	lmtp_set.proxy_data.dest_port = client->local_port;
 	lmtp_set.proxy_data.source_ip = client->remote_ip;
 	lmtp_set.proxy_data.source_port = client->remote_port;
 	lmtp_set.proxy_data.local_name = client->local_name;

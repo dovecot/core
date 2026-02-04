@@ -383,6 +383,10 @@ client_connection_proxy_data_updated(void *context,
 {
 	struct client *client = context;
 
+	if (data->dest_ip.family != 0)
+		client->local_ip = data->dest_ip;
+	if (data->dest_port != 0)
+		client->local_port = data->dest_port;
 	client->remote_ip = data->source_ip;
 	client->remote_port = data->source_port;
 	client->local_name = data->local_name;
