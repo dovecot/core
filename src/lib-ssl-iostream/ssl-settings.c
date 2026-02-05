@@ -128,12 +128,16 @@ ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 {
 	struct ssl_settings *set = _set;
 
-	if (settings_get_config_binary() != SETTINGS_BINARY_OTHER) T_BEGIN {
+	if (settings_get_config_binary() != SETTINGS_BINARY_OTHER) {
 		const char *proto = t_str_ucase(set->ssl_min_protocol);
+		if (*proto == '\0') {
+			*error_r = "ssl_min_protocol cannot be empty";
+			return FALSE;
+		}
 		if (strstr(proto, "ANY") != NULL)
 			i_warning("ssl_min_protocol=ANY is used - This is "
 				  "insecure and intended only for testing");
-	} T_END;
+	}
 
 	/* Now explode the ssl_options string into individual flags */
 	/* First set them all to defaults */
