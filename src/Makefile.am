@@ -47,10 +47,10 @@ SUBDIRS = \
 	$(LIB_LUA) \
 	lib-language \
 	lib-imap-client \
-	lib-imap-urlauth \
 	lib-compression \
 	lib-index \
 	lib-storage \
+	lib-imap-urlauth \
 	lib-sql \
 	lib-lda \
 	lib-dict-backend \

@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libimap-urlauth.la
 
 AM_CPPFLAGS = \
@@ -25,6 +27,15 @@ headers = \
 	imap-urlauth-fetch.h \
 	imap-urlauth-backend.h \
 	imap-urlauth-connection.h
+
+test_programs = test-imap-urlauth
+
+test_imap_urlauth_SOURCES = test-imap-urlauth.c
+test_imap_urlauth_LDADD = \
+	imap-urlauth.lo \
+	../lib-dovecot/libdovecot.la \
+	../lib-test/libtest.la \
+	$(LIBDOVECOT_TEST_LIBS)
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
