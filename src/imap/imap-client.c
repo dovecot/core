@@ -221,7 +221,8 @@ void client_create_finish_io(struct client *client)
 	if (client->set->rawlog_dir[0] != '\0') {
 		client->pre_rawlog_input = client->input;
 		client->pre_rawlog_output = client->output;
-		(void)iostream_rawlog_create(client->set->rawlog_dir,
+		(void)iostream_rawlog_create(client->event, "rawlog_dir",
+					     client->set->rawlog_dir,
 					     &client->input, &client->output);
 		if (client->input != client->pre_rawlog_input) {
 			/* rawlog enabled */

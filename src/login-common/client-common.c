@@ -165,7 +165,8 @@ void client_rawlog_init(struct client *client)
 
 	client->pre_rawlog_input = client->input;
 	client->pre_rawlog_output = client->output;
-	if (iostream_rawlog_create(login_rawlog_dir, &client->input,
+	if (iostream_rawlog_create(client->event, "login rawlog",
+				   login_rawlog_dir, &client->input,
 				   &client->output) < 0) {
 		login_rawlog_dir = NULL;
 		return;

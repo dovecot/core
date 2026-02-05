@@ -237,7 +237,8 @@ static void proxy_rawlog_init(struct login_proxy *proxy)
 
 	proxy->pre_rawlog_input = proxy->server_input;
 	proxy->pre_rawlog_output = proxy->server_output;
-	if (iostream_rawlog_create(proxy->rawlog_dir, &proxy->server_input,
+	if (iostream_rawlog_create(proxy->event, "login_proxy_rawlog_dir",
+				   proxy->rawlog_dir, &proxy->server_input,
 				   &proxy->server_output) < 0)
 		return;
 	proxy->rawlog_input = proxy->server_input;

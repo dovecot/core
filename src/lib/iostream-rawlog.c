@@ -215,7 +215,8 @@ iostream_rawlog_try_create_tcp(const char *path,
 	return 1;
 }
 
-int iostream_rawlog_create(const char *dir, struct istream **input,
+int iostream_rawlog_create(struct event *event, const char *set_name,
+			   const char *dir, struct istream **input,
 			   struct ostream **output)
 {
 	static unsigned int counter = 0;
@@ -229,10 +230,11 @@ int iostream_rawlog_create(const char *dir, struct istream **input,
 
 	counter++;
 	prefix = t_strdup_printf("%s/%s.%s.%u", dir, timestamp, my_pid, counter);
-	return iostream_rawlog_create_prefix(prefix, input, output);
+	return iostream_rawlog_create_prefix(event, set_name, prefix, input, output);
 }
 
-int iostream_rawlog_create_prefix(const char *prefix, struct istream **input,
+int iostream_rawlog_create_prefix(struct event *event, const char *set_name,
+				  const char *prefix, struct istream **input,
 				  struct ostream **output)
 {
 	const char *in_path, *out_path;
@@ -243,16 +245,26 @@ int iostream_rawlog_create_prefix(const char *prefix, struct istream **input,
 	in_path = t_strdup_printf("%s.in", prefix);
 	in_fd = open(in_path, O_CREAT | O_APPEND | O_WRONLY | O_NOFOLLOW, 0600);
 	if (in_fd == -1) {
-		if (errno != ENOENT && !ENOACCESS(errno))
-			i_error("rawlog: creat(%s) failed: %m", in_path);
+		if (errno != ENOENT && !ENOACCESS(errno)) {
+			e_error(event, "%s: creat(%s) failed: %m",
+				set_name, in_path);
+		} else {
+			e_debug(event, "%s: creat(%s) failed: %m",
+				set_name, in_path);
+		}
 		return -1;
 	}
 
 	out_path = t_strdup_printf("%s.out", prefix);
 	out_fd = open(out_path, O_CREAT | O_APPEND | O_WRONLY | O_NOFOLLOW, 0600);
 	if (out_fd == -1) {
-		if (errno != ENOENT && !ENOACCESS(errno))
-			i_error("rawlog: creat(%s) failed: %m", out_path);
+		if (errno != ENOENT && !ENOACCESS(errno)) {
+			e_error(event, "%s: creat(%s) failed: %m",
+				set_name, out_path);
+		} else {
+			e_debug(event, "%s: creat(%s) failed: %m",
+				set_name, out_path);
+		}
 		i_close_fd(&in_fd);
 		i_unlink(in_path);
 		return -1;
@@ -272,7 +284,8 @@ int iostream_rawlog_create_prefix(const char *prefix, struct istream **input,
 	return 0;
 }
 
-int iostream_rawlog_create_path(const char *path, struct istream **input,
+int iostream_rawlog_create_path(struct event *event, const char *set_name,
+				const char *path, struct istream **input,
 				struct ostream **output)
 {
 	int ret, fd;
@@ -281,8 +294,13 @@ int iostream_rawlog_create_path(const char *path, struct istream **input,
 		return ret < 0 ? -1 : 0;
 	fd = open(path, O_CREAT | O_APPEND | O_WRONLY | O_NOFOLLOW, 0600);
 	if (fd == -1) {
-		if (errno != ENOENT && !ENOACCESS(errno))
-			i_error("rawlog: creat(%s) failed: %m", path);
+		if (errno != ENOENT && !ENOACCESS(errno)) {
+			e_error(event, "%s: creat(%s) failed: %m",
+				set_name, path);
+		} else {
+			e_debug(event, "%s: creat(%s) failed: %m",
+				set_name, path);
+		}
 		return -1;
 	}
 	iostream_rawlog_create_fd(fd, path, input, output);

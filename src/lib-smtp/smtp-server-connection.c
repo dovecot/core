@@ -167,7 +167,9 @@ smtp_server_connection_update_rawlog(struct smtp_server_connection *conn)
 			conn->rawlog_enabled = TRUE;
 	}
 	if (conn->rawlog_enabled) {
-		iostream_rawlog_create(conn->set.rawlog_dir,
+		/* FIXME: we don't know the setting name here */
+		iostream_rawlog_create(conn->event, "smtp server rawlog",
+				       conn->set.rawlog_dir,
 				       &conn->conn.input, &conn->conn.output);
 	}
 }

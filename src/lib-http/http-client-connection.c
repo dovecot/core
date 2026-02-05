@@ -1342,7 +1342,8 @@ static void http_client_connection_ready(struct http_client_connection *conn)
 
 	/* Start raw log */
 	if (ppool->rawlog_dir != NULL) {
-		iostream_rawlog_create(ppool->rawlog_dir,
+		iostream_rawlog_create(conn->event, "http_client_rawlog_dir",
+				       ppool->rawlog_dir,
 				       &conn->conn.input, &conn->conn.output);
 	}
 
