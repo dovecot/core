@@ -95,6 +95,7 @@ int ldap_set_tls_options(LDAP *ld, bool starttls, const char *uris,
 		return -1;
 	return 0;
 }
+#endif
 
 static int ldap_set_tls_validate_file(const char *file, const char *name,
 				      const char **error_r)
@@ -116,5 +117,3 @@ int ldap_set_tls_validate(const struct ssl_settings *set, const char **error_r)
 					  "ssl_client_key_file", error_r) < 0 ?
 		-1 : 0;
 }
-
-#endif
