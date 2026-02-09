@@ -1,5 +1,9 @@
 # default <setting-path> <old-default> <ce-version> <pro-version>
 # rename <old-setting-key> <new-setting-key> <ce-version> <pro-version>
+default	@mailbox_defaults/english/namespace/inbox/mailbox/Drafts/mailbox_auto	no	2.4.3	3.2.0
+default	@mailbox_defaults/english/namespace/inbox/mailbox/Junk/mailbox_auto	no	2.4.3	3.2.0
+default	@mailbox_defaults/english/namespace/inbox/mailbox/Sent/mailbox_auto	no	2.4.3	3.2.0
+default	@mailbox_defaults/english/namespace/inbox/mailbox/Trash/mailbox_auto	no	2.4.3	3.2.0
 default	service/doveadm/service_extra_groups	$SET:default_internal_group	2.4.3	3.2.0
 default	service/imap/service_extra_groups	$SET:default_internal_group	2.4.3	3.2.0
 default	service/imap-urlauth-worker/service_extra_groups	$SET:default_internal_group	2.4.3	3.2.0
