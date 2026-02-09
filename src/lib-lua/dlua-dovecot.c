@@ -490,7 +490,7 @@ void dlua_event_passthrough_abort(struct dlua_script *script)
 	if (script->pending_event_passthrough != NULL) {
 		struct event *event =
 			script->pending_event_passthrough->event();
-		const char *source_filename = event->source_filename;
+		const char *source_filename = t_strdup(event->source_filename);
 		int source_linenum = event->source_linenum;
 		event_send_abort(event);
 		script->pending_event_passthrough = NULL;
