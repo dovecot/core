@@ -738,6 +738,10 @@ static int fn_ldap_dn(const struct var_expand_statement *stmt,
 	string_t *ret = t_str_new(256);
 	const char *str = str_c(state->transfer);
 
+	if (*str != '\0') {
+		str_append(ret, "dc=");
+	}
+	
 	while (*str != '\0') {
 		if (*str == '.')
 			str_append(ret, ",dc=");
