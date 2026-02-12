@@ -612,7 +612,7 @@ LIBDOVECOT_LUA=''
 if test "$want_shared_libs" = "yes"; then
   LIBDOVECOT_DEPS='$(top_builddir)/src/lib-dovecot/libdovecot.la'
   LIBDOVECOT="$LIBDOVECOT_DEPS \$(MODULE_LIBS) \$(LIBPCRE_LIBS)"
-  LIBDOVECOT_STORAGE_DEPS='$(top_builddir)/src/lib-storage/libdovecot-storage.la'
+  LIBDOVECOT_STORAGE_DEPS='$(top_builddir)/src/lib-dovecot-storage/libdovecot-storage.la'
   LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/libdovecot-login.la'
   LIBDOVECOT_LDA='$(top_builddir)/src/lib-lda/libdovecot-lda.la'
   if test $want_lua != no; then
@@ -624,7 +624,7 @@ if test "$want_shared_libs" = "yes"; then
 else
   LIBDOVECOT_DEPS="$LIBDOVECOT_LA_LIBS"
   LIBDOVECOT="$LIBDOVECOT_DEPS \$(MODULE_LIBS) \$(LIBPCRE_LIBS)"
-  LIBDOVECOT_STORAGE_DEPS='$(top_builddir)/src/lib-storage/libstorage.la'
+  LIBDOVECOT_STORAGE_DEPS='$(top_builddir)/src/lib-imap-storage/libimap-storage.la $(top_builddir)/src/lib-storage/libstorage.la'
   LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/liblogin.la'
   LIBDOVECOT_LDA='$(top_builddir)/src/lib-lda/liblda.la'
   if test $want_lua != no; then
@@ -873,6 +873,7 @@ src/lib-program-client/Makefile
 src/lib-otp/Makefile
 src/lib-dovecot/Makefile
 src/lib-dovecot-gssapi/Makefile
+src/lib-dovecot-storage/Makefile
 src/lib-sasl/Makefile
 src/lib-settings/Makefile
 src/lib-smtp/Makefile

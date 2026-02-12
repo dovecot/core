@@ -124,22 +124,10 @@ shlibs = \
 	list/libstorage_list.la \
 	index/libstorage_index.la \
 	../lib-index/libindex.la \
-	../lib-imap-storage/libimap-storage.la \
 	../lib-language/liblanguage.la
 
 libstorage_la_LIBADD = $(shlibs)
 libstorage_la_DEPENDENCIES = $(shlibs)
-
-pkglib_LTLIBRARIES = libdovecot-storage.la
-libdovecot_storage_la_SOURCES =
-libdovecot_storage_la_LIBADD = \
-	libstorage.la \
-	$(LIBDOVECOT) \
-	$(LINKED_STORAGE_LDADD)
-libdovecot_storage_la_DEPENDENCIES = \
-	libstorage.la \
-	$(LIBDOVECOT_DEPS)
-libdovecot_storage_la_LDFLAGS = -export-dynamic
 
 test_programs = \
 	test-mail-search-args-imap \

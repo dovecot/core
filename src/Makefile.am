@@ -55,6 +55,7 @@ SUBDIRS = \
 	lib-compression \
 	lib-index \
 	lib-storage \
+	lib-dovecot-storage \
 	$(LIBSTORAGE_LUA) \
 	lib-imap-urlauth \
 	lib-sql \

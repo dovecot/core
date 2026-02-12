@@ -15,10 +15,10 @@ libdovecot_storage_lua_la_SOURCES = \
 	mailbox-lua.c \
 	mailbox-attribute-lua.c
 libdovecot_storage_lua_la_LIBADD = \
-	../lib-storage/libdovecot-storage.la \
+	../lib-dovecot-storage/libdovecot-storage.la \
 	../lib-lua/libdovecot-lua.la
 libdovecot_storage_lua_la_DEPENDENCIES = \
-	../lib-storage/libdovecot-storage.la \
+	../lib-dovecot-storage/libdovecot-storage.la \
 	../lib-lua/libdovecot-lua.la
 libdovecot_storage_lua_la_LDFLAGS = -export-dynamic
 
