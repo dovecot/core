@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = libimap-storage.la
 
 AM_CPPFLAGS = \
@@ -22,3 +24,20 @@ headers = \
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
+test_programs = \
+	test-imap-msgpart \
+	test-imap-metadata
+
+test_imap_msgpart_SOURCES = test-imap-msgpart.c
+test_imap_msgpart_LDADD = \
+	libimap-storage.la \
+	../lib-storage/libstorage.la \
+	../lib-dovecot/libdovecot.la \
+	$(LIBDOVECOT_TEST_LIBS)
+
+test_imap_metadata_SOURCES = test-imap-metadata.c
+test_imap_metadata_LDADD = \
+	libimap-storage.la \
+	../lib-storage/libstorage.la \
+	../lib-dovecot/libdovecot.la \
+	$(LIBDOVECOT_TEST_LIBS)
