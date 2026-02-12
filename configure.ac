@@ -890,6 +890,7 @@ src/lib-storage/index/dbox-multi/Makefile
 src/lib-storage/index/dbox-single/Makefile
 src/lib-storage/index/raw/Makefile
 src/lib-storage/index/shared/Makefile
+src/lib-storage-lua/Makefile
 src/lib-var-expand/Makefile
 src/lib-var-expand-crypt/Makefile
 src/anvil/Makefile

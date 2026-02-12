@@ -3,6 +3,7 @@ LIB_LDAP=lib-ldap
 endif
 if HAVE_LUA
 LIB_LUA=lib-lua
+LIBSTORAGE_LUA=lib-storage-lua
 endif
 if BUILD_IMAP_HIBERNATE
 IMAP_HIBERNATE=imap-hibernate
@@ -50,6 +51,7 @@ SUBDIRS = \
 	lib-compression \
 	lib-index \
 	lib-storage \
+	$(LIBSTORAGE_LUA) \
 	lib-imap-urlauth \
 	lib-sql \
 	lib-lda \
