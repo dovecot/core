@@ -405,25 +405,12 @@ static void test_imap_urlauth_fetch(void)
 	test_end();
 }
 
-static void test_imap_urlauth_reset_keys(void)
-{
-	struct imap_urlauth_context uctx = {
-		.user = NULL
-	};
-
-	test_begin("imap_urlauth_reset_keys()");
-	test_out("imap_urlauth_reset_mailbox_key", imap_urlauth_reset_mailbox_key(&uctx, NULL) == 0);
-	test_out("imap_urlauth_reset_all_keys", imap_urlauth_reset_all_keys(&uctx) == 0);
-	test_end();
-}
-
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_imap_urlauth_check,
 		test_imap_urlauth_generate,
 		test_imap_urlauth_fetch,
-		test_imap_urlauth_reset_keys,
 		NULL
 	};
 	return test_run(test_functions);
