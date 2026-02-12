@@ -90,6 +90,16 @@ virtual_storage_create(struct mail_storage *_storage,
 		       struct mail_namespace *ns ATTR_UNUSED,
 		       const char **error_r)
 {
+	const char *layout = ns->list->name;
+	static const char *EXPECTED_LAYOUT = "fs";
+	if (strcasecmp(layout, EXPECTED_LAYOUT) != 0) {
+		*error_r = t_strdup_printf(
+			"mailbox_list_layout: '%s', "
+			"but it must be '%s' on virtual storages",
+			layout, EXPECTED_LAYOUT);
+		return -1;
+	}
+
 	struct virtual_storage *storage =
 		container_of(_storage, struct virtual_storage, storage);
 	const struct virtual_settings *set;
