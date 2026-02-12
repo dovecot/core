@@ -39,7 +39,6 @@ LIBDOVECOT_SUBDIRS = \
 	lib-smtp \
 	lib-pop3 \
 	lib-imap \
-	lib-imap-storage \
 	lib-doveadm \
 	lib-var-expand-crypt
 
@@ -55,6 +54,7 @@ SUBDIRS = \
 	lib-compression \
 	lib-index \
 	lib-storage \
+	lib-imap-storage \
 	lib-dovecot-storage \
 	$(LIBSTORAGE_LUA) \
 	lib-imap-urlauth \
