@@ -8,6 +8,9 @@ endif
 if BUILD_IMAP_HIBERNATE
 IMAP_HIBERNATE=imap-hibernate
 endif
+if HAVE_GSSAPI
+LIBDOVEOT_GSSAPI_DIR=lib-dovecot-gssapi
+endif
 
 LIBDOVECOT_SUBDIRS = \
 	lib-test \
@@ -44,6 +47,7 @@ SUBDIRS = \
 	$(LIBDOVECOT_SUBDIRS) \
 	lib-dict-extra \
 	lib-dovecot \
+	$(LIBDOVEOT_GSSAPI_DIR) \
 	$(LIB_LDAP) \
 	$(LIB_LUA) \
 	lib-language \

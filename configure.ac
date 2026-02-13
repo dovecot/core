@@ -619,7 +619,7 @@ if test "$want_shared_libs" = "yes"; then
     LIBDOVECOT_LUA='$(top_builddir)/src/lib-lua/libdovecot-lua.la'
   fi
   if test $want_gssapi != no; then
-    LIBDOVECOT_GSSAPI='$(top_builddir)/src/lib-dovecot/libdovecot-gssapi.la'
+    LIBDOVECOT_GSSAPI='$(top_builddir)/src/lib-dovecot-gssapi/libdovecot-gssapi.la'
   fi
 else
   LIBDOVECOT_DEPS="$LIBDOVECOT_LA_LIBS"
@@ -872,6 +872,7 @@ src/lib-login/Makefile
 src/lib-program-client/Makefile
 src/lib-otp/Makefile
 src/lib-dovecot/Makefile
+src/lib-dovecot-gssapi/Makefile
 src/lib-sasl/Makefile
 src/lib-settings/Makefile
 src/lib-smtp/Makefile
