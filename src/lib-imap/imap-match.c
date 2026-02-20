@@ -134,8 +134,9 @@ imap_match_init_multiple_real(pool_t pool, const char *const *patterns,
 	patterns_count = i;
 
 	/* now we know how much memory we need */
-	glob = p_malloc(pool, sizeof(struct imap_match_glob) +
-			patterns_data_len);
+	size_t value_alloc_size =
+		MALLOC_ADD(sizeof(*value), hash->value_size);
+	glob = p_malloc(pool, glob_alloc_size);
 	glob->pool = pool;
 	glob->sep = separator;
 
