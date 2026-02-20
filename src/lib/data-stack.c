@@ -375,7 +375,7 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 
 	/* nearest_power() returns 2^n values, so alloc_size can't be
 	   anywhere close to SIZE_MAX */
-	block = malloc(SIZEOF_MEMBLOCK + alloc_size);
+	block = malloc(MALLOC_ADD(SIZEOF_MEMBLOCK, alloc_size));
 	if (unlikely(block == NULL)) {
 		if (outofmem) {
 			if (min_size > outofmem_area.block.left)

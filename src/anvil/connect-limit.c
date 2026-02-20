@@ -271,12 +271,14 @@ alt_username_field_ref(struct connect_limit *limit, const char *name)
 		i_free(field->name);
 		field->name = i_strdup(name);
 
+		size_t old_size = MALLOC_MULTIPLY(
+			sizeof(limit->alt_username_hashes[0]), old_count);
+		size_t new_size = MALLOC_MULTIPLY(
+			sizeof(limit->alt_username_hashes[0]),
+			I_MAX((idx+1), old_count));
 		limit->alt_username_hashes =
 			i_realloc(limit->alt_username_hashes,
-				  sizeof(limit->alt_username_hashes[0]) *
-				  old_count,
-				  sizeof(limit->alt_username_hashes[0]) *
-				  I_MAX((idx+1), old_count));
+				 old_size, new_size);
 		if (!hash_table_is_created(limit->alt_username_hashes[idx])) {
 			hash_table_create(&limit->alt_username_hashes[idx],
 					  default_pool, 0, str_hash, strcmp);
