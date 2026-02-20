@@ -51,4 +51,9 @@ malloc_add_check(size_t a, size_t b, size_t sizeof_a, size_t sizeof_b,
 	malloc_add_check(a, b, sizeof(a), sizeof(size_t), __FILE__, __LINE__) // NOLINT(bugprone-sizeof-expression)
 #endif
 
+/* Minimal convenience wrapper for common allocation size arithmetic.
+   Built on MALLOC_ADD() to keep overflow handling centralized. */
+#define MALLOC_ADD3(a, b, c) \
+	MALLOC_ADD(MALLOC_ADD((a), (b)), (c))
+
 #endif

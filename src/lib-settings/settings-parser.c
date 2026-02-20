@@ -316,8 +316,9 @@ int settings_parse_read_file(const char *path, const char *value_path,
 	}
 	size_t prefix_len = strlen(prefix);
 	size_t value_path_len = strlen(value_path);
-	char *buf = p_malloc(pool, prefix_len + value_path_len + 1 +
-			     st.st_size + 1);
+	size_t buf_size = MALLOC_ADD3(prefix_len, value_path_len, 1);
+	buf_size = MALLOC_ADD3(buf_size, (size_t)st.st_size, 1);
+	char *buf = p_malloc(pool, buf_size);
 	memcpy(buf, prefix, prefix_len);
 	memcpy(buf + prefix_len, value_path, value_path_len);
 	buf[prefix_len + value_path_len] = '\n';
@@ -520,8 +521,10 @@ const char *settings_file_get_value(pool_t pool,
 	const char *path = file->path != NULL ? file->path : "";
 	size_t path_len = strlen(path);
 	size_t content_len = strlen(file->content);
+	size_t value_size = MALLOC_ADD3(path_len, 1, content_len);
+	value_size = MALLOC_ADD(value_size, 1);
 
-	char *value = p_malloc(pool, path_len + 1 + content_len + 1);
+	char *value = p_malloc(pool, value_size);
 	memcpy(value, path, path_len);
 	value[path_len] = '\n';
 	memcpy(value + path_len + 1, file->content, content_len);

@@ -758,10 +758,12 @@ split_str_slow(pool_t pool, const char *data, const char *separators, bool space
 			/* separator found */
 			if (count+1 >= alloc_count) {
 				new_alloc_count = nearest_power(alloc_count+1);
+				size_t old_size =
+					MALLOC_MULTIPLY(sizeof(char *), alloc_count);
+				size_t new_size =
+					MALLOC_MULTIPLY(sizeof(char *), new_alloc_count);
 				array = p_realloc(pool, array,
-						  sizeof(char *) * alloc_count,
-						  sizeof(char *) *
-						  new_alloc_count);
+						  old_size, new_size);
 				alloc_count = new_alloc_count;
 			}
 
@@ -807,10 +809,12 @@ split_str_fast(pool_t pool, const char *data, char sep)
 		/* separator found */
 		if (count+1 >= alloc_count) {
 			new_alloc_count = nearest_power(alloc_count+1);
+			size_t old_size =
+				MALLOC_MULTIPLY(sizeof(char *), alloc_count);
+			size_t new_size =
+				MALLOC_MULTIPLY(sizeof(char *), new_alloc_count);
 			array = p_realloc(pool, array,
-					  sizeof(char *) * alloc_count,
-					  sizeof(char *) *
-					  new_alloc_count);
+					  old_size, new_size);
 			alloc_count = new_alloc_count;
 		}
 		*str++ = '\0';

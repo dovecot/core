@@ -19,15 +19,17 @@ static void test_imem_alloc(void)
 
 	/* regular alloc */
 	struct test_struct *s1 = i_new(struct test_struct, 2);
-	struct test_struct *s2 = i_malloc(sizeof(struct test_struct) * 2);
+	struct test_struct *s2 = i_malloc(
+		MALLOC_MULTIPLY(sizeof(struct test_struct), 2));
 	s1[0] = ab; s2[0] = ab;
 	s1[1] = bc; s2[1] = bc;
 	test_assert(memcmp(s1, s2, sizeof(struct test_struct) * 2) == 0);
 
 	/* realloc */
 	s1 = i_realloc_type(s1, struct test_struct, 2, 4);
-	s2 = i_realloc(s2, sizeof(struct test_struct) * 2,
-		       sizeof(struct test_struct) * 4);
+	s2 = i_realloc(s2,
+		MALLOC_MULTIPLY(sizeof(struct test_struct), 2),
+		MALLOC_MULTIPLY(sizeof(struct test_struct), 4));
 	s1[2] = cd; s2[2] = cd;
 	s1[3] = de; s2[3] = de;
 	test_assert(memcmp(&s1[0], &ab, sizeof(ab)) == 0);
@@ -44,7 +46,8 @@ static void test_imem_alloc(void)
 
 	/* allocating new memory with realloc */
 	s1 = i_realloc_type(NULL, struct test_struct, 0, 2);
-	s2 = i_realloc(NULL, 0, sizeof(struct test_struct) * 2);
+	s2 = i_realloc(NULL, 0,
+		MALLOC_MULTIPLY(sizeof(struct test_struct), 2));
 	s1[0] = ab; s2[0] = ab;
 	s1[1] = bc; s2[1] = bc;
 	test_assert(memcmp(s1, s2, sizeof(struct test_struct) * 2) == 0);

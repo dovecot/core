@@ -766,7 +766,7 @@ static int unfold_header(pool_t pool, const char **_str)
 		return 0;
 
 	/* @UNSAFE */
-	new_str = p_malloc(pool, i + strlen(str+i) + 1);
+	new_str = p_malloc(pool, MALLOC_ADD3(i, strlen(str+i), 1));
 	memcpy(new_str, str, i);
 	for (j = i; str[i] != '\0'; i++) {
 		if (str[i] == '\n') {
