@@ -316,8 +316,10 @@ int settings_parse_read_file(const char *path, const char *value_path,
 	}
 	size_t prefix_len = strlen(prefix);
 	size_t value_path_len = strlen(value_path);
-	char *buf = p_malloc(pool, prefix_len + value_path_len + 1 +
-			     st.st_size + 1);
+	size_t buf_size = MALLOC_ADD3(prefix_len, value_path_len, 1);
+	buf_size = MALLOC_ADD(buf_size, (size_t)st.st_size);
+	buf_size = MALLOC_ADD(buf_size, 1);
+	char *buf = p_malloc(pool, buf_size);
 	memcpy(buf, prefix, prefix_len);
 	memcpy(buf + prefix_len, value_path, value_path_len);
 	buf[prefix_len + value_path_len] = '\n';

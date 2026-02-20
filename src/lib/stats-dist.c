@@ -28,8 +28,8 @@ struct stats_dist *stats_dist_init_with_size(unsigned int sample_count)
 	i_assert(sample_count > 0);
 
 	struct stats_dist *stats =
-		i_malloc(sizeof(struct stats_dist) +
-			 sizeof(uint64_t) * sample_count);
+		i_malloc(MALLOC_SIZEOF_PLUS(struct stats_dist,
+			MALLOC_SIZEOF_MULTIPLY(uint64_t, sample_count)));
 	stats->sample_count = sample_count;
 	return stats;
 }
