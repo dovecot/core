@@ -296,7 +296,7 @@ static void driver_pgsql_connect_timeout(struct pgsql_db *db)
 
 static int driver_pgsql_connect(struct sql_db *_db)
 {
-	struct pgsql_db *db = (struct pgsql_db *)_db;
+	struct pgsql_db *db = container_of(_db, struct pgsql_db, api);
 	struct timeval tv_start;
 	long long msecs;
 
@@ -367,7 +367,7 @@ static int driver_pgsql_connect(struct sql_db *_db)
 
 static void driver_pgsql_disconnect(struct sql_db *_db)
 {
-	struct pgsql_db *db = (struct pgsql_db *)_db;
+	struct pgsql_db *db = container_of(_db, struct pgsql_db, api);
 
 	if (db->cur_result != NULL && db->cur_result->to != NULL) {
 		driver_pgsql_stop_io(db);
@@ -490,7 +490,7 @@ driver_pgsql_init_v(struct event *event, struct sql_db **db_r,
 
 static void driver_pgsql_deinit_v(struct sql_db *_db)
 {
-	struct pgsql_db *db = (struct pgsql_db *)_db;
+	struct pgsql_db *db = container_of(_db, struct pgsql_db, api);
 
 	driver_pgsql_disconnect(_db);
 	driver_pgsql_free(&db);
@@ -548,8 +548,9 @@ driver_pgsql_result_free_binary_values(struct pgsql_result *result)
 
 static void driver_pgsql_result_free(struct sql_result *_result)
 {
-	struct pgsql_db *db = (struct pgsql_db *)_result->db;
-	struct pgsql_result *result = (struct pgsql_result *)_result;
+	struct pgsql_db *db = container_of(_result->db, struct pgsql_db, api);
+	struct pgsql_result *result =
+		container_of(_result, struct pgsql_result, api);
 	bool success;
 
 	i_assert(!result->api.callback);
@@ -586,7 +587,8 @@ static void driver_pgsql_result_free(struct sql_result *_result)
 
 static void result_finish(struct pgsql_result *result)
 {
-	struct pgsql_db *db = (struct pgsql_db *)result->api.db;
+	struct pgsql_db *db =
+		container_of(result->api.db, struct pgsql_db, api);
 	bool free_result = TRUE;
 	int duration;
 
@@ -641,7 +643,8 @@ static void result_finish(struct pgsql_result *result)
 
 static void get_result(struct pgsql_result *result)
 {
-	struct pgsql_db *db = (struct pgsql_db *)result->api.db;
+	struct pgsql_db *db =
+		container_of(result->api.db, struct pgsql_db, api);
 
 	driver_pgsql_stop_io(db);
 
@@ -663,7 +666,8 @@ static void get_result(struct pgsql_result *result)
 
 static void flush_callback(struct pgsql_result *result)
 {
-	struct pgsql_db *db = (struct pgsql_db *)result->api.db;
+	struct pgsql_db *db =
+		container_of(result->api.db, struct pgsql_db, api);
 	int ret;
 
 	driver_pgsql_stop_io(db);
@@ -686,7 +690,8 @@ static void flush_callback(struct pgsql_result *result)
 
 static void query_timeout(struct pgsql_result *result)
 {
-	struct pgsql_db *db = (struct pgsql_db *)result->api.db;
+	struct pgsql_db *db =
+		container_of(result->api.db, struct pgsql_db, api);
 
 	driver_pgsql_stop_io(db);
 
@@ -696,7 +701,8 @@ static void query_timeout(struct pgsql_result *result)
 
 static void do_query(struct pgsql_result *result, const char *query)
 {
-	struct pgsql_db *db = (struct pgsql_db *)result->api.db;
+	struct pgsql_db *db =
+		container_of(result->api.db, struct pgsql_db, api);
 	int ret;
 
 	i_assert(SQL_DB_IS_READY(&db->api));
@@ -731,7 +737,7 @@ static int
 driver_pgsql_escape_string(struct sql_db *_db, const char *string,
 			   const char **output_r, const char **error_r)
 {
-	struct pgsql_db *db = (struct pgsql_db *)_db;
+	struct pgsql_db *db = container_of(_db, struct pgsql_db, api);
 	size_t len = strlen(string);
 	char *to;
 
@@ -768,7 +774,8 @@ driver_pgsql_escape_string(struct sql_db *_db, const char *string,
 static void exec_callback(struct sql_result *_result,
 			  void *context ATTR_UNUSED)
 {
-	struct pgsql_result *result = (struct pgsql_result*)_result;
+	struct pgsql_result *result =
+		container_of(_result, struct pgsql_result, api);
 	result_finish(result);
 }
 
@@ -881,7 +888,7 @@ driver_pgsql_sync_query(struct pgsql_db *db, const char *query)
 static struct sql_result *
 driver_pgsql_query_s(struct sql_db *_db, const char *query)
 {
-	struct pgsql_db *db = (struct pgsql_db *)_db;
+	struct pgsql_db *db = container_of(_db, struct pgsql_db, api);
 	struct sql_result *result;
 
 	driver_pgsql_sync_init(db);
@@ -892,8 +899,9 @@ driver_pgsql_query_s(struct sql_db *_db, const char *query)
 
 static int driver_pgsql_result_next_row(struct sql_result *_result)
 {
-	struct pgsql_result *result = (struct pgsql_result *)_result;
-	struct pgsql_db *db = (struct pgsql_db *)_result->db;
+	struct pgsql_result *result =
+		container_of(_result, struct pgsql_result, api);
+	struct pgsql_db *db = container_of(_result->db, struct pgsql_db, api);
 
 	/* The cached binary values belong to the row we're leaving. The
 	   sql_result API returns field values only until the next row is
@@ -957,7 +965,8 @@ static void driver_pgsql_result_fetch_fields(struct pgsql_result *result)
 static unsigned int
 driver_pgsql_result_get_fields_count(struct sql_result *_result)
 {
-	struct pgsql_result *result = (struct pgsql_result *)_result;
+	struct pgsql_result *result =
+		container_of(_result, struct pgsql_result, api);
 
 	driver_pgsql_result_fetch_fields(result);
 	return result->fields_count;
@@ -966,7 +975,8 @@ driver_pgsql_result_get_fields_count(struct sql_result *_result)
 static const char *
 driver_pgsql_result_get_field_name(struct sql_result *_result, unsigned int idx)
 {
-	struct pgsql_result *result = (struct pgsql_result *)_result;
+	struct pgsql_result *result =
+		container_of(_result, struct pgsql_result, api);
 
 	driver_pgsql_result_fetch_fields(result);
 	i_assert(idx < result->fields_count);
@@ -976,7 +986,8 @@ driver_pgsql_result_get_field_name(struct sql_result *_result, unsigned int idx)
 static int driver_pgsql_result_find_field(struct sql_result *_result,
 					  const char *field_name)
 {
-	struct pgsql_result *result = (struct pgsql_result *)_result;
+	struct pgsql_result *result =
+		container_of(_result, struct pgsql_result, api);
 	unsigned int i;
 
 	driver_pgsql_result_fetch_fields(result);
@@ -991,7 +1002,8 @@ static const char *
 driver_pgsql_result_get_field_value(struct sql_result *_result,
 				    unsigned int idx)
 {
-	struct pgsql_result *result = (struct pgsql_result *)_result;
+	struct pgsql_result *result =
+		container_of(_result, struct pgsql_result, api);
 
 	if (PQgetisnull(result->pgres, result->rownum, idx) != 0)
 		return NULL;
@@ -1003,7 +1015,8 @@ static const unsigned char *
 driver_pgsql_result_get_field_value_binary(struct sql_result *_result,
 					   unsigned int idx, size_t *size_r)
 {
-	struct pgsql_result *result = (struct pgsql_result *)_result;
+	struct pgsql_result *result =
+		container_of(_result, struct pgsql_result, api);
 	const char *value;
 	struct pgsql_binary_value *binary_value;
 
@@ -1043,7 +1056,8 @@ driver_pgsql_result_find_field_value(struct sql_result *result,
 static const char *const *
 driver_pgsql_result_get_values(struct sql_result *_result)
 {
-	struct pgsql_result *result = (struct pgsql_result *)_result;
+	struct pgsql_result *result =
+		container_of(_result, struct pgsql_result, api);
 	unsigned int i;
 
 	if (result->values == NULL) {
@@ -1062,8 +1076,9 @@ driver_pgsql_result_get_values(struct sql_result *_result)
 
 static const char *driver_pgsql_result_get_error(struct sql_result *_result)
 {
-	struct pgsql_result *result = (struct pgsql_result *)_result;
-	struct pgsql_db *db = (struct pgsql_db *)_result->db;
+	struct pgsql_result *result =
+		container_of(_result, struct pgsql_result, api);
+	struct pgsql_db *db = container_of(_result->db, struct pgsql_db, api);
 	const char *msg;
 	size_t len;
 
@@ -1173,7 +1188,7 @@ static void
 transaction_begin_callback(struct sql_result *result,
 			   struct pgsql_transaction_context *ctx)
 {
-	struct pgsql_db *db = (struct pgsql_db *)result->db;
+	struct pgsql_db *db = container_of(result->db, struct pgsql_db, api);
 
 	i_assert(result->db == ctx->ctx.db);
 
@@ -1193,7 +1208,7 @@ transaction_update_callback(struct sql_result *result,
 {
 	struct pgsql_transaction_context *ctx =
 		(struct pgsql_transaction_context *)query->trans;
-	struct pgsql_db *db = (struct pgsql_db *)result->db;
+	struct pgsql_db *db = container_of(result->db, struct pgsql_db, api);
 
 	if (sql_result_next_row(result) < 0) {
 		transaction_commit_error_callback(ctx, result);
@@ -1202,7 +1217,8 @@ transaction_update_callback(struct sql_result *result,
 	}
 
 	if (query->affected_rows != NULL) {
-		struct pgsql_result *pg_result = (struct pgsql_result *)result;
+		struct pgsql_result *pg_result =
+			container_of(result, struct pgsql_result, api);
 
 		if (str_to_uint(PQcmdTuples(pg_result->pgres),
 				query->affected_rows) < 0)
@@ -1218,7 +1234,7 @@ transaction_trans_query_callback(struct sql_result *result,
 				 struct sql_transaction_query *query)
 {
 	struct pgsql_transaction_context *ctx =
-		(struct pgsql_transaction_context *)query->trans;
+		container_of(query->trans, struct pgsql_transaction_context, ctx);
 	struct sql_commit_result commit_result;
 
 	if (sql_result_next_row(result) < 0) {
@@ -1228,7 +1244,8 @@ transaction_trans_query_callback(struct sql_result *result,
 	}
 
 	if (query->affected_rows != NULL) {
-		struct pgsql_result *pg_result = (struct pgsql_result *)result;
+		struct pgsql_result *pg_result =
+			container_of(result, struct pgsql_result, api);
 
 		if (str_to_uint(PQcmdTuples(pg_result->pgres),
 				query->affected_rows) < 0)
@@ -1246,7 +1263,7 @@ driver_pgsql_transaction_commit(struct sql_transaction_context *_ctx,
 				sql_commit_callback_t *callback, void *context)
 {
 	struct pgsql_transaction_context *ctx =
-		(struct pgsql_transaction_context *)_ctx;
+		container_of(_ctx, struct pgsql_transaction_context, ctx);
 	struct sql_commit_result result;
 
 	i_zero(&result);
@@ -1289,7 +1306,7 @@ commit_multi_fail(struct pgsql_transaction_context *ctx,
 static struct sql_result *
 driver_pgsql_transaction_commit_multi(struct pgsql_transaction_context *ctx)
 {
-	struct pgsql_db *db = (struct pgsql_db *)ctx->ctx.db;
+	struct pgsql_db *db = container_of(ctx->ctx.db, struct pgsql_db, api);
 	struct sql_result *result;
 	struct sql_transaction_query *query;
 
@@ -1327,7 +1344,7 @@ driver_pgsql_try_commit_s(struct pgsql_transaction_context *ctx,
 			  const char **error_r)
 {
 	struct sql_transaction_context *_ctx = &ctx->ctx;
-	struct pgsql_db *db = (struct pgsql_db *)_ctx->db;
+	struct pgsql_db *db = container_of(_ctx->db, struct pgsql_db, api);
 	struct sql_transaction_query *single_query = NULL;
 	struct sql_result *result;
 
@@ -1355,7 +1372,7 @@ driver_pgsql_try_commit_s(struct pgsql_transaction_context *ctx,
 		else if (single_query != NULL &&
 			 single_query->affected_rows != NULL) {
 			struct pgsql_result *pg_result =
-				(struct pgsql_result *)result;
+				container_of(result, struct pgsql_result, api);
 
 			if (str_to_uint(PQcmdTuples(pg_result->pgres),
 					single_query->affected_rows) < 0)
@@ -1377,8 +1394,8 @@ driver_pgsql_transaction_commit_s(struct sql_transaction_context *_ctx,
 				  const char **error_r)
 {
 	struct pgsql_transaction_context *ctx =
-		(struct pgsql_transaction_context *)_ctx;
-	struct pgsql_db *db = (struct pgsql_db *)_ctx->db;
+		container_of(_ctx, struct pgsql_transaction_context, ctx);
+	struct pgsql_db *db = container_of(_ctx->db, struct pgsql_db, api);
 
 	*error_r = NULL;
 
@@ -1404,7 +1421,7 @@ static void
 driver_pgsql_transaction_rollback(struct sql_transaction_context *_ctx)
 {
 	struct pgsql_transaction_context *ctx =
-		(struct pgsql_transaction_context *)_ctx;
+		container_of(_ctx, struct pgsql_transaction_context, ctx);
 	e_debug(sql_transaction_finished_event(_ctx)->
 			add_str("error", "Rolled back")->event(),
 		"Transaction rolled back");
@@ -1417,7 +1434,7 @@ driver_pgsql_update(struct sql_transaction_context *_ctx, const char *query,
 		    unsigned int *affected_rows)
 {
 	struct pgsql_transaction_context *ctx =
-		(struct pgsql_transaction_context *)_ctx;
+		container_of(_ctx, struct pgsql_transaction_context, ctx);
 
 	sql_transaction_add_query(_ctx, ctx->query_pool, query, affected_rows);
 }
@@ -1442,7 +1459,7 @@ static bool driver_pgsql_have_work(struct pgsql_db *db)
 
 static void driver_pgsql_wait(struct sql_db *_db)
 {
-	struct pgsql_db *db = (struct pgsql_db *)_db;
+	struct pgsql_db *db = container_of(_db, struct pgsql_db, api);
 
 	if (!driver_pgsql_have_work(db))
 		return;
