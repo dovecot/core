@@ -380,6 +380,20 @@ sql_query_finished_event(struct sql_db *db, struct event *event, const char *que
 			 bool success, int *duration_r);
 struct event_passthrough *sql_transaction_finished_event(struct sql_transaction_context *ctx);
 
+/* default functions */
+void default_sql_prepared_statement_deinit(struct sql_prepared_statement *prep_stmt);
+struct sql_prepared_statement *
+default_sql_prepared_statement_init(struct sql_db *db,
+				    const char *query_template);
+
+void default_sql_statement_query(struct sql_statement *stmt,
+			    sql_query_callback_t *callback, void *context);
+struct sql_result *
+default_sql_statement_query_s(struct sql_statement *stmt);
+void default_sql_update_stmt(struct sql_transaction_context *ctx,
+				    struct sql_statement *stmt,
+				    unsigned int *affected_rows);
+
 void sql_drivers_init_without_drivers(void);
 void sql_drivers_deinit_without_drivers(void);
 
