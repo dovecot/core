@@ -549,7 +549,7 @@ driver_pgsql_result_free_binary_values(struct pgsql_result *result)
 static void driver_pgsql_result_free(struct sql_result *_result)
 {
 	struct pgsql_db *db = (struct pgsql_db *)_result->db;
-        struct pgsql_result *result = (struct pgsql_result *)_result;
+	struct pgsql_result *result = (struct pgsql_result *)_result;
 	bool success;
 
 	i_assert(!result->api.callback);
@@ -641,7 +641,7 @@ static void result_finish(struct pgsql_result *result)
 
 static void get_result(struct pgsql_result *result)
 {
-        struct pgsql_db *db = (struct pgsql_db *)result->api.db;
+	struct pgsql_db *db = (struct pgsql_db *)result->api.db;
 
 	driver_pgsql_stop_io(db);
 
@@ -663,7 +663,7 @@ static void get_result(struct pgsql_result *result)
 
 static void flush_callback(struct pgsql_result *result)
 {
-        struct pgsql_db *db = (struct pgsql_db *)result->api.db;
+	struct pgsql_db *db = (struct pgsql_db *)result->api.db;
 	int ret;
 
 	driver_pgsql_stop_io(db);
@@ -686,7 +686,7 @@ static void flush_callback(struct pgsql_result *result)
 
 static void query_timeout(struct pgsql_result *result)
 {
-        struct pgsql_db *db = (struct pgsql_db *)result->api.db;
+	struct pgsql_db *db = (struct pgsql_db *)result->api.db;
 
 	driver_pgsql_stop_io(db);
 
@@ -696,7 +696,7 @@ static void query_timeout(struct pgsql_result *result)
 
 static void do_query(struct pgsql_result *result, const char *query)
 {
-        struct pgsql_db *db = (struct pgsql_db *)result->api.db;
+	struct pgsql_db *db = (struct pgsql_db *)result->api.db;
 	int ret;
 
 	i_assert(SQL_DB_IS_READY(&db->api));
@@ -802,7 +802,7 @@ static void driver_pgsql_query(struct sql_db *db, const char *query,
 
 static void pgsql_query_s_callback(struct sql_result *result, void *context)
 {
-        struct pgsql_db *db = context;
+	struct pgsql_db *db = context;
 
 	db->sync_result = result;
 }
@@ -959,7 +959,7 @@ driver_pgsql_result_get_fields_count(struct sql_result *_result)
 {
 	struct pgsql_result *result = (struct pgsql_result *)_result;
 
-        driver_pgsql_result_fetch_fields(result);
+	driver_pgsql_result_fetch_fields(result);
 	return result->fields_count;
 }
 
@@ -1054,7 +1054,7 @@ driver_pgsql_result_get_values(struct sql_result *_result)
 	/* @UNSAFE */
 	for (i = 0; i < result->fields_count; i++) {
 		result->values[i] =
-                        driver_pgsql_result_get_field_value(_result, i);
+			driver_pgsql_result_get_field_value(_result, i);
 	}
 
 	return result->values;
