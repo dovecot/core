@@ -1321,6 +1321,15 @@ void sql_transaction_add_query(struct sql_transaction_context *ctx, pool_t pool,
 	tquery->query = p_strdup(pool, query);
 }
 
+void sql_transaction_add_stmt(struct sql_transaction_context *ctx, pool_t pool,
+			      struct sql_statement *stmt,
+			      unsigned int *affected_rows)
+{
+	struct sql_transaction_query *tquery =
+		sql_transaction_add(ctx, pool, affected_rows);
+	tquery->stmt = stmt;
+}
+
 void sql_connection_log_finished(struct sql_db *db)
 {
 	struct event_passthrough *e = event_create_passthrough(db->event)->

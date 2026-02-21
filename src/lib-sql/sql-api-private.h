@@ -66,6 +66,7 @@ struct sql_transaction_query {
 	struct sql_transaction_query *next;
 	struct sql_transaction_context *trans;
 
+	struct sql_statement *stmt;
 	const char *query;
 	unsigned int *affected_rows;
 };
@@ -292,6 +293,9 @@ inline static const char *sql_db_table_prefix(struct sql_db *db) {
 
 void sql_transaction_add_query(struct sql_transaction_context *ctx, pool_t pool,
 			       const char *query, unsigned int *affected_rows);
+void sql_transaction_add_stmt(struct sql_transaction_context *ctx, pool_t pool,
+			      struct sql_statement *stmt, unsigned int *affected_rows);
+
 const char *sql_statement_get_log_query(struct sql_statement *stmt);
 int sql_statement_get_query(struct sql_statement *stmt,
 			    const char **query_r, const char **error_r);
