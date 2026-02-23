@@ -14,6 +14,7 @@ void test_auth_request_var_expand(void);
 void test_auth_request_fields(void);
 void test_db_dict_parse_cache_key(void);
 void test_username_filter(void);
+void test_db_ldap(void);
 void test_db_lua(void);
 struct auth_passdb *passdb_mock(void);
 void passdb_mock_mod_init(void);

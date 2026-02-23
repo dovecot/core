@@ -193,6 +193,7 @@ libauthdb_ldap_la_LDFLAGS = -module -avoid-version -shared
 libauthdb_ldap_la_LIBADD = $(LIBDOVECOT_LDAP) $(LDAP_LIBS)
 libauthdb_ldap_la_CPPFLAGS = $(AM_CPPFLAGS) -DPLUGIN_BUILD
 libauthdb_ldap_la_SOURCES = $(ldap_sources)
+test_auth_ldadd_plugins += libauthdb_ldap.la
 else
 auth_libs += $(LIBDOVECOT_LDAP)
 endif
@@ -239,6 +240,7 @@ test_auth_SOURCES = \
 	test-auth-request-var-expand.c \
 	test-auth-request-fields.c \
 	test-username-filter.c \
+	test-ldap.c \
 	test-lua.c \
 	test-mock.c \
 	test-main.c

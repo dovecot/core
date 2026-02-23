@@ -25,6 +25,9 @@ int main(int argc, char *argv[])
 #if defined(HAVE_LUA)
 		TEST_NAMED(test_db_lua)
 #endif
+#if defined(HAVE_LDAP)
+		TEST_NAMED(test_db_ldap)
+#endif
 		{ NULL, NULL }
 	};
 

@@ -170,6 +170,7 @@ void db_ldap_connect_delayed(struct ldap_connection *conn);
 
 void db_ldap_enable_input(struct ldap_connection *conn, bool enable);
 
+const char *ldap_dn_escape(const char *str, void *context);
 const char *ldap_escape(const char *str, void *context);
 const char *ldap_get_error(struct ldap_connection *conn);
 
