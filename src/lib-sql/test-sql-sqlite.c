@@ -63,22 +63,58 @@ static void test_sql_sqlite(void)
 
 	sql_result_unref(cursor);
 
-	struct sql_prepared_statement *prep_stmt =
-		sql_prepared_statement_init(sql, "INSERT INTO bar VALUES(?)");
-	struct sql_statement *stmt =
-		sql_statement_init_prepared(prep_stmt);
-	sql_statement_bind_str(stmt, 0, "value3");
-	cursor = sql_statement_query_s(&stmt);
-	test_assert(sql_result_next_row(cursor) == SQL_RESULT_NEXT_LAST);
-	sql_result_unref(cursor);
+	/* reset bar */
+	sql_exec(sql, "DELETE FROM bar");
 
-	stmt = sql_statement_init(sql, "SELECT foo FROM bar WHERE foo = ?");
-	sql_statement_bind_str(stmt, 0, "value3");
-	cursor = sql_statement_query_s(&stmt);
+	/* insert data using statements */
+	t = sql_transaction_begin(sql);
+	struct sql_statement *stmt = sql_statement_init(sql, "INSERT INTO bar VALUES(?)");
+	sql_statement_bind_str(stmt, 0, "value1");
+	sql_update_stmt(t, &stmt);
+	stmt = sql_statement_init(sql, "INSERT INTO bar VALUES(?)");
+	sql_statement_bind_str(stmt, 0, "value2");
+	sql_update_stmt(t, &stmt);
+	test_assert(sql_transaction_commit_s(&t, &error) == 0);
+	cursor = sql_query_s(sql, "SELECT foo FROM bar");
+
 	test_assert(sql_result_next_row(cursor) == SQL_RESULT_NEXT_OK);
 	test_assert_ucmp(sql_result_get_fields_count(cursor), ==, 1);
 	test_assert_strcmp(sql_result_get_field_name(cursor, 0), "foo");
-	test_assert_strcmp(sql_result_get_field_value(cursor, 0), "value3");
+	test_assert_strcmp(sql_result_get_field_value(cursor, 0), "value1");
+	test_assert(sql_result_next_row(cursor) == SQL_RESULT_NEXT_OK);
+	test_assert_ucmp(sql_result_get_fields_count(cursor), ==, 1);
+	test_assert_strcmp(sql_result_get_field_name(cursor, 0), "foo");
+	test_assert_strcmp(sql_result_get_field_value(cursor, 0), "value2");
+	test_assert(sql_result_next_row(cursor) == SQL_RESULT_NEXT_LAST);
+
+	sql_result_unref(cursor);
+
+	/* reset bar */
+	sql_exec(sql, "DELETE FROM bar");
+
+	/* insert data using prepared statements */
+	t = sql_transaction_begin(sql);
+	struct sql_prepared_statement *prep_stmt =
+		sql_prepared_statement_init(sql, "INSERT INTO bar VALUES(?)");
+	stmt = sql_statement_init_prepared(prep_stmt);
+	sql_statement_bind_str(stmt, 0, "value1");
+	sql_update_stmt(t, &stmt);
+	stmt = sql_statement_init_prepared(prep_stmt);
+	sql_statement_bind_str(stmt, 0, "value2");
+	sql_update_stmt(t, &stmt);
+	test_assert(sql_transaction_commit_s(&t, &error) == 0);
+	cursor = sql_query_s(sql, "SELECT foo FROM bar");
+
+	test_assert(sql_result_next_row(cursor) == SQL_RESULT_NEXT_OK);
+	test_assert_ucmp(sql_result_get_fields_count(cursor), ==, 1);
+	test_assert_strcmp(sql_result_get_field_name(cursor, 0), "foo");
+	test_assert_strcmp(sql_result_get_field_value(cursor, 0), "value1");
+	test_assert(sql_result_next_row(cursor) == SQL_RESULT_NEXT_OK);
+	test_assert_ucmp(sql_result_get_fields_count(cursor), ==, 1);
+	test_assert_strcmp(sql_result_get_field_name(cursor, 0), "foo");
+	test_assert_strcmp(sql_result_get_field_value(cursor, 0), "value2");
+	test_assert(sql_result_next_row(cursor) == SQL_RESULT_NEXT_LAST);
+
 	sql_result_unref(cursor);
 	sql_prepared_statement_unref(&prep_stmt);
 
@@ -114,14 +150,77 @@ static void test_sql_sqlite(void)
 	prep_stmt = sql_prepared_statement_init(sql, "SELECT foo FROM bar WHERE foo = ?");
 	sql_disconnect(sql);
 	stmt = sql_statement_init_prepared(prep_stmt);
-	sql_statement_bind_str(stmt, 0, "value3");
+	sql_statement_bind_str(stmt, 0, "value2");
 	cursor = sql_statement_query_s(&stmt);
 	test_assert(sql_result_next_row(cursor) == SQL_RESULT_NEXT_OK);
 	test_assert_ucmp(sql_result_get_fields_count(cursor), ==, 1);
 	test_assert_strcmp(sql_result_get_field_name(cursor, 0), "foo");
-	test_assert_strcmp(sql_result_get_field_value(cursor, 0), "value3");
+	test_assert_strcmp(sql_result_get_field_value(cursor, 0), "value2");
 	sql_result_unref(cursor);
 	sql_prepared_statement_unref(&prep_stmt);
+
+	/* test that failures are handled properly */
+	t = sql_transaction_begin(sql);
+	sql_update(t, "INSERT INTO bar VALUES(\"value1\", 2)");
+	sql_update(t, "INSERT INTO bar VALUES(\"value2\", 3)");
+	test_assert(sql_transaction_commit_s(&t, &error) == -1);
+	test_assert_strcmp(error, "table bar has 1 columns but 2 values were supplied "
+			   "(rc=1, extended_rc=1, errno=0)");
+
+	/* test SQL syntax error in transaction */
+	error = NULL;
+	t = sql_transaction_begin(sql);
+	sql_update(t, "NOT VALID SQL SYNTAX");
+	test_assert(sql_transaction_commit_s(&t, &error) == -1);
+	test_assert(error != NULL);
+
+	/* test statement with syntax error */
+	stmt = sql_statement_init(sql, "NOT VALID SQL ?");
+	sql_statement_bind_str(stmt, 0, "test");
+	cursor = sql_statement_query_s(&stmt);
+	test_assert(sql_result_next_row(cursor) == SQL_RESULT_NEXT_ERROR);
+	test_assert(sql_result_get_error(cursor) != NULL);
+	sql_result_unref(cursor);
+
+	/* test statement with too many values for table */
+	error = NULL;
+	t = sql_transaction_begin(sql);
+	stmt = sql_statement_init(sql, "INSERT INTO bar VALUES(?, ?)");
+	sql_statement_bind_str(stmt, 0, "value1");
+	sql_statement_bind_str(stmt, 1, "extra");
+	sql_update_stmt(t, &stmt);
+	test_assert(sql_transaction_commit_s(&t, &error) == -1);
+	test_assert(error != NULL);
+
+	/* An unscannable template must fail through the shared
+	   template_scan_error check before it ever reaches the driver.
+	   driver_sqlite_statement_query_s() hands query_template to
+	   sqlite3_prepare_v2() as-is, so without that check the '#' below
+	   would be passed straight to sqlite - which fails it with its own
+	   syntax error, not the scanner's, since sqlite has no idea a
+	   comment there is unsafe for locating '?' placeholders. */
+	stmt = sql_statement_init(sql,
+		"SELECT foo FROM bar WHERE foo = ? # trailing comment");
+	sql_statement_bind_str(stmt, 0, "value1");
+	cursor = sql_statement_query_s(&stmt);
+	test_assert(sql_result_next_row(cursor) == SQL_RESULT_NEXT_ERROR);
+	test_assert_strcmp(sql_result_get_error(cursor),
+		"query template has a '#' comment outside a quoted string - "
+		"comments are not allowed in a query template; bind "
+		"placeholders after it cannot be located reliably");
+	sql_result_unref(cursor);
+
+	/* same check on the sql_update_stmt() entry point */
+	error = NULL;
+	t = sql_transaction_begin(sql);
+	stmt = sql_statement_init(sql, "INSERT INTO bar VALUES(? # bad)");
+	sql_statement_bind_str(stmt, 0, "value3");
+	sql_update_stmt(t, &stmt);
+	test_assert(sql_transaction_commit_s(&t, &error) == -1);
+	test_assert_strcmp(error,
+		"query template has a '#' comment outside a quoted string - "
+		"comments are not allowed in a query template; bind "
+		"placeholders after it cannot be located reliably");
 
 	/* Aborting a statement must not double-unref its pool. A double
 	   pool_unref() on an alloconly pool frees the arena holding its own
@@ -133,6 +232,20 @@ static void test_sql_sqlite(void)
 		sql_statement_init(sql, "INSERT INTO bar VALUES(?)");
 	sql_statement_bind_str(abort_stmt, 0, "aborted");
 	sql_statement_abort(&abort_stmt);
+
+	/* sql_statement_get_log_query() must expand every bound value by
+	   default, and hide only the field(s) marked via
+	   sql_statement_set_no_log_expanded_value_field(), leaving every
+	   other bound value expanded. */
+	stmt = sql_statement_init(sql, "INSERT INTO test2 (str, num) VALUES (?, ?)");
+	sql_statement_bind_str(stmt, 0, "plain");
+	sql_statement_bind_int64(stmt, 1, 7);
+	test_assert_strcmp(sql_statement_get_log_query(stmt),
+			   "INSERT INTO test2 (str, num) VALUES ('plain', 7)");
+	sql_statement_set_no_log_expanded_value_field(stmt, 0);
+	test_assert_strcmp(sql_statement_get_log_query(stmt),
+			   "INSERT INTO test2 (str, num) VALUES (?, 7)");
+	sql_statement_abort(&stmt);
 
 	sql_unref(&sql);
 	driver_sqlite_deinit();
