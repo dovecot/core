@@ -42,17 +42,8 @@ struct sqlite_db {
 	bool connected:1;
 };
 
-struct sqlite_prepared_statement {
-	struct sql_prepared_statement api;
-	sqlite3_stmt *handle;
-	char *error;
-	/* Prepared statement cannot be used concurrently by multiple statements */
-	bool locked:1;
-};
-
 struct sqlite_statement {
 	struct sql_statement api;
-	struct sqlite_prepared_statement *prep_stmt;
 	sqlite3_stmt *handle;
 	const char *error;
 	struct sqlite_error err;
@@ -156,9 +147,6 @@ static struct event_category event_category_sqlite = {
 
 static const char*
 driver_sqlite_result_str(struct sql_db *_db, const struct sqlite_error *err);
-static int
-driver_sqlite_prepared_statement_reopen(struct sqlite_db *db,
-					struct sqlite_prepared_statement *stmt);
 
 /* Capture the error state of a SQLite call. Must be called before any further
    call is made on the same connection, or the extended code and errno may
@@ -220,56 +208,11 @@ static void driver_sqlite_finalize_handle(struct sql_db *_db,
 	}
 }
 
-static void driver_sqlite_finalize_prepared_statements(struct sqlite_db *db)
-{
-	if (!hash_table_is_created(db->api.prepared_stmt_hash))
-		return;
-	struct hash_iterate_context *iter =
-		hash_table_iterate_init(db->api.prepared_stmt_hash);
-	char *key ATTR_UNUSED;
-	struct sql_prepared_statement *value;
-
-	while (hash_table_iterate(iter, db->api.prepared_stmt_hash, &key, &value)) {
-		/* finalize handle */
-		struct sqlite_prepared_statement *stmt =
-			container_of(value, struct sqlite_prepared_statement, api);
-		if (stmt->handle != NULL)
-			driver_sqlite_finalize_handle(&db->api, &stmt->handle,
-						      stmt->api.query_template);
-	}
-
-	hash_table_iterate_deinit(&iter);
-}
-
-static void driver_sqlite_reopen_prepared_statements(struct sqlite_db *db)
-{
-	if (!hash_table_is_created(db->api.prepared_stmt_hash))
-		return;
-	struct hash_iterate_context *iter =
-		hash_table_iterate_init(db->api.prepared_stmt_hash);
-	char *key ATTR_UNUSED;
-	struct sql_prepared_statement *value;
-
-	while (hash_table_iterate(iter, db->api.prepared_stmt_hash, &key, &value)) {
-		struct sqlite_prepared_statement *stmt =
-			container_of(value, struct sqlite_prepared_statement, api);
-		driver_sqlite_prepared_statement_reopen(db, stmt);
-	}
-
-	hash_table_iterate_deinit(&iter);
-}
-
 static void driver_sqlite_disconnect(struct sql_db *_db)
 {
 	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
 
 	sql_connection_log_finished(_db);
-	driver_sqlite_finalize_prepared_statements(db);
-	/* sqlite3_close() fails only if the connection still has unfinalized
-	   statements or unfinished backups, i.e. only because of a bug in
-	   driver-sqlite. sqlite3_close_v2() would accept that silently, so use
-	   it just as the fallback that keeps the failure from leaking the
-	   connection. */
 	int rc = sqlite3_close(db->sqlite);
 	if (rc != SQLITE_OK) {
 		/* The connection isn't closed on failure, so its error message
@@ -443,7 +386,6 @@ static int driver_sqlite_connect(struct sql_db *_db)
 			driver_sqlite_set_pragma_journal_mode(db, db->set->journal_mode);
 			driver_sqlite_set_pragma_synchronous(db, db->set->synchronous);
 		}
-		driver_sqlite_reopen_prepared_statements(db);
 		return 1;
 	case SQLITE_READONLY:
 		i_assert(!db->set->readonly);
@@ -645,56 +587,6 @@ driver_sqlite_result_log(const struct sqlite_result *result, const char *query)
 }
 
 static struct sql_statement *
-driver_sqlite_statement_init_prepared(struct sql_prepared_statement *_prep_stmt)
-{
-	struct sqlite_prepared_statement *prep_stmt =
-		container_of(_prep_stmt, struct sqlite_prepared_statement, api);
-	struct sqlite_db *db = container_of(_prep_stmt->db, struct sqlite_db, api);
-	i_assert(!prep_stmt->locked);
-
-	pool_t pool = pool_alloconly_create("sqlite statement", 1024);
-	struct sqlite_statement *stmt = p_new(pool, struct sqlite_statement, 1);
-	stmt->api.pool = pool;
-	stmt->api.db = _prep_stmt->db;
-	stmt->api.query_template = _prep_stmt->query_template;
-
-	/* handle is only valid if we are connected */
-	if (driver_sqlite_connect(_prep_stmt->db) < 0) {
-		i_free(prep_stmt->error);
-		prep_stmt->error = i_strdup(
-			driver_sqlite_result_str(_prep_stmt->db,
-						 &db->connect_err));
-	}
-
-	i_assert(prep_stmt->handle != NULL || prep_stmt->error != NULL);
-
-	stmt->error = p_strdup(stmt->api.pool, prep_stmt->error);
-	stmt->prep_stmt = prep_stmt;
-	stmt->handle = prep_stmt->handle;
-	prep_stmt->locked = TRUE;
-
-	return &stmt->api;
-}
-
-static void
-driver_sqlite_release_prepared_statement(struct sqlite_statement *stmt)
-{
-	i_assert(stmt->prep_stmt != NULL);
-	i_assert(stmt->prep_stmt->locked);
-
-	struct sqlite_prepared_statement *prep_stmt = stmt->prep_stmt;
-	prep_stmt->locked = FALSE;
-	stmt->prep_stmt = NULL;
-	stmt->handle = NULL;
-
-	if (prep_stmt->handle == NULL)
-		return;
-
-	sqlite3_reset(prep_stmt->handle);
-	sqlite3_clear_bindings(prep_stmt->handle);
-}
-
-static struct sql_statement *
 driver_sqlite_statement_init(struct sql_db *_db, const char *query_template)
 {
 	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
@@ -733,15 +625,12 @@ static void driver_sqlite_statement_abort(struct sql_statement *_stmt)
 	struct sqlite_statement *stmt =
 		container_of(_stmt, struct sqlite_statement, api);
 
-	if (stmt->prep_stmt != NULL) {
-		driver_sqlite_release_prepared_statement(stmt);
-	} else if (stmt->handle != NULL) {
+	if (stmt->handle != NULL) {
 		driver_sqlite_finalize_handle(stmt->api.db, &stmt->handle,
 					      stmt->api.query_template);
 	}
 
 	i_assert(stmt->handle == NULL);
-	i_assert(stmt->prep_stmt == NULL);
 }
 
 static void driver_sqlite_exec_query(struct sqlite_db *db, const char *query,
@@ -1106,68 +995,6 @@ driver_sqlite_statement_query_s(struct sql_statement *_stmt)
 	return &result->api;
 }
 
-static int
-driver_sqlite_prepared_statement_reopen(struct sqlite_db *db,
-					struct sqlite_prepared_statement *prep_stmt)
-{
-	/* Maybe it works this time round */
-	i_free(prep_stmt->error);
-	prep_stmt->api.db = &db->api;
-	if (*prep_stmt->api.query_template == '\0') {
-		prep_stmt->error = i_strdup("Empty query");
-		return 0;
-	}
-	if (driver_sqlite_connect(&db->api) < 0) {
-		prep_stmt->error = i_strdup(
-			driver_sqlite_result_str(&db->api, &db->connect_err));
-		return -1;
-	}
-
-	struct sqlite_error err;
-	sqlite_error_set(&err, db,
-			 sqlite3_prepare_v2(db->sqlite,
-					    prep_stmt->api.query_template, -1,
-					    &prep_stmt->handle, NULL));
-	if (err.rc != SQLITE_OK) {
-		prep_stmt->error =
-			i_strdup(driver_sqlite_result_str(&db->api, &err));
-		return -1;
-	}
-	e_debug(db->api.event, "Prepared query '%s'",
-		prep_stmt->api.query_template);
-	return 0;
-}
-
-static struct sql_prepared_statement *
-driver_sqlite_prepared_statement_init(struct sql_db *_db,
-				      const char *query_template)
-{
-	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
-	struct sqlite_prepared_statement *prep_stmt =
-		i_new(struct sqlite_prepared_statement, 1);
-	prep_stmt->api.query_template = i_strdup(query_template);
-	prep_stmt->api.refcount = 1;
-	prep_stmt->api.db = _db;
-
-	(void)driver_sqlite_prepared_statement_reopen(db, prep_stmt);
-
-	return &prep_stmt->api;
-}
-
-static void
-driver_sqlite_prepared_statement_deinit(struct sql_prepared_statement *_prep_stmt)
-{
-	struct sqlite_prepared_statement *prep_stmt =
-		container_of(_prep_stmt, struct sqlite_prepared_statement, api);
-	if (prep_stmt->handle != NULL) {
-		driver_sqlite_finalize_handle(prep_stmt->api.db, &prep_stmt->handle,
-					      prep_stmt->api.query_template);
-	}
-	i_free(prep_stmt->api.query_template);
-	i_free(prep_stmt->error);
-	i_free(_prep_stmt);
-}
-
 static void
 driver_sqlite_bind_error(const char *func, struct sqlite_statement *stmt,
 			 unsigned int column_idx)
@@ -1307,11 +1134,7 @@ const struct sql_db driver_sqlite_db = {
 
 		.escape_blob = driver_sqlite_escape_blob,
 
-		.prepared_statement_init = driver_sqlite_prepared_statement_init,
-		.prepared_statement_deinit = driver_sqlite_prepared_statement_deinit,
-
 		.statement_init = driver_sqlite_statement_init,
-		.statement_init_prepared = driver_sqlite_statement_init_prepared,
 		.statement_abort = driver_sqlite_statement_abort,
 
 		.statement_bind_str = driver_sqlite_statement_bind_str,
