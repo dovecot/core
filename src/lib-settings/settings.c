@@ -1673,8 +1673,14 @@ settings_var_expand_init(struct settings_apply_ctx *ctx)
 	ctx->var_params.tables_arr = array_front(&init_ctx.tables);
 	ctx->var_params.providers_arr = array_front(&init_ctx.providers);
 	ctx->var_params.contexts = array_front(&init_ctx.contexts);
-	ctx->var_params.escape_func = init_ctx.escape_func;
-	ctx->var_params.escape_context = init_ctx.escape_context;
+	if (ctx->escape_func != NULL) {
+		/* settings_get_params()'s escape_func overrides all others */
+		ctx->var_params.escape_func = ctx->escape_func;
+		ctx->var_params.escape_context = ctx->escape_context;
+	} else {
+		ctx->var_params.escape_func = init_ctx.escape_func;
+		ctx->var_params.escape_context = init_ctx.escape_context;
+	}
 	ctx->var_params.event = ctx->event;
 }
 
