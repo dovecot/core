@@ -2,7 +2,7 @@
 
 #include "test-auth.h"
 
-#ifdef BUILTIN_LUA
+#ifdef HAVE_LUA
 #include "istream.h"
 #include "auth-settings.h"
 #include "auth-request.h"
