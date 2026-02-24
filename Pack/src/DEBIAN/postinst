@@ -68,6 +68,7 @@ save_params_debconf()
     db_set r7mdaserver/mda-ssl-cert "$MDA_CERT_FILENAME"
     db_set r7mdaserver/mda-ssl-key "$MDA_KEY_FILENAME"
     db_set r7mdaserver/mda-dh-key "$MDA_DH_FILENAME"
+    db_set r7mdaserver/mda-doveadm-key "$MDA_API_KEY"
 }
 
 conf_cert()
