@@ -257,8 +257,13 @@ static void sql_set_credentials(struct auth_request *request,
 
 	request->mech_password = p_strdup(request->pool, new_credentials);
 
-	if (settings_get(authdb_event(request), &passdb_sql_setting_parser_info, 0,
-			 &set, &error) < 0) {
+	const struct settings_get_params params = {
+		.escape_func = passdb_sql_escape,
+		.escape_context = module->db,
+	};
+	if (settings_get_params(authdb_event(request),
+				&passdb_sql_setting_parser_info, &params,
+				&set, &error) < 0) {
 		e_error(authdb_event(request), "%s", error);
 		callback(FALSE, request);
 		return;
