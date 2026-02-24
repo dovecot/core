@@ -73,6 +73,7 @@ struct var_expand_state {
 	string_t *transfer;
 	bool transfer_set:1;
 	bool transfer_binary:1;
+	bool transfer_safe:1;
 };
 
 struct var_expand_statement {

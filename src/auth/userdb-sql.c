@@ -179,9 +179,13 @@ userdb_sql_iterate_init(struct auth_request *auth_request,
 	ctx->ctx.context = context;
 	auth_request_ref(auth_request);
 
-	if (settings_get(authdb_event(auth_request),
-			 &userdb_sql_setting_parser_info, 0,
-			 &set, &error) < 0) {
+	const struct settings_get_params params = {
+		.escape_func = userdb_sql_escape,
+		.escape_context = module->db,
+	};
+	if (settings_get_params(authdb_event(auth_request),
+				&userdb_sql_setting_parser_info, &params,
+				&set, &error) < 0) {
 		e_error(authdb_event(auth_request), "%s", error);
 		ctx->ctx.failed = TRUE;
 		return &ctx->ctx;

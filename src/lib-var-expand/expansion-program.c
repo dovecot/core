@@ -153,7 +153,8 @@ var_expand_program_execute_one_real(const struct var_expand_program *program,
 		var_expand_state_set_transfer(state,
 				binary_to_hex(state->transfer->data, state->transfer->used));
 	if (state->transfer_set) {
-		if (!program->only_literal && params->escape_func != NULL) {
+		if (!program->only_literal && params->escape_func != NULL &&
+		    !state->transfer_safe) {
 			str_append(state->result, params->escape_func(str_c(state->transfer),
 								      params->escape_context));
 			} else
