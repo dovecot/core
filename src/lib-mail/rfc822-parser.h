@@ -3,6 +3,11 @@
 
 #include "unichar.h"
 
+/* Maximum number of parameters to parse. After this the rest of the parameters
+   are skipped. This is to avoid excessive CPU usage that can be caused by
+   merging of these parameters. */
+#define RFC2231_MAX_PARAMS 128
+
 /* This can be used as a common NUL replacement character */
 #define RFC822_NUL_REPLACEMENT_STR UNICODE_REPLACEMENT_CHAR_UTF8
 

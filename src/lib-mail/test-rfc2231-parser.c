@@ -1,6 +1,7 @@
 /* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "rfc822-parser.h"
 #include "rfc2231-parser.h"
 #include "test-common.h"
@@ -238,6 +239,34 @@ static void test_rfc2231_parser_multi_encodings(void)
 	run_test("rfc2231 parser invalid encoding", input, sizeof(input)-1, output);
 }
 
+static void test_rfc2231_parser_limits(void)
+{
+	string_t *input = t_str_new(1024);
+
+	test_begin("rfc2231 parser limits");
+	str_append(input, "; ");
+	for (unsigned int i = 0; i < 1100; i++)
+		str_printfa(input, "a%u=b%u; ", i, i);
+	struct rfc822_parser_context parser;
+	const char *const *result;
+	rfc822_parser_init(&parser, str_data(input), str_len(input), NULL);
+	test_assert(rfc2231_parse(&parser, &result) == 0);
+
+	unsigned int count = str_array_length(result);
+	test_assert(count == RFC2231_MAX_PARAMS * 2);
+	for (unsigned int i = 0; i < count; i += 2) {
+		str_truncate(input, 0);
+		str_printfa(input, "a%u", i / 2);
+		test_assert_strcmp_idx(result[i], str_c(input), i);
+
+		str_truncate(input, 0);
+		str_printfa(input, "b%u", i / 2);
+		test_assert_strcmp_idx(result[i + 1], str_c(input), i);
+	}
+	rfc822_parser_deinit(&parser);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -253,6 +282,7 @@ int main(void)
 		test_rfc2231_parser_encodings,
 		test_rfc2231_parser_utf8_encoding,
 		test_rfc2231_parser_multi_encodings,
+		test_rfc2231_parser_limits,
 		NULL
 	};
 	return test_run(test_functions);
