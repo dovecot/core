@@ -127,7 +127,7 @@ static void userdb_sql_lookup(struct auth_request *auth_request,
 	const struct userdb_sql_settings *set;
 	const char *error;
 
-	struct settings_get_params params = {
+	const struct settings_get_params params = {
 		.escape_func = userdb_sql_escape,
 		.escape_context = module->db,
 	};

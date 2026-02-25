@@ -181,7 +181,7 @@ static void sql_lookup_pass(struct passdb_sql_request *sql_request)
 	const struct passdb_sql_settings *set;
 	const char *error;
 
-	struct settings_get_params params = {
+	const struct settings_get_params params = {
 		.escape_func = passdb_sql_escape,
 		.escape_context = module->db,
 	};
