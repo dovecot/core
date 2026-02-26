@@ -107,13 +107,15 @@ int var_expand_program_execute(string_t *dest, const struct var_expand_program *
 		 (params->providers == NULL && params->providers_arr != NULL));
 
 	size_t num_tables = 0;
-	if (params->tables_arr != NULL)
+	if (params->tables_arr != NULL) {
 		while (params->tables_arr[num_tables] != NULL)
 			num_tables++;
+	}
 	size_t num_providers = 0;
-	if (params->providers_arr != NULL)
+	if (params->providers_arr != NULL) {
 		while (params->providers_arr[num_providers] != NULL)
 		     num_providers++;
+	}
 	size_t num_contexts = I_MAX(num_tables, num_providers);
 
 	/* ensure contexts are properly terminated. */
