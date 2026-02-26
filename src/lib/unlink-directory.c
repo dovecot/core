@@ -70,7 +70,6 @@ unlink_directory_r(const char *dir, enum unlink_directory_flags flags,
 	struct stat st;
         int dir_fd, old_errno;
 
-#ifdef O_NOFOLLOW
 	dir_fd = open(dir, O_RDONLY | O_NOFOLLOW);
 	if (dir_fd == -1) {
 		unlink_directory_error(error, NULL,
@@ -78,47 +77,6 @@ unlink_directory_r(const char *dir, enum unlink_directory_flags flags,
 				       dir);
 		return -1;
 	}
-#else
-	struct stat st2;
-
-	if (lstat(dir, &st) < 0) {
-		unlink_directory_error(error_r, NULL, ERROR_FORMAT, "lstat", dir);
-		return -1;
-	}
-
-	if (!S_ISDIR(st.st_mode)) {
-		if ((st.st_mode & S_IFMT) != S_IFLNK) {
-			unlink_directory_error(error_r, NULL, "%s is not a directory: %s", dir);
-			errno = ENOTDIR;
-		} else {
-			/* be compatible with O_NOFOLLOW */
-			errno = ELOOP;
-			unlink_directory_error(error_r, NULL, "%s is a symlink, not a directory: %s", dir);
-		}
-		return -1;
-	}
-
-	dir_fd = open(dir, O_RDONLY);
-	if (dir_fd == -1) {
-		unlink_directory_error(error_r, NULL, "open(%s, O_RDONLY) failed: %m", dir);
-		return -1;
-	}
-
-	if (fstat(dir_fd, &st2) < 0) {
-		i_close_fd(&dir_fd);
-		unlink_directory_error(error_r, NULL, ERROR_FORMAT, "fstat", dir);
-		return -1;
-	}
-
-	if (st.st_ino != st2.st_ino ||
-	    !CMP_DEV_T(st.st_dev, st2.st_dev)) {
-		/* directory was just replaced with something else. */
-		i_close_fd(&dir_fd);
-		errno = ENOTDIR;
-		unlink_directory_error(error_r, NULL, "%s race condition: directory was just replaced", dir);
-		return -1;
-	}
-#endif
 	if (fchdir(dir_fd) < 0) {
                 i_close_fd(&dir_fd);
 		unlink_directory_error(error, NULL, ERROR_FORMAT, "fchdir", dir);
