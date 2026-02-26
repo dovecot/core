@@ -1,3 +1,98 @@
+v2.4.3 2026-03-27  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* CVE-2025-59028: Invalid base64 authentication can cause DoS for other
+	  logins.
+	* CVE-2025-59031: decode2text.sh OOXML extraction may follow symlinks
+	  and read unintended files during indexing. Fixed by dropping the script.
+	* CVE-2026-24031: SQL injection possible if auth_username_chars is
+	  configured empty. Fixed escaping to always happen. v2.4 regression.
+	* CVE-2026-27859: Excessive RFC 2231 MIME parameters in email would cause
+	  excessive CPU usage. Fixed by limiting number of parameters to process.
+	* CVE-2026-27860: LDAP query injection possible if auth_username_chars
+	  is configured empty. Fixed escaping to always happen. v2.4 regression.
+	* CVE-2026-27857: Sending excessive parenthesis causes imap-login to use
+	  excessive memory.
+	* CVE-2026-27856: Doveadm credentials were not checked using timing-safe
+	  checking function.
+	* CVE-2026-27855: OTP driver vulnerable to replay attack.
+	* Remove default service/*/service_extra_groups=$SET:default_internal_group.
+	  They are now replaced by default mail_access_groups=$SET:default_internal_group.
+	* The version file has been renamed as version.txt to avoid clash with
+	  C++ headers.
+	* auth: oauth2 - Do not export token automatically, must be exported using
+	  fields.
+	* config: Don't accept 0 as meaning unlimited anymore for
+	  last_valid_uid, last_valid_gid, mail_cache_max_headers_count,
+	  mail_cache_max_header_name_length, mail_vsize_bg_after_count,
+	  mail_sort_max_read_count, message_max_size, submission_max_recipients
+	  and quota_mail_size.
+	* imap, pop3: Don't autoexpunge if Dovecot is shutting down or process
+	  is killed.
+	* imap: LIST - Handle invalid mUTF-7 mailbox names as never matching anything
+	* lazy-expunge: Change lazy_expunge_only_last_instance default to yes.
+	* lda: Use EX_TEMPFAIL (75) if configuration is invalid instead of 89.
+	  v2.4 regression.
+	* lib-master: Increase ANVIL_DEFAULT_LOOKUP_TIMEOUT_MSECS from 5s to 30s
+	* lib: crc32 - Use zlib's built-in CRC32 function
+	+ Improve UTF-8 support for mail storage.
+	+ auth: Add default auth-token UNIX socket for token-based authentication.
+	+ doc: solr-config-9.xml - Make it compatible with Solr 9.8.0
+	+ doveadm: dsync - Search mails when exporting to reduce number of mails
+	  exported by dsync-server.
+	+ dovecot-sysreport: Add -D|--destdir support.
+	+ imap, imap-hibernate: Use DOVECOT-TOKEN authentication for unhibernation.
+	  Default imap-master socket permissioms have been changed due to this.
+	+ imap: Add APPENDLIMIT capability when configured with quota_mail_size.
+	+ imap: Support STATUS (DELETED) for IMAP4rev2.
+	+ imapc: Add support for SEARCH MIMEPART
+	+ imapc: Improve error forwarding.
+	+ imapc: Support SORT and ESORT extensions.
+	+ imapc: Support STATUS (DELETED) for IMAP4rev2.
+	+ lib-sql: Support parameterized queries.
+	+ lib-test: Add new test-dir API for better temporary test directory
+	  handling.
+	+ lmtp: Advertize SIZE capability when configured with quota_mail_size.
+	+ lmtp: Support XCLIENT DESTADDR and DESTPORT
+	+ pop3-login: proxy - Add support for XCLIENT DESTIP and DESTPORT
+	+ submission-login: proxy - Add support for XCLIENT DESTIP and DESTPORT
+	+ Various optimizations have been made to the code.
+	- Fix building dovecot with BSD, Solaris and macOS.
+	- auth: Crash would occur if users were iterated but
+	  userdb_ldap_iterate_fields was not set.
+	- auth: Fix request leak when client authenticates with unsupported mechanism.
+	- auth: Some passdbs would default to PLAIN instead of CRYPT scheme.
+	- config: Section and setting names could have been intermixed, resulting
+	  in the setting being silently ignored.
+	- configure: Fix checking if BUILD_IMAP_HIBERNATE is set
+	- doveadm: dsync - -e parameter was handled wrong with dsync-server.
+	- fts-flatcurve: Mailbox leak would occur if mailbox failed to open.
+	- imap: Fix potential issues with unhibernation and process state handling.
+	- imapc: SEARCH failure handling was done wrong.
+	- imapc: UID STORE commands included extra comma in uidset.
+	- lib-auth-client: auth-master - Fix panic when reconnecting after
+	  handshake timeout.
+	- lib-compression: Lz4 algorithm would assert-crash with malicious data.
+	- lib-dcrypt: Fix digest algorithm handling.
+	- lib-dict: Escape username paths to prevent traversal issues with dict-fs.
+	- lib-http: Fix HTTP parsing edge cases and state handling.
+	- lib-iostream: Disallow empty ssl_min_protocol.
+	- lib-json: Fix incorrect character handling logic.
+	- lib-ldap: Fix various TLS related bugs.
+	- lib-mail: Fix charset translation and MIME parsing edge cases.
+	- lib-mail: Fix multiple bounds checks and parsing issues in message handling.
+	- lib-var-expand: Multiple fixes and improvements for expansion handling.
+	- lib: Fix punycode decoding out-of-bounds reads.
+	- lib: Fix unicode normalization edge cases causing crashes.
+	- lib-http: Chunked transfer trailer size was not limited.
+	- login-common: Improve logging and internal error handling.
+	- login-common: login_log_format_elements was split by spaces naively, which
+	  could break variable expansion. Use template aware splitting now.
+	- master: Dovecot would fail to start if listen directive was used and
+	  dovenull or dovecot user was missing.
+	- pop3c: Connection might've hung with SSL.
+	- util: Fix handling of environment variables containing control characters.
+	- Many other bugs have been fixed.
+
 v2.4.2 2025-10-24  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* CVE-2025-30189: Passdb oauth2 (not oauth2 mechanism), passdb passwd,
