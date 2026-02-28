@@ -228,7 +228,17 @@ static void translation_buf_decode(struct message_decoder_context *ctx,
 			      &trans_size, ctx->buf2);
 
 	if (trans_size <= ctx->translation_size) {
-		/* need more data to finish the translation. */
+		/* We should get here only if we didn't get forward in our
+		   charset translation, i.e. we need more input to continue
+		   translation.
+
+		   If trans_size > 0 but <= translation_size, it means that the
+		   input we already fed to charset_to_utf8() previously returned
+		   "more data needed" but this time it succeeded. This shouldn't
+		   happen, so we'll have an assert against it. */
+		i_assert(trans_size == 0);
+		/* This assert triggers if translation_buf is too small and
+		   we can't get forward with the translation. */
 		i_assert(orig_size < CHARSET_MAX_PENDING_BUF_SIZE);
 		memcpy(ctx->translation_buf, trans_buf, orig_size);
 		ctx->translation_size = orig_size;
