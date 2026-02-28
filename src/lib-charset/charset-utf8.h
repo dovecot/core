@@ -6,7 +6,7 @@
 /* Max number of bytes that iconv can require for a single character.
    UTF-8 takes max 6 bytes per character. Not sure about others, but I'd think
    10 is more than enough for everyone.. */
-#define CHARSET_MAX_PENDING_BUF_SIZE 10
+#define CHARSET_MAX_PENDING_BUF_SIZE 16
 
 struct charset_translation;
 
