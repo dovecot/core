@@ -491,6 +491,57 @@ UNICODE_REPLACEMENT_CHAR_UTF8;
 	test_end();
 }
 
+static void test_message_decoder_charset_mime_part_change(void)
+{
+	static const unsigned char test_message_input[] =
+"Content-Type: multipart/mixed; boundary=\"1\"\n"
+"MIME-Version: 1.0\n\n"
+"--1\n"
+"Content-Type: text/plain; charset=utf-8\n\n"
+"\xc3\n"
+"--1\n"
+"Content-Type: text/plain; charset=utf-8\n\n"
+"\xa4\n"
+"--1--\n";
+
+	static const char *test_message_output =
+		UNICODE_REPLACEMENT_CHAR_UTF8;
+
+	test_begin("message decoder charset - mime part change");
+
+	const struct message_parser_settings parser_set = { .flags = 0, };
+	struct message_parser_ctx *parser;
+	struct message_decoder_context *decoder;
+	struct message_part *parts;
+	struct message_block input, output;
+	struct istream *istream;
+	string_t *str_out = t_str_new(20);
+	int ret;
+
+	pool_t pool = pool_alloconly_create("message parser", 10240);
+	istream = test_istream_create_data(test_message_input,
+					   sizeof(test_message_input)-1);
+	parser = message_parser_init(pool, istream, &parser_set);
+	decoder = message_decoder_init(NULL, 0);
+
+	while ((ret = message_parser_parse_next_block(parser, &input)) > 0) {
+		message_part_data_parse_from_header(pool, input.part, input.hdr);
+		if (message_decoder_decode_next_block(decoder, &input, &output) &&
+		    output.hdr == NULL && output.size > 0)
+			str_append_data(str_out, output.data, output.size);
+	}
+
+	test_assert(ret == -1);
+	test_assert_strcmp(test_message_output, str_c(str_out));
+	message_decoder_deinit(&decoder);
+	message_parser_deinit(&parser, &parts);
+	test_assert(istream->stream_errno == 0);
+
+	i_stream_unref(&istream);
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -500,6 +551,7 @@ int main(void)
 		test_message_decoder_content_transfer_encoding,
 		test_message_decoder_invalid_content_transfer_encoding,
 		test_message_decoder_charset,
+		test_message_decoder_charset_mime_part_change,
 		NULL
 	};
 	return test_run(test_functions);

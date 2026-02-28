@@ -267,6 +267,10 @@ message_decode_body_init_charset(struct message_decoder_context *ctx,
 	if (ctx->binary_input)
 		return;
 
+	/* If some input was left untranslated in the previous MIME part,
+	   it needs to be discarded now so it won't affect the next part. */
+	ctx->translation_size = 0;
+
 	if (ctx->charset_trans != NULL && ctx->content_charset != NULL &&
 	    strcasecmp(ctx->content_charset, ctx->charset_trans_charset) == 0) {
 		/* already have the correct translation selected */
