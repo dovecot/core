@@ -158,7 +158,8 @@ static bool exporter_file_open_unix(struct file_event_exporter *node)
 
 static bool exporter_file_open_plain(struct file_event_exporter *node)
 {
-	node->fd = open(node->fname, O_CREAT|O_APPEND|O_WRONLY, 0600);
+	node->fd = open(node->fname, O_CREAT | O_APPEND | O_WRONLY |
+			O_NOFOLLOW, 0600);
 	if (node->fd == -1) {
 		if (ioloop_time - node->last_error > EXPORTER_LAST_ERROR_DELAY)
 			exporter_file_open_error(node, "open");

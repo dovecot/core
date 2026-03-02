@@ -178,7 +178,7 @@ master_fatal_callback(const struct failure_context *ctx,
 		/* write the error message to a file (we're chdired to
 		   base dir) */
 		path = t_strconcat(FATAL_FILENAME, NULL);
-		fd = open(path, O_CREAT | O_TRUNC | O_WRONLY, 0600);
+		fd = open(path, O_CREAT | O_TRUNC | O_WRONLY | O_NOFOLLOW, 0600);
 		if (fd != -1) {
 			VA_COPY(args2, args);
 			str = t_strdup_vprintf(format, args2);
@@ -339,7 +339,7 @@ static void create_pid_file(const char *path)
 
 	pid = t_strconcat(dec2str(getpid()), "\n", NULL);
 
-	fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+	fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, 0644);
 	if (fd == -1)
 		i_fatal("open(%s) failed: %m", path);
 	if (write_full(fd, pid, strlen(pid)) < 0)

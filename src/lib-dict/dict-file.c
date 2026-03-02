@@ -523,11 +523,11 @@ file_dict_lock(struct file_dict *dict, struct file_lock **lock_r,
 
 	if (dict->fd == -1) {
 		/* quota file doesn't exist yet, we need to create it */
-		dict->fd = open(dict->path, O_CREAT | O_RDWR, 0600);
+		dict->fd = open(dict->path, O_CREAT | O_RDWR | O_NOFOLLOW, 0600);
 		if (dict->fd == -1 && errno == ENOENT) {
 			if (file_dict_mkdir(dict, error_r) < 0)
 				return -1;
-			dict->fd = open(dict->path, O_CREAT | O_RDWR, 0600);
+			dict->fd = open(dict->path, O_CREAT | O_RDWR | O_NOFOLLOW, 0600);
 		}
 		if (dict->fd == -1) {
 			if (errno == EACCES)
@@ -590,7 +590,7 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 		if (file_dict_lock(dict, &lock, error_r) < 0)
 			return -1;
 		temp_path = t_strdup_printf("%s.tmp", dict->path);
-		fd = creat(temp_path, 0600);
+		fd = open(temp_path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, 0600);
 		if (fd == -1) {
 			*error_r = t_strdup_printf(
 				"dict-file: creat(%s) failed: %m", temp_path);

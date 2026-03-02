@@ -1175,7 +1175,7 @@ struct ostream *o_stream_create_file(const char *path, uoff_t offset, mode_t mod
 				     enum ostream_create_file_flags flags)
 {
 	int fd;
-	int open_flags = O_WRONLY|O_CREAT;
+	int open_flags = O_WRONLY | O_CREAT | O_NOFOLLOW;
 	if (HAS_ANY_BITS(flags, OSTREAM_CREATE_FILE_FLAG_APPEND))
 		open_flags |= O_APPEND;
 	else

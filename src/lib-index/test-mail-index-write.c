@@ -55,7 +55,7 @@ int mail_index_create_tmp_file(struct mail_index *index ATTR_UNUSED,
 	test_assert(expect_index_rewrite);
 
 	path = *path_r = t_strconcat(path_prefix, ".tmp", NULL);
-	fd = open(path, O_RDWR|O_CREAT, 0600);
+	fd = open(path, O_RDWR | O_CREAT | O_NOFOLLOW, 0600);
 	if (fd == -1) {
 		i_error("creat() failed: %m");
 		return -1;

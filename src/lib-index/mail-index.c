@@ -546,7 +546,7 @@ int mail_index_create_tmp_file(struct mail_index *index,
 
 	path = *path_r = t_strconcat(path_prefix, ".tmp", NULL);
 	old_mask = umask(0);
-	fd = open(path, O_RDWR|O_CREAT|O_EXCL, index->set.mode);
+	fd = open(path, O_RDWR|O_CREAT | O_EXCL | O_NOFOLLOW, index->set.mode);
 	umask(old_mask);
 	if (fd == -1 && errno == EEXIST) {
 		/* stale temp file. unlink and recreate rather than overwriting,
@@ -554,7 +554,8 @@ int mail_index_create_tmp_file(struct mail_index *index,
 		if (i_unlink(path) < 0)
 			return -1;
 		old_mask = umask(0);
-		fd = open(path, O_RDWR|O_CREAT|O_EXCL, index->set.mode);
+		fd = open(path, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW,
+			  index->set.mode);
 		umask(old_mask);
 	}
 	if (fd == -1) {

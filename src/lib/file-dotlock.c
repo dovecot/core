@@ -400,7 +400,7 @@ static int try_create_lock_excl(struct lock_info *lock_info, bool write_pid)
 {
 	int fd;
 
-	fd = open(lock_info->lock_path, O_RDWR | O_EXCL | O_CREAT, 0666);
+	fd = open(lock_info->lock_path, O_RDWR | O_EXCL | O_CREAT | O_NOFOLLOW, 0666);
 	if (fd == -1) {
 		if (errno == EEXIST)
 			return 0;

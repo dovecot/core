@@ -95,13 +95,13 @@ static int mailbox_log_open(struct mailbox_log *log)
 	i_assert(log->fd == -1);
 
 	log->open_timestamp = ioloop_time;
-	log->fd = open(log->filepath, O_RDWR | O_APPEND);
+	log->fd = open(log->filepath, O_RDWR | O_APPEND | O_NOFOLLOW);
 	if (log->fd != -1)
 		return 0;
 
 	/* try to create it */
 	old_mode = umask(0666 ^ log->mode);
-	log->fd = open(log->filepath, O_RDWR | O_APPEND | O_CREAT, 0666);
+	log->fd = open(log->filepath, O_RDWR | O_APPEND | O_CREAT | O_NOFOLLOW, 0666);
 	umask(old_mode);
 
 	if (log->fd == -1) {

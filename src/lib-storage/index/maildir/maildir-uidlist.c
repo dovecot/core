@@ -1411,7 +1411,7 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 
 	for (i = 0;; i++) {
 		old_mask = umask(0777 & ~perm->file_create_mode);
-		fd = open(temp_path, O_RDWR | O_CREAT | O_TRUNC, 0777);
+		fd = open(temp_path, O_RDWR | O_CREAT | O_TRUNC | O_NOFOLLOW, 0777);
 		umask(old_mask);
 		if (fd != -1)
 			break;

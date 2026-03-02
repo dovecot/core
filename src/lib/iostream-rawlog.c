@@ -241,7 +241,7 @@ int iostream_rawlog_create_prefix(const char *prefix, struct istream **input,
 	int in_fd, out_fd;
 
 	in_path = t_strdup_printf("%s.in", prefix);
-	in_fd = open(in_path, O_CREAT | O_APPEND | O_WRONLY, 0600);
+	in_fd = open(in_path, O_CREAT | O_APPEND | O_WRONLY | O_NOFOLLOW, 0600);
 	if (in_fd == -1) {
 		if (errno != ENOENT && !ENOACCESS(errno))
 			i_error("rawlog: creat(%s) failed: %m", in_path);
@@ -249,7 +249,7 @@ int iostream_rawlog_create_prefix(const char *prefix, struct istream **input,
 	}
 
 	out_path = t_strdup_printf("%s.out", prefix);
-	out_fd = open(out_path, O_CREAT | O_APPEND | O_WRONLY, 0600);
+	out_fd = open(out_path, O_CREAT | O_APPEND | O_WRONLY | O_NOFOLLOW, 0600);
 	if (out_fd == -1) {
 		if (errno != ENOENT && !ENOACCESS(errno))
 			i_error("rawlog: creat(%s) failed: %m", out_path);
@@ -279,7 +279,7 @@ int iostream_rawlog_create_path(const char *path, struct istream **input,
 
 	if ((ret = iostream_rawlog_try_create_tcp(path, input, output)) != 0)
 		return ret < 0 ? -1 : 0;
-	fd = open(path, O_CREAT | O_APPEND | O_WRONLY, 0600);
+	fd = open(path, O_CREAT | O_APPEND | O_WRONLY | O_NOFOLLOW, 0600);
 	if (fd == -1) {
 		if (errno != ENOENT && !ENOACCESS(errno))
 			i_error("rawlog: creat(%s) failed: %m", path);

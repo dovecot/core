@@ -348,7 +348,7 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 		   useless. */
 		old_mask = umask(0777 & ~perm->file_create_mode);
 		fd = open(str_c(path),
-			  O_WRONLY | O_CREAT | O_TRUNC | O_EXCL, 0777);
+			  O_WRONLY | O_CREAT | O_TRUNC | O_EXCL | O_NOFOLLOW, 0777);
 		umask(old_mask);
 	} while (fd == -1 && errno == EEXIST);
 

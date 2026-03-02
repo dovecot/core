@@ -247,7 +247,7 @@ int sdbox_file_create_fd(struct dbox_file *file, const char *path, bool parents)
 	int fd;
 
 	old_mask = umask(0666 & ~perm->file_create_mode);
-	fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0666);
+	fd = open(path, O_RDWR | O_CREAT | O_TRUNC | O_NOFOLLOW, 0666);
 	umask(old_mask);
 	if (fd == -1 && errno == ENOENT && parents &&
 	    (p = strrchr(path, '/')) != NULL) {
@@ -262,7 +262,7 @@ int sdbox_file_create_fd(struct dbox_file *file, const char *path, bool parents)
 		}
 		/* try again */
 		old_mask = umask(0666 & ~perm->file_create_mode);
-		fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0666);
+		fd = open(path, O_RDWR | O_CREAT | O_TRUNC | O_NOFOLLOW, 0666);
 		umask(old_mask);
 	}
 	if (fd == -1) {

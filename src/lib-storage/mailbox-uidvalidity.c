@@ -46,7 +46,7 @@ static void mailbox_uidvalidity_write(struct mailbox_list *list,
 	mailbox_list_get_root_permissions(list, &perm);
 
 	old_mask = umask(0666 & ~perm.file_create_mode);
-	fd = open(path, O_RDWR | O_CREAT, 0666);
+	fd = open(path, O_RDWR | O_CREAT | O_NOFOLLOW, 0666);
 	umask(old_mask);
 	if (fd == -1) {
 		e_error(user->event, "open(%s) failed: %m", path);
@@ -174,7 +174,7 @@ mailbox_uidvalidity_next_rescan(struct mailbox_list *list, const char *path)
 			tmp = t_strdup_printf("%s.%08x", path, cur_value);
 			/* the file is empty, don't bother with permissions */
 			old_mask = umask(0);
-			fd = open(tmp, O_RDWR | O_CREAT | O_EXCL, 0444);
+			fd = open(tmp, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW, 0444);
 			umask(old_mask);
 			if (fd != -1 || errno != EEXIST)
 				break;

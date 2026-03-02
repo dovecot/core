@@ -55,7 +55,7 @@ static int file_copy_to_tmp(const char *srcpath, const char *tmppath,
 	}
 
 	old_umask = umask(0);
-	fd_out = open(tmppath, O_WRONLY | O_CREAT | O_TRUNC, st.st_mode);
+	fd_out = open(tmppath, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, st.st_mode);
 	umask(old_umask);
 	if (fd_out == -1) {
 		i_error("open(%s, O_CREAT) failed: %m", tmppath);

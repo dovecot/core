@@ -105,7 +105,7 @@ auth_token_write_secret(const char *path,
 	temp_path = t_strconcat(path, ".tmp", NULL);
 
 	old_mask = umask(0);
-	fd = open(temp_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	fd = open(temp_path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, 0600);
 	umask(old_mask);
 
 	if (fd == -1) {

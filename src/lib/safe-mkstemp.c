@@ -55,7 +55,7 @@ safe_mkstemp_create_file(const char *path, mode_t mode)
 	int fd;
 
 	old_umask = umask(0666 ^ mode);
-	fd = open(path, O_RDWR | O_EXCL | O_CREAT, 0666);
+	fd = open(path, O_RDWR | O_EXCL | O_CREAT | O_NOFOLLOW, 0666);
 	umask(old_umask);
 
 	if (fd != -1)

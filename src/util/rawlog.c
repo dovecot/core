@@ -246,7 +246,7 @@ static void proxy_open_logs(struct rawlog_proxy *proxy, const char *path,
 
 	if ((proxy->flags & RAWLOG_FLAG_LOG_INPUT) != 0) {
 		fname = t_strdup_printf("%s.in", str_c(path_prefix));
-		fd = open(fname, O_CREAT|O_EXCL|O_WRONLY, 0600);
+		fd = open(fname, O_CREAT|O_EXCL|O_WRONLY|O_NOFOLLOW, 0600);
 		if (fd == -1) {
 			i_error("rawlog_open: creat(%s): %m", fname);
 			return;
@@ -257,7 +257,7 @@ static void proxy_open_logs(struct rawlog_proxy *proxy, const char *path,
 
 	if ((proxy->flags & RAWLOG_FLAG_LOG_OUTPUT) != 0) {
 		fname = t_strdup_printf("%s.out", str_c(path_prefix));
-		fd = open(fname, O_CREAT|O_EXCL|O_WRONLY, 0600);
+		fd = open(fname, O_CREAT|O_EXCL|O_WRONLY|O_NOFOLLOW, 0600);
 		if (fd == -1) {
 			i_error("rawlog_open: creat(%s): %m", fname);
 			o_stream_destroy(&proxy->in_output);

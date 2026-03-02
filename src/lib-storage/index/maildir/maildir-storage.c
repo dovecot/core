@@ -447,7 +447,7 @@ static int maildir_create_shared(struct mailbox *box)
 
 	old_mask = umask(0);
 	path = t_strconcat(path, "/dovecot-shared", NULL);
-	fd = open(path, O_WRONLY | O_CREAT, perm->file_create_mode);
+	fd = open(path, O_WRONLY | O_CREAT | O_NOFOLLOW, perm->file_create_mode);
 	umask(old_mask);
 
 	if (fd == -1) {
@@ -523,7 +523,7 @@ static int maildir_create_maildirfolder_file(struct mailbox *box)
 	path = t_strconcat(mailbox_get_path(box),
 			   "/"MAILDIR_SUBFOLDER_FILENAME, NULL);
 	old_mask = umask(0);
-	fd = open(path, O_CREAT | O_WRONLY, perm->file_create_mode);
+	fd = open(path, O_CREAT | O_WRONLY | O_NOFOLLOW, perm->file_create_mode);
 	umask(old_mask);
 	if (fd != -1) {
 		/* ok */

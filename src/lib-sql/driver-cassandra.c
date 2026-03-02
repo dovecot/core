@@ -915,7 +915,8 @@ static void driver_cassandra_metrics_write(struct cassandra_db *db)
 		return;
 	}
 
-	fd = open(str_c(path), O_WRONLY | O_CREAT | O_TRUNC | O_NONBLOCK, 0600);
+	fd = open(str_c(path), O_WRONLY | O_CREAT | O_TRUNC |
+		  O_NONBLOCK | O_NOFOLLOW, 0600);
 	if (fd == -1) {
 		e_error(db->api.event, "creat(%s) failed: %m", str_c(path));
 		return;
