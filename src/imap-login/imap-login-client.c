@@ -380,7 +380,7 @@ static int imap_client_create(struct client *client)
 		return -1;
 	}
 
-	struct imap_parser_params params = {
+	const struct imap_parser_params params = {
 		.list_count_limit = IMAP_LOGIN_LIST_COUNT_LIMIT,
 	};
 	imap_client->parser =
@@ -472,7 +472,7 @@ static void imap_client_starttls(struct client *client)
 	struct imap_client *imap_client =
 		container_of(client, struct imap_client, common);
 
-	struct imap_parser_params params = {
+	const struct imap_parser_params params = {
 		.list_count_limit = IMAP_LOGIN_LIST_COUNT_LIMIT,
 	};
 	imap_parser_unref(&imap_client->parser);

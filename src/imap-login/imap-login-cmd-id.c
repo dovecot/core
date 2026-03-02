@@ -390,7 +390,7 @@ int cmd_id(struct imap_client *client)
 		id->params = p_new(param_pool, struct imap_id_params, 1);
 		id->params->pool = param_pool;
 
-		struct imap_parser_params params = {
+		const struct imap_parser_params params = {
 			.list_count_limit = IMAP_LOGIN_LIST_COUNT_LIMIT,
 		};
 		id->parser = imap_parser_create(client->common.input,

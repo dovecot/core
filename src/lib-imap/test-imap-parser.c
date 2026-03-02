@@ -95,7 +95,7 @@ static void test_imap_parser_list_limit(void)
 	const struct imap_arg *args;
 
 	test_begin("imap parser list limit");
-	struct imap_parser_params params = {
+	const struct imap_parser_params params = {
 		.list_count_limit = 2,
 	};
 
