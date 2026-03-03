@@ -68,25 +68,26 @@ unlink_directory_r(const char *dir, enum unlink_directory_flags flags,
 	DIR *dirp;
 	struct dirent *d;
 	struct stat st;
-        int dir_fd, old_errno;
+	int dir_fd, old_errno;
 
 	dir_fd = open(dir, O_RDONLY | O_NOFOLLOW);
 	if (dir_fd == -1) {
 		unlink_directory_error(first_error, NULL,
-				       "open(%s, O_RDONLY | O_NOFOLLOW) failed: %m",
-				       dir);
+			"open(%s, O_RDONLY | O_NOFOLLOW) failed: %m", dir);
 		return -1;
 	}
 	if (fchdir(dir_fd) < 0) {
-                i_close_fd(&dir_fd);
-		unlink_directory_error(first_error, NULL, ERROR_FORMAT, "fchdir", dir);
+		i_close_fd(&dir_fd);
+		unlink_directory_error(first_error, NULL, ERROR_FORMAT,
+				       "fchdir", dir);
 		return -1;
 	}
 
 	dirp = opendir(".");
 	if (dirp == NULL) {
 		i_close_fd(&dir_fd);
-		unlink_directory_error(first_error, NULL, "opendir(.) (in %s) failed: %m", dir);
+		unlink_directory_error(first_error, NULL,
+				       "opendir(.) (in %s) failed: %m", dir);
 		return -1;
 	}
 
@@ -96,10 +97,8 @@ unlink_directory_r(const char *dir, enum unlink_directory_flags flags,
 		d = readdir(dirp);
 		if (d == NULL) {
 			if (errno != 0) {
-				unlink_directory_error(first_error,
-						       &first_errno,
-						       ERROR_FORMAT,
-						       "readdir",
+				unlink_directory_error(first_error, &first_errno,
+						       ERROR_FORMAT, "readdir",
 						       dir);
 			}
 			break;
@@ -128,7 +127,8 @@ unlink_directory_r(const char *dir, enum unlink_directory_flags flags,
 				}
 			} else if (S_ISDIR(st.st_mode) &&
 				   (flags & UNLINK_DIRECTORY_FLAG_FILES_ONLY) == 0) {
-				if (unlink_directory_r(d->d_name, flags, first_error) < 0) {
+				if (unlink_directory_r(d->d_name, flags,
+						       first_error) < 0) {
 					if (first_errno == 0)
 						first_errno = errno;
 					if (errno != ENOENT)
@@ -143,16 +143,14 @@ unlink_directory_r(const char *dir, enum unlink_directory_flags flags,
 					break;
 				}
 
-				if (rmdir(d->d_name) < 0 &&
-				    errno != ENOENT) {
+				if (rmdir(d->d_name) < 0 && errno != ENOENT) {
 					if (errno == EEXIST)
 						/* standardize errno */
 						errno = ENOTEMPTY;
 					unlink_directory_error(first_error,
 							       &first_errno,
 							       ERROR_FORMAT,
-							       "rmdir",
-							       dir);
+							       "rmdir", dir);
 					break;
 				}
 			} else if (S_ISDIR(st.st_mode) &&
@@ -165,24 +163,19 @@ unlink_directory_r(const char *dir, enum unlink_directory_flags flags,
 				   is worth logging about */
 				break;
 			} else
-                                /* so it wasn't a directory */
-				unlink_directory_error(first_error,
-						       &first_errno,
+				/* so it wasn't a directory */
+				unlink_directory_error(first_error, &first_errno,
 						       ERROR_FORMAT_DNAME,
-						       "unlink",
-						       dir,
+						       "unlink", dir,
 						       d->d_name);
 		}
 	}
 
 	i_close_fd(&dir_fd);
-	if (closedir(dirp) < 0)
-		unlink_directory_error(first_error,
-				       &first_errno,
-				       ERROR_FORMAT,
-				       "closedir",
-				       dir);
-
+	if (closedir(dirp) < 0) {
+		unlink_directory_error(first_error, &first_errno,
+				       ERROR_FORMAT, "closedir", dir);
+	}
 	if (*first_error != NULL) {
 		errno = first_errno;
 		return -1;
@@ -218,7 +211,8 @@ int unlink_directory(const char *dir, enum unlink_directory_flags flags,
 
 	if (fchdir(fd) < 0) {
 		i_fatal("unlink_directory(%s): "
-			"Can't fchdir() back to our original dir %s: %m", dir, orig_dir);
+			"Can't fchdir() back to our original dir %s: %m", dir,
+			orig_dir);
 	}
 	i_close_fd(&fd);
 
