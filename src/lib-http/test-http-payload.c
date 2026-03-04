@@ -66,6 +66,7 @@ static struct test_settings {
 	size_t read_server_partial;
 	bool server_cork;
 	bool server_trickle_final_byte;
+	bool preset_header;
 
 	bool ssl;
 } tset;
@@ -753,6 +754,11 @@ client_handle_request(void *context,
 		hreq->method, path);
 
 	creq = client_request_init(client, req);
+
+	if (tset.preset_header) {
+		http_server_request_add_response_header(req,
+			"X-Dovecot-Test", "Payload");
+	}
 
 	if (strcmp(path, "/success") == 0) {
 		client_handle_success_request(creq);
@@ -2072,6 +2078,16 @@ static void test_echo_server_nonblocking_sync(void)
 	test_init_defaults();
 	tset.request_100_continue = TRUE;
 	tset.server_payload_handling = PAYLOAD_HANDLING_HANDLER;
+	test_run_sequential(test_client_echo);
+	test_run_pipeline(test_client_echo);
+	test_run_parallel(test_client_echo);
+	test_end();
+
+	test_begin("http payload echo "
+		   "(server non-blocking; 100-continue; preset header)");
+	test_init_defaults();
+	tset.request_100_continue = TRUE;
+	tset.preset_header = TRUE;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);

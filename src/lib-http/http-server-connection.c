@@ -324,7 +324,7 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 	if (req->req.payload != NULL) {
 		/* Send 100 Continue when appropriate */
 		if (req->req.expect_100_continue && !req->payload_halted &&
-		    req->response == NULL) {
+		    (req->response == NULL || !req->response->submitted)) {
 			http_server_connection_output_trigger(conn);
 		}
 
@@ -781,7 +781,8 @@ http_server_connection_next_response(struct http_server_connection *conn)
 		/* send 100 Continue if appropriate */
 		if (req->state >= HTTP_SERVER_REQUEST_STATE_QUEUED &&
 		    conn->incoming_payload != NULL &&
-		    req->response == NULL && req->req.version_minor >= 1 &&
+		    (req->response == NULL || !req->response->submitted) &&
+		    req->req.version_minor >= 1 &&
 		    req->req.expect_100_continue && !req->payload_halted &&
 		    !req->sent_100_continue) {
 			static const char *response =
