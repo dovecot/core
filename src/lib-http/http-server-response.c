@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "array.h"
 #include "istream.h"
 #include "ostream-private.h"
@@ -61,6 +62,9 @@ http_server_response_create(struct http_server_request *req,
 	resp->date = (time_t)-1;
 	resp->event = event_create(req->event);
 	http_server_response_update_event(resp);
+
+	if (status != 0)
+		e_debug(resp->event, "Created: %s", str_sanitize(reason, 256));
 
 	if (array_is_created(&resp->perm_headers)) {
 		unsigned int i, count;
