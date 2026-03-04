@@ -960,7 +960,7 @@ doveadm_http_server_auth_basic(struct client_request_http *req,
 	struct client_connection_http *conn = req->conn;
 	const struct doveadm_settings *set = conn->conn.set;
 	string_t *b64_value;
-	char *value;
+	const char *value;
 
 	if (*set->doveadm_password == '\0') {
 		e_error(conn->conn.event,
@@ -969,13 +969,11 @@ doveadm_http_server_auth_basic(struct client_request_http *req,
 		return FALSE;
 	}
 
-	b64_value = str_new(conn->conn.pool, 32);
-	value = p_strdup_printf(conn->conn.pool,
-				"doveadm:%s", set->doveadm_password);
-	base64_encode(value, strlen(value), b64_value);
+	value = t_strdup_printf("doveadm:%s", set->doveadm_password);
+	b64_value = t_base64_encode_str(0, UINT_MAX, value);
 
 	if (creds->data != NULL &&
-	    str_equals_timing_almost_safe(value, creds->data))
+	    str_equals_timing_almost_safe(str_c(b64_value), creds->data))
 		return TRUE;
 
 	e_error(conn->conn.event,
@@ -999,9 +997,7 @@ doveadm_http_server_auth_api_key(struct client_request_http *req,
 		return FALSE;
 	}
 
-	b64_value = str_new(conn->conn.pool, 32);
-	base64_encode(set->doveadm_api_key,
-		      strlen(set->doveadm_api_key), b64_value);
+	b64_value = t_base64_encode_str(0, UINT_MAX, set->doveadm_api_key);
 	if (creds->data != NULL &&
 	    str_equals_timing_almost_safe(creds->data, str_c(b64_value)))
 		return TRUE;
