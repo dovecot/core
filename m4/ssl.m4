@@ -37,6 +37,9 @@ AC_DEFUN([DOVECOT_SSL], [
       AC_MSG_ERROR(cannot build with OpenSSL: libssl not found)
     ])
   ])
+  
+  old_CFLAGS="$CFLAGS"
+  CFLAGS="$old_CFLAGS $SSL_CFLAGS"
 
   AC_MSG_CHECKING([if OpenSSL version is 1.1.1 or better])
 
