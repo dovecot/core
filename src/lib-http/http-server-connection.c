@@ -325,6 +325,7 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 		/* Send 100 Continue when appropriate */
 		if (req->req.expect_100_continue && !req->payload_halted &&
 		    (req->response == NULL || !req->response->submitted)) {
+			e_debug(conn->event, "Trigger 100-continue response");
 			http_server_connection_output_trigger(conn);
 		}
 
