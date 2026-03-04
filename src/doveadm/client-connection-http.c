@@ -987,7 +987,7 @@ doveadm_http_server_auth_api_key(struct client_request_http *req,
 				 const struct http_auth_credentials *creds)
 {
 	struct client_connection_http *conn = req->conn;
-	const struct doveadm_settings *set = doveadm_settings;
+	const struct doveadm_settings *set = conn->conn.set;
 	string_t *b64_value;
 
 	if (*set->doveadm_api_key == '\0') {
