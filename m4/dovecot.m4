@@ -620,7 +620,7 @@ AC_DEFUN([CC_STRICT_BOOL], [
 
 AC_DEFUN([DOVECOT_WANT_UBSAN], [
   AC_ARG_ENABLE(ubsan,
-    AS_HELP_STRING([--enable-ubsan], [Enable undefined behaviour sanitizes (default=no)]),
+    AS_HELP_STRING([--enable-ubsan], [Enable undefined behaviour sanitizers (default=no)]),
                    [want_ubsan=yes], [want_ubsan=no])
   AC_MSG_CHECKING([whether we want undefined behaviour sanitizer])
   AC_MSG_RESULT([$want_ubsan])
