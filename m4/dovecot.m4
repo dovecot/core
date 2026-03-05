@@ -335,7 +335,7 @@ AC_DEFUN([DC_DOVECOT_TEST_WRAPPER],[
   AC_REQUIRE_AUX_FILE([run-test.sh.in])
   AC_ARG_VAR([VALGRIND], [Path to valgrind])
   AC_PATH_PROG(VALGRIND, valgrind, reject)
-  AS_IF([test "$VALGRIND" != reject], [
+  AS_IF([test "$VALGRIND" != reject -a x$want_asan != xyes -a x$want_msan != xyes], [
     RUN_TEST='$(LIBTOOL) execute $(SHELL) $(top_builddir)/build-aux/run-test.sh'
   ], [
     RUN_TEST=''
