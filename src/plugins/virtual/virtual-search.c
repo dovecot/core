@@ -186,13 +186,14 @@ bool virtual_search_next_update_seq(struct mail_search_context *ctx)
 	unsigned int count;
 
 	recs = array_get(&vctx->records, &count);
-	if (vctx->next_record_idx < count) {
+	while (vctx->next_record_idx < count) {
 		/* go through potential results first */
 		ctx->seq = recs[vctx->next_record_idx++].virtual_seq - 1;
-		if (!index_storage_search_next_update_seq(ctx))
-			i_unreached();
-		ctx->progress_cur = vctx->next_record_idx;
-		return TRUE;
+		if (index_storage_search_next_update_seq(ctx)) {
+			ctx->progress_cur = vctx->next_record_idx;
+			return TRUE;
+		}
+		/* the message was lost or otherwise not found, try next one */
 	}
 
 	if (ctx->sort_program != NULL &&
