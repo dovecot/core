@@ -367,6 +367,7 @@ AC_DEFUN([DC_DOVECOT_HARDENING],[
         DC_FCF_PROTECTION
 	DOVECOT_WANT_UBSAN
         DOVECOT_WANT_ASAN
+        DOVECOT_WANT_MSAN
 ])
 
 AC_DEFUN([DC_DOVECOT_FUZZER],[
@@ -678,6 +679,28 @@ AC_DEFUN([DOVECOT_WANT_ASAN], [
        AC_DEFINE([HAVE_ADDRESS_SANITIZER], [1], [Define if your compiler supports address sanitizer])
      ], [
        AC_MSG_ERROR([No address sanitizer support in your compiler])
+     ])
+     san_flags=""
+  ])
+])
+
+AC_DEFUN([DOVECOT_WANT_MSAN], [
+  AC_ARG_ENABLE(msan,
+    AS_HELP_STRING([--enable-msan], [Enable memory sanitizer (default=no)]),
+                   [want_msan=yes], [want_msan=no])
+  AC_MSG_CHECKING([whether we want memory sanitizer])
+  AC_MSG_RESULT([$want_msan])
+  AS_IF([test x$want_msan = xyes], [
+     san_flags=""
+     gl_COMPILER_OPTION_IF([-fsanitize=memory], [
+             san_flags="$san_flags -fsanitize=memory"
+             AC_DEFINE([HAVE_FSANITIZE_MEMORY], [1], [Define if your compiler has -fsanitize=memory])
+     ])
+     AS_IF([test "$san_flags" != "" ], [
+       AM_CFLAGS="$AM_CFLAGS $san_flags -fno-omit-frame-pointer"
+       AC_DEFINE([HAVE_MEMORY_SANITIZER], [1], [Define if your compiler supports memory sanitizer])
+     ], [
+       AC_MSG_ERROR([No memory sanitizer support in your compiler])
      ])
      san_flags=""
   ])
