@@ -651,7 +651,7 @@ AC_DEFUN([DOVECOT_WANT_UBSAN], [
              AC_DEFINE([HAVE_FSANITIZE_NULLABILITY], [1], [Define if your compiler has -fsanitize=nullability])
      ])
      AS_IF([test "$san_flags" != "" ], [
-       AM_CFLAGS="$AM_CFLAGS $san_flags -U_FORTIFY_SOURCE -g -ggdb3 -O0 -fno-omit-frame-pointer"
+       AM_CFLAGS="$AM_CFLAGS $san_flags -fno-omit-frame-pointer"
        AC_DEFINE([HAVE_UNDEFINED_SANITIZER], [1], [Define if your compiler supports undefined sanitizers])
      ], [
        AC_MSG_ERROR([No undefined sanitizer support in your compiler])
