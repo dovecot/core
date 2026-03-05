@@ -579,7 +579,6 @@ int smtp_server_connection_data_chunk_add(struct smtp_server_cmd_ctx *cmd,
 	const struct smtp_server_settings *set = &conn->set;
 	struct smtp_server_command *command = cmd->cmd;
 	struct cmd_data_context *data_cmd = command->data;
-	uoff_t new_size;
 
 	i_assert(chunk != NULL);
 	i_assert(data_cmd != NULL);
@@ -591,13 +590,13 @@ int smtp_server_connection_data_chunk_add(struct smtp_server_cmd_ctx *cmd,
 		return -1;
 
 	/* check message size increase early */
-	new_size = conn->state.data_size + chunk_size;
-	if (new_size < conn->state.data_size ||
-	    (set->max_message_size > 0 && new_size > set->max_message_size)) {
+	if (UOFF_T_MAX - conn->state.data_size < chunk_size ||
+	    (set->max_message_size > 0 &&
+	     conn->state.data_size + chunk_size > set->max_message_size)) {
 		smtp_server_cmd_data_size_limit_exceeded(cmd);
 		return -1;
 	}
-	conn->state.data_size = new_size;
+	conn->state.data_size += chunk_size;
 
 	if (chunk_last) {
 		smtp_server_command_remove_hook(
