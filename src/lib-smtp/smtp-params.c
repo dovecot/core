@@ -473,7 +473,8 @@ smtp_params_mail_parse_size(struct smtp_params_mail_parser *pmparser,
 	}
 
 	/* size-value ::= 1*20DIGIT */
-	if (str_to_uoff(value, &params->size) < 0) {
+	if (str_to_uoff(value, &params->size) < 0 ||
+	    params->size > INTMAX_MAX) {
 		pmparser->error = "Unsupported SIZE parameter value";
 		pmparser->error_code = SMTP_PARAM_PARSE_ERROR_NOT_SUPPORTED;
 		return -1;

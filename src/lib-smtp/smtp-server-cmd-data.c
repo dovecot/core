@@ -645,7 +645,8 @@ void smtp_server_cmd_bdat(struct smtp_server_cmd_ctx *cmd,
 	   end-marker = "LAST"
 	 */
 	argv = t_strsplit(params, " ");
-	if (argv[0] == NULL || str_to_uoff(argv[0], &size) < 0) {
+	if (argv[0] == NULL || str_to_uoff(argv[0], &size) < 0 ||
+	    size > INTMAX_MAX) {
 		smtp_server_reply(cmd,
 			501, "5.5.4", "Invalid chunk size parameter");
 		size = 0;
