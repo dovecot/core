@@ -941,8 +941,8 @@ static int config_apply_filter_array(struct config_parser_context *ctx,
 }
 
 static int config_apply_file(struct config_parser_context *ctx,
-			     const struct config_line *line,
-			     const char *path, const char **prefixed_output_r)
+			     const char *key, const char *path,
+			     const char **prefixed_output_r)
 {
 	struct stat st;
 	const char *full_path, *error;
@@ -967,7 +967,7 @@ static int config_apply_file(struct config_parser_context *ctx,
 				     CONFIG_VALUE_PREFIX_EXPANDED_S,
 				     prefixed_output_r, &error) < 0) {
 		ctx->error = p_strdup(ctx->pool, error);
-		if (config_apply_error(ctx, line->key) < 0)
+		if (config_apply_error(ctx, key) < 0)
 			return -1;
 		/* delayed error */
 		*prefixed_output_r = CONFIG_VALUE_PREFIX_EXPANDED_S;
@@ -1068,7 +1068,7 @@ config_apply_exact_line(struct config_parser_context *ctx,
 				break;
 			}
 			i_assert(line != NULL);
-			if (config_apply_file(ctx, line, value,
+			if (config_apply_file(ctx, key, value,
 					&l->settings[config_key->define_idx].prefixed_str) < 0)
 				return -1;
 			break;
