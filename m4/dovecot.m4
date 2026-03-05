@@ -366,6 +366,7 @@ AC_DEFUN([DC_DOVECOT_HARDENING],[
         DC_HARDEN_SLS
         DC_FCF_PROTECTION
 	DOVECOT_WANT_UBSAN
+        DOVECOT_WANT_ASAN
 ])
 
 AC_DEFUN([DC_DOVECOT_FUZZER],[
@@ -374,13 +375,13 @@ AC_DEFUN([DC_DOVECOT_FUZZER],[
                 with_fuzzer=$withval,
                 with_fuzzer=no)
 	AS_IF([test x$with_fuzzer = xclang], [
-		AM_CFLAGS="$AM_CFLAGS -fsanitize=fuzzer-no-link -fsanitize=address"
+		AM_CFLAGS="$AM_CFLAGS -fsanitize=fuzzer-no-link"
 		AM_CFLAGS="$AM_CFLAGS -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION"
 		# use $LIB_FUZZING_ENGINE for linking if it exists
-		FUZZER_LDFLAGS=${LIB_FUZZING_ENGINE--fsanitize=fuzzer -fsanitize=address}
+		FUZZER_LDFLAGS=${LIB_FUZZING_ENGINE--fsanitize=fuzzer}
 		# May need to use CXXLINK for linking, which wants sources to
 		# be compiled with -fPIE
-		FUZZER_CPPFLAGS='$(AM_CPPFLAGS) -fPIE -DPIE -fsanitize=address'
+		FUZZER_CPPFLAGS='$(AM_CPPFLAGS) -fPIE -DPIE'
 	], [test x$with_fuzzer != xno], [
 		AC_MSG_ERROR([Unknown fuzzer $with_fuzzer])
 	])
@@ -655,6 +656,28 @@ AC_DEFUN([DOVECOT_WANT_UBSAN], [
        AC_DEFINE([HAVE_UNDEFINED_SANITIZER], [1], [Define if your compiler supports undefined sanitizers])
      ], [
        AC_MSG_ERROR([No undefined sanitizer support in your compiler])
+     ])
+     san_flags=""
+  ])
+])
+
+AC_DEFUN([DOVECOT_WANT_ASAN], [
+  AC_ARG_ENABLE(asan,
+    AS_HELP_STRING([--enable-asan], [Enable address sanitizer (default=no)]),
+                   [want_asan=yes], [want_asan=no])
+  AC_MSG_CHECKING([whether we want address sanitizer])
+  AC_MSG_RESULT([$want_asan])
+  AS_IF([test x$want_asan = xyes], [
+     san_flags=""
+     gl_COMPILER_OPTION_IF([-fsanitize=address], [
+             san_flags="$san_flags -fsanitize=address"
+             AC_DEFINE([HAVE_FSANITIZE_ADDRESS], [1], [Define if your compiler has -fsanitize=address])
+     ])
+     AS_IF([test "$san_flags" != "" ], [
+       AM_CFLAGS="$AM_CFLAGS $san_flags -fno-omit-frame-pointer"
+       AC_DEFINE([HAVE_ADDRESS_SANITIZER], [1], [Define if your compiler supports address sanitizer])
+     ], [
+       AC_MSG_ERROR([No address sanitizer support in your compiler])
      ])
      san_flags=""
   ])
