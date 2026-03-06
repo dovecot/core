@@ -218,7 +218,7 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	}
 
 	tm.tm_isdst = -1;
-	if (!seen_timezone && msg != msg_end &&
+	if (!seen_timezone && msg + 6 <= msg_end &&
 	    msg[0] == ' ' && (msg[1] == '-' || msg[1] == '+') &&
 	    i_isdigit(msg[2]) && i_isdigit(msg[3]) &&
 	    i_isdigit(msg[4]) && i_isdigit(msg[5])) {
