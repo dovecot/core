@@ -11,6 +11,10 @@
 /* maximum length for IMAP command line. */
 #define IMAP_LOGIN_MAX_LINE_LENGTH 8192
 
+/* Maximum number of '(' allowed in an IMAP command. Pre-login only uses
+   lists in the ID command. */
+#define IMAP_LOGIN_LIST_COUNT_LIMIT 1
+
 enum imap_client_id_state {
 	IMAP_CLIENT_ID_STATE_LIST = 0,
 	IMAP_CLIENT_ID_STATE_KEY,

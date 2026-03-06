@@ -389,10 +389,14 @@ int cmd_id(struct imap_client *client)
 		client->cmd_id = id = i_new(struct imap_client_cmd_id, 1);
 		id->params = p_new(param_pool, struct imap_id_params, 1);
 		id->params->pool = param_pool;
+
+		struct imap_parser_params params = {
+			.list_count_limit = IMAP_LOGIN_LIST_COUNT_LIMIT,
+		};
 		id->parser = imap_parser_create(client->common.input,
 						client->common.output,
 						IMAP_LOGIN_MAX_LINE_LENGTH,
-						NULL);
+						&params);
 		id->log_reply = str_new(default_pool, 64);
 		if (client->set->imap_literal_minus)
 			imap_parser_enable_literal_minus(id->parser);

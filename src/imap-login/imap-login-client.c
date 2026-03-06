@@ -380,10 +380,13 @@ static int imap_client_create(struct client *client)
 		return -1;
 	}
 
+	struct imap_parser_params params = {
+		.list_count_limit = IMAP_LOGIN_LIST_COUNT_LIMIT,
+	};
 	imap_client->parser =
 		imap_parser_create(imap_client->common.input,
 				   imap_client->common.output,
-				   IMAP_LOGIN_MAX_LINE_LENGTH, NULL);
+				   IMAP_LOGIN_MAX_LINE_LENGTH, &params);
 	struct settings_instance *set_instance = settings_instance_find(client->event);
 	if (set_instance == NULL) {
 		set_instance = settings_instance_new(
@@ -469,11 +472,14 @@ static void imap_client_starttls(struct client *client)
 	struct imap_client *imap_client =
 		container_of(client, struct imap_client, common);
 
+	struct imap_parser_params params = {
+		.list_count_limit = IMAP_LOGIN_LIST_COUNT_LIMIT,
+	};
 	imap_parser_unref(&imap_client->parser);
 	imap_client->parser =
 		imap_parser_create(imap_client->common.input,
 				   imap_client->common.output,
-				   IMAP_LOGIN_MAX_LINE_LENGTH, NULL);
+				   IMAP_LOGIN_MAX_LINE_LENGTH, &params);
 
 	/* CRLF is lost from buffer when streams are reopened. */
 	imap_client->skip_line = FALSE;
