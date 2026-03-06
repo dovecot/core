@@ -225,7 +225,7 @@ bool imap_envelope_parse(const char *envelope,
 	input = i_stream_create_from_data(envelope, strlen(envelope));
 	(void)i_stream_read(input);
 
-	parser = imap_parser_create(input, NULL, SIZE_MAX);
+	parser = imap_parser_create(input, NULL, SIZE_MAX, NULL);
 	ret = imap_parser_finish_line(parser, 0,
 				      IMAP_PARSE_FLAG_LITERAL_TYPE, &args);
 	if (ret < 0) {

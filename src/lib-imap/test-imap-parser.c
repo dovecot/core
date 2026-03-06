@@ -16,7 +16,7 @@ static void test_imap_parser_crlf(void)
 
 	test_begin("imap parser crlf handling");
 	input = test_istream_create(test_input);
-	parser = imap_parser_create(input, NULL, 1024);
+	parser = imap_parser_create(input, NULL, 1024, NULL);
 
 	/* must return -2 until LF is read */
 	for (i = 0; test_input[i] != '\n'; i++) {
@@ -60,7 +60,7 @@ static void test_imap_parser_partial_list(void)
 
 	test_begin("imap parser partial list");
 	input = test_istream_create(test_input);
-	parser = imap_parser_create(input, NULL, 1024);
+	parser = imap_parser_create(input, NULL, 1024, NULL);
 
 	(void)i_stream_read(input);
 	test_assert(imap_parser_read_args(parser, 0,
@@ -128,7 +128,7 @@ static void test_imap_parser_read_tag_cmd(void)
 		if (tests[i].type != COMMAND) {
 			input = test_istream_create(tests[i].input);
 			test_assert(i_stream_read(input) > 0);
-			parser = imap_parser_create(input, NULL, 1024);
+			parser = imap_parser_create(input, NULL, 1024, NULL);
 			ret = imap_parser_read_tag(parser, &atom);
 			test_assert_idx(ret == tests[i].ret, i);
 			test_assert_idx(ret <= 0 || strcmp(tests[i].tag, atom) == 0, i);
@@ -139,7 +139,7 @@ static void test_imap_parser_read_tag_cmd(void)
 		if (tests[i].type != TAG) {
 			input = test_istream_create(tests[i].input);
 			test_assert(i_stream_read(input) > 0);
-			parser = imap_parser_create(input, NULL, 1024);
+			parser = imap_parser_create(input, NULL, 1024, NULL);
 			ret = imap_parser_read_command_name(parser, &atom);
 			test_assert_idx(ret == tests[i].ret, i);
 			test_assert_idx(ret <= 0 || strcmp(tests[i].tag, atom) == 0, i);
@@ -183,7 +183,7 @@ static void test_imap_parser_read_literal(void)
 			test_istream_create_data(tests[i].input, tests[i].len);
 		test_assert(i_stream_read(input) > 0);
 		struct imap_parser *parser =
-			imap_parser_create(input, NULL, 1024);
+			imap_parser_create(input, NULL, 1024, NULL);
 		const struct imap_arg *args;
 		int ret = imap_parser_read_args(parser, 0, tests[i].flags, &args);
 		if (ret != tests[i].ret) {

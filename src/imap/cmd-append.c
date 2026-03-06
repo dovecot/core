@@ -1202,7 +1202,8 @@ static bool cmd_append_full(struct client_command_context *cmd, bool replace)
 	o_stream_unset_flush_callback(client->output);
 
 	ctx->save_parser = imap_parser_create(client->input, client->output,
-					      client->set->imap_max_line_length);
+					      client->set->imap_max_line_length,
+					      NULL);
 	if (client->set->imap_literal_minus)
 		imap_parser_enable_literal_minus(ctx->save_parser);
 

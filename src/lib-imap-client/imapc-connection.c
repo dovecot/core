@@ -1914,7 +1914,8 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	o_stream_set_flush_callback(conn->output, imapc_connection_connected,
 				    conn);
 	conn->parser = imap_parser_create(conn->input, NULL,
-					  conn->client->set->imapc_max_line_length);
+					  conn->client->set->imapc_max_line_length,
+					  NULL);
 	conn->to = timeout_add(conn->client->set->imapc_connection_timeout_interval_msecs,
 			       imapc_connection_timeout, conn);
 	conn->to_output = timeout_add(conn->client->set->imapc_max_idle_time_secs*1000,

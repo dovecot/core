@@ -289,7 +289,8 @@ cmd_setmetadata_start(struct imap_setmetadata_context *ctx)
 	   asynchronously the same way as APPEND does. */
 	client->input_lock = cmd;
 	ctx->parser = imap_parser_create(client->input, client->output,
-					 client->set->imap_max_line_length);
+					 client->set->imap_max_line_length,
+					 NULL);
 	if (client->set->imap_literal_minus)
 		imap_parser_enable_literal_minus(ctx->parser);
 	o_stream_unset_flush_callback(client->output);

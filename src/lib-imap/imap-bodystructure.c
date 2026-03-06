@@ -732,7 +732,7 @@ int imap_bodystructure_parse_full(const char *bodystructure,
 	input = i_stream_create_from_data(bodystructure, strlen(bodystructure));
 	(void)i_stream_read(input);
 
-	parser = imap_parser_create(input, NULL, SIZE_MAX);
+	parser = imap_parser_create(input, NULL, SIZE_MAX, NULL);
 	ret = imap_parser_finish_line(parser, 0,
 				      IMAP_PARSE_FLAG_LITERAL_TYPE, &args);
 	if (ret < 0) {
@@ -982,7 +982,7 @@ int imap_body_parse_from_bodystructure(const char *bodystructure,
 	input = i_stream_create_from_data(bodystructure, strlen(bodystructure));
 	(void)i_stream_read(input);
 
-	parser = imap_parser_create(input, NULL, SIZE_MAX);
+	parser = imap_parser_create(input, NULL, SIZE_MAX, NULL);
 	ret = imap_parser_finish_line(parser, 0, IMAP_PARSE_FLAG_NO_UNESCAPE |
 				      IMAP_PARSE_FLAG_LITERAL_TYPE, &args);
 	if (ret < 0) {

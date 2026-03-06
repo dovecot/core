@@ -69,7 +69,8 @@ struct imap_parser {
 
 struct imap_parser *
 imap_parser_create(struct istream *input, struct ostream *output,
-		   size_t max_line_size)
+		   size_t max_line_size,
+		   const struct imap_parser_params *params ATTR_UNUSED)
 {
 	struct imap_parser *parser;
 
