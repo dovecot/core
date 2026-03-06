@@ -373,6 +373,12 @@ unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
 	uint8_t nf_qc_mask = ctx->nf_qc_mask;
 	size_t i;
 
+	i_assert(ctx->buffer_len <= buffer_size);
+	if (ctx->buffer_len == buffer_size) {
+		/* Buffer already full */
+		return FALSE;
+	}
+
 	/*
 	 * Decompose the code point
 	 */

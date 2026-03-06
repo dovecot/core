@@ -425,7 +425,7 @@ static void test_long(void)
 	test_assert_strcmp(nfkd, str_c(nf_out));
 }
 
-static void test_stream_safe(void)
+static void test_stream_safe(bool compose)
 {
 	/* UAX15, Section 13:
 
@@ -468,7 +468,10 @@ static void test_stream_safe(void)
 
 	int ret;
 
-	ret = uni_utf8_write_nfd(str_data(in), str_len(in), nf_out);
+	if (compose)
+		ret = uni_utf8_write_nfc(str_data(in), str_len(in), nf_out);
+	else
+		ret = uni_utf8_write_nfd(str_data(in), str_len(in), nf_out);
 	test_assert(ret == 0);
 
 	/* Check the result */
@@ -518,7 +521,10 @@ static void test_stream_safe(void)
 
 	/* Apply NFD normalization */
 
-	ret = uni_utf8_write_nfd(str_data(in), str_len(in), nf_out);
+	if (compose)
+		ret = uni_utf8_write_nfc(str_data(in), str_len(in), nf_out);
+	else
+		ret = uni_utf8_write_nfd(str_data(in), str_len(in), nf_out);
 	test_assert(ret == 0);
 
 	/* Check the result */
@@ -555,6 +561,23 @@ static void test_stream_safe(void)
 	test_assert_memcmp(&nf_data[373], 2, "\xCC\xA3", 2);    /* dot-below */
 	test_assert_memcmp(&nf_data[375], 40, last_block2, 40); /* 10 umlauts */
 	test_assert(nf_data[415] == '3');                       /* digit 3 */
+}
+
+static void test_full_buffer(bool compose)
+{
+	static const char input[] =
+		"\x20\xeb\x92\x92\xcd\x84\xcd\x84\xcd\x84\xcd\x84\xcd\x84"
+		"\xcd\x84\xcd\x84\xcd\x84\xcd\x84\xcc\x9a\xcd\x84\xcd\x84"
+		"\xcd\x84\xcd\x84\xcd\x84\xcd\x84";
+
+	buffer_t *nf_out = t_buffer_create(1024);
+	int ret;
+
+	if (compose)
+		ret = uni_utf8_write_nfc(input, sizeof(input) - 1, nf_out);
+	else
+		ret = uni_utf8_write_nfd(input, sizeof(input) - 1, nf_out);
+	test_assert(ret == 0);
 }
 
 void test_unicode_nf(void)
@@ -621,7 +644,18 @@ void test_unicode_nf(void)
 	test_end();
 
 	/* Test Stream Safe algorithm (UAX15-D4) */
-	test_begin("unicode normalization: stream safe");
-	test_stream_safe();
+	test_begin("unicode normalization: stream safe (nfd)");
+	test_stream_safe(FALSE);
+	test_end();
+	test_begin("unicode normalization: stream safe (nfc)");
+	test_stream_safe(TRUE);
+	test_end();
+
+	/* Test buffer assertions */
+	test_begin("unicode normalization: full buffer (nfd)");
+	test_full_buffer(FALSE);
+	test_end();
+	test_begin("unicode normalization: full buffer (nfc)");
+	test_full_buffer(TRUE);
 	test_end();
 }
