@@ -2,14 +2,12 @@
 
 #include "lib.h"
 #include "ioloop.h"
-#include "array.h"
 #include "hex-binary.h"
 #include "str.h"
 #include "net.h"
 #include "time-util.h"
 #include "settings.h"
 #include "settings-parser.h"
-#include "settings.h"
 #include "ssl-settings.h"
 #include "sql-api-private.h"
 
@@ -595,7 +593,7 @@ driver_mysql_result_get_fields_count(struct sql_result *_result)
 	struct mysql_result *result =
 		container_of(_result, struct mysql_result, api);
 
-        driver_mysql_result_fetch_fields(result);
+	driver_mysql_result_fetch_fields(result);
 	return result->fields_count;
 }
 
