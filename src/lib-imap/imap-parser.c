@@ -39,6 +39,7 @@ struct imap_parser {
 	struct istream *input;
 	struct ostream *output;
 	size_t max_line_size;
+	unsigned int list_count_limit;
         enum imap_parser_flags flags;
 
 	/* reset by imap_parser_reset(): */
@@ -46,6 +47,7 @@ struct imap_parser {
 	ARRAY_TYPE(imap_arg_list) root_list;
         ARRAY_TYPE(imap_arg_list) *cur_list;
 	struct imap_arg *list_arg;
+	unsigned int list_count;
 
 	enum arg_parse_type cur_type;
 	size_t cur_pos; /* parser position in input buffer */
@@ -70,7 +72,7 @@ struct imap_parser {
 struct imap_parser *
 imap_parser_create(struct istream *input, struct ostream *output,
 		   size_t max_line_size,
-		   const struct imap_parser_params *params ATTR_UNUSED)
+		   const struct imap_parser_params *params)
 {
 	struct imap_parser *parser;
 
@@ -81,6 +83,10 @@ imap_parser_create(struct istream *input, struct ostream *output,
 	parser->input = input;
 	parser->output = output;
 	parser->max_line_size = max_line_size;
+	if (params != NULL && params->list_count_limit > 0)
+		parser->list_count_limit = params->list_count_limit;
+	else
+		parser->list_count_limit = UINT_MAX;
 
 	p_array_init(&parser->root_list, parser->pool, LIST_INIT_COUNT);
 	parser->cur_list = &parser->root_list;
@@ -122,6 +128,7 @@ void imap_parser_reset(struct imap_parser *parser)
 	p_array_init(&parser->root_list, parser->pool, LIST_INIT_COUNT);
 	parser->cur_list = &parser->root_list;
 	parser->list_arg = NULL;
+	parser->list_count = 0;
 
 	parser->cur_type = ARG_PARSE_NONE;
 	parser->cur_pos = 0;
@@ -210,6 +217,12 @@ static bool imap_parser_close_list(struct imap_parser *parser)
 		parser->error = IMAP_PARSE_ERROR_BAD_SYNTAX;
 		return FALSE;
 	}
+	if (parser->list_count >= parser->list_count_limit) {
+		parser->error_msg = "Too many '('";
+		parser->error = IMAP_PARSE_ERROR_BAD_SYNTAX;
+		return FALSE;
+	}
+	parser->list_count++;
 
 	arg = imap_arg_create(parser);
 	arg->type = IMAP_ARG_EOL;

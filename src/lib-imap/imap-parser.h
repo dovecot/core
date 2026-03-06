@@ -39,6 +39,12 @@ enum imap_parser_error {
 };
 
 struct imap_parser_params {
+	/* How many open lists ('(' chars) to allow before faililng the parsing.
+	   0 means unlimited. This is mainly used to prevent excessive memory
+	   usage in imap-login process. In imap process there are many other
+	   ways to increase memory usage, so we let the max_line_size be the
+	   only limit. */
+	unsigned int list_count_limit;
 };
 
 struct imap_parser;
