@@ -153,7 +153,9 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	if (tm.tm_mday == 0)
 		tm.tm_mday = 1;
 
-	/* hour */
+	/* hour - need at least "HH:MM" = 5 bytes */
+	if (msg + 5 > msg_end)
+		return -1;
 	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ':')
 		return -1;
 	tm.tm_hour = (msg[0]-'0') * 10 + (msg[1]-'0');
@@ -166,7 +168,11 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	msg += 2;
 
 	/* optional second */
-	if (msg[0] == ':') {
+	if (msg >= msg_end)
+		;
+	else if (msg[0] == ':') {
+		if (msg + 3 > msg_end)
+			return -1;
 		msg++;
 		if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]))
 			return -1;
@@ -188,6 +194,8 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	/* optional named timezone */
 	if (alt_stamp)
 		;
+	else if (msg + 6 > msg_end)
+		return -1;
 	else if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) ||
 		 !i_isdigit(msg[2]) || !i_isdigit(msg[3])) {
 		/* skip to next space */
@@ -218,7 +226,7 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	}
 
 	tm.tm_isdst = -1;
-	if (!seen_timezone && msg != msg_end &&
+	if (!seen_timezone && msg + 6 <= msg_end &&
 	    msg[0] == ' ' && (msg[1] == '-' || msg[1] == '+') &&
 	    i_isdigit(msg[2]) && i_isdigit(msg[3]) &&
 	    i_isdigit(msg[4]) && i_isdigit(msg[5])) {
