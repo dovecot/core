@@ -188,6 +188,8 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	/* optional named timezone */
 	if (alt_stamp)
 		;
+	else if (msg + 6 > msg_end)
+		return -1;
 	else if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) ||
 		 !i_isdigit(msg[2]) || !i_isdigit(msg[3])) {
 		/* skip to next space */
