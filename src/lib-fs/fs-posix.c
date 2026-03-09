@@ -822,6 +822,11 @@ static int fs_posix_stat(struct fs_file *_file, struct stat *st_r)
 			return -1;
 		}
 	}
+	/* Used by obox to set MAIL_FETCH_REFCOUNT_ID for lazy_expunge: */
+	fs_default_set_metadata(_file, FS_METADATA_OBJECTID,
+		t_strdup_printf("%u:%u:%llu",
+				major(st_r->st_dev), minor(st_r->st_dev),
+				(unsigned long long)st_r->st_ino));
 	return 0;
 }
 
