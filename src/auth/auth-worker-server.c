@@ -505,8 +505,10 @@ auth_worker_handle_setcred(struct auth_worker_command *cmd,
 		}
 	}
 
+	auth_request_passdb_event_begin(auth_request);
 	auth_request->passdb->passdb->iface.
 		set_credentials(auth_request, creds, set_credentials_callback);
+	auth_request_passdb_event_end(auth_request);
 	return TRUE;
 }
 

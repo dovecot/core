@@ -1492,6 +1492,8 @@ void auth_request_set_credentials(struct auth_request *request,
 	struct auth_passdb *passdb = request->passdb;
 	const char *cache_key, *new_credentials;
 
+	auth_request_passdb_event_begin(request);
+
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
 	if (cache_key != NULL)
 		auth_cache_remove(passdb_cache, request, cache_key);
@@ -1508,6 +1510,8 @@ void auth_request_set_credentials(struct auth_request *request,
 		/* this passdb doesn't support credentials update */
 		callback(FALSE, request);
 	}
+
+	auth_request_passdb_event_end(request);
 }
 
 static void
