@@ -199,6 +199,14 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 		str_append(str, "\tstate=");
 		base64_encode(state->state, state->state_size, str);
 	}
+	if (state->auth_token != NULL) {
+		str_append(str, "\tauth_token=");
+		str_append_tabescaped(str, state->auth_token);
+	}
+	if (state->session_pid != NULL) {
+		str_append(str, "\tsession_pid=");
+		str_append_tabescaped(str, state->session_pid);
+	}
 	input_data = i_stream_get_data(client->input, &input_size);
 	if (input_size > 0) {
 		str_append(str, "\tclient_input=");
@@ -644,6 +652,8 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	client->state.session_id = p_strdup(pool, state->session_id);
 	client->state.userdb_fields = p_strdup(pool, state->userdb_fields);
 	client->state.stats = p_strdup(pool, state->stats);
+	client->state.auth_token = p_strdup(pool, state->auth_token);
+	client->state.session_pid = p_strdup(pool, state->session_pid);
 	client->state.tag = i_strdup(state->tag);
 
 	client->event = event_create(NULL);

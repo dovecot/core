@@ -129,6 +129,10 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 			}
 		} else if (strcmp(key, "stats") == 0) {
 			state_r->stats = value;
+		} else if (strcmp(key, "auth_token") == 0) {
+			state_r->auth_token = value;
+		} else if (strcmp(key, "session_pid") == 0) {
+			state_r->session_pid = value;
 		} else if (strcmp(key, "idle-cmd") == 0) {
 			state_r->idle_cmd = TRUE;
 		} else if (strcmp(key, "session") == 0) {

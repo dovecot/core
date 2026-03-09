@@ -115,7 +115,8 @@ static int imap_hibernate_server(struct test_imap_client_hibernate *ctx)
 	if (ctx->has_mailbox)
 		test_assert_strcmp(args[i++], "mailbox="EVILSTR"mailbox");
 	test_assert_strcmp(args[i++], "tag="EVILSTR"tag");
-	test_assert(str_begins_with(args[i++], "stats="));
+	test_assert(str_begins_with(args[i++], "session_pid="));
+	test_assert(args[i] != NULL && str_begins_with(args[i++], "stats="));
 	test_assert_strcmp(args[i++], "idle-cmd");
 	if (ctx->has_mailbox)
 		test_assert_strcmp(args[i++], "notify_fd");

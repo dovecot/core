@@ -20,6 +20,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-compression \
 	-I$(top_srcdir)/src/lib-var-expand \
+	-I$(top_srcdir)/src/lib-auth-client \
+	-I$(top_srcdir)/src/lib-sasl \
 	$(BINARY_CFLAGS)
 
 imap_LDFLAGS = -export-dynamic \

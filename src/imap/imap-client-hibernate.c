@@ -1,6 +1,7 @@
 /* Copyright (c) 2014-2018 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
+#include "hostpid.h"
 #include "fdpass.h"
 #include "net.h"
 #include "istream.h"
@@ -108,6 +109,11 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 		str_append(cmd, "\ttag=");
 		str_append_tabescaped(cmd, tag);
 	}
+	if (user->auth_token != NULL) {
+		str_append(cmd, "\tauth_token=");
+		str_append_tabescaped(cmd, user->auth_token);
+	}
+	str_printfa(cmd, "\tsession_pid=%s", my_pid);
 	str_append(cmd, "\tstats=");
 	str_append_tabescaped(cmd, client_stats(client));
 	if (client->command_queue != NULL &&
