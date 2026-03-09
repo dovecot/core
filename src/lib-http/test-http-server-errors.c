@@ -971,6 +971,10 @@ test_run_client_server(const struct http_server_settings *server_set,
 {
 	unsigned int i;
 
+	test_client_input = NULL;
+	test_client_connected = NULL;
+	test_server_request = NULL;
+
 	fd_listen = test_open_server_fd();
 
 	if (client_tests_count > 0) {
