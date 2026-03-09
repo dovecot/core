@@ -682,8 +682,10 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	const struct sasl_server_mech *mech;
 
 	if (auth_request_handler_find_mech(handler, request, mech_name,
-					   &mech) < 0)
+					   &mech) < 0) {
+		auth_request_unref(&request);
 		return -1;
+	}
 	auth_request_init_sasl(request, mech);
 
 	request->to_abort = timeout_add(MASTER_AUTH_SERVER_TIMEOUT_SECS * 1000,
