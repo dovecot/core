@@ -745,7 +745,6 @@ static int http_server_response_send_real(struct http_server_response *resp)
 	iov[2].iov_base = "\r\n";
 	iov[2].iov_len = 2;
 
-	req->state = HTTP_SERVER_REQUEST_STATE_PAYLOAD_OUT;
 	o_stream_cork(conn->conn.output);
 
 	if (o_stream_sendv(conn->conn.output, iov, N_ELEMENTS(iov)) < 0) {
@@ -754,11 +753,13 @@ static int http_server_response_send_real(struct http_server_response *resp)
 	}
 
 	e_debug(resp->event, "Sent header");
+	req->state = HTTP_SERVER_REQUEST_STATE_SENT_RESPONSE;
 
 	if (resp->payload_stream != NULL)
 		http_server_ostream_output_available(resp->payload_stream);
 	if (resp->payload_output != NULL) {
 		/* Non-blocking payload */
+		req->state = HTTP_SERVER_REQUEST_STATE_PAYLOAD_OUT;
 		ret = http_server_response_send_more(resp);
 		if (ret < 0)
 			return -1;
@@ -766,6 +767,7 @@ static int http_server_response_send_real(struct http_server_response *resp)
 		/* No payload to send */
 		e_debug(resp->event, "No payload to send");
 		if (resp->payload_stream != NULL) {
+			req->state = HTTP_SERVER_REQUEST_STATE_PAYLOAD_OUT;
 			ret = http_server_ostream_continue(resp->payload_stream);
 			if (ret < 0)
 				return -1;
