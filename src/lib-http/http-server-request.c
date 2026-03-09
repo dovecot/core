@@ -424,8 +424,13 @@ void http_server_request_finished(struct http_server_request *req)
 	http_server_tunnel_callback_t tunnel_callback = resp->tunnel_callback;
 	void *tunnel_context = resp->tunnel_context;
 
+	i_assert(conn != NULL);
 	i_assert(req->state < HTTP_SERVER_REQUEST_STATE_FINISHED);
 	req->state = HTTP_SERVER_REQUEST_STATE_FINISHED;
+
+	if (conn->callbacks != NULL &&
+	    conn->callbacks->request_finished != NULL)
+		conn->callbacks->request_finished(conn->context, req);
 
 	http_server_connection_remove_request(conn, req);
 	conn->stats.response_count++;

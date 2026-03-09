@@ -343,6 +343,12 @@ struct http_server_callbacks {
 				       struct http_server_request *req,
 				       struct http_url *target);
 
+	/* Called once a request is finished (response is sent). This also
+	   catches requests that fail before the handle_request() callback is
+	   reached. */
+	void (*request_finished)(void *context,
+				 struct http_server_request *req);
+
 	/* Called once the connection is destroyed. */
 	void (*connection_destroy)(void *context, const char *reason);
 };
