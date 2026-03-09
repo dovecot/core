@@ -377,7 +377,9 @@ sasl_server_auth_success_finish(struct client *client, bool nologin,
 
 static void
 authenticate_callback(struct auth_client_request *request,
-		      enum auth_request_status status, const char *data_base64,
+		      enum auth_request_status status,
+		      const char *log_error ATTR_UNUSED,
+		      const char *data_base64,
 		      const char *const *args, void *context)
 {
 	struct client *client = context;

@@ -867,6 +867,7 @@ struct login_test {
 static void
 test_client_auth_callback(struct auth_client_request *request,
 			  enum auth_request_status status,
+			  const char *log_error ATTR_UNUSED,
 			  const char *data_base64 ATTR_UNUSED,
 			  const char *const *args ATTR_UNUSED, void *context)
 {

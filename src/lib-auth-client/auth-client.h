@@ -79,9 +79,12 @@ struct auth_request_info {
 
 /* Continue/finish authentication. data_base64 is set for
    AUTH_REQUEST_STATUS_CONTINUE and perhaps AUTH_REQUEST_STATUS_OK.
-   args is set for all statuses except AUTH_REQUEST_STATUS_CONTINUE. */
+   args is set for all statuses except AUTH_REQUEST_STATUS_CONTINUE.
+   log_error contains an error that can be logged as the reason why
+   authentication failed. */
 typedef void auth_request_callback_t(struct auth_client_request *request,
 				     enum auth_request_status status,
+				     const char *log_error,
 				     const char *data_base64,
 				     const char *const *args, void *context);
 

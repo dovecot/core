@@ -389,6 +389,7 @@ static void proxy_reset(struct client *client)
 static void
 proxy_redirect_reauth_callback(struct auth_client_request *request,
 			       enum auth_request_status status,
+			       const char *log_error ATTR_UNUSED,
 			       const char *data_base64 ATTR_UNUSED,
 			       const char *const *args, void *context)
 {

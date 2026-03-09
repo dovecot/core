@@ -256,7 +256,7 @@ call_callback(struct auth_client_request *request,
 		if (args == NULL && status != AUTH_REQUEST_STATUS_OK)
 			args = temp_failure_args;
 	}
-	callback(request, status, data_base64, args, request->context);
+	callback(request, status, "Authentication failure", data_base64, args, request->context);
 }
 
 static void
