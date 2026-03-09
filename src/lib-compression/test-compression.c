@@ -1077,8 +1077,8 @@ static void test_lz4_chunk_size(void)
 					      sizeof(lz4_chunk_crash_01));
 	input = lz4->create_istream(file_input);
 	i_stream_unref(&file_input);
-	i_stream_read(input);
 
+	test_assert(i_stream_read(input) == -1);
 	test_assert(input->eof);
 	test_assert(input->stream_errno != 0);
 	const char *error = i_stream_get_error(input);
@@ -1090,8 +1090,8 @@ static void test_lz4_chunk_size(void)
 					      sizeof(lz4_chunk_crash_02));
 	input = lz4->create_istream(file_input);
 	i_stream_unref(&file_input);
-	i_stream_read(input);
 
+	test_assert(i_stream_read(input) == -1);
 	test_assert(input->eof);
 	test_assert(input->stream_errno != 0);
 	error = i_stream_get_error(input);
@@ -1103,9 +1103,9 @@ static void test_lz4_chunk_size(void)
 					      sizeof(lz4_chunk_eof_03));
 	input = lz4->create_istream(file_input);
 	i_stream_unref(&file_input);
-	i_stream_read(input);
 
 	/* no error, but no content either */
+	test_assert(i_stream_read(input) == -1);
 	test_assert(input->eof);
 	test_assert(input->stream_errno == 0);
 
