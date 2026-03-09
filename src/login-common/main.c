@@ -206,9 +206,9 @@ static const struct master_admin_client_callback admin_callbacks = {
 };
 
 static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,
-				bool connected, void *context ATTR_UNUSED)
+				const char *error, void *context ATTR_UNUSED)
 {
-	if (connected) {
+	if (error == NULL) {
 		auth_connected_once = TRUE;
 		clients_notify_auth_connected();
 	} else if (shutting_down)

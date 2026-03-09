@@ -916,14 +916,14 @@ test_client_auth_callback(struct auth_client_request *request,
 
 static void
 test_client_auth_connected(struct auth_client *client ATTR_UNUSED,
-			   bool connected, void *context)
+			   const char *error, void *context)
 {
 	struct login_test *login_test = context;
 
 	if (to_client_progress != NULL)
 		timeout_reset(to_client_progress);
 
-	if (login_test->status == 0 && !connected) {
+	if (login_test->status == 0 && error != NULL) {
 		i_assert(login_test->error == NULL);
 		login_test->error = i_strdup("Connection failed");
 		login_test->status = -1;

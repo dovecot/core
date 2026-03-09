@@ -266,7 +266,7 @@ auth_channel_bind_callback(const char *type, void *context,
 }
 
 static void auth_connected(struct auth_client *client,
-			   bool connected, void *context)
+			   const char *connect_error, void *context)
 {
 	struct authtest_input *input = context;
 	const char *mech = dsasl_client_mech_get_name(input->sasl_mech);
@@ -276,10 +276,10 @@ static void auth_connected(struct auth_client *client,
 	string_t *sasl_output_base64;
 	const char *error;
 
-	if (!connected) {
+	if (connect_error != NULL) {
 		if (doveadm_is_killed())
 			return;
-		i_fatal("Couldn't connect to auth socket");
+		i_fatal("Couldn't connect to auth socket: %s", connect_error);
 	}
 	if (auth_client_find_mech(client, mech) == NULL)
 		i_fatal("SASL mechanism '%s' not supported by server", mech);

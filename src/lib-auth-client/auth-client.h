@@ -78,8 +78,10 @@ typedef int auth_channel_binding_callback_t(const char *type, void *context,
 					    const buffer_t **data_r,
 					    const char **error_r);
 
+/* Called when auth connection is ready after handshake (error == NULL), or if
+   connection or handshaked failed (error != NULL). */
 typedef void auth_connect_notify_callback_t(struct auth_client *client,
-					    bool connected, void *context);
+					    const char *error, void *context);
 
 /* Create new authentication client. */
 struct auth_client *

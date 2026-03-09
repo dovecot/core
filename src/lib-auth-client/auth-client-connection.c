@@ -215,7 +215,7 @@ static void auth_client_connection_handshake_ready(struct connection *_conn)
 
 	timeout_remove(&conn->to);
 	if (conn->client->connect_notify_callback != NULL) {
-		conn->client->connect_notify_callback(conn->client, TRUE,
+		conn->client->connect_notify_callback(conn->client, NULL,
 				conn->client->connect_notify_context);
 	}
 }
@@ -430,7 +430,7 @@ void auth_client_connection_disconnect(struct auth_client_connection *conn,
 	auth_client_connection_remove_requests(conn, reason);
 
 	if (conn->client->connect_notify_callback != NULL) {
-		conn->client->connect_notify_callback(conn->client, FALSE,
+		conn->client->connect_notify_callback(conn->client, reason,
 				conn->client->connect_notify_context);
 	}
 }
