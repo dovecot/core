@@ -479,6 +479,20 @@ static int fs_metawrap_copy(struct fs_file *_src, struct fs_file *_dest)
 		return fs_default_copy(_src, _dest);
 }
 
+static int fs_metawrap_get_nlinks(struct fs_file *file, nlink_t *nlinks_r)
+{
+	if (fs_get_nlinks(file->parent, nlinks_r) < 0)
+		return -1;
+
+	/* Used by obox & fs-posix to set MAIL_FETCH_REFCOUNT_ID for
+	   lazy_expunge: */
+	const char *object_id =
+		fs_lookup_loaded_metadata(file->parent, FS_METADATA_OBJECTID);
+	if (object_id != NULL)
+		fs_default_set_metadata(file, FS_METADATA_OBJECTID, object_id);
+	return 0;
+}
+
 const struct fs fs_class_metawrap = {
 	.name = "metawrap",
 	.v = {
@@ -514,6 +528,6 @@ const struct fs fs_class_metawrap = {
 		.iter_next = fs_wrapper_iter_next,
 		.iter_deinit = fs_wrapper_iter_deinit,
 		.switch_ioloop = NULL,
-		.get_nlinks = fs_wrapper_get_nlinks,
+		.get_nlinks = fs_metawrap_get_nlinks,
 	}
 };
