@@ -245,10 +245,17 @@ call_callback(struct auth_client_request *request,
 	      const char *data_base64,
 	      const char *const *args)
 {
+	static const char *const temp_failure_args[] = {
+		"code="AUTH_CLIENT_FAIL_CODE_TEMPFAIL,
+		NULL
+	};
 	auth_request_callback_t *callback = request->callback;
 
-	if (status != AUTH_REQUEST_STATUS_CONTINUE)
+	if (status != AUTH_REQUEST_STATUS_CONTINUE) {
 		request->callback = NULL;
+		if (args == NULL && status != AUTH_REQUEST_STATUS_OK)
+			args = temp_failure_args;
+	}
 	callback(request, status, data_base64, args, request->context);
 }
 
