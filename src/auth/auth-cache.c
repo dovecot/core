@@ -492,7 +492,7 @@ void auth_cache_remove(struct auth_cache *cache,
 {
 	struct auth_cache_node *node;
 
-	key = auth_request_expand_cache_key(request, key, request->fields.user);
+	key = auth_request_expand_cache_key(request, key, request->fields.translated_username);
 	node = hash_table_lookup(cache->hash, key);
 	if (node == NULL)
 		return;
