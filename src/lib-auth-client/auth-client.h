@@ -26,10 +26,18 @@ enum auth_request_flags {
 };
 
 enum auth_request_status {
+	/* auth_client_request_abort() was called */
 	AUTH_REQUEST_STATUS_ABORT = -3,
+	/* Internal client-side error, e.g. disconnected from auth server. */
 	AUTH_REQUEST_STATUS_INTERNAL_FAIL = -2,
+	/* Authentication failed. See "code" and "reason" in args for
+	   details. */
 	AUTH_REQUEST_STATUS_FAIL = -1,
+	/* Authentication continues. data_base64 contains the SASL response
+	   that needs to be sent to the client. */
 	AUTH_REQUEST_STATUS_CONTINUE,
+	/* Authentication finished successfully. data_base64 may contain the
+	   final SASL response that needs to be sent to the client. */
 	AUTH_REQUEST_STATUS_OK
 };
 
@@ -69,6 +77,9 @@ struct auth_request_info {
 	const char *initial_resp_base64;
 };
 
+/* Continue/finish authentication. data_base64 is set for
+   AUTH_REQUEST_STATUS_CONTINUE and perhaps AUTH_REQUEST_STATUS_OK.
+   args is set for all statuses except AUTH_REQUEST_STATUS_CONTINUE. */
 typedef void auth_request_callback_t(struct auth_client_request *request,
 				     enum auth_request_status status,
 				     const char *data_base64,
