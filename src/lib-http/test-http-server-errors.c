@@ -13,6 +13,7 @@
 #include "test-subprocess.h"
 #include "http-url.h"
 #include "http-request.h"
+#include "http-response-parser.h"
 #include "http-server.h"
 
 #include <unistd.h>
@@ -30,6 +31,7 @@ struct client_connection {
 	struct connection conn;
 
 	pool_t pool;
+	struct http_response_parser *resp_parser;
 };
 
 typedef void
@@ -51,6 +53,7 @@ static struct http_server *http_server = NULL;
 static struct io *io_listen;
 static int fd_listen = -1;
 static void (*test_server_request)(struct http_server_request *req);
+static void (*test_server_request_finished)(struct http_server_request *req);
 
 /* client */
 static struct connection_list *client_conn_list;
@@ -733,6 +736,100 @@ static void test_response_ostream_disconnect(void)
 }
 
 /*
+ * Bad payload1
+ */
+
+/* client */
+
+static void test_bad_payload_connected1(struct client_connection *conn)
+{
+	o_stream_nsend_str(
+		conn->conn.output,
+		"GET / HTTP/1.1\r\n"
+		"Host: example.com\r\n"
+		"Transfer-Encoding: chunked\r\n"
+		"Content-Length: 13\r\n"
+		"\r\n"
+		"Bad payload\r\n");
+
+	conn->resp_parser = http_response_parser_init(conn->conn.input, NULL, 0);
+}
+
+static void test_bad_payload_input1(struct client_connection *conn)
+{
+	struct http_response response;
+	const char *error;
+	int ret;
+
+	ret = http_response_parse_next(conn->resp_parser,
+				       HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED,
+				       &response, &error);
+	if (ret == 0)
+		return;
+	if (ret < 0)
+		i_panic("Failed to parse server response: %s", error);
+
+	test_assert(response.status == 400);
+	io_loop_stop(current_ioloop);
+}
+
+static void test_client_bad_payload1(unsigned int index)
+{
+	test_client_connected = test_bad_payload_connected1;
+	test_client_input = test_bad_payload_input1;
+	test_client_run(index);
+}
+
+/* server */
+
+static void
+test_server_bad_payload_request(struct http_server_request *req ATTR_UNUSED)
+{
+	test_assert(FALSE);
+}
+
+static void
+test_server_bad_payload_request_finished(struct http_server_request *req)
+{
+	struct http_server_response *resp;
+	int status;
+	const char *reason;
+
+	resp = http_server_request_get_response(req);
+	test_assert(resp != NULL);
+	if (resp != NULL) {
+		http_server_response_get_status(resp, &status, &reason);
+		test_assert(status == 400);
+	}
+
+	io_loop_stop(ioloop);
+}
+
+static void
+test_server_bad_payload(const struct http_server_settings *server_set)
+{
+	test_server_request = test_server_bad_payload_request;
+	test_server_request_finished = test_server_bad_payload_request_finished;
+	test_server_run(server_set);
+}
+
+/* test */
+
+static void test_bad_payload(void)
+{
+	struct http_server_settings http_server_set;
+
+	test_server_defaults(&http_server_set);
+	http_server_set.max_client_idle_time_msecs = 1000;
+
+	test_begin("bad payload");
+	test_run_client_server(&http_server_set,
+			       test_server_bad_payload,
+			       test_client_bad_payload1, 1);
+	test_end();
+}
+
+/*
  * All tests
  */
 
@@ -742,6 +839,7 @@ static void (*const test_functions[])(void) = {
 	test_hanging_response_payload,
 	test_excessive_payload_length,
 	test_response_ostream_disconnect,
+	test_bad_payload,
 	NULL
 };
 
@@ -787,6 +885,8 @@ static void client_connection_deinit(struct client_connection **_conn)
 
 	*_conn = NULL;
 
+	if (conn->resp_parser != NULL)
+		http_response_parser_deinit(&conn->resp_parser);
 	connection_deinit(&conn->conn);
 	pool_unref(&conn->pool);
 }
@@ -849,11 +949,21 @@ static void
 server_handle_request(void *context ATTR_UNUSED,
 		      struct http_server_request *req)
 {
+	i_assert(test_server_request != NULL);
 	test_server_request(req);
 }
 
+static void
+server_request_finished(void *context ATTR_UNUSED,
+			struct http_server_request *req)
+{
+	if (test_server_request_finished != NULL)
+		test_server_request_finished(req);
+}
+
 struct http_server_callbacks http_server_callbacks = {
-	.handle_request = server_handle_request
+	.handle_request = server_handle_request,
+	.request_finished = server_request_finished,
 };
 
 static void server_connection_accept(void *context ATTR_UNUSED)
@@ -974,6 +1084,7 @@ test_run_client_server(const struct http_server_settings *server_set,
 	test_client_input = NULL;
 	test_client_connected = NULL;
 	test_server_request = NULL;
+	test_server_request_finished = NULL;
 
 	fd_listen = test_open_server_fd();
 
