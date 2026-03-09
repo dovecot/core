@@ -320,8 +320,7 @@ auth_client_request_fail(struct auth_client_request **_request,
 	e->add_str("error", reason);
 	e_debug(e->event(), "Failed: %s", reason);
 
-	if (reason != NULL)
-		args[0] = t_strconcat("reason=", reason, NULL);
+	args[0] = t_strconcat("reason=", reason, NULL);
 
 	auth_client_send_cancel(request->conn->client, request->id);
 	call_callback(request, status, NULL, args);
@@ -465,7 +464,7 @@ auth_client_request_handle_input(struct auth_client_request **_request,
 		if (request->cbinding_callback == NULL) {
 			auth_client_request_fail(
 				&request, AUTH_REQUEST_STATUS_INTERNAL_FAIL,
-				NULL);
+				"Channel binding not supported");
 			return;
 		}
 		if (request->cbinding_callback(cbinding_type,
