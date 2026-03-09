@@ -39,7 +39,7 @@ struct service_settings auth_service_settings = {
 };
 
 const struct setting_keyvalue auth_service_settings_defaults[] = {
-	{ "unix_listener", "auth-client auth-login auth-master auth-userdb login\\slogin token-login\\stokenlogin" },
+	{ "unix_listener", "auth-client auth-login auth-token auth-master auth-userdb login\\slogin token-login\\stokenlogin" },
 
 	{ "unix_listener/auth-client/path", "auth-client" },
 	{ "unix_listener/auth-client/type", "auth" },
@@ -50,6 +50,10 @@ const struct setting_keyvalue auth_service_settings_defaults[] = {
 	{ "unix_listener/auth-login/type", "login" },
 	{ "unix_listener/auth-login/mode", "0600" },
 	{ "unix_listener/auth-login/user", "$SET:default_internal_user" },
+
+	{ "unix_listener/auth-token/path", "auth-token" },
+	{ "unix_listener/auth-token/type", "token" },
+	{ "unix_listener/auth-token/mode", "0666" },
 
 	{ "unix_listener/auth-master/path", "auth-master" },
 	{ "unix_listener/auth-master/type", "master" },
