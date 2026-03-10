@@ -55,6 +55,8 @@ static unsigned int adapt(unsigned int delta, unsigned int numpoints, bool first
 /* Decodes a punycoded string into output, or returns -1 on error. */
 int punycode_decode(const char *input, size_t len, string_t *output)
 {
+	if (len == 0)
+		return -1;
 	ARRAY(unichar_t) label;
 	size_t i = 0;
 	size_t out = 0;
@@ -91,7 +93,6 @@ int punycode_decode(const char *input, size_t len, string_t *output)
 	else
 		ptr = input;
 
-	i_assert(ptr < end);
 	while (ptr < end) {
 		unsigned int oldi, w, k, digit, t;
 		/* Decode a generalized variable-length integer into delta,
@@ -101,9 +102,13 @@ int punycode_decode(const char *input, size_t len, string_t *output)
 
 		oldi = i;
 		w = 1;
-		k = base;
 
-		while (ptr <= end) {
+		/* Iterate over digits of the variable-length integer.  If we
+		   exhaust the input before the terminating digit (digit < t),
+		   the input is malformed. */
+		for (k = base; ; k += base) {
+			if (ptr >= end)
+				return -1;
 			/* ptr points to next digit to decode */
 			digit = decode_digit(*ptr++);
 			if (digit >= base)
@@ -118,7 +123,6 @@ int punycode_decode(const char *input, size_t len, string_t *output)
 			if (w > UINT_MAX / (base - t))
 				return -1;
 			w *= (base - t);
-			k += base;
 		}
 
 		bias = adapt(i - oldi, out + 1, oldi == 0);
