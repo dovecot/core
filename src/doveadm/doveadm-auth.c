@@ -158,7 +158,7 @@ cmd_user_input(struct auth_master_connection *conn,
 
 static void
 auth_callback(struct auth_client_request *request,
-	      enum auth_request_status status, const char *log_error ATTR_UNUSED,
+	      enum auth_request_status status, const char *log_error,
 	      const char *data_base64, const char *const *args, void *context)
 {
 	struct authtest_input *input = context;
@@ -191,12 +191,13 @@ auth_callback(struct auth_client_request *request,
 			}
 		}
 		if (!input->internal_failure) {
-			printf("passdb: %s auth failed\n", input->username);
+			printf("passdb: %s auth failed: %s\n",
+			       input->username, log_error);
 			break;
 		}
 		/* fall through */
 	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
-		e_error(input->event, "internal auth failure");
+		e_error(input->event, "internal auth failure: %s", log_error);
 		break;
 	case AUTH_REQUEST_STATUS_CONTINUE:
 		input_len = strlen(data_base64);
