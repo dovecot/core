@@ -72,7 +72,7 @@ AC_DEFUN([DC_LTO], [
       *)
         gl_COMPILER_OPTION_IF([-flto=auto -ffat-lto-objects], [
           AM_CFLAGS="$AM_CFLAGS -flto=auto -ffat-lto-objects"
-          AM_LDFLAGS="-flto"
+          AM_LDFLAGS="$AM_LDFLAGS -flto"
         ],
         [AC_MSG_ERROR([LTO support requested but not present])],
         [AC_LANG_PROGRAM()])
