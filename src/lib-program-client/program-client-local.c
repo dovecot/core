@@ -117,6 +117,13 @@ exec_child(const char *bin_path, const char *const *args,
 		env_put_array(array_front(envs));
 	}
 
+	/* Drop any privileges */
+
+	struct restrict_access_settings rset;
+
+	restrict_access_init(&rset);
+	restrict_access(&rset, 0, NULL);
+
 	/* Execute */
 
 	args = array_front(&exec_args);
