@@ -676,6 +676,7 @@ AC_DEFUN([DOVECOT_WANT_ASAN], [
      ])
      AS_IF([test "$san_flags" != "" ], [
        AM_CFLAGS="$AM_CFLAGS $san_flags -fno-omit-frame-pointer"
+       AM_LDFLAGS="$AM_LDFLAGS -fsanitize=address"
        AC_DEFINE([HAVE_ADDRESS_SANITIZER], [1], [Define if your compiler supports address sanitizer])
      ], [
        AC_MSG_ERROR([No address sanitizer support in your compiler])
@@ -698,6 +699,7 @@ AC_DEFUN([DOVECOT_WANT_MSAN], [
      ])
      AS_IF([test "$san_flags" != "" ], [
        AM_CFLAGS="$AM_CFLAGS $san_flags -fno-omit-frame-pointer"
+       AM_LDFLAGS="$AM_LDFLAGS -fsanitize=memory"
        AC_DEFINE([HAVE_MEMORY_SANITIZER], [1], [Define if your compiler supports memory sanitizer])
      ], [
        AC_MSG_ERROR([No memory sanitizer support in your compiler])
