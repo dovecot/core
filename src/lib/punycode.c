@@ -103,9 +103,8 @@ int punycode_decode(const char *input, size_t len, string_t *output)
 
 		oldi = i;
 		w = 1;
-		k = base;
 
-		while (ptr <= end) {
+		for (k = base; ptr <= end; k += base) {
 			/* ptr points to next digit to decode */
 			digit = decode_digit(*ptr++);
 			if (digit >= base)
@@ -120,7 +119,6 @@ int punycode_decode(const char *input, size_t len, string_t *output)
 			if (w > UINT_MAX / (base - t))
 				return -1;
 			w *= (base - t);
-			k += base;
 		}
 
 		bias = adapt(i - oldi, out + 1, oldi == 0);
