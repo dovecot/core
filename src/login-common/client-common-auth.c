@@ -389,7 +389,7 @@ static void proxy_reset(struct client *client)
 static void
 proxy_redirect_reauth_callback(struct auth_client_request *request,
 			       enum auth_request_status status,
-			       const char *log_error ATTR_UNUSED,
+			       const char *log_error,
 			       const char *data_base64 ATTR_UNUSED,
 			       const char *const *args, void *context)
 {
@@ -438,18 +438,16 @@ proxy_redirect_reauth_callback(struct auth_client_request *request,
 		error = "Redirect authentication is missing proxy or nologin field";
 		break;
 	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
-		error = "Internal authentication failure";
+		error = log_error;
 		break;
 	case AUTH_REQUEST_STATUS_FAIL:
 		if (!client_auth_parse_args(client, FALSE, TRUE, args,
 					    &reply, &username))
 			error = "Failed to parse auth reply";
-		else if (reply.reason == NULL || reply.reason[0] == '\0')
-			error = "Redirect authentication unexpectedly failed";
 		else
 			error = t_strdup_printf(
 				"Redirect authentication unexpectedly failed: %s",
-				reply.reason);
+				log_error);
 		break;
 	case AUTH_REQUEST_STATUS_ABORT:
 		if (client->login_proxy == NULL)
