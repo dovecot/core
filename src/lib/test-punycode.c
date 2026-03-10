@@ -25,6 +25,8 @@ static void test_punycode_decode(void)
 		  .ret = 0 },
 		/* broken */
 		{ .in = "zz-zzzz", .out = "", .ret = -1 },
+		{ .in = "zz-", .out = "", .ret = -1 },
+		{ .in = "", .out = "", .ret = -1 },
 	};
 
 	unsigned int i;

@@ -90,6 +90,8 @@ int punycode_decode(const char *input, size_t len, string_t *output)
 		ptr = delim + 1;
 	else
 		ptr = input;
+	if (ptr == end)
+		return -1;
 
 	i_assert(ptr < end);
 	while (ptr < end) {
