@@ -104,7 +104,12 @@ int punycode_decode(const char *input, size_t len, string_t *output)
 		oldi = i;
 		w = 1;
 
-		for (k = base; ptr <= end; k += base) {
+		/* Iterate over digits of the variable-length integer.  If we
+		   exhaust the input before the terminating digit (digit < t),
+		   the input is malformed. */
+		for (k = base; ; k += base) {
+			if (ptr >= end)
+				return -1;
 			/* ptr points to next digit to decode */
 			digit = decode_digit(*ptr++);
 			if (digit >= base)

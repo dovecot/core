@@ -24,6 +24,7 @@ static void test_punycode_decode(void)
 			 "\xb0\x2d\xd0\xb2\xd0\xb5\xd1\x81\xd0\xbd\xd0\xb0",
 		  .ret = 0 },
 		/* broken */
+		{ .in = "gr-zi", .out = "", .ret = -1 },
 		{ .in = "zz-zzzz", .out = "", .ret = -1 },
 		{ .in = "zz-", .out = "", .ret = -1 },
 		{ .in = "", .out = "", .ret = -1 },
