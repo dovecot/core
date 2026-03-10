@@ -62,6 +62,8 @@ static void imap_master_client_destroy(struct connection *conn)
 		master_service_client_connection_destroyed(master_service);
 	connection_deinit(conn);
 	i_free(conn);
+
+	imap_refresh_proctitle();
 }
 
 static int
@@ -562,7 +564,6 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 		io_set_pending(imap_client->io);
 	}
 
-	imap_refresh_proctitle();
 	/* we'll always disconnect the client afterwards */
 	return -1;
 }
@@ -595,6 +596,8 @@ imap_master_client_input_line(struct connection *conn, const char *line)
 	ret = imap_master_client_input_args(conn, (const void *)args,
 					    fd_client, pool);
 	pool_unref(&pool);
+
+	imap_refresh_proctitle();
 	return ret;
 }
 
