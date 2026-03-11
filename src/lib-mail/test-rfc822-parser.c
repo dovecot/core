@@ -166,12 +166,13 @@ static void test_rfc822_parse_dot_atom(void)
 	test_end();
 }
 
-static void test_rfc822_parse_domain_literal(void)
+static void test_rfc822_parse_domain(void)
 {
 	static const struct {
 		const char *input, *output;
 		int ret;
 	} tests[] = {
+		{ "@dovecot.org", "dovecot.org", 0 },
 		{ "@[", "", -1 },
 		{ "@[foo", "", -1 },
 		{ "@[foo[]", "", -1 },
@@ -181,52 +182,35 @@ static void test_rfc822_parse_domain_literal(void)
 		{ "@[foo\n bar]", "[foo bar]", 0 },
 		{ "@[foo\n\t\t bar]", "[foo\t\t bar]", 0 },
 		{ "@[foo\\\n bar]", "[foo\\ bar]", 0 },
+#ifdef EXPERIMENTAL_MAIL_UTF8
+		{ "@xn--gr-zia.org", "gr\xc3\xa5.org", 0 },
+		{ "@xn--gr-zia", "gr\xc3\xa5", 0 },
+		{ "@org.xn--gr-zia", "org.gr\xc3\xa5", 0 },
+		{ "@org.xn--gr-zia.org", "org.gr\xc3\xa5.org", 0 },
+		{ "@org.xn--zz-zzzz.org", "org.xn--zz-zzzz.org", 0 },
+		/* labels with no trailing '.' must not get an extra byte
+		   (the buffer NUL terminator) copied into the result */
+		{ "@example", "example", 0 },
+		{ "@a.b.c", "a.b.c", 0 },
+		{ "@xn--zz-zzzz", "xn--zz-zzzz",  0 },
+#endif
 	};
 	struct rfc822_parser_context parser;
 	string_t *str = t_str_new(64);
 	unsigned int i = 0;
 
-	test_begin("rfc822 parse domain literal");
+	test_begin("rfc822 parse domain");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		rfc822_parser_init(&parser, (const void *)tests[i].input,
 				   strlen(tests[i].input), NULL);
 		test_assert_idx(rfc822_parse_domain(&parser, str) == tests[i].ret, i);
 		test_assert_idx(tests[i].ret < 0 ||
 				strcmp(tests[i].output, str_c(str)) == 0, i);
+		/* the decoded result must not contain a stray trailing NUL */
+		test_assert_idx(tests[i].ret < 0 ||
+				str_len(str) == strlen(tests[i].output), i);
 		rfc822_parser_deinit(&parser);
 		str_truncate(str, 0);
-	}
-	test_end();
-}
-
-static void test_rfc822_decode_punycode(void)
-{
-	const struct test_case {
-		const char *in;
-		const char *out;
-	} cases[] = {
-		{ .in = "xn--gr-zia.org", .out = "gr\xc3\xa5.org" },
-		{ .in = "xn--gr-zia", "gr\xc3\xa5" },
-		{ .in = "org.xn--gr-zia", "org.gr\xc3\xa5" },
-		{ .in = "org.xn--gr-zia.org", "org.gr\xc3\xa5.org" },
-		{ .in = "org.xn--zz-zzzz.org", "org.xn--zz-zzzz.org" },
-		/* labels with no trailing '.' must not get an extra byte
-		   (the buffer NUL terminator) copied into the result */
-		{ .in = "example", "example" },
-		{ .in = "a.b.c", "a.b.c" },
-		{ .in = "xn--zz-zzzz", "xn--zz-zzzz" },
-	};
-	string_t *res = t_str_new(64);
-
-	test_begin("rfc822 decode punycode");
-	for (size_t i = 0; i < N_ELEMENTS(cases); i++) {
-		str_truncate(res, 0);
-		rfc822_decode_punycode((const unsigned char *)cases[i].in,
-				       strlen(cases[i].in), res);
-		test_assert_strcmp_idx(str_c(res),
-				       cases[i].out, i);
-		/* the decoded result must not contain a stray trailing NUL */
-		test_assert_idx(str_len(res) == strlen(cases[i].out), i);
 	}
 	test_end();
 }
@@ -467,8 +451,7 @@ int main(void)
 		test_rfc822_parse_comment_nuls,
 		test_rfc822_parse_quoted_string,
 		test_rfc822_parse_dot_atom,
-		test_rfc822_parse_domain_literal,
-		test_rfc822_decode_punycode,
+		test_rfc822_parse_domain,
 		test_rfc822_parse_content_type,
 		test_rfc822_parse_content_param,
 		test_rfc822_parse_content_type_param,
