@@ -1,10 +1,10 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "test-lib.h"
-#include "punycode.h"
 #include "str.h"
+#include "idna-punycode.h"
 
-static void test_punycode_decode(void)
+static void test_idna_punycode_decode(void)
 {
 	const struct test_case {
 		const char *in;
@@ -36,14 +36,16 @@ static void test_punycode_decode(void)
 	test_begin("punycode decoding");
 	for (i = 0; i < N_ELEMENTS(cases); i ++) {
 		str_truncate(r, 0);
-		int ret = punycode_decode((const unsigned char *)cases[i].in, strlen(cases[i].in), r);
+		int ret = idna_punycode_decode(
+			(const unsigned char *)cases[i].in, strlen(cases[i].in),
+			r);
 		test_assert_idx(ret == cases[i].ret, i);
 		test_assert_strcmp_idx(str_c(r), cases[i].out, i);
 	}
 	test_end();
 }
 
-static void test_punycode_decode_len_boundary(void)
+static void test_idna_punycode_decode_len_boundary(void)
 {
 	/* punycode_decode() must honor len and not scan past it.
 	   rfc822_decode_punycode() calls it with input pointing into a longer
@@ -55,12 +57,12 @@ static void test_punycode_decode_len_boundary(void)
 	const char *buf = "a.b-c"; /* NUL-terminated; '-' is at offset 3 */
 
 	test_begin("punycode decoding len boundary");
-	int ret = punycode_decode((const unsigned char *)buf, 1, r);
+	int ret = idna_punycode_decode((const unsigned char *)buf, 1, r);
 	test_assert(ret == -1 || ret == 0);
 	test_end();
 }
 
-static void test_punycode_decode_invalid_codepoint(void)
+static void test_idna_punycode_decode_invalid_codepoint(void)
 {
 	/* A punycoded label can reconstruct a code point that is not a valid
 	   Unicode scalar value (a surrogate 0xD800..0xDFFF or a value above
@@ -76,16 +78,16 @@ static void test_punycode_decode_invalid_codepoint(void)
 	test_begin("punycode decoding invalid codepoint");
 	for (unsigned int i = 0; i < N_ELEMENTS(inputs); i++) {
 		str_truncate(r, 0);
-		int ret = punycode_decode((const unsigned char *)inputs[i],
-					  strlen(inputs[i]), r);
+		int ret = idna_punycode_decode((const unsigned char *)inputs[i],
+					       strlen(inputs[i]), r);
 		test_assert_idx(ret == -1, i);
 	}
 	test_end();
 }
 
-void test_punycode(void)
+void test_idna_punycode(void)
 {
-	test_punycode_decode();
-	test_punycode_decode_len_boundary();
-	test_punycode_decode_invalid_codepoint();
+	test_idna_punycode_decode();
+	test_idna_punycode_decode_len_boundary();
+	test_idna_punycode_decode_invalid_codepoint();
 }

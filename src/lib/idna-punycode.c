@@ -4,7 +4,7 @@
 #include "array.h"
 #include "str.h"
 #include "unichar.h"
-#include "punycode.h"
+#include "idna-punycode.h"
 
 /* Based on punycode.c from RFC 3492
 
@@ -60,7 +60,8 @@ adapt(unsigned int delta, unsigned int numpoints, bool firsttime)
 }
 
 /* Decodes a punycoded string into output, or returns -1 on error. */
-int punycode_decode(const unsigned char *input, size_t len, string_t *output)
+int idna_punycode_decode(const unsigned char *input, size_t len,
+			 string_t *output)
 {
 	ARRAY(unichar_t) label;
 	size_t i = 0;

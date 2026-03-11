@@ -140,6 +140,7 @@ liblib_la_SOURCES = \
 	home-expand.c \
 	hook-build.c \
 	hostpid.c \
+	idna-punycode.c \
 	imem.c \
 	ipwd.c \
 	iostream.c \
@@ -219,7 +220,6 @@ liblib_la_SOURCES = \
 	process-stat.c \
 	process-title.c \
 	priorityq.c \
-	punycode.c \
 	randgen.c \
 	rand.c \
 	read-full.c \
@@ -315,6 +315,7 @@ headers = \
 	home-expand.h \
 	hook-build.h \
 	hostpid.h \
+	idna-punycode.h \
 	imem.h \
 	ipwd.h \
 	iostream.h \
@@ -386,7 +387,6 @@ headers = \
 	process-stat.h \
 	process-title.h \
 	priorityq.h \
-	punycode.h \
 	randgen.h \
 	read-full.h \
 	restrict-access.h \
@@ -473,6 +473,7 @@ test_lib_SOURCES = \
 	test-hash-method.c \
 	test-hmac.c \
 	test-hex-binary.c \
+	test-idna-punycode.c \
 	test-imem.c \
 	test-ioloop.c \
 	test-iso8601-date.c \
@@ -515,7 +516,6 @@ test_lib_SOURCES = \
 	test-primes.c \
 	test-printf-format-fix.c \
 	test-priorityq.c \
-	test-punycode.c \
 	test-random.c \
 	test-seq-range-array.c \
 	test-seq-set-builder.c \
