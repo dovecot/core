@@ -459,10 +459,12 @@ int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str)
 	if (*ctx->data == '[')
 		return rfc822_parse_domain_literal(ctx, str);
 	else {
+#ifdef EXPERIMENTAL_MAIL_UTF8
+		size_t start_pos = str_len(str);
+#endif
 		int ret = rfc822_parse_dot_atom(ctx, str);
 #ifdef EXPERIMENTAL_MAIL_UTF8
 		if (ret == 0) {
-			size_t start_pos = str_len(str);
 			string_t *u = t_str_new(64);
 			rfc822_decode_punycode(str_data(str) + start_pos,
 					       str_len(str) - start_pos, u);
