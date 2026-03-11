@@ -1,7 +1,10 @@
+include $(top_srcdir)/Makefile.test.include
+
 noinst_LTLIBRARIES = liblogin.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-sasl \
 	-I$(top_srcdir)/src/lib-auth-client \
@@ -39,3 +42,17 @@ libdovecot_login_la_SOURCES =
 libdovecot_login_la_LIBADD = liblogin.la $(LIBDOVECOT) $(SSL_LIBS)
 libdovecot_login_la_DEPENDENCIES = liblogin.la $(LIBDOVECOT_DEPS)
 libdovecot_login_la_LDFLAGS = -export-dynamic
+
+test_programs = test-login-common
+
+LIBDOVECOT_TEST_DEPS = \
+	$(noinst_LTLIBRARIES) \
+	../lib-dovecot/libdovecot.la
+
+LIBDOVECOT_TEST = \
+	$(LIBDOVECOT_TEST_DEPS) \
+	$(LIBDOVECOT_TEST_LIBS) \
+	$(MODULE_LIBS)
+
+test_login_common_DEPENDENCIES = $(LIBDOVECOT_TEST_DEPS)
+test_login_common_LDADD = $(LIBDOVECOT_TEST)
