@@ -614,14 +614,9 @@ auth_request_cache_result_to_str(enum auth_request_cache_result result)
 	}
 }
 
-void auth_request_passdb_lookup_begin(struct auth_request *request)
+void auth_request_passdb_event_begin(struct auth_request *request)
 {
 	struct event *event;
-
-	i_assert(request->passdb != NULL);
-	i_assert(!request->userdb_lookup);
-
-	request->passdb_cache_result = AUTH_REQUEST_CACHE_NONE;
 
 	/* use passdb-specific settings during the passdb lookup */
 	request->set = request->passdb->auth_set;
@@ -642,11 +637,35 @@ void auth_request_passdb_lookup_begin(struct auth_request *request)
 	event_set_min_log_level(event, request->passdb->auth_set->verbose ?
 				LOG_TYPE_INFO : LOG_TYPE_WARNING);
 
+	array_push_back(&request->authdb_event, &event);
+}
+
+void auth_request_passdb_event_end(struct auth_request *request)
+{
+	struct event *event = authdb_event(request);
+	event_unref(&event);
+	array_pop_back(&request->authdb_event);
+
+	/* restore protocol-specific settings */
+	request->set = request->protocol_set;
+}
+
+void auth_request_passdb_lookup_begin(struct auth_request *request)
+{
+	struct event *event;
+
+	i_assert(request->passdb != NULL);
+	i_assert(!request->userdb_lookup);
+	auth_request_passdb_event_begin(request);
+
+	event = authdb_event(request);
+
+	request->passdb_cache_result = AUTH_REQUEST_CACHE_NONE;
+
 	e_debug(event_create_passthrough(event)->
 			set_name("auth_passdb_request_started")->
 			event(),
 		"Performing passdb lookup");
-	array_push_back(&request->authdb_event, &event);
 }
 
 void auth_request_passdb_lookup_end(struct auth_request *request,
@@ -677,11 +696,7 @@ void auth_request_passdb_lookup_end(struct auth_request *request,
 					request->passdb_cache_result));
 	}
 	e_debug(e->event(), "Finished passdb lookup");
-	event_unref(&event);
-	array_pop_back(&request->authdb_event);
-
-	/* restore protocol-specific settings */
-	request->set = request->protocol_set;
+	auth_request_passdb_event_end(request);
 }
 
 void auth_request_userdb_lookup_begin(struct auth_request *request)
