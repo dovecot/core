@@ -975,7 +975,10 @@ echo "userdbs ........ :$userdb"
 if test "$not_userdb" != ""; then
   echo "                 :$not_userdb"
 fi
-echo "AM_CFLAGS ...... : $AM_CFLAGS"
+echo "CFLAGS ......... : $AM_CFLAGS $CFLAGS $EXTRA_CFLAGS"
+echo "LDFLAGS ........ : $AM_LDFLAGS $LDFLAGS $EXTRA_LDFLAGS"
+echo "BINARY CFLAGS .. : $BINARY_CFLAGS"
+echo "BINARY LDFLAGS . : $BINARY_LDFLAGS"
 
 if test "$systemdsystemunitdir" != ""; then
   echo "SYSTEMD ........ : $systemdservicetype - $systemdsystemunitdir/dovecot.service";
