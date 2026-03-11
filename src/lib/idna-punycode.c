@@ -15,14 +15,14 @@
 
 /* Boot string parameters for Punycode */
 
-static const unsigned int base = 36; /* maximum basic code point */
-static const unsigned int tmin = 1;
-static const unsigned int tmax = 26;
-static const unsigned int skew = 38;
-static const unsigned int damp = 700;
-static const unsigned int initialBias = 72;
-static const unsigned int initialN = 0x80;
-static const unsigned int delimiter = u'-';
+static const uint32_t base = 36; /* maximum basic code point */
+static const uint32_t tmin = 1;
+static const uint32_t tmax = 26;
+static const uint32_t skew = 38;
+static const uint32_t damp = 700;
+static const uint32_t initialBias = 72;
+static const uint32_t initialN = 0x80;
+static const uint32_t delimiter = u'-';
 
 /*
       code points    digit-values
@@ -31,7 +31,7 @@ static const unsigned int delimiter = u'-';
       61..7A (a-z) =  0 to 25, respectively
       30..39 (0-9) = 26 to 35, respectively
 */
-static inline unsigned int decode_digit(unsigned char cp)
+static inline uint32_t decode_digit(unsigned char cp)
 {
 	if (cp >= '0' && cp <= '9')
 		return cp - u'0' + 26;
@@ -44,10 +44,9 @@ static inline unsigned int decode_digit(unsigned char cp)
 }
 
 /* Bias adaptation function */
-static unsigned int
-adapt(unsigned int delta, unsigned int numpoints, bool firsttime)
+static uint32_t adapt(uint32_t delta, uint32_t numpoints, bool firsttime)
 {
-	unsigned int k;
+	uint32_t k;
 
 	delta = firsttime ? delta / damp : delta >> 1;
 	/* delta >> 1 is a faster way of doing delta / 2 */
@@ -66,7 +65,7 @@ int idna_punycode_decode(const unsigned char *input, size_t len,
 	ARRAY(unichar_t) label;
 	size_t i = 0;
 	size_t out = 0;
-	unsigned int n = initialN, bias = initialBias;
+	uint32_t n = initialN, bias = initialBias;
 	const unsigned char *delim = NULL;
 	const unsigned char *end = CONST_PTR_OFFSET(input, len);
 	const unsigned char *ptr = input;
@@ -107,7 +106,7 @@ int idna_punycode_decode(const unsigned char *input, size_t len,
 
 	i_assert(ptr < end);
 	while (ptr < end) {
-		unsigned int oldi, w, k, digit, t;
+		uint32_t oldi, w, k, digit, t;
 		/* Decode a generalized variable-length integer into delta,
 		   which gets added to i.  The overflow checking is easier if
 		   we increase i as we go, then subtract off its starting
@@ -126,14 +125,14 @@ int idna_punycode_decode(const unsigned char *input, size_t len,
 			digit = decode_digit(*ptr++);
 			if (digit >= base)
 				return -1;
-			if (digit > (UINT_MAX - i) / w)
+			if (digit > (UINT32_MAX - i) / w)
 				return -1;
 			i += digit * w;
 			t = k <= bias ? tmin :
 				k >= bias + tmax ? tmax : k - bias;
 			if (digit < t)
 				break;
-			if (w > UINT_MAX / (base - t))
+			if (w > UINT32_MAX / (base - t))
 				return -1;
 			w *= (base - t);
 		}
@@ -143,7 +142,7 @@ int idna_punycode_decode(const unsigned char *input, size_t len,
 		/* i was supposed to wrap around from out+1 to 0, incrementing
 		   n each time, so we'll fix that now: */
 
-		if (i / (out + 1) > UINT_MAX - n)
+		if (i / (out + 1) > UINT32_MAX - n)
 			return -1;
 
 		n += i / (out + 1);
