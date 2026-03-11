@@ -397,6 +397,15 @@ static void fs_posix_file_close(struct fs_file *_file)
 	}
 }
 
+static bool fs_posix_file_equals(struct fs_file *_file1, struct fs_file *_file2)
+{
+	struct posix_fs_file *file1 =
+		container_of(_file1, struct posix_fs_file, file);
+	struct posix_fs_file *file2 =
+		container_of(_file2, struct posix_fs_file, file);
+	return strcmp(file1->full_path, file2->full_path) == 0;
+}
+
 static void fs_posix_file_deinit(struct fs_file *_file)
 {
 	struct posix_fs_file *file =
@@ -1033,6 +1042,7 @@ const struct fs fs_class_posix = {
 		.file_init = fs_posix_file_init,
 		.file_deinit = fs_posix_file_deinit,
 		.file_close = fs_posix_file_close,
+		.file_equals = fs_posix_file_equals,
 		.get_path = NULL,
 		.set_async_callback = NULL,
 		.wait_async = NULL,
