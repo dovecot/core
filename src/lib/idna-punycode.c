@@ -59,16 +59,15 @@ static uint32_t adapt(uint32_t delta, uint32_t numpoints, bool firsttime)
 }
 
 /* Decodes a punycoded string into output, or returns -1 on error. */
-int idna_punycode_decode(const unsigned char *input, size_t len,
-			 string_t *output)
+int idna_punycode_decode(const unsigned char *in, size_t len, string_t *output)
 {
 	ARRAY(unichar_t) label;
 	size_t i = 0;
 	size_t out_pos = 0;
 	uint32_t n = initialN, bias = initialBias;
 	const unsigned char *delim = NULL;
-	const unsigned char *end = CONST_PTR_OFFSET(input, len);
-	const unsigned char *ptr = input;
+	const unsigned char *end = CONST_PTR_OFFSET(in, len);
+	const unsigned char *ptr = in;
 	t_array_init(&label, len);
 
 	/* Find the rightmost delimiter within the first len bytes. input is not
@@ -76,14 +75,14 @@ int idna_punycode_decode(const unsigned char *input, size_t len,
 	   rfc822_decode_punycode() pass a pointer into a longer string and a
 	   per-label len - so we must not scan past len (strrchr() would, and
 	   could return a delimiter belonging to a later label). */
-	delim = i_memrchr(input, delimiter, len);
+	delim = i_memrchr(in, delimiter, len);
 
 	/* no delimiter found, reset to start of string */
 	if (delim == NULL)
-		delim = input;
+		delim = in;
 	i_assert(delim <= end);
 
-	for (ptr = input; ptr < delim; ptr++) {
+	for (ptr = in; ptr < delim; ptr++) {
 		if (*ptr >= 0x80) {
 			/* Has non-ascii input, this cannot be punycoded. */
 			return -1;
@@ -97,10 +96,10 @@ int idna_punycode_decode(const unsigned char *input, size_t len,
 	out_pos = array_count(&label);
 
 	/* Main decoding loop: start from after delimiter */
-	if (delim != input)
+	if (delim != in)
 		ptr = delim + 1;
 	else
-		ptr = input;
+		ptr = in;
 	if (ptr == end)
 		return -1;
 
