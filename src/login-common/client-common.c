@@ -290,7 +290,7 @@ int client_alloc(int fd, const struct master_service_connection *conn,
 	client->real_remote_port = conn->real_remote_port;
 	client->listener_name = p_strdup(client->pool, conn->name);
 	/* This event must exist before client_is_trusted() is called */
-	client->event = event_create(NULL);
+	client->event = event_create(master_service_get_event(master_service));
 	event_add_category(client->event, &login_binary->event_category);
 	event_add_ip(client->event, "local_ip", &conn->local_ip);
 	event_add_int(client->event, "local_port", conn->local_port);
