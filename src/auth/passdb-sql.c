@@ -269,6 +269,12 @@ static void sql_set_credentials(struct auth_request *request,
 		return;
 	}
 
+	if (*set->update_query == '\0') {
+		e_error(authdb_event(request), "passdb_sql_update_query is empty");
+		callback(FALSE, request);
+		return;
+	}
+
 	sql_request = i_new(struct passdb_sql_request, 1);
 	sql_request->auth_request = request;
 	sql_request->callback.set_credentials = callback;
