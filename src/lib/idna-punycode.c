@@ -64,7 +64,7 @@ int idna_punycode_decode(const unsigned char *input, size_t len,
 {
 	ARRAY(unichar_t) label;
 	size_t i = 0;
-	size_t out = 0;
+	size_t out_pos = 0;
 	uint32_t n = initialN, bias = initialBias;
 	const unsigned char *delim = NULL;
 	const unsigned char *end = CONST_PTR_OFFSET(input, len);
@@ -94,7 +94,7 @@ int idna_punycode_decode(const unsigned char *input, size_t len,
 		array_push_back(&label, &ch);
 	}
 
-	out = array_count(&label);
+	out_pos = array_count(&label);
 
 	/* Main decoding loop: start from after delimiter */
 	if (delim != input)
@@ -137,16 +137,16 @@ int idna_punycode_decode(const unsigned char *input, size_t len,
 			w *= (base - t);
 		}
 
-		bias = adapt(i - oldi, out + 1, oldi == 0);
+		bias = adapt(i - oldi, out_pos + 1, oldi == 0);
 
-		/* i was supposed to wrap around from out+1 to 0, incrementing
-		   n each time, so we'll fix that now: */
+		/* i was supposed to wrap around from out_pos + 1 to 0,
+		   incrementing n each time, so we'll fix that now: */
 
-		if (i / (out + 1) > UINT32_MAX - n)
+		if (i / (out_pos + 1) > UINT32_MAX - n)
 			return -1;
 
-		n += i / (out + 1);
-		i %= (out + 1);
+		n += i / (out_pos + 1);
+		i %= (out_pos + 1);
 
 		if (n < initialN)
 			return -1;
@@ -161,8 +161,8 @@ int idna_punycode_decode(const unsigned char *input, size_t len,
 			return -1;
 
 		/* Insert n at position i of the output: */
-		if (i <= out) {
-			out++;
+		if (i <= out_pos) {
+			out_pos++;
 			array_insert(&label, i, &n, 1);
 		} else
 			return -1;
@@ -170,6 +170,6 @@ int idna_punycode_decode(const unsigned char *input, size_t len,
 		i++;
 	}
 
-	uni_ucs4_to_utf8(array_front(&label), out, output);
+	uni_ucs4_to_utf8(array_front(&label), out_pos, output);
 	return 0;
 }
