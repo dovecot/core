@@ -467,6 +467,21 @@ void fs_file_deinit(struct fs_file **_file)
 	} T_END;
 }
 
+bool fs_file_equals(struct fs_file *file1, struct fs_file *file2)
+{
+	while (file1->parent != NULL)
+		file1 = file1->parent;
+	while (file2->parent != NULL)
+		file2 = file2->parent;
+
+	if (strcmp(file1->fs->name, file2->fs->name) != 0)
+		return FALSE;
+	if (file1->fs->v.file_equals == NULL)
+		return FALSE;
+	i_assert(file1->fs->v.file_equals == file2->fs->v.file_equals);
+	return file1->fs->v.file_equals(file1, file2);
+}
+
 void fs_file_free(struct fs_file *file)
 {
 	if (file->last_error_changed) {
