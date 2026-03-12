@@ -573,7 +573,10 @@ driver_sqlite_statement_init(struct sql_db *_db, const char *query_template)
 	stmt->api.pool = pool;
 	stmt->api.query_template = p_strdup(pool, query_template);
 
-	if (driver_sqlite_connect(_db) < 0) {
+	if (*query_template == '\0') {
+		stmt->rc = SQLITE_MISUSE;
+		stmt->error = "Empty query";
+	} else if (driver_sqlite_connect(_db) < 0) {
 		stmt->rc = db->connect_rc;
 		tail = NULL;
 	} else {
@@ -624,6 +627,9 @@ static int driver_sqlite_exec_query(struct sqlite_db *db, const char *query,
 	if (driver_sqlite_connect(&db->api) < 0) {
 		*error_r = driver_sqlite_result_log(&result, query);
 		result.rc = db->connect_rc;
+	} else if (*query == '\0') {
+		*error_r = "Empty query";
+		result.rc = SQLITE_MISUSE;
 	} else {
 		result.rc = sqlite3_exec(db->sqlite, query, NULL, NULL, NULL);
 		*error_r = driver_sqlite_result_log(&result, query);
@@ -957,7 +963,9 @@ driver_sqlite_prepared_statement_reopen(struct sqlite_db *db,
 	prep_stmt->api.db = &db->api;
 	 /* driver_sqlite_result_str() ignores rc for connect failures */
 	int rc = SQLITE_OK;
-	if (driver_sqlite_connect(&db->api) < 0 ||
+	if (*prep_stmt->api.query_template == '\0') {
+		prep_stmt->error = i_strdup("Empty query");
+	} else if (driver_sqlite_connect(&db->api) < 0 ||
 	    (rc = sqlite3_prepare_v2(db->sqlite, prep_stmt->api.query_template,
 				     -1, &prep_stmt->handle, NULL)) != SQLITE_OK) {
 		prep_stmt->error =
