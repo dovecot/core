@@ -188,8 +188,9 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	/* optional named timezone */
 	if (alt_stamp)
 		;
-	else if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) ||
-		 !i_isdigit(msg[2]) || !i_isdigit(msg[3])) {
+	else if (msg + 4 <= msg_end &&
+		 (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) ||
+		  !i_isdigit(msg[2]) || !i_isdigit(msg[3]))) {
 		/* skip to next space */
 		while (msg < msg_end && *msg != ' ') {
 			if (*msg == '\r' || *msg == '\n')
@@ -199,7 +200,8 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 		if (msg+5 > msg_end)
 			return -1;
 		msg++;
-	} else if ((msg[0] == '-' || msg[0] == '+') &&
+	} else if (msg + 6 <= msg_end &&
+		   (msg[0] == '-' || msg[0] == '+') &&
 		   i_isdigit(msg[1]) && i_isdigit(msg[2]) &&
 		   i_isdigit(msg[3]) && i_isdigit(msg[4]) && msg[5] == ' ') {
 		/* numeric timezone, use it */
