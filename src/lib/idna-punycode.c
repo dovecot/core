@@ -44,6 +44,11 @@ static inline uint32_t decode_digit(uint32_t cp)
 		return base;
 }
 
+static inline uint32_t encode_digit(uint32_t d)
+{
+	return d + 22 + 75 * (d < 26 ? 1 : 0);
+}
+
 /* Bias adaptation function */
 static uint32_t adapt(uint32_t delta, uint32_t numpoints, bool firsttime)
 {
@@ -57,6 +62,99 @@ static uint32_t adapt(uint32_t delta, uint32_t numpoints, bool firsttime)
 		delta /= base - tmin;
 
 	return k + (base - tmin + 1) * delta / (delta + skew);
+}
+
+/* Encodes a Unicode string into punycode output, or returns -1 on error. */
+ssize_t idna_punycode_encode(const uint32_t *in, size_t in_len,
+			     uint32_t *out, size_t out_max)
+{
+	buffer_t out_buf;
+	ARRAY(uint32_t) output;
+	uint32_t n = initialN, bias = initialBias;
+	uint32_t delta = 0;
+	uint32_t h, b, j, m, q, k, t;
+
+	buffer_create_from_data(&out_buf, out,
+				MALLOC_MULTIPLY(sizeof(uint32_t), out_max));
+	array_create_from_buffer(&output, &out_buf, sizeof(uint32_t));
+
+	/* Handle the basic code points: */
+	for (j = 0; j < in_len; j++) {
+		if (in[j] < 0x80) {
+			i_assert(array_count(&output) <= out_max);
+			if (out_max - array_count(&output) < 2)
+				return -1;
+			array_push_back(&output, &in[j]);
+		}
+	}
+
+	h = b = array_count(&output);
+
+	/* h is the number of code points that have been handled, b is the
+	   number of basic code points, and out is the number of characters that
+	   have been output. */
+
+	if (b > 0) {
+		if (array_count(&output) == out_max)
+			return -1;
+		array_push_back(&output, &delimiter);
+	}
+
+	/* Main encoding loop: */
+
+	while (h < in_len) {
+		/* All non-basic code points < n have been handled already. Find
+		   the next larger one: */
+
+		for (m = UINT32_MAX, j = 0; j < in_len; j++) {
+			if (in[j] >= n && in[j] < m)
+				m = in[j];
+		}
+
+		/* Increase delta enough to advance the decoder's  <n,i> state
+		   to <m,0>, but guard against overflow: */
+		i_assert(m - n <= (UINT32_MAX - delta) / (h + 1));
+		delta += (m - n) * (h + 1);
+		n = m;
+
+		for (j = 0; j < in_len; j++) {
+			if (in[j] < n) {
+				delta++;
+				i_assert(delta > 0);
+			}
+			if (in[j] == n) {
+				uint32_t digit;
+
+				/* Represent delta as a generalized variable-length integer:
+				 */
+				for (q = delta, k = base;; k += base) {
+					if (array_count(&output) == out_max)
+						return -1;
+
+					t = (k <= bias ? tmin :
+					     (k >= bias + tmax ? tmax : k - bias));
+					if (q < t)
+						break;
+					
+					digit = encode_digit(t + (q - t) % (base - t));
+					array_push_back(&output, &digit);
+					q = (q - t) / (base - t);
+				}
+
+				if (array_count(&output) == out_max)
+					return -1;
+				digit = encode_digit(q);
+				array_push_back(&output, &digit);
+				bias = adapt(delta, h + 1, h == b);
+				delta = 0;
+				h++;
+			}
+		}
+		delta++;
+		n++;
+	}
+
+	return array_count(&output);
 }
 
 /* Decodes a punycoded string into output, or returns -1 on error. */
