@@ -360,7 +360,16 @@ static int buffer_flush(struct file_ostream *fstream)
 		update_buffer(fstream, ret);
 	}
 
-	return IS_STREAM_EMPTY(fstream) ? 1 : 0;
+	if (!IS_STREAM_EMPTY(fstream))
+		return 0;
+
+	if (fstream->buffer_size > fstream->optimal_block_size) {
+		fstream->buffer = i_realloc(fstream->buffer,
+					    fstream->buffer_size,
+					    fstream->optimal_block_size);
+		fstream->buffer_size = fstream->optimal_block_size;
+	}
+	return 1;
 }
 
 static void o_stream_tcp_flush_via_nodelay(struct file_ostream *fstream)
