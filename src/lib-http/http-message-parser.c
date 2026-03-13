@@ -567,7 +567,8 @@ http_message_parse_body_encoded(struct http_message_parser *parser,
 
 	if (seen_chunked) {
 		parser->payload = http_transfer_chunked_istream_create(
-			parser->input, parser->max_payload_size);
+			parser->input, parser->max_payload_size,
+			&parser->header_limits);
 	} else if (!request) {
 		/* RFC 7230, Section 3.3.3: Message Body Length
 

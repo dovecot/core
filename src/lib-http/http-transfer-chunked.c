@@ -45,6 +45,7 @@ struct http_transfer_chunked_istream {
 	uoff_t chunk_size, chunk_v_offset, chunk_pos;
 	uoff_t size, max_size;
 
+	struct http_header_limits hdr_limits;
 	struct http_header_parser *header_parser;
 
 	bool finished:1;
@@ -456,10 +457,10 @@ http_transfer_chunked_parse_trailer(
 
 	if (tcstream->header_parser == NULL) {
 		/* NOTE: trailer is currently ignored */
-		/* FIXME: limit trailer size */
 		tcstream->header_parser =
 			http_header_parser_init(tcstream->istream.parent,
-						NULL, 0);
+						&tcstream->hdr_limits,
+						0);
 	}
 
 	while ((ret = http_header_parse_next_field(tcstream->header_parser,
@@ -532,12 +533,22 @@ http_transfer_chunked_istream_destroy(struct iostream_private *stream)
 }
 
 struct istream *
-http_transfer_chunked_istream_create(struct istream *input, uoff_t max_size)
+http_transfer_chunked_istream_create(struct istream *input, uoff_t max_size,
+	const struct http_header_limits *hdr_limits)
 {
 	struct http_transfer_chunked_istream *tcstream;
 
 	tcstream = i_new(struct http_transfer_chunked_istream, 1);
 	tcstream->max_size = max_size;
+	if (hdr_limits != NULL)
+		tcstream->hdr_limits = *hdr_limits;
+
+	if (tcstream->hdr_limits.max_size == 0)
+		tcstream->hdr_limits.max_size = HTTP_TRANSFER_CHUNKED_DEFAULT_MAX_TRAILER_SIZE;
+	if (tcstream->hdr_limits.max_field_size == 0)
+		tcstream->hdr_limits.max_field_size = HTTP_TRANSFER_CHUNKED_DEFAULT_MAX_TRAILER_FIELD_SIZE;
+	if (tcstream->hdr_limits.max_fields == 0)
+		tcstream->hdr_limits.max_fields = HTTP_TRANSFER_CHUNKED_DEFAULT_MAX_TRAILER_FIELDS;
 
 	tcstream->istream.max_buffer_size =
 		input->real_stream->max_buffer_size;

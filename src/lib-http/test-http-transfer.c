@@ -99,7 +99,7 @@ static void test_http_transfer_chunked_input_valid(void)
 		test_begin(t_strdup_printf("http transfer_chunked input valid [%d]", i));
 
 		input = i_stream_create_from_data(in, strlen(in));
-		chunked = http_transfer_chunked_istream_create(input, 0);
+		chunked = http_transfer_chunked_istream_create(input, 0, NULL);
 		i_stream_unref(&input);
 
 		buffer_set_used_size(payload_buffer, 0);
@@ -110,9 +110,7 @@ static void test_http_transfer_chunked_input_valid(void)
 		i_stream_unref(&chunked);
 		stream_out = str_c(payload_buffer);
 
-		test_out(t_strdup_printf("response->payload = %s",
-			str_sanitize(stream_out, 80)),
-			strcmp(stream_out, out) == 0);
+		test_assert(strcmp(stream_out, out) == 0);
 		test_end();
 	} T_END;
 
@@ -195,13 +193,13 @@ static void test_http_transfer_chunked_input_invalid(void)
 		test_begin(t_strdup_printf("http transfer_chunked input invalid [%d]", i));
 
 		input = i_stream_create_from_data(in, strlen(in));
-		chunked = http_transfer_chunked_istream_create(input, 0);
+		chunked = http_transfer_chunked_istream_create(input, 0, NULL);
 		i_stream_unref(&input);
 
 		buffer_set_used_size(payload_buffer, 0);
 		output = o_stream_create_buffer(payload_buffer);
 		o_stream_nsend_istream(output, chunked);
-		test_out("payload read failure", chunked->stream_errno != 0);
+		test_assert(chunked->stream_errno != 0);
 		i_stream_unref(&chunked);
 		o_stream_destroy(&output);
 
@@ -311,7 +309,7 @@ static void test_http_transfer_chunked_output_valid(void)
 		/* create chunked input stream */
 		input = i_stream_create_from_data
 			(chunked_buffer->data, chunked_buffer->used);
-		ichunked = http_transfer_chunked_istream_create(input, 0);
+		ichunked = http_transfer_chunked_istream_create(input, 0, NULL);
 
 		/* read back chunk */
 		buffer_set_used_size(plain_buffer, 0);
@@ -325,14 +323,104 @@ static void test_http_transfer_chunked_output_valid(void)
 
 		/* test output */
 		stream_out = str_c(plain_buffer);
-		test_out(t_strdup_printf("response->payload = %s",
-			str_sanitize(stream_out, 80)),
-			strcmp(stream_out, data) == 0);
+		test_assert(strcmp(stream_out, data) == 0);
 		test_end();
 	} T_END;
 
 	buffer_free(&chunked_buffer);
 	buffer_free(&plain_buffer);
+}
+
+static void test_http_transfer_chunked_input_trailer_limit(void)
+{
+	struct istream *input, *chunked;
+	struct ostream *output;
+	buffer_t *payload_buffer;
+	struct http_header_limits limits;
+	const char *in = "4\r\n"
+			 "test\r\n"
+			 "0\r\n"
+			 "X-Very-Long-Trailer: "
+			 "12345678901234567890123456789012345678901234567890"
+			 "\r\n"
+			 "\r\n";
+
+	test_begin("http transfer_chunked input trailer limit");
+
+	payload_buffer = buffer_create_dynamic(default_pool, 1024);
+
+	/* 1. Test that default limit (256KB) is applied when NULL is passed. */
+	size_t trailer_size = HTTP_TRANSFER_CHUNKED_DEFAULT_MAX_TRAILER_SIZE + 1024;
+	char *trailer = i_malloc(trailer_size + 1);
+	memset(trailer, 'a', trailer_size);
+	trailer[trailer_size] = '\0';
+
+	const char *header = "4\r\n"
+	                     "test\r\n"
+	                     "0\r\n"
+	                     "X-Large-Trailer: ";
+	const char *footer = "\r\n\r\n";
+
+	buffer_set_used_size(payload_buffer, 0);
+	buffer_append(payload_buffer, header, strlen(header));
+	buffer_append(payload_buffer, trailer, trailer_size);
+	buffer_append(payload_buffer, footer, strlen(footer));
+
+	input = i_stream_create_from_data(payload_buffer->data, payload_buffer->used);
+	chunked = http_transfer_chunked_istream_create(input, 0, NULL);
+	i_stream_unref(&input);
+
+	output = o_stream_create_buffer(payload_buffer);
+	o_stream_nsend_istream(output, chunked);
+	/* payload read failure due to default trailer limit */
+	test_assert(chunked->stream_errno != 0);
+
+	o_stream_destroy(&output);
+	i_stream_unref(&chunked);
+	i_free(trailer);
+
+	/* 2. Test explicit small limit (30) to trigger failure on smaller trailer */
+	i_zero(&limits);
+	limits.max_size = 30;
+
+	input = i_stream_create_from_data(in, strlen(in));
+	chunked = http_transfer_chunked_istream_create(input, 0, &limits);
+	i_stream_unref(&input);
+
+	buffer_set_used_size(payload_buffer, 0);
+	output = o_stream_create_buffer(payload_buffer);
+
+	/* The payload should be read successfully, but the trailer should cause failure */
+	o_stream_nsend_istream(output, chunked);
+
+	/* payload read failure due to explicit trailer limit */
+	test_assert(chunked->stream_errno != 0);
+
+	o_stream_destroy(&output);
+	i_stream_unref(&chunked);
+
+	/* 3. Now raise the limit and try again. */
+	limits.max_size = 100;
+
+	input = i_stream_create_from_data(in, strlen(in));
+	chunked = http_transfer_chunked_istream_create(input, 0, &limits);
+	i_stream_unref(&input);
+
+	buffer_set_used_size(payload_buffer, 0);
+	output = o_stream_create_buffer(payload_buffer);
+
+	/* The payload should be read successfully, and the trailer size is ok. */
+	o_stream_nsend_istream(output, chunked);
+
+	/* payload read success due to higher trailer limit */
+	test_assert(chunked->stream_errno == 0);
+
+	o_stream_destroy(&output);
+	i_stream_unref(&chunked);
+
+	buffer_free(&payload_buffer);
+
+	test_end();
 }
 
 int main(void)
@@ -341,6 +429,7 @@ int main(void)
 		test_http_transfer_chunked_input_valid,
 		test_http_transfer_chunked_input_invalid,
 		test_http_transfer_chunked_output_valid,
+		test_http_transfer_chunked_input_trailer_limit,
 		NULL
 	};
 	return test_run(test_functions);
