@@ -59,8 +59,8 @@ static uint32_t adapt(uint32_t delta, uint32_t numpoints, bool firsttime)
 }
 
 /* Decodes a punycoded string into output, or returns -1 on error. */
-int idna_punycode_decode(const unsigned char *in, size_t in_len,
-			 string_t *output)
+int idna_punycode_decode_utf8(const unsigned char *in, size_t in_len,
+			      string_t *output)
 {
 	ARRAY(unichar_t) label;
 	size_t i = 0;

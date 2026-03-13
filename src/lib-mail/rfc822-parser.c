@@ -427,8 +427,8 @@ void rfc822_decode_punycode(const unsigned char *input, size_t len,
 		   check by the label length rather than relying on str_begins()
 		   scanning up to a NUL. */
 		if (delim - pos < 4 || memcmp(pos, "xn--", 4) != 0 ||
-		    idna_punycode_decode(pos + 4, delim - pos - 4,
-					 result) < 0) {
+		    idna_punycode_decode_utf8(pos + 4, delim - pos - 4,
+					      result) < 0) {
 			/* Not a punycode label, or it could not be decoded -
 			   keep the label as-is. Copy only up to the delimiter:
 			   the trailing '.' (when this is not the last label)

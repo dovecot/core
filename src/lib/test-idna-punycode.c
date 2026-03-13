@@ -36,7 +36,7 @@ static void test_idna_punycode_decode(void)
 	test_begin("punycode decoding");
 	for (i = 0; i < N_ELEMENTS(cases); i ++) {
 		str_truncate(r, 0);
-		int ret = idna_punycode_decode(
+		int ret = idna_punycode_decode_utf8(
 			(const unsigned char *)cases[i].in, strlen(cases[i].in),
 			r);
 		test_assert_idx(ret == cases[i].ret, i);
@@ -57,7 +57,7 @@ static void test_idna_punycode_decode_len_boundary(void)
 	const char *buf = "a.b-c"; /* NUL-terminated; '-' is at offset 3 */
 
 	test_begin("punycode decoding len boundary");
-	int ret = idna_punycode_decode((const unsigned char *)buf, 1, r);
+	int ret = idna_punycode_decode_utf8((const unsigned char *)buf, 1, r);
 	test_assert(ret == -1 || ret == 0);
 	test_end();
 }
@@ -78,8 +78,8 @@ static void test_idna_punycode_decode_invalid_codepoint(void)
 	test_begin("punycode decoding invalid codepoint");
 	for (unsigned int i = 0; i < N_ELEMENTS(inputs); i++) {
 		str_truncate(r, 0);
-		int ret = idna_punycode_decode((const unsigned char *)inputs[i],
-					       strlen(inputs[i]), r);
+		int ret = idna_punycode_decode_utf8(
+			(const unsigned char *)inputs[i], strlen(inputs[i]), r);
 		test_assert_idx(ret == -1, i);
 	}
 	test_end();
