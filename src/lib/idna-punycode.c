@@ -4,6 +4,7 @@
 #include "array.h"
 #include "str.h"
 #include "unichar.h"
+#include "idna.h"
 #include "idna-punycode.h"
 
 /* Based on punycode.c from RFC 3492
@@ -31,7 +32,7 @@ static const uint32_t delimiter = u'-';
       61..7A (a-z) =  0 to 25, respectively
       30..39 (0-9) = 26 to 35, respectively
 */
-static inline uint32_t decode_digit(unsigned char cp)
+static inline uint32_t decode_digit(uint32_t cp)
 {
 	if (cp >= '0' && cp <= '9')
 		return cp - u'0' + 26;
@@ -62,21 +63,60 @@ static uint32_t adapt(uint32_t delta, uint32_t numpoints, bool firsttime)
 int idna_punycode_decode_utf8(const unsigned char *in, size_t in_len,
 			      string_t *output)
 {
-	ARRAY(unichar_t) label;
-	size_t i = 0;
-	size_t out_pos = 0;
-	uint32_t n = initialN, bias = initialBias;
-	const unsigned char *delim = NULL;
-	const unsigned char *end = CONST_PTR_OFFSET(in, in_len);
-	const unsigned char *ptr = in;
-	t_array_init(&label, in_len);
+	uint32_t *in32 = NULL;
+	uint32_t out32[IDNA_DNS_MAX_NAME_LENGTH + 1];
+	ssize_t sret;
 
-	/* Find the rightmost delimiter within the first in_len bytes. input is
-	   not necessarily NUL-terminated at in_len - callers such as
-	   rfc822_decode_punycode() pass a pointer into a longer string and a
-	   per-label len - so we must not scan past in_len (strrchr() would, and
-	   could return a delimiter belonging to a later label). */
-	delim = i_memrchr(in, delimiter, in_len);
+	T_BEGIN {
+		size_t i;
+
+		if (in_len > 0) {
+			in32 = t_malloc_no0(
+				MALLOC_MULTIPLY(sizeof(uint32_t), in_len));
+		}
+		sret = 0;
+		for (i = 0; i < in_len; i++) {
+			if ((in[i] & 0x80) != 0x00) {
+				sret = -1;
+				break;
+			}
+			in32[i] = in[i];
+		}
+		if (sret == 0) {
+			sret = idna_punycode_decode(in32, in_len,
+						    out32, N_ELEMENTS(out32));
+		}
+	} T_END;
+	if (sret < 0)
+		return -1;
+
+	uni_ucs4_to_utf8(out32, sret, output);
+	return 0;
+}
+ssize_t idna_punycode_decode(const uint32_t *in, size_t in_len,
+			     uint32_t *out, size_t out_max)
+{
+	buffer_t out_buf;
+	ARRAY(uint32_t) label;
+	size_t out_pos;
+	size_t i = 0, k;
+	uint32_t n = initialN, bias = initialBias;
+	const uint32_t *delim = NULL;
+	const uint32_t *end = &in[in_len];
+	const uint32_t *ptr = in;
+
+	buffer_create_from_data(&out_buf, out,
+				MALLOC_MULTIPLY(sizeof(uint32_t), out_max));
+	array_create_from_buffer(&label, &out_buf, sizeof(uint32_t));
+
+	/* find the rightmost delimiter, if present in string */
+	for (k = in_len; k > 0; k--) {
+		if (in[k - 1] == delimiter) {
+			delim = &in[k - 1];
+			break;
+		}
+	}
+	i_assert(delim == NULL || delim < end);
 
 	/* no delimiter found, reset to start of string */
 	if (delim == NULL)
@@ -90,8 +130,9 @@ int idna_punycode_decode_utf8(const unsigned char *in, size_t in_len,
 		}
 		i_assert(array_count(&label) < in_len);
 		/* Add basic code points to label */
-		unichar_t ch = *ptr;
-		array_push_back(&label, &ch);
+		if (array_count(&label) == out_max)
+			return -1;
+		array_push_back(&label, ptr);
 	}
 
 	out_pos = array_count(&label);
@@ -153,23 +194,23 @@ int idna_punycode_decode_utf8(const unsigned char *in, size_t in_len,
 
 		/* The decoded code point must be a valid Unicode scalar
 		   value. Reject surrogates and values above U+10FFFF here,
-		   otherwise the uni_ucs4_to_utf8() sink below would
-		   i_assert() (i_panic) on attacker-supplied input. Callers
-		   treat a negative return as "consider it as data", so this
-		   fails safe. */
+		   otherwise the uni_ucs4_to_utf8() sink in a caller like
+		   idna_punycode_decode_utf8() would i_assert() (i_panic) on
+		   attacker-supplied input. Callers treat a negative return as
+		   "consider it as data", so this fails safe. */
 		if (!uni_is_valid_ucs4(n))
 			return -1;
 
 		/* Insert n at position i of the output: */
 		if (i <= out_pos) {
 			out_pos++;
+			if (array_count(&label) == out_max)
+				return -1;
 			array_insert(&label, i, &n, 1);
 		} else
 			return -1;
 
 		i++;
 	}
-
-	uni_ucs4_to_utf8(array_front(&label), out_pos, output);
-	return 0;
+	return (ssize_t)array_count(&label);
 }

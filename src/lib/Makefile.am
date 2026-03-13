@@ -315,6 +315,7 @@ headers = \
 	home-expand.h \
 	hook-build.h \
 	hostpid.h \
+	idna.h \
 	idna-punycode.h \
 	imem.h \
 	ipwd.h \
