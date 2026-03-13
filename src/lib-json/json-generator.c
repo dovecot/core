@@ -1624,7 +1624,7 @@ static void json_append_escaped_char(string_t *dest, unsigned char src)
 		str_append(dest, "\\\\");
 		break;
 	default:
-		if (src < 0x20 || src >= 0x80)
+		if (src < 0x20)
 			str_printfa(dest, "\\u%04x", src);
 		else
 			str_append_c(dest, src);
