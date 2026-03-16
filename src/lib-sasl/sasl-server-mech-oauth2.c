@@ -62,10 +62,12 @@ oauth2_fail(struct oauth2_auth_request *oauth2_req,
 		i_assert(request->mech->def == &mech_oauthbearer);
 		json_ostream_nwrite_string(joutput, "status", failure->status);
 	}
-	if (failure->scope == NULL)
-		json_ostream_nwrite_string(joutput, "scope", "mail");
-	else
+	if (failure->scope != NULL)
 		json_ostream_nwrite_string(joutput, "scope", failure->scope);
+	else if (oauth2_mech->set.scope != NULL)
+		json_ostream_nwrite_string(joutput, "scope", oauth2_mech->set.scope);
+	else
+		json_ostream_nwrite_string(joutput, "scope", "mail");
 	if (oauth2_mech->set.openid_configuration_url != NULL &&
 	    *oauth2_mech->set.openid_configuration_url != '\0') {
 		json_ostream_nwrite_string(
