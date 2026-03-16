@@ -571,7 +571,8 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 	}
 
 	/* do the comparison */
-	if (memcmp(ekhash, hres, I_MIN(ekhash_len, sizeof(hres))) != 0) {
+	if (ekhash_len != sizeof(hres) ||
+	    memcmp(ekhash, hres, sizeof(hres)) != 0) {
 		buffer_clear_safe(key);
 		io_stream_set_error(&stream->istream.iostream,
 				    "Decryption error: "
