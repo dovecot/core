@@ -83,8 +83,13 @@ oauth2_fail(struct oauth2_auth_request *oauth2_req,
 static void
 oauth2_fail_status(struct oauth2_auth_request *oauth2_req, const char *status)
 {
+	/* need to get the configured scopes */
+	const struct oauth2_auth_mech *oauth2_mech =
+		container_of(oauth2_req->request.mech,
+			     const struct oauth2_auth_mech, mech);
 	const struct sasl_server_oauth2_failure failure = {
 		.status = status,
+		.scope = oauth2_mech->set.scope,
 	};
 
 	oauth2_fail(oauth2_req, &failure);
@@ -484,6 +489,7 @@ mech_oauth2_register(struct sasl_server_instance *sinst,
 	if (set != NULL) {
 		oauth2_mech->set.openid_configuration_url =
 			p_strdup(mech->pool, set->openid_configuration_url);
+		oauth2_mech->set.scope = p_strdup(mech->pool, set->scope);
 	}
 }
 

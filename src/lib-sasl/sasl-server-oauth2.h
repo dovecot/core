@@ -15,6 +15,7 @@ struct sasl_server_oauth2_request {
 
 struct sasl_server_oauth2_settings {
 	const char *openid_configuration_url;
+	const char *scope;
 };
 
 struct sasl_server_oauth2_funcs {
