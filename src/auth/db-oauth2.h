@@ -92,6 +92,7 @@ int db_oauth2_init(struct event *event, bool use_grant_password, struct db_oauth
 bool db_oauth2_use_worker(const struct db_oauth2 *db);
 
 const char *db_oauth2_get_openid_configuration_url(const struct db_oauth2 *db);
+const char *db_oauth2_get_scope(const struct db_oauth2 *db);
 
 void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req, const char *token, struct auth_request *request, db_oauth2_lookup_callback_t *callback, void *context);
 #define db_oauth2_lookup(db, req, token, request, callback, context) \

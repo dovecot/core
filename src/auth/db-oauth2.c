@@ -355,6 +355,11 @@ const char *db_oauth2_get_openid_configuration_url(const struct db_oauth2 *db)
 	return db->set->openid_configuration_url;
 }
 
+const char *db_oauth2_get_scope(const struct db_oauth2 *db)
+{
+	return t_array_const_string_join(&db->set->scope, " ");
+}
+
 static bool
 db_oauth2_have_all_fields(struct db_oauth2_request *req)
 {
