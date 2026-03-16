@@ -225,6 +225,7 @@ mech_oauth_init_settings(struct sasl_server_oauth2_settings *oauth2_set)
 	i_zero(oauth2_set);
 	oauth2_set->openid_configuration_url =
 		db_oauth2_get_openid_configuration_url(db_oauth2);
+	oauth2_set->scope = db_oauth2_get_scope(db_oauth2);
 }
 
 static bool
