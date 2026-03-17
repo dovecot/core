@@ -381,7 +381,9 @@ imap_master_client_authenticate(const char *username, const char *session_id,
 
 	if (result.error != NULL) {
 		*error_r = t_strdup_printf(
-			"DOVECOT-TOKEN authentication failed: %s", result.error);
+			"DOVECOT-TOKEN authentication failed: %s "
+			"(session_pid=%s, token=%s)", result.error, session_pid,
+			auth_token);
 		i_free(result.error);
 		return -1;
 	}

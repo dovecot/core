@@ -312,9 +312,11 @@ bool imap_client_hibernate(struct client **_client, const char **reason_r)
 		/* hide the disconnect log message, because the client didn't
 		   actually log out */
 		e_debug(e->event(),
-			"Successfully hibernated imap client in mailbox %s",
+			"Successfully hibernated imap client in mailbox %s "
+			"(session_pid=%s auth_token=%s)",
 			client->mailbox == NULL ? "<none>" :
-			mailbox_get_vname(client->mailbox));
+			mailbox_get_vname(client->mailbox),
+			my_pid, client->user->auth_token);
 		client->disconnected = TRUE;
 		client->hibernated = TRUE;
 		client_destroy(client, NULL);
