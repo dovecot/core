@@ -647,14 +647,34 @@ imap_client_create(int fd, const struct imap_client_state *state)
 		o_stream_unref(&client->output);
 		client->output = output;
 	}
-	client->state = *state;
 	client->state.username = p_strdup(pool, state->username);
 	client->state.session_id = p_strdup(pool, state->session_id);
 	client->state.userdb_fields = p_strdup(pool, state->userdb_fields);
 	client->state.stats = p_strdup(pool, state->stats);
 	client->state.auth_token = p_strdup(pool, state->auth_token);
 	client->state.session_pid = p_strdup(pool, state->session_pid);
+	client->state.local_ip = state->local_ip;
+	client->state.remote_ip = state->remote_ip;
+	client->state.local_port = state->local_port;
+	client->state.remote_port = state->remote_port;
+	client->state.session_created = state->session_created;
+
+	client->state.uid = state->uid;
+	client->state.gid = state->gid;
+
+	client->state.peer_dev = state->peer_dev;
+	client->state.peer_ino = state->peer_ino;
+
 	client->state.tag = i_strdup(state->tag);
+	client->state.logout_stats = state->logout_stats;
+
+	guid_128_copy(client->state.anvil_conn_guid, state->anvil_conn_guid);
+	client->state.imap_idle_notify_interval =
+		state->imap_idle_notify_interval;
+	client->state.idle_cmd = state->idle_cmd;
+	client->state.have_notify_fd = state->have_notify_fd;
+	client->state.anvil_sent = state->anvil_sent;
+	client->state.multiplex_ostream = state->multiplex_ostream;
 
 	client->event = event_create(NULL);
 	event_add_category(client->event, &event_category_imap_hibernate);
