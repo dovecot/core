@@ -864,11 +864,16 @@ static void auth_str_append_userdb_extra_fields(struct auth_request *request,
 	/* generate auth_token when master service provided session_pid */
 	if (request->request_auth_token &&
 	    request->session_pid != (pid_t)-1) {
+		const char *auth_token_pid = dec2str(request->session_pid);
 		const char *auth_token =
-			auth_token_get(request->fields.protocol,
-				       dec2str(request->session_pid),
+			auth_token_get(request->fields.protocol, auth_token_pid,
 				       request->fields.user,
 				       request->fields.session_id);
+		e_debug(request->event, "Token requested: service=%s "
+			"username=%s session_pid=%s session_id=%s "
+			"token=%s", request->fields.protocol,
+			request->fields.user, auth_token_pid,
+			request->fields.session_id, auth_token);
 		auth_str_add_keyvalue(dest, "auth_token", auth_token);
 	}
 	if (request->fields.master_user != NULL) {

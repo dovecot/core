@@ -66,6 +66,11 @@ mech_dovecot_token_auth_continue(struct sasl_server_mech_request *request,
 				service, "");
 			sasl_server_request_success(request, NULL, 0);
 		} else {
+			e_debug(request->event, "Token mismatch: service=%s "
+				"username=%s session_pid=%s session_id=%s "
+				"token=%s != %s",
+				service, request->authid, pid, session_id,
+				auth_token, valid_token);
 			sasl_server_request_failure(request);
 		}
 	}
