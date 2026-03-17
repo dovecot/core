@@ -109,10 +109,8 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 		str_append(cmd, "\ttag=");
 		str_append_tabescaped(cmd, tag);
 	}
-	if (user->auth_token != NULL) {
-		str_append(cmd, "\tauth_token=");
-		str_append_tabescaped(cmd, user->auth_token);
-	}
+	str_append(cmd, "\tauth_token=");
+	str_append_tabescaped(cmd, user->auth_token);
 	str_printfa(cmd, "\tsession_pid=%s", my_pid);
 	str_append(cmd, "\tstats=");
 	str_append_tabescaped(cmd, client_stats(client));
@@ -246,6 +244,10 @@ bool imap_client_hibernate(struct client **_client, const char **reason_r)
 	if (client->fd_in != client->fd_out) {
 		/* we won't try to hibernate stdio clients */
 		*reason_r = "stdio clients can't be hibernated";
+		return FALSE;
+	}
+	if (client->user->auth_token == NULL) {
+		*reason_r = "User is missing auth_token";
 		return FALSE;
 	}
 

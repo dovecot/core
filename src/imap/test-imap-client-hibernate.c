@@ -115,6 +115,7 @@ static int imap_hibernate_server(struct test_imap_client_hibernate *ctx)
 	if (ctx->has_mailbox)
 		test_assert_strcmp(args[i++], "mailbox="EVILSTR"mailbox");
 	test_assert_strcmp(args[i++], "tag="EVILSTR"tag");
+	test_assert_strcmp(args[i++], "auth_token=asdf");
 	test_assert(str_begins_with(args[i++], "session_pid="));
 	test_assert(args[i] != NULL && str_begins_with(args[i++], "stats="));
 	test_assert_strcmp(args[i++], "idle-cmd");
@@ -178,6 +179,7 @@ static void test_imap_client_hibernate(void)
 		t_strdup_printf("mail_path=%s/mbox", test_dir_get()),
 		t_strdup_printf("base_dir=%s", test_dir_get()),
 		"mail_log_prefix="EVILSTR"%u",
+		"auth_token=asdf",
 		NULL
 	};
 	struct mail_storage_service_input input = {
