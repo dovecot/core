@@ -201,6 +201,13 @@ user_reply_handle(struct mail_storage_service_user *user,
 #endif
 		} else if (strcmp(key, "auth_mech") == 0) {
 			user->auth_mech = p_strdup(user->pool, value);
+		} else if (strcmp(key, "auth_token_session_pid") == 0) {
+			if (str_to_pid(value, &user->auth_token_session_pid) < 0 ||
+			    user->auth_token_session_pid == 0) {
+				e_error(user->event,
+					"userdb returned invalid auth_token_session_pid value %s",
+					value);
+			}
 		} else if (strcmp(key, "auth_token") == 0) {
 			user->auth_token = p_strdup(user->pool, value);
 		} else if (strcmp(key, "auth_user") == 0) {
@@ -213,6 +220,8 @@ user_reply_handle(struct mail_storage_service_user *user,
 			set_keyvalue(user, key, value);
 		}
 	}
+	if (user->auth_token != NULL && user->auth_token_session_pid == 0)
+		user->auth_token_session_pid = getpid();
 	return 0;
 }
 
@@ -636,6 +645,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 		mail_user->service;
 	mail_user->auth_mech = p_strdup(mail_user->pool, user->auth_mech);
 	mail_user->auth_token = p_strdup(mail_user->pool, user->auth_token);
+	mail_user->auth_token_session_pid = user->auth_token_session_pid;
 	mail_user->auth_user = p_strdup(mail_user->pool, user->auth_user);
 	if (user->input.session_create_time != 0) {
 		mail_user->session_create_time =

@@ -88,11 +88,23 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 	if (client->userdb_fields != NULL) {
 		string_t *userdb_fields = t_str_new(256);
 		unsigned int i;
+		bool have_auth_token_session_pid = FALSE;
 
 		for (i = 0; client->userdb_fields[i] != NULL; i++) {
 			if (i > 0)
 				str_append_c(userdb_fields, '\t');
+			if (str_begins_with(client->userdb_fields[i],
+					    "auth_token_session_pid="))
+				have_auth_token_session_pid = TRUE;
 			str_append_tabescaped(userdb_fields, client->userdb_fields[i]);
+		}
+		if (!have_auth_token_session_pid) {
+			if (i > 0)
+				str_append_c(userdb_fields, '\t');
+			/* This is picked up by mail-storage-service when
+			   unhibernating. */
+			str_printfa(userdb_fields, "auth_token_session_pid=%s",
+				    dec2str(client->user->auth_token_session_pid));
 		}
 		str_append(cmd, "\tuserdb_fields=");
 		str_append_tabescaped(cmd, str_c(userdb_fields));
@@ -111,7 +123,8 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 	}
 	str_append(cmd, "\tauth_token=");
 	str_append_tabescaped(cmd, user->auth_token);
-	str_printfa(cmd, "\tsession_pid=%s", my_pid);
+	str_printfa(cmd, "\tsession_pid=%s",
+		    dec2str(user->auth_token_session_pid));
 	str_append(cmd, "\tstats=");
 	str_append_tabescaped(cmd, client_stats(client));
 	if (client->command_queue != NULL &&
@@ -316,7 +329,8 @@ bool imap_client_hibernate(struct client **_client, const char **reason_r)
 			"(session_pid=%s auth_token=%s)",
 			client->mailbox == NULL ? "<none>" :
 			mailbox_get_vname(client->mailbox),
-			my_pid, client->user->auth_token);
+			dec2str(client->user->auth_token_session_pid),
+			client->user->auth_token);
 		client->disconnected = TRUE;
 		client->hibernated = TRUE;
 		client_destroy(client, NULL);

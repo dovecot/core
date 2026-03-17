@@ -636,6 +636,7 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 	user2->protocol = p_strdup(user2->pool, user->protocol);
 	user2->auth_mech = p_strdup(user2->pool, user->auth_mech);
 	user2->auth_token = p_strdup(user2->pool, user->auth_token);
+	user2->auth_token_session_pid = user->auth_token_session_pid;
 	user2->auth_user = p_strdup(user2->pool, user->auth_user);
 	user2->session_id = p_strdup(user2->pool, user->session_id);
 	user2->session_create_time = user->session_create_time;

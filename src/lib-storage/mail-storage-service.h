@@ -99,6 +99,7 @@ struct mail_storage_service_user {
 	struct event *event;
 	struct ioloop_context *ioloop_ctx;
 	const char *log_prefix, *auth_mech, *auth_token, *auth_user;
+	pid_t auth_token_session_pid;
 	const char *master_user;
 	const char *local_name;
 

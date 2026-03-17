@@ -51,6 +51,7 @@ struct mail_user {
 	const char *session_id;
 	struct mail_user_connection_data conn;
 	const char *auth_mech, *auth_token, *auth_user;
+	pid_t auth_token_session_pid;
 	const char *master_user;
 	const char *const *userdb_fields;
 	const char *const *_alt_usernames;
