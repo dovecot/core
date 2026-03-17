@@ -506,7 +506,7 @@ static const char *client_build_uidl_change_string(struct client *client)
 		old_hash ^= crc32_str(client->message_uidls[i]);
 
 	/* assume all except deleted messages were sent to POP3 client */
-	if (!client->deleted) {
+	if (client->deleted_bitmask == NULL) {
 		for (i = 0, new_hash = 0; i < client->messages_count; i++)
 			new_hash ^= crc32_str(client->message_uidls[i]);
 	} else {

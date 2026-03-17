@@ -99,7 +99,6 @@ struct client {
 
 	bool destroyed:1;
 	bool disconnected:1;
-	bool deleted:1;
 	bool waiting_input:1;
 	bool anvil_sent:1;
 	bool message_uidls_save:1;

@@ -53,7 +53,7 @@ static const char *get_msgnum(struct pop3_command_context *cctx,
 	}
 	num--;
 
-	if (cctx->client->deleted) {
+	if (cctx->client->deleted_bitmask != NULL) {
 		if ((cctx->client->deleted_bitmask[num / CHAR_BIT] &
 		     (1 << (num % CHAR_BIT))) != 0) {
 			client_send_line(cctx->client, "-ERR Message is deleted.");
@@ -106,10 +106,8 @@ static int cmd_dele(struct pop3_command_context *cctx)
 	if (get_msgnum(cctx, &msgnum, FALSE) == NULL)
 		return -1;
 
-	if (!cctx->client->deleted) {
+	if (cctx->client->deleted_bitmask == NULL)
 		cctx->client->deleted_bitmask = i_malloc(MSGS_BITMASK_SIZE(cctx->client));
-		cctx->client->deleted = TRUE;
-	}
 
 	cctx->client->deleted_bitmask[msgnum / CHAR_BIT] |= 1 << (msgnum % CHAR_BIT);
 	cctx->client->deleted_count++;
@@ -134,7 +132,7 @@ static void cmd_list_callback(struct client *client)
 			return;
 		}
 
-		if (client->deleted) {
+		if (client->deleted_bitmask != NULL) {
 			if ((client->deleted_bitmask[ctx->msgnum / CHAR_BIT] &
 			     (1 << (ctx->msgnum % CHAR_BIT))) != 0)
 				continue;
@@ -311,7 +309,7 @@ bool client_update_mails(struct client *client)
 static int cmd_quit(struct pop3_command_context *cctx)
 {
 	cctx->client->quit_seen = TRUE;
-	if (cctx->client->deleted || cctx->client->seen_bitmask != NULL) {
+	if (cctx->client->deleted_bitmask != NULL || cctx->client->seen_bitmask != NULL) {
 		if (!client_update_mails(cctx->client)) {
 			client_send_storage_error(cctx->client);
 			client_disconnect(cctx->client,
@@ -329,7 +327,7 @@ static int cmd_quit(struct pop3_command_context *cctx)
 		cctx->client->delete_success = TRUE;
 	}
 
-	if (!cctx->client->deleted)
+	if (cctx->client->deleted_bitmask == NULL)
 		client_send_line(cctx->client, "+OK Logging out.");
 	else
 		client_send_line(cctx->client, "+OK Logging out, messages deleted.");
@@ -536,9 +534,8 @@ static int cmd_rset(struct pop3_command_context *cctx)
 
 	cctx->client->last_seen_pop3_msn = 0;
 
-	if (cctx->client->deleted) {
-		cctx->client->deleted = FALSE;
-		memset(cctx->client->deleted_bitmask, 0, MSGS_BITMASK_SIZE(cctx->client));
+	if (cctx->client->deleted_bitmask != NULL) {
+		i_free(cctx->client->deleted_bitmask);
 		cctx->client->deleted_count = 0;
 		cctx->client->deleted_size = 0;
 	}
@@ -699,7 +696,7 @@ list_uidls_saved_iter(struct client *client, struct cmd_uidl_context *ctx)
 	while (ctx->msgnum < client->messages_count) {
 		uint32_t msgnum = ctx->msgnum++;
 
-		if (client->deleted) {
+		if (client->deleted_bitmask != NULL) {
 			if ((client->deleted_bitmask[msgnum / CHAR_BIT] &
 			     (1 << (msgnum % CHAR_BIT))) != 0)
 				continue;
@@ -743,7 +740,7 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 			failed = TRUE;
 			break;
 		}
-		if (client->deleted) {
+		if (client->deleted_bitmask != NULL) {
 			if ((client->deleted_bitmask[msgnum / CHAR_BIT] &
 			     (1 << (msgnum % CHAR_BIT))) != 0)
 				continue;
