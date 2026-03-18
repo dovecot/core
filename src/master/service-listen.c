@@ -424,7 +424,7 @@ static bool listener_equals(const struct service_listener *l1,
 			return FALSE;
 		if (l1->set.inetset.set->port != l2->set.inetset.set->port)
 			return FALSE;
-		return TRUE;
+		return l1->reuse_port_process_index == l2->reuse_port_process_index;
 	}
 	return FALSE;
 }

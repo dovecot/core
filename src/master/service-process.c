@@ -34,24 +34,6 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-static void service_reopen_inet_listeners(struct service *service)
-{
-	struct service_listener *const *listeners;
-	unsigned int i, count;
-	int old_fd;
-
-	listeners = array_get(&service->listeners, &count);
-	for (i = 0; i < count; i++) {
-		if (!service->set->reuse_port || listeners[i]->fd == -1)
-			continue;
-
-		old_fd = listeners[i]->fd;
-		listeners[i]->fd = -1;
-		if (service_listener_listen(listeners[i]) < 0)
-			listeners[i]->fd = old_fd;
-	}
-}
-
 static int
 service_unix_pid_listener_get_path(struct service_listener *l, pid_t pid,
 				   string_t *path, const char **error_r)
@@ -69,7 +51,8 @@ service_unix_pid_listener_get_path(struct service_listener *l, pid_t pid,
 }
 
 static void
-service_dup_fds(struct service *service, int accepted_fd,
+service_dup_fds(struct service *service, unsigned int process_index,
+		int accepted_fd,
 		const struct service_listener *accepted_listener,
 		int *accepted_listener_fd_r)
 {
@@ -146,6 +129,13 @@ service_dup_fds(struct service *service, int accepted_fd,
 						listeners[i]->set.fileset.set->type);
 				}
 			}
+
+			/* The listeners array contains reuse_port=yes listeners
+			   for every process. Here we filter out the listeners
+			   not intended for this process. */
+			if (service->set->reuse_port &&
+			    listeners[i]->reuse_port_process_index != process_index)
+				continue;
 
 			if (listeners[i] == accepted_listener)
 				*accepted_listener_fd_r = fd;
@@ -327,6 +317,8 @@ service_process_setup_environment(struct service *service, unsigned int uid,
 		env_put(MASTER_SERVICE_COUNT_ENV,
 			dec2str(service->set->restart_request_count));
 	}
+	if (service->set->reuse_port)
+		env_put(MASTER_REUSE_PORT_ENV, "1");
 	env_put(MASTER_UID_ENV, dec2str(uid));
 	env_put(MY_HOSTNAME_ENV, my_hostname);
 	env_put(MY_HOSTDOMAIN_ENV, hostdomain);
@@ -398,6 +390,29 @@ service_process_create(struct service *service, int accepted_fd,
 	   future lookups. */
 	hostdomain = my_hostdomain();
 
+	unsigned int process_index = 0;
+	if (service->set->reuse_port) {
+		/* Figure out the process index number. Do this by scanning
+		   all the existing processes for the service and finding the
+		   first nonexistent index number. Note that retired processes
+		   are no longer listening, so their index must be reused. */
+		bool *seen_index = t_new(bool, service->process_limit);
+		struct service_process *p;
+		for (p = service->busy_processes; p != NULL; p = p->next) {
+			if (p->index < service->process_limit && !p->retired)
+				seen_index[p->index] = TRUE;
+		}
+		for (p = service->idle_processes_head; p != NULL; p = p->next) {
+			if (p->index < service->process_limit)
+				seen_index[p->index] = TRUE;
+		}
+		for (process_index = 0; process_index < service->process_limit; process_index++) {
+			if (!seen_index[process_index])
+				break;
+		}
+		i_assert(process_index < service->process_limit);
+	}
+
 	if (service->type == SERVICE_TYPE_ANVIL &&
 	    service_anvil_global->pid != 0) {
 		pid = service_anvil_global->pid;
@@ -427,8 +442,7 @@ service_process_create(struct service *service, int accepted_fd,
 		/* child */
 		int accepted_listener_fd;
 		service_process_setup_environment(service, uid, hostdomain);
-		service_reopen_inet_listeners(service);
-		service_dup_fds(service, accepted_fd, accepted_listener,
+		service_dup_fds(service, process_index, accepted_fd, accepted_listener,
 				&accepted_listener_fd);
 		if (accepted_fd != -1) {
 			i_assert(accepted_listener_fd > 0);
@@ -445,6 +459,7 @@ service_process_create(struct service *service, int accepted_fd,
 	process->refcount = 1;
 	process->pid = pid;
 	process->uid = uid;
+	process->index = process_index;
 	process->create_time = ioloop_time;
 	if (process_forked) {
 		process->to_status =

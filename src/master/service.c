@@ -156,9 +156,19 @@ service_create_inet_listeners(struct service *service,
 			return -1;
 
 		for (i = 0; i < ips_count; i++) {
-			l = service_create_one_inet_listener(service, set,
-							     address, &ips[i]);
-			array_push_back(&service->listeners, &l);
+			/* reuse_port=yes listeners create all of the processes'
+			   listeners at startup. */
+			unsigned int j, count;
+			if (!service->set->reuse_port)
+				count = 1;
+			else
+				count = service->process_limit;
+			for (j = 0; j < count; j++) {
+				l = service_create_one_inet_listener(service, set,
+								     address, &ips[i]);
+				l->reuse_port_process_index = j;
+				array_push_back(&service->listeners, &l);
+			}
 		}
 		service->have_inet_listeners = TRUE;
 	}
@@ -577,6 +587,11 @@ void service_login_notify(struct service *service, bool all_processes_full)
 	if (service->last_login_full_notify == all_processes_full ||
 	    service->login_notify_fd == -1)
 		return;
+	if (service->set->reuse_port) {
+		/* With reuse_port=yes the processes don't care about sibling
+		   processes' state. */
+		return;
+	}
 
 	/* change the state always immediately. it's cheap. */
 	service->last_login_full_notify = all_processes_full;

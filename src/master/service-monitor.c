@@ -135,6 +135,15 @@ static void service_status_more(struct service_process *process,
 	    service_active_process_count(service) >= service->process_limit)
 		service_login_notify(service, TRUE);
 
+	if (service->set->reuse_port &&
+	    service->last_drop_warning +
+	    SERVICE_DROP_WARN_INTERVAL_SECS <= ioloop_time) {
+		service->last_drop_warning = ioloop_time;
+		e_warning(service->event,
+			  "client_limit (%u) reached, client connections are being dropped (pid=%s, reuse_port=yes)",
+			  service->client_limit, dec2str(process->pid));
+	}
+
 	/* we may need to start more */
 	service_monitor_start_extra_avail(service);
 	service_monitor_listen_start(service);
@@ -514,7 +523,7 @@ static void service_monitor_listen_start_force(struct service *service)
 	timeout_remove(&service->to_drop_warning);
 
 	array_foreach_elem(&service->listeners, l) {
-		if (l->io == NULL && l->fd != -1)
+		if (l->io == NULL && l->fd != -1 && !service->set->reuse_port)
 			l->io = io_add(l->fd, IO_READ, service_accept, l);
 	}
 }

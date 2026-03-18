@@ -776,31 +776,12 @@ master_settings_ext_check(struct event *event, void *_set,
 			return FALSE;
 		}
 
-		if (array_is_created(&service->parsed_inet_listeners)) {
-			struct inet_listener_settings *l;
-			bool seen_reuse_port = FALSE;
-
-			array_foreach_elem(&service->parsed_inet_listeners, l) {
-				if (l->port == 0)
-					continue;
-
-				if (l->reuse_port)
-					seen_reuse_port = TRUE;
-				else if (seen_reuse_port) {
-					*error_r = t_strdup_printf("service(%s): "
-						"All or none of the inet_listeners must have reuse_port=yes "
-						"(missing for inet_listener %s)",
-						service->name, l->name);
-					return FALSE;
-				}
-				if (l->reuse_port &&
-				    service->process_min_avail != service->process_limit) {
-					*error_r = t_strdup_printf("service(%s): "
-						"process_min_avail must be equal to process_limit "
-						"when using reuse_port=yes", service->name);
-					return FALSE;
-				}
-			}
+		if (service->reuse_port &&
+		    service->process_min_avail != service->process_limit) {
+			*error_r = t_strdup_printf("service(%s): "
+				"process_min_avail must be equal to process_limit when using service_reuse_port=yes",
+				service->name);
+			return FALSE;
 		}
 
 #ifdef CONFIG_BINARY

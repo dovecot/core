@@ -19,6 +19,11 @@ struct service_process {
 	   smaller than the correct value. */
 	unsigned int total_count;
 
+	/* Process index number. This is set only for services with
+	   inet_listener_reuse_port=yes listeners. See
+	   service_listener.reuse_port_process_index for how this is used. */
+	unsigned int index;
+
 	/* Timestamp when the process was created */
 	time_t create_time;
 	/* Time when process started idling, or 0 if we're not idling. This is

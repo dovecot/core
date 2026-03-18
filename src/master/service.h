@@ -39,6 +39,14 @@ struct service_listener {
 			struct ip_addr ip;
 		} inetset;
 	} set;
+
+	/* This listener is used only by the process with this index number.
+	   Each process gets their own reuse_port listener. This index number
+	   is between 0..(process_limit-1) and valid only for that process
+	   index. The index is assigned while at the process creation order.
+	   If a process exits or retires, it is replaced by a new process with
+	   the same index number. */
+	unsigned int reuse_port_process_index;
 };
 
 struct service {

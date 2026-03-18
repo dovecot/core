@@ -570,6 +570,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 	} else {
 		service->version_string = PACKAGE_VERSION;
 	}
+	service->reuse_port = getenv(MASTER_REUSE_PORT_ENV) != NULL;
 
 	/* Load the SSL module if we already know it is necessary. It can also
 	   get loaded later on-demand. */
@@ -1798,12 +1799,20 @@ static bool master_service_full(struct master_service *service)
 	struct timeval created;
 
 	/* This process can't handle any more connections. */
-	if (!service->call_avail_overflow ||
-	    service->avail_overflow_callback == NULL)
+	if (service->avail_overflow_callback == NULL)
 		return TRUE;
+	if (!service->call_avail_overflow && !service->reuse_port) {
+		/* This process is full, but sibling processes aren't. Another
+		   process will pick up this connection. Note that with
+		   reuse_port=yes the connection is specifically assigned to
+		   this process, so we are responsible for accepting or
+		   rejecting it. */
+		return TRUE;
+	}
 
-	/* Master has notified us that all processes are full, and
-	   we have the ability to kill old connections. */
+	/* Master has notified us that all processes are full (or with
+	   reuse_port=yes this process is full), and we have the ability to
+	   kill old connections. */
 	if (service->total_available_count > 1) {
 		/* This process can still create multiple concurrent
 		   clients if we just kill some of the existing ones.
@@ -1895,6 +1904,15 @@ static void master_service_listen(struct master_service_listener *l)
 
 	if (service->master_status.available_count == 0 && !master_admin_conn) {
 		if (master_service_full(service)) {
+			if (service->reuse_port) {
+				/* With reuse_port the master can't drop
+				   the connections for us. We must do it
+				   ourselves. */
+				int fd = net_accept(l->fd, NULL, NULL);
+				if (fd != -1)
+					i_close_fd(&fd);
+				return;
+			}
 			/* Stop the listener until a client has disconnected or
 			   overflow callback has killed one. */
 			master_service_io_listeners_remove(service);

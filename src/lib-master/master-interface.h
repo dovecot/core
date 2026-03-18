@@ -65,6 +65,9 @@ enum master_login_state {
    timeout in seconds. */
 #define MASTER_SERVICE_IDLE_KILL_INTERVAL_ENV "IDLE_KILL_INTERVAL"
 
+/* getenv(MASTER_REUSE_PORT_ENV) is non-NULL if service_reuse_port=yes */
+#define MASTER_REUSE_PORT_ENV "REUSE_PORT"
+
 /* getenv(MASTER_CONFIG_FILE_ENV) provides path to configuration file. */
 #define MASTER_CONFIG_FILE_ENV "CONFIG_FILE"
 
