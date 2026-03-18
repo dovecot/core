@@ -7,12 +7,12 @@
 #include "fs-api.h"
 #include "dict-private.h"
 
-static void test_dict_set_get(struct dict *dict, const char *key,
-			     const char *value)
+static void test_dict_set_get(struct dict *dict, const char *username,
+			      const char *key, const char *value)
 {
 	const char *got_value, *error;
 	struct dict_op_settings set = {
-		.username = "testuser",
+		.username = username,
 	};
 	struct dict_transaction_context *t = dict_transaction_begin(dict, &set);
 	dict_set(t, key, value);
@@ -75,24 +75,24 @@ static void test_dict_fs_set_get(void)
 		{ "shared/...key/key", ".test-dict/...key/key" },
 	};
 	for (size_t i = 0; i < N_ELEMENTS(test_cases); i++) {
-		test_dict_set_get(dict, test_cases[i].key, "1");
+		test_dict_set_get(dict, "testuser", test_cases[i].key, "1");
 		test_assert(test_file_exists(test_cases[i].path));
 	}
 
 	/* per user paths */
-	test_dict_set_get(dict, "priv/value", "priv1");
+	test_dict_set_get(dict, "testuser", "priv/value", "priv1");
 	test_assert(test_file_exists(".test-dict/testuser/value"));
-	test_dict_set_get(dict, "priv/path/with/value", "priv2");
+	test_dict_set_get(dict, "testuser", "priv/path/with/value", "priv2");
 	test_assert(test_file_exists(".test-dict/testuser/path/with/value"));
 
 	/* check that dots work correctly */
-	test_dict_set_get(dict, "shared/../test-dict-fs.c", "3");
+	test_dict_set_get(dict, "testuser", "shared/../test-dict-fs.c", "3");
 	test_assert(test_file_exists(".test-dict/..../test-dict-fs.c"));
-	test_dict_set_get(dict, "shared/./test", "4");
+	test_dict_set_get(dict, "testuser", "shared/./test", "4");
 	test_assert(test_file_exists(".test-dict/.../test"));
-	test_dict_set_get(dict, "shared/.test", "5");
+	test_dict_set_get(dict, "testuser", "shared/.test", "5");
 	test_assert(test_file_exists(".test-dict/.test"));
-	test_dict_set_get(dict, "shared/..test", "6");
+	test_dict_set_get(dict, "testuser", "shared/..test", "6");
 	test_assert(test_file_exists(".test-dict/..test"));
 	dict_deinit(&dict);
 
