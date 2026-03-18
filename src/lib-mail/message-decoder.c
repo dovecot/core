@@ -224,19 +224,33 @@ static void translation_buf_decode(struct message_decoder_context *ctx,
 	memcpy(trans_buf + ctx->translation_size, *data, data_wanted);
 
 	orig_size = trans_size = ctx->translation_size + data_wanted;
-	(void)charset_to_utf8(ctx->charset_trans, trans_buf,
-			      &trans_size, ctx->buf2);
+	enum charset_result result =
+		charset_to_utf8(ctx->charset_trans, trans_buf,
+				&trans_size, ctx->buf2);
 
-	if (trans_size <= ctx->translation_size) {
+	if (trans_size > ctx->translation_size) {
+		/* more input was processed */
+	} else if (trans_size > 0) {
+		/* We get here when:
+		   1. Incomplete sequence has been sent to charset_to_utf()
+		      previously, e.g. 3 bytes for a utf-32be character.
+		   2. We have 1 new byte to complete the character, which
+		      is found to be invalid.
+		   3. charset_to_utf() internally skips 1 byte, hoping to find
+		      valid output from the next byte. But now we again have
+		      only 3 bytes left, so the input is incomplete to get
+		      forward.
+
+		   So we'll assert here that result is
+		   CHARSET_RET_INVALID_INPUT. Any other situation is not
+		   expected to happen. */
+		i_assert(result == CHARSET_RET_INVALID_INPUT);
+		trans_size = ctx->translation_size + 1;
+	} else {
 		/* We should get here only if we didn't get forward in our
 		   charset translation, i.e. we need more input to continue
-		   translation.
-
-		   If trans_size > 0 but <= translation_size, it means that the
-		   input we already fed to charset_to_utf8() previously returned
-		   "more data needed" but this time it succeeded. This shouldn't
-		   happen, so we'll have an assert against it. */
-		i_assert(trans_size == 0);
+		   translation. */
+		i_assert(result == CHARSET_RET_INCOMPLETE_INPUT);
 		/* This assert triggers if translation_buf is too small and
 		   we can't get forward with the translation. */
 		i_assert(orig_size < CHARSET_MAX_PENDING_BUF_SIZE);

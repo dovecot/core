@@ -77,6 +77,68 @@ static void test_message_decoder(void)
 	test_end();
 }
 
+static void test_message_decoder_partial_illegal_sequence(void)
+{
+	struct message_decoder_context *ctx;
+	struct message_part part;
+	struct message_header_line hdr;
+	struct message_block input, output;
+
+	test_begin("message decoder partial illegal sequence");
+
+	i_zero(&part);
+	i_zero(&input);
+	memset(&output, 0xff, sizeof(output));
+	input.part = &part;
+
+	ctx = message_decoder_init(NULL, 0);
+
+	i_zero(&hdr);
+	hdr.name = "Content-Type";
+	hdr.name_len = strlen(hdr.name);
+	hdr.full_value = (const void *)"text/plain; charset=utf-32be";
+	hdr.full_value_len = strlen((const char *)hdr.full_value);
+	input.hdr = &hdr;
+	test_assert(message_decoder_decode_next_block(ctx, &input, &output));
+	test_assert(output.size == 0);
+
+	input.hdr = NULL;
+	test_assert(message_decoder_decode_next_block(ctx, &input, &output));
+
+	input.data = (const void *)"M--";
+	input.size = strlen((const char *)input.data);
+	test_assert(message_decoder_decode_next_block(ctx, &input, &output));
+	test_assert(output.size == 0);
+
+	/* This completes the 32bit character, making it illegal */
+	input.data = (const void *)"X";
+	input.size = 1;
+	test_assert(message_decoder_decode_next_block(ctx, &input, &output));
+	test_assert_cmp(output.size, ==, UNICODE_REPLACEMENT_CHAR_UTF8_LEN);
+	test_assert(memcmp(output.data, UNICODE_REPLACEMENT_CHAR_UTF8,
+			   output.size) == 0);
+
+	/* Valid character followed by earlier invalid input. */
+	input.data = (const void *)"\000\000\000\x61";
+	input.size = 4;
+	test_assert(message_decoder_decode_next_block(ctx, &input, &output));
+	test_assert_cmp(output.size, ==, 1);
+	test_assert(memcmp(output.data, "a", output.size) == 0);
+
+	/* Try also the code path where illegal input is followed by a valid
+	   character is followed by */
+	input.data = (const void *)"M--\000\000\000\x62";
+	input.size = 3 + 4;
+	test_assert(message_decoder_decode_next_block(ctx, &input, &output));
+	test_assert_cmp(output.size, ==, UNICODE_REPLACEMENT_CHAR_UTF8_LEN + 1);
+	test_assert(memcmp(output.data, UNICODE_REPLACEMENT_CHAR_UTF8"b",
+			   output.size) == 0);
+
+	message_decoder_deinit(&ctx);
+
+	test_end();
+}
+
 static void test_message_decoder_multipart(void)
 {
 	static const char test_message_input[] =
@@ -546,6 +608,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_message_decoder,
+		test_message_decoder_partial_illegal_sequence,
 		test_message_decoder_multipart,
 		test_message_decoder_current_content_type,
 		test_message_decoder_content_transfer_encoding,
