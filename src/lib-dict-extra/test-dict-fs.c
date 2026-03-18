@@ -94,6 +94,32 @@ static void test_dict_fs_set_get(void)
 	test_assert(test_file_exists(".test-dict/.test"));
 	test_dict_set_get(dict, "testuser", "shared/..test", "6");
 	test_assert(test_file_exists(".test-dict/..test"));
+
+	/* make sure path traversal in usernames is prevented */
+	const char *username_test_key = "priv/./key";
+	struct {
+		const char *username;
+		const char *path;
+	} username_test_cases[] = {
+		{ ".testuser", ".test-dict/.testuser/...key" },
+		{ "./testuser",   ".test-dict/.../testuser/.../key" },
+		{ "./.testuser",   ".test-dict/.../.testuser/.../key" },
+		{ "../testuser", ".test-dict/..../testuser/.../key" },
+		{ "../.testuser", ".test-dict/..../.testuser/.../key" },
+		{ "././testuser", ".test-dict/.../.../testuser/.../key" },
+		{ "././.testuser", ".test-dict/.../.../testuser/.../key" },
+		{ "./../testuser", ".test-dict/.../..../testuser/.../key" },
+		{ "./../.testuser", ".test-dict/.../..../testuser/.../key" },
+		{ ".././testuser", ".test-dict/..../.../testuser/.../key" },
+		{ "./../.testuser", ".test-dict/.../..../testuser/.../key" },
+		{ "../../testuser", ".test-dict/..../..../testuser/.../key" },
+		{ "../../.testuser", ".test-dict/..../..../testuser/.../key" },
+	};
+	for (size_t i = 0; i < N_ELEMENTS(username_test_cases); i++) {
+		test_dict_set_get(dict, username_test_cases[i].username,
+				  username_test_key, "1");
+		test_assert(test_file_exists(test_cases[i].path));
+	}
 	dict_deinit(&dict);
 
 	if (unlink_directory(".test-dict", UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0)

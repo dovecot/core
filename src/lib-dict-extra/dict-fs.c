@@ -57,6 +57,13 @@ static const char *fs_dict_escape_key(const char *key)
 {
 	const char *ptr;
 	string_t *new_key = NULL;
+	/* A key always starts with either "priv/" or "shared/". Usernames can
+	   start with "./" or "../". Thus make sure the given key has no such
+	   prefix. */
+	if (str_begins_with(key, "./") || str_begins_with(key, "../")) {
+		new_key = t_str_new(strlen(key));
+		str_append(new_key, "..");
+	}
 	/* we take the slow path always if we see potential
 	   need for escaping */
 	while ((ptr = strstr(key, "/.")) != NULL) {
@@ -86,7 +93,7 @@ static const char *fs_dict_get_full_key(const char *username, const char *key)
 	if (str_begins(key, DICT_PATH_SHARED, &key))
 		return key;
 	else if (str_begins(key, DICT_PATH_PRIVATE, &key))
-		return t_strdup_printf("%s/%s", username, key);
+		return t_strdup_printf("%s/%s", fs_dict_escape_key(username), key);
 	else
 		i_unreached();
 }
