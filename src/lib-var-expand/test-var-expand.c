@@ -198,7 +198,9 @@ static void test_var_expand_builtin_filters(void) {
 		{ .in = "%{literal('<<?""?""?>>') | base64(url=1)}", .out = "PDw_Pz8-Pg==", .ret = 0 },
 		{ .in = "%{literal('<<?""?""?>>') | base64(pad=0,url=1)}", .out = "PDw_Pz8-Pg", .ret = 0 },
 		/* truncate */
-		{ .in = "%{first | truncate(3)}", .out = "hel", .ret = 0 },
+		{ .in = "%{first | truncate(4)}", .out = "hell", .ret = 0 },
+		{ .in = "%{first | truncate(5)}", .out = "hello", .ret = 0 },
+		{ .in = "%{first | truncate(6)}", .out = "hello", .ret = 0 },
 		{ .in = "%{first | truncate(three)}", .out = "hel", .ret = 0 },
 		{ .in = "%{first | truncate(bits=7)}", .out = "4", .ret = 0 },
 		{ .in = "%{truncate}", .out = "truncate: Missing parameter", .ret = -1 },

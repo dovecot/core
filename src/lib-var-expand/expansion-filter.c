@@ -634,7 +634,7 @@ static int fn_truncate(const struct var_expand_statement *stmt,
 
 	if (bits)
 		buffer_truncate_rshift_bits(new_value, len);
-	else
+	else if (len < state->transfer->used)
 		buffer_set_used_size(new_value, len);
 
 	var_expand_state_set_transfer_data(state, new_value->data, new_value->used);
