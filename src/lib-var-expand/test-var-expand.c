@@ -1354,6 +1354,7 @@ static void test_var_expand_split(void)
 			{ .key = "user", .value = "remote user" },
 			VAR_EXPAND_TABLE_END
 		},
+		.providers = NULL,
 	};
 
 	const char *prog =
