@@ -1833,12 +1833,12 @@ auth_request_validate_client_fp(struct auth_request *request, const char *name,
 		request->failed = TRUE;
 		return;
 	} else if (strcmp(name, "check_client_fp") == 0) {
-		valid = strcmp(client_cert_fp, fp) == 0 ||
-		        strcmp(client_pubkey_fp, fp) == 0;
+		valid = null_strcmp(client_cert_fp, fp) == 0 ||
+		        null_strcmp(client_pubkey_fp, fp) == 0;
 	} else if (strcmp(name, "check_client_cert_fp") == 0)
-		valid = strcmp(client_cert_fp, fp) == 0;
+		valid = null_strcmp(client_cert_fp, fp) == 0;
 	else if (strcmp(name, "check_client_pubkey_fp") == 0)
-		valid = strcmp(client_pubkey_fp, fp) == 0;
+		valid = null_strcmp(client_pubkey_fp, fp) == 0;
 	else
 		i_unreached();
 
