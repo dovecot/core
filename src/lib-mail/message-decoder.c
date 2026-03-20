@@ -241,11 +241,11 @@ static void translation_buf_decode(struct message_decoder_context *ctx,
 		   Handle this the same as if more input was processed. */
 	} else if (trans_size > 0) {
 		/* We get here when:
-		   1. Incomplete sequence has been sent to charset_to_utf()
+		   1. Incomplete sequence has been sent to charset_to_utf8()
 		      previously, e.g. 3 bytes for a utf-32be character.
 		   2. We have 1 new byte to complete the character, which
 		      is found to be invalid.
-		   3. charset_to_utf() internally skips 1 byte, hoping to find
+		   3. charset_to_utf8() internally skips 1 byte, hoping to find
 		      valid output from the next byte. But now we again have
 		      only 3 bytes left, so the input is incomplete to get
 		      forward.
