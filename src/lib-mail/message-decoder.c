@@ -230,6 +230,15 @@ static void translation_buf_decode(struct message_decoder_context *ctx,
 
 	if (trans_size > ctx->translation_size) {
 		/* more input was processed */
+	} else if (trans_size == ctx->translation_size &&
+		   result == CHARSET_RET_INCOMPLETE_INPUT) {
+		/* We get here at least with ISO-2022-JP:
+		   1. Incomplete sequence to change encoding state
+		   2. The final byte, which is found to be invalid.
+		   3. iconv() passes through the first two bytes instead of
+		      failing it as invalid input. The new byte starts a new
+		      incomplete encoding state.
+		   Handle this the same as if more input was processed. */
 	} else if (trans_size > 0) {
 		/* We get here when:
 		   1. Incomplete sequence has been sent to charset_to_utf()
