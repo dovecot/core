@@ -28,6 +28,22 @@ struct var_expand_test {
 /* Run with -b to set TRUE */
 static bool do_bench = FALSE;
 
+static void test_assert_program_equal(const char *prog, int idx, const char *file, long long line)
+{
+	struct var_expand_program *program;
+	const char *error;
+	if (var_expand_program_create(prog, &program, &error) < 0) {
+		test_assert_failed_idx(error, file, line, idx);
+		return;
+	}
+	const char *str = var_expand_program_to_string(program);
+	var_expand_program_free(&program);
+	test_assert_strcmp_idx(prog, str, idx);
+}
+
+#define test_assert_program_equal_idx(prog, idx) \
+	test_assert_program_equal((prog), (idx), __FILE__, __LINE__);
+
 static void run_var_expand_tests(const struct var_expand_params *params,
 				 const struct var_expand_test tests[],
 				 size_t test_count)
@@ -1386,6 +1402,38 @@ static void test_var_expand_split(void)
 	test_end();
 }
 
+static void test_var_expand_to_string(void)
+{
+	const char *const test_cases[] = {
+		"%{hello}",
+		"%{literal('hello')}'",
+		"%{literal('\\'hello\\'')}",
+		"simple",
+		"simple %{test} case",
+		"%{complex | upper | lower | truncate(5)}",
+		"%{test | func(a=1, b='2', c=t)}",
+		"%{hello | sha256 % 4}",
+		"%{hello % 4}",
+	};
+	for (size_t i = 0; i < N_ELEMENTS(test_cases); i++)
+		test_assert_program_equal_idx(test_cases[i], i);
+
+	const char *template_2 = "%{only} %{first} %{program}";
+	struct var_expand_program *program;
+	const char *error;
+	test_assert_program_equal_idx(template_2, 0);
+
+	if (var_expand_program_create(template_2, &program, &error) < 0) {
+		test_assert_failed(error, __FILE__, __LINE__);
+		return;
+	}
+
+	const char *first = var_expand_program_to_string_one(program);
+	test_assert_strcmp(first, "%{only}");
+
+	var_expand_program_free(&program);
+}
+
 int main(int argc, char *const argv[])
 {
 	void (*const tests[])(void) = {
@@ -1407,6 +1455,7 @@ int main(int argc, char *const argv[])
 		test_var_expand_generate,
 		test_var_expand_export_import,
 		test_var_expand_split,
+		test_var_expand_to_string,
 		test_var_expand_bench,
 		NULL
 	};

@@ -238,6 +238,14 @@ const char *var_expand_program_export(const struct var_expand_program *program);
 void var_expand_program_export_append(string_t *dest,
 				      const struct var_expand_program *program);
 
+/* Reconstruct var_expand program */
+const char *var_expand_program_to_string_one(const struct var_expand_program *program);
+const char *var_expand_program_to_string(const struct var_expand_program *program);
+void var_expand_program_to_string_append_one(string_t *dest,
+					 const struct var_expand_program *program);
+void var_expand_program_to_string_append(string_t *dest,
+					 const struct var_expand_program *program);
+
 /* Imports a variable expansion program exported by var_expand_program_export(). */
 
 int var_expand_program_import(const char *data,

@@ -376,6 +376,120 @@ const char *var_expand_program_export(const struct var_expand_program *program)
 	return str_c(dest);
 }
 
+static void
+var_expand_program_to_string_calculate(const struct var_expand_statement *stmt,
+				       string_t *dest)
+{
+	if (str_len(dest) > 0)
+		str_append_c(dest, ' ');
+	switch (stmt->params->value.num) {
+	case VAR_EXPAND_STATEMENT_OPER_PLUS:
+		str_append_c(dest, '+');
+		break;
+	case VAR_EXPAND_STATEMENT_OPER_MINUS:
+		str_append_c(dest, '-');
+		break;
+	case VAR_EXPAND_STATEMENT_OPER_STAR:
+		str_append_c(dest, '*');
+		break;
+	case VAR_EXPAND_STATEMENT_OPER_SLASH:
+		str_append_c(dest, '/');
+		break;
+	case VAR_EXPAND_STATEMENT_OPER_MODULO:
+		str_append_c(dest, '%');
+		break;
+	case VAR_EXPAND_STATEMENT_OPER_COUNT:
+	default:
+		i_unreached();
+	}
+	str_append_c(dest, ' ');
+	str_printfa(dest, "%jd", stmt->params->next->value.num);
+}
+
+void
+var_expand_program_to_string_append_one(string_t *dest,
+					const struct var_expand_program *program)
+{
+	if (program->only_literal) {
+		i_assert(program->first->params->value_type ==
+			 VAR_EXPAND_PARAMETER_VALUE_TYPE_STRING);
+		str_append(dest, program->first->params->value.str);
+		return;
+	}
+	str_append(dest, "%{");
+	const struct var_expand_statement *stmt = program->first;
+	while (stmt != NULL) {
+		bool braces = FALSE;
+		if (strcmp(stmt->function, "calculate") == 0) {
+			var_expand_program_to_string_calculate(stmt, dest);
+			goto next;
+		}
+		str_append(dest, stmt->function);
+		const struct var_expand_parameter *param = stmt->params;
+		if (param != NULL) {
+			str_append_c(dest, '(');
+			braces = TRUE;
+		}
+		while (param != NULL) {
+			if (param->key != NULL) {
+				str_append(dest, param->key);
+				str_append_c(dest, '=');
+			}
+			switch (param->value_type) {
+			case VAR_EXPAND_PARAMETER_VALUE_TYPE_STRING:
+				str_append_c(dest, '\'');
+				str_append_escaped(dest, param->value.str,
+						   strlen(param->value.str));
+				str_append_c(dest, '\'');
+				break;
+			case VAR_EXPAND_PARAMETER_VALUE_TYPE_INT:
+				str_printfa(dest, "%jd", param->value.num);
+				break;
+			case VAR_EXPAND_PARAMETER_VALUE_TYPE_VARIABLE:
+				str_append(dest, param->value.str);
+				break;
+			default:
+				i_unreached();
+			}
+			param = param->next;
+			if (param != NULL)
+				str_append(dest, ", ");
+		}
+		if (braces)
+			str_append_c(dest, ')');
+next:		stmt = stmt->next;
+		if (stmt != NULL && strcmp(stmt->function, "calculate") != 0)
+			str_append(dest, " | ");
+	}
+	str_append_c(dest, '}');
+}
+
+void var_expand_program_to_string_append(string_t *dest,
+					 const struct var_expand_program *program)
+{
+	i_assert(program != NULL);
+	i_assert(dest != NULL);
+
+	while (program != NULL) {
+		var_expand_program_to_string_append_one(dest, program);
+		program = program->next;
+	}
+}
+
+const char *var_expand_program_to_string_one(const struct var_expand_program *program)
+{
+	string_t *dest = t_str_new(64);
+	var_expand_program_to_string_append_one(dest, program);
+	return str_c(dest);
+}
+
+const char *var_expand_program_to_string(const struct var_expand_program *program)
+{
+	string_t *dest = t_str_new(64);
+	var_expand_program_to_string_append(dest, program);
+	return str_c(dest);
+}
+
 /* Import code */
 
 static int extract_name(char *data, size_t size,
