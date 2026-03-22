@@ -151,7 +151,7 @@ static int fn_calculate(const struct var_expand_statement *stmt,
 	   binary input can be treated as 64 bit unsigned integer
 	   for modulo operations only. */
 	if (state->transfer_binary && oper == VAR_EXPAND_STATEMENT_OPER_MODULO) {
-		if (right < 0) {
+		if (right <= 0) {
 			*error_r = "Binary modulo must be positive integer";
 			return -1;
 		}

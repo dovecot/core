@@ -316,6 +316,7 @@ static void test_var_expand_math(void) {
 		{ .in = "%{port % 5}", .out = "3", .ret = 0 },
 		{ .in = "%{port / 0}", .out = "calculate: Division by zero", .ret = -1 },
 		{ .in = "%{port % 0}", .out = "calculate: Modulo by zero", .ret = -1 },
+		{ .in = "%{third | sha256 % 0}", .out = "calculate: Binary modulo must be positive integer", .ret = -1 },
 		/* multiple programs, first fails */
 		{ .in = "%{failure} %{port}", .out = "Unknown variable 'failure'", .ret = -1 },
 		/* second fails */
