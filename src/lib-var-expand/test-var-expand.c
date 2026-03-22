@@ -212,6 +212,9 @@ static void test_var_expand_builtin_filters(void) {
 		{ .in = "%{unbase64(0)}", .out = "unbase64: Too many positional parameters", .ret = -1 },
 		{ .in = "%{unbase64(fail=1)}", .out = "unbase64: Unsupported key 'fail'", .ret = -1 },
 		{ .in = "%{first | base64(pad=0)}", .out = "aGVsbG8", .ret = 0 },
+		/* test boolean parameters */
+		{ .in = "%{first | base64(pad='yes')}", .out = "base64: 'yes' is not a number", .ret = -1 },
+		{ .in = "%{first | base64(pad=-5)}", .out = "base64: '-5' is not 0 or 1", .ret = -1 },
 		/* weird syntax to avoid trigraph ignored */
 		{ .in = "%{literal('<<?""?""?>>') | base64(url=1)}", .out = "PDw_Pz8-Pg==", .ret = 0 },
 		{ .in = "%{literal('<<?""?""?>>') | base64(pad=0,url=1)}", .out = "PDw_Pz8-Pg", .ret = 0 },

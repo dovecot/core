@@ -60,7 +60,7 @@ int var_expand_parameter_bool_or_var(const struct var_expand_state *state,
 	} else if (value == 1) {
 		*value_r = TRUE;
 	} else {
-		*error_r = t_strdup_printf("'%s' is not 0 or 1", param->value.str);
+		*error_r = t_strdup_printf("'%jd' is not 0 or 1", value);
 		return -1;
 	}
 	return 0;
