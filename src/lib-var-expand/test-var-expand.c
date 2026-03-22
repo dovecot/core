@@ -1246,9 +1246,9 @@ static void test_var_expand_export_import(void)
 		{ "\x01literal", "Missing end of string" },
 		{ "\x03literal", "Unknown input" },
 		{ "\x02literal\x01", "Premature end of data" },
-		{ "\x02literal\x01text\x01", "Unsupported parameter type" },
+		{ "\x02literal\x01text\x01", "Premature end of data" },
 		{ "\x02literal\x01\x01stext\t", "Missing end of string" },
-		{ "\x02literal\x01\x01i\xa1", "Unknown number" },
+		{ "\x02literal\x01\x01i\xa1", "Too short number" },
 		{ "\x02literal\x01\x01i\xab\xf0\t", "Missing parameter end" },
 		{
 			"\x02literal\x01\x01i\xab\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0",
@@ -1256,7 +1256,7 @@ static void test_var_expand_export_import(void)
 		},
 		{ "\x02literal\x01\x01stext\r", "Missing parameter end" },
 		{ "\x02literal\x01\x01stext\r\t", "Missing statement end" },
-		{ "\x02literal\x01\x01stext\r\t\t", "Missing variables end" },
+		{ "\x02literal\x01\x01stext\r\t\t", "Premature end of data" },
 	};
 
 	for(size_t i = 0; i < N_ELEMENTS(test_cases_err); i++) {
@@ -1270,7 +1270,7 @@ static void test_var_expand_export_import(void)
 			continue;
 		}
 
-		test_assert_strcmp(error, t->error);
+		test_assert_strcmp_idx(error, t->error, i);
 	}
 
 	test_end();
