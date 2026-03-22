@@ -197,6 +197,7 @@ static void test_var_expand_builtin_filters(void) {
 		{ .in = "%{encoded | unhexlify}", .out = "68656c6c6f", .ret = 0 },
 		{ .in = "%{three | hexlify(4)}", .out = "0033", .ret = 0 },
 		{ .in = "%{hexlify(fail=1)}", .out = "hexlify: Unsupported key 'fail'", .ret = -1 },
+		{ .in = "%{encoded | hexlify(900)}", .out = "hexlify: Excessive padding", .ret = -1 },
 		/* hex */
 		{ .in = "%{three | hex | unhex}", .out = "3", .ret = 0 },
 		{ .in = "%{uidvalidity | hex | unhex}", .out = "1727121943", .ret = 0 },
@@ -204,6 +205,8 @@ static void test_var_expand_builtin_filters(void) {
 		{ .in = "%{uidvalidity | hex(2)}",  .out = "17", .ret = 0 },
 		{ .in = "%{uidvalidity | hex(-2)}",  .out = "66", .ret = 0 },
 		{ .in = "%{uidvalidity | hex }", .out = "66f1ca17", .ret = 0 },
+		{ .in = "%{uidvalidity | hex(257) }", .out = "hex: Excessive padding", .ret = -1 },
+		{ .in = "%{uidvalidity | hex(-257) }", .out = "hex: Excessive padding", .ret = -1 },
 		/* base64 */
 		{ .in = "%{first | base64}", .out = "aGVsbG8=", .ret = 0 },
 		{ .in = "%{first | base64 | unbase64 | text}", .out = "hello", .ret = 0 },

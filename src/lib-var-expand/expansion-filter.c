@@ -14,6 +14,8 @@
 
 #include <ctype.h>
 
+#define MAX_PADDING 256
+
 ARRAY_DEFINE_TYPE(var_expand_filter, struct var_expand_filter);
 static ARRAY_TYPE(var_expand_filter) dyn_filters = ARRAY_INIT;
 
@@ -473,6 +475,11 @@ static int fn_hex(const struct var_expand_statement *stmt,
 	str_truncate(state->transfer, 0);
 	str_printfa(state->transfer, "%jx", number);
 
+	if (width < -MAX_PADDING || width > MAX_PADDING) {
+		*error_r = "Excessive padding";
+		return -1;
+	}
+
 	if (width < 0) {
 		width = -width;
 		while (str_len(state->transfer) < (size_t)width)
@@ -532,6 +539,11 @@ static int fn_hexlify(const struct var_expand_statement *stmt,
 	if (width == 0) {
 		/* pass */
 	} else if (rlen < (uintmax_t)width) {
+		/* Limit to 256 bytes of padding */
+		if ((uintmax_t)width - rlen > MAX_PADDING) {
+			*error_r = "Excessive padding";
+			return -1;
+		}
 		string_t *tmp = t_str_new(width);
 		width -= strlen(result);
 		for (; width > 0; width--)
