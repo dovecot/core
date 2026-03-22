@@ -179,6 +179,10 @@ int var_expand_program_execute_one(string_t *dest, const struct var_expand_progr
 
 	ret = var_expand_program_execute_one_real(program, params, &state, error_r);
 
+	if (state.delayed_error != NULL) {
+		*error_r = t_strdup(state.delayed_error);
+		ret = -1;
+	}
 	str_free(&state.transfer);
 	i_free(state.delayed_error);
 	/* only write to dest on success */
@@ -207,6 +211,10 @@ int var_expand_program_execute(string_t *dest, const struct var_expand_program *
 			break;
 		program = program->next;
 	};
+	if (state.delayed_error != NULL) {
+		*error_r = t_strdup(state.delayed_error);
+		ret = -1;
+	}
 	str_free(&state.transfer);
 	i_free(state.delayed_error);
 	/* only write to dest on success */
