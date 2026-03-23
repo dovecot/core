@@ -1180,7 +1180,14 @@ quota_try_alloc(struct quota_transaction_context *ctx,
 	   quota_alloc() or quota_free_bytes() was already used within the same
 	   transaction, but that doesn't normally happen. */
 	ctx->auto_updating = FALSE;
-	quota_alloc_with_size(ctx, size, expunged_size);
+	/* For IMAP MOVE, do not subtract expunged_size here: the source mail
+	   expunge is already accounted for by quota_mail_expunge() ->
+	   quota_free_bytes() in the source transaction.  Subtracting it here
+	   too causes double-counting (destination records bytes_used=0, source
+	   records bytes_used=-size, net result: quota drops by size).
+	   expunged_size is still passed to quota_test_alloc() above so that
+	   moves at the quota boundary are correctly permitted. */
+	quota_alloc_with_size(ctx, size, ctx->moving ? 0 : expunged_size);
 	return QUOTA_ALLOC_RESULT_OK;
 }
 

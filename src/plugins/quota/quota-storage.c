@@ -255,6 +255,7 @@ static int quota_check(struct mail_save_context *ctx)
 	if (qt->failed)
 		return 0;
 
+	qt->moving = ctx->moving;
 	const char *error;
 	ret = quota_try_alloc(qt, ctx->dest_mail, ctx->expunged_mail,
 			      NULL, &error);
