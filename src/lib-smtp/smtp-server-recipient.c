@@ -16,8 +16,15 @@ smtp_server_recipient_update_event(struct smtp_server_recipient *rcpt)
 
 	event_add_str(event, "rcpt_to", path);
 	smtp_params_rcpt_add_to_event(&rcpt->params, event);
-	event_set_append_log_prefix(
-		event, t_strdup_printf("rcpt %s: ", str_sanitize(path, 128)));
+	if (rcpt->trans == NULL) {
+		event_set_append_log_prefix(event,
+			t_strdup_printf("rcpt %s: ", str_sanitize(path, 128)));
+	} else {
+		event_add_int(event, "rcpt_index", rcpt->index);
+		event_set_append_log_prefix(event,
+			t_strdup_printf("rcpt %s [%u]: ",
+					str_sanitize(path, 128), rcpt->index));
+	}
 }
 
 static void
@@ -45,7 +52,7 @@ smtp_server_recipient_create_event(struct smtp_server_recipient_private *prcpt)
 	   remains. */
 	event_drop_parent_log_prefixes(rcpt->event, 1);
 
-	smtp_server_recipient_update_event(rcpt);
+	smtp_server_recipient_update_event(&prcpt->rcpt);
 }
 
 struct smtp_server_recipient *
@@ -142,10 +149,11 @@ bool smtp_server_recipient_approved(struct smtp_server_recipient **_rcpt)
 	i_assert(trans != NULL);
 	i_assert(rcpt->event != NULL);
 
-	e_debug(rcpt->event, "Approved");
-
 	rcpt->cmd = NULL;
 	smtp_server_transaction_add_rcpt(trans, rcpt);
+
+	smtp_server_recipient_update_event(rcpt);
+	e_debug(rcpt->event, "Approved");
 
 	return smtp_server_recipient_call_hooks(
 		_rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED);
