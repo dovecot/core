@@ -56,6 +56,16 @@ cmd_rcpt_check_state(struct smtp_server_cmd_ctx *cmd, bool next_to_reply)
 }
 
 static void
+cmd_rcpt_replied(struct smtp_server_cmd_ctx *cmd,
+		 struct smtp_server_cmd_rcpt *data)
+{
+	struct smtp_server_recipient *rcpt = data->rcpt;
+
+	smtp_server_recipient_replied(
+		rcpt, smtp_server_command_get_reply(cmd->cmd, 0));
+}
+
+static void
 cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd,
 		   struct smtp_server_cmd_rcpt *data)
 {
@@ -203,6 +213,8 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_NEXT,
 				     cmd_rcpt_recheck, rcpt_data);
+	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_REPLIED,
+				     cmd_rcpt_replied, rcpt_data);
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_COMPLETED,
 				     cmd_rcpt_completed, rcpt_data);
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_DESTROY,

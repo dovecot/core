@@ -141,6 +141,13 @@ smtp_server_recipient_get_original(struct smtp_server_recipient *rcpt)
 	return rcpt->params.orcpt.addr;
 }
 
+void smtp_server_recipient_replied(struct smtp_server_recipient *rcpt,
+				  const struct smtp_server_reply *reply)
+{
+	e_debug(rcpt->event, "Reply submitted: %s",
+		smtp_server_reply_get_one_line(reply));
+}
+
 bool smtp_server_recipient_approved(struct smtp_server_recipient **_rcpt)
 {
 	struct smtp_server_recipient *rcpt = *_rcpt;
