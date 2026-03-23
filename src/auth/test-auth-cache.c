@@ -110,8 +110,7 @@ static void test_auth_cache_parse_key_errors(void)
 		{ "%u", "auth-cache: %u: Cache key must contain at least one variable" },
 		{ "foobar", "auth-cache: foobar: Cache key must contain at least one variable" },
 		{ "%{test", "auth-cache: var_expand_program_create(%{test) " \
-			    "failed: syntax error, unexpected end of file, " \
-			    "expecting CCBRACE or PIPE" },
+			    "failed: syntax error, unexpected " },
 	};
 	const char *cache_key, *error;
 	unsigned int i;
@@ -122,7 +121,17 @@ static void test_auth_cache_parse_key_errors(void)
 		test_assert_idx(auth_cache_parse_key_and_fields(
 			pool_datastack_create(), tests_bad[i].in, NULL, NULL,
 			&cache_key, &error) < 0, i);
-		test_assert_strcmp_idx(error, tests_bad[i].out, i);
+		const char *expected = tests_bad[i].out;
+		/* Bison uses different error on different versions */
+		if (strstr(error, "$end") != NULL) {
+			expected = t_strconcat(expected,
+					"$end, expecting CCBRACE or PIPE", NULL);
+		} else if (strstr(error, "end of file") != NULL) {
+			expected = t_strconcat(expected,
+					"end of file, expecting CCBRACE or PIPE",
+					NULL);
+		}
+		test_assert_strcmp_idx(error, expected, i);
 	}
 
 	test_end();
