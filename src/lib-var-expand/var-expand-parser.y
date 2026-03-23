@@ -166,7 +166,7 @@ link_argument(VAR_EXPAND_PARSER_STYPE *state, struct var_expand_parameter *par)
 static void
 push_named_argument(VAR_EXPAND_PARSER_STYPE *state, const char *name,
 		    enum var_expand_parameter_value_type type,
-		    const union var_expand_parameter_value *value)
+		    const struct var_expand_parameter_value *value)
 {
 	struct var_expand_parameter *par =
 		p_new(state->plist->pool, struct var_expand_parameter, 1);
@@ -185,7 +185,7 @@ push_named_argument(VAR_EXPAND_PARSER_STYPE *state, const char *name,
 static void
 push_argument(VAR_EXPAND_PARSER_STYPE *state,
 	      enum var_expand_parameter_value_type type,
-	      const union var_expand_parameter_value *value)
+	      const struct var_expand_parameter_value *value)
 {
 	struct var_expand_parameter *par =
 		p_new(state->plist->pool, struct var_expand_parameter, 1);
@@ -253,7 +253,7 @@ static void push_new_program(VAR_EXPAND_PARSER_STYPE *pstate)
 static void create_literal(VAR_EXPAND_PARSER_STYPE *pstate,
 			   const char *value)
 {
-	union var_expand_parameter_value ep_value = {
+	struct var_expand_parameter_value ep_value = {
 		.str = value
 	};
 	if (pstate->pp != NULL && pstate->pp->only_literal) {
@@ -269,7 +269,7 @@ static void create_literal(VAR_EXPAND_PARSER_STYPE *pstate,
 	pstate->p->only_literal = TRUE;
 }
 
-static union var_expand_parameter_value tmp_value;
+static struct var_expand_parameter_value tmp_value;
 
 %}
 
