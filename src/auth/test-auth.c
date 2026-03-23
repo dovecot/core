@@ -1,6 +1,7 @@
 /* Copyright (c) 2024 Dovecot authors, see the included COPYING file */
 
 #include "test-auth.h"
+#include "test-dir.h"
 #include "auth-common.h"
 #include "settings.h"
 #include "auth-settings.h"
@@ -14,7 +15,6 @@
 #include <time.h>
 
 static const char *const settings[] = {
-	"base_dir", ".",
 	"auth_mechanisms",
 		"ANONYMOUS APOP CRAM-MD5 DIGEST-MD5 EXTERNAL LOGIN PLAIN OTP "
 		"OAUTHBEARER SCRAM-SHA-1 SCRAM-SHA-256 XOAUTH2",
@@ -47,8 +47,10 @@ void test_auth_init(void)
 {
 	const char *const protocols[] = {NULL};
 	process_start_time = time(NULL);
+	test_dir_init("test-auth");
 
 	settings_simple_init(&simple_set, settings);
+	settings_override(simple_set.instance, "base_dir", test_dir_get(), SETTINGS_OVERRIDE_TYPE_CLI_PARAM);
 	global_auth_settings = settings_get_or_fatal(simple_set.event,
 						     &auth_setting_parser_info);
 	/* this is needed to get oauth2 initialized */
