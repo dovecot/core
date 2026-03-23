@@ -9,13 +9,13 @@
 #include "smtp-server-private.h"
 
 static void
-smtp_server_recipient_update_event(struct smtp_server_recipient_private *prcpt)
+smtp_server_recipient_update_event(struct smtp_server_recipient *rcpt)
 {
-	struct event *event = prcpt->rcpt.event;
-	const char *path = smtp_address_encode(prcpt->rcpt.path);
+	struct event *event = rcpt->event;
+	const char *path = smtp_address_encode(rcpt->path);
 
 	event_add_str(event, "rcpt_to", path);
-	smtp_params_rcpt_add_to_event(&prcpt->rcpt.params, event);
+	smtp_params_rcpt_add_to_event(&rcpt->params, event);
 	event_set_append_log_prefix(
 		event, t_strdup_printf("rcpt %s: ", str_sanitize(path, 128)));
 }
@@ -45,7 +45,7 @@ smtp_server_recipient_create_event(struct smtp_server_recipient_private *prcpt)
 	   remains. */
 	event_drop_parent_log_prefixes(rcpt->event, 1);
 
-	smtp_server_recipient_update_event(prcpt);
+	smtp_server_recipient_update_event(rcpt);
 }
 
 struct smtp_server_recipient *
