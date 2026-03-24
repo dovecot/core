@@ -46,6 +46,7 @@ struct lmtp_proxy_recipient {
 	struct smtp_address *address;
 
 	struct auth_master_request *auth_request;
+	struct lmtp_proxy_rcpt_settings *proxy_set;
 
 	const unsigned char *auth_forward_fields;
 	size_t auth_forward_fields_size;
@@ -655,40 +656,15 @@ lmtp_proxy_rcpt_init_auth_user_info(struct lmtp_recipient *lrcpt,
 }
 
 static void
-lmtp_proxy_rcpt_redirect_relookup(struct lmtp_proxy_recipient *lprcpt,
-				  struct lmtp_proxy_rcpt_settings *set,
-				  const char *destuser)
+lmtp_proxy_rcpt_redirect_relookup_cb(struct lmtp_proxy_recipient *lprcpt,
+				     int result, const char *const *fields)
 {
 	struct lmtp_recipient *lrcpt = lprcpt->rcpt;
 	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
-	in_port_t port = set->set.port;
-	struct auth_master_connection *auth_conn;
-	struct auth_user_info info;
-	const char *const *fields, *errstr, *username;
-	pool_t auth_pool;
-	int result, ret;
+	struct lmtp_proxy_rcpt_settings *set = lprcpt->proxy_set;
+	const char *errstr, *username;
+	int ret;
 
-	lmtp_proxy_rcpt_init_auth_user_info(lrcpt, &info);
-
-	string_t *hosts_attempted = t_str_new(64);
-	str_append(hosts_attempted, "proxy_redirect_host_attempts=");
-	lmtp_proxy_rcpt_get_redirect_path(lprcpt, hosts_attempted);
-	const char *const extra_fields[] = {
-		t_strdup_printf("proxy_redirect_host_next=%s:%u",
-				set->set.host, port),
-		str_c(hosts_attempted),
-		t_strdup_printf("destuser=%s", str_tabescape(destuser)),
-		t_strdup_printf("proxy_timeout=%u", lprcpt->conn->set.set.timeout_msecs),
-	};
-	t_array_init(&info.extra_fields, N_ELEMENTS(extra_fields));
-	array_append(&info.extra_fields, extra_fields,
-		     N_ELEMENTS(extra_fields));
-
-	// FIXME: make this async
-	auth_pool = pool_alloconly_create("auth lookup", 1024);
-	auth_conn = mail_storage_service_get_auth_conn(storage_service);
-	result = auth_master_pass_lookup(auth_conn, lrcpt->username, &info,
-					 auth_pool, &fields);
 	if (result <= 0) {
 		if (result == 0 || fields[0] == NULL)
 			errstr = "Redirect lookup unexpectedly failed";
@@ -697,7 +673,6 @@ lmtp_proxy_rcpt_redirect_relookup(struct lmtp_proxy_recipient *lprcpt,
 				"Redirect lookup unexpectedly failed: %s",
 				fields[0]);
 		}
-		pool_unref(&auth_pool);
 		smtp_server_recipient_reply(rcpt, 451, "4.3.0", "%s", errstr);
 		return;
 	}
@@ -724,6 +699,48 @@ lmtp_proxy_rcpt_redirect_relookup(struct lmtp_proxy_recipient *lprcpt,
 	} else {
 		lmtp_proxy_rcpt_redirect_finish(lprcpt, set);
 	}
+}
+
+static void
+lmtp_proxy_rcpt_redirect_relookup(struct lmtp_proxy_recipient *lprcpt,
+				  struct lmtp_proxy_rcpt_settings *set,
+				  const char *destuser)
+{
+	struct lmtp_recipient *lrcpt = lprcpt->rcpt;
+	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
+	in_port_t port = set->set.port;
+	struct auth_master_connection *auth_conn;
+	struct auth_user_info info;
+	const char *const *fields;
+	pool_t auth_pool;
+	int result;
+
+	lmtp_proxy_rcpt_init_auth_user_info(lrcpt, &info);
+
+	string_t *hosts_attempted = t_str_new(64);
+	str_append(hosts_attempted, "proxy_redirect_host_attempts=");
+	lmtp_proxy_rcpt_get_redirect_path(lprcpt, hosts_attempted);
+	const char *const extra_fields[] = {
+		t_strdup_printf("proxy_redirect_host_next=%s:%u",
+				set->set.host, port),
+		str_c(hosts_attempted),
+		t_strdup_printf("destuser=%s", str_tabescape(destuser)),
+		t_strdup_printf("proxy_timeout=%u", lprcpt->conn->set.set.timeout_msecs),
+	};
+	t_array_init(&info.extra_fields, N_ELEMENTS(extra_fields));
+	array_append(&info.extra_fields, extra_fields,
+		     N_ELEMENTS(extra_fields));
+
+	lprcpt->proxy_set = p_new(rcpt->pool, struct lmtp_proxy_rcpt_settings, 1);
+	*lprcpt->proxy_set = *set;
+	lprcpt->proxy_set->set.host = p_strdup(rcpt->pool, set->set.host);
+
+	// FIXME: make this async
+	auth_pool = pool_alloconly_create("auth lookup", 1024);
+	auth_conn = mail_storage_service_get_auth_conn(storage_service);
+	result = auth_master_pass_lookup(auth_conn, lrcpt->username, &info,
+					 auth_pool, &fields);
+	lmtp_proxy_rcpt_redirect_relookup_cb(lprcpt, result, fields);
 	pool_unref(&auth_pool);
 }
 
