@@ -1536,7 +1536,7 @@ dsync_ibc_stream_send_mailbox_attribute(struct dsync_ibc *_ibc,
 	dsync_ibc_stream_send_string(ibc, str);
 
 	if (attr->value_stream != NULL) {
-		ibc->value_output_last = '\0';
+		ibc->value_output_last = '\n';
 		ibc->value_output = attr->value_stream;
 		i_stream_ref(ibc->value_output);
 		(void)dsync_ibc_stream_send_value_stream(ibc);
@@ -1916,7 +1916,7 @@ dsync_ibc_stream_send_mail(struct dsync_ibc *_ibc,
 	dsync_ibc_stream_send_string(ibc, str);
 
 	if (mail->input != NULL) {
-		ibc->value_output_last = '\0';
+		ibc->value_output_last = '\n';
 		ibc->value_output = mail->input;
 		i_stream_ref(ibc->value_output);
 		(void)dsync_ibc_stream_send_value_stream(ibc);
