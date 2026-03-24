@@ -665,6 +665,8 @@ lmtp_proxy_rcpt_redirect_relookup_cb(struct lmtp_proxy_recipient *lprcpt,
 	const char *errstr, *username;
 	int ret;
 
+	lprcpt->auth_request = NULL;
+
 	if (result <= 0) {
 		if (result == 0 || fields[0] == NULL)
 			errstr = "Redirect lookup unexpectedly failed";
@@ -711,9 +713,6 @@ lmtp_proxy_rcpt_redirect_relookup(struct lmtp_proxy_recipient *lprcpt,
 	in_port_t port = set->set.port;
 	struct auth_master_connection *auth_conn;
 	struct auth_user_info info;
-	const char *const *fields;
-	pool_t auth_pool;
-	int result;
 
 	lmtp_proxy_rcpt_init_auth_user_info(lrcpt, &info);
 
@@ -735,13 +734,10 @@ lmtp_proxy_rcpt_redirect_relookup(struct lmtp_proxy_recipient *lprcpt,
 	*lprcpt->proxy_set = *set;
 	lprcpt->proxy_set->set.host = p_strdup(rcpt->pool, set->set.host);
 
-	// FIXME: make this async
-	auth_pool = pool_alloconly_create("auth lookup", 1024);
 	auth_conn = mail_storage_service_get_auth_conn(storage_service);
-	result = auth_master_pass_lookup(auth_conn, lrcpt->username, &info,
-					 auth_pool, &fields);
-	lmtp_proxy_rcpt_redirect_relookup_cb(lprcpt, result, fields);
-	pool_unref(&auth_pool);
+	lprcpt->auth_request = auth_master_pass_lookup_async(
+		auth_conn, lrcpt->username, &info,
+		lmtp_proxy_rcpt_redirect_relookup_cb, lprcpt);
 }
 
 static void
