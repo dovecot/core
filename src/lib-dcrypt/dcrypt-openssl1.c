@@ -310,7 +310,7 @@ dcrypt_openssl_ctx_sym_create(const char *algorithm, enum dcrypt_sym_mode mode,
 	}
 
 	/* allocate context */
-	pool = pool_alloconly_create("dcrypt openssl", 1024);
+	pool = pool_alloconly_create_clean("dcrypt openssl", 1024);
 	ctx = p_new(pool, struct dcrypt_context_symmetric, 1);
 	ctx->pool = pool;
 	ctx->cipher = cipher;
@@ -607,7 +607,7 @@ dcrypt_openssl_ctx_hmac_create(const char *algorithm,
 	}
 
 	/* allocate context */
-	pool = pool_alloconly_create("dcrypt openssl", 1024);
+	pool = pool_alloconly_create_clean("dcrypt openssl", 1024);
 	ctx = p_new(pool, struct dcrypt_context_hmac, 1);
 	ctx->pool = pool;
 	ctx->md = md;
