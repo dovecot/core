@@ -51,7 +51,7 @@ static void smtp_server_reply_update_event(struct smtp_server_reply *reply)
 		event_set_append_log_prefix(reply->event,
 			t_strdup_printf("%u reply [%u/%u]: ",
 					reply->content->status,
-					reply->index+1,
+					reply->index + 1,
 					command->replies_expected));
 	} else {
 		event_set_append_log_prefix(reply->event,
@@ -118,7 +118,7 @@ smtp_server_reply_update_prefix(struct smtp_server_reply *reply,
 		reply->content->last_line = str_len(new_text);
 
 		p = strchr(text, '\n');
-		i_assert(p != NULL && p > text && *(p-1) == '\r');
+		i_assert(p != NULL && p > text && *(p - 1) == '\r');
 		p++;
 
 		str_append(new_text, new_prefix);
@@ -291,7 +291,7 @@ void smtp_server_reply_add_text(struct smtp_server_reply *reply,
 			str_append(textbuf, text);
 			text = NULL;
 		} else {
-			if (p > text && *(p-1) == '\r')
+			if (p > text && *(p - 1) == '\r')
 				str_append_data(textbuf, text, p - text - 1);
 			else
 				str_append_data(textbuf, text, p - text);
@@ -567,7 +567,7 @@ smtp_server_reply_write_one_line(const struct smtp_server_reply *reply,
 
 	for (;;) {
 		p = strchr(text, '\n');
-		i_assert(p != NULL && p > text && *(p-1) == '\r');
+		i_assert(p != NULL && p > text && *(p - 1) == '\r');
 		str_append_data(str, text, p - text - 1);
 		line_len = (size_t)(p - text) + 1;
 		i_assert(text_len >= line_len);
