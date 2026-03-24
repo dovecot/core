@@ -1495,12 +1495,12 @@ dsync_ibc_stream_send_mailbox_attribute(struct dsync_ibc *_ibc,
 {
 	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
 	struct dsync_serializer_encoder *encoder;
-	string_t *str = t_str_new(128);
 	char type[2];
 
 	if (ibc->minor_version < DSYNC_PROTOCOL_MINOR_HAVE_ATTRIBUTES)
 		return;
 
+	string_t *str = str_new(default_pool, 128);
 	str_append_c(str, items[ITEM_MAILBOX_ATTRIBUTE].chr);
 	encoder = dsync_ibc_send_encode_begin(ibc, ITEM_MAILBOX_ATTRIBUTE);
 
@@ -1541,6 +1541,7 @@ dsync_ibc_stream_send_mailbox_attribute(struct dsync_ibc *_ibc,
 		i_stream_ref(ibc->value_output);
 		(void)dsync_ibc_stream_send_value_stream(ibc);
 	}
+	str_free(&str);
 }
 
 static enum dsync_ibc_recv_ret
