@@ -57,7 +57,7 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 {
 	size_t new_size;
 
-	if (unlikely(buf->max_size - pos < data_size))
+	if (unlikely(pos > buf->max_size || buf->max_size - pos < data_size))
 		i_panic("Buffer write out of range (%zu + %zu)", pos, data_size);
 
 	new_size = pos + data_size;
@@ -129,6 +129,7 @@ buffer_check_append_limits(struct real_buffer *buf, size_t data_size)
 	   If it does, we don't even need to memset() the dirty buffer since
 	   it's going to be filled with the newly appended data. */
 #ifndef DEBUG_FAST
+	i_assert(buf->used <= buf->writable_size);
 	if (buf->writable_size - buf->used < data_size)
 		buffer_check_limits(buf, buf->used, data_size);
 	else
