@@ -581,6 +581,11 @@ smtp_server_reply_write_one_line(const struct smtp_server_reply *reply,
 		text += prefix_len;
 		str_append_c(str, ' ');
 	}
+
+	if (!skip_status) {
+		i_assert(str_len(str) > 3);
+		str_replace(str, 3, 1, " ");
+	}
 }
 
 const char *
