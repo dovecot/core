@@ -958,6 +958,9 @@ int lmtp_proxy_rcpt(struct client *client,
 		pool_unref(&auth_pool);
 		return ret;
 	}
+
+	e_debug(rcpt->event, "Recipient maps to proxy user %s", username);
+
 	if (strcmp(username, orig_username) != 0) {
 		/* The existing "user" event field is overridden with the new
 		   user name, while old username is available as "orig_user" */

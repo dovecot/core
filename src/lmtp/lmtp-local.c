@@ -340,6 +340,9 @@ int lmtp_local_rcpt(struct client *client,
 	if (client->local == NULL)
 		client->local = lmtp_local_init(client);
 
+	e_debug(rcpt->event, "Recipient maps to local user %s",
+		service_user->input.username);
+
 	llrcpt = p_new(rcpt->pool, struct lmtp_local_recipient, 1);
 	llrcpt->rcpt = lrcpt;
 	llrcpt->service_user = service_user;
