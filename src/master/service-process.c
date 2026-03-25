@@ -520,9 +520,17 @@ void service_process_destroy(struct service_process *process)
 		service->process_avail--;
 		i_assert(service->process_idling <= service->process_avail);
 	}
+
+	if (process->retired) {
+		i_assert(service->retired_process_count > 0);
+		service->retired_process_count--;
+	}
 	i_assert(service->process_count > 0);
 	service->process_count--;
-	i_assert(service->process_avail <= service->process_count);
+
+	unsigned int active_process_count =
+		service_active_process_count(service);
+	i_assert(service->process_avail <= active_process_count);
 
 	timeout_remove(&process->to_status);
 	timeout_remove(&process->to_idle_kill);
@@ -532,7 +540,7 @@ void service_process_destroy(struct service_process *process)
 	process->destroyed = TRUE;
 	service_process_unref(process);
 
-	if (service->process_count < service->process_limit &&
+	if (active_process_count < service->process_limit &&
 	    service->type == SERVICE_TYPE_LOGIN)
 		service_login_notify(service, FALSE);
 

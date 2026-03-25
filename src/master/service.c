@@ -388,6 +388,12 @@ service_lookup_type(struct service_list *service_list, enum service_type type)
 	return NULL;
 }
 
+unsigned int service_active_process_count(struct service *service)
+{
+	i_assert(service->retired_process_count <= service->process_count);
+	return service->process_count - service->retired_process_count;
+}
+
 static bool service_want(const struct master_settings *master_set,
 			 struct service_settings *set)
 {

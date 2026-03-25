@@ -1519,9 +1519,6 @@ void master_service_client_connection_accept(struct master_service_connection *c
 
 void master_service_client_connection_destroyed(struct master_service *service)
 {
-	/* we can listen again */
-	master_service_io_listeners_add(service);
-
 	i_assert(service->total_available_count > 0);
 	i_assert(service->restart_request_count_left > 0);
 
@@ -1535,6 +1532,14 @@ void master_service_client_connection_destroyed(struct master_service *service)
 		i_assert(service->master_status.available_count <
 			 service->total_available_count);
 		service->master_status.available_count++;
+	}
+
+	if (service->master_status.available_count > 0) {
+		/* we can listen again */
+		master_service_io_listeners_add(service);
+	} else {
+		/* restart_request_count reached. */
+		master_service_io_listeners_remove(service);
 	}
 
 	if (service->restart_request_count_left == 0) {
@@ -1990,18 +1995,23 @@ static bool master_status_update_is_important(struct master_service *service)
 static void
 master_status_send(struct master_service *service, bool important_update)
 {
+	struct master_status status = service->master_status;
 	ssize_t ret;
+
+	if (status.available_count == 0 &&
+	    service->restart_request_count_left == service->total_available_count) {
+		/* restart_request_count limit reached */
+		status.available_count = UINT_MAX;
+	}
 
 	timeout_remove(&service->to_status);
 
-	ret = write(MASTER_STATUS_FD, &service->master_status,
-		    sizeof(service->master_status));
-	if (ret == (ssize_t)sizeof(service->master_status)) {
+	ret = write(MASTER_STATUS_FD, &status, sizeof(status));
+	if (ret == (ssize_t)sizeof(status)) {
 		/* success */
 		io_remove(&service->io_status_write);
 		service->last_sent_status_time = ioloop_time;
-		service->last_sent_status_avail_count =
-			service->master_status.available_count;
+		service->last_sent_status_avail_count = status.available_count;
 		service->initial_status_sent = TRUE;
 	} else if (ret >= 0) {
 		/* shouldn't happen? */

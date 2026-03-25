@@ -40,6 +40,18 @@ struct service_process {
 	/* kill the process if it doesn't send initial status notification */
 	struct timeout *to_status;
 
+	/* restart_request_count was reached for a process whose service has
+	   client_limit > 1. The process is just handling its
+	   last connections until it dies. Retired processes are not counted
+	   towards the service's process_limit.
+
+	   The intention here is to allow configuring a (login) service with
+	   process_limit = process_min_avail and restart_request_count set to
+	   something else than unlimited. If the process_limit was strictly
+	   enforced, long lived connections would prevent new processes from
+	   being launched, eventually causing all processes to keep handling
+	   existing connections without allowing new ones. */
+	bool retired:1;
 	bool destroyed:1;
 };
 

@@ -11,7 +11,9 @@ struct master_status {
 	pid_t pid;
 	/* uid is used to check for old/invalid status messages */
 	unsigned int uid;
-	/* number of new connections process is currently accepting */
+	/* number of new connections process is currently accepting.
+	   UINT_MAX = it has reached restart_request_count and is only
+	   handling existing connections. */
 	unsigned int available_count;
 };
 
