@@ -306,7 +306,7 @@ int main(int argc, char *argv[])
 
 	master_service_init_finish(master_service);
 
-	test_dir_init("imap-client-hibernate");
+	test_dir_init("ich");
 	test_subprocesses_init();
 
 	static void (*const test_functions[])(void) = {
