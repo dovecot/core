@@ -32,21 +32,18 @@
 
 static void service_monitor_start_extra_avail(struct service *service);
 static void service_status_more(struct service_process *process,
-				const struct master_status *status);
+				unsigned int status_available_count);
 static void service_monitor_listen_start_force(struct service *service);
 
 static void service_process_idle_kill_timeout(struct service_process *process)
 {
-	struct master_status status;
-
 	e_error(process->service->event, "Process %s is ignoring idle SIGINT",
 		dec2str(process->pid));
 
 	timeout_remove(&process->to_idle_kill);
 
 	/* assume this process is busy */
-	i_zero(&status);
-	service_status_more(process, &status);
+	service_status_more(process, 0);
 	process->available_count = 0;
 }
 
@@ -104,7 +101,7 @@ static void service_kill_idle(struct service *service)
 }
 
 static void service_status_more(struct service_process *process,
-				const struct master_status *status)
+				unsigned int status_available_count)
 {
 	struct service *service = process->service;
 
@@ -123,9 +120,9 @@ static void service_status_more(struct service_process *process,
 			      service->process_idling);
 	}
 	process->total_count +=
-		process->available_count - status->available_count;
+		process->available_count - status_available_count;
 
-	if (status->available_count != 0)
+	if (status_available_count != 0)
 		return;
 
 	/* process used up all of its clients */
@@ -229,7 +226,7 @@ service_status_input_one(struct service *service,
 	if (process->available_count != status->available_count) {
 		if (process->available_count > status->available_count) {
 			/* process started servicing some more clients */
-			service_status_more(process, status);
+			service_status_more(process, status->available_count);
 		} else {
 			/* process finished servicing some clients */
 			service_status_less(process);
