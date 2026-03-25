@@ -1552,6 +1552,7 @@ int mailbox_rename_nfc_forced(struct mailbox_list *list, const char *vname_raw,
 						  MAILBOX_FLAG_IGNORE_ACLS));
 	box_old->notifying_nfc_name_change = TRUE;
 	box_new = mailbox_alloc(list, vname_nfc, MAILBOX_FLAG_RAW_NAME);
+	box_new->skip_create_name_restrictions = TRUE;
 	box_new->notifying_nfc_name_change = TRUE;
 
 	ret = mailbox_rename(box_old, box_new);
