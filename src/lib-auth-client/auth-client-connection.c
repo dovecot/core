@@ -600,12 +600,17 @@ auth_client_connection_add_request(struct auth_client_connection *conn,
 	return id;
 }
 
-void auth_client_connection_remove_request(struct auth_client_connection *conn,
+bool auth_client_connection_remove_request(struct auth_client_connection *conn,
 					   struct auth_client_request *request)
 {
 	if (request->removed)
-		return;
+		return TRUE;
 	i_assert(connection_handshake_received(&conn->conn));
+	if (request->sent && !request->server_finished && conn->connected) {
+		/* We still expect a response from the auth server. */
+		return FALSE;
+	}
 	hash_table_remove(conn->requests, POINTER_CAST(request->id));
 	request->removed = TRUE;
+	return TRUE;
 }

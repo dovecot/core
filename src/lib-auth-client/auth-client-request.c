@@ -193,6 +193,8 @@ auth_server_send_new_request(struct auth_client_connection *conn,
 				 str_data(str), str_len(str)) < 0) {
 		e_error(request->event,
 			"Error sending request to auth server: %m");
+	} else {
+		request->sent = TRUE;
 	}
 }
 
@@ -284,7 +286,11 @@ static void auth_client_request_free(struct auth_client_request **_request)
 
 	*_request = NULL;
 
-	auth_client_connection_remove_request(request->conn, request);
+	if (!auth_client_connection_remove_request(request->conn, request)) {
+		/* Auth request was already sent to the server. Delay freeing
+		   it until we get a response or we get disconnected. */
+		return;
+	}
 
 	timeout_remove(&request->to_fail);
 	timeout_remove(&request->to_final);

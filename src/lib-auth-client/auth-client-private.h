@@ -28,6 +28,7 @@ struct auth_client_request {
 	void *context;
 
 	bool server_finished:1;
+	bool sent:1;
 	bool removed:1;
 };
 
@@ -96,7 +97,9 @@ void auth_server_reconnect_timeout(struct auth_client_connection *conn);
 unsigned int
 auth_client_connection_add_request(struct auth_client_connection *conn,
 				   struct auth_client_request *request);
-void auth_client_connection_remove_request(struct auth_client_connection *conn,
+/* Returns TRUE if the request can be freed, FALSE if a response is still
+   expected from auth server. */
+bool auth_client_connection_remove_request(struct auth_client_connection *conn,
 					   struct auth_client_request *request);
 
 #endif
