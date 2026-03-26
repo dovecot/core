@@ -391,9 +391,6 @@ bool client_get_extra_disconnect_reason(struct client *client,
 					const char **event_reason_r);
 
 void client_auth_respond(struct client *client, const char *response);
-/* Called when client asks for SASL authentication to be aborted by sending
-   "*" line. */
-void client_auth_abort(struct client *client);
 bool client_is_tls_enabled(struct client *client);
 void client_auth_fail(struct client *client, const char *text);
 const char *client_get_session_id(struct client *client);

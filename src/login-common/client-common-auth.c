@@ -885,11 +885,6 @@ void client_auth_respond(struct client *client, const char *response)
 	sasl_server_auth_continue(client, response);
 }
 
-void client_auth_abort(struct client *client)
-{
-	sasl_server_auth_abort(client);
-}
-
 void client_auth_fail(struct client *client, const char *text)
 {
 	sasl_server_auth_failed(client, text, NULL);
