@@ -569,11 +569,24 @@ static int driver_mysql_result_next_row(struct sql_result *_result)
 	result->row = mysql_fetch_row(result->result);
 	if (result->row != NULL)
 		ret = 1;
-	else {
-		if (mysql_errno(db->mysql) != 0)
-			return -1;
-		ret = 0;
+	else
+		ret = mysql_errno(db->mysql);
+
+	switch (ret) {
+	case 0:
+	case 1:
+		break;
+	case CR_OUT_OF_MEMORY:
+		i_fatal_status(FATAL_OUTOFMEM, "mysql_fetch_row(): Out of memory");
+	case CR_SERVER_GONE_ERROR:
+	case CR_SERVER_LOST:
+		sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
+		/* fall-through */
+	default:
+		result->api.failed = TRUE;
+		return -1;
 	}
+
 	db->last_success = ioloop_time;
 	return ret;
 }
