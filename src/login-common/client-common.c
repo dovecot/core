@@ -661,23 +661,25 @@ void client_common_default_free(struct client *client ATTR_UNUSED)
 
 bool client_destroy_oldest(bool kill, struct timeval *created_r)
 {
-	struct client *client;
-
-	if (last_client == NULL) {
-		/* we have no clients */
-		return FALSE;
-	}
+	struct client *client, *last_refcount_non1 = NULL;
 
 	/* destroy the last client that hasn't successfully authenticated yet.
 	   this is usually the last client, but don't kill it if it's just
 	   waiting for master to finish its job. Also prefer to kill clients
 	   that can immediately be killed (i.e. refcount=1) */
 	for (client = last_client; client != NULL; client = client->prev) {
-		if (client->master_tag == 0 && client->refcount == 1)
+		if (client->master_tag != 0) {
+			/* never kill clients that are just waiting */
+		} else if (client->refcount > 1)
+			last_refcount_non1 = client;
+		else
 			break;
 	}
-	if (client == NULL)
-		client = last_client;
+	if (client == NULL) {
+		client = last_refcount_non1;
+		if (client == NULL)
+			return FALSE;
+	}
 
 	*created_r = client->created;
 	if (!kill)
