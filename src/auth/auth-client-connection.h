@@ -5,6 +5,7 @@
 #include "auth-client-interface.h"
 
 #define AUTH_CLIENT_MINOR_VERSION_CHANNEL_BINDING 3
+#define AUTH_CLIENT_MINOR_VERSION_CANCELLED 4
 
 enum auth_client_connection_flags {
 	AUTH_CLIENT_CONNECTION_FLAG_LOGIN_REQUESTS = BIT(0),

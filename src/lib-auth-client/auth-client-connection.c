@@ -304,6 +304,28 @@ auth_server_input_fail(struct auth_client_connection *conn,
 }
 
 static int
+auth_server_input_cancelled(struct auth_client_connection *conn,
+			    const char *const *args)
+{
+	unsigned int id;
+
+	if (args[0] == NULL || str_to_uint(args[0], &id) < 0) {
+		e_error(conn->conn.event,
+			"BUG: Authentication server input missing ID");
+		return -1;
+	}
+
+	struct auth_client_request *request =
+		hash_table_lookup(conn->requests, POINTER_CAST(id));
+	if (request != NULL && !request->server_finished) {
+		request->server_finished = TRUE;
+		auth_client_request_server_input(&request,
+			AUTH_REQUEST_STATUS_FAIL, args + 1);
+	}
+	return 0;
+}
+
+static int
 auth_client_connection_handle_line(struct auth_client_connection *conn,
 				   const char *line)
 {
@@ -322,6 +344,8 @@ auth_client_connection_handle_line(struct auth_client_connection *conn,
 		return auth_server_input_cont(conn, args + 1);
 	else if (strcmp(args[0], "FAIL") == 0)
 		return auth_server_input_fail(conn, args + 1);
+	else if (strcmp(args[0], "CANCELLED") == 0)
+		return auth_server_input_cancelled(conn, args + 1);
 	else {
 		e_error(conn->conn.event,
 			"Auth server sent unknown response: %s", args[0]);

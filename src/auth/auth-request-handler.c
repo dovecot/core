@@ -1027,6 +1027,11 @@ void auth_request_handler_cancel_request(struct auth_request_handler *handler,
 	request = hash_table_lookup(handler->requests, POINTER_CAST(client_id));
 	if (request != NULL)
 		auth_request_handler_remove(handler, request);
+
+	if (handler->conn->conn.minor_version >= AUTH_CLIENT_MINOR_VERSION_CANCELLED) {
+		const char *str = t_strdup_printf("CANCELLED\t%u", client_id);
+		handler->callback(str, handler->conn);
+	}
 }
 
 void auth_request_handler_flush_failures(bool flush_all)
