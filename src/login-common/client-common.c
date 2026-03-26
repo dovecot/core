@@ -527,7 +527,8 @@ void client_destroy(struct client *client, const char *reason)
 	} else if (client->auth_request != NULL ||
 		   client->anvil_query != NULL) {
 		i_assert(client->authenticating);
-		sasl_server_auth_abort(client);
+		sasl_server_auth_abort(client,
+				       reason != NULL ? reason : "Aborted");
 	}
 	i_assert(!client->authenticating);
 	i_assert(client->auth_request == NULL);
@@ -536,7 +537,8 @@ void client_destroy(struct client *client, const char *reason)
 	if (client->reauth_request != NULL) {
 		struct auth_client_request *reauth_request =
 			client->reauth_request;
-		auth_client_request_abort(&reauth_request, "Aborted");
+		auth_client_request_abort(&reauth_request,
+					  reason != NULL ? reason : "Aborted");
 		/* callback sets this to NULL */
 		i_assert(client->reauth_request == NULL);
 	}

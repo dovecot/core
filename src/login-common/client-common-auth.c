@@ -876,7 +876,7 @@ void client_auth_respond(struct client *client, const char *response)
 		io_remove(&client->io);
 
 	if (strcmp(response, "*") == 0) {
-		sasl_server_auth_abort(client);
+		sasl_server_auth_abort(client, "Aborted by client");
 		return;
 	}
 
