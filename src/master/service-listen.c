@@ -198,7 +198,7 @@ service_inet_listener_listen(struct service_listener *l, const char **error_r)
 	if (fd == -1)
 #endif
 	{
-		if (set->reuse_port)
+		if (service->set->reuse_port)
 			flags |= NET_LISTEN_FLAG_REUSEPORT;
 		fd = net_listen_full(&l->set.inetset.ip, &port, &flags,
 				     service_get_backlog(service));
@@ -207,7 +207,6 @@ service_inet_listener_listen(struct service_listener *l, const char **error_r)
 						   l->inet_address, set->port);
 			return errno == EADDRINUSE ? 0 : -1;
 		}
-		l->reuse_port = (flags & NET_LISTEN_FLAG_REUSEPORT) != 0;
 	}
 	net_set_nonblock(fd, TRUE);
 	fd_close_on_exec(fd, TRUE);

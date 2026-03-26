@@ -42,7 +42,7 @@ static void service_reopen_inet_listeners(struct service *service)
 
 	listeners = array_get(&service->listeners, &count);
 	for (i = 0; i < count; i++) {
-		if (!listeners[i]->reuse_port || listeners[i]->fd == -1)
+		if (!service->set->reuse_port || listeners[i]->fd == -1)
 			continue;
 
 		old_fd = listeners[i]->fd;

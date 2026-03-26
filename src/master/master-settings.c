@@ -84,7 +84,6 @@ static const struct setting_define inet_listener_setting_defines[] = {
 	DEF(STR, type),
 	DEF(IN_PORT, port),
 	DEF(BOOL, ssl),
-	DEF(BOOL, reuse_port),
 	DEF(BOOL, haproxy),
 
 	SETTING_DEFINE_LIST_END
@@ -95,7 +94,6 @@ static const struct inet_listener_settings inet_listener_default_settings = {
 	.type = "",
 	.port = 0,
 	.ssl = FALSE,
-	.reuse_port = FALSE,
 	.haproxy = FALSE
 };
 
@@ -125,6 +123,7 @@ static const struct setting_define service_setting_defines[] = {
 	DEF(STR, chroot),
 
 	DEF(BOOL, drop_priv_before_exec),
+	DEF(BOOL, reuse_port),
 
 	DEF(UINT, process_min_avail),
 	DEF(UINT, process_limit),
@@ -158,6 +157,7 @@ static const struct service_settings service_default_settings = {
 	.chroot = "",
 
 	.drop_priv_before_exec = FALSE,
+	.reuse_port = FALSE,
 
 	.process_min_avail = 0,
 	.process_limit = 0,

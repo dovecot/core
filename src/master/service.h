@@ -39,8 +39,6 @@ struct service_listener {
 			struct ip_addr ip;
 		} inetset;
 	} set;
-
-	bool reuse_port;
 };
 
 struct service {
