@@ -48,7 +48,10 @@ struct master_service {
 	unsigned int socket_count;
 
 	struct io *io_status_write, *io_status_error;
+	/* Number of requests left before process is stopped. */
 	unsigned int restart_request_count_left;
+	/* Starts as service's client_limit, but never more than
+	   restart_request_count_left. */
 	unsigned int total_available_count;
 	unsigned int process_limit;
 	unsigned int process_min_avail;

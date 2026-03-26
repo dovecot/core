@@ -1455,8 +1455,9 @@ static bool master_service_want_listener(struct master_service *service)
 		/* more concurrent clients can still be added */
 		return TRUE;
 	}
-	if (service->restart_request_count_left == 1) {
-		/* after handling this client, the whole process will stop. */
+	if (service->restart_request_count_left == service->total_available_count) {
+		/* after handling the existing clients,
+		   the whole process will stop. */
 		return FALSE;
 	}
 	if (service->avail_overflow_callback != NULL) {
@@ -1484,7 +1485,7 @@ void master_service_client_connection_handled(struct master_service *service,
 	if (!master_service_want_listener(service)) {
 		i_assert(service->listeners != NULL);
 		master_service_io_listeners_remove(service);
-		if (service->restart_request_count_left == 1 &&
+		if (service->restart_request_count_left == service->total_available_count &&
 		   service->avail_overflow_callback == NULL) {
 			/* we're not going to accept any more connections after
 			   this. go ahead and close the connection early. don't
@@ -1523,6 +1524,8 @@ void master_service_client_connection_destroyed(struct master_service *service)
 	i_assert(service->restart_request_count_left > 0);
 
 	if (service->restart_request_count_left == service->total_available_count) {
+		/* There may or may not be available clients, but we no longer
+		   increse them. */
 		service->total_available_count--;
 		service->restart_request_count_left--;
 	} else {
@@ -1805,6 +1808,12 @@ static bool master_service_full(struct master_service *service)
 		/* This process can still create multiple concurrent
 		   clients if we just kill some of the existing ones.
 		   Do it immediately. */
+		if (service->restart_request_count_left == service->total_available_count) {
+			/* restart_request_count is reached - killing existing
+			   processes won't increase the number of available
+			   clients anymore. */
+			return TRUE;
+		}
 		return !service->avail_overflow_callback(TRUE, &created);
 	}
 
