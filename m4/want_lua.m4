@@ -16,9 +16,17 @@ AC_DEFUN([DOVECOT_WANT_LUA], [
         ])
       done
     ], [have_lua=yes])
-    AS_IF([test "$want_lua" = "yes" && test "$have_lua" = "no"], [
-      AC_MSG_ERROR([cannot build with Lua support: lua not found])
-    ])
+  ])
+
+  AS_IF([test "$have_lua" = "yes"], [
+    old_CFLAGS="$CFLAGS"
+    CFLAGS="$CFLAGS $LUA_CFLAGS"
+    AC_CHECK_HEADER([lualib.h], [have_lua=yes], [have_lua=no])
+    CFLAGS="$old_CFLAGS"
+  ])
+
+  AS_IF([test "$want_lua" = "yes" && test "$have_lua" = "no"], [
+    AC_MSG_ERROR([cannot build with Lua support: lua not found])
   ])
 
   AS_IF([test "$have_lua" != "no"], [
