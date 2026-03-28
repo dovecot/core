@@ -742,7 +742,9 @@ static int json_istream_consume_value_stream(struct json_istream *stream)
 
 	if (input == NULL)
 		return 1;
-	if (!i_stream_have_bytes_left(stream->seekable_stream)) {
+	i_assert(stream->value_stream != NULL);
+
+	if (!i_stream_have_bytes_left(input)) {
 		json_istream_consumed_value_stream(stream);
 		return 1;
 	}
