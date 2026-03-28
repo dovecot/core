@@ -351,6 +351,8 @@ program_client_input_finish(struct program_client *pclient)
 	size_t size;
 	int ret;
 
+	i_assert(input != NULL);
+
 	/* read (the remainder of) the raw program input */
 	while ((ret=i_stream_read_more(input, &data, &size)) > 0)
 		i_stream_skip(input, size);
