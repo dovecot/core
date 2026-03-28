@@ -215,6 +215,10 @@ auth_scram_parse_server_first(struct auth_scram_client *client,
 static string_t *auth_scram_get_client_final(struct auth_scram_client *client)
 {
 	const struct hash_method *hmethod = client->set.hash_method;
+
+	i_assert(hmethod != NULL);
+	i_assert(client->salt != NULL);
+
 	const buffer_t *cbind_data = client->set.cbind_data;
 	unsigned char salted_password[hmethod->digest_size];
 	unsigned char client_key[hmethod->digest_size];
@@ -227,9 +231,6 @@ static string_t *auth_scram_get_client_final(struct auth_scram_client *client)
 	size_t cbind_input_size;
 	string_t *auth_message, *str;
 	unsigned int k;
-
-	i_assert(hmethod != NULL);
-	i_assert(client->salt != NULL);
 
 	/* RFC 5802, Section 7:
 
@@ -344,6 +345,10 @@ auth_scram_parse_server_final(struct auth_scram_client *client,
 			      const char **error_r)
 {
 	const struct hash_method *hmethod = client->set.hash_method;
+
+	i_assert(hmethod != NULL);
+	i_assert(client->server_signature != NULL);
+
 	const char **fields;
 	unsigned int field_count;
 	const char *error, *verifier;
@@ -382,8 +387,6 @@ auth_scram_parse_server_final(struct auth_scram_client *client,
 	}
 	verifier += 2;
 
-	i_assert(hmethod != NULL);
-	i_assert(client->server_signature != NULL);
 	str = t_str_new(MAX_BASE64_ENCODED_SIZE(hmethod->digest_size));
 	base64_encode(client->server_signature, hmethod->digest_size, str);
 	safe_memset(client->server_signature, 0, hmethod->digest_size);
