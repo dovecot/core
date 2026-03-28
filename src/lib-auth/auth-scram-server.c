@@ -56,6 +56,9 @@ static int
 auth_scram_server_credentials_lookup(struct auth_scram_server *server)
 {
 	const struct hash_method *hmethod = server->set.hash_method;
+
+	i_assert(hmethod != NULL);
+
 	struct auth_scram_key_data *kdata = &server->key_data;
 	pool_t pool = server->pool;
 
@@ -238,6 +241,9 @@ static string_t *
 auth_scram_get_server_first(struct auth_scram_server *server)
 {
 	const struct hash_method *hmethod = server->set.hash_method;
+
+	i_assert(hmethod != NULL);
+
 	struct auth_scram_key_data *kdata = &server->key_data;
 	unsigned char snonce[SCRAM_SERVER_NONCE_LEN+1];
 	string_t *str;
@@ -287,6 +293,9 @@ static bool
 auth_scram_server_verify_credentials(struct auth_scram_server *server)
 {
 	const struct hash_method *hmethod = server->set.hash_method;
+
+	i_assert(hmethod != NULL);
+
 	struct auth_scram_key_data *kdata = &server->key_data;
 	struct hmac_context ctx;
 	const char *auth_message;
@@ -336,6 +345,9 @@ auth_scram_parse_client_final(struct auth_scram_server *server,
 			      const char **error_r)
 {
 	const struct hash_method *hmethod = server->set.hash_method;
+
+	i_assert(hmethod != NULL);
+
 	const char **fields, *nonce_str;
 	const void *cbind_input;
 	size_t cbind_input_size;
@@ -439,6 +451,9 @@ static string_t *
 auth_scram_get_server_final(struct auth_scram_server *server)
 {
 	const struct hash_method *hmethod = server->set.hash_method;
+
+	i_assert(hmethod != NULL);
+
 	struct auth_scram_key_data *kdata = &server->key_data;
 	struct hmac_context ctx;
 	const char *auth_message;
