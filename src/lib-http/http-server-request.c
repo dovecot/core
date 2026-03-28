@@ -421,12 +421,14 @@ void http_server_request_finished(struct http_server_request *req)
 {
 	struct http_server_connection *conn = req->conn;
 	struct http_server_response *resp = req->response;
-	http_server_tunnel_callback_t tunnel_callback = resp->tunnel_callback;
-	void *tunnel_context = resp->tunnel_context;
 
 	i_assert(conn != NULL);
+	i_assert(resp != NULL);
 	i_assert(req->state < HTTP_SERVER_REQUEST_STATE_FINISHED);
 	req->state = HTTP_SERVER_REQUEST_STATE_FINISHED;
+
+	http_server_tunnel_callback_t tunnel_callback = resp->tunnel_callback;
+	void *tunnel_context = resp->tunnel_context;
 
 	if (conn->callbacks != NULL &&
 	    conn->callbacks->request_finished != NULL)
@@ -435,8 +437,7 @@ void http_server_request_finished(struct http_server_request *req)
 	http_server_connection_remove_request(conn, req);
 	conn->stats.response_count++;
 
-	if (req->response != NULL)
-		http_server_response_request_finished(req->response);
+	http_server_response_request_finished(resp);
 
 	uoff_t bytes_in = req->conn->conn.input->v_offset -
 			  req->input_start_offset;
