@@ -1159,7 +1159,8 @@ static bool cmd_append_full(struct client_command_context *cmd, bool replace)
 	ctx->started = ioloop_time;
 	ctx->utf8_accept = (client_enabled_mailbox_features(cmd->client) &
 			    MAILBOX_FEATURE_UTF8ACCEPT) != 0;
-	if (replace && !cmd->uid && (seqnum > client->messages_count)) {
+	if (replace && !cmd->uid &&
+	    (seqnum == 0 || seqnum > client->messages_count)) {
 		client_send_tagline(cmd,
 			"BAD Invalid message sequence.");
 		ctx->failed = TRUE;
