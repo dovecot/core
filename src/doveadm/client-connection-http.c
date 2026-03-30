@@ -821,16 +821,6 @@ doveadm_http_server_options_handler(struct client_request_http *req)
 	struct http_server_response *http_resp;
 
 	http_resp = http_server_response_create(http_sreq, 200, "OK");
-	http_server_response_add_header(http_resp,
-		"Access-Control-Allow-Origin", "*");
-	http_server_response_add_header(http_resp,
-		"Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-	http_server_response_add_header(http_resp,
-		"Access-Control-Allow-Request-Headers",
-		"Content-Type, X-API-Key, Authorization");
-	http_server_response_add_header(http_resp,
-		"Access-Control-Allow-Headers",
-		"Content-Type, WWW-Authenticate");
 	http_server_response_submit(http_resp);
 }
 
