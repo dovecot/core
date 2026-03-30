@@ -91,12 +91,10 @@ virtual_storage_create(struct mail_storage *_storage,
 		       const char **error_r)
 {
 	const char *layout = ns->list->name;
-	static const char *EXPECTED_LAYOUT = "fs";
-	if (strcasecmp(layout, EXPECTED_LAYOUT) != 0) {
+	if (strcasecmp(layout, "index") == 0) {
 		*error_r = t_strdup_printf(
-			"mailbox_list_layout: '%s', "
-			"but it must be '%s' on virtual storages",
-			layout, EXPECTED_LAYOUT);
+			"mailbox_list_layout: '%s' "
+			"cannot be used in virtual storages", layout);
 		return -1;
 	}
 
