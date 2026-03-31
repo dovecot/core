@@ -1,5 +1,7 @@
 # default <setting-path> <old-default> <ce-version> <pro-version>
 # rename <old-setting-key> <new-setting-key> <ce-version> <pro-version>
+default	push_notification_ox/http_client_request_max_attempts	1	2.4.4	3.2.0
+default	push_notification_ox/http_client_request_timeout	1min	2.4.4	3.2.0
 default	service/indexer-worker/service_restart_request_count	unlimited	-	3.2.0
 default	service/imap/unix_listener/imap-master/user		2.4.3	-
 default	service/anvil/unix_listener/anvil-auth-penalty/mode	0600	2.4.3	-

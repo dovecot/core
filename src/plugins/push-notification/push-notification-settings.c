@@ -37,6 +37,11 @@ static const struct push_notification_ox_settings push_notification_ox_default_s
 	.cache_ttl = PUSH_NOTIFICATION_DRIVER_OX_DEFAULT_CACHE_TTL_MSECS,
 	.user_from_metadata = FALSE,
 };
+static const struct setting_keyvalue push_notification_ox_default_settings_keyvalue[] = {
+	{ "push_notification_ox/http_client_request_timeout", "2s" },
+	{ "push_notification_ox/http_client_request_max_attempts", "2" },
+	{ NULL, NULL },
+};
 
 const struct setting_parser_info push_notification_ox_setting_parser_info = {
 	.name = "push_notification_ox",
@@ -44,6 +49,7 @@ const struct setting_parser_info push_notification_ox_setting_parser_info = {
 
 	.defines = push_notification_ox_setting_defines,
 	.defaults = &push_notification_ox_default_settings,
+	.default_settings = push_notification_ox_default_settings_keyvalue,
 
 	.struct_size = sizeof(struct push_notification_ox_settings),
 	.pool_offset1 = 1 + offsetof(struct push_notification_ox_settings, pool),
