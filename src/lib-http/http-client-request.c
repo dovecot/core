@@ -818,14 +818,13 @@ void http_client_request_get_stats(struct http_client_request *req,
 		stats_r->last_sent_msecs = (unsigned int)I_MAX(diff_msecs, 0);
 	}
 
-	if (req->conn != NULL) {
-		/* Time spent in other ioloops */
-		i_assert(ioloop_global_wait_usecs >=
-			 req->queued_global_ioloop_usecs);
-		stats_r->other_ioloop_msecs = (unsigned int)
-			(ioloop_global_wait_usecs -
-			 req->queued_global_ioloop_usecs + 999) / 1000;
+	/* Time spent in other ioloops */
+	i_assert(ioloop_global_wait_usecs >= req->queued_global_ioloop_usecs);
+	stats_r->other_ioloop_msecs = (unsigned int)
+		(ioloop_global_wait_usecs -
+		 req->queued_global_ioloop_usecs + 999) / 1000;
 
+	if (req->conn != NULL) {
 		/* Time spent in the http-client's own ioloop */
 		wait_usecs = io_wait_timer_get_usecs(req->conn->io_wait_timer);
 		i_assert(wait_usecs >= req->sent_http_ioloop_usecs);
