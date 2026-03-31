@@ -133,7 +133,6 @@ var_expand_program_execute_one_real(const struct var_expand_program *program,
 	const struct var_expand_statement *stmt = program->first;
 	if (stmt == NULL) {
 		/* skip empty programs */
-		program = program->next;
 		return 0;
 	}
 	T_BEGIN {
