@@ -3,6 +3,8 @@
 
 /* <settings checks> */
 #define PUSH_NOTIFICATION_SETTINGS_FILTER_NAME "push_notification"
+
+#define PUSH_NOTIFICATION_SETTINGS_DLOG_FILTER_NAME "push_notification_dlog"
 /* </settings checks> */
 
 struct push_notification_lua_settings {

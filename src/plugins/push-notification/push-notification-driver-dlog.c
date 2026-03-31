@@ -33,10 +33,17 @@ static struct event *create_dlog_event(struct event *parent)
 
 static int
 push_notification_driver_dlog_init(
-	struct mail_user *user, pool_t pool, ATTR_UNUSED const char *name,
+	struct mail_user *user, pool_t pool, const char *name,
 	void **context_r, ATTR_UNUSED const char **error_r)
 {
 	struct event *log_event = create_dlog_event(user->event);
+	char *filter_name = p_strdup_printf(
+			event_get_pool(log_event), "%s/%s",
+			PUSH_NOTIFICATION_SETTINGS_FILTER_NAME,
+			settings_section_escape(name));
+	settings_event_add_filter_name(log_event, filter_name);
+	settings_event_add_filter_name(log_event,
+				       PUSH_NOTIFICATION_SETTINGS_DLOG_FILTER_NAME);
 	struct dlog_push_notification_txn_context *ctx = p_new(
 		pool, struct dlog_push_notification_txn_context, 1);
 	ctx->event = log_event;
