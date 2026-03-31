@@ -66,7 +66,9 @@ push_notification_driver_ox_init_global(struct mail_user *user, const char *name
 				event_get_pool(event), "%s/%s",
 				PUSH_NOTIFICATION_SETTINGS_FILTER_NAME,
 				settings_section_escape(name));
-		event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, filter_name);
+		settings_event_add_filter_name(event, filter_name);
+		settings_event_add_filter_name(event,
+					       PUSH_NOTIFICATION_SETTINGS_OX_FILTER_NAME);
 
 		if (http_client_init_auto(event, &ox_global->http_client,
 					  &error) < 0) {

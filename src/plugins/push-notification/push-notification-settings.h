@@ -6,6 +6,7 @@
 
 #define PUSH_NOTIFICATION_SETTINGS_DLOG_FILTER_NAME "push_notification_dlog"
 #define PUSH_NOTIFICATION_SETTINGS_LUA_FILTER_NAME "push_notification_lua"
+#define PUSH_NOTIFICATION_SETTINGS_OX_FILTER_NAME "push_notification_ox"
 /* </settings checks> */
 
 struct push_notification_lua_settings {

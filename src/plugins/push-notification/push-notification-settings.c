@@ -27,6 +27,8 @@ static const struct setting_define push_notification_ox_setting_defines[] = {
 	DEF(TIME_MSECS, cache_ttl),
 	DEF(BOOL, user_from_metadata),
 
+	{ .type = SET_FILTER_NAME, .key = PUSH_NOTIFICATION_SETTINGS_OX_FILTER_NAME, },
+
 	SETTING_DEFINE_LIST_END,
 };
 
