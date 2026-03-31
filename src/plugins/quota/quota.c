@@ -924,10 +924,10 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 					count_before, count_current,
 					&reason)) {
 			struct event *event = event_create(root->backend.event);
-			event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
-				      p_strdup_printf(event_get_pool(event),
-						      "quota_warning/%s",
-						      warn_name));
+			const char *filter_name = p_strdup_printf(
+				event_get_pool(event), "quota_warning/%s",
+				warn_name);
+			settings_event_add_filter_name(event, filter_name);
 			event_set_append_log_prefix(event, t_strdup_printf(
 				"quota_warning %s: ", warn_name));
 			quota_warning_execute(event, NULL, reason);
