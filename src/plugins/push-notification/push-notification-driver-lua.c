@@ -81,7 +81,9 @@ push_notification_driver_lua_init(
 			event_get_pool(event), "%s/%s",
 			PUSH_NOTIFICATION_SETTINGS_FILTER_NAME,
 			settings_section_escape(name));
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, filter_name);
+	settings_event_add_filter_name(event, filter_name);
+	settings_event_add_filter_name(event,
+				       PUSH_NOTIFICATION_SETTINGS_LUA_FILTER_NAME);
 	event_add_category(event, push_notification_get_event_category());
 	event_set_append_log_prefix(event, "lua: ");
 
