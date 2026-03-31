@@ -102,17 +102,17 @@ push_notification_driver_ox_init(struct mail_user *user, pool_t pool,
 	event_add_category(dconfig->event, &event_category_push_notification);
 	event_set_append_log_prefix(dconfig->event, "push-notification-ox: ");
 
-	/* The settings check is deliberately only validating a url if it is   
-	   given in the settings. Otherwise any file that does not contain     
-	   push-notification specific settings would fail the validation.      
-	   Thus we need to check here, whether the parsed url exists. */       
-	if (ox_settings->parsed_url == NULL) {                            
+	/* The settings check is deliberately only validating a url if it is
+	   given in the settings. Otherwise any file that does not contain
+	   push-notification specific settings would fail the validation.
+	   Thus we need to check here, whether the parsed url exists. */
+	if (ox_settings->parsed_url == NULL) {
 		*error_r = "push_notification_ox_url is missing or empty";
-		event_unref(&dconfig->event);                                  
-		settings_free(ox_settings);                               
-		return -1;                                                     
+		event_unref(&dconfig->event);
+		settings_free(ox_settings);
+		return -1;
 	}
-	
+
 	dconfig->http_url = http_url_clone_with_userinfo(pool, ox_settings->parsed_url);
 	e_debug(dconfig->event, "Using URL %s",
 		http_url_create(dconfig->http_url));
