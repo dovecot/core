@@ -793,7 +793,6 @@ http_client_request_get_attempts(const struct http_client_request *req)
 void http_client_request_get_stats(struct http_client_request *req,
 				   struct http_client_request_stats *stats_r)
 {
-	struct http_client *client = req->client;
 	long long diff_msecs;
 	uint64_t wait_usecs;
 
@@ -825,21 +824,17 @@ void http_client_request_get_stats(struct http_client_request *req,
 			 req->sent_global_ioloop_usecs);
 		stats_r->other_ioloop_msecs = (unsigned int)
 			(ioloop_global_wait_usecs -
-				req->sent_global_ioloop_usecs + 999) / 1000;
+			 req->sent_global_ioloop_usecs + 999) / 1000;
 
 		/* Time spent in the http-client's own ioloop */
-		if (client != NULL && client->waiting) {
-			wait_usecs =
-				io_wait_timer_get_usecs(req->conn->io_wait_timer);
-			i_assert(wait_usecs >= req->sent_http_ioloop_usecs);
-			stats_r->http_ioloop_msecs = (unsigned int)
-				(wait_usecs -
-				 req->sent_http_ioloop_usecs + 999) / 1000;
+		wait_usecs = io_wait_timer_get_usecs(req->conn->io_wait_timer);
+		i_assert(wait_usecs >= req->sent_http_ioloop_usecs);
+		stats_r->http_ioloop_msecs = (unsigned int)
+			(wait_usecs - req->sent_http_ioloop_usecs + 999) / 1000;
 
-			i_assert(stats_r->other_ioloop_msecs >=
-				 stats_r->http_ioloop_msecs);
-			stats_r->other_ioloop_msecs -= stats_r->http_ioloop_msecs;
-		}
+		i_assert(stats_r->other_ioloop_msecs >=
+			 stats_r->http_ioloop_msecs);
+		stats_r->other_ioloop_msecs -= stats_r->http_ioloop_msecs;
 	}
 
 	/* Total time spent on waiting for file locks */
