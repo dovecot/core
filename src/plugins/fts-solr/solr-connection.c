@@ -118,6 +118,8 @@ void solr_connection_deinit(struct solr_connection **_conn)
 
 	*_conn = NULL;
 	event_unref(&conn->event);
+	if (solr_http_client != NULL)
+		http_client_deinit(&solr_http_client);
 	i_free(conn->http_host);
 	i_free(conn->http_base_url);
 	i_free(conn->http_user);
