@@ -269,6 +269,8 @@ static void run_replace_tests(const struct test_case *cases)
 static void test_dregex_replace(void)
 {
 	const struct test_case cases[] = {
+		/* non-match */
+		REP_CASE_FULL("bar", "foo", "baz", "", NULL, 0, 0),
 		/* simple replacement */
 		REP_CASE(".*", "hello world", "world hello", "world hello"),
 		/* simple swap */

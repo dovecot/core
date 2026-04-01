@@ -434,9 +434,9 @@ int dregex_code_replace_full(struct dregex_code *code,
 	} else if (ret > 0) {
 		i_assert(result32 != NULL);
 		uni_ucs4_to_utf8(result32, result_len, result_r);
-		i_free(result32);
 	}
 
+	i_free(result32);
 	return ret > 0 ? 1 : 0;
 }
 
