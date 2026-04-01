@@ -38,6 +38,7 @@ struct solr_connection_post {
 
 struct solr_connection {
 	struct event *event;
+	struct http_client *http_client;
 	char *http_host;
 	in_port_t http_port;
 	char *http_base_url;
@@ -92,20 +93,18 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 					       http_url->password : "");
 	}
 
-	if (solr_http_client == NULL) {
-		/* FIXME: We should initialize a shared client instead. However,
-		          this is currently not possible due to an obscure bug
-		          in the blocking HTTP payload API, which causes
-		          conflicts with other HTTP applications like FTS Tika.
-		          Using a private client will provide a quick fix for
-		          now. */
+	/* FIXME: We should initialize a shared client instead. However,
+		  this is currently not possible due to an obscure bug
+		  in the blocking HTTP payload API, which causes
+		  conflicts with other HTTP applications like FTS Tika.
+		  Using a private client will provide a quick fix for
+		  now. */
 
-		settings_event_add_filter_name(conn->event, FTS_SOLR_FILTER);
-		if (http_client_init_private_auto(conn->event, &solr_http_client,
-						  &error) < 0) {
-			*error_r = t_strdup(error);
-			return -1;
-		}
+	settings_event_add_filter_name(conn->event, FTS_SOLR_FILTER);
+	if (http_client_init_private_auto(conn->event, &conn->http_client,
+					  &error) < 0) {
+		*error_r = t_strdup(error);
+		return -1;
 	}
 
 	*conn_r = conn;
@@ -117,6 +116,9 @@ void solr_connection_deinit(struct solr_connection **_conn)
 	struct solr_connection *conn = *_conn;
 
 	*_conn = NULL;
+
+	http_client_deinit(&conn->http_client);
+
 	event_unref(&conn->event);
 	i_free(conn->http_host);
 	i_free(conn->http_base_url);
@@ -187,7 +189,7 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	i_free_and_null(conn->http_failure);
 	url = t_strconcat(conn->http_base_url, "select?", query, NULL);
 
-	http_req = http_client_request(solr_http_client, "GET",
+	http_req = http_client_request(conn->http_client, "GET",
 				       conn->http_host, url,
 				       solr_connection_select_response,
 				       &lctx);
@@ -200,7 +202,7 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	http_client_request_submit(http_req);
 
 	lctx.request_status = 0;
-	http_client_wait(solr_http_client);
+	http_client_wait(conn->http_client);
 
 	if (lctx.request_status < 0)
 		return -1;
@@ -230,7 +232,7 @@ solr_connection_post_request(struct solr_connection_post *post)
 
 	url = t_strconcat(conn->http_base_url, "update", NULL);
 
-	http_req = http_client_request(solr_http_client, "POST",
+	http_req = http_client_request(conn->http_client, "POST",
 				       conn->http_host, url,
 				       solr_connection_update_response, post);
 	if (conn->http_user != NULL) {
@@ -314,7 +316,7 @@ int solr_connection_post(struct solr_connection *conn, const char *cmd)
 	http_client_request_submit(post.http_req);
 
 	post.request_status = 0;
-	http_client_wait(solr_http_client);
+	http_client_wait(conn->http_client);
 
 	return post.request_status;
 }

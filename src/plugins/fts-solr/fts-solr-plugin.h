@@ -19,8 +19,6 @@ struct fts_solr_user {
 extern const char *fts_solr_plugin_dependencies[];
 extern struct fts_backend fts_backend_solr;
 extern MODULE_CONTEXT_DEFINE(fts_solr_user_module, &mail_user_module_register);
-extern struct http_client *solr_http_client;
-
 int fts_solr_mail_user_get(struct mail_user *user, struct event *event,
 			   struct fts_solr_user **fuser_r,
 			   const char **error_r);

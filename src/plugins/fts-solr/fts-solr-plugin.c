@@ -12,7 +12,6 @@
 #include "fts-solr-settings.h"
 
 const char *fts_solr_plugin_version = DOVECOT_ABI_VERSION;
-struct http_client *solr_http_client = NULL;
 
 struct fts_solr_user_module fts_solr_user_module =
 	MODULE_CONTEXT_INIT(&mail_user_module_register);
@@ -76,9 +75,6 @@ void fts_solr_plugin_deinit(void)
 {
 	fts_backend_unregister(fts_backend_solr.name);
 	mail_storage_hooks_remove(&fts_solr_mail_storage_hooks);
-	if (solr_http_client != NULL)
-		http_client_deinit(&solr_http_client);
-
 }
 
 const char *fts_solr_plugin_dependencies[] = { "fts", NULL };
