@@ -1149,14 +1149,6 @@ static bool cmd_append_full(struct client_command_context *cmd, bool replace)
 		return TRUE;
 	}
 
-	if (replace) {
-		if (!cmd->uid && (seqnum > client->messages_count)) {
-			client_send_command_error(
-				cmd, "Invalid message sequence.");
-			return TRUE;
-		}
-	}
-
 	/* we keep the input locked all the time */
 	client->input_lock = cmd;
 
@@ -1167,9 +1159,13 @@ static bool cmd_append_full(struct client_command_context *cmd, bool replace)
 	ctx->started = ioloop_time;
 	ctx->utf8_accept = (client_enabled_mailbox_features(cmd->client) &
 			    MAILBOX_FEATURE_UTF8ACCEPT) != 0;
-	if (client_open_save_dest_box(cmd, mailbox, &ctx->box) < 0)
+	if (replace && !cmd->uid && (seqnum > client->messages_count)) {
+		client_send_tagline(cmd,
+			"BAD Invalid message sequence.");
 		ctx->failed = TRUE;
-	else {
+	} else if (client_open_save_dest_box(cmd, mailbox, &ctx->box) < 0) {
+		ctx->failed = TRUE;
+	} else {
 		event_add_str(cmd->global_event, "mailbox",
 			      mailbox_get_vname(ctx->box));
 		ctx->t = mailbox_transaction_begin(ctx->box,
@@ -1178,7 +1174,7 @@ static bool cmd_append_full(struct client_command_context *cmd, bool replace)
 					imap_client_command_get_reason(cmd));
 	}
 
-	if (replace) {
+	if (!ctx->failed && replace) {
 		ctx->rep_trans = mailbox_transaction_begin(
 			client->mailbox, 0,
 			imap_client_command_get_reason(cmd));
