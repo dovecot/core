@@ -51,9 +51,9 @@ const struct setting_keyvalue lmtp_service_settings_defaults[] = {
 	{ "inet_listener/lmtp/port", "24" },
 #endif
 
-	/* This needs to be here explicitly until the backwards compatibility
-	   is removed from settings-history-core.txt */
-	{ "service_extra_groups", "" },
+	/* LMTP needs this group for accessing anvil, before mail_access_groups
+	   is applied. */
+	{ "service_extra_groups", "$SET:default_internal_group" },
 
 	{ NULL, NULL }
 };
