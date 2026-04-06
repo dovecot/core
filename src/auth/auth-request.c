@@ -1814,6 +1814,14 @@ auth_request_validate_networks(struct auth_request *request,
 		request->failed = TRUE;
 }
 
+static bool compare_fp(const char *expected, const char *actual)
+{
+	/* NULL is not accepted */
+	if (expected == NULL || actual == NULL)
+		return FALSE;
+	return str_equals_timing_almost_safe(expected, actual);
+}
+
 static void
 auth_request_validate_client_fp(struct auth_request *request, const char *name,
 				const char *fp)
@@ -1833,12 +1841,12 @@ auth_request_validate_client_fp(struct auth_request *request, const char *name,
 		request->failed = TRUE;
 		return;
 	} else if (strcmp(name, "check_client_fp") == 0) {
-		valid = null_strcmp(client_cert_fp, fp) == 0 ||
-		        null_strcmp(client_pubkey_fp, fp) == 0;
+		valid = compare_fp(client_cert_fp, fp)  ||
+		        compare_fp(client_pubkey_fp, fp);
 	} else if (strcmp(name, "check_client_cert_fp") == 0)
-		valid = null_strcmp(client_cert_fp, fp) == 0;
+		valid = compare_fp(client_cert_fp, fp);
 	else if (strcmp(name, "check_client_pubkey_fp") == 0)
-		valid = null_strcmp(client_pubkey_fp, fp) == 0;
+		valid = compare_fp(client_pubkey_fp, fp);
 	else
 		i_unreached();
 
