@@ -126,10 +126,8 @@ int ldap_set_tls_options(LDAP *ld, bool starttls, const char *uris,
 			 error_r) < 0)
 		return -1;
 
-#ifdef LDAP_OPT_X_TLS_NEWCTX
 	opt = 0;
 	ldap_set_option(ld, LDAP_OPT_X_TLS_NEWCTX, &opt);
-#endif
 
 	return 0;
 }
