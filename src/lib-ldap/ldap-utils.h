@@ -18,4 +18,7 @@ int ldap_set_tls_options(LDAP *ld, bool starttls, const char *uris,
 
 int ldap_set_tls_validate(const struct ssl_settings *set, const char **error_r);
 
+/* This triggers reading ldap.conf if it's not already read. */
+void ldap_init_defaults(void);
+
 #endif

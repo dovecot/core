@@ -153,3 +153,16 @@ int ldap_set_tls_validate(const struct ssl_settings *set, const char **error_r)
 					  "ssl_client_key_file", error_r) < 0 ?
 		-1 : 0;
 }
+
+void ldap_init_defaults(void)
+{
+	static bool ldap_global_initialized = FALSE;
+	if (!ldap_global_initialized) {
+		/* Enforce reading the global ldap.conf file. It is
+		   done only when ld parameter is NULL. We'll override the
+		   global version for connections. */
+		int version = LDAP_VERSION3;
+		(void)ldap_set_option(NULL, LDAP_OPT_PROTOCOL_VERSION, &version);
+		ldap_global_initialized = TRUE;
+	}
+}
