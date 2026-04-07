@@ -57,8 +57,22 @@ int ldap_set_opt_str(LDAP *ld, int opt, const char *value,
 {
 	if (*value != '\0')
 		return ldap_set_opt(ld, opt, value, optname, value, error_r);
-	else
+
+	/* Copy it from global context. This allows getting defaults from
+	   ldap.conf */
+	char *global_value;
+	if (ldap_get_option(NULL, opt, &global_value) != LDAP_SUCCESS)
+		i_unreached();
+	if (global_value == NULL)
 		return 0;
+
+	int ret = 0;
+	if (global_value[0] != '\0') {
+		ret = ldap_set_opt(ld, opt, global_value, optname,
+				   global_value, error_r);
+	}
+	free(global_value);
+	return ret;
 }
 
 #ifndef LDAP_OPT_X_TLS
@@ -84,6 +98,8 @@ int ldap_set_tls_options(LDAP *ld, bool starttls, const char *uris,
 			  unsafe_data_stack_pool, &cert_file);
 	settings_file_get(ssl_set->ssl_client_ca_file,
 			  unsafe_data_stack_pool, &ca_file);
+
+	ldap_init_defaults();
 
 	if (ldap_set_opt_str(ld, LDAP_OPT_X_TLS_CACERTFILE,
 			     ca_file.path, "ssl_client_ca_file", error_r) < 0)
