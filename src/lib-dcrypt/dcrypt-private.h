@@ -12,6 +12,8 @@ struct module;
 #define DCRYPT_DOVECOT_KEY_ENCRYPT_PK 1
 #define DCRYPT_DOVECOT_KEY_ENCRYPT_PASSWORD 2
 
+#define DCRYPT_MAX_KEY_BUFFER_SIZE (16 * 1024)
+
 /* Fips requires 16 byte salt */
 #define DCRYPT_DOVECOT_SALT_LEN 16
 
