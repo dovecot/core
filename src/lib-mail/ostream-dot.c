@@ -75,10 +75,12 @@ o_stream_dot_close(struct iostream_private *stream, bool close_parent)
 		o_stream_close(dstream->ostream.parent);
 }
 
+#define ADD_MAX 3
 enum o_stream_dot_sendv_add {
 	ADD_NONE,
 	ADD_CR,
 	ADD_DOT,
+	ADD_LF_DOT,
 };
 
 static ssize_t
@@ -117,14 +119,14 @@ o_stream_dot_sendv(struct ostream_private *stream,
 
 		p = data;
 		pend = CONST_PTR_OFFSET(data, size);
-		for (; p < pend && ((size_t)(p - data) + 2) <= max_bytes; p++) {
+		for (; p < pend && ((size_t)(p - data) + ADD_MAX) <= max_bytes; p++) {
 			enum o_stream_dot_sendv_add add = ADD_NONE;
 
 			size = pend - p;
 			switch (dstream->state) {
 			/* none */
 			case STREAM_STATE_NONE: {
-				size_t maxlen = I_MIN(size, max_bytes - ((size_t)(p - data) + 2));
+				size_t maxlen = I_MIN(size, max_bytes - ((size_t)(p - data) + ADD_MAX));
 				p = CONST_PTR_OFFSET(p, i_memcspn(p, maxlen, "\r\n", 2));
 				i_assert(p <= pend);
 				if (p == pend) {
@@ -153,6 +155,9 @@ o_stream_dot_sendv(struct ostream_private *stream,
 				case '\n':
 					dstream->state = STREAM_STATE_CRLF;
 					break;
+				case '.':
+					add = ADD_LF_DOT;
+					/* fall through */
 				default:
 					dstream->state = STREAM_STATE_NONE;
 					break;
@@ -194,8 +199,30 @@ o_stream_dot_sendv(struct ostream_private *stream,
 					max_bytes -= chunk;
 					sent += chunk;
 				}
-				/* insert byte (substitute one with pair) */
 				data++;
+
+				/* Apply the modifications required according to RFC 5321 to the
+				   stream :
+
+				   ADD_DOT    - Apply standard SMTP dot-stuffing
+
+				   ADD_CR     - Convert invalid lone LFs to CRLF to comply with
+						DATA line termination requirements, and avoid
+						potentially emitting bare "\n." sequences (same
+						threat as below for "\r." sequences).
+
+				   ADD_LF_DOT - Guard against invalid "\r." sequences.
+						A downstream MTA that incorrectly handles bare CRs
+						as line terminators could interpret a '.' at the
+						start of the next line as end-of-DATA. This would
+						allow any following bytes to be processed as SMTP
+						commands.
+
+				   ADD_CR and ADD_LF_DOT make the istream-dot round-trip lossy,
+				   as these introduce bytes not present in the original input.
+				   We accept this tradeoff, since preserving exact byte fidelity
+				   for malformed input is less important than eliminating an
+				   injection vector. */
 
 				switch(add) {
 				case ADD_DOT:
@@ -206,12 +233,17 @@ o_stream_dot_sendv(struct ostream_private *stream,
 					iovn.iov_base = "\r\n";
 					iovn.iov_len = 2;
 					break;
+				case ADD_LF_DOT:
+					iovn.iov_base = "\n..";
+					iovn.iov_len = 3;
+					break;
 				default:
 					i_unreached();
 				}
 
 				array_push_back(&iov_arr, &iovn);
-				i_assert(max_bytes >= iovn.iov_len);
+				i_assert(iovn.iov_len <= ADD_MAX);
+				i_assert(iovn.iov_len <= max_bytes);
 				max_bytes -= iovn.iov_len;
 				added += iovn.iov_len - 1;
 				sent++;
