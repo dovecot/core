@@ -260,15 +260,8 @@ mail_crypt_mail_save_begin(struct mail_save_context *ctx,
 	struct mail_crypt_user *muser = MAIL_CRYPT_USER_CONTEXT(box->storage->user);
 
 	enum io_stream_encrypt_flags enc_flags = 0;
-	if (muser != NULL && muser->set->crypt_write_algorithm[0] != '\0') {
-		if (strstr(muser->set->crypt_write_algorithm, "gcm") != NULL ||
-		    strstr(muser->set->crypt_write_algorithm, "ccm") != NULL ||
-		    strstr(muser->set->crypt_write_algorithm,
-		       "chacha20-poly1305") == 0)
-			enc_flags = IO_STREAM_ENC_INTEGRITY_AEAD;
-		else
-			enc_flags = IO_STREAM_ENC_INTEGRITY_HMAC;
-	}
+	if (muser != NULL && muser->set->crypt_write_algorithm[0] != '\0')
+		enc_flags = crypt_settings_to_flags(muser->set);
 
 	if (mbox->module_ctx.super.save_begin(ctx, input) < 0)
 		return -1;

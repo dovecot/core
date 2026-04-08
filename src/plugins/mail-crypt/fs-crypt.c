@@ -239,15 +239,8 @@ static void fs_crypt_write_stream(struct fs_file *_file)
 		return;
 	}
 
-	enum io_stream_encrypt_flags flags;
-	if (strstr(file->fs->set->crypt_write_algorithm, "gcm") != NULL ||
-	    strstr(file->fs->set->crypt_write_algorithm, "ccm") != NULL ||
-	    str_begins_with(file->fs->set->crypt_write_algorithm,
-			    "chacha20-poly1305")) {
-		flags = IO_STREAM_ENC_INTEGRITY_AEAD;
-	} else {
-		flags = IO_STREAM_ENC_INTEGRITY_HMAC;
-	}
+	enum io_stream_encrypt_flags flags =
+		crypt_settings_to_flags(file->fs->set);
 
 	file->temp_output =
 		iostream_temp_create_named(_file->fs->temp_path_prefix,
