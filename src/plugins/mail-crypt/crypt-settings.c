@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "settings-parser.h"
 #include "crypt-settings.h"
+#include "dcrypt-iostream.h"
 
 #undef DEF
 #define DEF(type, name) \
@@ -103,3 +104,18 @@ const struct setting_parser_info crypt_acl_setting_parser_info = {
 	.struct_size = sizeof(struct crypt_acl_settings),
 	.pool_offset1 = 1 + offsetof(struct crypt_acl_settings, pool),
 };
+
+enum io_stream_encrypt_flags
+crypt_settings_to_flags(const struct crypt_settings *set)
+{
+	enum io_stream_encrypt_flags flags = 0;
+	if (strstr(set->crypt_write_algorithm, "gcm") != NULL ||
+	    strstr(set->crypt_write_algorithm, "ccm") != NULL ||
+	    str_begins_with(set->crypt_write_algorithm,
+			    "chacha20-poly1305")) {
+		flags |= IO_STREAM_ENC_INTEGRITY_AEAD;
+	} else {
+		flags |= IO_STREAM_ENC_INTEGRITY_HMAC;
+	}
+	return flags;
+}

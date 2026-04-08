@@ -35,4 +35,7 @@ extern const struct setting_parser_info crypt_setting_parser_info;
 extern const struct setting_parser_info crypt_private_key_setting_parser_info;
 extern const struct setting_parser_info crypt_acl_setting_parser_info;
 
+enum io_stream_encrypt_flags
+crypt_settings_to_flags(const struct crypt_settings *set);
+
 #endif
