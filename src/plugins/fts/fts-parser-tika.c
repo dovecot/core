@@ -19,11 +19,14 @@
 struct fts_parser_tika_user {
 	union mail_user_module_context module_ctx;
 	struct http_url *http_url;
+	struct http_client *http_client;
+	bool initialized;
 };
 
 struct tika_fts_parser {
 	struct fts_parser parser;
 	struct mail_user *user;
+	struct http_client *http_client;
 	struct http_client_request *http_req;
 
 	struct ioloop *ioloop;
@@ -33,15 +36,36 @@ struct tika_fts_parser {
 	bool failed;
 };
 
-static struct http_client *tika_http_client = NULL;
 static MODULE_CONTEXT_DEFINE_INIT(fts_parser_tika_user_module,
 				  &mail_user_module_register);
 
+static void fts_tika_mail_user_deinit(struct mail_user *user)
+{
+	struct fts_parser_tika_user *tuser = TIKA_USER_CONTEXT(user);
+
+	if (tuser->http_client != NULL)
+		http_client_deinit(&tuser->http_client);
+	tuser->module_ctx.super.deinit(user);
+}
+
+void fts_tika_mail_user_created(struct mail_user *user)
+{
+	struct mail_user_vfuncs *v = user->vlast;
+	struct fts_parser_tika_user *tuser;
+
+	tuser = p_new(user->pool, struct fts_parser_tika_user, 1);
+	tuser->module_ctx.super = *v;
+	user->vlast = &tuser->module_ctx.super;
+	v->deinit = fts_tika_mail_user_deinit;
+	MODULE_CONTEXT_SET(user, fts_parser_tika_user_module, tuser);
+}
+
 static int
-tika_get_http_client_url(struct fts_parser_context *parser_context, struct http_url **http_url_r)
+tika_get_http_client_url(struct fts_parser_context *parser_context,
+			 struct http_url **http_url_r,
+			 struct http_client **http_client_r)
 {
 	struct mail_user *user = parser_context->user;
-	struct event *event = parser_context->event;
 	const struct fts_settings *set = fts_user_get_settings(user);
 	struct fts_parser_tika_user *tuser = TIKA_USER_CONTEXT(user);
 	const char *url, *error;
@@ -51,41 +75,41 @@ tika_get_http_client_url(struct fts_parser_context *parser_context, struct http_
 
 	url = set->decoder_tika_url;
 
-	if (tuser != NULL) {
+	i_assert(tuser != NULL);
+	if (tuser->initialized) {
 		*http_url_r = tuser->http_url;
+		*http_client_r = tuser->http_client;
 		return *http_url_r == NULL ? -1 : 0;
 	}
-
-	tuser = p_new(user->pool, struct fts_parser_tika_user, 1);
-	MODULE_CONTEXT_SET(user, fts_parser_tika_user_module, tuser);
+	tuser->initialized = TRUE;
 
 	if (http_url_parse(url, NULL, HTTP_URL_ALLOW_USERINFO_PART, user->pool,
 			   &tuser->http_url, &error) < 0) {
-		e_error(event, "fts_tika: Failed to parse HTTP url %s: %s", url, error);
+		e_error(parser_context->event,
+			"fts_tika: Failed to parse HTTP url %s: %s", url, error);
 		return -1;
 	}
 
-	if (tika_http_client == NULL) {
-		/* FIXME: We should initialize a shared client instead. However,
-		          this is currently not possible due to an obscure bug
-		          in the blocking HTTP payload API, which causes
-		          conflicts with other HTTP applications like FTS Solr.
-		          Using a private client will provide a quick fix for
-		          now. */
+	/* FIXME: We should initialize a shared client instead. However,
+		  this is currently not possible due to an obscure bug
+		  in the blocking HTTP payload API, which causes
+		  conflicts with other HTTP applications like FTS Solr.
+		  Using a private client will provide a quick fix for
+		  now. */
 
-		struct event *event_fts = event_create(user->event);
-		settings_event_add_filter_name(event_fts, FTS_FILTER);
-		struct event *event_tika = event_create(event_fts);
-		settings_event_add_filter_name(event_tika, FTS_FILTER_DECODER_TIKA);
-		int ret = http_client_init_private_auto(event, &tika_http_client, &error);
-		event_unref(&event_tika);
-		event_unref(&event_fts);
-		if (ret < 0) {
-			e_error(user->event, "%s", error);
-			return -1;
-		}
+	struct event *event = event_create(user->event);
+	settings_event_add_filter_name(event, FTS_FILTER);
+	settings_event_add_filter_name(event, FTS_FILTER_DECODER_TIKA);
+	if (http_client_init_private_auto(event, &tuser->http_client,
+					  &error) < 0) {
+		e_error(event, "fts_tika: %s", error);
+		event_unref(&event);
+		return -1;
 	}
+	event_unref(&event);
+
 	*http_url_r = tuser->http_url;
+	*http_client_r = tuser->http_client;
 	return 0;
 }
 
@@ -145,9 +169,11 @@ fts_parser_tika_try_init(struct fts_parser_context *parser_context)
 {
 	struct tika_fts_parser *parser;
 	struct http_url *http_url;
+	struct http_client *http_client;
 	struct http_client_request *http_req;
 
-	if (tika_get_http_client_url(parser_context, &http_url) < 0)
+	if (tika_get_http_client_url(parser_context, &http_url,
+				     &http_client) < 0)
 		return NULL;
 	if (http_url->path == NULL)
 		http_url->path = "/";
@@ -155,8 +181,9 @@ fts_parser_tika_try_init(struct fts_parser_context *parser_context)
 	parser = i_new(struct tika_fts_parser, 1);
 	parser->parser.v = fts_parser_tika;
 	parser->user = parser_context->user;
+	parser->http_client = http_client;
 
-	http_req = http_client_request(tika_http_client, "PUT",
+	http_req = http_client_request(parser->http_client, "PUT",
 			http_url->host.name,
 			t_strconcat(http_url->path, http_url->enc_query, NULL),
 			fts_tika_parser_response, parser);
@@ -206,7 +233,7 @@ static void fts_parser_tika_more(struct fts_parser *_parser,
 		    http_client_request_finish_payload(&parser->http_req) < 0)
 			parser->failed = TRUE;
 		if (!parser->failed && parser->payload == NULL)
-			http_client_wait(tika_http_client);
+			http_client_wait(parser->http_client);
 		if (parser->failed)
 			return;
 		i_assert(parser->payload != NULL);
@@ -271,15 +298,9 @@ static int fts_parser_tika_deinit(struct fts_parser *_parser, const char **retri
 	return ret;
 }
 
-static void fts_parser_tika_unload(void)
-{
-	if (tika_http_client != NULL)
-		http_client_deinit(&tika_http_client);
-}
-
 struct fts_parser_vfuncs fts_parser_tika = {
 	fts_parser_tika_try_init,
 	fts_parser_tika_more,
 	fts_parser_tika_deinit,
-	fts_parser_tika_unload
+	NULL
 };

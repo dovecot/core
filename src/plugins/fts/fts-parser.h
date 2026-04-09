@@ -32,6 +32,8 @@ extern struct fts_parser_vfuncs fts_parser_html;
 extern struct fts_parser_vfuncs fts_parser_script;
 extern struct fts_parser_vfuncs fts_parser_tika;
 
+void fts_tika_mail_user_created(struct mail_user *user);
+
 bool fts_parser_init(struct fts_parser_context *parser_context,
 		     struct fts_parser **parser_r);
 struct fts_parser *fts_parser_text_init(void);
