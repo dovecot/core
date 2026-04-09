@@ -286,7 +286,7 @@ mech_oauthbearer_auth_continue(struct sasl_server_mech_request *request,
 	in++;
 
 	/* *kvpair */
-	while (*in != 0x01 && in < in_end) {
+	while (in < in_end && *in != 0x01) {
 		const char *key, *value;
 
 		if (sasl_oauth2_kvpair_parse(in, in_end - in, &key, &value,
