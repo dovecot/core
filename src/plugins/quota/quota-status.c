@@ -316,7 +316,7 @@ static void client_destroy(struct connection *conn)
 }
 
 static struct connection_settings client_set = {
-	.input_max_size = SIZE_MAX,
+	.input_max_size = 1024,
 	.output_max_size = SIZE_MAX,
 	.client = FALSE
 };
