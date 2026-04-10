@@ -206,8 +206,7 @@ o_stream_dot_sendv(struct ostream_private *stream,
 		if (max_bytes == 0)
 			break;
 		i_assert(p <= pend);
-		chunk = ((size_t)(p - data) >= max_bytes ?
-			 max_bytes : (size_t)(p - data));
+		chunk = I_MIN((size_t)(p - data), max_bytes);
 		if (chunk > 0) {
 			iovn.iov_base = data;
 			iovn.iov_len = chunk;
