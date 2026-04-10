@@ -553,6 +553,7 @@ void program_client_set_input(struct program_client *pclient,
 void program_client_set_output(struct program_client *pclient,
 			       struct ostream *output)
 {
+	o_stream_ignore_last_errors(pclient->output);
 	o_stream_unref(&pclient->output);
 	if (output != NULL)
 		o_stream_ref(output);
@@ -563,6 +564,7 @@ void program_client_set_output(struct program_client *pclient,
 void program_client_set_output_seekable(struct program_client *pclient,
 					const char *temp_prefix)
 {
+	o_stream_ignore_last_errors(pclient->output);
 	o_stream_unref(&pclient->output);
 	pclient->output = iostream_temp_create_sized(temp_prefix, 0,
 		"(program client seekable output)",
@@ -679,6 +681,7 @@ void program_client_destroy(struct program_client **_pclient)
 	i_assert(pclient->callback == NULL);
 
 	i_stream_unref(&pclient->input);
+	o_stream_ignore_last_errors(pclient->output);
 	o_stream_unref(&pclient->output);
 
 	i_stream_unref(&pclient->program_input);
