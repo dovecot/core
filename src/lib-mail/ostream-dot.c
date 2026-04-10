@@ -75,6 +75,12 @@ o_stream_dot_close(struct iostream_private *stream, bool close_parent)
 		o_stream_close(dstream->ostream.parent);
 }
 
+enum o_stream_dot_sendv_add {
+	ADD_NONE,
+	ADD_CR,
+	ADD_DOT,
+};
+
 static ssize_t
 o_stream_dot_sendv(struct ostream_private *stream,
 		    const struct const_iovec *iov, unsigned int iov_count)
@@ -112,7 +118,7 @@ o_stream_dot_sendv(struct ostream_private *stream,
 		p = data;
 		pend = CONST_PTR_OFFSET(data, size);
 		for (; p < pend && ((size_t)(p - data) + 2) <= max_bytes; p++) {
-			char add = 0;
+			enum o_stream_dot_sendv_add add = ADD_NONE;
 
 			size = pend - p;
 			switch (dstream->state) {
@@ -128,8 +134,7 @@ o_stream_dot_sendv(struct ostream_private *stream,
 				switch (*p) {
 				case '\n':
 					dstream->state = STREAM_STATE_CRLF;
-					/* add missing CR */
-					add = '\r';
+					add = ADD_CR;
 					break;
 				case '\r':
 					dstream->state = STREAM_STATE_CR;
@@ -163,12 +168,10 @@ o_stream_dot_sendv(struct ostream_private *stream,
 					break;
 				case '\n':
 					dstream->state = STREAM_STATE_CRLF;
-					/* add missing CR */
-					add = '\r';
+					add = ADD_CR;
 					break;
 				case '.':
-					/* add dot */
-					add = '.';
+					add = ADD_DOT;
 					/* fall through */
 				default:
 					dstream->state = STREAM_STATE_NONE;
@@ -193,12 +196,24 @@ o_stream_dot_sendv(struct ostream_private *stream,
 				}
 				/* insert byte (substitute one with pair) */
 				data++;
-				iovn.iov_base = (add == '\r' ? "\r\n" : "..");
-				iovn.iov_len = 2;
+
+				switch(add) {
+				case ADD_DOT:
+					iovn.iov_base = "..";
+					iovn.iov_len = 2;
+					break;
+				case ADD_CR:
+					iovn.iov_base = "\r\n";
+					iovn.iov_len = 2;
+					break;
+				default:
+					i_unreached();
+				}
+
 				array_push_back(&iov_arr, &iovn);
-				i_assert(max_bytes >= 2);
-				max_bytes -= 2;
-				added++;
+				i_assert(max_bytes >= iovn.iov_len);
+				max_bytes -= iovn.iov_len;
+				added += iovn.iov_len - 1;
 				sent++;
 			}
 		}
