@@ -40,6 +40,21 @@ struct gssapi_sasl_session {
 static const struct dsasl_client_mech dsasl_client_mech_gssapi;
 static const struct dsasl_client_mech dsasl_client_mech_gss_spnego;
 
+static void mech_gssapi_auth_free(struct dsasl_client_mech_session *msession)
+{
+	struct gssapi_sasl_session *gsession =
+		container_of(msession, struct gssapi_sasl_session, session);
+	OM_uint32 minor_status;
+
+	if (gsession->gss_ctx != GSS_C_NO_CONTEXT) {
+		(void)gss_delete_sec_context(&minor_status, &gsession->gss_ctx,
+					     GSS_C_NO_BUFFER);
+	}
+	if (gsession->gss_principal != GSS_C_NO_NAME)
+		(void)gss_release_name(&minor_status, &gsession->gss_principal);
+	buffer_free(&gsession->out_buf);
+}
+
 static void
 mech_gssapi_error_append(string_t *msg, unsigned int *entries,
 			 OM_uint32 status_value, int status_type)
@@ -347,29 +362,14 @@ mech_gssapi_gs1_auth_output(struct dsasl_client_mech_session *msession,
 	return DSASL_CLIENT_RESULT_OK;
 }
 
-static void mech_gssapi_auth_free(struct dsasl_client_mech_session *msession)
-{
-	struct gssapi_sasl_session *gsession =
-		container_of(msession, struct gssapi_sasl_session, session);
-	OM_uint32 minor_status;
-
-	if (gsession->gss_ctx != GSS_C_NO_CONTEXT) {
-		(void)gss_delete_sec_context(&minor_status, &gsession->gss_ctx,
-					     GSS_C_NO_BUFFER);
-	}
-	if (gsession->gss_principal != GSS_C_NO_NAME)
-		(void)gss_release_name(&minor_status, &gsession->gss_principal);
-	buffer_free(&gsession->out_buf);
-}
-
 static const struct dsasl_client_mech dsasl_client_mech_gssapi = {
 	.name = "GSSAPI",
 	.flags = DSASL_MECH_SEC_ALLOW_NULS,
 	.struct_size = sizeof(struct gssapi_sasl_session),
 
+	.auth_free = mech_gssapi_auth_free,
 	.auth_input = mech_gssapi_gs1_auth_input,
 	.auth_output = mech_gssapi_gs1_auth_output,
-	.auth_free = mech_gssapi_auth_free,
 };
 
 static const struct dsasl_client_mech dsasl_client_mech_gss_spnego = {
@@ -377,9 +377,9 @@ static const struct dsasl_client_mech dsasl_client_mech_gss_spnego = {
 	.flags = DSASL_MECH_SEC_ALLOW_NULS,
 	.struct_size = sizeof(struct gssapi_sasl_session),
 
+	.auth_free = mech_gssapi_auth_free,
 	.auth_input = mech_gssapi_gs1_auth_input,
 	.auth_output = mech_gssapi_gs1_auth_output,
-	.auth_free = mech_gssapi_auth_free,
 };
 
 static bool initialized = FALSE;

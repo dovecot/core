@@ -15,6 +15,14 @@ struct scram_sasl_session {
 	struct auth_scram_client scram_client;
 };
 
+static void mech_scram_auth_free(struct dsasl_client_mech_session *msession)
+{
+	struct scram_sasl_session *ssession =
+		container_of(msession, struct scram_sasl_session, session);
+
+	auth_scram_client_deinit(&ssession->scram_client);
+}
+
 static int
 mech_scram_init_channel_binding(struct scram_sasl_session *ssession,
 				const char **error_r)
@@ -135,46 +143,38 @@ mech_scram_auth_output(struct dsasl_client_mech_session *msession,
 	return DSASL_CLIENT_RESULT_OK;
 }
 
-static void mech_scram_auth_free(struct dsasl_client_mech_session *msession)
-{
-	struct scram_sasl_session *ssession =
-		container_of(msession, struct scram_sasl_session, session);
-
-	auth_scram_client_deinit(&ssession->scram_client);
-}
-
 const struct dsasl_client_mech dsasl_client_mech_scram_sha_1 = {
 	.name = SASL_MECH_NAME_SCRAM_SHA_1,
 	.struct_size = sizeof(struct scram_sasl_session),
 
+	.auth_free = mech_scram_auth_free,
 	.auth_input = mech_scram_auth_input,
 	.auth_output = mech_scram_auth_output,
-	.auth_free = mech_scram_auth_free,
 };
 
 const struct dsasl_client_mech dsasl_client_mech_scram_sha_1_plus = {
 	.name = SASL_MECH_NAME_SCRAM_SHA_1_PLUS,
 	.struct_size = sizeof(struct scram_sasl_session),
 
+	.auth_free = mech_scram_auth_free,
 	.auth_input = mech_scram_auth_input,
 	.auth_output = mech_scram_auth_output,
-	.auth_free = mech_scram_auth_free,
 };
 
 const struct dsasl_client_mech dsasl_client_mech_scram_sha_256 = {
 	.name = SASL_MECH_NAME_SCRAM_SHA_256,
 	.struct_size = sizeof(struct scram_sasl_session),
 
+	.auth_free = mech_scram_auth_free,
 	.auth_input = mech_scram_auth_input,
 	.auth_output = mech_scram_auth_output,
-	.auth_free = mech_scram_auth_free,
 };
 
 const struct dsasl_client_mech dsasl_client_mech_scram_sha_256_plus = {
 	.name = SASL_MECH_NAME_SCRAM_SHA_256_PLUS,
 	.struct_size = sizeof(struct scram_sasl_session),
 
+	.auth_free = mech_scram_auth_free,
 	.auth_input = mech_scram_auth_input,
 	.auth_output = mech_scram_auth_output,
-	.auth_free = mech_scram_auth_free,
 };

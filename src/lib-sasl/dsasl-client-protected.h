@@ -16,6 +16,7 @@ struct dsasl_client_mech {
 	size_t struct_size;
 	enum dsasl_mech_security_flags flags;
 
+	void (*auth_free)(struct dsasl_client_mech_session *msession);
 	enum dsasl_client_result
 	(*auth_input)(struct dsasl_client_mech_session *msession,
 		      const unsigned char *input, size_t input_len,
@@ -27,7 +28,6 @@ struct dsasl_client_mech {
 	int (*auth_get_result)(struct dsasl_client_mech_session *msession,
 			       const char *key, const char **value_r,
 			       const char **error_r);
-	void (*auth_free)(struct dsasl_client_mech_session *msession);
 };
 
 struct dsasl_client_mech_session {
