@@ -40,9 +40,6 @@ static void test_sasl_client_login(void)
 	struct dsasl_client_session *session = dsasl_client_session_create(mech, &sasl_set);
 	i_assert(session != NULL);
 
-	/* parameters shouldn't work (test here for completeness) */
-	test_assert(dsasl_client_set_parameter(session, "parameter", "value", &error) == 0);
-
 	/* Any input is valid */
 	str_append(input, "Username:");
 	test_assert(dsasl_client_session_input(session, input->data, input->used, &error) == DSASL_CLIENT_RESULT_OK);
@@ -275,8 +272,6 @@ static void test_sasl_client_oauthbearer(void)
 	sasl_set_host.port = 143;
 	session = dsasl_client_session_create(mech, &sasl_set_host);
 	i_assert(session != NULL);
-
-	test_assert(dsasl_client_set_parameter(session, "unknown", "value", &error) == 0);
 
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);

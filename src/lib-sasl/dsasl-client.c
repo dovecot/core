@@ -214,21 +214,6 @@ dsasl_client_session_output(struct dsasl_client_session *session,
 				      error_r);
 }
 
-int dsasl_client_set_parameter(struct dsasl_client_session *session,
-			       const char *param, const char *value,
-			       const char **error_r)
-{
-	struct dsasl_client_mech_session *msession = session->mech;
-
-	if (msession->mech->set_parameter != NULL) {
-		int ret = msession->mech->set_parameter(msession, param,
-							value, error_r);
-		i_assert(ret >= 0 || *error_r != NULL);
-		return ret;
-	} else
-		return 0;
-}
-
 int dsasl_client_session_get_result(struct dsasl_client_session *session,
 				    const char *key, const char **value_r,
 				    const char **error_r)

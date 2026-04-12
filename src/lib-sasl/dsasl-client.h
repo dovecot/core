@@ -78,13 +78,6 @@ dsasl_client_session_output(struct dsasl_client_session *session,
 			    const unsigned char **output_r, size_t *output_len_r,
 			    const char **error_r);
 
-/* Call for setting extra parameters for authentication, these are mechanism
-   dependent. -1 = error, 0 = not found, 1 = ok
-   value can be NULL. */
-int dsasl_client_set_parameter(struct dsasl_client_session *session,
-			       const char *param, const char *value,
-			       const char **error_r) ATTR_NULL(3);
-
 /* Call for getting extra result information.
   -1 = error, 0 = not found, 1 = ok */
 int dsasl_client_session_get_result(struct dsasl_client_session *session,

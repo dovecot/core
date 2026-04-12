@@ -24,9 +24,6 @@ struct dsasl_client_mech {
 	(*output)(struct dsasl_client_mech_session *msession,
 		  const unsigned char **output_r, size_t *output_len_r,
 		  const char **error_r);
-	int (*set_parameter)(struct dsasl_client_mech_session *msession,
-			     const char *key, const char *value,
-			     const char **error_r);
 	int (*get_result)(struct dsasl_client_mech_session *msession,
 			  const char *key, const char **value_r,
 			  const char **error_r);
