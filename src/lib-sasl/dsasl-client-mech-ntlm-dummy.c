@@ -1,7 +1,8 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
-#include "dsasl-client-private.h"
+
+#include "dsasl-client-protected.h"
 #include "dsasl-client-mech-ntlm-dummy.h"
 
 /* Dummy NTLM mechanism

@@ -9,7 +9,7 @@
 #include "hash-method.h"
 #include "auth-digest.h"
 
-#include "dsasl-client-private.h"
+#include "dsasl-client-protected.h"
 
 enum digest_md5_state {
 	DIGEST_MD5_STATE_INIT = 0,

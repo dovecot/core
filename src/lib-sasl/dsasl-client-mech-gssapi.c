@@ -6,7 +6,7 @@
 #include "buffer.h"
 #include "auth-gssapi.h"
 
-#include "dsasl-client-private.h"
+#include "dsasl-client-protected.h"
 
 /* Non-zero flags defined in RFC 2222 */
 enum sasl_gssapi_qop {

@@ -2,7 +2,8 @@
 
 #include "lib.h"
 #include "str.h"
-#include "dsasl-client-private.h"
+
+#include "dsasl-client-protected.h"
 
 enum login_state {
 	STATE_INIT = 0,

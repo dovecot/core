@@ -2,7 +2,8 @@
 
 #include "lib.h"
 #include "str.h"
-#include "dsasl-client-private.h"
+
+#include "dsasl-client-protected.h"
 
 struct plain_sasl_session {
 	struct dsasl_client_mech_session session;

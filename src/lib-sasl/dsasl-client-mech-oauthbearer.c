@@ -6,8 +6,9 @@
 #include "json-istream.h"
 #include "istream.h"
 #include "auth-gs2.h"
+
 #include "sasl-oauth2.h"
-#include "dsasl-client-private.h"
+#include "dsasl-client-protected.h"
 
 struct oauthbearer_sasl_session {
 	struct dsasl_client_mech_session session;

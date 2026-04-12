@@ -4,7 +4,8 @@
 #include "sha1.h"
 #include "sha2.h"
 #include "auth-scram-client.h"
-#include "dsasl-client-private.h"
+
+#include "dsasl-client-protected.h"
 
 struct scram_sasl_session {
 	struct dsasl_client_mech_session session;

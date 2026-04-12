@@ -1,7 +1,8 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
-#include "dsasl-client-private.h"
+
+#include "dsasl-client-protected.h"
 
 struct external_sasl_session {
 	struct dsasl_client_mech_session session;
