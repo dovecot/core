@@ -88,7 +88,6 @@ void mail_storage_init(void)
 {
 	if (mail_storage_init_refcount++ > 0)
 		return;
-	dsasl_clients_init();
 	mailbox_attributes_init();
 	mailbox_lists_init();
 	mail_storage_hooks_init();
@@ -115,7 +114,6 @@ void mail_storage_deinit(void)
 	mail_storage_hooks_deinit();
 	mailbox_lists_deinit();
 	mailbox_attributes_deinit();
-	dsasl_clients_deinit();
 }
 
 void mail_storage_class_register(struct mail_storage *storage_class)

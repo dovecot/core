@@ -96,7 +96,7 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 	sasl_set.host = login_proxy_get_host(client->common.login_proxy);
 	sasl_set.port = login_proxy_get_port(client->common.login_proxy);
 	client->common.proxy_sasl_session = dsasl_client_session_create(
-		client->common.proxy_mech, &sasl_set);
+		sasl_client, client->common.proxy_mech, &sasl_set);
 	mech_name = dsasl_client_mech_get_name(client->common.proxy_mech);
 
 	str_printfa(str, "AUTH %s", mech_name);

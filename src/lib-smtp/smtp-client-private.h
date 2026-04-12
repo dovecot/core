@@ -257,6 +257,8 @@ struct smtp_client {
 	struct ssl_iostream_context *ssl_ctx;
 
 	struct connection_list *conn_list;
+
+	struct dsasl_client *sasl_client;
 };
 
 extern struct event_category event_category_smtp_client;
@@ -336,5 +338,6 @@ void smtp_client_connection_next_transaction(
  */
 
 int smtp_client_init_ssl_ctx(struct smtp_client *client, const char **error_r);
+struct dsasl_client *smtp_client_get_sasl_client(struct smtp_client *client);
 
 #endif

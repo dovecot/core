@@ -1012,20 +1012,18 @@ imapc_connection_get_sasl_mech(struct imapc_connection *conn,
 			       const struct dsasl_client_mech **mech_r,
 			       const char **error_r)
 {
-	const struct imapc_settings *set = conn->client->set;
+	struct imapc_client *client = conn->client;
+	const struct imapc_settings *set = client->set;
 	const char *const *mechanisms =
 		settings_boollist_get(&set->imapc_sasl_mechanisms);
 
 	/* find one of the specified SASL mechanisms */
 	for (; *mechanisms != NULL; mechanisms++) {
 		if (imapc_connection_have_auth(conn, *mechanisms)) {
-			*mech_r = dsasl_client_mech_find(*mechanisms);
-			if (*mech_r != NULL)
-				return 0;
-
-			*error_r = t_strdup_printf(
-				"Support for SASL method '%s' is missing", *mechanisms);
-			return -1;
+			*mech_r = dsasl_client_mech_find(client->sasl_client,
+							 *mechanisms);
+			i_assert(*mech_r != NULL);
+			return 0;
 		}
 	}
 	*error_r = t_strdup_printf("IMAP server doesn't support any of the requested SASL mechanisms: %s",
@@ -1133,7 +1131,8 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 
 	if (sasl_mech == NULL)
 		sasl_mech = &dsasl_client_mech_plain;
-	conn->sasl_session = dsasl_client_session_create(sasl_mech, &sasl_set);
+	conn->sasl_session = dsasl_client_session_create(client->sasl_client,
+							 sasl_mech, &sasl_set);
 
 	mech_name = dsasl_client_mech_get_name(sasl_mech);
 	if (conn->ssl_iostream != NULL) {

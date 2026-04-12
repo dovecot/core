@@ -44,6 +44,7 @@ struct authtest_input {
 	bool internal_failure;
 
 	const struct dsasl_client_mech *sasl_mech;
+	struct dsasl_client *sasl_client;
 	struct dsasl_client_session *sasl_session;
 
 	struct auth_client_request *request;
@@ -329,7 +330,8 @@ static void cmd_auth_init_sasl_client(struct authtest_input *input)
 	struct dsasl_client_settings sasl_set;
 
 	if (input->mechanism != NULL) {
-		input->sasl_mech = dsasl_client_mech_find(input->mechanism);
+		input->sasl_mech = dsasl_client_mech_find(
+			input->sasl_client, input->mechanism);
 		if (input->sasl_mech == NULL)
 			i_fatal("SASL mechanism '%s' not supported by client",
 				input->mechanism);
@@ -365,7 +367,7 @@ static void cmd_auth_init_sasl_client(struct authtest_input *input)
 	sasl_set.port = input->info.local_port;
 
 	input->sasl_session = dsasl_client_session_create(
-		input->sasl_mech, &sasl_set);
+		input->sasl_client, input->sasl_mech, &sasl_set);
 	dsasl_client_session_enable_channel_binding(
 		input->sasl_session, SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3,
 		auth_channel_bind_callback, input);
@@ -561,12 +563,12 @@ static void cmd_auth_cache_status(struct doveadm_cmd_context *cctx)
 
 static void authtest_input_init(struct authtest_input *input)
 {
-	dsasl_clients_init();
-#ifdef BUILTIN_GSSAPI
-	dsasl_clients_init_gssapi();
-#endif
-
 	i_zero(input);
+
+	input->sasl_client = dsasl_client_create(NULL);
+#ifdef BUILTIN_GSSAPI
+	dsasl_client_init_gssapi(input->sasl_client);
+#endif
 	input->pool = pool_alloconly_create("auth input", 256);
 	input->info.protocol = "doveadm";
 	input->info.debug = auth_want_log_debug();
@@ -578,7 +580,7 @@ static void authtest_input_deinit(struct authtest_input *input)
 {
 	pool_unref(&input->pool);
 
-	dsasl_clients_deinit();
+	dsasl_client_unref(&input->sasl_client);
 }
 
 static void cmd_auth_test(struct doveadm_cmd_context *cctx)

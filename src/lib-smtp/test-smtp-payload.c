@@ -1515,12 +1515,10 @@ static void main_init(void)
 {
 	ssl_iostream_openssl_init();
 	password_schemes_init();
-	dsasl_clients_init();
 }
 
 static void main_deinit(void)
 {
-	dsasl_clients_deinit();
 	password_schemes_deinit();
 	ssl_iostream_context_cache_free();
 	ssl_iostream_openssl_deinit();

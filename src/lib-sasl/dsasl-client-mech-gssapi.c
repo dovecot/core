@@ -389,14 +389,8 @@ static const struct dsasl_client_mech dsasl_client_mech_gss_spnego = {
 	.auth_output = mech_gssapi_gs1_auth_output,
 };
 
-static bool initialized = FALSE;
-
-void dsasl_clients_init_gssapi(void)
+void dsasl_client_init_gssapi(struct dsasl_client *client)
 {
-	if (initialized)
-		return;
-
-	initialized = TRUE;
-	dsasl_client_mech_register(&dsasl_client_mech_gssapi);
-	dsasl_client_mech_register(&dsasl_client_mech_gss_spnego);
+	dsasl_client_mech_register(client, &dsasl_client_mech_gssapi);
+	dsasl_client_mech_register(client, &dsasl_client_mech_gss_spnego);
 }

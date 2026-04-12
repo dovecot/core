@@ -52,6 +52,7 @@ extern struct login_module_register login_module_register;
 
 extern struct login_binary *login_binary;
 extern struct auth_client *auth_client;
+extern struct dsasl_client *sasl_client;
 extern struct login_client_list *login_client_list;
 extern bool closing_down, login_debug;
 extern struct anvil_client *anvil;

@@ -283,7 +283,7 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 	sasl_set.authzid = client->common.proxy_user;
 	sasl_set.password = client->common.proxy_password;
 	client->common.proxy_sasl_session = dsasl_client_session_create(
-		client->common.proxy_mech, &sasl_set);
+		sasl_client, client->common.proxy_mech, &sasl_set);
 	mech_name = dsasl_client_mech_get_name(client->common.proxy_mech);
 
 	if (dsasl_client_session_output(client->common.proxy_sasl_session,

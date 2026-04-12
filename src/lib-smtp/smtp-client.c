@@ -13,6 +13,7 @@
 #include "dns-lookup.h"
 #include "iostream-rawlog.h"
 #include "iostream-ssl.h"
+#include "dsasl-client.h"
 
 #include "smtp-client-private.h"
 
@@ -99,6 +100,7 @@ void smtp_client_deinit(struct smtp_client **_client)
 	settings_free(client->set.ssl);
 	if (client->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&client->ssl_ctx);
+	dsasl_client_unref(&client->sasl_client);
 	event_unref(&client->event);
 	pool_unref(&client->pool);
 	*_client = NULL;
@@ -141,6 +143,14 @@ int smtp_client_init_ssl_ctx(struct smtp_client *client, const char **error_r)
 	settings_free(set);
 	settings_free(ssl_set);
 	return ret;
+}
+
+struct dsasl_client *smtp_client_get_sasl_client(struct smtp_client *client)
+{
+	if (client->sasl_client == NULL)
+		client->sasl_client = dsasl_client_create(client->event);
+
+	return client->sasl_client;
 }
 
 // FIXME: Implement smtp_client_run()

@@ -32,6 +32,7 @@ int imapc_client_init(const struct imapc_parameters *params,
 {
 	struct event *event;
 	struct imapc_settings *set;
+	struct dsasl_client *sasl_client;
 	struct imapc_client *client;
 	pool_t pool;
 
@@ -49,16 +50,18 @@ int imapc_client_init(const struct imapc_parameters *params,
 		return -1;
 	}
 
+	sasl_client = dsasl_client_create(event);
 	if (!array_is_empty(&set->imapc_sasl_mechanisms)) {
 		const char *mech_name;
 		array_foreach_elem(&set->imapc_sasl_mechanisms, mech_name) {
 			const struct dsasl_client_mech *mech =
-				dsasl_client_mech_find(mech_name);
+				dsasl_client_mech_find(sasl_client, mech_name);
 			if (mech == NULL) {
 				*error_r = t_strdup_printf(
 					"imapc_sasl_mechanism: "
 					"'%s' mechanism is not supported",
 					mech_name);
+				dsasl_client_unref(&sasl_client);
 				settings_free(set);
 				event_unref(&event);
 				return -1;
@@ -66,6 +69,7 @@ int imapc_client_init(const struct imapc_parameters *params,
 			if (dsasl_client_mech_uses_password(mech) &&
 				  *set->imapc_password == '\0') {
 				*error_r = "Missing imapc_password";
+				dsasl_client_unref(&sasl_client);
 				settings_free(set);
 				event_unref(&event);
 				return -1;
@@ -80,6 +84,7 @@ int imapc_client_init(const struct imapc_parameters *params,
 	client->untagged_callback = default_untagged_callback;
 	client->event = event;
 	client->set = set;
+	client->sasl_client = sasl_client;
 
 	client->params.session_id_prefix =
 		p_strdup(pool, params->session_id_prefix);
@@ -129,6 +134,7 @@ void imapc_client_unref(struct imapc_client **_client)
 
 	settings_free(client->set);
 
+	dsasl_client_unref(&client->sasl_client);
 	event_unref(&client->event);
 	pool_unref(&client->pool);
 }

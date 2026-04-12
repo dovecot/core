@@ -33,6 +33,7 @@ static struct event_category event_category_auth = {
 
 struct login_binary *login_binary;
 struct auth_client *auth_client;
+struct dsasl_client *sasl_client;
 struct login_client_list *login_client_list;
 bool closing_down, login_debug;
 struct anvil_client *anvil;
@@ -360,7 +361,7 @@ static void main_preinit(void)
 	/* Initialize SSL proxy so it can read certificate and private
 	   key file. */
 	login_ssl_init();
-	dsasl_clients_init();
+	sasl_client = dsasl_client_create(NULL);
 	client_common_init();
 	master_admin_clients_init(&admin_callbacks);
 
@@ -463,7 +464,7 @@ static void main_deinit(void)
 		anvil_client_deinit(&anvil);
 	timeout_remove(&auth_client_to);
 	client_common_deinit();
-	dsasl_clients_deinit();
+	dsasl_client_unref(&sasl_client);
 
 	settings_free(global_login_settings);
 	event_unref(&login_service_event);

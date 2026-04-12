@@ -58,8 +58,10 @@ extern const struct dsasl_client_mech dsasl_client_mech_scram_sha_1_plus;
 extern const struct dsasl_client_mech dsasl_client_mech_scram_sha_256;
 extern const struct dsasl_client_mech dsasl_client_mech_scram_sha_256_plus;
 
-void dsasl_client_mech_register(const struct dsasl_client_mech *mech);
-void dsasl_client_mech_unregister(const struct dsasl_client_mech *mech);
+void dsasl_client_mech_register(struct dsasl_client *client,
+				const struct dsasl_client_mech *mech);
+void dsasl_client_mech_unregister(struct dsasl_client *client,
+				  const struct dsasl_client_mech *mech);
 
 /*
  * Session

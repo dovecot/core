@@ -97,7 +97,7 @@ const struct dsasl_client_mech dsasl_client_mech_ntlm = {
 	.auth_output = mech_ntlm_auth_output,
 };
 
-void dsasl_client_mech_ntlm_init_dummy(void)
+void dsasl_client_init_ntlm_dummy(struct dsasl_client *client)
 {
-	dsasl_client_mech_register(&dsasl_client_mech_ntlm);
+	dsasl_client_mech_register(client, &dsasl_client_mech_ntlm);
 }

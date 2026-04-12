@@ -621,7 +621,8 @@ proxy_check_start(struct client *client, struct event *event,
 	struct ip_addr ip;
 
 	if (reply->proxy.sasl_mechanism != NULL) {
-		*sasl_mech_r = dsasl_client_mech_find(reply->proxy.sasl_mechanism);
+		*sasl_mech_r = dsasl_client_mech_find(
+			sasl_client, reply->proxy.sasl_mechanism);
 		if (*sasl_mech_r == NULL) {
 			e_error(event, "Unsupported SASL mechanism %s",
 				reply->proxy.sasl_mechanism);

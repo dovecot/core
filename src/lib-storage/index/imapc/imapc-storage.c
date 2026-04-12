@@ -18,7 +18,6 @@
 #include "imapc-attribute.h"
 #include "imapc-settings.h"
 #include "imapc-storage.h"
-#include "dsasl-client.h"
 
 #define DNS_CLIENT_SOCKET_NAME "dns-client"
 

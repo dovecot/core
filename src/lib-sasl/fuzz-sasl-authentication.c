@@ -47,6 +47,7 @@ struct fuzz_sasl_context {
 	struct sasl_server_req_ctx ssrctx;
 	const struct fuzz_sasl_parameters *params;
 
+	struct dsasl_client *client;
 	struct dsasl_client_session *session;
 
 	const char *server_cbind_type;
@@ -686,6 +687,15 @@ static void fuzz_sasl_run(struct istream *input)
 	fctx.fuzz_input = input;
 	fctx.auth_initial = auth_initial;
 
+	fctx.client = dsasl_client_create(fuzz_event);
+#ifdef HAVE_LOCAL_FUZZER
+	dsasl_client_init_ntlm_dummy(fctx.client);
+#endif
+#ifdef HAVE_GSSAPI
+	dsasl_client_init_gssapi(fctx.client);
+#endif
+	i_assert(fctx.client != NULL);
+
 	sasl_server_request_create(&fctx.ssrctx, server_mech, "imap", NULL);
 
 	struct dsasl_client_settings client_set = {
@@ -696,10 +706,10 @@ static void fuzz_sasl_run(struct istream *input)
 		.protocol = "imap",
 		.host = "example.com",
 	};
-	client_mech = dsasl_client_mech_find(params.mech);
+	client_mech = dsasl_client_mech_find(fctx.client, params.mech);
 	if (client_mech != NULL) {
-		fctx.session = dsasl_client_session_create(client_mech,
-							   &client_set);
+		fctx.session = dsasl_client_session_create(
+			fctx.client, client_mech, &client_set);
 		i_assert(fctx.session != NULL);
 
 		dsasl_client_session_enable_channel_binding(
@@ -710,6 +720,7 @@ static void fuzz_sasl_run(struct istream *input)
 	}
 
 	dsasl_client_session_destroy(&fctx.session);
+	dsasl_client_unref(&fctx.client);
 	sasl_server_request_destroy(&fctx.ssrctx);
 
 	sasl_server_instance_unref(&server_inst);
@@ -736,13 +747,6 @@ FUZZ_BEGIN_DATA(const unsigned char *data, size_t size)
 		event_set_forced_debug(fuzz_event, TRUE);
 
 	password_schemes_init();
-	dsasl_clients_init();
-#ifdef HAVE_LOCAL_FUZZER
-	dsasl_client_mech_ntlm_init_dummy();
-#endif
-#ifdef HAVE_GSSAPI
-	dsasl_clients_init_gssapi();
-#endif
 
 	struct istream *input = i_stream_create_from_data(data, size);
 	struct ioloop *ioloop = io_loop_create();
@@ -754,7 +758,6 @@ FUZZ_BEGIN_DATA(const unsigned char *data, size_t size)
 	io_loop_destroy(&ioloop);
 	i_stream_unref(&input);
 
-	dsasl_clients_deinit();
 	password_schemes_deinit();
 
 	event_unref(&fuzz_event);

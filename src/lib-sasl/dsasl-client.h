@@ -3,6 +3,9 @@
 
 #include "iostream-ssl.h"
 
+struct dsasl_client;
+struct dsasl_client_session;
+
 struct dsasl_client_settings {
 	struct event *event_parent;
 
@@ -38,23 +41,31 @@ dsasl_client_channel_binding_callback_t(const char *type, void *context,
 					const buffer_t **data_r,
 					const char **error_r);
 
-/* PLAIN mechanism always exists and can be accessed directly via this. */
-extern const struct dsasl_client_mech dsasl_client_mech_plain;
-
 /*
  * Client
  */
 
-const struct dsasl_client_mech *dsasl_client_mech_find(const char *name);
+struct dsasl_client *dsasl_client_create(struct event *event_parent);
+void dsasl_client_ref(struct dsasl_client *client);
+void dsasl_client_unref(struct dsasl_client **_client);
+
+/* PLAIN mechanism always exists and can be accessed directly via this. */
+extern const struct dsasl_client_mech dsasl_client_mech_plain;
+
+const struct dsasl_client_mech *
+dsasl_client_mech_find(struct dsasl_client *client, const char *name);
 const char *dsasl_client_mech_get_name(const struct dsasl_client_mech *mech);
 bool dsasl_client_mech_uses_password(const struct dsasl_client_mech *mech);
+
+void dsasl_client_init_gssapi(struct dsasl_client *client);
 
 /*
  * Session
  */
 
 struct dsasl_client_session *
-dsasl_client_session_create(const struct dsasl_client_mech *mech,
+dsasl_client_session_create(struct dsasl_client *client,
+			    const struct dsasl_client_mech *mech,
 			    const struct dsasl_client_settings *set);
 void dsasl_client_session_ref(struct dsasl_client_session *session);
 void dsasl_client_session_unref(struct dsasl_client_session **_session);
@@ -83,10 +94,5 @@ dsasl_client_session_output(struct dsasl_client_session *session,
 int dsasl_client_session_get_result(struct dsasl_client_session *session,
 				    const char *key, const char **value_r,
 				    const char **error_r);
-
-void dsasl_clients_init(void);
-void dsasl_clients_deinit(void);
-
-void dsasl_clients_init_gssapi(void);
 
 #endif

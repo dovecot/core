@@ -9,32 +9,91 @@ struct event_category event_category_sasl_client = {
 	.name = "sasl-client"
 };
 
-static int init_refcount = 0;
-static ARRAY(const struct dsasl_client_mech *) dsasl_mechanisms = ARRAY_INIT;
-
 /*
  * Client
  */
 
+static const struct dsasl_client_mech *const core_mechanisms[] = {
+	&dsasl_client_mech_anonymous,
+	&dsasl_client_mech_external,
+	&dsasl_client_mech_plain,
+	&dsasl_client_mech_login,
+	&dsasl_client_mech_digest_md5,
+	&dsasl_client_mech_cram_md5,
+	&dsasl_client_mech_oauthbearer,
+	&dsasl_client_mech_xoauth2,
+	&dsasl_client_mech_scram_sha_1,
+	&dsasl_client_mech_scram_sha_1_plus,
+	&dsasl_client_mech_scram_sha_256,
+	&dsasl_client_mech_scram_sha_256_plus,
+};
+
+struct dsasl_client *dsasl_client_create(struct event *event_parent)
+{
+	pool_t pool;
+	struct dsasl_client *client;
+	unsigned int i;
+
+	pool = pool_alloconly_create("sasl client", 512);
+	client = p_new(pool, struct dsasl_client, 1);
+	client->pool = pool;
+	client->refcount = 1;
+
+	client->event = event_create(event_parent);
+	event_add_category(client->event, &event_category_sasl_client);
+	event_set_append_log_prefix(client->event, "sasl: ");
+
+	i_array_init(&client->mechanisms, N_ELEMENTS(core_mechanisms) + 4);
+	for (i = 0; i < N_ELEMENTS(core_mechanisms); i++)
+		dsasl_client_mech_register(client, core_mechanisms[i]);
+
+	return client;
+}
+
+void dsasl_client_ref(struct dsasl_client *client)
+{
+	i_assert(client->refcount > 0);
+	client->refcount++;
+}
+
+void dsasl_client_unref(struct dsasl_client **_client)
+{
+	struct dsasl_client *client = *_client;
+
+	if (client == NULL)
+		return;
+	*_client = NULL;
+
+	i_assert(client->refcount > 0);
+	if (--client->refcount > 0)
+		return;
+
+	array_free(&client->mechanisms);
+	event_unref(&client->event);
+	pool_unref(&client->pool);
+}
+
 static const struct dsasl_client_mech *
-dsasl_client_mech_find_idx(const char *name, unsigned int *idx_r)
+dsasl_client_mech_find_idx(struct dsasl_client *client, const char *name,
+			   unsigned int *idx_r)
 {
 	const struct dsasl_client_mech *const *mechp;
 
-	array_foreach(&dsasl_mechanisms, mechp) {
+	array_foreach(&client->mechanisms, mechp) {
 		if (strcasecmp((*mechp)->name, name) == 0) {
-			*idx_r = array_foreach_idx(&dsasl_mechanisms, mechp);
+			*idx_r = array_foreach_idx(&client->mechanisms, mechp);
 			return *mechp;
 		}
 	}
 	return NULL;
 }
 
-const struct dsasl_client_mech *dsasl_client_mech_find(const char *name)
+const struct dsasl_client_mech *
+dsasl_client_mech_find(struct dsasl_client *client, const char *name)
 {
 	unsigned int idx;
 
-	return dsasl_client_mech_find_idx(name, &idx);
+	return dsasl_client_mech_find_idx(client, name, &idx);
 }
 
 const char *dsasl_client_mech_get_name(const struct dsasl_client_mech *mech)
@@ -47,24 +106,26 @@ bool dsasl_client_mech_uses_password(const struct dsasl_client_mech *mech)
 	return (mech->flags & DSASL_MECH_SEC_NO_PASSWORD) == 0;
 }
 
-void dsasl_client_mech_register(const struct dsasl_client_mech *mech)
+void dsasl_client_mech_register(struct dsasl_client *client,
+				const struct dsasl_client_mech *mech)
 {
 	unsigned int idx;
 
-	if (dsasl_client_mech_find_idx(mech->name, &idx) != NULL) {
+	if (dsasl_client_mech_find_idx(client, mech->name, &idx) != NULL) {
 		/* allow plugins to override the default mechanisms */
-		array_delete(&dsasl_mechanisms, idx, 1);
+		array_delete(&client->mechanisms, idx, 1);
 	}
-	array_push_back(&dsasl_mechanisms, &mech);
+	array_push_back(&client->mechanisms, &mech);
 }
 
-void dsasl_client_mech_unregister(const struct dsasl_client_mech *mech)
+void dsasl_client_mech_unregister(struct dsasl_client *client,
+				  const struct dsasl_client_mech *mech)
 {
 	unsigned int idx;
 
-	if (dsasl_client_mech_find_idx(mech->name, &idx) == NULL)
+	if (dsasl_client_mech_find_idx(client, mech->name, &idx) == NULL)
 		i_panic("SASL mechanism not registered: %s", mech->name);
-	array_delete(&dsasl_mechanisms, idx, 1);
+	array_delete(&client->mechanisms, idx, 1);
 }
 
 /*
@@ -72,7 +133,8 @@ void dsasl_client_mech_unregister(const struct dsasl_client_mech *mech)
  */
 
 struct dsasl_client_session *
-dsasl_client_session_create(const struct dsasl_client_mech *mech,
+dsasl_client_session_create(struct dsasl_client *client,
+			    const struct dsasl_client_mech *mech,
 			    const struct dsasl_client_settings *set)
 {
 	struct event *event;
@@ -91,6 +153,8 @@ dsasl_client_session_create(const struct dsasl_client_mech *mech,
 	session->pool = pool;
 	session->refcount = 1;
 	session->event = event;
+	session->client = client;
+	dsasl_client_ref(client);
 
 	struct dsasl_client_mech_session *msession;
 
@@ -139,6 +203,7 @@ void dsasl_client_session_unref(struct dsasl_client_session **_session)
 	if (msession->password != NULL)
 		safe_memset(msession->password, 0, strlen(msession->password));
 	event_unref(&session->event);
+	dsasl_client_unref(&session->client);
 	pool_unref(&session->pool);
 }
 
@@ -231,31 +296,4 @@ int dsasl_client_session_get_result(struct dsasl_client_session *session,
 		return ret;
 	} else
 		return 0;
-}
-
-void dsasl_clients_init(void)
-{
-	if (init_refcount++ > 0)
-		return;
-
-	i_array_init(&dsasl_mechanisms, 16);
-	dsasl_client_mech_register(&dsasl_client_mech_anonymous);
-	dsasl_client_mech_register(&dsasl_client_mech_external);
-	dsasl_client_mech_register(&dsasl_client_mech_plain);
-	dsasl_client_mech_register(&dsasl_client_mech_login);
-	dsasl_client_mech_register(&dsasl_client_mech_digest_md5);
-	dsasl_client_mech_register(&dsasl_client_mech_cram_md5);
-	dsasl_client_mech_register(&dsasl_client_mech_oauthbearer);
-	dsasl_client_mech_register(&dsasl_client_mech_xoauth2);
-	dsasl_client_mech_register(&dsasl_client_mech_scram_sha_1);
-	dsasl_client_mech_register(&dsasl_client_mech_scram_sha_1_plus);
-	dsasl_client_mech_register(&dsasl_client_mech_scram_sha_256);
-	dsasl_client_mech_register(&dsasl_client_mech_scram_sha_256_plus);
-}
-
-void dsasl_clients_deinit(void)
-{
-	if (--init_refcount > 0)
-		return;
-	array_free(&dsasl_mechanisms);
 }

@@ -39,6 +39,7 @@ struct test_sasl_context {
 	struct sasl_server_req_ctx ssrctx;
 	const struct test_sasl *test;
 
+	struct dsasl_client *client;
 	struct dsasl_client_session *session;
 
 	const char *authid;
@@ -394,6 +395,13 @@ test_sasl_run_once(const struct test_sasl *test,
 	tctx.test = test;
 	tctx.auth_initial = auth_initial;
 
+	tctx.client = dsasl_client_create(test_event);
+	dsasl_client_init_ntlm_dummy(tctx.client);
+#ifdef HAVE_GSSAPI
+	dsasl_client_init_gssapi(tctx.client);
+#endif
+	i_assert(tctx.client != NULL);
+
 	sasl_server_request_create(&tctx.ssrctx, server_mech, "imap", NULL);
 
 	const char *authid = (test->client.authid != NULL ?
@@ -415,9 +423,10 @@ test_sasl_run_once(const struct test_sasl *test,
 		.protocol = "imap",
 		.host = "example.com",
 	};
-	client_mech = dsasl_client_mech_find(test->mech);
+	client_mech = dsasl_client_mech_find(tctx.client, test->mech);
 	i_assert(client_mech != NULL);
-	tctx.session = dsasl_client_session_create(client_mech, &client_set);
+	tctx.session = dsasl_client_session_create(tctx.client, client_mech,
+						   &client_set);
 	i_assert(tctx.session != NULL);
 
 	dsasl_client_session_enable_channel_binding(
@@ -427,6 +436,7 @@ test_sasl_run_once(const struct test_sasl *test,
 	test_sasl_interact(&tctx);
 
 	dsasl_client_session_destroy(&tctx.session);
+	dsasl_client_unref(&tctx.client);
 	sasl_server_request_destroy(&tctx.ssrctx);
 
 	pool_unref(&tctx.pool);
@@ -1746,17 +1756,11 @@ int main(int argc, char *argv[])
 	test_init();
 	event_set_forced_debug(test_event, debug);
 	password_schemes_init();
-	dsasl_clients_init();
-	dsasl_client_mech_ntlm_init_dummy();
-#ifdef HAVE_GSSAPI
-	dsasl_clients_init_gssapi();
-#endif
 
 	ioloop = io_loop_create();
 	ret = test_run(test_functions);
 	io_loop_destroy(&ioloop);
 
-	dsasl_clients_deinit();
 	password_schemes_deinit();
 	lib_signals_deinit();
 	lib_deinit();
