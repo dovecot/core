@@ -67,20 +67,8 @@ void dsasl_client_mech_unregister(const struct dsasl_client_mech *mech);
  * Session
  */
 
-static inline int
-dsasl_client_session_get_channel_binding(
+int dsasl_client_session_get_channel_binding(
 	struct dsasl_client_mech_session *msession, const char *type,
-	const buffer_t **data_r, const char **error_r)
-{
-	struct dsasl_client_session *session = msession->session;
-
-	if (msession->channel_version == SSL_IOSTREAM_PROTOCOL_VERSION_UNKNOWN ||
-	    session->cbinding_callback == NULL) {
-		*error_r = "Channel binding not available locally";
-		return -1;
-	}
-	return session->cbinding_callback(type, session->cbinding_context,
-					  data_r, error_r);
-}
+	const buffer_t **data_r, const char **error_r);
 
 #endif

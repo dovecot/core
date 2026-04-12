@@ -167,6 +167,21 @@ void dsasl_client_session_enable_channel_binding(
 	session->cbinding_context = context;
 }
 
+int dsasl_client_session_get_channel_binding(
+	struct dsasl_client_mech_session *msession, const char *type,
+	const buffer_t **data_r, const char **error_r)
+{
+	struct dsasl_client_session *session = msession->session;
+
+	if (msession->channel_version == SSL_IOSTREAM_PROTOCOL_VERSION_UNKNOWN ||
+	    session->cbinding_callback == NULL) {
+		*error_r = "Channel binding not available locally";
+		return -1;
+	}
+	return session->cbinding_callback(type, session->cbinding_context,
+					  data_r, error_r);
+}
+
 enum dsasl_client_result
 dsasl_client_session_input(struct dsasl_client_session *session,
 			   const unsigned char *input, size_t input_len,
