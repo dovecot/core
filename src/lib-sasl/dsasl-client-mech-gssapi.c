@@ -282,9 +282,9 @@ mech_gssapi_gs1_unwrap(struct gssapi_sasl_session *gsession,
 }
 
 static enum dsasl_client_result
-mech_gssapi_gs1_input(struct dsasl_client_mech_session *msession,
-		      const unsigned char *input, size_t input_len,
-		      const char **error_r)
+mech_gssapi_gs1_auth_input(struct dsasl_client_mech_session *msession,
+			   const unsigned char *input, size_t input_len,
+			   const char **error_r)
 {
 	struct gssapi_sasl_session *gsession =
 		container_of(msession, struct gssapi_sasl_session, session);
@@ -313,9 +313,9 @@ mech_gssapi_gs1_input(struct dsasl_client_mech_session *msession,
 }
 
 static enum dsasl_client_result
-mech_gssapi_gs1_output(struct dsasl_client_mech_session *msession,
-		       const unsigned char **output_r, size_t *output_len_r,
-		       const char **error_r)
+mech_gssapi_gs1_auth_output(struct dsasl_client_mech_session *msession,
+			    const unsigned char **output_r, size_t *output_len_r,
+			    const char **error_r)
 {
 	struct gssapi_sasl_session *gsession =
 		container_of(msession, struct gssapi_sasl_session, session);
@@ -347,7 +347,7 @@ mech_gssapi_gs1_output(struct dsasl_client_mech_session *msession,
 	return DSASL_CLIENT_RESULT_OK;
 }
 
-static void mech_gssapi_free(struct dsasl_client_mech_session *msession)
+static void mech_gssapi_auth_free(struct dsasl_client_mech_session *msession)
 {
 	struct gssapi_sasl_session *gsession =
 		container_of(msession, struct gssapi_sasl_session, session);
@@ -367,9 +367,9 @@ static const struct dsasl_client_mech dsasl_client_mech_gssapi = {
 	.flags = DSASL_MECH_SEC_ALLOW_NULS,
 	.struct_size = sizeof(struct gssapi_sasl_session),
 
-	.input = mech_gssapi_gs1_input,
-	.output = mech_gssapi_gs1_output,
-	.free = mech_gssapi_free,
+	.auth_input = mech_gssapi_gs1_auth_input,
+	.auth_output = mech_gssapi_gs1_auth_output,
+	.auth_free = mech_gssapi_auth_free,
 };
 
 static const struct dsasl_client_mech dsasl_client_mech_gss_spnego = {
@@ -377,9 +377,9 @@ static const struct dsasl_client_mech dsasl_client_mech_gss_spnego = {
 	.flags = DSASL_MECH_SEC_ALLOW_NULS,
 	.struct_size = sizeof(struct gssapi_sasl_session),
 
-	.input = mech_gssapi_gs1_input,
-	.output = mech_gssapi_gs1_output,
-	.free = mech_gssapi_free,
+	.auth_input = mech_gssapi_gs1_auth_input,
+	.auth_output = mech_gssapi_gs1_auth_output,
+	.auth_free = mech_gssapi_auth_free,
 };
 
 static bool initialized = FALSE;

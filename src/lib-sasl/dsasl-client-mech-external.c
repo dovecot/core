@@ -11,9 +11,9 @@ struct external_sasl_session {
 };
 
 static enum dsasl_client_result
-mech_external_input(struct dsasl_client_mech_session *msession,
-		    const unsigned char *input ATTR_UNUSED, size_t input_len,
-		    const char **error_r)
+mech_external_auth_input(struct dsasl_client_mech_session *msession,
+			 const unsigned char *input ATTR_UNUSED, size_t input_len,
+			 const char **error_r)
 {
 	struct external_sasl_session *esession =
 		container_of(msession, struct external_sasl_session, session);
@@ -31,9 +31,9 @@ mech_external_input(struct dsasl_client_mech_session *msession,
 }
 
 static enum dsasl_client_result
-mech_external_output(struct dsasl_client_mech_session *msession,
-		     const unsigned char **output_r, size_t *output_len_r,
-		     const char **error_r ATTR_UNUSED)
+mech_external_auth_output(struct dsasl_client_mech_session *msession,
+			  const unsigned char **output_r, size_t *output_len_r,
+			  const char **error_r ATTR_UNUSED)
 {
 	struct external_sasl_session *esession =
 		container_of(msession, struct external_sasl_session, session);
@@ -57,6 +57,6 @@ const struct dsasl_client_mech dsasl_client_mech_external = {
 	.struct_size = sizeof(struct external_sasl_session),
 	.flags = DSASL_MECH_SEC_NO_PASSWORD,
 
-	.input = mech_external_input,
-	.output = mech_external_output
+	.auth_input = mech_external_auth_input,
+	.auth_output = mech_external_auth_output,
 };

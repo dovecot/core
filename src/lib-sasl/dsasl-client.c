@@ -131,8 +131,8 @@ void dsasl_client_session_unref(struct dsasl_client_session **_session)
 
 	struct dsasl_client_mech_session *msession = session->mech;
 
-	if (msession->mech->free != NULL)
-		msession->mech->free(msession);
+	if (msession->mech->auth_free != NULL)
+		msession->mech->auth_free(msession);
 	if (msession->password != NULL)
 		safe_memset(msession->password, 0, strlen(msession->password));
 	event_unref(&session->event);
@@ -200,7 +200,7 @@ dsasl_client_session_input(struct dsasl_client_session *session,
 			SASL_MAX_MESSAGE_SIZE);
 		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
-	return msession->mech->input(msession, input, input_len, error_r);
+	return msession->mech->auth_input(msession, input, input_len, error_r);
 }
 
 enum dsasl_client_result
@@ -210,8 +210,8 @@ dsasl_client_session_output(struct dsasl_client_session *session,
 {
 	struct dsasl_client_mech_session *msession = session->mech;
 
-	return msession->mech->output(msession, output_r, output_len_r,
-				      error_r);
+	return msession->mech->auth_output(msession, output_r, output_len_r,
+					   error_r);
 }
 
 int dsasl_client_session_get_result(struct dsasl_client_session *session,
@@ -220,9 +220,9 @@ int dsasl_client_session_get_result(struct dsasl_client_session *session,
 {
 	struct dsasl_client_mech_session *msession = session->mech;
 
-	if (msession->mech->get_result != NULL) {
-		int ret = msession->mech->get_result(msession, key,
-						     value_r, error_r);
+	if (msession->mech->auth_get_result != NULL) {
+		int ret = msession->mech->auth_get_result(msession, key,
+							  value_r, error_r);
 		i_assert(ret <= 0 || *value_r != NULL);
 		i_assert(ret >= 0 || *error_r != NULL);
 		return ret;

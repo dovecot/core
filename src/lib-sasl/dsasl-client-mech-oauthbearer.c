@@ -18,9 +18,9 @@ struct oauthbearer_sasl_session {
 };
 
 static enum dsasl_client_result
-mech_oauthbearer_input(struct dsasl_client_mech_session *msession,
-		       const unsigned char *input, size_t input_len,
-		       const char **error_r)
+mech_oauthbearer_auth_input(struct dsasl_client_mech_session *msession,
+			    const unsigned char *input, size_t input_len,
+			    const char **error_r)
 {
 	struct oauthbearer_sasl_session *osession =
 		container_of(msession, struct oauthbearer_sasl_session, session);
@@ -90,9 +90,9 @@ mech_oauthbearer_input(struct dsasl_client_mech_session *msession,
 }
 
 static enum dsasl_client_result
-mech_oauthbearer_output(struct dsasl_client_mech_session *msession,
-			const unsigned char **output_r, size_t *output_len_r,
-			const char **error_r)
+mech_oauthbearer_auth_output(struct dsasl_client_mech_session *msession,
+			     const unsigned char **output_r, size_t *output_len_r,
+			     const char **error_r)
 {
 	struct oauthbearer_sasl_session *osession =
 		container_of(msession, struct oauthbearer_sasl_session, session);
@@ -137,9 +137,9 @@ mech_oauthbearer_output(struct dsasl_client_mech_session *msession,
 }
 
 static enum dsasl_client_result
-mech_xoauth2_output(struct dsasl_client_mech_session *msession,
-		    const unsigned char **output_r, size_t *output_len_r,
-		    const char **error_r)
+mech_xoauth2_auth_output(struct dsasl_client_mech_session *msession,
+			 const unsigned char **output_r, size_t *output_len_r,
+			 const char **error_r)
 {
 	struct oauthbearer_sasl_session *osession =
 		container_of(msession, struct oauthbearer_sasl_session, session);
@@ -171,9 +171,9 @@ mech_xoauth2_output(struct dsasl_client_mech_session *msession,
 }
 
 static int
-mech_oauthbearer_get_result(struct dsasl_client_mech_session *msession,
-			    const char *key, const char **value_r,
-			    const char **error_r ATTR_UNUSED)
+mech_oauthbearer_auth_get_result(struct dsasl_client_mech_session *msession,
+				 const char *key, const char **value_r,
+				 const char **error_r ATTR_UNUSED)
 {
 	struct oauthbearer_sasl_session *osession =
 		container_of(msession, struct oauthbearer_sasl_session, session);
@@ -191,16 +191,16 @@ const struct dsasl_client_mech dsasl_client_mech_oauthbearer = {
 	.name = SASL_MECH_NAME_OAUTHBEARER,
 	.struct_size = sizeof(struct oauthbearer_sasl_session),
 
-	.input = mech_oauthbearer_input,
-	.output = mech_oauthbearer_output,
-	.get_result = mech_oauthbearer_get_result,
+	.auth_input = mech_oauthbearer_auth_input,
+	.auth_output = mech_oauthbearer_auth_output,
+	.auth_get_result = mech_oauthbearer_auth_get_result,
 };
 
 const struct dsasl_client_mech dsasl_client_mech_xoauth2 = {
 	.name = SASL_MECH_NAME_XOAUTH2,
 	.struct_size = sizeof(struct oauthbearer_sasl_session),
 
-	.input = mech_oauthbearer_input,
-	.output = mech_xoauth2_output,
-	.get_result = mech_oauthbearer_get_result,
+	.auth_input = mech_oauthbearer_auth_input,
+	.auth_output = mech_xoauth2_auth_output,
+	.auth_get_result = mech_oauthbearer_auth_get_result,
 };

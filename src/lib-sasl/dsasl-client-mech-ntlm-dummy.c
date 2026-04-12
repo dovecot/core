@@ -25,9 +25,9 @@ struct ntlm_sasl_session {
 void dasl_client_mech_ntlm_init_dummy(void);
 
 static enum dsasl_client_result
-mech_ntlm_input(struct dsasl_client_mech_session *msession,
-		const unsigned char *input, size_t input_len,
-		const char **error_r)
+mech_ntlm_auth_input(struct dsasl_client_mech_session *msession,
+		     const unsigned char *input, size_t input_len,
+		     const char **error_r)
 {
 	static const char *challenge = "Challenge";
 	struct ntlm_sasl_session *nsession =
@@ -49,9 +49,9 @@ mech_ntlm_input(struct dsasl_client_mech_session *msession,
 }
 
 static enum dsasl_client_result
-mech_ntlm_output(struct dsasl_client_mech_session *msession,
-		 const unsigned char **output_r, size_t *output_len_r,
-		 const char **error_r)
+mech_ntlm_auth_output(struct dsasl_client_mech_session *msession,
+		      const unsigned char **output_r, size_t *output_len_r,
+		      const char **error_r)
 {
 	struct ntlm_sasl_session *nsession =
 		container_of(msession, struct ntlm_sasl_session, session);
@@ -86,8 +86,8 @@ const struct dsasl_client_mech dsasl_client_mech_ntlm = {
 	.name = SASL_MECH_NAME_NTLM,
 	.struct_size = sizeof(struct ntlm_sasl_session),
 
-	.input = mech_ntlm_input,
-	.output = mech_ntlm_output,
+	.auth_input = mech_ntlm_auth_input,
+	.auth_output = mech_ntlm_auth_output,
 };
 
 void dsasl_client_mech_ntlm_init_dummy(void)

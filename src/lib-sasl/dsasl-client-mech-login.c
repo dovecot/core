@@ -18,10 +18,9 @@ struct login_sasl_session {
 };
 
 static enum dsasl_client_result
-mech_login_input(struct dsasl_client_mech_session *msession,
-		 const unsigned char *input ATTR_UNUSED,
-		 size_t input_len ATTR_UNUSED,
-		 const char **error_r)
+mech_login_auth_input(struct dsasl_client_mech_session *msession,
+		      const unsigned char *input ATTR_UNUSED,
+		      size_t input_len ATTR_UNUSED, const char **error_r)
 {
 	struct login_sasl_session *lsession =
 		container_of(msession, struct login_sasl_session, session);
@@ -35,9 +34,9 @@ mech_login_input(struct dsasl_client_mech_session *msession,
 }
 
 static enum dsasl_client_result
-mech_login_output(struct dsasl_client_mech_session *msession,
-		  const unsigned char **output_r, size_t *output_len_r,
-		  const char **error_r)
+mech_login_auth_output(struct dsasl_client_mech_session *msession,
+		       const unsigned char **output_r, size_t *output_len_r,
+		       const char **error_r)
 {
 	struct login_sasl_session *lsession =
 		container_of(msession, struct login_sasl_session, session);
@@ -72,6 +71,6 @@ const struct dsasl_client_mech dsasl_client_mech_login = {
 	.name = SASL_MECH_NAME_LOGIN,
 	.struct_size = sizeof(struct login_sasl_session),
 
-	.input = mech_login_input,
-	.output = mech_login_output
+	.auth_input = mech_login_auth_input,
+	.auth_output = mech_login_auth_output,
 };

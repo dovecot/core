@@ -17,17 +17,17 @@ struct dsasl_client_mech {
 	enum dsasl_mech_security_flags flags;
 
 	enum dsasl_client_result
-	(*input)(struct dsasl_client_mech_session *msession,
-		 const unsigned char *input, size_t input_len,
-		 const char **error_r);
+	(*auth_input)(struct dsasl_client_mech_session *msession,
+		      const unsigned char *input, size_t input_len,
+		      const char **error_r);
 	enum dsasl_client_result
-	(*output)(struct dsasl_client_mech_session *msession,
-		  const unsigned char **output_r, size_t *output_len_r,
-		  const char **error_r);
-	int (*get_result)(struct dsasl_client_mech_session *msession,
-			  const char *key, const char **value_r,
-			  const char **error_r);
-	void (*free)(struct dsasl_client_mech_session *msession);
+	(*auth_output)(struct dsasl_client_mech_session *msession,
+		       const unsigned char **output_r, size_t *output_len_r,
+		       const char **error_r);
+	int (*auth_get_result)(struct dsasl_client_mech_session *msession,
+			       const char *key, const char **value_r,
+			       const char **error_r);
+	void (*auth_free)(struct dsasl_client_mech_session *msession);
 };
 
 struct dsasl_client_mech_session {

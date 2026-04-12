@@ -12,9 +12,9 @@ struct plain_sasl_session {
 };
 
 static enum dsasl_client_result
-mech_plain_input(struct dsasl_client_mech_session *msession,
-		 const unsigned char *input ATTR_UNUSED, size_t input_len,
-		 const char **error_r)
+mech_plain_auth_input(struct dsasl_client_mech_session *msession,
+		      const unsigned char *input ATTR_UNUSED, size_t input_len,
+		      const char **error_r)
 {
 	struct plain_sasl_session *psession =
 		container_of(msession, struct plain_sasl_session, session);
@@ -32,9 +32,9 @@ mech_plain_input(struct dsasl_client_mech_session *msession,
 }
 
 static enum dsasl_client_result
-mech_plain_output(struct dsasl_client_mech_session *msession,
-		  const unsigned char **output_r, size_t *output_len_r,
-		  const char **error_r)
+mech_plain_auth_output(struct dsasl_client_mech_session *msession,
+		       const unsigned char **output_r, size_t *output_len_r,
+		       const char **error_r)
 {
 	struct plain_sasl_session *psession =
 		container_of(msession, struct plain_sasl_session, session);
@@ -67,6 +67,6 @@ const struct dsasl_client_mech dsasl_client_mech_plain = {
 	.name = SASL_MECH_NAME_PLAIN,
 	.struct_size = sizeof(struct plain_sasl_session),
 
-	.input = mech_plain_input,
-	.output = mech_plain_output
+	.auth_input = mech_plain_auth_input,
+	.auth_output = mech_plain_auth_output,
 };

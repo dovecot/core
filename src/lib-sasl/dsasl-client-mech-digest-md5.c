@@ -450,9 +450,9 @@ mech_digest_md5_input_final(struct digest_md5_sasl_session *dsession,
 }
 
 static enum dsasl_client_result
-mech_digest_md5_input(struct dsasl_client_mech_session *msession,
-		      const unsigned char *input, size_t input_len,
-		      const char **error_r)
+mech_digest_md5_auth_input(struct dsasl_client_mech_session *msession,
+			   const unsigned char *input, size_t input_len,
+			   const char **error_r)
 {
 	struct digest_md5_sasl_session *dsession =
 		container_of(msession, struct digest_md5_sasl_session, session);
@@ -499,9 +499,9 @@ mech_digest_md5_input(struct dsasl_client_mech_session *msession,
 }
 
 static enum dsasl_client_result
-mech_digest_md5_output(struct dsasl_client_mech_session *msession,
-		       const unsigned char **output_r, size_t *output_len_r,
-		       const char **error_r)
+mech_digest_md5_auth_output(struct dsasl_client_mech_session *msession,
+			    const unsigned char **output_r, size_t *output_len_r,
+			    const char **error_r)
 {
 	struct digest_md5_sasl_session *dsession =
 		container_of(msession, struct digest_md5_sasl_session, session);
@@ -543,6 +543,6 @@ const struct dsasl_client_mech dsasl_client_mech_digest_md5 = {
 	.name = SASL_MECH_NAME_DIGEST_MD5,
 	.struct_size = sizeof(struct digest_md5_sasl_session),
 
-	.input = mech_digest_md5_input,
-	.output = mech_digest_md5_output,
+	.auth_input = mech_digest_md5_auth_input,
+	.auth_output = mech_digest_md5_auth_output,
 };

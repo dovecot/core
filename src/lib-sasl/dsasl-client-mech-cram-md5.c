@@ -15,9 +15,9 @@ struct cram_md5_sasl_session {
 };
 
 static enum dsasl_client_result
-mech_cram_md5_input(struct dsasl_client_mech_session *msession,
-		    const unsigned char *input, size_t input_len,
-		    const char **error_r)
+mech_cram_md5_auth_input(struct dsasl_client_mech_session *msession,
+			 const unsigned char *input, size_t input_len,
+			 const char **error_r)
 {
 	struct cram_md5_sasl_session *csession =
 		container_of(msession, struct cram_md5_sasl_session, session);
@@ -57,9 +57,9 @@ mech_cram_md5_input(struct dsasl_client_mech_session *msession,
 }
 
 static enum dsasl_client_result
-mech_cram_md5_output(struct dsasl_client_mech_session *msession,
-		     const unsigned char **output_r, size_t *output_len_r,
-		     const char **error_r)
+mech_cram_md5_auth_output(struct dsasl_client_mech_session *msession,
+			  const unsigned char **output_r, size_t *output_len_r,
+			  const char **error_r)
 {
 	struct cram_md5_sasl_session *csession =
 		container_of(msession, struct cram_md5_sasl_session, session);
@@ -102,6 +102,6 @@ const struct dsasl_client_mech dsasl_client_mech_cram_md5 = {
 	.name = SASL_MECH_NAME_CRAM_MD5,
 	.struct_size = sizeof(struct cram_md5_sasl_session),
 
-	.input = mech_cram_md5_input,
-	.output = mech_cram_md5_output,
+	.auth_input = mech_cram_md5_auth_input,
+	.auth_output = mech_cram_md5_auth_output,
 };

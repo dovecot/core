@@ -89,9 +89,9 @@ mech_scram_init(struct scram_sasl_session *ssession, const char **error_r)
 }
 
 static enum dsasl_client_result
-mech_scram_input(struct dsasl_client_mech_session *msession,
-		 const unsigned char *input, size_t input_len,
-		 const char **error_r)
+mech_scram_auth_input(struct dsasl_client_mech_session *msession,
+		      const unsigned char *input, size_t input_len,
+		      const char **error_r)
 {
 	struct scram_sasl_session *ssession =
 		container_of(msession, struct scram_sasl_session, session);
@@ -107,9 +107,9 @@ mech_scram_input(struct dsasl_client_mech_session *msession,
 }
 
 static enum dsasl_client_result
-mech_scram_output(struct dsasl_client_mech_session *msession,
-		  const unsigned char **output_r, size_t *output_len_r,
-		  const char **error_r)
+mech_scram_auth_output(struct dsasl_client_mech_session *msession,
+		       const unsigned char **output_r, size_t *output_len_r,
+		       const char **error_r)
 {
 	struct scram_sasl_session *ssession =
 		container_of(msession, struct scram_sasl_session, session);
@@ -135,7 +135,7 @@ mech_scram_output(struct dsasl_client_mech_session *msession,
 	return DSASL_CLIENT_RESULT_OK;
 }
 
-static void mech_scram_free(struct dsasl_client_mech_session *msession)
+static void mech_scram_auth_free(struct dsasl_client_mech_session *msession)
 {
 	struct scram_sasl_session *ssession =
 		container_of(msession, struct scram_sasl_session, session);
@@ -147,34 +147,34 @@ const struct dsasl_client_mech dsasl_client_mech_scram_sha_1 = {
 	.name = SASL_MECH_NAME_SCRAM_SHA_1,
 	.struct_size = sizeof(struct scram_sasl_session),
 
-	.input = mech_scram_input,
-	.output = mech_scram_output,
-	.free = mech_scram_free,
+	.auth_input = mech_scram_auth_input,
+	.auth_output = mech_scram_auth_output,
+	.auth_free = mech_scram_auth_free,
 };
 
 const struct dsasl_client_mech dsasl_client_mech_scram_sha_1_plus = {
 	.name = SASL_MECH_NAME_SCRAM_SHA_1_PLUS,
 	.struct_size = sizeof(struct scram_sasl_session),
 
-	.input = mech_scram_input,
-	.output = mech_scram_output,
-	.free = mech_scram_free,
+	.auth_input = mech_scram_auth_input,
+	.auth_output = mech_scram_auth_output,
+	.auth_free = mech_scram_auth_free,
 };
 
 const struct dsasl_client_mech dsasl_client_mech_scram_sha_256 = {
 	.name = SASL_MECH_NAME_SCRAM_SHA_256,
 	.struct_size = sizeof(struct scram_sasl_session),
 
-	.input = mech_scram_input,
-	.output = mech_scram_output,
-	.free = mech_scram_free,
+	.auth_input = mech_scram_auth_input,
+	.auth_output = mech_scram_auth_output,
+	.auth_free = mech_scram_auth_free,
 };
 
 const struct dsasl_client_mech dsasl_client_mech_scram_sha_256_plus = {
 	.name = SASL_MECH_NAME_SCRAM_SHA_256_PLUS,
 	.struct_size = sizeof(struct scram_sasl_session),
 
-	.input = mech_scram_input,
-	.output = mech_scram_output,
-	.free = mech_scram_free,
+	.auth_input = mech_scram_auth_input,
+	.auth_output = mech_scram_auth_output,
+	.auth_free = mech_scram_auth_free,
 };
