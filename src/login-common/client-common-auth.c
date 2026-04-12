@@ -384,7 +384,7 @@ static void proxy_input(struct client *client)
 
 static void proxy_reset(struct client *client)
 {
-	dsasl_client_session_free(&client->proxy_sasl_session);
+	dsasl_client_session_destroy(&client->proxy_sasl_session);
 	client->v.proxy_reset(client);
 }
 

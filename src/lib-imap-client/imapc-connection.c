@@ -200,7 +200,7 @@ imapc_auth_failed(struct imapc_connection *conn, const struct imapc_command_repl
 	}
 	imapc_login_callback(conn, &reply);
 
-	dsasl_client_session_free(&conn->sasl_session);
+	dsasl_client_session_destroy(&conn->sasl_session);
 
 	if (conn->client->state_change_callback == NULL)
 		return;
@@ -478,7 +478,7 @@ void imapc_connection_disconnect_full(struct imapc_connection *conn,
 
 	if (conn->dns_lookup != NULL)
 		dns_lookup_abort(&conn->dns_lookup);
-	dsasl_client_session_free(&conn->sasl_session);
+	dsasl_client_session_destroy(&conn->sasl_session);
 	imapc_connection_lfiles_free(conn);
 	imapc_connection_literal_reset(&conn->literal);
 	timeout_remove(&conn->to_output);
@@ -959,7 +959,7 @@ imapc_connection_authenticate_cb(const struct imapc_command_reply *reply,
 	const char *error;
 
 	if ((int)reply->state != IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE) {
-		dsasl_client_session_free(&conn->sasl_session);
+		dsasl_client_session_destroy(&conn->sasl_session);
 		imapc_connection_auth_finish(conn, reply);
 		return;
 	}

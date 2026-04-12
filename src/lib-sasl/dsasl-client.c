@@ -89,6 +89,7 @@ dsasl_client_session_create(const struct dsasl_client_mech *mech,
 	pool = pool_alloconly_create("sasl client session", 512);
 	session = p_new(pool, struct dsasl_client_session, 1);
 	session->pool = pool;
+	session->refcount = 1;
 	session->event = event;
 
 	struct dsasl_client_mech_session *msession;
@@ -110,13 +111,23 @@ dsasl_client_session_create(const struct dsasl_client_mech *mech,
 	return session;
 }
 
-void dsasl_client_session_free(struct dsasl_client_session **_session)
+void dsasl_client_session_ref(struct dsasl_client_session *session)
+{
+	i_assert(session->refcount > 0);
+	session->refcount++;
+}
+
+void dsasl_client_session_unref(struct dsasl_client_session **_session)
 {
 	struct dsasl_client_session *session = *_session;
 
 	if (session == NULL)
 		return;
 	*_session = NULL;
+
+	i_assert(session->refcount > 0);
+	if (--session->refcount > 0)
+		return;
 
 	struct dsasl_client_mech_session *msession = session->mech;
 
@@ -126,6 +137,22 @@ void dsasl_client_session_free(struct dsasl_client_session **_session)
 		safe_memset(msession->password, 0, strlen(msession->password));
 	event_unref(&session->event);
 	pool_unref(&session->pool);
+}
+
+void dsasl_client_session_destroy(struct dsasl_client_session **_session)
+{
+	struct dsasl_client_session *session = *_session;
+
+	if (session == NULL)
+		return;
+	*_session = NULL;
+
+	struct dsasl_client_mech_session *msession = session->mech;
+
+	if (msession->password != NULL)
+		safe_memset(msession->password, 0, strlen(msession->password));
+
+	dsasl_client_session_unref(&session);
 }
 
 void dsasl_client_session_enable_channel_binding(

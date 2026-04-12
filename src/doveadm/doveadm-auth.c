@@ -373,7 +373,7 @@ static void cmd_auth_init_sasl_client(struct authtest_input *input)
 
 static void cmd_auth_deinit_sasl_client(struct authtest_input *input)
 {
-	dsasl_client_session_free(&input->sasl_session);
+	dsasl_client_session_destroy(&input->sasl_session);
 }
 
 static void

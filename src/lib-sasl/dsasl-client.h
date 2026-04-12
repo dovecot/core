@@ -56,7 +56,9 @@ bool dsasl_client_mech_uses_password(const struct dsasl_client_mech *mech);
 struct dsasl_client_session *
 dsasl_client_session_create(const struct dsasl_client_mech *mech,
 			    const struct dsasl_client_settings *set);
-void dsasl_client_session_free(struct dsasl_client_session **session);
+void dsasl_client_session_ref(struct dsasl_client_session *session);
+void dsasl_client_session_unref(struct dsasl_client_session **_session);
+void dsasl_client_session_destroy(struct dsasl_client_session **_session);
 
 /* Enable channel binding support for this session. */
 void dsasl_client_session_enable_channel_binding(

@@ -777,7 +777,7 @@ smtp_client_connection_clear_password(struct smtp_client_connection *conn)
 static void
 smtp_client_connection_auth_deinit(struct smtp_client_connection *conn)
 {
-	dsasl_client_session_free(&conn->sasl_session);
+	dsasl_client_session_destroy(&conn->sasl_session);
 	i_free(conn->sasl_ir);
 }
 

@@ -426,7 +426,7 @@ test_sasl_run_once(const struct test_sasl *test,
 
 	test_sasl_interact(&tctx);
 
-	dsasl_client_session_free(&tctx.session);
+	dsasl_client_session_destroy(&tctx.session);
 	sasl_server_request_destroy(&tctx.ssrctx);
 
 	pool_unref(&tctx.pool);

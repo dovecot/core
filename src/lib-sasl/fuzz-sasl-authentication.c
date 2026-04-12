@@ -709,7 +709,7 @@ static void fuzz_sasl_run(struct istream *input)
 		fuzz_sasl_interact(&fctx);
 	}
 
-	dsasl_client_session_free(&fctx.session);
+	dsasl_client_session_destroy(&fctx.session);
 	sasl_server_request_destroy(&fctx.ssrctx);
 
 	sasl_server_instance_unref(&server_inst);

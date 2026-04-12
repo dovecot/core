@@ -10,6 +10,7 @@ enum dsasl_mech_security_flags {
 
 struct dsasl_client_session {
 	pool_t pool;
+	int refcount;
 	struct event *event;
 	struct dsasl_client_mech_session *mech;
 
