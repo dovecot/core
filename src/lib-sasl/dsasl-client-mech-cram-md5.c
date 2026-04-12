@@ -8,20 +8,19 @@
 
 #include "dsasl-client-private.h"
 
-struct cram_md5_dsasl_client {
-	struct dsasl_client client;
+struct cram_md5_sasl_session {
+	struct dsasl_client_mech_session session;
 
 	const char *challenge;
 };
 
 static enum dsasl_client_result
-mech_cram_md5_input(struct dsasl_client *client,
+mech_cram_md5_input(struct dsasl_client_mech_session *msession,
 		    const unsigned char *input, size_t input_len,
 		    const char **error_r)
 {
-	struct cram_md5_dsasl_client *cclient =
-		container_of(client, struct cram_md5_dsasl_client, client);
-
+	struct cram_md5_sasl_session *csession =
+		container_of(msession, struct cram_md5_sasl_session, session);
 	const unsigned char *p = input, *pend = input + input_len;
 
 	if (p >= pend) {
@@ -53,29 +52,29 @@ mech_cram_md5_input(struct dsasl_client *client,
 		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
 
-	cclient->challenge = p_strndup(client->pool, input, input_len);
+	csession->challenge = p_strndup(msession->pool, input, input_len);
 	return DSASL_CLIENT_RESULT_OK;
 }
 
 static enum dsasl_client_result
-mech_cram_md5_output(struct dsasl_client *client,
+mech_cram_md5_output(struct dsasl_client_mech_session *msession,
 		     const unsigned char **output_r, size_t *output_len_r,
 		     const char **error_r)
 {
-	struct cram_md5_dsasl_client *cclient =
-		container_of(client, struct cram_md5_dsasl_client, client);
+	struct cram_md5_sasl_session *csession =
+		container_of(msession, struct cram_md5_sasl_session, session);
 	string_t *str;
 
-	if (client->set.authid == NULL || *client->set.authid == '\0') {
+	if (msession->set.authid == NULL || *msession->set.authid == '\0') {
 		*error_r = "authid not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
-	if (client->password == NULL) {
+	if (msession->password == NULL) {
 		*error_r = "password not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
 
-	if (cclient->challenge == NULL) {
+	if (csession->challenge == NULL) {
 		*output_r = NULL;
 		*output_len_r = 0;
 		return DSASL_CLIENT_RESULT_OK;
@@ -84,13 +83,13 @@ mech_cram_md5_output(struct dsasl_client *client,
 	struct hmac_context ctx;
 	unsigned char digest[MD5_RESULTLEN];
 
-	hmac_init(&ctx, (const unsigned char *)client->password,
-		  strlen(client->password), &hash_method_md5);
-	hmac_update(&ctx, cclient->challenge, strlen(cclient->challenge));
+	hmac_init(&ctx, (const unsigned char *)msession->password,
+		  strlen(msession->password), &hash_method_md5);
+	hmac_update(&ctx, csession->challenge, strlen(csession->challenge));
 	hmac_final(&ctx, digest);
 
-	str = str_new(client->pool, 256);
-	str_append(str, client->set.authid);
+	str = str_new(msession->pool, 256);
+	str_append(str, msession->set.authid);
 	str_append_c(str, ' ');
 	binary_to_hex_append(str, digest, sizeof(digest));
 
@@ -101,7 +100,7 @@ mech_cram_md5_output(struct dsasl_client *client,
 
 const struct dsasl_client_mech dsasl_client_mech_cram_md5 = {
 	.name = SASL_MECH_NAME_CRAM_MD5,
-	.struct_size = sizeof(struct cram_md5_dsasl_client),
+	.struct_size = sizeof(struct cram_md5_sasl_session),
 
 	.input = mech_cram_md5_input,
 	.output = mech_cram_md5_output,

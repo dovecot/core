@@ -44,7 +44,7 @@ struct authtest_input {
 	bool internal_failure;
 
 	const struct dsasl_client_mech *sasl_mech;
-	struct dsasl_client *sasl_client;
+	struct dsasl_client_session *sasl_session;
 
 	struct auth_client_request *request;
 
@@ -205,13 +205,15 @@ auth_callback(struct auth_client_request *request,
 		buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(input_len));
 		if (base64_decode(data_base64, input_len, buf) < 0)
 			i_fatal("Server sent invalid base64 input");
-		if (dsasl_client_input(input->sasl_client, buf->data, buf->used,
-				       &error) != DSASL_CLIENT_RESULT_OK) {
+		if (dsasl_client_session_input(input->sasl_session,
+				buf->data, buf->used,
+				&error) != DSASL_CLIENT_RESULT_OK) {
 			e_error(input->event, "internal auth failure: %s", error);
 			auth_client_request_abort(&request, error);
 			break;
-		} else if (dsasl_client_output(input->sasl_client, &sasl_output,
-					       &sasl_output_len, &error) != DSASL_CLIENT_RESULT_OK) {
+		} else if (dsasl_client_session_output(input->sasl_session,
+				&sasl_output, &sasl_output_len,
+				&error) != DSASL_CLIENT_RESULT_OK) {
 			e_error(input->event, "internal auth failure: %s", error);
 			auth_client_request_abort(&request, error);
 			break;
@@ -286,9 +288,9 @@ static void auth_connected(struct auth_client *client,
 	if (auth_client_find_mech(client, mech) == NULL)
 		i_fatal("SASL mechanism '%s' not supported by server", mech);
 
-	if (dsasl_client_output(input->sasl_client, &sasl_output,
-				&sasl_output_len,
-				&error) != DSASL_CLIENT_RESULT_OK)
+	if (dsasl_client_session_output(input->sasl_session,
+		&sasl_output, &sasl_output_len,
+		&error) != DSASL_CLIENT_RESULT_OK)
 		i_fatal("Failed to create initial SASL reply: %s", error);
 
 	i_zero(&info);
@@ -362,15 +364,16 @@ static void cmd_auth_init_sasl_client(struct authtest_input *input)
 		sasl_set.host = "localhost";
 	sasl_set.port = input->info.local_port;
 
-	input->sasl_client = dsasl_client_new(input->sasl_mech, &sasl_set);
-	dsasl_client_enable_channel_binding(
-		input->sasl_client, SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3,
+	input->sasl_session = dsasl_client_session_create(
+		input->sasl_mech, &sasl_set);
+	dsasl_client_session_enable_channel_binding(
+		input->sasl_session, SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3,
 		auth_channel_bind_callback, input);
 }
 
 static void cmd_auth_deinit_sasl_client(struct authtest_input *input)
 {
-	dsasl_client_free(&input->sasl_client);
+	dsasl_client_session_free(&input->sasl_session);
 }
 
 static void

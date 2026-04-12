@@ -931,11 +931,11 @@ int login_proxy_sasl_step(struct client *client, string_t *str)
 	const char *error;
 
 	enum dsasl_client_result sasl_res =
-		dsasl_client_input(client->proxy_sasl_client,
-				   str_data(str), str_len(str), &error);
+		dsasl_client_session_input(client->proxy_sasl_session,
+					   str_data(str), str_len(str), &error);
 	if (sasl_res == DSASL_CLIENT_RESULT_OK) {
-		sasl_res = dsasl_client_output(client->proxy_sasl_client,
-					       &data, &data_len, &error);
+		sasl_res = dsasl_client_session_output(
+			client->proxy_sasl_session, &data, &data_len, &error);
 	}
 	switch (sasl_res) {
 	case DSASL_CLIENT_RESULT_OK:

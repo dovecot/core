@@ -39,7 +39,7 @@ struct test_sasl_context {
 	struct sasl_server_req_ctx ssrctx;
 	const struct test_sasl *test;
 
-	struct dsasl_client *client;
+	struct dsasl_client_session *session;
 
 	const char *authid;
 	const char *authzid;
@@ -275,9 +275,8 @@ test_server_request_output(struct sasl_server_req_ctx *rctx,
 		enum dsasl_client_result result;
 		const char *error = NULL;
 
-		result = dsasl_client_input(tctx->client,
-					    output->data, output->data_size,
-					    &error);
+		result = dsasl_client_session_input(
+			tctx->session, output->data, output->data_size, &error);
 		test_out_reason_quiet("client input",
 				      result == DSASL_CLIENT_RESULT_OK, error);
 	}
@@ -352,9 +351,8 @@ static void test_sasl_interact(struct test_sasl_context *tctx)
 	enum dsasl_client_result result;
 
 	if (tctx->auth_initial) {
-		result = dsasl_client_output(tctx->client,
-					     &sasl_data, &sasl_data_size,
-					     &error);
+		result = dsasl_client_session_output(
+			tctx->session, &sasl_data, &sasl_data_size, &error);
 		test_out_reason_quiet("client initial",
 				      result == DSASL_CLIENT_RESULT_OK, error);
 		if (test_has_failed())
@@ -368,9 +366,9 @@ static void test_sasl_interact(struct test_sasl_context *tctx)
 		sasl_data_size = 0;
 
 		if (!tctx->out_of_band_cycle) {
-			result = dsasl_client_output(tctx->client,
-						     &sasl_data, &sasl_data_size,
-						     &error);
+			result = dsasl_client_session_output(
+				tctx->session, &sasl_data, &sasl_data_size,
+				&error);
 			test_out_reason_quiet("client output",
 					      result == DSASL_CLIENT_RESULT_OK,
 					      error);
@@ -419,16 +417,16 @@ test_sasl_run_once(const struct test_sasl *test,
 	};
 	client_mech = dsasl_client_mech_find(test->mech);
 	i_assert(client_mech != NULL);
-	tctx.client = dsasl_client_new(client_mech, &client_set);
-	i_assert(tctx.client != NULL);
+	tctx.session = dsasl_client_session_create(client_mech, &client_set);
+	i_assert(tctx.session != NULL);
 
-	dsasl_client_enable_channel_binding(
-		tctx.client, SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3,
+	dsasl_client_session_enable_channel_binding(
+		tctx.session, SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3,
 		test_client_channel_binding_callback, &tctx);
 
 	test_sasl_interact(&tctx);
 
-	dsasl_client_free(&tctx.client);
+	dsasl_client_session_free(&tctx.session);
 	sasl_server_request_destroy(&tctx.ssrctx);
 
 	pool_unref(&tctx.pool);

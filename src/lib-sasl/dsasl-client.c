@@ -12,6 +12,10 @@ struct event_category event_category_sasl_client = {
 static int init_refcount = 0;
 static ARRAY(const struct dsasl_client_mech *) dsasl_mechanisms = ARRAY_INIT;
 
+/*
+ * Client
+ */
+
 static const struct dsasl_client_mech *
 dsasl_client_mech_find_idx(const char *name, unsigned int *idx_r)
 {
@@ -63,63 +67,87 @@ void dsasl_client_mech_unregister(const struct dsasl_client_mech *mech)
 	array_delete(&dsasl_mechanisms, idx, 1);
 }
 
-struct dsasl_client *dsasl_client_new(const struct dsasl_client_mech *mech,
-				      const struct dsasl_client_settings *set)
+/*
+ * Session
+ */
+
+struct dsasl_client_session *
+dsasl_client_session_create(const struct dsasl_client_mech *mech,
+			    const struct dsasl_client_settings *set)
 {
-	struct dsasl_client *client;
-	pool_t pool = pool_alloconly_create("sasl client", 512);
+	struct event *event;
 
-	client = p_malloc(pool, mech->struct_size);
-	client->pool = pool;
-	client->mech = mech;
-	client->set.authid = p_strdup(pool, set->authid);
-	client->set.authzid = p_strdup(pool, set->authzid);
-	client->password = p_strdup(pool, set->password);
-	client->set.password = client->password;
-	client->set.protocol = p_strdup(pool, set->protocol);
-	client->set.host = p_strdup(pool, set->host);
-	client->set.port = set->port;
+	event = event_create(set->event_parent);
 
-	client->event = event_create(set->event_parent);
-	event_add_category(client->event, &event_category_sasl_client);
-	event_set_append_log_prefix(client->event,
+	event_add_category(event, &event_category_sasl_client);
+	event_set_append_log_prefix(event,
 		t_strdup_printf("sasl(%s): ", t_str_lcase(mech->name)));
 
-	return client;
+	struct dsasl_client_session *session;
+	pool_t pool;
+
+	pool = pool_alloconly_create("sasl client session", 512);
+	session = p_new(pool, struct dsasl_client_session, 1);
+	session->pool = pool;
+	session->event = event;
+
+	struct dsasl_client_mech_session *msession;
+
+	msession = p_malloc(pool, mech->struct_size);
+	msession->pool = pool;
+	msession->event = event;
+	msession->mech = mech;
+	msession->set.authid = p_strdup(pool, set->authid);
+	msession->set.authzid = p_strdup(pool, set->authzid);
+	msession->password = p_strdup(pool, set->password);
+	msession->set.password = msession->password;
+	msession->set.protocol = p_strdup(pool, set->protocol);
+	msession->set.host = p_strdup(pool, set->host);
+	msession->set.port = set->port;
+	msession->session = session;
+	session->mech = msession;
+
+	return session;
 }
 
-void dsasl_client_free(struct dsasl_client **_client)
+void dsasl_client_session_free(struct dsasl_client_session **_session)
 {
-	struct dsasl_client *client = *_client;
+	struct dsasl_client_session *session = *_session;
 
-	if (client == NULL)
+	if (session == NULL)
 		return;
-	*_client = NULL;
+	*_session = NULL;
 
-	if (client->mech->free != NULL)
-		client->mech->free(client);
-	if (client->password != NULL)
-		safe_memset(client->password, 0, strlen(client->password));
-	event_unref(&client->event);
-	pool_unref(&client->pool);
+	struct dsasl_client_mech_session *msession = session->mech;
+
+	if (msession->mech->free != NULL)
+		msession->mech->free(msession);
+	if (msession->password != NULL)
+		safe_memset(msession->password, 0, strlen(msession->password));
+	event_unref(&session->event);
+	pool_unref(&session->pool);
 }
 
-void dsasl_client_enable_channel_binding(
-	struct dsasl_client *client,
+void dsasl_client_session_enable_channel_binding(
+	struct dsasl_client_session *session,
 	enum ssl_iostream_protocol_version channel_version,
 	dsasl_client_channel_binding_callback_t *callback, void *context)
 {
-	client->channel_version = channel_version;
-	client->cbinding_callback = callback;
-	client->cbinding_context = context;
+	struct dsasl_client_mech_session *msession = session->mech;
+
+	msession->channel_version = channel_version;
+	session->cbinding_callback = callback;
+	session->cbinding_context = context;
 }
 
 enum dsasl_client_result
-dsasl_client_input(struct dsasl_client *client,
-		   const unsigned char *input, size_t input_len,
-		   const char **error_r)
+dsasl_client_session_input(struct dsasl_client_session *session,
+			   const unsigned char *input, size_t input_len,
+			   const char **error_r)
 {
-	if ((client->mech->flags & DSASL_MECH_SEC_ALLOW_NULS) == 0 &&
+	struct dsasl_client_mech_session *msession = session->mech;
+
+	if ((msession->mech->flags & DSASL_MECH_SEC_ALLOW_NULS) == 0 &&
 	    memchr(input, '\0', input_len) != NULL) {
 		*error_r = "Unexpected NUL in input data";
 		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
@@ -130,37 +158,44 @@ dsasl_client_input(struct dsasl_client *client,
 			SASL_MAX_MESSAGE_SIZE);
 		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
-	return client->mech->input(client, input, input_len, error_r);
+	return msession->mech->input(msession, input, input_len, error_r);
 }
 
 enum dsasl_client_result
-dsasl_client_output(struct dsasl_client *client,
-		    const unsigned char **output_r, size_t *output_len_r,
-		    const char **error_r)
+dsasl_client_session_output(struct dsasl_client_session *session,
+			    const unsigned char **output_r, size_t *output_len_r,
+			    const char **error_r)
 {
-	return client->mech->output(client, output_r, output_len_r, error_r);
+	struct dsasl_client_mech_session *msession = session->mech;
+
+	return msession->mech->output(msession, output_r, output_len_r,
+				      error_r);
 }
 
-int dsasl_client_set_parameter(struct dsasl_client *client,
+int dsasl_client_set_parameter(struct dsasl_client_session *session,
 			       const char *param, const char *value,
 			       const char **error_r)
 {
-	if (client->mech->set_parameter != NULL) {
-		int ret = client->mech->set_parameter(client, param,
-						      value, error_r);
+	struct dsasl_client_mech_session *msession = session->mech;
+
+	if (msession->mech->set_parameter != NULL) {
+		int ret = msession->mech->set_parameter(msession, param,
+							value, error_r);
 		i_assert(ret >= 0 || *error_r != NULL);
 		return ret;
 	} else
 		return 0;
 }
 
-int dsasl_client_get_result(struct dsasl_client *client,
-			    const char *key, const char **value_r,
-			    const char **error_r)
+int dsasl_client_session_get_result(struct dsasl_client_session *session,
+				    const char *key, const char **value_r,
+				    const char **error_r)
 {
-	if (client->mech->get_result != NULL) {
-		int ret =
-			client->mech->get_result(client, key, value_r, error_r);
+	struct dsasl_client_mech_session *msession = session->mech;
+
+	if (msession->mech->get_result != NULL) {
+		int ret = msession->mech->get_result(msession, key,
+						     value_r, error_r);
 		i_assert(ret <= 0 || *value_r != NULL);
 		i_assert(ret >= 0 || *error_r != NULL);
 		return ret;

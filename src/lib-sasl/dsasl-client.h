@@ -41,44 +41,53 @@ dsasl_client_channel_binding_callback_t(const char *type, void *context,
 /* PLAIN mechanism always exists and can be accessed directly via this. */
 extern const struct dsasl_client_mech dsasl_client_mech_plain;
 
+/*
+ * Client
+ */
+
 const struct dsasl_client_mech *dsasl_client_mech_find(const char *name);
 const char *dsasl_client_mech_get_name(const struct dsasl_client_mech *mech);
 bool dsasl_client_mech_uses_password(const struct dsasl_client_mech *mech);
 
-struct dsasl_client *dsasl_client_new(const struct dsasl_client_mech *mech,
-				      const struct dsasl_client_settings *set);
-void dsasl_client_free(struct dsasl_client **client);
+/*
+ * Session
+ */
 
-/* Enable channel binding support for this client. */
-void dsasl_client_enable_channel_binding(
-	struct dsasl_client *client,
+struct dsasl_client_session *
+dsasl_client_session_create(const struct dsasl_client_mech *mech,
+			    const struct dsasl_client_settings *set);
+void dsasl_client_session_free(struct dsasl_client_session **session);
+
+/* Enable channel binding support for this session. */
+void dsasl_client_session_enable_channel_binding(
+	struct dsasl_client_session *session,
 	enum ssl_iostream_protocol_version channel_version,
 	dsasl_client_channel_binding_callback_t *callback, void *context);
 
 /* Call for server input. */
 enum dsasl_client_result
-dsasl_client_input(struct dsasl_client *client,
-		   const unsigned char *input, size_t input_len,
-		   const char **error_r);
+dsasl_client_session_input(struct dsasl_client_session *session,
+			   const unsigned char *input, size_t input_len,
+			   const char **error_r);
 /* Call for getting server output. Also used to get the initial SASL response
    if supported by the protocol. */
 enum dsasl_client_result
-dsasl_client_output(struct dsasl_client *client,
-		    const unsigned char **output_r, size_t *output_len_r,
-		    const char **error_r);
+dsasl_client_session_output(struct dsasl_client_session *session,
+			    const unsigned char **output_r, size_t *output_len_r,
+			    const char **error_r);
 
 /* Call for setting extra parameters for authentication, these are mechanism
    dependent. -1 = error, 0 = not found, 1 = ok
    value can be NULL. */
-int dsasl_client_set_parameter(struct dsasl_client *client,
+int dsasl_client_set_parameter(struct dsasl_client_session *session,
 			       const char *param, const char *value,
 			       const char **error_r) ATTR_NULL(3);
 
 /* Call for getting extra result information.
   -1 = error, 0 = not found, 1 = ok */
-int dsasl_client_get_result(struct dsasl_client *client,
-                            const char *key, const char **value_r,
-                            const char **error_r);
+int dsasl_client_session_get_result(struct dsasl_client_session *session,
+				    const char *key, const char **value_r,
+				    const char **error_r);
 
 void dsasl_clients_init(void);
 void dsasl_clients_deinit(void);

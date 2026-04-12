@@ -384,7 +384,7 @@ static void proxy_input(struct client *client)
 
 static void proxy_reset(struct client *client)
 {
-	dsasl_client_free(&client->proxy_sasl_client);
+	dsasl_client_session_free(&client->proxy_sasl_session);
 	client->v.proxy_reset(client);
 }
 
@@ -687,7 +687,7 @@ static int proxy_start(struct client *client,
 	i_assert(reply->proxy.username != NULL);
 	i_assert(client->refcount > 1);
 	i_assert(!client->destroyed);
-	i_assert(client->proxy_sasl_client == NULL);
+	i_assert(client->proxy_sasl_session == NULL);
 
 	client->proxy_mech = NULL;
 	client->v.proxy_reset(client);

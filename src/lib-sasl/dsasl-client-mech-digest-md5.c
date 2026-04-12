@@ -20,8 +20,8 @@ enum digest_md5_state {
 	DIGEST_MD5_STATE_END,
 };
 
-struct digest_md5_dsasl_client {
-	struct dsasl_client client;
+struct digest_md5_sasl_session {
+	struct dsasl_client_mech_session session;
 
 	enum digest_md5_state state;
 
@@ -93,21 +93,21 @@ static bool parse_list_element(const char **in_p, const char **element_r)
 }
 
 static bool
-handle_challenge_field(struct digest_md5_dsasl_client *dclient,
+handle_challenge_field(struct digest_md5_sasl_session *dsession,
 		       const char *key, const char *value, const char **error_r)
 {
-	struct dsasl_client *client = &dclient->client;
+	struct dsasl_client_mech_session *msession = &dsession->session;
 
 	if (strcmp(key, "realm") == 0) {
-		dclient->challenge_has_realm = TRUE;
-		if (dclient->realm != NULL &&
-		    strcmp(value, dclient->realm) == 0)
-			dclient->challenge_has_our_realm = TRUE;
+		dsession->challenge_has_realm = TRUE;
+		if (dsession->realm != NULL &&
+		    strcmp(value, dsession->realm) == 0)
+			dsession->challenge_has_our_realm = TRUE;
 		return TRUE;
 	}
 
 	if (strcmp(key, "nonce") == 0) {
-		if (dclient->nonce != NULL) {
+		if (dsession->nonce != NULL) {
 			*error_r = "nonce must not exist more than once";
 			return FALSE;
 		}
@@ -117,7 +117,7 @@ handle_challenge_field(struct digest_md5_dsasl_client *dclient,
 			return FALSE;
 		}
 
-		dclient->nonce = p_strdup(client->pool, value);
+		dsession->nonce = p_strdup(msession->pool, value);
 		return TRUE;
 	}
 
@@ -125,7 +125,7 @@ handle_challenge_field(struct digest_md5_dsasl_client *dclient,
 		const char *opt;
 
 		while (parse_list_element(&value, &opt)) {
-			if (strcasecmp(opt, dclient->qop) == 0)
+			if (strcasecmp(opt, dsession->qop) == 0)
 				return TRUE;
 		}
 		*error_r = "'auth' qop not supported by server";
@@ -138,13 +138,13 @@ handle_challenge_field(struct digest_md5_dsasl_client *dclient,
 	}
 
 	if (strcmp(key, "maxbuf") == 0) {
-		if (dclient->maxbuf != 0) {
+		if (dsession->maxbuf != 0) {
 			*error_r = "maxbuf must not exist more than once";
 			return FALSE;
 		}
 
-		if (str_to_ulong(value, &dclient->maxbuf) < 0 ||
-		    dclient->maxbuf == 0) {
+		if (str_to_ulong(value, &dsession->maxbuf) < 0 ||
+		    dsession->maxbuf == 0) {
 			*error_r = "Invalid maxbuf value";
 			return FALSE;
 		}
@@ -169,7 +169,7 @@ handle_challenge_field(struct digest_md5_dsasl_client *dclient,
 }
 
 static bool
-handle_confirmation_field(struct digest_md5_dsasl_client *dclient ATTR_UNUSED,
+handle_confirmation_field(struct digest_md5_sasl_session *dsession ATTR_UNUSED,
 			  const char *key, const char *value,
 			  const char **rspauth_r, const char **error_r)
 {
@@ -188,51 +188,51 @@ handle_confirmation_field(struct digest_md5_dsasl_client *dclient ATTR_UNUSED,
 }
 
 static int
-mech_digest_md5_init(struct digest_md5_dsasl_client *dclient,
+mech_digest_md5_init(struct digest_md5_sasl_session *dsession,
 		     const char **error_r)
 {
-	struct dsasl_client *client = &dclient->client;
+	struct dsasl_client_mech_session *msession = &dsession->session;
 	const char *realm;
 
-	if (client->set.authid == NULL || *client->set.authid == '\0') {
+	if (msession->set.authid == NULL || *msession->set.authid == '\0') {
 		*error_r = "authid not set";
 		return -1;
 	}
-	if (client->password == NULL) {
+	if (msession->password == NULL) {
 		*error_r = "password not set";
 		return -1;
 	}
-	if (client->set.protocol == NULL) {
+	if (msession->set.protocol == NULL) {
 		*error_r = "protocol not set";
 		return -1;
 	}
-	if (client->set.host == NULL) {
+	if (msession->set.host == NULL) {
 		*error_r = "host not set";
 		return -1;
 	}
 
 	/* Assume user@realm format for username. If user@domain is wanted
 	   in the username, allow also user@domain@realm. */
-	realm = strrchr(client->set.authid, '@');
+	realm = strrchr(msession->set.authid, '@');
 	if (realm != NULL) {
-		dclient->username = p_strdup_until(client->pool,
-						   client->set.authid, realm);
+		dsession->username = p_strdup_until(
+			msession->pool, msession->set.authid, realm);
 		realm++;
-		dclient->realm = p_strdup(client->pool, realm);
+		dsession->realm = p_strdup(msession->pool, realm);
 	} else {
-		dclient->username = client->set.authid;
-		dclient->realm = "";
+		dsession->username = msession->set.authid;
+		dsession->realm = "";
 	}
-	dclient->nc = "00000001";
-	dclient->qop = "auth";
-	dclient->req_uri = p_strdup_printf(client->pool, "%s/%s",
-					   client->set.protocol,
-					   client->set.host);
+	dsession->nc = "00000001";
+	dsession->qop = "auth";
+	dsession->req_uri = p_strdup_printf(msession->pool, "%s/%s",
+					    msession->set.protocol,
+					    msession->set.host);
 	return 0;
 }
 
 static int
-mech_digest_md5_input_first(struct digest_md5_dsasl_client *dclient,
+mech_digest_md5_input_first(struct digest_md5_sasl_session *dsession,
 			    const unsigned char *input, size_t input_len,
 			    const char **error_r)
 {
@@ -271,7 +271,7 @@ mech_digest_md5_input_first(struct digest_md5_dsasl_client *dclient,
 		if (auth_digest_parse_keyvalue(&copy, &key, &value)) {
 			const char *error;
 
-			if (!handle_challenge_field(dclient, key, value,
+			if (!handle_challenge_field(dsession, key, value,
 						    &error)) {
 				*error_r = t_strdup_printf(
 					"Server sent invalid challenge field '%s': "
@@ -286,11 +286,11 @@ mech_digest_md5_input_first(struct digest_md5_dsasl_client *dclient,
 	}
 
 	if (!failed) {
-		if (dclient->realm != NULL && dclient->challenge_has_realm &&
-		    !dclient->challenge_has_our_realm) {
+		if (dsession->realm != NULL && dsession->challenge_has_realm &&
+		    !dsession->challenge_has_our_realm) {
 			*error_r = "Server offers no matching realm";
 			failed = TRUE;
-		} else if (dclient->nonce == NULL) {
+		} else if (dsession->nonce == NULL) {
 			*error_r = "Missing nonce parameter";
 			failed = TRUE;
 		}
@@ -300,9 +300,9 @@ mech_digest_md5_input_first(struct digest_md5_dsasl_client *dclient,
 }
 
 static string_t *
-mech_digest_md5_output_first(struct digest_md5_dsasl_client *dclient)
+mech_digest_md5_output_first(struct digest_md5_sasl_session *dsession)
 {
-	struct dsasl_client *client = &dclient->client;
+	struct dsasl_client_mech_session *msession = &dsession->session;
 
 	/*
 	   realm="realm"
@@ -329,44 +329,45 @@ mech_digest_md5_output_first(struct digest_md5_dsasl_client *dclient)
 	buffer_create_from_data(&buf, cnonce_base64, sizeof(cnonce_base64));
 	base64_encode(cnonce, sizeof(cnonce), &buf);
 	buffer_append_c(&buf, '\0');
-	dclient->cnonce = p_strdup(client->pool, buf.data);
+	dsession->cnonce = p_strdup(msession->pool, buf.data);
 
 	string_t *str = t_str_new(256);
 
 	str_append(str, "realm=\"");
-	value_append_escaped(str, dclient->realm);
+	value_append_escaped(str, dsession->realm);
 
 	str_append(str, "\",username=\"");
-	value_append_escaped(str, dclient->username);
+	value_append_escaped(str, dsession->username);
 
 	str_printfa(str, "\",nonce=\"%s\",cnonce=\"%s\",nc=%s,qop=%s,"
 			 "digest-uri=\"%s\",charset=\"utf-8\"",
-		    dclient->nonce, dclient->cnonce, dclient->nc, dclient->qop,
-		    dclient->req_uri);
+		    dsession->nonce, dsession->cnonce, dsession->nc,
+		    dsession->qop, dsession->req_uri);
 
 	unsigned char a1_secret[hmethod->digest_size];
 
-	i_assert(client->password != NULL);
-	auth_digest_get_hash_a1_secret(hmethod, dclient->username,
-				       dclient->realm, client->password,
+	i_assert(msession->password != NULL);
+	auth_digest_get_hash_a1_secret(hmethod, dsession->username,
+				       dsession->realm, msession->password,
 				       a1_secret);
 
 	const char *a1_hex =
-		auth_digest_get_hash_a1(hmethod, a1_secret, dclient->nonce,
-					dclient->cnonce, client->set.authzid);
-	dclient->a1_hex = p_strdup(client->pool, a1_hex);
+		auth_digest_get_hash_a1(hmethod, a1_secret, dsession->nonce,
+					dsession->cnonce,
+					msession->set.authzid);
+	dsession->a1_hex = p_strdup(msession->pool, a1_hex);
 
 	const char *response_hex =
 		auth_digest_get_client_response(
-			hmethod, a1_hex, "AUTHENTICATE", dclient->req_uri,
-			dclient->qop, dclient->nonce, dclient->nc,
-			dclient->cnonce, NULL);
+			hmethod, a1_hex, "AUTHENTICATE", dsession->req_uri,
+			dsession->qop, dsession->nonce, dsession->nc,
+			dsession->cnonce, NULL);
 	str_append(str, ",response=\"");
 	str_append(str, response_hex);
 	str_append(str, "\"");
-	if (client->set.authzid != NULL && *client->set.authzid != '\0') {
+	if (msession->set.authzid != NULL && *msession->set.authzid != '\0') {
 		str_append(str, ",authzid=\"");
-		str_append(str, client->set.authzid);
+		str_append(str, msession->set.authzid);
 		str_append(str, "\"");
 	}
 
@@ -374,7 +375,7 @@ mech_digest_md5_output_first(struct digest_md5_dsasl_client *dclient)
 }
 
 static int
-mech_digest_md5_input_final(struct digest_md5_dsasl_client *dclient,
+mech_digest_md5_input_final(struct digest_md5_sasl_session *dsession,
 			    const unsigned char *input, size_t input_len,
 			    const char **error_r)
 {
@@ -407,7 +408,7 @@ mech_digest_md5_input_final(struct digest_md5_dsasl_client *dclient,
 		if (auth_digest_parse_keyvalue(&copy, &key, &value)) {
 			const char *error;
 
-			if (!handle_confirmation_field(dclient, key, value,
+			if (!handle_confirmation_field(dsession, key, value,
 						       &rspauth, &error)) {
 				*error_r = t_strdup_printf(
 					"Server sent invalid confirmation field '%s': "
@@ -436,8 +437,8 @@ mech_digest_md5_input_final(struct digest_md5_dsasl_client *dclient,
 
 	/* Calculate server response locally */
 	const char *response_hex = auth_digest_get_server_response(
-		hmethod, dclient->a1_hex, dclient->req_uri, dclient->qop,
-		dclient->nonce, dclient->nc, dclient->cnonce, NULL);
+		hmethod, dsession->a1_hex, dsession->req_uri, dsession->qop,
+		dsession->nonce, dsession->nc, dsession->cnonce, NULL);
 
 	/* Verify response */
 	if (!mem_equals_timing_safe(response_hex, rspauth,
@@ -449,31 +450,31 @@ mech_digest_md5_input_final(struct digest_md5_dsasl_client *dclient,
 }
 
 static enum dsasl_client_result
-mech_digest_md5_input(struct dsasl_client *client,
+mech_digest_md5_input(struct dsasl_client_mech_session *msession,
 		      const unsigned char *input, size_t input_len,
 		      const char **error_r)
 {
-	struct digest_md5_dsasl_client *dclient =
-		container_of(client, struct digest_md5_dsasl_client, client);
+	struct digest_md5_sasl_session *dsession =
+		container_of(msession, struct digest_md5_sasl_session, session);
 	int ret;
 
 	*error_r = NULL;
 
-	switch (dclient->state) {
+	switch (dsession->state) {
 	case DIGEST_MD5_STATE_INIT:
-		if (mech_digest_md5_init(dclient, error_r) < 0) {
-			dclient->state = DIGEST_MD5_STATE_END;
+		if (mech_digest_md5_init(dsession, error_r) < 0) {
+			dsession->state = DIGEST_MD5_STATE_END;
 			return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 		}
-		dclient->state = DIGEST_MD5_STATE_SERVER_FIRST;
+		dsession->state = DIGEST_MD5_STATE_SERVER_FIRST;
 		/* Fall through */
 	case DIGEST_MD5_STATE_SERVER_FIRST:
-		if (mech_digest_md5_input_first(dclient, input, input_len,
+		if (mech_digest_md5_input_first(dsession, input, input_len,
 						error_r) < 0) {
-			dclient->state = DIGEST_MD5_STATE_END;
+			dsession->state = DIGEST_MD5_STATE_END;
 			return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 		}
-		dclient->state = DIGEST_MD5_STATE_CLIENT_FIRST;
+		dsession->state = DIGEST_MD5_STATE_CLIENT_FIRST;
 		return DSASL_CLIENT_RESULT_OK;
 	case DIGEST_MD5_STATE_CLIENT_FIRST:
 		i_unreached();
@@ -484,45 +485,45 @@ mech_digest_md5_input(struct dsasl_client *client,
 		i_unreached();
 	}
 
-	ret = mech_digest_md5_input_final(dclient, input, input_len, error_r);
+	ret = mech_digest_md5_input_final(dsession, input, input_len, error_r);
 	if (ret < 0) {
-		dclient->state = DIGEST_MD5_STATE_END;
+		dsession->state = DIGEST_MD5_STATE_END;
 		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
 	if (ret == 0) {
-		dclient->state = DIGEST_MD5_STATE_END;
+		dsession->state = DIGEST_MD5_STATE_END;
 		return DSASL_CLIENT_RESULT_AUTH_FAILED;
 	}
-	dclient->state = DIGEST_MD5_STATE_CLIENT_FINAL;
+	dsession->state = DIGEST_MD5_STATE_CLIENT_FINAL;
 	return DSASL_CLIENT_RESULT_OK;
 }
 
 static enum dsasl_client_result
-mech_digest_md5_output(struct dsasl_client *client,
+mech_digest_md5_output(struct dsasl_client_mech_session *msession,
 		       const unsigned char **output_r, size_t *output_len_r,
 		       const char **error_r)
 {
-	struct digest_md5_dsasl_client *dclient =
-		container_of(client, struct digest_md5_dsasl_client, client);
+	struct digest_md5_sasl_session *dsession =
+		container_of(msession, struct digest_md5_sasl_session, session);
 	string_t *str;
 
-	switch (dclient->state) {
+	switch (dsession->state) {
 	case DIGEST_MD5_STATE_INIT:
-		if (mech_digest_md5_init(dclient, error_r) < 0) {
-			dclient->state = DIGEST_MD5_STATE_END;
+		if (mech_digest_md5_init(dsession, error_r) < 0) {
+			dsession->state = DIGEST_MD5_STATE_END;
 			return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 		}
-		dclient->state = DIGEST_MD5_STATE_SERVER_FIRST;
+		dsession->state = DIGEST_MD5_STATE_SERVER_FIRST;
 		/* Fall through */
 	case DIGEST_MD5_STATE_SERVER_FIRST:
 		*output_r = NULL;
 		*output_len_r = 0;
 		return DSASL_CLIENT_RESULT_OK;
 	case DIGEST_MD5_STATE_CLIENT_FIRST:
-		str = mech_digest_md5_output_first(dclient);
+		str = mech_digest_md5_output_first(dsession);
 		*output_r = str_data(str);
 		*output_len_r = str_len(str);
-		dclient->state = DIGEST_MD5_STATE_SERVER_FINAL;
+		dsession->state = DIGEST_MD5_STATE_SERVER_FINAL;
 		return DSASL_CLIENT_RESULT_OK;
 	case DIGEST_MD5_STATE_SERVER_FINAL:
 		i_unreached();
@@ -534,13 +535,13 @@ mech_digest_md5_output(struct dsasl_client *client,
 
 	*output_r = uchar_empty_ptr;
 	*output_len_r = 0;
-	dclient->state = DIGEST_MD5_STATE_END;
+	dsession->state = DIGEST_MD5_STATE_END;
 	return DSASL_CLIENT_RESULT_OK;
 }
 
 const struct dsasl_client_mech dsasl_client_mech_digest_md5 = {
 	.name = SASL_MECH_NAME_DIGEST_MD5,
-	.struct_size = sizeof(struct digest_md5_dsasl_client),
+	.struct_size = sizeof(struct digest_md5_sasl_session),
 
 	.input = mech_digest_md5_input,
 	.output = mech_digest_md5_output,

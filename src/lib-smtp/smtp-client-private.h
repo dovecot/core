@@ -192,7 +192,7 @@ struct smtp_client_connection {
 
 	struct dns_lookup *dns_lookup;
 
-	struct dsasl_client *sasl_client;
+	struct dsasl_client_session *sasl_session;
 	char *sasl_ir;
 	struct smtp_client_command *cmd_auth;
 

@@ -10,57 +10,58 @@ enum login_state {
 	STATE_PASS
 };
 
-struct login_dsasl_client {
-	struct dsasl_client client;
+struct login_sasl_session {
+	struct dsasl_client_mech_session session;
+
 	enum login_state state;
 };
 
 static enum dsasl_client_result
-mech_login_input(struct dsasl_client *_client,
+mech_login_input(struct dsasl_client_mech_session *msession,
 		 const unsigned char *input ATTR_UNUSED,
 		 size_t input_len ATTR_UNUSED,
 		 const char **error_r)
 {
-	struct login_dsasl_client *client =
-		(struct login_dsasl_client *)_client;
+	struct login_sasl_session *lsession =
+		container_of(msession, struct login_sasl_session, session);
 
-	if (client->state == STATE_PASS) {
+	if (lsession->state == STATE_PASS) {
 		*error_r = "Server didn't finish authentication";
 		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
-	client->state++;
+	lsession->state++;
 	return DSASL_CLIENT_RESULT_OK;
 }
 
 static enum dsasl_client_result
-mech_login_output(struct dsasl_client *_client,
+mech_login_output(struct dsasl_client_mech_session *msession,
 		  const unsigned char **output_r, size_t *output_len_r,
 		  const char **error_r)
 {
-	struct login_dsasl_client *client =
-		(struct login_dsasl_client *)_client;
+	struct login_sasl_session *lsession =
+		container_of(msession, struct login_sasl_session, session);
 
-	if (_client->set.authid == NULL || *_client->set.authid == '\0') {
+	if (msession->set.authid == NULL || *msession->set.authid == '\0') {
 		*error_r = "authid not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
-	if (_client->password == NULL) {
+	if (msession->password == NULL) {
 		*error_r = "password not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
 
-	switch (client->state) {
+	switch (lsession->state) {
 	case STATE_INIT:
 		*output_r = NULL;
 		*output_len_r = 0;
 		return DSASL_CLIENT_RESULT_OK;
 	case STATE_USER:
-		*output_r = (const unsigned char *)_client->set.authid;
-		*output_len_r = strlen(_client->set.authid);
+		*output_r = (const unsigned char *)msession->set.authid;
+		*output_len_r = strlen(msession->set.authid);
 		return DSASL_CLIENT_RESULT_OK;
 	case STATE_PASS:
-		*output_r = (const unsigned char *)_client->set.password;
-		*output_len_r = strlen(_client->set.password);
+		*output_r = (const unsigned char *)msession->set.password;
+		*output_len_r = strlen(msession->set.password);
 		return DSASL_CLIENT_RESULT_OK;
 	}
 	i_unreached();
@@ -68,7 +69,7 @@ mech_login_output(struct dsasl_client *_client,
 
 const struct dsasl_client_mech dsasl_client_mech_login = {
 	.name = SASL_MECH_NAME_LOGIN,
-	.struct_size = sizeof(struct login_dsasl_client),
+	.struct_size = sizeof(struct login_sasl_session),
 
 	.input = mech_login_input,
 	.output = mech_login_output

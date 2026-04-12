@@ -47,7 +47,7 @@ struct fuzz_sasl_context {
 	struct sasl_server_req_ctx ssrctx;
 	const struct fuzz_sasl_parameters *params;
 
-	struct dsasl_client *client;
+	struct dsasl_client_session *session;
 
 	const char *server_cbind_type;
 	const char *authid;
@@ -438,7 +438,8 @@ fuzz_server_request_output(struct sasl_server_req_ctx *rctx,
 		const char *error = NULL;
 
 		fuzz_sasl_amend_data(fctx, &data, &size);
-		result = dsasl_client_input(fctx->client, data, size, &error);
+		result = dsasl_client_session_input(fctx->session, data, size,
+						    &error);
 		if (result != DSASL_CLIENT_RESULT_OK) {
 			e_debug(fuzz_event, "client input error: %s", error);
 			fctx->finished = TRUE;
@@ -515,9 +516,8 @@ static void fuzz_sasl_interact(struct fuzz_sasl_context *fctx)
 	enum dsasl_client_result result;
 
 	if (fctx->auth_initial) {
-		result = dsasl_client_output(fctx->client,
-					  &sasl_data, &sasl_data_size,
-					  &error);
+		result = dsasl_client_session_output(
+			fctx->session, &sasl_data, &sasl_data_size, &error);
 		if (result != DSASL_CLIENT_RESULT_OK) {
 			e_debug(fuzz_event, "client initial error: %s", error);
 			fctx->finished = TRUE;
@@ -537,8 +537,8 @@ static void fuzz_sasl_interact(struct fuzz_sasl_context *fctx)
 		sasl_data_size = 0;
 
 		if (!fctx->out_of_band_cycle) {
-			result = dsasl_client_output(
-				fctx->client, &sasl_data, &sasl_data_size,
+			result = dsasl_client_session_output(
+				fctx->session, &sasl_data, &sasl_data_size,
 				&error);
 			if (result != DSASL_CLIENT_RESULT_OK) {
 				e_debug(fuzz_event, "client output error: %s",
@@ -698,17 +698,18 @@ static void fuzz_sasl_run(struct istream *input)
 	};
 	client_mech = dsasl_client_mech_find(params.mech);
 	if (client_mech != NULL) {
-		fctx.client = dsasl_client_new(client_mech, &client_set);
-		i_assert(fctx.client != NULL);
+		fctx.session = dsasl_client_session_create(client_mech,
+							   &client_set);
+		i_assert(fctx.session != NULL);
 
-		dsasl_client_enable_channel_binding(
-			fctx.client, SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3,
+		dsasl_client_session_enable_channel_binding(
+			fctx.session, SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3,
 			fuzz_client_channel_binding_callback, &fctx);
 
 		fuzz_sasl_interact(&fctx);
 	}
 
-	dsasl_client_free(&fctx.client);
+	dsasl_client_session_free(&fctx.session);
 	sasl_server_request_destroy(&fctx.ssrctx);
 
 	sasl_server_instance_unref(&server_inst);

@@ -94,7 +94,7 @@ struct imapc_connection {
 	struct timeout *to;
 	struct timeout *to_output;
 	struct dns_lookup *dns_lookup;
-	struct dsasl_client *sasl_client;
+	struct dsasl_client_session *sasl_session;
 
 	struct ssl_iostream *ssl_iostream;
 
@@ -200,7 +200,7 @@ imapc_auth_failed(struct imapc_connection *conn, const struct imapc_command_repl
 	}
 	imapc_login_callback(conn, &reply);
 
-	dsasl_client_free(&conn->sasl_client);
+	dsasl_client_session_free(&conn->sasl_session);
 
 	if (conn->client->state_change_callback == NULL)
 		return;
@@ -478,7 +478,7 @@ void imapc_connection_disconnect_full(struct imapc_connection *conn,
 
 	if (conn->dns_lookup != NULL)
 		dns_lookup_abort(&conn->dns_lookup);
-	dsasl_client_free(&conn->sasl_client);
+	dsasl_client_session_free(&conn->sasl_session);
 	imapc_connection_lfiles_free(conn);
 	imapc_connection_literal_reset(&conn->literal);
 	timeout_remove(&conn->to_output);
@@ -959,7 +959,7 @@ imapc_connection_authenticate_cb(const struct imapc_command_reply *reply,
 	const char *error;
 
 	if ((int)reply->state != IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE) {
-		dsasl_client_free(&conn->sasl_client);
+		dsasl_client_session_free(&conn->sasl_session);
 		imapc_connection_auth_finish(conn, reply);
 		return;
 	}
@@ -970,11 +970,13 @@ imapc_connection_authenticate_cb(const struct imapc_command_reply *reply,
 		imapc_auth_failed(conn, reply,
 				  t_strdup_printf("Server sent non-base64 input for AUTHENTICATE: %s",
 						  reply->text_full));
-	} else if (dsasl_client_input(conn->sasl_client, buf->data, buf->used,
-				      &error) != DSASL_CLIENT_RESULT_OK) {
+	} else if (dsasl_client_session_input(
+			conn->sasl_session, buf->data, buf->used,
+			&error) != DSASL_CLIENT_RESULT_OK) {
 		imapc_auth_failed(conn, reply, error);
-	} else if (dsasl_client_output(conn->sasl_client, &sasl_output,
-				       &sasl_output_len, &error) != DSASL_CLIENT_RESULT_OK) {
+	} else if (dsasl_client_session_output(
+			conn->sasl_session, &sasl_output, &sasl_output_len,
+			&error) != DSASL_CLIENT_RESULT_OK) {
 		imapc_auth_failed(conn, reply, error);
 	} else if (sasl_output_len == 0) {
 		o_stream_nsend_str(conn->output, "\r\n");
@@ -1131,12 +1133,12 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 
 	if (sasl_mech == NULL)
 		sasl_mech = &dsasl_client_mech_plain;
-	conn->sasl_client = dsasl_client_new(sasl_mech, &sasl_set);
+	conn->sasl_session = dsasl_client_session_create(sasl_mech, &sasl_set);
 
 	mech_name = dsasl_client_mech_get_name(sasl_mech);
 	if (conn->ssl_iostream != NULL) {
-		dsasl_client_enable_channel_binding(
-			conn->sasl_client,
+		dsasl_client_session_enable_channel_binding(
+			conn->sasl_session,
 			ssl_iostream_get_protocol_version(conn->ssl_iostream),
 			imapc_connection_channel_bind_callback, conn);
 	}
@@ -1147,9 +1149,9 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		string_t *sasl_output_base64;
 		const char *error;
 
-		if (dsasl_client_output(conn->sasl_client, &sasl_output,
-					&sasl_output_len,
-					&error) != DSASL_CLIENT_RESULT_OK) {
+		if (dsasl_client_session_output(conn->sasl_session,
+				&sasl_output, &sasl_output_len,
+				&error) != DSASL_CLIENT_RESULT_OK) {
 			e_error(conn->event,
 				"Failed to create initial SASL reply: %s",
 				error);

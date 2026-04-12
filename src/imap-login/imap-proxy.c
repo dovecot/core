@@ -152,7 +152,7 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 		return 0;
 	}
 
-	i_assert(client->common.proxy_sasl_client == NULL);
+	i_assert(client->common.proxy_sasl_session == NULL);
 	i_zero(&sasl_set);
 	sasl_set.event_parent = client->common.event;
 	sasl_set.authid = client->common.proxy_master_user != NULL ?
@@ -162,16 +162,16 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 	sasl_set.protocol = "imap";
 	sasl_set.host = login_proxy_get_host(client->common.login_proxy);
 	sasl_set.port = login_proxy_get_port(client->common.login_proxy);
-	client->common.proxy_sasl_client =
-		dsasl_client_new(client->common.proxy_mech, &sasl_set);
+	client->common.proxy_sasl_session = dsasl_client_session_create(
+		client->common.proxy_mech, &sasl_set);
 	mech_name = dsasl_client_mech_get_name(client->common.proxy_mech);
 
 	str_append(str, "L AUTHENTICATE ");
 	str_append(str, mech_name);
 	if (client->proxy_sasl_ir) {
-		if (dsasl_client_output(client->common.proxy_sasl_client,
-					&sasl_output, &sasl_output_len,
-					&error) != DSASL_CLIENT_RESULT_OK) {
+		if (dsasl_client_session_output(client->common.proxy_sasl_session,
+						&sasl_output, &sasl_output_len,
+						&error) != DSASL_CLIENT_RESULT_OK) {
 			const char *reason = t_strdup_printf(
 				"SASL mechanism %s init failed: %s",
 				mech_name, error);
@@ -374,7 +374,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			return 0;
 		}
 		/* AUTHENTICATE started. finish it. */
-		if (client->proxy_sasl_client == NULL) {
+		if (client->proxy_sasl_session == NULL) {
 			/* used literals with LOGIN command, just ignore. */
 			return 0;
 		}

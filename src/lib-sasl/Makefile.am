@@ -66,6 +66,7 @@ headers = \
 	sasl-common.h \
 	sasl-oauth2.h \
 	dsasl-client.h \
+	dsasl-client-protected.h \
 	dsasl-client-private.h \
 	sasl-server.h \
 	sasl-server-gssapi.h \

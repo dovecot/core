@@ -777,7 +777,7 @@ smtp_client_connection_clear_password(struct smtp_client_connection *conn)
 static void
 smtp_client_connection_auth_deinit(struct smtp_client_connection *conn)
 {
-	dsasl_client_free(&conn->sasl_client);
+	dsasl_client_session_free(&conn->sasl_session);
 	i_free(conn->sasl_ir);
 }
 
@@ -836,13 +836,15 @@ smtp_client_connection_auth_cb(const struct smtp_reply *reply,
 				"Authentication failed: "
 				"Server sent non-base64 input for AUTH: %s",
 				reply->text_lines[0]);
-		} else if (dsasl_client_input(conn->sasl_client,
-					      buf->data, buf->used,
-					      &error) != DSASL_CLIENT_RESULT_OK) {
+		} else if (dsasl_client_session_input(
+				conn->sasl_session, buf->data, buf->used,
+				&error) != DSASL_CLIENT_RESULT_OK) {
 			error = t_strdup_printf("Authentication failed: %s",
 						error);
-		} else if (dsasl_client_output(conn->sasl_client, &sasl_output,
-					       &sasl_output_len, &error) != DSASL_CLIENT_RESULT_OK) {
+		} else if (dsasl_client_session_output(
+				conn->sasl_session,
+				&sasl_output, &sasl_output_len,
+				&error) != DSASL_CLIENT_RESULT_OK) {
 			error = t_strdup_printf("Authentication failed: %s",
 						error);
 		} else {
@@ -1014,11 +1016,12 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 	sasl_set.host = conn->host;
 	sasl_set.port = conn->port;
 
-	conn->sasl_client = dsasl_client_new(sasl_mech, &sasl_set);
+	conn->sasl_session = dsasl_client_session_create(sasl_mech, &sasl_set);
 	mech_name =  dsasl_client_mech_get_name(sasl_mech);
 
-	if (dsasl_client_output(conn->sasl_client, &sasl_output,
-				&sasl_output_len, &error) != DSASL_CLIENT_RESULT_OK) {
+	if (dsasl_client_session_output(conn->sasl_session,
+					&sasl_output, &sasl_output_len,
+					&error) != DSASL_CLIENT_RESULT_OK) {
 		error = t_strdup_printf(
 			"Failed to create initial %s SASL reply: %s",
 			dsasl_client_mech_get_name(sasl_mech), error);

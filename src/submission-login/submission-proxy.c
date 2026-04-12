@@ -275,20 +275,20 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 	if (client->common.proxy_mech == NULL)
 		client->common.proxy_mech = &dsasl_client_mech_plain;
 
-	i_assert(client->common.proxy_sasl_client == NULL);
+	i_assert(client->common.proxy_sasl_session == NULL);
 	i_zero(&sasl_set);
 	sasl_set.event_parent = client->common.event;
 	sasl_set.authid = client->common.proxy_master_user != NULL ?
 		client->common.proxy_master_user : client->common.proxy_user;
 	sasl_set.authzid = client->common.proxy_user;
 	sasl_set.password = client->common.proxy_password;
-	client->common.proxy_sasl_client =
-		dsasl_client_new(client->common.proxy_mech, &sasl_set);
+	client->common.proxy_sasl_session = dsasl_client_session_create(
+		client->common.proxy_mech, &sasl_set);
 	mech_name = dsasl_client_mech_get_name(client->common.proxy_mech);
 
-	if (dsasl_client_output(client->common.proxy_sasl_client,
-				&sasl_output, &sasl_output_len,
-				&error) != DSASL_CLIENT_RESULT_OK) {
+	if (dsasl_client_session_output(client->common.proxy_sasl_session,
+					&sasl_output, &sasl_output_len,
+					&error) != DSASL_CLIENT_RESULT_OK) {
 		const char *reason = t_strdup_printf(
 			"SASL mechanism %s init failed: %s",
 			mech_name, error);
@@ -682,7 +682,7 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 				LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
 			return -1;
 		}
-		if (status == 334 && client->proxy_sasl_client != NULL) {
+		if (status == 334 && client->proxy_sasl_session != NULL) {
 			/* continue SASL authentication */
 			if (submission_proxy_continue_sasl_auth(
 				client, output, text, last_line) < 0)
