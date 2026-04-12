@@ -36,8 +36,8 @@ mech_scram_init_channel_binding(struct scram_dsasl_client *sclient,
 	return 0;
 }
 
-static int mech_scram_init(struct scram_dsasl_client *sclient,
-			   const char **error_r)
+static int
+mech_scram_init(struct scram_dsasl_client *sclient, const char **error_r)
 {
 	struct dsasl_client *client = &sclient->client;
 	const struct hash_method *hmethod;
