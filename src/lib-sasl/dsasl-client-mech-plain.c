@@ -11,6 +11,13 @@ struct plain_sasl_session {
 	bool output_sent;
 };
 
+static struct dsasl_client_mech_session *mech_plain_auth_new(pool_t pool)
+{
+	struct plain_sasl_session *psession =
+		p_new(pool, struct plain_sasl_session, 1);
+	return &psession->session;
+}
+
 static enum dsasl_client_result
 mech_plain_auth_input(struct dsasl_client_mech_session *msession,
 		      const unsigned char *input ATTR_UNUSED, size_t input_len,
@@ -65,8 +72,8 @@ mech_plain_auth_output(struct dsasl_client_mech_session *msession,
 
 const struct dsasl_client_mech dsasl_client_mech_plain = {
 	.name = SASL_MECH_NAME_PLAIN,
-	.struct_size = sizeof(struct plain_sasl_session),
 
+	.auth_new = mech_plain_auth_new,
 	.auth_input = mech_plain_auth_input,
 	.auth_output = mech_plain_auth_output,
 };

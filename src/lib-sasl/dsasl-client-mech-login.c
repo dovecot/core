@@ -17,6 +17,13 @@ struct login_sasl_session {
 	enum login_state state;
 };
 
+static struct dsasl_client_mech_session *mech_login_auth_new(pool_t pool)
+{
+	struct login_sasl_session *lsession =
+		p_new(pool, struct login_sasl_session, 1);
+	return &lsession->session;
+}
+
 static enum dsasl_client_result
 mech_login_auth_input(struct dsasl_client_mech_session *msession,
 		      const unsigned char *input ATTR_UNUSED,
@@ -69,8 +76,8 @@ mech_login_auth_output(struct dsasl_client_mech_session *msession,
 
 const struct dsasl_client_mech dsasl_client_mech_login = {
 	.name = SASL_MECH_NAME_LOGIN,
-	.struct_size = sizeof(struct login_sasl_session),
 
+	.auth_new = mech_login_auth_new,
 	.auth_input = mech_login_auth_input,
 	.auth_output = mech_login_auth_output,
 };

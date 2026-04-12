@@ -40,6 +40,13 @@ struct gssapi_sasl_session {
 static const struct dsasl_client_mech dsasl_client_mech_gssapi;
 static const struct dsasl_client_mech dsasl_client_mech_gss_spnego;
 
+static struct dsasl_client_mech_session *mech_gssapi_auth_new(pool_t pool)
+{
+	struct gssapi_sasl_session *gsession =
+		p_new(pool, struct gssapi_sasl_session, 1);
+	return &gsession->session;
+}
+
 static void mech_gssapi_auth_free(struct dsasl_client_mech_session *msession)
 {
 	struct gssapi_sasl_session *gsession =
@@ -365,8 +372,8 @@ mech_gssapi_gs1_auth_output(struct dsasl_client_mech_session *msession,
 static const struct dsasl_client_mech dsasl_client_mech_gssapi = {
 	.name = "GSSAPI",
 	.flags = DSASL_MECH_SEC_ALLOW_NULS,
-	.struct_size = sizeof(struct gssapi_sasl_session),
 
+	.auth_new = mech_gssapi_auth_new,
 	.auth_free = mech_gssapi_auth_free,
 	.auth_input = mech_gssapi_gs1_auth_input,
 	.auth_output = mech_gssapi_gs1_auth_output,
@@ -375,8 +382,8 @@ static const struct dsasl_client_mech dsasl_client_mech_gssapi = {
 static const struct dsasl_client_mech dsasl_client_mech_gss_spnego = {
 	.name = "GSS-SPNEGO",
 	.flags = DSASL_MECH_SEC_ALLOW_NULS,
-	.struct_size = sizeof(struct gssapi_sasl_session),
 
+	.auth_new = mech_gssapi_auth_new,
 	.auth_free = mech_gssapi_auth_free,
 	.auth_input = mech_gssapi_gs1_auth_input,
 	.auth_output = mech_gssapi_gs1_auth_output,

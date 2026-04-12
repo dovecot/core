@@ -24,6 +24,13 @@ struct ntlm_sasl_session {
 
 void dasl_client_mech_ntlm_init_dummy(void);
 
+static struct dsasl_client_mech_session *mech_ntlm_auth_new(pool_t pool)
+{
+	struct ntlm_sasl_session *nsession =
+		p_new(pool, struct ntlm_sasl_session, 1);
+	return &nsession->session;
+}
+
 static enum dsasl_client_result
 mech_ntlm_auth_input(struct dsasl_client_mech_session *msession,
 		     const unsigned char *input, size_t input_len,
@@ -84,8 +91,8 @@ mech_ntlm_auth_output(struct dsasl_client_mech_session *msession,
 
 const struct dsasl_client_mech dsasl_client_mech_ntlm = {
 	.name = SASL_MECH_NAME_NTLM,
-	.struct_size = sizeof(struct ntlm_sasl_session),
 
+	.auth_new = mech_ntlm_auth_new,
 	.auth_input = mech_ntlm_auth_input,
 	.auth_output = mech_ntlm_auth_output,
 };

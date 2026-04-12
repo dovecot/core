@@ -42,6 +42,13 @@ struct digest_md5_sasl_session {
 
 static const struct hash_method *const hmethod = &hash_method_md5;
 
+static struct dsasl_client_mech_session *mech_digest_md5_auth_new(pool_t pool)
+{
+	struct digest_md5_sasl_session *dsession =
+		p_new(pool, struct digest_md5_sasl_session, 1);
+	return &dsession->session;
+}
+
 static void
 value_append_escaped(string_t *dest, const void *src)
 {
@@ -541,8 +548,8 @@ mech_digest_md5_auth_output(struct dsasl_client_mech_session *msession,
 
 const struct dsasl_client_mech dsasl_client_mech_digest_md5 = {
 	.name = SASL_MECH_NAME_DIGEST_MD5,
-	.struct_size = sizeof(struct digest_md5_sasl_session),
 
+	.auth_new = mech_digest_md5_auth_new,
 	.auth_input = mech_digest_md5_auth_input,
 	.auth_output = mech_digest_md5_auth_output,
 };

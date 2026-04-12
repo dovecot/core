@@ -10,6 +10,13 @@ struct anonymous_sasl_session {
 	bool output_sent;
 };
 
+static struct dsasl_client_mech_session *mech_anonymous_auth_new(pool_t pool)
+{
+	struct anonymous_sasl_session *asession =
+		p_new(pool, struct anonymous_sasl_session, 1);
+	return &asession->session;
+}
+
 static enum dsasl_client_result
 mech_anonymous_auth_input(struct dsasl_client_mech_session *msession,
 			  const unsigned char *input ATTR_UNUSED, size_t input_len,
@@ -49,9 +56,9 @@ mech_anonymous_auth_output(struct dsasl_client_mech_session *msession,
 
 const struct dsasl_client_mech dsasl_client_mech_anonymous = {
 	.name = SASL_MECH_NAME_ANONYMOUS,
-	.struct_size = sizeof(struct anonymous_sasl_session),
 	.flags = DSASL_MECH_SEC_NO_PASSWORD,
 
+	.auth_new = mech_anonymous_auth_new,
 	.auth_input = mech_anonymous_auth_input,
 	.auth_output = mech_anonymous_auth_output,
 };

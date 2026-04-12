@@ -13,9 +13,9 @@ enum dsasl_mech_security_flags {
 
 struct dsasl_client_mech {
 	const char *name;
-	size_t struct_size;
 	enum dsasl_mech_security_flags flags;
 
+	struct dsasl_client_mech_session *(*auth_new)(pool_t pool);
 	void (*auth_free)(struct dsasl_client_mech_session *msession);
 	enum dsasl_client_result
 	(*auth_input)(struct dsasl_client_mech_session *msession,

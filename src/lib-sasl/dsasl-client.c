@@ -94,7 +94,10 @@ dsasl_client_session_create(const struct dsasl_client_mech *mech,
 
 	struct dsasl_client_mech_session *msession;
 
-	msession = p_malloc(pool, mech->struct_size);
+	if (mech->auth_new != NULL)
+		msession = mech->auth_new(pool);
+	else
+		msession = p_new(pool, struct dsasl_client_mech_session, 1);
 	msession->pool = pool;
 	msession->event = event;
 	msession->mech = mech;
