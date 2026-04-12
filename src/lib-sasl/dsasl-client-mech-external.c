@@ -37,9 +37,9 @@ mech_external_output(struct dsasl_client *_client,
 		(struct external_dsasl_client *)_client;
 	const char *username;
 
-	if (_client->set.authzid != NULL)
+	if (_client->set.authzid != NULL && *_client->set.authzid != '\0')
 		username = _client->set.authzid;
-	else if (_client->set.authid != NULL)
+	else if (_client->set.authid != NULL && *_client->set.authid != '\0')
 		username = _client->set.authid;
 	else
 		username = "";

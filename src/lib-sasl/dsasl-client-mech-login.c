@@ -40,7 +40,7 @@ mech_login_output(struct dsasl_client *_client,
 	struct login_dsasl_client *client =
 		(struct login_dsasl_client *)_client;
 
-	if (_client->set.authid == NULL) {
+	if (_client->set.authid == NULL || *_client->set.authid == '\0') {
 		*error_r = "authid not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}

@@ -96,7 +96,7 @@ mech_oauthbearer_output(struct dsasl_client *_client,
 		container_of(_client, struct oauthbearer_dsasl_client, client);
 	string_t *str;
 
-	if (_client->set.authid == NULL) {
+	if (_client->set.authid == NULL || *_client->set.authid == '\0') {
 		*error_r = "authid not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
@@ -143,7 +143,7 @@ mech_xoauth2_output(struct dsasl_client *_client,
 		(struct oauthbearer_dsasl_client *)_client;
 	string_t *str;
 
-	if (_client->set.authid == NULL) {
+	if (_client->set.authid == NULL || *_client->set.authid == '\0') {
 		*error_r = "authid not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}

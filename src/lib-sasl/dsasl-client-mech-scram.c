@@ -116,7 +116,7 @@ mech_scram_output(struct dsasl_client *client,
 	*output_r = NULL;
 	*output_len_r = 0;
 
-	if (client->set.authid == NULL) {
+	if (client->set.authid == NULL || *client->set.authid == '\0') {
 		*error_r = "authid not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}

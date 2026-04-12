@@ -38,7 +38,7 @@ mech_plain_output(struct dsasl_client *_client,
 		(struct plain_dsasl_client *)_client;
 	string_t *str;
 
-	if (_client->set.authid == NULL) {
+	if (_client->set.authid == NULL || *_client->set.authid == '\0') {
 		*error_r = "authid not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
@@ -48,7 +48,7 @@ mech_plain_output(struct dsasl_client *_client,
 	}
 
 	str = str_new(_client->pool, 64);
-	if (_client->set.authzid != NULL)
+	if (_client->set.authzid != NULL && *_client->set.authzid != '\0')
 		str_append(str, _client->set.authzid);
 	str_append_c(str, '\0');
 	str_append(str, _client->set.authid);

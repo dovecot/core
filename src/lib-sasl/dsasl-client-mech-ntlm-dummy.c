@@ -54,7 +54,7 @@ mech_ntlm_output(struct dsasl_client *_client,
 	struct ntlm_dsasl_client *client =
 		container_of(_client, struct ntlm_dsasl_client, client);
 
-	if (_client->set.authid == NULL) {
+	if (_client->set.authid == NULL || *_client->set.authid == '\0') {
 		*error_r = "authid not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}

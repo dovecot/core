@@ -66,7 +66,7 @@ mech_cram_md5_output(struct dsasl_client *client,
 		container_of(client, struct cram_md5_dsasl_client, client);
 	string_t *str;
 
-	if (client->set.authid == NULL) {
+	if (client->set.authid == NULL || *client->set.authid == '\0') {
 		*error_r = "authid not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}

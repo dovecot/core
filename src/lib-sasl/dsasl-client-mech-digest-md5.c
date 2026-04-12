@@ -194,7 +194,7 @@ mech_digest_md5_init(struct digest_md5_dsasl_client *dclient,
 	struct dsasl_client *client = &dclient->client;
 	const char *realm;
 
-	if (client->set.authid == NULL) {
+	if (client->set.authid == NULL || *client->set.authid == '\0') {
 		*error_r = "authid not set";
 		return -1;
 	}
@@ -364,7 +364,7 @@ mech_digest_md5_output_first(struct digest_md5_dsasl_client *dclient)
 	str_append(str, ",response=\"");
 	str_append(str, response_hex);
 	str_append(str, "\"");
-	if (client->set.authzid != NULL) {
+	if (client->set.authzid != NULL && *client->set.authzid != '\0') {
 		str_append(str, ",authzid=\"");
 		str_append(str, client->set.authzid);
 		str_append(str, "\"");

@@ -217,7 +217,8 @@ mech_gssapi_gs1_unwrap(struct gssapi_sasl_client *gclient,
 	unsigned char *data;
 	unsigned int sec_layer = 0;
 	buffer_t *buf;
-	size_t authzid_size = (client->set.authzid == NULL ?
+	size_t authzid_size = ((client->set.authzid == NULL ||
+				*client->set.authzid == '\0') ?
 			       0 : strlen(client->set.authzid));
 
 	/* Decrypt the inbound challenge and obtain the qop */
@@ -252,7 +253,7 @@ mech_gssapi_gs1_unwrap(struct gssapi_sasl_client *gclient,
 	buffer_append_c(buf, 0);
 	buffer_append_c(buf, 0);
 	buffer_append_c(buf, 0);
-	if (client->set.authzid != NULL)
+	if (client->set.authzid != NULL && *client->set.authzid != '\0')
 		buffer_append(buf, client->set.authzid, authzid_size);
 
 	/* Setup the "authentication data" security buffer */
