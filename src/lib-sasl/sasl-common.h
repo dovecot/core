@@ -54,4 +54,6 @@ enum sasl_mech_security_flags {
 #define SASL_MECH_NAME_NTLM			"NTLM"
 #define SASL_MECH_NAME_XOAUTH2			"XOAUTH2"
 
+bool sasl_mechanism_name_is_valid(const char *mech_name);
+
 #endif

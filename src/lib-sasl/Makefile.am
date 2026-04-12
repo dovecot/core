@@ -39,6 +39,7 @@ server_mechanisms = \
 	sasl-server-mech-winbind.c
 
 libsasl_la_SOURCES = \
+	sasl-common.c \
 	sasl-oauth2.c \
 	$(client_mechanisms) \
 	dsasl-client.c \

@@ -25,6 +25,7 @@ server_mechanisms = [
 
 lib_sasl = static_library(
   'sasl',
+  'sasl-common.c',
   'sasl-oauth2.c',
   client_mechanisms,
   'dsasl-client.c',
