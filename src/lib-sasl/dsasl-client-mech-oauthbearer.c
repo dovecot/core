@@ -117,8 +117,8 @@ mech_oauthbearer_auth_output(struct dsasl_client_mech_session *msession,
 		*error_r = "password contains unsupported characters";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
-	if (msession->set.host != NULL &&
-	    !sasl_oauth2_kvpair_check_value(msession->set.host)) {
+	if (msession->params.host != NULL &&
+	    !sasl_oauth2_kvpair_check_value(msession->params.host)) {
 		*error_r = "host contains unsupported characters";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
@@ -130,10 +130,10 @@ mech_oauthbearer_auth_output(struct dsasl_client_mech_session *msession,
 	str = str_new(msession->pool, 64);
 	auth_gs2_header_encode(&gs2_header, str);
 	str_append_c(str, '\x01');
-	if (msession->set.host != NULL && *msession->set.host != '\0')
-		str_printfa(str, "host=%s\x01", msession->set.host);
-	if (msession->set.port > 0)
-		str_printfa(str, "port=%u\x01", msession->set.port);
+	if (msession->params.host != NULL && *msession->params.host != '\0')
+		str_printfa(str, "host=%s\x01", msession->params.host);
+	if (msession->params.port > 0)
+		str_printfa(str, "port=%u\x01", msession->params.port);
 	str_printfa(str, "auth=Bearer %s\x01", msession->password);
 	str_append_c(str, '\x01');
 

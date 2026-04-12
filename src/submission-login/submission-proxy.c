@@ -282,8 +282,14 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 		client->common.proxy_master_user : client->common.proxy_user;
 	sasl_set.authzid = client->common.proxy_user;
 	sasl_set.password = client->common.proxy_password;
+	struct dsasl_client_parameters sasl_params = {
+		.protocol = "smtp",
+		.host = login_proxy_get_host(client->common.login_proxy),
+		.port = login_proxy_get_port(client->common.login_proxy),
+	};
 	client->common.proxy_sasl_session = dsasl_client_session_create(
-		sasl_client, client->common.proxy_mech, &sasl_set);
+		sasl_client, client->common.proxy_mech,
+		&sasl_params, &sasl_set);
 	mech_name = dsasl_client_mech_get_name(client->common.proxy_mech);
 
 	if (dsasl_client_session_output(client->common.proxy_sasl_session,

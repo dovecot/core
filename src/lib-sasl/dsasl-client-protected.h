@@ -33,8 +33,9 @@ struct dsasl_client_mech {
 struct dsasl_client_mech_session {
 	pool_t pool;
 	struct event *event;
-	const struct dsasl_client_mech *mech;
+	struct dsasl_client_parameters params;
 	struct dsasl_client_settings set;
+	const struct dsasl_client_mech *mech;
 	struct dsasl_client_session *session;
 
 	const char *password;

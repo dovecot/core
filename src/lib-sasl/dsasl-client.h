@@ -17,6 +17,16 @@ enum dsasl_client_result {
 	DSASL_CLIENT_RESULT_ERR_INTERNAL,
 };
 
+/* Session parameters */
+struct dsasl_client_parameters {
+        /* protocol using SASL */
+        const char *protocol;
+        /* host name */
+        const char *host;
+        /* port */
+        in_port_t port;
+};
+
 struct dsasl_client_settings {
 	struct event *event_parent;
 
@@ -27,13 +37,6 @@ struct dsasl_client_settings {
 	const char *authzid;
 	/* password - must be set with most mechanisms */
 	const char *password;
-
-	/* protocol using SASL */
-	const char *protocol;
-	/* host name */
-	const char *host;
-	/* port */
-	in_port_t port;
 };
 
 typedef int
@@ -66,6 +69,7 @@ void dsasl_client_init_gssapi(struct dsasl_client *client);
 struct dsasl_client_session *
 dsasl_client_session_create(struct dsasl_client *client,
 			    const struct dsasl_client_mech *mech,
+			    const struct dsasl_client_parameters *params,
 			    const struct dsasl_client_settings *set);
 void dsasl_client_session_ref(struct dsasl_client_session *session);
 void dsasl_client_session_unref(struct dsasl_client_session **_session);

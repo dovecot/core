@@ -1125,14 +1125,17 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		sasl_set.authzid = set->imapc_user;
 	}
 	sasl_set.password = client->password;
-	sasl_set.protocol = "imap";
-	sasl_set.host = set->imapc_host;
-	sasl_set.port = set->imapc_port;
+
+	struct dsasl_client_parameters sasl_params = {
+		.protocol = "imap",
+		.host = set->imapc_host,
+		.port = set->imapc_port,
+	};
 
 	if (sasl_mech == NULL)
 		sasl_mech = &dsasl_client_mech_plain;
-	conn->sasl_session = dsasl_client_session_create(client->sasl_client,
-							 sasl_mech, &sasl_set);
+	conn->sasl_session = dsasl_client_session_create(
+		client->sasl_client, sasl_mech, &sasl_params, &sasl_set);
 
 	mech_name = dsasl_client_mech_get_name(sasl_mech);
 	if (conn->ssl_iostream != NULL) {

@@ -420,13 +420,15 @@ test_sasl_run_once(const struct test_sasl *test,
 			   t_strconcat(authid, "@", realm, NULL)),
 		.authzid = authzid,
 		.password = password,
+	};
+	struct dsasl_client_parameters client_params = {
 		.protocol = "imap",
 		.host = "example.com",
 	};
 	client_mech = dsasl_client_mech_find(tctx.client, test->mech);
 	i_assert(client_mech != NULL);
 	tctx.session = dsasl_client_session_create(tctx.client, client_mech,
-						   &client_set);
+						   &client_params, &client_set);
 	i_assert(tctx.session != NULL);
 
 	dsasl_client_session_enable_channel_binding(

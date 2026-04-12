@@ -124,9 +124,9 @@ mech_gssapi_gs1_init(struct gssapi_sasl_session *gsession, gss_buffer_t in_buf,
 	}
 
 	principal_name = t_str_new(128);
-	str_append(principal_name, msession->set.protocol);
+	str_append(principal_name, msession->params.protocol);
 	str_append_c(principal_name, '@');
-	str_append(principal_name, msession->set.host);
+	str_append(principal_name, msession->params.host);
 
 	namebuf.length = str_len(principal_name);
 	namebuf.value = str_c_modifiable(principal_name);

@@ -703,13 +703,15 @@ static void fuzz_sasl_run(struct istream *input)
 		.authid = params.authid,
 		.authzid = params.authzid,
 		.password = params.client_password,
+	};
+	struct dsasl_client_parameters client_params = {
 		.protocol = "imap",
 		.host = "example.com",
 	};
 	client_mech = dsasl_client_mech_find(fctx.client, params.mech);
 	if (client_mech != NULL) {
 		fctx.session = dsasl_client_session_create(
-			fctx.client, client_mech, &client_set);
+			fctx.client, client_mech, &client_params, &client_set);
 		i_assert(fctx.session != NULL);
 
 		dsasl_client_session_enable_channel_binding(

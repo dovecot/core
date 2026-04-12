@@ -43,7 +43,7 @@ static void test_sasl_client_login(void)
 	const unsigned char *output;
 	size_t olen;
 
-	session = dsasl_client_session_create(client, mech, &sasl_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_set);
 	i_assert(session != NULL);
 
 	/* Any input is valid */
@@ -70,7 +70,7 @@ static void test_sasl_client_login(void)
 	test_assert(session == NULL);
 
 	/* server sends input after password */
-	session = dsasl_client_session_create(client, mech, &sasl_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -82,7 +82,7 @@ static void test_sasl_client_login(void)
 	test_assert(session == NULL);
 
 	/* missing username & password */
-	session = dsasl_client_session_create(client, mech, &sasl_empty_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_empty_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_INTERNAL);
@@ -91,7 +91,7 @@ static void test_sasl_client_login(void)
 	test_assert(session == NULL);
 
 	/* missing password */
-	session = dsasl_client_session_create(client, mech, &sasl_no_password_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_no_password_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_INTERNAL);
@@ -100,7 +100,7 @@ static void test_sasl_client_login(void)
 	test_assert(session == NULL);
 
 	/* unexpected NUL byte in input */
-	session = dsasl_client_session_create(client, mech, &sasl_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_set);
 	test_assert(session != NULL);
 	str_truncate(input, 0);
 	str_append_data(input, "unexpected\0", 11);
@@ -131,7 +131,7 @@ static void test_sasl_client_plain(void)
 	const unsigned char *output;
 	size_t olen;
 
-	session = dsasl_client_session_create(client, mech, &sasl_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -142,7 +142,7 @@ static void test_sasl_client_plain(void)
 	dsasl_client_session_destroy(&session);
 	test_assert(session == NULL);
 
-	session = dsasl_client_session_create(client, mech, &sasl_master_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_master_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -157,7 +157,7 @@ static void test_sasl_client_plain(void)
 
 	/* unexpected initial response */
 	const unsigned char input[] = "ir";
-	session = dsasl_client_session_create(client, mech, &sasl_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, input, sizeof(input)-1, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "Server sent non-empty initial response");
@@ -165,7 +165,7 @@ static void test_sasl_client_plain(void)
 	test_assert(session == NULL);
 
 	/* server sends input after response */
-	session = dsasl_client_session_create(client, mech, &sasl_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -175,7 +175,7 @@ static void test_sasl_client_plain(void)
 	test_assert(session == NULL);
 
 	/* missing username & password */
-	session = dsasl_client_session_create(client, mech, &sasl_empty_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_empty_set);
 	i_assert(session != NULL);
 
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
@@ -185,7 +185,7 @@ static void test_sasl_client_plain(void)
 	test_assert(session == NULL);
 
 	/* missing password */
-	session = dsasl_client_session_create(client, mech, &sasl_no_password_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_no_password_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_INTERNAL);
@@ -194,7 +194,7 @@ static void test_sasl_client_plain(void)
 	test_assert(session == NULL);
 
 	/* unexpected NUL byte in input */
-	session = dsasl_client_session_create(client, mech, &sasl_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_set);
 	i_assert(session != NULL);
 	const unsigned char input2[] = "unexpected\0";
 	test_assert(dsasl_client_session_input(session, input2, sizeof(input2), &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
@@ -224,7 +224,7 @@ static void test_sasl_client_external(void)
 	const unsigned char *output;
 	size_t olen;
 
-	session = dsasl_client_session_create(client, mech, &sasl_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -235,7 +235,7 @@ static void test_sasl_client_external(void)
 	dsasl_client_session_destroy(&session);
 	test_assert(session == NULL);
 
-	session = dsasl_client_session_create(client, mech, &sasl_master_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_master_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -248,7 +248,7 @@ static void test_sasl_client_external(void)
 	test_assert(session == NULL);
 
 	/* unexpected NUL byte in input */
-	session = dsasl_client_session_create(client, mech, &sasl_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_set);
 	i_assert(session != NULL);
 	const unsigned char input2[] = "unexpected\0";
 	test_assert(dsasl_client_session_input(session, input2, sizeof(input2), &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
@@ -280,7 +280,7 @@ static void test_sasl_client_oauthbearer(void)
 	const unsigned char *output;
 	size_t olen;
 
-	session = dsasl_client_session_create(client, mech, &sasl_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -298,10 +298,11 @@ static void test_sasl_client_oauthbearer(void)
 	test_assert(session == NULL);
 
 	/* with host & port set */
-	struct dsasl_client_settings sasl_set_host = sasl_set;
-	sasl_set_host.host = "example.com";
-	sasl_set_host.port = 143;
-	session = dsasl_client_session_create(client, mech, &sasl_set_host);
+	struct dsasl_client_parameters params = {
+		.host = "example.com",
+		.port = 143,
+	};
+	session = dsasl_client_session_create(client, mech, &params, &sasl_set);
 	i_assert(session != NULL);
 
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
@@ -321,7 +322,7 @@ static void test_sasl_client_oauthbearer(void)
 	test_assert(session == NULL);
 
 	/* test error response */
-	session = dsasl_client_session_create(client, mech, &sasl_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -335,7 +336,7 @@ static void test_sasl_client_oauthbearer(void)
 	test_assert(session == NULL);
 
 	/* missing username & password */
-	session = dsasl_client_session_create(client, mech, &sasl_empty_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_empty_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_INTERNAL);
@@ -344,7 +345,7 @@ static void test_sasl_client_oauthbearer(void)
 	test_assert(session == NULL);
 
 	/* missing password */
-	session = dsasl_client_session_create(client, mech, &sasl_no_password_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_no_password_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_INTERNAL);
@@ -353,7 +354,7 @@ static void test_sasl_client_oauthbearer(void)
 	test_assert(session == NULL);
 
 	/* unexpected NUL byte in input */
-	session = dsasl_client_session_create(client, mech, &sasl_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_set);
 	i_assert(session != NULL);
 	const unsigned char input2[] = "unexpected\0";
 	test_assert(dsasl_client_session_input(session, input2, sizeof(input2), &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
@@ -384,7 +385,7 @@ static void test_sasl_client_xoauth2(void)
 	const unsigned char *output;
 	size_t olen;
 
-	session = dsasl_client_session_create(client, mech, &sasl_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -399,7 +400,7 @@ static void test_sasl_client_xoauth2(void)
 	test_assert(session == NULL);
 
 	/* test error response */
-	session = dsasl_client_session_create(client, mech, &sasl_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -411,7 +412,7 @@ static void test_sasl_client_xoauth2(void)
 	test_assert(session == NULL);
 
 	/* missing username & password */
-	session = dsasl_client_session_create(client, mech, &sasl_empty_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_empty_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_INTERNAL);
@@ -420,7 +421,7 @@ static void test_sasl_client_xoauth2(void)
 	test_assert(session == NULL);
 
 	/* missing password */
-	session = dsasl_client_session_create(client, mech, &sasl_no_password_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_no_password_set);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_ERR_INTERNAL);
@@ -429,7 +430,7 @@ static void test_sasl_client_xoauth2(void)
 	test_assert(session == NULL);
 
 	/* unexpected NUL byte in input */
-	session = dsasl_client_session_create(client, mech, &sasl_set);
+	session = dsasl_client_session_create(client, mech, NULL, &sasl_set);
 	i_assert(session != NULL);
 	const unsigned char input2[] = "unexpected\0";
 	test_assert(dsasl_client_session_input(session, input2, sizeof(input2), &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);

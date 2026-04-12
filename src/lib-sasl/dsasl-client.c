@@ -135,6 +135,7 @@ void dsasl_client_mech_unregister(struct dsasl_client *client,
 struct dsasl_client_session *
 dsasl_client_session_create(struct dsasl_client *client,
 			    const struct dsasl_client_mech *mech,
+			    const struct dsasl_client_parameters *params,
 			    const struct dsasl_client_settings *set)
 {
 	struct event *event;
@@ -168,12 +169,15 @@ dsasl_client_session_create(struct dsasl_client *client,
 	msession->set.authid = p_strdup(pool, set->authid);
 	msession->set.authzid = p_strdup(pool, set->authzid);
 	msession->set.password = p_strdup(pool, set->password);
-	msession->set.protocol = p_strdup(pool, set->protocol);
-	msession->set.host = p_strdup(pool, set->host);
-	msession->set.port = set->port;
 	msession->session = session;
 	msession->password = msession->set.password;
 	session->mech = msession;
+
+	if (params != NULL) {
+		msession->params.protocol = p_strdup(pool, params->protocol);
+		msession->params.host = p_strdup(pool, params->host);
+		msession->params.port = params->port;
+	}
 
 	return session;
 }

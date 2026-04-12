@@ -328,6 +328,7 @@ static void auth_connected(struct auth_client *client,
 static void cmd_auth_init_sasl_client(struct authtest_input *input)
 {
 	struct dsasl_client_settings sasl_set;
+	struct dsasl_client_parameters sasl_params;
 
 	if (input->mechanism != NULL) {
 		input->sasl_mech = dsasl_client_mech_find(
@@ -349,25 +350,27 @@ static void cmd_auth_init_sasl_client(struct authtest_input *input)
 	}
 	sasl_set.password = input->password;
 
+	i_zero(&sasl_params);
 	/* Translate to SASL/GSSAPI/Kerberos service name (IANA-registered) */
 	if (strcasecmp(input->info.protocol, "POP3") == 0)
-		sasl_set.protocol = "pop";
+		sasl_params.protocol = "pop";
 	else if (strcasecmp(input->info.protocol, "Submission") == 0 ||
 		 strcasecmp(input->info.protocol, "LMTP") == 0)
-		sasl_set.protocol = "smtp";
+		sasl_params.protocol = "smtp";
 	else
-		sasl_set.protocol = input->info.protocol;
+		sasl_params.protocol = input->info.protocol;
 
 	if (input->info.local_name != NULL)
-		sasl_set.host = input->info.local_name;
+		sasl_params.host = input->info.local_name;
 	else if (input->info.local_ip.family != 0)
-		sasl_set.host = net_ip2addr(&input->info.local_ip);
+		sasl_params.host = net_ip2addr(&input->info.local_ip);
 	else
-		sasl_set.host = "localhost";
-	sasl_set.port = input->info.local_port;
+		sasl_params.host = "localhost";
+	sasl_params.port = input->info.local_port;
 
 	input->sasl_session = dsasl_client_session_create(
-		input->sasl_client, input->sasl_mech, &sasl_set);
+		input->sasl_client, input->sasl_mech,
+		&sasl_params, &sasl_set);
 	dsasl_client_session_enable_channel_binding(
 		input->sasl_session, SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3,
 		auth_channel_bind_callback, input);

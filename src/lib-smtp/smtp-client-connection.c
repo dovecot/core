@@ -1015,12 +1015,16 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 		sasl_set.authzid = set->username;
 	}
 	sasl_set.password = set->password;
-	sasl_set.protocol = "smtp";
-	sasl_set.host = conn->host;
-	sasl_set.port = conn->port;
+
+	struct dsasl_client_parameters sasl_params = {
+		.protocol = "smtp",
+		.host = conn->host,
+		.port = conn->port,
+	};
 
 	conn->sasl_session = dsasl_client_session_create(
-		smtp_client_get_sasl_client(client), sasl_mech, &sasl_set);
+		smtp_client_get_sasl_client(client), sasl_mech,
+		&sasl_params, &sasl_set);
 	mech_name =  dsasl_client_mech_get_name(sasl_mech);
 
 	if (dsasl_client_session_output(conn->sasl_session,

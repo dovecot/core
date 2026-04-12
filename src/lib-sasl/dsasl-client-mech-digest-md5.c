@@ -209,11 +209,11 @@ mech_digest_md5_init(struct digest_md5_sasl_session *dsession,
 		*error_r = "password not set";
 		return -1;
 	}
-	if (msession->set.protocol == NULL) {
+	if (msession->params.protocol == NULL) {
 		*error_r = "protocol not set";
 		return -1;
 	}
-	if (msession->set.host == NULL) {
+	if (msession->params.host == NULL) {
 		*error_r = "host not set";
 		return -1;
 	}
@@ -233,8 +233,8 @@ mech_digest_md5_init(struct digest_md5_sasl_session *dsession,
 	dsession->nc = "00000001";
 	dsession->qop = "auth";
 	dsession->req_uri = p_strdup_printf(msession->pool, "%s/%s",
-					    msession->set.protocol,
-					    msession->set.host);
+					    msession->params.protocol,
+					    msession->params.host);
 	return 0;
 }
 
