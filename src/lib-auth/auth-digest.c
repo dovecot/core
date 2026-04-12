@@ -121,7 +121,7 @@ auth_digest_get_hash_a1(const struct hash_method *hmethod,
 	hash_method_loop(&ctx, nonce, strlen(nonce));
 	hash_method_loop(&ctx, ":", 1);
 	hash_method_loop(&ctx, cnonce, strlen(cnonce));
-	if (authzid != NULL) {
+	if (authzid != NULL && *authzid != '\0') {
 		hash_method_loop(&ctx, ":", 1);
 		hash_method_loop(&ctx, authzid, strlen(authzid));
 	}
