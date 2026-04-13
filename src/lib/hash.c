@@ -5,6 +5,7 @@
 #include "lib.h"
 #include "hash.h"
 #include "primes.h"
+#include "xxh64.h"
 
 #include <ctype.h>
 
@@ -519,42 +520,22 @@ void hash_table_copy(struct hash_table *dest, struct hash_table *src)
 	hash_table_thaw(dest);
 }
 
-/* a char* hash function from ASU -- from glib */
-unsigned int ATTR_NO_SANITIZE_INTEGER
-str_hash(const char *p)
+unsigned int str_hash(const char *p)
 {
-	const unsigned char *s = (const unsigned char *)p;
-	unsigned int g, h = 0;
-
-	while (*s != '\0') {
-		h = (h << 4) + *s;
-		if ((g = h & 0xf0000000UL) != 0) {
-			h = h ^ (g >> 24);
-			h = h ^ g;
-		}
-		s++;
-	}
-
-	return h;
+	return xxh64_to_32(xxh64_data(p, strlen(p), 0));
 }
 
-/* a char* hash function from ASU -- from glib */
-unsigned int ATTR_NO_SANITIZE_INTEGER
-strcase_hash(const char *p)
+unsigned int strcase_hash(const char *p)
 {
-	const unsigned char *s = (const unsigned char *)p;
-	unsigned int g, h = 0;
+	struct xxh64_context ctx;
+	unsigned char c;
 
-	while (*s != '\0') {
-		h = (h << 4) + i_toupper(*s);
-		if ((g = h & 0xf0000000UL) != 0) {
-			h = h ^ (g >> 24);
-			h = h ^ g;
-		}
-		s++;
+	xxh64_init(&ctx, 0);
+	while (*p != '\0') {
+		c = (unsigned char)i_toupper(*p++);
+		xxh64_loop(&ctx, &c, 1);
 	}
-
-	return h;
+	return xxh64_to_32(xxh64_result(&ctx));
 }
 
 unsigned int ATTR_NO_SANITIZE_INTEGER
