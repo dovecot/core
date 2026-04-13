@@ -6,6 +6,17 @@
 struct dsasl_client;
 struct dsasl_client_session;
 
+enum dsasl_client_result {
+	DSASL_CLIENT_RESULT_OK,
+	/* The final response from server returned a failed authentication.
+	   The error string contains details. */
+	DSASL_CLIENT_RESULT_AUTH_FAILED,
+	/* Remote server sent invalid SASL protocol input */
+	DSASL_CLIENT_RESULT_ERR_PROTOCOL,
+	/* Internal client error */
+	DSASL_CLIENT_RESULT_ERR_INTERNAL,
+};
+
 struct dsasl_client_settings {
 	struct event *event_parent;
 
@@ -23,17 +34,6 @@ struct dsasl_client_settings {
 	const char *host;
 	/* port */
 	in_port_t port;
-};
-
-enum dsasl_client_result {
-	DSASL_CLIENT_RESULT_OK,
-	/* The final response from server returned a failed authentication.
-	   The error string contains details. */
-	DSASL_CLIENT_RESULT_AUTH_FAILED,
-	/* Remote server sent invalid SASL protocol input */
-	DSASL_CLIENT_RESULT_ERR_PROTOCOL,
-	/* Internal client error */
-	DSASL_CLIENT_RESULT_ERR_INTERNAL,
 };
 
 typedef int
