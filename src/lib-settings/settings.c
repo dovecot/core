@@ -1762,7 +1762,7 @@ settings_mmap_lookup_key(struct settings_mmap *mmap, const char *key,
 		return settings_mmap_registered_lookup_key(key, type_r);
 
 	/* Look it up from hash table */
-	uint32_t key_hash = (mmap->all_keys_hash_key_prefix ^ str_hash(key)) %
+	uint32_t key_hash = (mmap->all_keys_hash_key_prefix ^ str_stable_hash(key)) %
 		mmap->all_keys_hash_count;
 	uint32_t rel_offset = mmap->all_keys_hash[key_hash];
 	if (rel_offset == 0)
