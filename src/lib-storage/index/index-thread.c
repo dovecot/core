@@ -96,9 +96,11 @@ mail_strmap_rec_get_msgid(struct mail_thread_context *ctx,
 
 	/* get the nth message-id */
 	msgid = message_id_get_next(&msgids);
-	if (msgid != NULL) {
-		for (; n > 0; n--)
+	if (msgid != NULL && n > 0) {
+		for (; n > 1; n--) T_BEGIN {
 			msgid = message_id_get_next(&msgids);
+		} T_END;
+		msgid = message_id_get_next(&msgids);
 	}
 
 	if (msgid == NULL) {
@@ -269,12 +271,18 @@ mail_thread_map_add_mail(struct mail_thread_context *ctx, struct mail *mail)
 	msgid = message_id_get_next(&references);
 	if (msgid != NULL) {
 		ref_index = MAIL_THREAD_NODE_REF_REFERENCES1;
+		mail_index_strmap_view_sync_add(ctx->strmap_sync,
+						mail->uid, ref_index, msgid);
 		do {
-			mail_index_strmap_view_sync_add(ctx->strmap_sync,
-							mail->uid,
-							ref_index, msgid);
-			ref_index++;
-			msgid = message_id_get_next(&references);
+			T_BEGIN {
+				ref_index++;
+				msgid = message_id_get_next(&references);
+				if (msgid != NULL) {
+					mail_index_strmap_view_sync_add(
+						ctx->strmap_sync, mail->uid,
+						ref_index, msgid);
+				}
+			} T_END;
 		} while (msgid != NULL);
 	} else {
 		/* no References:, use In-Reply-To: */
