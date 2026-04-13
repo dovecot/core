@@ -239,7 +239,7 @@ config_dump_keys_hash_try(struct config_parsed *config,
 	bool *table = i_new(bool, hash_table_size);
 	struct hash_iterate_context *iter = hash_table_iterate_init(all_keys);
 	while (hash_table_iterate(iter, all_keys, &name, &config_key)) {
-		uint32_t key_hash = (key_prefix ^ str_hash(name)) %
+		uint32_t key_hash = (key_prefix ^ str_stable_hash(name)) %
 			hash_table_size;
 		if (table[key_hash]) {
 			ret = FALSE;
@@ -296,7 +296,7 @@ config_dump_keys_hash(struct config_parsed *config, buffer_t *buf,
 	uint32_t *hash_table = i_new(uint32_t, hash_table_size);
 	struct hash_iterate_context *iter = hash_table_iterate_init(all_keys);
 	while (hash_table_iterate(iter, all_keys, &name, &config_key)) {
-		uint32_t key_hash = (key_prefix ^ str_hash(name)) %
+		uint32_t key_hash = (key_prefix ^ str_stable_hash(name)) %
 			hash_table_size;
 		i_assert(hash_table[key_hash] == 0);
 
