@@ -5,6 +5,7 @@
 #include "lib.h"
 #include "hash.h"
 #include "primes.h"
+#include "randgen.h"
 #include "xxh64.h"
 
 #include <ctype.h>
@@ -58,6 +59,8 @@ enum hash_table_operation{
 	HASH_TABLE_OP_UPDATE,
 	HASH_TABLE_OP_RESIZE
 };
+
+uint64_t hash_iv;
 
 static bool hash_table_resize(struct hash_table *table, bool grow);
 
@@ -520,9 +523,14 @@ void hash_table_copy(struct hash_table *dest, struct hash_table *src)
 	hash_table_thaw(dest);
 }
 
+void hash_init(void)
+{
+	random_fill(&hash_iv, sizeof(hash_iv));
+}
+
 unsigned int str_hash(const char *p)
 {
-	return xxh64_to_32(xxh64_data(p, strlen(p), 0));
+	return xxh64_to_32(xxh64_data(p, strlen(p), hash_iv));
 }
 
 unsigned int str_stable_hash(const char *p)
@@ -535,7 +543,7 @@ unsigned int strcase_hash(const char *p)
 	struct xxh64_context ctx;
 	unsigned char c;
 
-	xxh64_init(&ctx, 0);
+	xxh64_init(&ctx, hash_iv);
 	while (*p != '\0') {
 		c = (unsigned char)i_toupper(*p++);
 		xxh64_loop(&ctx, &c, 1);
