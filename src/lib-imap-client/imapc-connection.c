@@ -1007,6 +1007,23 @@ static bool imapc_connection_have_auth(struct imapc_connection *conn,
 	return FALSE;
 }
 
+static const char *const *
+imapc_connection_get_auth_mechs(struct imapc_connection *conn)
+{
+	const char *auth;
+	char *const *capa;
+	ARRAY_TYPE(const_string) mechs;
+
+	t_array_init(&mechs, 8);
+	for (capa = conn->capabilities_list; *capa != NULL; capa++) {
+		if (str_begins_icase(*capa, "AUTH=", &auth))
+			array_append(&mechs, &auth, 1);
+	}
+	array_append_space(&mechs);
+
+	return array_idx(&mechs, 0);
+}
+
 static int
 imapc_connection_get_sasl_mech(struct imapc_connection *conn,
 			       const struct dsasl_client_mech **mech_r,
@@ -1130,6 +1147,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		.protocol = "imap",
 		.host = set->imapc_host,
 		.port = set->imapc_port,
+		.server_mechanisms = imapc_connection_get_auth_mechs(conn),
 	};
 
 	if (sasl_mech == NULL)

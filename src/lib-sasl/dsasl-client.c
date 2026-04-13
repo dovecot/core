@@ -177,6 +177,9 @@ dsasl_client_session_create(struct dsasl_client *client,
 		msession->params.protocol = p_strdup(pool, params->protocol);
 		msession->params.host = p_strdup(pool, params->host);
 		msession->params.port = params->port;
+		msession->params.server_mechanisms =
+			(params->server_mechanisms == NULL ? NULL :
+			 p_strarray_dup(pool, params->server_mechanisms));
 	}
 
 	return session;

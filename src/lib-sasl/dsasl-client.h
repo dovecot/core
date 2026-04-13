@@ -25,6 +25,9 @@ struct dsasl_client_parameters {
         const char *host;
         /* port */
         in_port_t port;
+
+	/* sasl mechanisms supported by server */
+	const char *const *server_mechanisms;
 };
 
 struct dsasl_client_settings {

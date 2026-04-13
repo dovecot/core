@@ -421,9 +421,11 @@ test_sasl_run_once(const struct test_sasl *test,
 		.authzid = authzid,
 		.password = password,
 	};
+	const char *server_mechanisms[] = { test->mech, NULL };
 	struct dsasl_client_parameters client_params = {
 		.protocol = "imap",
 		.host = "example.com",
+		.server_mechanisms = server_mechanisms,
 	};
 	client_mech = dsasl_client_mech_find(tctx.client, test->mech);
 	i_assert(client_mech != NULL);

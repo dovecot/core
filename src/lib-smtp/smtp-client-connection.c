@@ -1020,6 +1020,7 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 		.protocol = "smtp",
 		.host = conn->host,
 		.port = conn->port,
+		.server_mechanisms = conn->caps.auth_mechanisms,
 	};
 
 	conn->sasl_session = dsasl_client_session_create(
