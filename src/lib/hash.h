@@ -171,6 +171,7 @@ void hash_table_copy(struct hash_table *dest, struct hash_table *src);
 /* hash function for strings */
 unsigned int str_hash(const char *p) ATTR_PURE;
 unsigned int strcase_hash(const char *p) ATTR_PURE;
+unsigned int str_stable_hash(const char *p) ATTR_PURE;
 
 /* fast hash function which uppercases a-z. Does not work well
    with input that consists from non number/letter input, as

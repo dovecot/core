@@ -525,6 +525,11 @@ unsigned int str_hash(const char *p)
 	return xxh64_to_32(xxh64_data(p, strlen(p), 0));
 }
 
+unsigned int str_stable_hash(const char *p)
+{
+	return xxh64_to_32(xxh64_data(p, strlen(p), 0));
+}
+
 unsigned int strcase_hash(const char *p)
 {
 	struct xxh64_context ctx;
