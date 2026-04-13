@@ -1002,7 +1002,7 @@ driver_cassandra_db_cache_find(const struct cassandra_settings *set,
 				   set, db->set, NULL) &&
 		    (strcmp(set->ssl, "no") == 0 ||
 		     settings_equal(&ssl_setting_parser_info,
-				    ssl_set, db->set, NULL)))
+				    ssl_set, db->ssl_set, NULL)))
 			return db;
 	}
 	return NULL;
