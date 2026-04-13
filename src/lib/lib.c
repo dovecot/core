@@ -5,6 +5,7 @@
 #include "array.h"
 #include "event-filter.h"
 #include "env-util.h"
+#include "hash.h"
 #include "hostpid.h"
 #include "ipwd.h"
 #include "process-title.h"
@@ -188,6 +189,7 @@ void lib_init(void)
 {
 	i_assert(!lib_initialized);
 	random_init();
+	hash_init();
 	data_stack_init();
 	hostpid_init();
 	lib_open_non_stdio_dev_null();

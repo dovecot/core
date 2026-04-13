@@ -14,6 +14,9 @@ typedef unsigned int hash_callback_t(const void *p);
 /* Returns 0 if the pointers are equal. */
 typedef int hash_cmp_callback_t(const void *p1, const void *p2);
 
+/* Random per-process IV to use for hash functions */
+extern uint64_t hash_iv;
+
 /* Create a new hash table. If initial_size is 0, the default value is used.
    table_pool is used to allocate/free large hash tables, node_pool is used
    for smaller allocations and can also be alloconly pool. The pools must not
@@ -168,9 +171,12 @@ void hash_table_copy(struct hash_table *dest, struct hash_table *src);
 #define hash_table_copy(table1, table2) \
 	hash_table_copy((table1)._table, (table2)._table)
 
-/* hash function for strings */
+/* Hash function for strings. These are safe against collision attacks. They
+   are initialized with a per-process random key. */
 unsigned int str_hash(const char *p) ATTR_PURE;
 unsigned int strcase_hash(const char *p) ATTR_PURE;
+/* Like str_hash(), but there is no per-process random key. This isn't as safe
+   against collision attacks. */
 unsigned int str_stable_hash(const char *p) ATTR_PURE;
 
 /* fast hash function which uppercases a-z. Does not work well
@@ -180,5 +186,7 @@ unsigned int strfastcase_hash(const char *p) ATTR_PURE;
 
 /* a generic hash for a given memory block */
 unsigned int mem_hash(const void *p, unsigned int size) ATTR_PURE;
+
+void hash_init(void);
 
 #endif
