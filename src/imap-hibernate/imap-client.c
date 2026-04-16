@@ -371,9 +371,11 @@ imap_client_input_parse(const unsigned char *data, size_t size, const char **tag
 	tag_start = data;
 
 	/* skip over tag */
-	while(data[0] != ' ' &&
+	while(size > 0 &&
+	      data[0] != ' ' &&
 	      data[0] != '\r' &&
-	      data[0] != '\t' ) { data++; size--; }
+	      data[0] != '\t' &&
+	      data[0] != '\0') { data++; size--; }
 
 	tag_end = data;
 
