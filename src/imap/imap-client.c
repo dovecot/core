@@ -12,6 +12,7 @@
 #include "istream-concat.h"
 #include "ostream.h"
 #include "ostream-multiplex.h"
+#include "ostream-zlib.h"
 #include "time-util.h"
 #include "settings.h"
 #include "master-service.h"
@@ -772,6 +773,22 @@ client_default_send_tagline(struct client_command_context *cmd, const char *data
 	} T_END;
 
 	client->last_output = ioloop_time;
+
+	/* Reset the DEFLATE compression dictionary after every tagged reply so
+	   that cross-command compression correlation attacks (CRIME-style) are
+	   not possible.  For proxy-mode compression the reset is forwarded to
+	   the imap-login process via the side channel; for direct compression
+	   it is applied to the local ostream immediately. */
+	if (client->compress_handler != NULL) {
+		if (client->multiplex_output != NULL &&
+		    client->set->imap_compress_on_proxy) {
+			i_assert(client->side_channel_output != NULL);
+			o_stream_nsend_str(client->side_channel_output,
+					   "dict_reset\n");
+		} else {
+			o_stream_deflate_reset_dict(client->output);
+		}
+	}
 }
 
 static int
