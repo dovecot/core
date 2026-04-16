@@ -283,7 +283,8 @@ mail_thread_map_add_mail(struct mail_thread_context *ctx, struct mail *mail)
 						ref_index, msgid);
 				}
 			} T_END;
-		} while (msgid != NULL);
+		} while (msgid != NULL &&
+			 ref_index < MAIL_THREAD_NODE_REF_REFERENCES1 + MAIL_THREAD_REFERENCES_MAX);
 	} else {
 		/* no References:, use In-Reply-To: */
 		if (thread_get_mail_header(mail, HDR_IN_REPLY_TO,
