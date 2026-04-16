@@ -10,6 +10,7 @@
 #include "str-sanitize.h"
 #include "safe-memset.h"
 #include "compression.h"
+#include "ostream-zlib.h"
 #include "dsasl-client.h"
 #include "imap-login-client.h"
 #include "client-authenticate.h"
@@ -670,11 +671,24 @@ proxy_side_cmd_compress(struct client *client, const char *const *args,
 	return 0;
 }
 
+static int
+proxy_side_cmd_dict_reset(struct client *client,
+			  const char *const *args ATTR_UNUSED,
+			  const char **error_r ATTR_UNUSED)
+{
+	struct ostream *client_output =
+		login_proxy_get_client_ostream(client->login_proxy);
+	o_stream_deflate_reset_dict(client_output);
+	return 0;
+}
+
 int imap_proxy_side_channel_input(struct client *client,
 				  const char *const *args, const char **error_r)
 {
 	if (strcmp(args[0], "compress") == 0)
 		return proxy_side_cmd_compress(client, args + 1, error_r);
+	else if (strcmp(args[0], "dict_reset") == 0)
+		return proxy_side_cmd_dict_reset(client, args + 1, error_r);
 	else {
 		*error_r = "Unsupported command";
 		return -1;
