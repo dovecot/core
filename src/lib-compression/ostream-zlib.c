@@ -23,6 +23,7 @@ struct zlib_ostream {
 
 	bool gz:1;
 	bool flushed:1;
+	bool pending_dict_reset:1;
 };
 
 struct zlib_settings {
@@ -261,8 +262,14 @@ o_stream_zlib_send_flush(struct zlib_ostream *zstream, bool final)
 	if ((ret = o_stream_zlib_send_outbuf(zstream)) <= 0)
 		return ret;
 
-	flush = final ? Z_FINISH :
-		(!zstream->gz ? Z_SYNC_FLUSH : Z_NO_FLUSH);
+	if (final)
+		flush = Z_FINISH;
+	else if (zstream->gz)
+		flush = Z_NO_FLUSH;
+	else if (zstream->pending_dict_reset)
+		flush = Z_FULL_FLUSH;
+	else
+		flush = Z_SYNC_FLUSH;
 
 	i_assert(zstream->outbuf_used == 0);
 	do {
@@ -291,6 +298,10 @@ o_stream_zlib_send_flush(struct zlib_ostream *zstream, bool final)
 			i_unreached();
 		}
 	} while (zs->avail_out != sizeof(zstream->outbuf));
+
+	/* Z_FULL_FLUSH completes here; clear the request so subsequent flushes
+	   use the normal Z_SYNC_FLUSH again. */
+	zstream->pending_dict_reset = FALSE;
 
 	if (final) {
 		if (o_stream_zlib_send_gz_trailer(zstream) < 0)
@@ -457,4 +468,27 @@ struct ostream *o_stream_create_deflate_auto(struct ostream *output, struct even
 struct ostream *o_stream_create_deflate(struct ostream *output, int level)
 {
 	return o_stream_create_zlib(output, level, FALSE);
+}
+
+void o_stream_deflate_reset_dict(struct ostream *_output)
+{
+	struct ostream_private *stream = _output->real_stream;
+
+	/* Traverse the ostream parent chain to find the deflate ostream.
+	   The caller may pass a rawlog-wrapped stream or the deflate stream
+	   itself; either way we find it by its sendv function pointer. */
+	while (stream != NULL) {
+		if (stream->sendv == o_stream_zlib_sendv) {
+			struct zlib_ostream *zstream =
+				container_of(stream, struct zlib_ostream, ostream);
+			i_assert(!zstream->gz);
+			zstream->pending_dict_reset = TRUE;
+			o_stream_set_flush_pending(
+				&zstream->ostream.ostream, TRUE);
+			return;
+		}
+		stream = (stream->parent != NULL) ?
+			stream->parent->real_stream : NULL;
+	}
+	/* No deflate ostream found in the chain – nothing to reset. */
 }
