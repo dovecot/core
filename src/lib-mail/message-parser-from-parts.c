@@ -354,6 +354,11 @@ static int preparsed_parse_next_header(struct message_parser_ctx *ctx,
 	}
 
 	if (hdr != NULL) {
+		if (!hdr->continues) {
+			ctx->all_headers_total_size += hdr->name_len;
+			ctx->all_headers_total_size += hdr->middle_len;
+		}
+		ctx->all_headers_total_size += hdr->value_len;
 		block_r->hdr = hdr;
 		block_r->size = 0;
 		return 1;
@@ -400,6 +405,11 @@ static int preparsed_parse_next_header_init(struct message_parser_ctx *ctx,
 	ctx->hdr_parser_ctx =
 		message_parse_header_init(hdr_input, NULL, ctx->hdr_flags);
 	i_stream_unref(&hdr_input);
+
+	size_t headers_available =
+		ctx->all_headers_max_size > ctx->all_headers_total_size ?
+		ctx->all_headers_max_size - ctx->all_headers_total_size : 0;
+	message_parse_header_lower_limit(ctx->hdr_parser_ctx, headers_available);
 
 	ctx->parse_next_block = preparsed_parse_next_header;
 	return preparsed_parse_next_header(ctx, block_r);
