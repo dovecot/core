@@ -49,10 +49,10 @@ static unsigned int who_user_hash(const struct who_user *user)
 	unsigned int hash = str_hash(user->service);
 
 	if (user->username[0] != '\0')
-		hash += str_hash(user->username);
+		hash ^= str_hash(user->username);
 	else {
 		who_user_ip(user, &ip);
-		hash += net_ip_hash(&ip);
+		hash ^= net_ip_hash(&ip);
 	}
 	return hash;
 }
