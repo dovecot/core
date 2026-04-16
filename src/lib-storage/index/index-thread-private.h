@@ -22,6 +22,10 @@
 #define MAIL_THREAD_NODE_REF_MSGID 0
 #define MAIL_THREAD_NODE_REF_INREPLYTO 1
 #define MAIL_THREAD_NODE_REF_REFERENCES1 2
+/* Maximum number of References: header message-IDs stored per message.
+   Prevents O(N²) CPU usage in thread_node_has_ancestor() when a single
+   crafted message contains an abnormally long reference chain. */
+#define MAIL_THREAD_REFERENCES_MAX 1000
 
 struct mail_thread_node {
 	/* UID of the message, or 0 for dummy nodes */
