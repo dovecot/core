@@ -795,6 +795,34 @@ static bool fetch_bodystructure_init(struct imap_fetch_init_context *ctx)
 	return TRUE;
 }
 
+static int fetch_envelope_stream_continue(struct imap_fetch_context *ctx)
+{
+	struct imap_fetch_state *state = &ctx->state;
+	enum ostream_send_istream_result res;
+
+	o_stream_set_max_buffer_size(ctx->client->output, 0);
+	res = o_stream_send_istream(ctx->client->output, state->cur_input);
+	o_stream_set_max_buffer_size(ctx->client->output, SIZE_MAX);
+
+	switch (res) {
+	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+		i_stream_unref(&state->cur_input);
+		state->cont_handler = NULL;
+		if (o_stream_send(ctx->client->output, ")", 1) < 0)
+			return -1;
+		return 1;
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+		i_unreached();
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+		return 0;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+		i_unreached();
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+		return -1;
+	}
+	i_unreached();
+}
+
 static int fetch_envelope(struct imap_fetch_context *ctx, struct mail *mail,
 			  void *context ATTR_UNUSED)
 {
@@ -810,11 +838,13 @@ static int fetch_envelope(struct imap_fetch_context *ctx, struct mail *mail,
 			return -1;
 	}
 
-	if (o_stream_send(ctx->client->output, "ENVELOPE (", 10) < 0 ||
-	    o_stream_send_str(ctx->client->output, envelope) < 0 ||
-	    o_stream_send(ctx->client->output, ")", 1) < 0)
+	if (o_stream_send(ctx->client->output, "ENVELOPE (", 10) < 0)
 		return -1;
-	return 1;
+
+	ctx->state.cur_input =
+		i_stream_create_from_data(envelope, strlen(envelope));
+	ctx->state.cont_handler = fetch_envelope_stream_continue;
+	return fetch_envelope_stream_continue(ctx);
 }
 
 static bool fetch_envelope_init(struct imap_fetch_init_context *ctx)
