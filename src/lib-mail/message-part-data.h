@@ -8,10 +8,14 @@
 
 struct message_header_line;
 
+#define MESSAGE_PART_DATA_MAX_TOTAL_ADDRESSES 100000
+
 struct message_part_data_limits {
+	unsigned int remaining_addresses;
 };
 
-#define MESSAGE_PART_DATA_LIMITS_INIT { }
+#define MESSAGE_PART_DATA_LIMITS_INIT \
+	{ MESSAGE_PART_DATA_MAX_TOTAL_ADDRESSES }
 
 struct message_part_param {
 	const char *name;
