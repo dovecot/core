@@ -416,8 +416,10 @@ static void test_message_decoder_content_transfer_encoding(void)
 	parser = message_parser_init(pool, istream, &parser_set);
 	decoder = message_decoder_init(NULL, 0);
 
+	struct message_part_data_limits limits = MESSAGE_PART_DATA_LIMITS_INIT;
 	while ((ret = message_parser_parse_next_block(parser, &input)) > 0) {
-		message_part_data_parse_from_header(pool, input.part, input.hdr);
+		message_part_data_parse_from_header(pool, input.part, &limits,
+						    input.hdr);
 		if (message_decoder_decode_next_block(decoder, &input, &output) &&
 		    output.hdr == NULL && output.size > 0)
 			str_append_data(str_out, output.data, output.size);
@@ -505,8 +507,10 @@ static void test_message_decoder_invalid_content_transfer_encoding(void)
 	parser = message_parser_init(pool, istream, &parser_set);
 	decoder = message_decoder_init(NULL, 0);
 
+	struct message_part_data_limits limits = MESSAGE_PART_DATA_LIMITS_INIT;
 	while ((ret = message_parser_parse_next_block(parser, &input)) > 0) {
-		message_part_data_parse_from_header(pool, input.part, input.hdr);
+		message_part_data_parse_from_header(pool, input.part, &limits,
+						    input.hdr);
 		if (input.hdr != NULL &&
 		    strcasecmp(input.hdr->name, "content-transfer-encoding") == 0) {
 			enum message_cte cte = message_decoder_parse_cte(input.hdr);
@@ -636,8 +640,10 @@ UNICODE_REPLACEMENT_CHAR_UTF8;
 	parser = message_parser_init(pool, istream, &parser_set);
 	decoder = message_decoder_init(NULL, 0);
 
+	struct message_part_data_limits limits = MESSAGE_PART_DATA_LIMITS_INIT;
 	while ((ret = message_parser_parse_next_block(parser, &input)) > 0) {
-		message_part_data_parse_from_header(pool, input.part, input.hdr);
+		message_part_data_parse_from_header(pool, input.part, &limits,
+						    input.hdr);
 		if (message_decoder_decode_next_block(decoder, &input, &output) &&
 		    output.hdr == NULL && output.size > 0)
 			str_append_data(str_out, output.data, output.size);
@@ -687,8 +693,10 @@ static void test_message_decoder_charset_mime_part_change(void)
 	parser = message_parser_init(pool, istream, &parser_set);
 	decoder = message_decoder_init(NULL, 0);
 
+	struct message_part_data_limits limits = MESSAGE_PART_DATA_LIMITS_INIT;
 	while ((ret = message_parser_parse_next_block(parser, &input)) > 0) {
-		message_part_data_parse_from_header(pool, input.part, input.hdr);
+		message_part_data_parse_from_header(pool, input.part, &limits,
+						    input.hdr);
 		if (message_decoder_decode_next_block(decoder, &input, &output) &&
 		    output.hdr == NULL && output.size > 0)
 			str_append_data(str_out, output.data, output.size);

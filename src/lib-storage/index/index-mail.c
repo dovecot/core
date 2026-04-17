@@ -700,11 +700,16 @@ void index_mail_cache_pop3_data(struct mail *_mail,
 				     &order, sizeof(order));
 }
 
+struct parse_bodystructure_ctx {
+	pool_t pool;
+	struct message_part_data_limits *limits;
+};
+
 static void parse_bodystructure_part_header(struct message_part *part,
 					    struct message_header_line *hdr,
-					    pool_t pool)
+					    struct parse_bodystructure_ctx *ctx)
 {
-	message_part_data_parse_from_header(pool, part, hdr);
+	message_part_data_parse_from_header(ctx->pool, part, ctx->limits, hdr);
 }
 
 static bool want_plain_bodystructure_cached(struct index_mail *mail)
@@ -1344,9 +1349,13 @@ static int index_mail_parse_body(struct index_mail *mail,
 		/* bodystructure header is parsed, we want the body's mime
 		   headers too */
 		i_assert(data->parsed_bodystructure_header);
+		struct parse_bodystructure_ctx bsctx = {
+			.pool = mail->mail.data_pool,
+			.limits = &mail->data.part_data_limits,
+		};
 		message_parser_parse_body(data->parser_ctx,
 					  parse_bodystructure_part_header,
-					  mail->mail.data_pool);
+					  &bsctx);
 	} else {
 		message_parser_parse_body(data->parser_ctx,
 			*null_message_part_header_callback, NULL);
@@ -1890,6 +1899,8 @@ static void index_mail_init_data(struct index_mail *mail)
 	data->received_date = (time_t)-1;
 	data->sent_date.time = (uint32_t)-1;
 	data->dont_cache_field_idx = UINT_MAX;
+	data->part_data_limits = (struct message_part_data_limits)
+		MESSAGE_PART_DATA_LIMITS_INIT;
 
 	data->wanted_fields = mail->mail.wanted_fields;
 	if (mail->mail.wanted_headers != NULL) {
@@ -2352,7 +2363,9 @@ void index_mail_cache_parse_continue(struct mail *_mail)
 				mail->data.header_parsed = TRUE;
 		} else {
 			message_part_data_parse_from_header(mail->mail.data_pool,
-							block.part, block.hdr);
+							block.part,
+							&mail->data.part_data_limits,
+							block.hdr);
 		}
 	}
 }

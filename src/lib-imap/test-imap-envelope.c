@@ -132,9 +132,11 @@ msg_parse(pool_t pool, const char *message)
 
 	input = i_stream_create_from_data(message, strlen(message));
 	parser = message_parser_init(pool, input, &parser_set);
+	struct message_part_data_limits limits = MESSAGE_PART_DATA_LIMITS_INIT;
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) {
 		i_assert(block.part->parent == NULL);
-		message_part_envelope_parse_from_header(pool, &envlp, block.hdr);
+		message_part_envelope_parse_from_header(pool, &envlp, &limits,
+							block.hdr);
 	}
 	test_assert(ret < 0);
 
