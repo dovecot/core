@@ -444,7 +444,8 @@ parse_content_disposition(struct message_part_data *data,
 
 static void
 parse_content_language(struct message_part_data *data,
-	pool_t pool, const unsigned char *value, size_t value_len)
+	pool_t pool, const unsigned char *value, size_t value_len,
+	struct message_part_data_limits *limits)
 {
 	struct rfc822_parser_context parser;
 	ARRAY_TYPE(const_string) langs;
@@ -462,8 +463,11 @@ parse_content_language(struct message_part_data *data,
 
 	rfc822_skip_lwsp(&parser);
 	while (rfc822_parse_atom(&parser, str) >= 0) {
-		const char *lang = p_strdup(pool, str_c(str));
+		if (limits->remaining_language_tags == 0)
+			break;
+		limits->remaining_language_tags--;
 
+		const char *lang = p_strdup(pool, str_c(str));
 		array_push_back(&langs, &lang);
 		str_truncate(str, 0);
 
@@ -483,7 +487,8 @@ parse_content_language(struct message_part_data *data,
 
 static void
 parse_content_header(struct message_part_data *data,
-	pool_t pool, struct message_header_line *hdr)
+	pool_t pool, struct message_header_line *hdr,
+	struct message_part_data_limits *limits)
 {
 	const char *name = hdr->name + strlen("Content-");
 
@@ -523,7 +528,7 @@ parse_content_header(struct message_part_data *data,
 		if (strcasecmp(name, "Language") == 0 &&
 		    data->content_language == NULL) {
 			parse_content_language(data, pool,
-				hdr->full_value, hdr->full_value_len);
+				hdr->full_value, hdr->full_value_len, limits);
 		} else if (strcasecmp(name, "Location") == 0 &&
 			   data->content_location == NULL) {
 			data->content_location =
@@ -590,7 +595,7 @@ void message_part_data_parse_from_header(pool_t pool,
 
 	if (str_begins_icase_with(hdr->name, "Content-")) {
 		T_BEGIN {
-			parse_content_header(part_data, pool, hdr);
+			parse_content_header(part_data, pool, hdr, limits);
 		} T_END;
 	}
 
