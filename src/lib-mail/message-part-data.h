@@ -10,15 +10,19 @@ struct message_header_line;
 
 #define MESSAGE_PART_DATA_MAX_TOTAL_ADDRESSES 100000
 #define MESSAGE_PART_DATA_MAX_TOTAL_LANGUAGE_TAGS 100000
+/* Combined limit for Content-Type + Content-Disposition parameters */
+#define MESSAGE_PART_DATA_MAX_TOTAL_MIME_PARAMS 200000
 
 struct message_part_data_limits {
 	unsigned int remaining_addresses;
 	unsigned int remaining_language_tags;
+	unsigned int remaining_mime_params;
 };
 
 #define MESSAGE_PART_DATA_LIMITS_INIT \
 	{ MESSAGE_PART_DATA_MAX_TOTAL_ADDRESSES, \
-	  MESSAGE_PART_DATA_MAX_TOTAL_LANGUAGE_TAGS }
+	  MESSAGE_PART_DATA_MAX_TOTAL_LANGUAGE_TAGS, \
+	  MESSAGE_PART_DATA_MAX_TOTAL_MIME_PARAMS }
 
 struct message_part_param {
 	const char *name;
