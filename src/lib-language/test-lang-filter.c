@@ -137,6 +137,7 @@ static void test_lang_filter_lowercase(void)
 	test_end();
 }
 
+#ifdef HAVE_LIBICU
 static void test_lang_filter_lowercase_utf8(void)
 {
 	static const struct {
@@ -163,6 +164,7 @@ static void test_lang_filter_lowercase_utf8(void)
 	lang_filter_unref(&filter);
 	test_end();
 }
+#endif
 
 static void test_lang_filter_stopwords_eng(void)
 {
