@@ -237,7 +237,7 @@ envelope_get_field(const char *name)
 
 void message_part_envelope_parse_from_header(pool_t pool,
 	struct message_part_envelope **data,
-	struct message_part_data_limits *limits ATTR_UNUSED,
+	struct message_part_data_limits *limits,
 	struct message_header_line *hdr)
 {
 	struct message_part_envelope *d;
@@ -302,9 +302,12 @@ void message_part_envelope_parse_from_header(pool_t pool,
 	if (addr_p != NULL) {
 		message_address_parse_full(pool, hdr->full_value,
 					   hdr->full_value_len,
-					   UINT_MAX,
+					   limits->remaining_addresses,
 					   MESSAGE_ADDRESS_PARSE_FLAG_FILL_MISSING,
 					   &new_addr);
+		i_assert(new_addr.count <= limits->remaining_addresses);
+		limits->remaining_addresses -= new_addr.count;
+
 		/* Merge multiple headers the same as if they were comma
 		   separated in a single line. This is better from security
 		   point of view, because attacker could intentionally write
