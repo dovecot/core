@@ -30,6 +30,7 @@ static void add_address(struct message_address_parser_context *ctx)
 	i_zero(&ctx->addr);
 
 	DLLIST2_APPEND(&ctx->addr_list.head, &ctx->addr_list.tail, addr);
+	ctx->addr_list.count++;
 }
 
 /* quote with "" and escape all '\', '"' and "'" characters if need */
