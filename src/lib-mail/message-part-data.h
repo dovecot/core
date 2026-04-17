@@ -8,6 +8,11 @@
 
 struct message_header_line;
 
+struct message_part_data_limits {
+};
+
+#define MESSAGE_PART_DATA_LIMITS_INIT { }
+
 struct message_part_param {
 	const char *name;
 	const char *value;
@@ -88,11 +93,13 @@ bool message_part_is_attachment(
 /* Update envelope data based from given header field */
 void message_part_envelope_parse_from_header(pool_t pool,
 	struct message_part_envelope **_data,
+	struct message_part_data_limits *limits,
 	struct message_header_line *hdr);
 
 /* Parse a single header. Note that this modifies part->context. */
 void message_part_data_parse_from_header(pool_t pool,
 	struct message_part *part,
+	struct message_part_data_limits *limits,
 	struct message_header_line *hdr);
 
 #endif

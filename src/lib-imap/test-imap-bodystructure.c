@@ -398,10 +398,11 @@ msg_parse(pool_t pool, const char *message, unsigned int max_nested_mime_parts,
 
 	input = i_stream_create_from_data(message, strlen(message));
 	parser = message_parser_init(pool, input, &parser_set);
+	struct message_part_data_limits limits = MESSAGE_PART_DATA_LIMITS_INIT;
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) {
 		if (parse_bodystructure) {
 			message_part_data_parse_from_header(pool, block.part,
-							block.hdr);
+							&limits, block.hdr);
 		}
 	}
 	test_assert(ret < 0);

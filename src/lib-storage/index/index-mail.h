@@ -2,6 +2,7 @@
 #define INDEX_MAIL_H
 
 #include "message-size.h"
+#include "message-part-data.h"
 #include "mail-cache.h"
 #include "mail-storage-private.h"
 
@@ -84,6 +85,7 @@ struct index_mail_data {
 	const char *envelope, *body, *bodystructure, *guid, *filename;
 	const char *from_envelope, *body_snippet;
 	struct message_part_envelope *envelope_data;
+	struct message_part_data_limits part_data_limits;
 
 	uint32_t cache_flags;
 	uint64_t modseq, pvt_modseq;

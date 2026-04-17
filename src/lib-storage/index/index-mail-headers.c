@@ -320,12 +320,15 @@ void index_mail_parse_header(struct message_part *part,
 	if (data->save_bodystructure_header &&
 	    !data->parsed_bodystructure_header) {
 		i_assert(part != NULL);
-		message_part_data_parse_from_header(mail->mail.data_pool, part, hdr);
+		message_part_data_parse_from_header(mail->mail.data_pool, part,
+						    &mail->data.part_data_limits,
+						    hdr);
 	}
 
 	if (data->save_envelope) {
 		message_part_envelope_parse_from_header(mail->mail.data_pool,
-					   &data->envelope_data, hdr);
+					   &data->envelope_data,
+					   &mail->data.part_data_limits, hdr);
 
 		if (hdr == NULL)
                         index_mail_parse_finish_imap_envelope(mail);
@@ -522,7 +525,8 @@ imap_envelope_parse_callback(struct message_header_line *hdr,
 			     struct index_mail *mail)
 {
 	message_part_envelope_parse_from_header(mail->mail.data_pool,
-				   &mail->data.envelope_data, hdr);
+				   &mail->data.envelope_data,
+				   &mail->data.part_data_limits, hdr);
 
 	if (hdr == NULL)
 		index_mail_parse_finish_imap_envelope(mail);
