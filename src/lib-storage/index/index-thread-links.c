@@ -31,12 +31,24 @@ static uint32_t thread_msg_add(struct mail_thread_cache *cache,
 
 static bool thread_node_has_ancestor(struct mail_thread_cache *cache,
 				     const struct mail_thread_node *node,
-				     const struct mail_thread_node *ancestor)
+				     const struct mail_thread_node *ancestor,
+				     bool *depth_exceeded_r)
 {
+	unsigned int n = 0;
+
+	*depth_exceeded_r = FALSE;
 	while (node != ancestor) {
 		if (node->parent_idx == 0)
 			return FALSE;
-
+		if (++n > MAIL_THREAD_REFERENCES_MAX) {
+			/* Ancestor chain is deeper than the per-message
+			   References limit. Multiple crafted messages can build
+			   an arbitrarily deep chain, causing O(N^2) traversals
+			   per email even with the per-message limit. Treat the
+			   link as unsafe to prevent the DoS. */
+			*depth_exceeded_r = TRUE;
+			return FALSE;
+		}
 		node = array_idx(&cache->thread_nodes, node->parent_idx);
 	}
 	return TRUE;
@@ -47,6 +59,7 @@ static void thread_link_reference(struct mail_thread_cache *cache,
 {
 	struct mail_thread_node *node, *parent, *child;
 	uint32_t idx;
+	bool depth_exceeded;
 
 	i_assert(parent_idx < cache->first_invalid_msgid_str_idx);
 
@@ -62,7 +75,7 @@ static void thread_link_reference(struct mail_thread_cache *cache,
 	}
 
 	child->parent_link_refcount++;
-	if (thread_node_has_ancestor(cache, parent, child)) {
+	if (thread_node_has_ancestor(cache, parent, child, &depth_exceeded)) {
 		if (parent == child) {
 			/* loops to itself - ignore */
 			return;
@@ -87,6 +100,18 @@ static void thread_link_reference(struct mail_thread_cache *cache,
 			node = array_idx_modifiable(&cache->thread_nodes, idx);
 			node->child_unref_rebuilds = TRUE;
 		} while (node != child);
+		return;
+	} else if (depth_exceeded) {
+		/* Ancestor chain exceeded the depth limit; drop this link.
+		   parent_link_refcount was already incremented above and is
+		   intentionally kept that way: mail_thread_unref_link()
+		   walks References blindly at remove time and would hit
+		   i_assert(child->parent_link_refcount > 0) on the matching
+		   edge if we hadn't bumped it here. The trade-off is that
+		   the bumped refcount can leave child->parent_idx attached
+		   to a stale parent if another message later sets a real
+		   parent edge on this child and is then expunged - threading
+		   stays wrong until some other event triggers a rebuild. */
 		return;
 	} else if (child->parent_idx == parent_idx) {
 		/* The same link already exists */
