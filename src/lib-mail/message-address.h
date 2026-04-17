@@ -33,6 +33,7 @@ struct message_address {
 
 struct message_address_list {
 	struct message_address *head, *tail;
+	unsigned int count;
 };
 
 /* Parse message addresses from given data. Note that giving an empty string

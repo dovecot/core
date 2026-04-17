@@ -311,6 +311,7 @@ void message_part_envelope_parse_from_header(pool_t pool,
 		   validated while MUA only shows the second From header. */
 		DLLIST2_JOIN(&addr_p->head, &addr_p->tail,
 			     &new_addr.head, &new_addr.tail);
+		addr_p->count += new_addr.count;
 	} else if (str_p != NULL) {
 		*str_p = message_header_strdup(pool, hdr->full_value,
 					       hdr->full_value_len);
