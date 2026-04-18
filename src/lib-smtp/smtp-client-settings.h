@@ -1,6 +1,8 @@
 #ifndef SMTP_CLIENT_SETTINGS_H
 #define SMTP_CLIENT_SETTINGS_H
 
+#include "smtp-common.h"
+
 #define SMTP_DEFAULT_CONNECT_TIMEOUT_MSECS (1000*30)
 #define SMTP_DEFAULT_COMMAND_TIMEOUT_MSECS (1000*60*5)
 #define SMTP_DEFAULT_MAX_REPLY_SIZE (SIZE_MAX)
@@ -8,9 +10,12 @@
 #define SMTP_DEFAULT_MAX_DATA_CHUNK_PIPELINE 4
 
 struct smtp_client_settings {
+	pool_t pool;
+
 	struct ip_addr my_ip;
 	const char *my_hostname;
 
+	/* Directory for writing raw log data for debugging purposes */
 	const char *rawlog_dir;
 
 	/* Timeout for SMTP commands. Reset every time more data is being
@@ -38,5 +43,13 @@ struct smtp_client_settings {
 	/* peer is trusted, so e.g. attempt sending XCLIENT data */
 	bool peer_trusted;
 };
+
+/* Reference the provided settings struct, even when it is a struct on the call
+   stack without a pool, in which case it is cloned to our pool. In both cases,
+   the result can be dereferenced using settings_free(). The protocol parameter
+   is used to apply protocol-specific defaults. */
+const struct smtp_client_settings *
+smtp_client_settings_ref(pool_t pool, enum smtp_protocol protocol,
+			 const struct smtp_client_settings *set);
 
 #endif

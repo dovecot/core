@@ -305,7 +305,7 @@ smtp_client_command_timeout(struct smtp_client_connection *conn)
 void smtp_client_connection_start_cmd_timeout(
 	struct smtp_client_connection *conn)
 {
-	unsigned int msecs = conn->set.command_timeout_msecs;
+	unsigned int msecs = conn->set->command_timeout_msecs;
 
 	if (conn->state < SMTP_CLIENT_CONNECTION_STATE_READY) {
 		/* pre-login uses connect timeout */
@@ -333,7 +333,7 @@ void smtp_client_connection_start_cmd_timeout(
 void smtp_client_connection_update_cmd_timeout(
 	struct smtp_client_connection *conn)
 {
-	unsigned int msecs = conn->set.command_timeout_msecs;
+	unsigned int msecs = conn->set->command_timeout_msecs;
 
 	if (conn->state < SMTP_CLIENT_CONNECTION_STATE_READY) {
 		/* pre-login uses connect timeout */
@@ -609,7 +609,7 @@ void smtp_client_connection_send_xclient(struct smtp_client_connection *conn)
 	size_t offset;
 	string_t *str;
 
-	if (!conn->set.peer_trusted)
+	if (!conn->set->peer_trusted)
 		return;
 	if (conn->xclient_sent)
 		return;
@@ -1296,7 +1296,7 @@ smtp_client_connection_handshake(struct smtp_client_connection *conn)
 		conn, flags, smtp_client_connection_handshake_cb, conn);
 	smtp_client_command_write(cmd, command);
 	smtp_client_command_write(cmd, " ");
-	smtp_client_command_write(cmd, conn->set.my_hostname);
+	smtp_client_command_write(cmd, conn->set->my_hostname);
 	smtp_client_command_submit(cmd);
 	smtp_client_connection_set_state(
 		conn, SMTP_CLIENT_CONNECTION_STATE_HANDSHAKING);
@@ -1598,17 +1598,17 @@ smtp_client_connection_streams_changed(struct smtp_client_connection *conn)
 {
 	struct stat st;
 
-	if (conn->set.rawlog_dir != NULL &&
-	    stat(conn->set.rawlog_dir, &st) == 0) {
+	if (conn->set->rawlog_dir != NULL &&
+	    stat(conn->set->rawlog_dir, &st) == 0) {
 		/* FIXME: we don't know the setting name here */
 		iostream_rawlog_create(conn->event, "smtp client rawlog",
-				       conn->set.rawlog_dir,
+				       conn->set->rawlog_dir,
 				       &conn->conn.input, &conn->conn.output);
 	}
 
 	if (conn->reply_parser == NULL) {
 		conn->reply_parser = smtp_reply_parser_init(
-			conn->conn.input, conn->set.max_reply_size);
+			conn->conn.input, conn->set->max_reply_size);
 	} else {
 		smtp_reply_parser_set_stream(conn->reply_parser,
 					     conn->conn.input);
@@ -1743,7 +1743,7 @@ smtp_client_connection_connected(struct connection *_conn, bool success)
 {
 	struct smtp_client_connection *conn =
 		(struct smtp_client_connection *)_conn;
-	const struct smtp_client_settings *set = &conn->set;
+	const struct smtp_client_settings *set = conn->set;
 	const char *error;
 
 	if (!success) {
@@ -1806,7 +1806,7 @@ smtp_client_connection_connect_timeout(struct smtp_client_connection *conn)
 			conn, SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED,
 			t_strdup_printf(
 				"Connection timed out after %u seconds",
-				conn->set.connect_timeout_msecs/1000),
+				conn->set->connect_timeout_msecs/1000),
 			"Connect timed out");
 		break;
 	case SMTP_CLIENT_CONNECTION_STATE_HANDSHAKING:
@@ -1814,7 +1814,7 @@ smtp_client_connection_connect_timeout(struct smtp_client_connection *conn)
 			conn, SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED,
 			t_strdup_printf(
 				"SMTP handshake timed out after %u seconds",
-				conn->set.connect_timeout_msecs/1000),
+				conn->set->connect_timeout_msecs/1000),
 			"Handshake timed out");
 		break;
 	case SMTP_CLIENT_CONNECTION_STATE_AUTHENTICATING:
@@ -1822,7 +1822,7 @@ smtp_client_connection_connect_timeout(struct smtp_client_connection *conn)
 			conn, SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED,
 			t_strdup_printf(
 				"Authentication timed out after %u seconds",
-				conn->set.connect_timeout_msecs/1000),
+				conn->set->connect_timeout_msecs/1000),
 			"Authentication timed out");
 		break;
 	default:
@@ -1849,7 +1849,7 @@ smtp_client_connection_do_connect(struct smtp_client_connection *conn)
 
 	/* don't use connection.h timeout because we want this timeout
 	   to include also the SSL handshake */
-	msecs = conn->set.connect_timeout_msecs;
+	msecs = conn->set->connect_timeout_msecs;
 	i_assert(conn->to_connect == NULL);
 	if (msecs > 0) {
 		conn->to_connect = timeout_add_to(
@@ -1867,7 +1867,7 @@ static bool smtp_client_connection_last_ip(struct smtp_client_connection *conn)
 static void
 smtp_client_connection_connect_next_ip(struct smtp_client_connection *conn)
 {
-	const struct ip_addr *ip, *my_ip = &conn->set.my_ip;
+	const struct ip_addr *ip, *my_ip = &conn->set->my_ip;
 
 	timeout_remove(&conn->to_connect);
 
@@ -2188,41 +2188,13 @@ smtp_client_connection_do_create(struct smtp_client *client,
 		}
 	}
 
-	if (set != NULL) {
-		conn->set.my_ip = set->my_ip;
-		conn->set.my_hostname = p_strdup(pool, set->my_hostname);
-
-		conn->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
-
-		conn->set.connect_timeout_msecs =
-			set->connect_timeout_msecs != 0 ?
-				set->connect_timeout_msecs :
-				SMTP_DEFAULT_CONNECT_TIMEOUT_MSECS;
-		conn->set.command_timeout_msecs =
-			set->command_timeout_msecs != 0 ?
-				set->command_timeout_msecs :
-				SMTP_DEFAULT_COMMAND_TIMEOUT_MSECS;
-		conn->set.max_reply_size =
-			set->max_reply_size != 0 ?
-				set->max_reply_size :
-				SMTP_DEFAULT_MAX_REPLY_SIZE;
-		conn->set.max_data_chunk_size =
-			set->max_data_chunk_size != 0 ?
-				set->max_data_chunk_size :
-				SMTP_DEFAULT_MAX_DATA_CHUNK_SIZE;
-		conn->set.max_data_chunk_pipeline =
-			set->max_data_chunk_pipeline != 0 ?
-				set->max_data_chunk_pipeline :
-				SMTP_DEFAULT_MAX_DATA_CHUNK_PIPELINE;
-
-		conn->set.socket_send_buffer_size = set->socket_send_buffer_size;
-		conn->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
-
-		conn->set.peer_trusted = set->peer_trusted;
-	}
-
-	i_assert(conn->set.my_hostname != NULL &&
-		 *conn->set.my_hostname != '\0');
+	conn->set = smtp_client_settings_ref(conn->pool, protocol, set);
+	i_assert(conn->set->my_hostname != NULL &&
+		 *conn->set->my_hostname != '\0');
+	i_assert(conn->set->command_timeout_msecs != 0);
+	i_assert(conn->set->connect_timeout_msecs != 0);
+	i_assert(conn->set->max_data_chunk_size != 0);
+	i_assert(conn->set->max_data_chunk_pipeline != 0);
 
 	conn->caps.standard = conn->params.forced_capabilities;
 	conn->cap_pool = pool_alloconly_create(
@@ -2400,6 +2372,7 @@ void smtp_client_connection_unref(struct smtp_client_connection **_conn)
 	array_free(&conn->login_callbacks);
 	pool_unref(&conn->cap_pool);
 	pool_unref(&conn->state_pool);
+	settings_free(conn->set);
 	pool_unref(&conn->pool);
 }
 

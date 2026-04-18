@@ -15,6 +15,7 @@ lib_smtp = static_library(
   'smtp',
   'smtp-address.c',
   'smtp-client.c',
+  'smtp-client-settings.c',
   'smtp-client-command.c',
   'smtp-client-connection.c',
   'smtp-client-transaction.c',
