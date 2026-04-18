@@ -386,6 +386,7 @@ mail_index_map_latest_file(struct mail_index *index, const char **reason_r)
 		old_map = index->map;
 		index->map = new_map;
 		if (mail_index_fsck(index) < 0) {
+			index->map = old_map;
 			ret = -1;
 			break;
 		}

@@ -212,12 +212,67 @@ static void test_mail_index_corruption_message_count(void)
 	test_end();
 }
 
+static void test_mail_index_map_fsck_fail_restores_map(void)
+{
+	struct mail_index *index;
+	struct mail_index_sync_ctx *sync_ctx;
+	struct mail_index_view *sync_view;
+	struct mail_index_transaction *sync_trans;
+	const char *idx_path;
+	uint32_t seen_count;
+	int fd;
+
+	test_begin("mail index map: fsck fail restores old map");
+
+	/* Create a valid index and force the .index file to be written. */
+	index = test_mail_index_init(TRUE);
+	int ret = mail_index_sync_begin(index, &sync_ctx, &sync_view,
+					&sync_trans, 0);
+	test_assert_cmp(ret, >, 0);
+	mail_index_write(index, FALSE, "test");
+	ret = mail_index_sync_commit(&sync_ctx);
+	test_assert_cmp(ret, ==, 0);
+	test_mail_index_close(&index);
+
+	/* Corrupt seen_messages_count > messages_count (0 messages, so 1 > 0).
+	 * mail_index_map_check_header() returns 0 (soft error) for this,
+	 * which triggers mail_index_fsck() inside mail_index_map_latest_file(). */
+	idx_path = t_strconcat(test_mail_index_get_dir(),
+			       "/test.dovecot.index", NULL);
+	fd = open(idx_path, O_RDWR);
+	if (fd == -1)
+		i_fatal("open(%s) failed: %m", idx_path);
+	seen_count = 1;
+	ssize_t len = pwrite(fd, &seen_count, sizeof(seen_count),
+			     offsetof(struct mail_index_header,
+				    seen_messages_count));
+	test_assert_cmp(len, ==, (ssize_t)sizeof(seen_count));
+	i_close_fd(&fd);
+
+	/* Opening readonly causes fsck to fail immediately (can't write-lock a
+	 * readonly index). Without the fix in mail_index_map_latest_file(),
+	 * index->map is left pointing to the freed new_map, and the subsequent
+	 * mail_index_unmap() in mail_index_close_nonopened() is a use-after-free
+	 * caught by ASAN/valgrind. */
+	test_expect_errors(2);
+	index = mail_index_alloc(NULL, test_mail_index_get_dir(),
+				 "test.dovecot.index");
+	ret = mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY);
+	test_assert_cmp(ret, ==, -1);
+	mail_index_free(&index);
+	test_expect_no_more_errors();
+
+	test_mail_index_delete();
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mail_index_rotate,
 		test_mail_index_new_extension,
 		test_mail_index_corruption_message_count,
+		test_mail_index_map_fsck_fail_restores_map,
 		NULL
 	};
 	test_dir_init("mail-index");
