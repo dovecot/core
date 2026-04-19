@@ -96,7 +96,6 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		/* new header line */
 		line->name_offset = ctx->input->v_offset;
 		colon_pos = UINT_MAX;
-		ctx->header_block_total_size += ctx->value_buf->used;
 		buffer_set_used_size(ctx->value_buf, 0);
 	}
 
@@ -362,12 +361,17 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		}
 	}
 
-	line->value_len = I_MIN(line->value_len, ctx->header_block_max_size);
 	size_t line_value_size = line->value_len;
-	size_t header_total_used = ctx->header_block_total_size + ctx->value_buf->used;
-	size_t line_available = ctx->header_block_max_size <= header_total_used ? 0 :
-				ctx->header_block_max_size - header_total_used;
+	/* Clamp line_value_size against the remaining header_block_max_size
+	   budget. header_block_total_size is the running sum of
+	   line_value_size across all chunks of all headers; value_buf growth
+	   is bounded implicitly because every append to value_buf uses
+	   line_value_size. */
+	size_t line_available =
+		ctx->header_block_max_size <= ctx->header_block_total_size ? 0 :
+		ctx->header_block_max_size - ctx->header_block_total_size;
 	line_value_size = I_MIN(line_value_size, line_available);
+	ctx->header_block_total_size += line_value_size;
 
 	if (!line->continued) {
 		/* first header line. make a copy of the line since we can't
@@ -397,10 +401,12 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 
 		line->full_value = ctx->value_buf->data;
 		line->full_value_len = ctx->value_buf->used;
+		line->value_len = line_value_size;
 	} else {
 		/* we didn't want full_value, and this is a continued line. */
 		line->full_value = NULL;
 		line->full_value_len = 0;
+		line->value_len = line_value_size;
 	}
 
 	/* always reset it */
