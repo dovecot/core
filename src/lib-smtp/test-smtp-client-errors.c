@@ -76,6 +76,7 @@ typedef void (*test_dns_init_t)(void);
  */
 
 /* common */
+static struct event *common_event, *dns_event, *client_event, *server_event;
 static struct ip_addr bind_ip;
 static in_port_t *bind_ports = 0;
 static struct ioloop *ioloop;
@@ -146,8 +147,7 @@ static void
 test_client_host_lookup_failed_reply(const struct smtp_reply *reply,
 				     struct _host_lookup_failed *ctx)
 {
-	if (debug)
-		i_debug("REPLY: %s", smtp_reply_log(reply));
+	e_debug(client_event, "REPLY: %s", smtp_reply_log(reply));
 
 	test_assert(reply->status ==
 		    SMTP_CLIENT_COMMAND_ERROR_HOST_LOOKUP_FAILED);
@@ -231,8 +231,7 @@ static void
 test_client_connection_refused_reply(const struct smtp_reply *reply,
 				     struct _connection_refused *ctx)
 {
-	if (debug)
-		i_debug("REPLY: %s", smtp_reply_log(reply));
+	e_debug(client_event, "REPLY: %s", smtp_reply_log(reply));
 
 	test_assert(reply->status == SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED);
 
@@ -347,8 +346,7 @@ test_client_connection_lost_prematurely_reply(
 	const struct smtp_reply *reply,
 	struct _connection_lost_prematurely *ctx)
 {
-	if (debug)
-		i_debug("REPLY: %s", smtp_reply_log(reply));
+	e_debug(client_event, "REPLY: %s", smtp_reply_log(reply));
 
 	test_assert(reply->status == SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST);
 
@@ -431,8 +429,7 @@ static void
 test_client_connection_timed_out_reply(const struct smtp_reply *reply,
 				       struct _connection_timed_out *ctx)
 {
-	if (debug)
-		i_debug("REPLY: %s", smtp_reply_log(reply));
+	e_debug(client_event, "REPLY: %s", smtp_reply_log(reply));
 
 	test_assert(reply->status == SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED);
 
@@ -549,8 +546,7 @@ static void
 test_client_broken_payload_rcpt_data_cb(const struct smtp_reply *reply,
 					void *context ATTR_UNUSED)
 {
-	if (debug)
-		i_debug("REPLY: %s", smtp_reply_log(reply));
+	e_debug(client_event, "REPLY: %s", smtp_reply_log(reply));
 
 	test_assert(reply->status == SMTP_CLIENT_COMMAND_ERROR_BROKEN_PAYLOAD);
 }
@@ -559,8 +555,7 @@ static void
 test_client_broken_payload_data_cb(const struct smtp_reply *reply,
 				   void *context ATTR_UNUSED)
 {
-	if (debug)
-		i_debug("REPLY: %s", smtp_reply_log(reply));
+	e_debug(client_event, "REPLY: %s", smtp_reply_log(reply));
 
 	test_assert(reply->status == SMTP_CLIENT_COMMAND_ERROR_BROKEN_PAYLOAD);
 }
@@ -817,10 +812,8 @@ test_client_connection_lost_rcpt_to_cb(const struct smtp_reply *reply,
 {
 	struct _connection_lost_peer *pctx = prcpt->trans;
 
-	if (debug) {
-		i_debug("RCPT TO REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "RCPT TO REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	switch (pctx->index) {
 	case 0:
@@ -867,10 +860,8 @@ test_client_connection_lost_rcpt_data_cb(
 {
 	struct _connection_lost_peer *pctx = prcpt->trans;
 
-	if (debug) {
-		i_debug("RCPT DATA REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "RCPT DATA REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	switch (pctx->index) {
 	case 0:
@@ -909,10 +900,8 @@ static void
 test_client_connection_lost_data_cb(const struct smtp_reply *reply,
 				    struct _connection_lost_peer *pctx)
 {
-	if (debug) {
-		i_debug("DATA REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "DATA REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	test_assert(reply->status == SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST);
 }
@@ -922,8 +911,7 @@ test_client_connection_lost_finished(struct _connection_lost_peer *pctx)
 {
 	struct _connection_lost *ctx = pctx->context;
 
-	if (debug)
-		i_debug("FINISHED[%u]", pctx->index);
+	e_debug(client_event, "FINISHED[%u]", pctx->index);
 
 	timeout_remove(&pctx->to_deinit);
 	if (--ctx->count == 0) {
@@ -1152,10 +1140,8 @@ test_client_unexpected_reply_login_cb(const struct smtp_reply *reply,
 
 	pctx->login_callback = TRUE;
 
-	if (debug) {
-		i_debug("LOGIN REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "LOGIN REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	switch (pctx->index) {
 	case 0: case 1: case 2: case 3: case 4:
@@ -1171,10 +1157,8 @@ static void
 test_client_unexpected_reply_mail_from_cb(const struct smtp_reply *reply,
 					  struct _unexpected_reply_peer *pctx)
 {
-	if (debug) {
-		i_debug("MAIL FROM REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "MAIL FROM REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	pctx->mail_from_callback = TRUE;
 
@@ -1192,10 +1176,8 @@ static void
 test_client_unexpected_reply_rcpt_to_cb(const struct smtp_reply *reply,
 					struct _unexpected_reply_peer *pctx)
 {
-	if (debug) {
-		i_debug("RCPT TO REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "RCPT TO REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	pctx->rcpt_to_callback = TRUE;
 
@@ -1213,10 +1195,8 @@ static void
 test_client_unexpected_reply_rcpt_data_cb(const struct smtp_reply *reply,
 					  struct _unexpected_reply_peer *pctx)
 {
-	if (debug) {
-		i_debug("RCPT DATA REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "RCPT DATA REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	pctx->rcpt_data_callback = TRUE;
 
@@ -1236,10 +1216,8 @@ static void
 test_client_unexpected_reply_data_cb(const struct smtp_reply *reply,
 				     struct _unexpected_reply_peer *pctx)
 {
-	if (debug) {
-		i_debug("DATA REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "DATA REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	pctx->data_callback = TRUE;
 
@@ -1258,8 +1236,8 @@ test_client_unexpected_reply_finished(struct _unexpected_reply_peer *pctx)
 {
 	struct _unexpected_reply *ctx = pctx->context;
 
-	if (debug)
-		i_debug("FINISHED[%u]", pctx->index);
+	e_debug(client_event, "FINISHED[%u]", pctx->index);
+
 	if (--ctx->count == 0) {
 		i_free(ctx);
 		io_loop_stop(ioloop);
@@ -1419,8 +1397,7 @@ static void
 test_client_partial_reply_reply(const struct smtp_reply *reply,
 				struct _partial_reply *ctx)
 {
-	if (debug)
-		i_debug("REPLY: %s", smtp_reply_log(reply));
+	e_debug(client_event, "REPLY: %s", smtp_reply_log(reply));
 
 	test_assert(reply->status == SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST);
 
@@ -1508,12 +1485,11 @@ static int
 test_premature_reply_input_line(struct server_connection *conn,
 				const char *line)
 {
-	if (debug)
-		i_debug("[%u] GOT LINE: %s", server_index, line);
+	e_debug(server_event, "[%u] GOT LINE: %s", server_index, line);
+
 	switch (conn->state) {
 	case SERVER_CONNECTION_STATE_EHLO:
-		if (debug)
-			i_debug("[%u] EHLO", server_index);
+		e_debug(server_event, "[%u] EHLO", server_index);
 		if (server_index == 4) {
 			o_stream_nsend_str(conn->conn.output,
 					   "250-testserver\r\n"
@@ -1607,10 +1583,8 @@ test_client_premature_reply_login_cb(const struct smtp_reply *reply,
 
 	pctx->login_callback = TRUE;
 
-	if (debug) {
-		i_debug("LOGIN REPLY[%u]: %s", pctx->index,
-			smtp_reply_log(reply));
-	}
+	e_debug(client_event, "LOGIN REPLY[%u]: %s", pctx->index,
+		smtp_reply_log(reply));
 
 	switch (pctx->index) {
 	case 0: case 1: case 2: case 3: case 4:
@@ -1630,10 +1604,8 @@ static void
 test_client_premature_reply_mail_from_cb(const struct smtp_reply *reply,
 				         struct _premature_reply_peer *pctx)
 {
-	if (debug) {
-		i_debug("MAIL FROM REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "MAIL FROM REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	pctx->mail_from_callback = TRUE;
 
@@ -1652,10 +1624,8 @@ static void
 test_client_premature_reply_rcpt_to_cb(const struct smtp_reply *reply,
 				       struct _premature_reply_peer *pctx)
 {
-	if (debug) {
-		i_debug("RCPT TO REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "RCPT TO REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	pctx->rcpt_to_callback = TRUE;
 
@@ -1674,10 +1644,8 @@ static void
 test_client_premature_reply_rcpt_data_cb(const struct smtp_reply *reply,
 					 struct _premature_reply_peer *pctx)
 {
-	if (debug) {
-		i_debug("RCPT DATA REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "RCPT DATA REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	pctx->rcpt_data_callback = TRUE;
 
@@ -1698,10 +1666,8 @@ static void
 test_client_premature_reply_data_cb(const struct smtp_reply *reply,
 				    struct _premature_reply_peer *pctx)
 {
-	if (debug) {
-		i_debug("DATA REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "DATA REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	pctx->data_callback = TRUE;
 
@@ -1721,8 +1687,8 @@ test_client_premature_reply_finished(struct _premature_reply_peer *pctx)
 {
 	struct _premature_reply *ctx = pctx->context;
 
-	if (debug)
-		i_debug("FINISHED[%u]", pctx->index);
+	e_debug(client_event, "FINISHED[%u]", pctx->index);
+
 	if (--ctx->count == 0) {
 		i_free(ctx);
 		io_loop_stop(ioloop);
@@ -1767,8 +1733,7 @@ test_client_premature_reply_submit3(struct _premature_reply_peer *pctx)
 
 	timeout_remove(&pctx->to);
 
-	if (debug)
-		i_debug("SUBMIT3[%u]", pctx->index);
+	e_debug(client_event, "SUBMIT3[%u]", pctx->index);
 
 	input = i_stream_create_from_data(message, strlen(message));
 	i_stream_set_name(input, "message");
@@ -1783,8 +1748,7 @@ test_client_premature_reply_submit2(struct _premature_reply_peer *pctx)
 {
 	timeout_remove(&pctx->to);
 
-	if (debug)
-		i_debug("SUBMIT2[%u]", pctx->index);
+	e_debug(client_event, "SUBMIT2[%u]", pctx->index);
 
 	smtp_client_transaction_add_rcpt(
 		pctx->trans, &((struct smtp_address){
@@ -1802,8 +1766,7 @@ test_client_premature_reply_submit1(struct _premature_reply_peer *pctx)
 {
 	timeout_remove(&pctx->to);
 
-	if (debug)
-		i_debug("SUBMIT1[%u]", pctx->index);
+	e_debug(client_event, "SUBMIT1[%u]", pctx->index);
 
 	smtp_client_transaction_start(
 		pctx->trans, test_client_premature_reply_mail_from_cb, pctx);
@@ -1884,8 +1847,7 @@ static int
 test_early_data_reply_input_line(struct server_connection *conn,
 				 const char *line)
 {
-	if (debug)
-		i_debug("[%u] GOT LINE: %s", server_index, line);
+	e_debug(server_event, "[%u] GOT LINE: %s", server_index, line);
 
 	switch (conn->state) {
 	case SERVER_CONNECTION_STATE_RCPT_TO:
@@ -1900,8 +1862,7 @@ test_early_data_reply_input_line(struct server_connection *conn,
 	}
 
 	if ((uintptr_t)conn->context == 0) {
-		if (debug)
-			i_debug("[%u] REPLIED 354", server_index);
+		e_debug(server_event, "[%u] REPLIED 354", server_index);
 		o_stream_nsend_str(conn->conn.output,
 				   "354 End data with <CR><LF>.<CR><LF>\r\n");
 		conn->context = (void*)1;
@@ -1909,18 +1870,16 @@ test_early_data_reply_input_line(struct server_connection *conn,
 	}
 
 	if (server_index == 2 && strcmp(line, ".") == 0) {
-		if (debug)
-			i_debug("[%u] FINISHED TRANSACTION",
-				server_index);
+		e_debug(server_event, "[%u] FINISHED TRANSACTION",
+			server_index);
 		o_stream_nsend_str(conn->conn.output,
 				   "250 2.0.0 Ok: queued as 73BDE342129\r\n");
 		return 1;
 	}
 
 	if ((uintptr_t)conn->context == 5 && server_index < 2) {
-		if (debug)
-			i_debug("[%u] FINISHED TRANSACTION EARLY",
-				server_index);
+		e_debug(server_event, "[%u] FINISHED TRANSACTION EARLY",
+			server_index);
 
 		if (server_index == 0) {
 			o_stream_nsend_str(
@@ -1975,10 +1934,8 @@ test_client_early_data_reply_login_cb(const struct smtp_reply *reply,
 {
 	struct _early_data_reply_peer *pctx = context;
 
-	if (debug) {
-		i_debug("LOGIN REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "LOGIN REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	test_assert(smtp_reply_is_success(reply));
 }
@@ -1987,10 +1944,8 @@ static void
 test_client_early_data_reply_mail_from_cb(const struct smtp_reply *reply,
 					  struct _early_data_reply_peer *pctx)
 {
-	if (debug) {
-		i_debug("MAIL FROM REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "MAIL FROM REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	test_assert(smtp_reply_is_success(reply));
 }
@@ -1999,10 +1954,8 @@ static void
 test_client_early_data_reply_rcpt_to_cb(const struct smtp_reply *reply,
 					struct _early_data_reply_peer *pctx)
 {
-	if (debug) {
-		i_debug("RCPT TO REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "RCPT TO REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	test_assert(smtp_reply_is_success(reply));
 
@@ -2014,10 +1967,8 @@ static void
 test_client_early_data_reply_rcpt_data_cb(const struct smtp_reply *reply,
 					  struct _early_data_reply_peer *pctx)
 {
-	if (debug) {
-		i_debug("RCPT DATA REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "RCPT DATA REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	switch (pctx->index) {
 	case 0:
@@ -2037,10 +1988,8 @@ static void
 test_client_early_data_reply_data_cb(const struct smtp_reply *reply,
 				     struct _early_data_reply_peer *pctx)
 {
-	if (debug) {
-		i_debug("DATA REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "DATA REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	pctx->data_callback = TRUE;
 
@@ -2064,10 +2013,8 @@ test_client_early_data_reply_noop_cb(const struct smtp_reply *reply,
 {
 	struct _early_data_reply *ctx = pctx->context;
 
-	if (debug) {
-		i_debug("NOOP REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "NOOP REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	switch (pctx->index) {
 	case 0:
@@ -2091,7 +2038,7 @@ test_client_early_data_reply_noop_cb(const struct smtp_reply *reply,
 	timeout_remove(&pctx->to);
 	if (pctx->output != NULL) {
 		if (o_stream_finish(pctx->output) < 0) {
-			i_error("Failed to finish output: %s",
+			e_error(client_event, "Failed to finish output: %s",
 				o_stream_get_error(pctx->output));
 		}
 		o_stream_destroy(&pctx->output);
@@ -2103,8 +2050,7 @@ test_client_early_data_reply_noop_cb(const struct smtp_reply *reply,
 static void
 test_client_early_data_reply_finished(struct _early_data_reply_peer *pctx)
 {
-	if (debug)
-		i_debug("FINISHED[%u]", pctx->index);
+	e_debug(client_event, "FINISHED[%u]", pctx->index);
 
 	/* Send NOOP command to check that connection is still viable.
 	 */
@@ -2116,13 +2062,12 @@ test_client_early_data_reply_finished(struct _early_data_reply_peer *pctx)
 static void
 test_client_early_data_reply_submit1(struct _early_data_reply_peer *pctx)
 {
-	if (debug)
-		i_debug("FINISH DATA[%u]", pctx->index);
+	e_debug(client_event, "FINISH DATA[%u]", pctx->index);
 
 	timeout_remove(&pctx->to);
 
 	if (o_stream_finish(pctx->output) < 0) {
-		i_error("Failed to finish output: %s",
+		e_error(client_event, "Failed to finish output: %s",
 			o_stream_get_error(pctx->output));
 	}
 	o_stream_destroy(&pctx->output);
@@ -2447,8 +2392,7 @@ static void
 test_client_bad_reply_reply(const struct smtp_reply *reply,
 	struct _bad_reply *ctx)
 {
-	if (debug)
-		i_debug("REPLY: %s", smtp_reply_log(reply));
+	e_debug(client_event, "REPLY: %s", smtp_reply_log(reply));
 
 	test_assert(reply->status == SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY);
 
@@ -2558,8 +2502,7 @@ static void
 test_client_bad_greeting_reply(const struct smtp_reply *reply,
 			       struct _bad_greeting_peer *pctx)
 {
-	if (debug)
-		i_debug("REPLY: %s", smtp_reply_log(reply));
+	e_debug(client_event, "REPLY: %s", smtp_reply_log(reply));
 
 	switch (pctx->index) {
 	case 0:
@@ -2670,8 +2613,7 @@ static void
 test_client_command_timed_out_reply(const struct smtp_reply *reply,
 				    struct _command_timed_out *ctx)
 {
-	if (debug)
-		i_debug("REPLY: %s", smtp_reply_log(reply));
+	e_debug(client_event, "REPLY: %s", smtp_reply_log(reply));
 
 	test_assert(reply->status == SMTP_CLIENT_COMMAND_ERROR_TIMED_OUT);
 
@@ -2761,8 +2703,7 @@ test_client_command_aborted_early_reply(
 	const struct smtp_reply *reply,
 	struct _command_aborted_early *ctx ATTR_UNUSED)
 {
-	if (debug)
-		i_debug("REPLY: %s", smtp_reply_log(reply));
+	e_debug(client_event, "REPLY: %s", smtp_reply_log(reply));
 
 	/* abort does not trigger callback */
 	test_assert(FALSE);
@@ -2774,8 +2715,7 @@ test_client_command_aborted_early_timeout(struct _command_aborted_early *ctx)
 	timeout_remove(&ctx->to);
 
 	if (ctx->cmd != NULL) {
-		if (debug)
-			i_debug("ABORT");
+		e_debug(client_event, "ABORT");
 
 		/* abort early */
 		smtp_client_command_abort(&ctx->cmd);
@@ -2785,8 +2725,7 @@ test_client_command_aborted_early_timeout(struct _command_aborted_early *ctx)
 		ctx->to = timeout_add_short(
 			1000, test_client_command_aborted_early_timeout, ctx);
 	} else {
-		if (debug)
-			i_debug("FINISHED");
+		e_debug(client_event, "FINISHED");
 
 		/* all done */
 		i_free(ctx);
@@ -2871,8 +2810,7 @@ test_client_client_deinit_early_reply(
 	const struct smtp_reply *reply,
 	struct _client_deinit_early *ctx ATTR_UNUSED)
 {
-	if (debug)
-		i_debug("REPLY: %s", smtp_reply_log(reply));
+	e_debug(client_event, "REPLY: %s", smtp_reply_log(reply));
 
 	/* abort does not trigger callback */
 	test_assert(FALSE);
@@ -2946,8 +2884,7 @@ static void
 test_client_dns_service_failure_reply(const struct smtp_reply *reply,
 				      struct _dns_service_failure *ctx)
 {
-	if (debug)
-		i_debug("REPLY: %s", smtp_reply_log(reply));
+	e_debug(client_event, "REPLY: %s", smtp_reply_log(reply));
 
 	test_assert(reply->status ==
 		    SMTP_CLIENT_COMMAND_ERROR_HOST_LOOKUP_FAILED);
@@ -3043,8 +2980,7 @@ static void
 test_client_dns_timeout_reply(const struct smtp_reply *reply,
 			      struct _dns_timeout *ctx)
 {
-	if (debug)
-		i_debug("REPLY: %s", smtp_reply_log(reply));
+	e_debug(client_event, "REPLY: %s", smtp_reply_log(reply));
 
 	test_assert(reply->status ==
 		    SMTP_CLIENT_COMMAND_ERROR_HOST_LOOKUP_FAILED);
@@ -3139,8 +3075,7 @@ static void
 test_client_dns_lookup_failure_reply(const struct smtp_reply *reply,
 				     struct _dns_lookup_failure *ctx)
 {
-	if (debug)
-		i_debug("REPLY: %s", smtp_reply_log(reply));
+	e_debug(client_event, "REPLY: %s", smtp_reply_log(reply));
 
 	test_assert(reply->status ==
 		    SMTP_CLIENT_COMMAND_ERROR_HOST_LOOKUP_FAILED);
@@ -3303,10 +3238,8 @@ test_client_authentication_login_cb(const struct smtp_reply *reply,
 	struct _authentication_peer *pctx =
 		(struct _authentication_peer *)context;
 
-	if (debug) {
-		i_debug("LOGIN REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "LOGIN REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	switch (pctx->index) {
 	case 0:
@@ -3328,10 +3261,8 @@ test_client_authentication_mail_from_cb(
 	const struct smtp_reply *reply,
 	struct _authentication_peer *pctx)
 {
-	if (debug) {
-		i_debug("MAIL FROM REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "MAIL FROM REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	switch (pctx->index) {
 	case 0:
@@ -3353,10 +3284,8 @@ test_client_authentication_rcpt_to_cb(
 	const struct smtp_reply *reply,
 	struct _authentication_peer *pctx)
 {
-	if (debug) {
-		i_debug("RCPT TO REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "RCPT TO REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	switch (pctx->index) {
 	case 0:
@@ -3378,11 +3307,8 @@ test_client_authentication_rcpt_data_cb(
 	const struct smtp_reply *reply,
 	struct _authentication_peer *pctx)
 {
-	if (debug) {
-		i_debug("RCPT DATA REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
-
+	e_debug(client_event, "RCPT DATA REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	switch (pctx->index) {
 	case 0:
@@ -3401,10 +3327,8 @@ test_client_authentication_data_cb(
 	const struct smtp_reply *reply,
 	struct _authentication_peer *pctx)
 {
-	if (debug) {
-		i_debug("DATA REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "DATA REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	switch (pctx->index) {
 	case 0:
@@ -3427,8 +3351,8 @@ test_client_authentication_finished(
 {
 	struct _authentication *ctx = pctx->context;
 
-	if (debug)
-		i_debug("FINISHED[%u]", pctx->index);
+	e_debug(client_event, "FINISHED[%u]", pctx->index);
+
 	if (--ctx->count == 0) {
 		i_free(ctx);
 		io_loop_stop(ioloop);
@@ -3654,10 +3578,8 @@ test_client_transaction_timeout_mail_from_cb(
 	const struct smtp_reply *reply,
 	struct _transaction_timeout_peer *pctx)
 {
-	if (debug) {
-		i_debug("MAIL FROM REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "MAIL FROM REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	pctx->mail_from_callback = TRUE;
 
@@ -3675,10 +3597,8 @@ static void
 test_client_transaction_timeout_rcpt_to_cb(
 	const struct smtp_reply *reply, struct _transaction_timeout_peer *pctx)
 {
-	if (debug) {
-		i_debug("RCPT TO REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "RCPT TO REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	pctx->rcpt_to_callback = TRUE;
 
@@ -3696,10 +3616,8 @@ static void
 test_client_transaction_timeout_rcpt_data_cb(
 	const struct smtp_reply *reply, struct _transaction_timeout_peer *pctx)
 {
-	if (debug) {
-		i_debug("RCPT DATA REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "RCPT DATA REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	pctx->rcpt_data_callback = TRUE;
 
@@ -3719,10 +3637,8 @@ static void
 test_client_transaction_timeout_data_cb(const struct smtp_reply *reply,
 					struct _transaction_timeout_peer *pctx)
 {
-	if (debug) {
-		i_debug("DATA REPLY[%u]: %s",
-			pctx->index, smtp_reply_log(reply));
-	}
+	e_debug(client_event, "DATA REPLY[%u]: %s",
+		pctx->index, smtp_reply_log(reply));
 
 	pctx->data_callback = TRUE;
 
@@ -3741,8 +3657,8 @@ test_client_transaction_timeout_finished(struct _transaction_timeout_peer *pctx)
 {
 	struct _transaction_timeout *ctx = pctx->context;
 
-	if (debug)
-		i_debug("FINISHED[%u]", pctx->index);
+	e_debug(client_event, "FINISHED[%u]", pctx->index);
+
 	if (--ctx->count == 0) {
 		i_free(ctx);
 		io_loop_stop(ioloop);
@@ -4053,8 +3969,7 @@ test_dns_invalid_ssl_certificate_input(struct server_connection *conn)
 	}
 
 	while ((line = i_stream_read_next_line(conn->conn.input)) != NULL) {
-		if (debug)
-			i_debug("DNS REQUEST: %s", line);
+		e_debug(dns_event, "DNS REQUEST: %s", line);
 
 		o_stream_nsend_str(conn->conn.output,
 				   t_strdup_printf("0\t%s\n",
@@ -4112,8 +4027,7 @@ static void
 test_client_invalid_ssl_certificate_reply(const struct smtp_reply *reply,
 					  struct _invalid_ssl_certificate *ctx)
 {
-	if (debug)
-		i_debug("REPLY: %s", smtp_reply_log(reply));
+	e_debug(client_event, "REPLY: %s", smtp_reply_log(reply));
 
 	test_assert(reply->status == SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED);
 
@@ -4344,10 +4258,10 @@ test_client_defaults(struct smtp_client_settings *smtp_set,
 {
 	/* client settings */
 	i_zero(smtp_set);
-	smtp_set->event_parent = test_event;
+	smtp_set->event_parent = client_event;
 	smtp_set->my_hostname = "frop.example.com";
 
-	struct event *event = event_create(NULL);
+	struct event *event = event_create(client_event);
 	struct settings_root *set_root = settings_root_init();
 
 	const char *path = test_set != NULL &&
@@ -4424,18 +4338,19 @@ server_connection_init_ssl(struct server_connection *conn)
 	if (server_ssl_ctx == NULL &&
 	    ssl_iostream_context_init_server(&conn->ssl_set, &server_ssl_ctx,
 					     &error) < 0) {
-		i_error("SSL context initialization failed: %s", error);
+		e_error(server_event,
+			"SSL context initialization failed: %s", error);
 		return -1;
 	}
 
 	if (io_stream_create_ssl_server(server_ssl_ctx, conn->conn.event,
 					&conn->conn.input, &conn->conn.output,
 					&conn->ssl_iostream, &error) < 0) {
-		i_error("SSL init failed: %s", error);
+		e_error(server_event, "SSL init failed: %s", error);
 		return -1;
 	}
 	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
-		i_error("SSL handshake failed: %s",
+		e_error(server_event, "SSL handshake failed: %s",
 			ssl_iostream_get_last_error(conn->ssl_iostream));
 		return -1;
 	}
@@ -4480,10 +4395,9 @@ server_connection_input(struct connection *_conn)
 			if (ret == 0)
 				return;
 			if (conn->dot_input->stream_errno != 0) {
-				if (debug) {
-					i_debug("Failed to read message payload: %s",
-						i_stream_get_error(conn->dot_input));
-				}
+				e_debug(server_event,
+					"Failed to read message payload: %s",
+					i_stream_get_error(conn->dot_input));
 				server_connection_deinit(&conn);
 				return;
 			}
@@ -4580,6 +4494,7 @@ static void server_connection_init(int fd)
 	conn = p_new(pool, struct server_connection, 1);
 	conn->pool = pool;
 
+	conn->conn.event_parent = server_event;
 	connection_init_server(server_conn_list, &conn->conn,
 			       "server connection", fd, fd);
 
@@ -4688,8 +4603,7 @@ struct test_server_data {
 static int test_open_server_fd(in_port_t *bind_port)
 {
 	int fd = net_listen(&bind_ip, bind_port, 128);
-	if (debug)
-		i_debug("server listening on %u", *bind_port);
+	e_debug(common_event, "server listening on %u", *bind_port);
 	if (fd == -1) {
 		i_fatal("listen(%s:%u) failed: %m",
 			net_ip2addr(&bind_ip), *bind_port);
@@ -4701,8 +4615,7 @@ static int test_run_server(struct test_server_data *data)
 {
 	i_set_failure_prefix("SERVER[%u]: ", data->index + 1);
 
-	if (debug)
-		i_debug("PID=%s", my_pid);
+	e_debug(server_event, "PID=%s", my_pid);
 
 	server_ssl_ctx = NULL;
 
@@ -4711,8 +4624,7 @@ static int test_run_server(struct test_server_data *data)
 	data->server_test(data->index);
 	io_loop_destroy(&ioloop);
 
-	if (debug)
-		i_debug("Terminated");
+	e_debug(server_event, "Terminated");
 
 	test_root_event_free(data->root_event);
 	i_close_fd(&fd_listen);
@@ -4725,16 +4637,14 @@ static int test_run_dns(struct test_server_data *data)
 {
 	i_set_failure_prefix("DNS: ");
 
-	if (debug)
-		i_debug("PID=%s", my_pid);
+	e_debug(dns_event, "PID=%s", my_pid);
 
 	test_subprocess_notify_signal_send_parent(SIGUSR1);
 	ioloop = io_loop_create();
 	data->dns_test();
 	io_loop_destroy(&ioloop);
 
-	if (debug)
-		i_debug("Terminated");
+	e_debug(dns_event, "Terminated");
 
 	i_close_fd(&fd_listen);
 	i_free(bind_ports);
@@ -4749,8 +4659,7 @@ test_run_client(const struct smtp_client_settings *client_set,
 {
 	i_set_failure_prefix("CLIENT: ");
 
-	if (debug)
-		i_debug("PID=%s", my_pid);
+	e_debug(client_event, "PID=%s", my_pid);
 
 	i_sleep_msecs(100); /* wait a little for server setup */
 
@@ -4758,8 +4667,7 @@ test_run_client(const struct smtp_client_settings *client_set,
 	test_client_run(client_test, client_set);
 	io_loop_destroy(&ioloop);
 
-	if (debug)
-		i_debug("Terminated");
+	e_debug(client_event, "Terminated");
 }
 
 static void
@@ -4837,12 +4745,25 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 static void main_init(void)
 {
 	ssl_iostream_openssl_init();
+
+	common_event = event_create(test_event);
+	dns_event = event_create(common_event);
+	event_set_append_log_prefix(dns_event, "test dns: ");
+	client_event = event_create(common_event);
+	event_set_append_log_prefix(client_event, "test client: ");
+	server_event = event_create(common_event);
+	event_set_append_log_prefix(server_event, "test server: ");
 }
 
 static void main_deinit(void)
 {
 	ssl_iostream_context_cache_free();
 	ssl_iostream_openssl_deinit();
+
+	event_unref(&dns_event);
+	event_unref(&client_event);
+	event_unref(&server_event);
+	event_unref(&common_event);
 }
 
 int main(int argc, char *argv[])
@@ -4851,7 +4772,6 @@ int main(int argc, char *argv[])
 	int ret;
 
 	lib_init();
-	main_init();
 
 	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
@@ -4866,6 +4786,7 @@ int main(int argc, char *argv[])
 	test_init();
 	event_set_forced_debug(test_event, debug);
 	test_subprocesses_init();
+	main_init();
 
 	/* listen on localhost */
 	i_zero(&bind_ip);
