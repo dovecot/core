@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "imap-match.h"
 #include "test-common.h"
 
@@ -96,6 +97,67 @@ static void test_imap_match(void)
 	test_end();
 }
 
+static void test_imap_match_no_redos(void)
+{
+	/* Verify that patterns with many % wildcards followed by a literal
+	   that repeats in the data do not cause exponential backtracking.
+	   The NFA simulation is O(n_data * n_pattern) regardless of wildcard
+	   count, so even very large pattern/data combinations must complete
+	   quickly. */
+	struct imap_match_glob *glob;
+	pool_t pool;
+	const unsigned int wildcard_count = 1000;
+
+	pool = pool_alloconly_create("imap match redos", 1024);
+	test_begin("imap match no redos");
+
+	/* 255-character single-hierarchy mailbox name */
+	string_t *mailbox_name = str_new(pool, 256);
+	for (unsigned int i = 0; i < 255; i++)
+		str_append_c(mailbox_name, 'a');
+
+	/* N x "%a" against 255 "a"s: match when N <= 255 */
+	string_t *pattern = str_new(pool, wildcard_count * 2 + 10);
+	for (unsigned int i = 0; i < 255; i++)
+		str_append(pattern, "%a");
+	glob = imap_match_init(pool, str_c(pattern), FALSE, '/');
+	test_assert(imap_match(glob, str_c(mailbox_name)) == IMAP_MATCH_YES);
+
+	/* More wildcards than data characters -> non-match */
+	str_truncate(pattern, 0);
+	for (unsigned int i = 0; i < wildcard_count; i++)
+		str_append(pattern, "%a");
+	glob = imap_match_init(pool, str_c(pattern), FALSE, '/');
+	test_assert(imap_match(glob, str_c(mailbox_name)) == IMAP_MATCH_NO);
+
+	/* Large N x "%a" + "b" against 255 "a"s: no match */
+	str_append_c(pattern, 'b');
+	glob = imap_match_init(pool, str_c(pattern), FALSE, '/');
+	test_assert(imap_match(glob, str_c(mailbox_name)) == IMAP_MATCH_NO);
+
+	/* Same with "*" wildcards: returns CHILDREN because the pattern
+	   could match something under the current name */
+	str_truncate(pattern, 0);
+	for (unsigned int i = 0; i < wildcard_count; i++)
+		str_append(pattern, "*a");
+	str_append_c(pattern, 'b');
+	glob = imap_match_init(pool, str_c(pattern), FALSE, '/');
+	test_assert(imap_match(glob, str_c(mailbox_name)) == IMAP_MATCH_CHILDREN);
+	p_clear(pool);
+
+	/* Positive case: 5 x "%a" + "b" should match "aaaaab" */
+	glob = imap_match_init(pool, "%a%a%a%a%ab", FALSE, '/');
+	test_assert(imap_match(glob, "aaaaab") == IMAP_MATCH_YES);
+	p_clear(pool);
+
+	/* Negative case: 5 x "%a" + "b" does not match "aaaaa" (no trailing b) */
+	glob = imap_match_init(pool, "%a%a%a%a%ab", FALSE, '/');
+	test_assert(imap_match(glob, "aaaaa") == IMAP_MATCH_NO);
+
+	pool_unref(&pool);
+	test_end();
+}
+
 static void test_imap_match_globs_equal(void)
 {
 	struct imap_match_glob *glob;
@@ -128,6 +190,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_imap_match,
+		test_imap_match_no_redos,
 		test_imap_match_globs_equal,
 		NULL
 	};
