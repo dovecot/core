@@ -49,4 +49,12 @@ i_stream_create_header_filter(struct istream *input,
 void i_stream_header_filter_add(struct header_filter_istream *input,
 				const void *data, size_t size);
 
+/* Set a per-header-block maximum size for this filter stream. Data beyond
+   this limit in any single header is dropped from the filter's output and
+   from values delivered to the filter callback. The default is SIZE_MAX
+   (unlimited). Use MESSAGE_HEADER_BLOCK_DEFAULT_MAX_SIZE from
+   message-header-parser.h for the standard cap. */
+void i_stream_header_filter_set_max_header_block_size(
+	struct istream *input, size_t max_header_block_size);
+
 #endif
