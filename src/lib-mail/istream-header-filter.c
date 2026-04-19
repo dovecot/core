@@ -34,6 +34,7 @@ struct header_filter_istream {
 	struct ref_buffer *hdr_buf;
 	int snapshot_pending_refcount;
 	struct message_size header_size;
+	size_t max_header_block_size;
 	uoff_t skip_count;
 	uoff_t last_lf_offset;
 
@@ -212,6 +213,8 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		mstream->hdr_ctx =
 			message_parse_header_init(mstream->istream.parent,
 						  NULL, 0);
+		message_parse_header_set_limit(mstream->hdr_ctx,
+					       mstream->max_header_block_size);
 	}
 
 	/* remove skipped data from hdr_buf */
@@ -727,6 +730,9 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->pool = pool_alloconly_create(MEMPOOL_GROWING
 					      "header filter stream", 256);
 	mstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
+	/* Default to no per-header block size limit. Callers that want one
+	   call i_stream_header_filter_set_max_header_block_size(). */
+	mstream->max_header_block_size = SIZE_MAX;
 
 	mstream->headers = headers_count == 0 ? NULL :
 		p_new(mstream->pool, const char *, headers_count);
@@ -782,4 +788,18 @@ void i_stream_header_filter_add(struct header_filter_istream *input,
 	hdr_buf_realloc_if_needed(input);
 	buffer_append(input->hdr_buf->buf, data, size);
 	input->headers_edited = TRUE;
+}
+
+void i_stream_header_filter_set_max_header_block_size(
+	struct istream *input, size_t max_header_block_size)
+{
+	struct header_filter_istream *mstream =
+		container_of(input->real_stream, struct header_filter_istream,
+			     istream);
+
+	mstream->max_header_block_size = max_header_block_size;
+	if (mstream->hdr_ctx != NULL) {
+		message_parse_header_set_limit(mstream->hdr_ctx,
+					       max_header_block_size);
+	}
 }
