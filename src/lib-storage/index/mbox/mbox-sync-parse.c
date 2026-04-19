@@ -479,6 +479,9 @@ int mbox_sync_parse_next_mail(struct istream *input,
 
         line_start_pos = 0;
 	hdr_ctx = message_parse_header_init(input, NULL, 0);
+	/* Rewriting the mbox requires the full raw header bytes, so disable
+	   the default per-header block size limit. */
+	message_parse_header_set_limit(hdr_ctx, SIZE_MAX);
 	while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0) {
 		if (hdr->eoh) {
 			ctx->have_eoh = TRUE;
@@ -576,6 +579,8 @@ bool mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
         mbox_md5_ctx = mbox->md5_v.init();
 
 	hdr_ctx = message_parse_header_init(mbox->mbox_stream, NULL, 0);
+	/* MD5 matching must see the full raw header bytes. */
+	message_parse_header_set_limit(hdr_ctx, SIZE_MAX);
 	while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0) {
 		if (hdr->eoh)
 			break;
