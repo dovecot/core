@@ -1004,6 +1004,11 @@ int index_mail_get_header_stream(struct mail *_mail,
 					      HEADER_FILTER_HIDE_BODY,
 					      headers->name, headers->count,
 					      header_cache_callback, mail);
+	/* Cap per-header data so a single pathological header cannot exhaust
+	   memory in mail->header_data / the filter's buffer. */
+	i_stream_header_filter_set_max_header_block_size(
+		mail->data.filter_stream,
+		MESSAGE_HEADER_BLOCK_DEFAULT_MAX_SIZE);
 	*stream_r = mail->data.filter_stream;
 	return 0;
 }
