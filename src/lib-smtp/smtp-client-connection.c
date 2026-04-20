@@ -1948,14 +1948,13 @@ smtp_client_connection_lookup_ip(struct smtp_client_connection *conn)
 
 	e_debug(conn->event, "Looking up IP address");
 
-	if (conn->set.dns_client != NULL) {
+	if (conn->client->dns_client != NULL) {
 		e_debug(conn->event, "Performing asynchronous DNS lookup");
 		dns_client_lookup(
-			conn->set.dns_client, conn->host,
-			conn->event,
+			conn->client->dns_client, conn->host, conn->event,
 			smtp_client_connection_dns_callback, conn,
 			&conn->dns_lookup);
-		dns_client_switch_ioloop_to(conn->set.dns_client,
+		dns_client_switch_ioloop_to(conn->client->dns_client,
 					    conn->conn.ioloop);
 	} else {
 		e_debug(conn->event, "Performing asynchronous DNS lookup");

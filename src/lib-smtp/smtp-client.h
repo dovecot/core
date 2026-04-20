@@ -9,6 +9,8 @@
 struct smtp_client;
 struct smtp_client_request;
 
+struct dns_client;
+
 #define SMTP_DEFAULT_CONNECT_TIMEOUT_MSECS (1000*30)
 #define SMTP_DEFAULT_COMMAND_TIMEOUT_MSECS (1000*60*5)
 #define SMTP_DEFAULT_MAX_REPLY_SIZE (SIZE_MAX)
@@ -58,8 +60,6 @@ struct smtp_client_settings {
 	enum smtp_capability disabled_capabilities;
 	/* Record these extra capabilities if returned in the EHLO response */
 	const char *const *extra_capabilities;
-
-	struct dns_client *dns_client;
 
 	/* SSL settings; if NULL, settings_get() is used automatically */
 	const struct ssl_iostream_settings *ssl;
@@ -122,6 +122,10 @@ struct smtp_client_settings {
 
 struct smtp_client *smtp_client_init(const struct smtp_client_settings *set);
 void smtp_client_deinit(struct smtp_client **_client);
+
+/* Do all lookups using the specified DNS client. */
+void smtp_client_set_dns_client(struct smtp_client *client,
+				struct dns_client *dns_client);
 
 void smtp_client_switch_ioloop(struct smtp_client *client);
 

@@ -44,7 +44,6 @@ struct smtp_client *smtp_client_init(const struct smtp_client_settings *set)
 			p_strarray_dup(pool, set->extra_capabilities);
 	}
 
-	client->set.dns_client = set->dns_client;
 	client->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
 
 	if (set->ssl != NULL) {
@@ -101,6 +100,12 @@ void smtp_client_deinit(struct smtp_client **_client)
 	event_unref(&client->event);
 	pool_unref(&client->pool);
 	*_client = NULL;
+}
+
+void smtp_client_set_dns_client(struct smtp_client *client,
+				struct dns_client *dns_client)
+{
+	client->dns_client = dns_client;
 }
 
 void smtp_client_switch_ioloop(struct smtp_client *client)

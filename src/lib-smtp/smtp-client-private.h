@@ -254,6 +254,7 @@ struct smtp_client {
 	struct event *event;
 	struct ioloop *ioloop;
 	struct ssl_iostream_context *ssl_ctx;
+	struct dns_client *dns_client;
 
 	struct connection_list *conn_list;
 
