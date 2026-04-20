@@ -112,8 +112,6 @@ struct smtp_client_settings {
 	/* defer sending XCLIENT command until authentication or first mail
 	   transaction. */
 	bool xclient_defer;
-	/* don't clear password after first successful authentication */
-	bool remember_password;
 	/* sending even broken MAIL command path (otherwise a broken address
 	   is sent as <>) */
 	bool mail_send_broken_path;

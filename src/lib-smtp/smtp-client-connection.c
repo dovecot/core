@@ -764,18 +764,6 @@ void smtp_client_connection_send_xclient(struct smtp_client_connection *conn)
 }
 
 static void
-smtp_client_connection_clear_password(struct smtp_client_connection *conn)
-{
-	if (conn->set.remember_password)
-		return;
-	if (conn->password == NULL)
-		return;
-	safe_memset(conn->password, 0, strlen(conn->password));
-	conn->set.password = NULL;
-	conn->password = NULL;
-}
-
-static void
 smtp_client_connection_auth_deinit(struct smtp_client_connection *conn)
 {
 	dsasl_client_session_destroy(&conn->sasl_session);
@@ -884,7 +872,6 @@ smtp_client_connection_auth_cb(const struct smtp_reply *reply,
 		return;
 	}
 
-	smtp_client_connection_clear_password(conn);
 	smtp_client_connection_auth_deinit(conn);
 
 	e_debug(conn->event, "Authenticated successfully");
@@ -2110,8 +2097,6 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 
 	e_debug(conn->event, "Disconnected");
 
-	smtp_client_connection_clear_password(conn);
-
 	if (conn->conn.output != NULL && !conn->sent_quit &&
 	    !conn->sending_command) {
 		/* Close the connection gracefully if possible */
@@ -2207,16 +2192,13 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 			conn->set.username =
 				p_strdup_empty(pool, set->username);
 		}
-		if (set->password != NULL && *set->password != '\0') {
-			conn->password = p_strdup(pool, set->password);
-			conn->set.password = conn->password;
-		}
+		if (set->password != NULL && *set->password != '\0')
+			conn->set.password = p_strdup(pool, set->password);
 		if (set->sasl_mechanisms != NULL &&
 		    *set->sasl_mechanisms != '\0') {
 			conn->set.sasl_mechanisms =
 				p_strdup(pool, set->sasl_mechanisms);
 		}
-		conn->set.remember_password = set->remember_password;
 
 		if (set->command_timeout_msecs > 0) {
 			conn->set.command_timeout_msecs =
@@ -2414,7 +2396,6 @@ void smtp_client_connection_unref(struct smtp_client_connection **_conn)
 
 	conn->destroying = TRUE;
 
-	smtp_client_connection_clear_password(conn);
 	smtp_client_connection_disconnect(conn);
 
 	/* could have been created while already disconnected */
