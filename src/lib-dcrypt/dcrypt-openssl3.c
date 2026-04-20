@@ -1157,8 +1157,11 @@ dcrypt_openssl_decrypt_point_ec_v1(struct dcrypt_private_key *dec_key,
 	data = t_buffer_create(128);
 	peer_key = t_buffer_create(64);
 
-	hex_to_binary(data_hex, data);
-	hex_to_binary(peer_key_hex, peer_key);
+	if (hex_to_binary(data_hex, data) != 0 ||
+	    hex_to_binary(peer_key_hex, peer_key) != 0) {
+		*error_r = "Corrupted data";
+		return FALSE;
+	}
 
 	secret = t_buffer_create(64);
 
@@ -1199,9 +1202,12 @@ dcrypt_openssl_decrypt_point_password_v1(const char *data_hex,
 	password = t_buffer_create(32);
 	key = t_buffer_create(32);
 
-	hex_to_binary(data_hex, data);
-	hex_to_binary(salt_hex, salt);
-	hex_to_binary(password_hex, password);
+	if (hex_to_binary(data_hex, data) != 0 ||
+	    hex_to_binary(salt_hex, salt) != 0 ||
+	    hex_to_binary(password_hex, password) != 0) {
+		*error_r = "Corrupted data";
+		return FALSE;
+	}
 
 	/* aes-256-ctr uses 32 byte key, and v1 uses all-zero IV */
 	if (!dcrypt_openssl_pbkdf2(password->data, password->used,
@@ -1438,9 +1444,12 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 		secret = t_buffer_create(128);
 
 		buffer_clear_safe(data);
-		hex_to_binary(input[4], salt);
-		hex_to_binary(input[8], peer_key);
-		hex_to_binary(input[7], data);
+		if (hex_to_binary(input[4], salt) != 0 ||
+		    hex_to_binary(input[8], peer_key) != 0 ||
+		    hex_to_binary(input[7], data) != 0) {
+			*error_r = "Corrupted data";
+			return FALSE;
+		}
 
 		/* get us secret value to use for key/iv generation */
 		if (EVP_PKEY_base_id((EVP_PKEY*)dec_key) == EVP_PKEY_RSA) {
@@ -2662,7 +2671,10 @@ dcrypt_openssl_load_public_key_dovecot_v2(struct dcrypt_public_key **key_r,
 		return FALSE;
 	}
 	buffer_t *keybuf = buffer_create_dynamic(pool_datastack_create(), keylen);
-	hex_to_binary(input[1], keybuf);
+	if (hex_to_binary(input[1], keybuf) != 0) {
+		*error_r = "Corrupted data";
+		return FALSE;
+	}
 	const unsigned char *ptr = keybuf->data;
 
 	EVP_PKEY *pkey = NULL;
