@@ -465,6 +465,31 @@ static void test_write_read_v2_x448(void)
 }
 #endif
 
+#ifdef HAVE_OPENSSL_KEM
+static void test_write_read_v2_kem_curve(const char *curve)
+{
+	struct dcrypt_keypair pair;
+	const char *error;
+	bool ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_KEM, 0,
+					   curve, &error);
+	if (!ret)
+		i_panic("%s", error);
+
+	test_write_read_v2_algos(curve, &pair);
+	dcrypt_keypair_unref(&pair);
+}
+
+static void test_write_read_v2_kem(void)
+{
+	static const char *const curves[] = {
+		LN_ML_KEM_512, LN_ML_KEM_768, LN_ML_KEM_1024
+	};
+	for (size_t i = 0; i < N_ELEMENTS(curves); i++) T_BEGIN {
+		test_write_read_v2_kem_curve(curves[i]);
+	} T_END;
+}
+#endif
+
 static void test_write_read_v2_short(const char *algo)
 {
 	test_begin(t_strdup_printf("test_write_read_v2_short("SN_X9_62_prime256v1", %s)", algo));
@@ -732,6 +757,9 @@ int main(void)
 #ifdef HAVE_X25519
 		test_write_read_v2_x448,
 		test_write_read_v2_x25519,
+#endif
+#ifdef HAVE_OPENSSL_KEM
+		test_write_read_v2_kem,
 #endif
 		test_free_keys,
 		test_read_0_to_400_byte_garbage,
