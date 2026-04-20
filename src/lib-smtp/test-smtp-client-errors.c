@@ -4344,8 +4344,8 @@ test_client_defaults(struct smtp_client_settings *smtp_set,
 {
 	/* client settings */
 	i_zero(smtp_set);
+	smtp_set->event_parent = test_event;
 	smtp_set->my_hostname = "frop.example.com";
-	smtp_set->debug = debug;
 
 	struct event *event = event_create(NULL);
 	struct settings_root *set_root = settings_root_init();

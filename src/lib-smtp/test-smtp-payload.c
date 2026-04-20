@@ -1369,7 +1369,6 @@ test_run_scenarios(
 	smtp_client_set.command_timeout_msecs = CLIENT_PROGRESS_TIMEOUT_MSECS;
 	smtp_client_set.connect_timeout_msecs = CLIENT_PROGRESS_TIMEOUT_MSECS;
 	smtp_client_set.sasl_mechanisms = tset.sasl_mech;
-	smtp_client_set.debug = debug;
 
 	if (small_socket_buffers) {
 		smtp_client_set.socket_send_buffer_size = 4096;

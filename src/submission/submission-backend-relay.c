@@ -1093,8 +1093,8 @@ submission_backend_relay_create(
 
 	/* make relay connection */
 	i_zero(&smtp_set);
+	smtp_set.event_parent = event;
 	smtp_set.my_hostname = set->my_hostname;
-	smtp_set.debug = event_want_debug(rbackend->backend.event);
 	smtp_set.event_parent = rbackend->backend.event;
 
 	smtp_set.rawlog_dir = set->rawlog_dir;

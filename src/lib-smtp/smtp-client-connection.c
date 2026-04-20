@@ -1779,7 +1779,7 @@ smtp_client_connection_connected(struct connection *_conn, bool success)
 		return;
 	}
 
-	if (conn->set.debug) {
+	if (event_want_debug(conn->event)) {
 		struct ip_addr local_ip;
 		in_port_t local_port;
 		int ret;
@@ -2251,7 +2251,6 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 			conn->set.socket_recv_buffer_size =
 				set->socket_recv_buffer_size;
 		}
-		conn->set.debug = conn->set.debug || set->debug;
 
 		smtp_proxy_data_merge(conn->pool, &conn->set.proxy_data,
 				      &set->proxy_data);
@@ -2299,7 +2298,6 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 	event_add_str(conn_event, "protocol",
 		      smtp_protocol_name(conn->protocol));
 	event_add_category(conn_event, &event_category_smtp_client);
-	event_set_forced_debug(conn_event, (set != NULL && set->debug));
 
 	conn->conn.event_parent = conn_event;
 	connection_init(conn->client->conn_list, &conn->conn, name);

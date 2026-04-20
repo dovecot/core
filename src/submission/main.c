@@ -442,7 +442,6 @@ int main(int argc, char *argv[])
 	/* initialize SMTP client */
 	i_zero(&smtp_client_set);
 	smtp_client_set.my_hostname = my_hostdomain();
-	smtp_client_set.debug = submission_debug;
 	smtp_client = smtp_client_init(&smtp_client_set);
 
 	if (!IS_STANDALONE())

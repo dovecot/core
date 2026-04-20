@@ -311,11 +311,10 @@ static void smtp_submit_send_host(struct smtp_submit *subm)
 	}
 
 	i_zero(&smtp_set);
+	smtp_set.event_parent = subm->event;
 	smtp_set.my_hostname = set->hostname;
 	smtp_set.connect_timeout_msecs = set->submission_timeout*1000;
 	smtp_set.command_timeout_msecs = set->submission_timeout*1000;
-	smtp_set.debug = set->mail_debug;
-	smtp_set.event_parent = subm->event;
 
 	ssl_mode = SMTP_CLIENT_SSL_MODE_NONE;
 	if (set->submission_ssl != NULL) {

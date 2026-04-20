@@ -65,7 +65,6 @@ struct smtp_client *smtp_client_init(const struct smtp_client_settings *set)
 
 	client->set.socket_send_buffer_size = set->socket_send_buffer_size;
 	client->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
-	client->set.debug = set->debug;
 	client->set.verbose_user_errors = set->verbose_user_errors;
 
 	smtp_proxy_data_merge(pool, &client->set.proxy_data, &set->proxy_data);
@@ -76,7 +75,6 @@ struct smtp_client *smtp_client_init(const struct smtp_client_settings *set)
 	   not log anything and the prefix is protocol-dependent. */
 	client->event = event_create(set->event_parent);
 	event_add_category(client->event, &event_category_smtp_client);
-	event_set_forced_debug(client->event, set->debug);
 
 	return client;
 }

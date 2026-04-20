@@ -102,8 +102,6 @@ struct smtp_client_settings {
 	   smtp_client_transaction_set_event(). */
 	struct event *event_parent;
 
-	/* enable logging debug messages */
-	bool debug;
 	/* peer is trusted, so e.g. attempt sending XCLIENT data */
 	bool peer_trusted;
 	/* defer sending XCLIENT command until authentication or first mail
