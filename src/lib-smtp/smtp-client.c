@@ -37,13 +37,6 @@ struct smtp_client *smtp_client_init(const struct smtp_client_settings *set)
 	client->set.my_ip = set->my_ip;
 	client->set.my_hostname = p_strdup(pool, set->my_hostname);
 
-	client->set.forced_capabilities = set->forced_capabilities;
-	client->set.disabled_capabilities = set->disabled_capabilities;
-	if (set->extra_capabilities != NULL) {
-		client->set.extra_capabilities =
-			p_strarray_dup(pool, set->extra_capabilities);
-	}
-
 	client->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
 
 	client->set.master_user = p_strdup_empty(pool, set->master_user);
@@ -65,9 +58,6 @@ struct smtp_client *smtp_client_init(const struct smtp_client_settings *set)
 
 	client->set.socket_send_buffer_size = set->socket_send_buffer_size;
 	client->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
-	client->set.verbose_user_errors = set->verbose_user_errors;
-
-	smtp_proxy_data_merge(pool, &client->set.proxy_data, &set->proxy_data);
 
 	client->conn_list = smtp_client_connection_list_init();
 

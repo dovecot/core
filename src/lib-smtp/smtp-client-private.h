@@ -168,6 +168,7 @@ struct smtp_client_connection {
 	in_port_t port;
 	enum smtp_client_connection_ssl_mode ssl_mode;
 
+	struct smtp_client_parameters params;
 	struct smtp_client_settings set;
 	ARRAY(struct smtp_client_capability_extra) extra_capabilities;
 

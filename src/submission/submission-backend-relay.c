@@ -1078,6 +1078,7 @@ submission_backend_relay_create(
 {
 	struct submission_backend_relay *rbackend;
 	struct mail_user *user = client->user;
+	struct smtp_client_parameters smtp_params;
 	struct smtp_client_settings smtp_set;
 	pool_t pool;
 
@@ -1092,29 +1093,30 @@ submission_backend_relay_create(
 	settings_event_add_filter_name(event, SUBMISSION_RELAY_SETTINGS_FILTER);
 
 	/* make relay connection */
-	i_zero(&smtp_set);
-	smtp_set.event_parent = event;
-	smtp_set.my_hostname = set->my_hostname;
-	smtp_set.event_parent = rbackend->backend.event;
-
-	smtp_set.rawlog_dir = set->rawlog_dir;
+	i_zero(&smtp_params);
 
 	if (set->trusted) {
 		rbackend->trusted = TRUE;
-		smtp_set.peer_trusted = TRUE;
 
 		smtp_server_connection_get_proxy_data(client->conn,
-						      &smtp_set.proxy_data);
+						      &smtp_params.proxy_data);
 
 		if (user->conn.remote_ip != NULL) {
-			smtp_set.proxy_data.source_ip =
+			smtp_params.proxy_data.source_ip =
 				*user->conn.remote_ip;
-			smtp_set.proxy_data.source_port =
+			smtp_params.proxy_data.source_port =
 				user->conn.remote_port;
 		}
-		smtp_set.proxy_data.login = user->username;
-		smtp_set.xclient_defer = TRUE;
+		smtp_params.proxy_data.login = user->username;
+		smtp_params.xclient_defer = TRUE;
 	}
+
+	i_zero(&smtp_set);
+	smtp_set.peer_trusted = set->trusted;
+	smtp_set.event_parent = event;
+	smtp_set.my_hostname = set->my_hostname;
+
+	smtp_set.rawlog_dir = set->rawlog_dir;
 
 	smtp_set.username = set->user;
 	smtp_set.master_user = set->master_user;
@@ -1126,7 +1128,7 @@ submission_backend_relay_create(
 						       set->protocol,
 						       set->host, set->port,
 						       set->ssl_mode,
-						       &smtp_set);
+						       &smtp_params, &smtp_set);
 	return rbackend;
 }
 

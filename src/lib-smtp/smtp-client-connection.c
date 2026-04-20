@@ -390,7 +390,7 @@ void smtp_client_connection_fail(struct smtp_client_connection *conn,
 
 	i_zero(&text_lines);
 	i_assert(user_error != NULL);
-	if (conn->set.verbose_user_errors && error != NULL)
+	if (conn->params.verbose_user_errors && error != NULL)
 		text_lines[0] = error;
 	else
 		text_lines[0] = user_error;
@@ -604,7 +604,7 @@ smtp_client_connection_xclient_addf(struct smtp_client_connection *conn,
 
 void smtp_client_connection_send_xclient(struct smtp_client_connection *conn)
 {
-	const struct smtp_proxy_data *xclient = &conn->set.proxy_data;
+	const struct smtp_proxy_data *xclient = &conn->params.proxy_data;
 	const char **xclient_args = conn->caps.xclient_args;
 	size_t offset;
 	string_t *str;
@@ -960,7 +960,7 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 
 	if (set->username == NULL &&
 	    (set->sasl_mechanisms == NULL || *set->sasl_mechanisms == '\0')) {
-		if (!conn->set.xclient_defer)
+		if (!conn->params.xclient_defer)
 			smtp_client_connection_send_xclient(conn);
 		return (conn->xclient_replies_expected == 0);
 	}
@@ -1224,7 +1224,7 @@ smtp_client_connection_handshake_cb(const struct smtp_reply *reply,
 	/* reset capabilities */
 	p_clear(conn->cap_pool);
 	i_zero(&conn->caps);
-	conn->caps.standard = conn->set.forced_capabilities;
+	conn->caps.standard = conn->params.forced_capabilities;
 
 	lines = reply->text_lines;
 	if (*lines == NULL) {
@@ -1286,8 +1286,8 @@ smtp_client_connection_handshake_cb(const struct smtp_reply *reply,
 
 	e_debug(conn->event, "Received server capabilities");
 
-	conn->caps.standard &= ENUM_NEGATE(conn->set.disabled_capabilities);
-	conn->caps.standard |= conn->set.forced_capabilities;
+	conn->caps.standard &= ENUM_NEGATE(conn->params.disabled_capabilities);
+	conn->caps.standard |= conn->params.forced_capabilities;
 
 	if (conn->to_connect != NULL)
 		timeout_reset(conn->to_connect);
@@ -2173,6 +2173,7 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 static struct smtp_client_connection *
 smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 				 enum smtp_protocol protocol,
+				 const struct smtp_client_parameters *params,
 				 const struct smtp_client_settings *set)
 {
 	struct smtp_client_connection *conn;
@@ -2187,6 +2188,32 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 	conn->client = client;
 	conn->protocol = protocol;
 
+	if (params != NULL) {
+		conn->params = *params;
+
+		if (params->extra_capabilities != NULL) {
+			conn->params.extra_capabilities =
+				p_strarray_dup(pool, params->extra_capabilities);
+		}
+
+		smtp_proxy_data_merge(conn->pool, &conn->params.proxy_data,
+				      &params->proxy_data);
+	}
+
+	if (params != NULL && params->extra_capabilities != NULL) {
+		const char *const *extp;
+
+		p_array_init(&conn->extra_capabilities, pool,
+			     str_array_length(params->extra_capabilities) + 8);
+		for (extp = params->extra_capabilities; *extp != NULL; extp++) {
+			struct smtp_client_capability_extra cap = {
+				.name = p_strdup(pool, *extp),
+			};
+
+			array_push_back(&conn->extra_capabilities, &cap);
+		}
+	}
+
 	conn->set = client->set;
 	if (set != NULL) {
 		if (set->my_ip.family != 0)
@@ -2194,13 +2221,6 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 		if (set->my_hostname != NULL && *set->my_hostname != '\0') {
 			conn->set.my_hostname =
 				p_strdup(pool, set->my_hostname);
-		}
-
-		conn->set.forced_capabilities |= set->forced_capabilities;
-		conn->set.disabled_capabilities |= set->disabled_capabilities;
-		if (set->extra_capabilities != NULL) {
-			conn->set.extra_capabilities =
-				p_strarray_dup(pool, set->extra_capabilities);
 		}
 
 		if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0') {
@@ -2252,36 +2272,13 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 				set->socket_recv_buffer_size;
 		}
 
-		smtp_proxy_data_merge(conn->pool, &conn->set.proxy_data,
-				      &set->proxy_data);
-		conn->set.xclient_defer = set->xclient_defer;
 		conn->set.peer_trusted = set->peer_trusted;
-
-		conn->set.mail_send_broken_path = set->mail_send_broken_path;
-
-		conn->set.verbose_user_errors =
-			conn->set.verbose_user_errors ||
-			set->verbose_user_errors;
-	}
-
-	if (set != NULL && set->extra_capabilities != NULL) {
-		const char *const *extp;
-
-		p_array_init(&conn->extra_capabilities, pool,
-			     str_array_length(set->extra_capabilities) + 8);
-		for (extp = set->extra_capabilities; *extp != NULL; extp++) {
-			struct smtp_client_capability_extra cap = {
-				.name = p_strdup(pool, *extp),
-			};
-
-			array_push_back(&conn->extra_capabilities, &cap);
-		}
 	}
 
 	i_assert(conn->set.my_hostname != NULL &&
 		 *conn->set.my_hostname != '\0');
 
-	conn->caps.standard = conn->set.forced_capabilities;
+	conn->caps.standard = conn->params.forced_capabilities;
 	conn->cap_pool = pool_alloconly_create(
 		"smtp client connection capabilities", 128);
 	conn->state_pool = pool_alloconly_create(
@@ -2313,6 +2310,7 @@ smtp_client_connection_create_ip(struct smtp_client *client,
 				 const struct ip_addr *ip, in_port_t port,
 				 const char *hostname,
 				 enum smtp_client_connection_ssl_mode ssl_mode,
+				 const struct smtp_client_parameters *params,
 				 const struct smtp_client_settings *set)
 {
 	struct smtp_client_connection *conn;
@@ -2347,7 +2345,8 @@ smtp_client_connection_create_ip(struct smtp_client *client,
 	else
 		i_unreached();
 
-	conn = smtp_client_connection_do_create(client, name, protocol, set);
+	conn = smtp_client_connection_do_create(client, name, protocol,
+						params, set);
 	conn->host = p_strdup(conn->pool, hostname);
 	conn->port = port;
 	conn->ssl_mode = ssl_mode;
@@ -2374,23 +2373,26 @@ smtp_client_connection_create(struct smtp_client *client,
 			      enum smtp_protocol protocol,
 			      const char *host, in_port_t port,
 			      enum smtp_client_connection_ssl_mode ssl_mode,
+			      const struct smtp_client_parameters *params,
 			      const struct smtp_client_settings *set)
 {
 	return smtp_client_connection_create_ip(client, protocol,
 						NULL, port, host,
-						ssl_mode, set);
+						ssl_mode, params, set);
 }
 
 struct smtp_client_connection *
 smtp_client_connection_create_unix(struct smtp_client *client,
 				   enum smtp_protocol protocol,
 				   const char *path,
+				   const struct smtp_client_parameters *params,
 				   const struct smtp_client_settings *set)
 {
 	struct smtp_client_connection *conn;
 	const char *name = t_strconcat("unix:", path, NULL);
 
-	conn = smtp_client_connection_do_create(client, name, protocol, set);
+	conn = smtp_client_connection_do_create(client, name, protocol,
+						params, set);
 	conn->path = p_strdup(conn->pool, path);
 
 	e_debug(conn->event, "Connection created");
@@ -2485,7 +2487,7 @@ void smtp_client_connection_update_proxy_data(
 	if (conn->xclient_sent)
 		return;
 
-	smtp_proxy_data_merge(conn->pool, &conn->set.proxy_data, proxy_data);
+	smtp_proxy_data_merge(conn->pool, &conn->params.proxy_data, proxy_data);
 }
 
 void smtp_client_connection_switch_ioloop_to(

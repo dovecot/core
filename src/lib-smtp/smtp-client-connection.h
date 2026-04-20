@@ -11,6 +11,7 @@ enum smtp_capability;
 struct smtp_reply;
 struct smtp_client;
 struct smtp_client_capability_extra;
+struct smtp_client_parameters;
 struct smtp_client_settings;
 struct smtp_client_command;
 
@@ -41,6 +42,7 @@ smtp_client_connection_create(struct smtp_client *client,
 			      enum smtp_protocol protocol,
 			      const char *host, in_port_t port,
 			      enum smtp_client_connection_ssl_mode ssl_mode,
+			      const struct smtp_client_parameters *params,
 			      const struct smtp_client_settings *set);
 struct smtp_client_connection *
 smtp_client_connection_create_ip(struct smtp_client *client,
@@ -48,11 +50,13 @@ smtp_client_connection_create_ip(struct smtp_client *client,
 				 const struct ip_addr *ip, in_port_t port,
 				 const char *hostname,
 				 enum smtp_client_connection_ssl_mode ssl_mode,
+				 const struct smtp_client_parameters *params,
 				 const struct smtp_client_settings *set);
 struct smtp_client_connection *
 smtp_client_connection_create_unix(struct smtp_client *client,
 				   enum smtp_protocol protocol,
 				   const char *path,
+				   const struct smtp_client_parameters *params,
 				   const struct smtp_client_settings *set);
 
 void smtp_client_connection_ref(struct smtp_client_connection *conn);

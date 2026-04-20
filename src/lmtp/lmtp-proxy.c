@@ -107,9 +107,6 @@ static struct lmtp_proxy *
 lmtp_proxy_init(struct client *client,
 		struct smtp_server_transaction *trans)
 {
-	const char *extra_capabilities[] = {
-		LMTP_RCPT_FORWARD_CAPABILITY,
-		NULL };
 	struct smtp_client_settings lmtp_set;
 	struct lmtp_proxy *proxy;
 
@@ -121,36 +118,19 @@ lmtp_proxy_init(struct client *client,
 
 	i_zero(&lmtp_set);
 	lmtp_set.my_hostname = client->my_domain;
-	lmtp_set.extra_capabilities = extra_capabilities;
 	lmtp_set.max_reply_size = LMTP_MAX_REPLY_SIZE;
 	lmtp_set.rawlog_dir = client->lmtp_set->lmtp_proxy_rawlog_dir;
-
-	smtp_server_connection_get_proxy_data(client->conn,
-					      &lmtp_set.proxy_data);
-	lmtp_set.proxy_data.dest_ip = client->local_ip;
-	lmtp_set.proxy_data.dest_port = client->local_port;
-	lmtp_set.proxy_data.source_ip = client->remote_ip;
-	lmtp_set.proxy_data.source_port = client->remote_port;
-	lmtp_set.proxy_data.local_name = client->local_name;
-	bool end_client_tls_secured =
-		client->end_client_tls_secured_set ?
-		client->end_client_tls_secured :
-		smtp_server_connection_is_ssl_secured(client->conn);
-	lmtp_set.proxy_data.client_transport = end_client_tls_secured ?
-		CLIENT_TRANSPORT_TLS : CLIENT_TRANSPORT_INSECURE;
-	/* This initial session_id is used only locally by lib-smtp. Each LMTP
-	   proxy connection gets a more specific updated session_id. */
-	lmtp_set.proxy_data.session = trans->id;
-	if (lmtp_set.proxy_data.ttl_plus_1 == 0)
-		lmtp_set.proxy_data.ttl_plus_1 = LMTP_PROXY_DEFAULT_TTL + 1;
-	else
-		lmtp_set.proxy_data.ttl_plus_1--;
 	lmtp_set.event_parent = client->event;
 
-	if (lmtp_set.proxy_data.ttl_plus_1 <= 1)
+	struct smtp_proxy_data proxy_data;
+
+	smtp_server_connection_get_proxy_data(client->conn, &proxy_data);
+	if (proxy_data.ttl_plus_1 == 0)
+		proxy->initial_ttl = LMTP_PROXY_DEFAULT_TTL;
+	else if (proxy_data.ttl_plus_1 <= 2)
 		proxy->initial_ttl = 1;
 	else
-		proxy->initial_ttl = lmtp_set.proxy_data.ttl_plus_1 - 1;
+		proxy->initial_ttl = proxy_data.ttl_plus_1 - 2;
 
 	proxy->lmtp_client = smtp_client_init(&lmtp_set);
 
@@ -248,8 +228,6 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 		.name = LMTP_RCPT_FORWARD_CAPABILITY,
 		.rcpt_param_extensions = rcpt_param_extensions,
 	};
-	struct smtp_client_settings lmtp_set;
-	struct smtp_server_transaction *trans = proxy->trans;
 	struct client *client = proxy->client;
 	struct lmtp_proxy_connection *conn;
 	enum smtp_client_connection_ssl_mode ssl_mode;
@@ -292,17 +270,43 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	else
 		ssl_mode = SMTP_CLIENT_SSL_MODE_STARTTLS;
 
+	struct smtp_client_parameters lmtp_params;
+	struct smtp_proxy_data *proxy_data = &lmtp_params.proxy_data;
+	struct smtp_client_settings lmtp_set;
+	struct smtp_server_transaction *trans = proxy->trans;
+	bool end_client_tls_secured =
+		client->end_client_tls_secured_set ?
+		client->end_client_tls_secured :
+		smtp_server_connection_is_ssl_secured(client->conn);
+
 	lmtp_proxy_connection_handle_settings(conn, set);
+
+	i_zero(&lmtp_params);
+	lmtp_params.forced_capabilities = SMTP_CAPABILITY__ORCPT;
+	lmtp_params.disabled_capabilities = (set->set.nopipelining ?
+					     SMTP_CAPABILITY_PIPELINING : 0);
+	lmtp_params.mail_send_broken_path = TRUE;
+	lmtp_params.verbose_user_errors = client->lmtp_set->lmtp_verbose_replies;
+
+	smtp_server_connection_get_proxy_data(client->conn, proxy_data);
+	proxy_data->dest_ip = client->local_ip;
+	proxy_data->dest_port = client->local_port;
+	proxy_data->source_ip = client->remote_ip;
+	proxy_data->source_port = client->remote_port;
+	proxy_data->local_name = client->local_name;
+	proxy_data->client_transport = end_client_tls_secured ?
+		CLIENT_TRANSPORT_TLS : CLIENT_TRANSPORT_INSECURE;
+	proxy_data->session = t_strdup_printf("%s:P%u", trans->id,
+					      ++proxy->proxy_session_seq);
+	if (proxy_data->ttl_plus_1 == 0)
+		proxy_data->ttl_plus_1 = LMTP_PROXY_DEFAULT_TTL + 1;
+	else
+		proxy_data->ttl_plus_1--;
 
 	i_zero(&lmtp_set);
 	lmtp_set.event_parent = conn->event;
 	lmtp_set.my_ip = conn->set.set.source_ip;
 	lmtp_set.peer_trusted = !set->set.remote_not_trusted;
-	lmtp_set.forced_capabilities = SMTP_CAPABILITY__ORCPT;
-	lmtp_set.disabled_capabilities = (set->set.nopipelining ?
-					  SMTP_CAPABILITY_PIPELINING : 0);
-	lmtp_set.mail_send_broken_path = TRUE;
-	lmtp_set.verbose_user_errors = client->lmtp_set->lmtp_verbose_replies;
 	lmtp_set.command_timeout_msecs = set->set.timeout_msecs;
 	lmtp_set.connect_timeout_msecs = set->set.timeout_msecs;
 
@@ -310,18 +314,14 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 		conn->lmtp_conn = smtp_client_connection_create_ip(
 			proxy->lmtp_client, set->protocol,
 			&conn->set.set.host_ip, conn->set.set.port,
-			conn->set.set.host, ssl_mode, &lmtp_set);
+			conn->set.set.host, ssl_mode,
+			&lmtp_params, &lmtp_set);
 	} else {
 		conn->lmtp_conn = smtp_client_connection_create(
 			proxy->lmtp_client, set->protocol,
-			conn->set.set.host, conn->set.set.port,
-			ssl_mode, &lmtp_set);
+			conn->set.set.host, conn->set.set.port, ssl_mode,
+			&lmtp_params, &lmtp_set);
 	}
-	struct smtp_proxy_data proxy_data = {
-		.session = t_strdup_printf("%s:P%u", proxy->trans->id,
-					   ++proxy->proxy_session_seq),
-	};
-	smtp_client_connection_update_proxy_data(conn->lmtp_conn, &proxy_data);
 	smtp_client_connection_accept_extra_capability(conn->lmtp_conn,
 						       &cap_rcpt_forward);
 	smtp_client_connection_connect(conn->lmtp_conn, NULL, NULL);

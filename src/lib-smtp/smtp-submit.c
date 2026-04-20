@@ -327,7 +327,7 @@ static void smtp_submit_send_host(struct smtp_submit *subm)
 
 	smtp_client = smtp_client_init(&smtp_set);
 	smtp_conn = smtp_client_connection_create(smtp_client,
-		  SMTP_PROTOCOL_SMTP, host, port, ssl_mode, NULL);
+		  SMTP_PROTOCOL_SMTP, host, port, ssl_mode, NULL, NULL);
 
 	smtp_trans = smtp_client_transaction_create(smtp_conn,
 		subm->mail_from, NULL, 0, smtp_submit_send_host_finished, subm);

@@ -49,10 +49,7 @@ struct smtp_client_capability_extra {
 	const char *const *rcpt_param_extensions;
 };
 
-struct smtp_client_settings {
-	struct ip_addr my_ip;
-	const char *my_hostname;
-
+struct smtp_client_parameters {
 	/* Capabilities that are assumed to be enabled no matter whether the
 	   server indicates support. */
 	enum smtp_capability forced_capabilities;
@@ -61,6 +58,25 @@ struct smtp_client_settings {
 	enum smtp_capability disabled_capabilities;
 	/* Record these extra capabilities if returned in the EHLO response */
 	const char *const *extra_capabilities;
+
+	/* if remote server supports XCLIENT capability,
+	   send this data */
+	struct smtp_proxy_data proxy_data;
+
+	/* defer sending XCLIENT command until authentication or first mail
+	   transaction. */
+	bool xclient_defer;
+	/* sending even broken MAIL command path (otherwise a broken address
+	   is sent as <>) */
+	bool mail_send_broken_path;
+	/* Yield verbose user-visible errors for commands and connections that
+	   failed locally. */
+	bool verbose_user_errors;
+};
+
+struct smtp_client_settings {
+	struct ip_addr my_ip;
+	const char *my_hostname;
 
 	const char *master_user;
 	const char *username;
@@ -87,10 +103,6 @@ struct smtp_client_settings {
 	/* Maximum pipelined BDAT commands */
 	unsigned int max_data_chunk_pipeline;
 
-	/* if remote server supports XCLIENT capability,
-	   send this data */
-	struct smtp_proxy_data proxy_data;
-
 	/* the kernel send/receive buffer sizes used for the connection sockets.
 	   Configuring this is mainly useful for the test suite. The kernel
 	   defaults are used when these settings are 0. */
@@ -104,15 +116,6 @@ struct smtp_client_settings {
 
 	/* peer is trusted, so e.g. attempt sending XCLIENT data */
 	bool peer_trusted;
-	/* defer sending XCLIENT command until authentication or first mail
-	   transaction. */
-	bool xclient_defer;
-	/* sending even broken MAIL command path (otherwise a broken address
-	   is sent as <>) */
-	bool mail_send_broken_path;
-	/* Yield verbose user-visible errors for commands and connections that
-	   failed locally. */
-	bool verbose_user_errors;
 };
 
 struct smtp_client *smtp_client_init(const struct smtp_client_settings *set);

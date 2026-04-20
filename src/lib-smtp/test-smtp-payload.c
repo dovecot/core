@@ -848,7 +848,8 @@ static struct test_client_connection *test_client_connection_get(void)
 
 		test_conns[i].conn = smtp_client_connection_create(
 			smtp_client, client_protocol,
-			net_ip2addr(&bind_ip), bind_port, ssl_mode, &set);
+			net_ip2addr(&bind_ip), bind_port, ssl_mode,
+			NULL, &set);
 	}
 	return &test_conns[i];
 }
