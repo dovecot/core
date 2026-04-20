@@ -40,7 +40,7 @@ smtp_submit_init(struct smtp_submit_session *session,
 struct smtp_submit *
 smtp_submit_init_simple(const struct smtp_submit_input *input,
 			const struct smtp_submit_settings *set,
-			const struct smtp_address *mail_from) ATTR_NULL(2);
+			const struct smtp_address *mail_from);
 void smtp_submit_deinit(struct smtp_submit **_submit);
 
 /* Add a new recipient */
