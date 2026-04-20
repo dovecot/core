@@ -76,6 +76,7 @@ typedef void (*test_dns_init_t)(void);
  */
 
 /* common */
+static struct settings_root *set_root = NULL;
 static struct event *common_event, *dns_event, *client_event, *server_event;
 static struct ip_addr bind_ip;
 static in_port_t *bind_ports = 0;
@@ -124,14 +125,6 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 		       test_server_init_t server_test,
 		       unsigned int server_tests_count,
 		       test_dns_init_t dns_test);
-
-static void test_root_event_free(struct event *event)
-{
-	struct settings_root *set_root =
-		event_get_ptr(event, SETTINGS_EVENT_ROOT);
-	settings_root_deinit(&set_root);
-	event_unref(&event);
-}
 
 /*
  * Host lookup failed
@@ -4261,8 +4254,9 @@ test_client_defaults(struct smtp_client_settings *smtp_set,
 	smtp_set->event_parent = client_event;
 	smtp_set->my_hostname = "frop.example.com";
 
-	struct event *event = event_create(client_event);
-	struct settings_root *set_root = settings_root_init();
+	settings_root_deinit(&set_root);
+	set_root = settings_root_init();
+	event_set_ptr(common_event, SETTINGS_EVENT_ROOT, set_root);
 
 	const char *path = test_set != NULL &&
 		test_set->dns_client_socket_path != NULL ?
@@ -4274,8 +4268,6 @@ test_client_defaults(struct smtp_client_settings *smtp_set,
 				       test_set->dns_client_timeout,
 				       SETTINGS_OVERRIDE_TYPE_CODE);
 	}
-	event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
-	smtp_set->event_parent = event;
 }
 
 static void test_client_progress_timeout(void *context ATTR_UNUSED)
@@ -4597,7 +4589,6 @@ struct test_server_data {
 	unsigned int index;
 	test_server_init_t server_test;
 	test_dns_init_t dns_test;
-	struct event *root_event;
 };
 
 static int test_open_server_fd(in_port_t *bind_port)
@@ -4626,7 +4617,6 @@ static int test_run_server(struct test_server_data *data)
 
 	e_debug(server_event, "Terminated");
 
-	test_root_event_free(data->root_event);
 	i_close_fd(&fd_listen);
 	i_free(bind_ports);
 	main_deinit();
@@ -4649,7 +4639,6 @@ static int test_run_dns(struct test_server_data *data)
 	i_close_fd(&fd_listen);
 	i_free(bind_ports);
 	main_deinit();
-	test_root_event_free(data->root_event);
 	return 0;
 }
 
@@ -4677,7 +4666,6 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 		       unsigned int server_tests_count,
 		       test_dns_init_t dns_test)
 {
-	struct event *root_event = client_set->event_parent;
 	unsigned int i;
 
 	if (server_tests_count > 0) {
@@ -4688,12 +4676,10 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 			fds[i] = test_open_server_fd(&bind_ports[i]);
 
 		for (i = 0; i < server_tests_count; i++) {
-			struct test_server_data data;
-
-			i_zero(&data);
-			data.index = i;
-			data.server_test = server_test;
-			data.root_event = root_event;
+			struct test_server_data data = {
+				.index = i,
+				.server_test = server_test,
+			};
 
 			/* Fork server */
 			fd_listen = fds[i];
@@ -4708,7 +4694,6 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 	if (dns_test != NULL) {
 		struct test_server_data data = {
 			.dns_test = dns_test,
-			.root_event = root_event,
 		};
 		int fd;
 
@@ -4735,7 +4720,6 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 	i_free(bind_ports);
 
 	i_unlink_if_exists("./dns-test");
-	test_root_event_free(root_event);
 }
 
 /*
@@ -4753,6 +4737,9 @@ static void main_init(void)
 	event_set_append_log_prefix(client_event, "test client: ");
 	server_event = event_create(common_event);
 	event_set_append_log_prefix(server_event, "test server: ");
+
+	set_root = settings_root_init();
+	event_set_ptr(common_event, SETTINGS_EVENT_ROOT, set_root);
 }
 
 static void main_deinit(void)
@@ -4764,6 +4751,9 @@ static void main_deinit(void)
 	event_unref(&client_event);
 	event_unref(&server_event);
 	event_unref(&common_event);
+
+	/* also called from sub-processes */
+	settings_root_deinit(&set_root);
 }
 
 int main(int argc, char *argv[])
