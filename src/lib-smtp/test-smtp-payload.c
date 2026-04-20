@@ -42,6 +42,8 @@
 #define SERVER_KILL_TIMEOUT_SECS      (20 * VALGRIND_TIMEOUT_MULTIPLIER)
 #define MAX_PARALLEL_PENDING          200
 
+static struct settings_root *set_root = NULL;
+static struct settings_instance *set_instance = NULL;
 static struct event *common_event, *client_event, *server_event;
 static bool small_socket_buffers = FALSE;
 static const char *failure = NULL;
@@ -1147,7 +1149,6 @@ static void test_client_deinit(void)
 
 struct test_server_data {
 	const struct smtp_server_settings *server_set;
-	struct settings_simple *settings;
 
 	/* For cleanup: */
 	const struct ssl_iostream_settings *ssl_client_set;
@@ -1169,16 +1170,37 @@ static int test_run_server(struct test_server_data *data)
 {
 	settings_free(data->ssl_client_set);
 
-	const struct smtp_server_settings *server_set = data->server_set;
+	struct smtp_server_settings server_set = *data->server_set;
+	struct event *config_event;
 	struct ioloop *ioloop;
 
 	i_set_failure_prefix("SERVER: ");
+
+	config_event = event_create(server_event);
+	settings_instance_free(&set_instance);
+	set_instance = settings_instance_new(set_root);
+	event_set_ptr(config_event, SETTINGS_EVENT_INSTANCE, set_instance);
+	server_set.event_parent = config_event;
+
+	settings_override(set_instance, "ssl_server_ca_file",
+			  settings_file_get_value(unsafe_data_stack_pool,
+						  &server_set.ssl->ca),
+			  SETTINGS_OVERRIDE_TYPE_CODE);
+	settings_override(set_instance, "ssl_server_cert_file",
+			  settings_file_get_value(unsafe_data_stack_pool,
+						  &server_set.ssl->cert.cert),
+			  SETTINGS_OVERRIDE_TYPE_CODE);
+	settings_override(set_instance, "ssl_server_key_file",
+			  settings_file_get_value(unsafe_data_stack_pool,
+						  &server_set.ssl->cert.key),
+			  SETTINGS_OVERRIDE_TYPE_CODE);
 
 	e_debug(server_event, "PID=%s", my_pid);
 
 	test_subprocess_notify_signal_send_parent(SIGUSR1);
 	ioloop = io_loop_create();
-	test_server_init(server_set);
+	test_server_init(&server_set);
+	event_unref(&config_event);
 	io_loop_run(ioloop);
 	test_server_deinit();
 	io_loop_destroy(&ioloop);
@@ -1188,11 +1210,6 @@ static int test_run_server(struct test_server_data *data)
 	i_close_fd(&fd_listen);
 	test_files_deinit();
 	main_deinit();
-
-	/* Cleanup the test settings in the server process as well.
-	   See test_run_client_server() for the appropriate cleanup call in the
-	   main process. */
-	settings_simple_deinit(data->settings);
 	return 0;
 }
 
@@ -1237,29 +1254,8 @@ test_run_client_server(
 
 	failure = NULL;
 
-	/* Add SSL settings by name into the basis of the SMTP server settings.
-	   Otherwise the SMTP SNI mechanism will break when looking up the
-	   relevant settings. */
-	const char *const settings[] = {
-		"ssl_server_ca_file",
-		settings_file_get_value(unsafe_data_stack_pool,
-					&server_set->ssl->ca),
-		"ssl_server_cert_file",
-		settings_file_get_value(unsafe_data_stack_pool,
-					&server_set->ssl->cert.cert),
-		"ssl_server_key_file",
-		settings_file_get_value(unsafe_data_stack_pool,
-					&server_set->ssl->cert.key),
-		NULL,
-	};
-	struct settings_simple test_set;
-	settings_simple_init(&test_set, settings);
-	event_set_forced_debug(test_set.event, event_want_debug(server_event));
-	server_set->event_parent = test_set.event;
-
 	i_zero(&data);
 	data.server_set = server_set;
-	data.settings = &test_set;
 	data.ssl_client_set = ssl_client_set;
 
 	test_files_init();
@@ -1278,13 +1274,6 @@ test_run_client_server(
 	bind_port = 0;
 	test_subprocess_kill_all(SERVER_KILL_TIMEOUT_SECS);
 	test_files_deinit();
-
-	/* Cleanup the test settings in the main process.
-	   Note: This needs to be called as well in the server process,
-	   otherwise it will leak it's event and the looked up settings
-	   struct. See test_run_server() for the appropriate cleanup call in
-	   the server process. */
-	settings_simple_deinit(&test_set);
 }
 
 static void
@@ -1489,6 +1478,9 @@ static void main_init(void)
 	event_set_append_log_prefix(client_event, "test client: ");
 	server_event = event_create(common_event);
 	event_set_append_log_prefix(server_event, "test server: ");
+
+	set_root = settings_root_init();
+	event_set_ptr(common_event, SETTINGS_EVENT_ROOT, set_root);
 }
 
 static void main_deinit(void)
@@ -1500,6 +1492,10 @@ static void main_deinit(void)
 	event_unref(&client_event);
 	event_unref(&server_event);
 	event_unref(&common_event);
+
+	/* also called from sub-processes */
+	settings_instance_free(&set_instance);
+	settings_root_deinit(&set_root);
 }
 
 int main(int argc, char *argv[])
