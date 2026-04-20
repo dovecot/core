@@ -111,7 +111,7 @@ o_stream_dot_sendv(struct ostream_private *stream,
 
 		p = data;
 		pend = CONST_PTR_OFFSET(data, size);
-		for (; p < pend && ((size_t)(p - data) + 2) < max_bytes; p++) {
+		for (; p < pend && ((size_t)(p - data) + 2) <= max_bytes; p++) {
 			char add = 0;
 
 			size = pend - p;
