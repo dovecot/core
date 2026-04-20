@@ -895,7 +895,7 @@ smtp_server_connection_init_session(struct smtp_server_connection *conn)
 }
 
 static struct smtp_server_connection * ATTR_NULL(5, 6)
-smtp_server_connection_alloc(struct smtp_server *server,
+smtp_server_connection_alloc(struct smtp_server *server, struct event *event,
 			     const struct smtp_server_settings *set,
 			     int fd_in, int fd_out,
 			     const struct smtp_server_callbacks *callbacks,
@@ -909,6 +909,7 @@ smtp_server_connection_alloc(struct smtp_server *server,
 	conn->pool = pool;
 	conn->refcount = 1;
 	conn->server = server;
+	conn->event = event;
 	conn->callbacks = callbacks;
 	conn->context = context;
 
@@ -1077,9 +1078,9 @@ smtp_server_connection_create(
 	struct smtp_server_connection *conn;
 	struct event *conn_event;
 
-	conn = smtp_server_connection_alloc(server, set, fd_in, fd_out,
-					    callbacks, context);
 	conn_event = smtp_server_connection_event_create(server, set);
+	conn = smtp_server_connection_alloc(server, conn_event, set,
+					    fd_in, fd_out, callbacks, context);
 	conn->conn.event_parent = conn_event;
 	connection_init_server_ip(server->conn_list, &conn->conn, NULL,
 				  fd_in, fd_out, remote_ip, remote_port);
@@ -1117,8 +1118,9 @@ smtp_server_connection_create_from_streams(
 	i_assert(fd_in >= 0);
 	i_assert(fd_out >= 0);
 
-	conn = smtp_server_connection_alloc(server, set, fd_in, fd_out,
-					    callbacks, context);
+	conn_event = smtp_server_connection_event_create(server, set);
+	conn = smtp_server_connection_alloc(server, conn_event, set,
+					    fd_in, fd_out, callbacks, context);
 	if (local_ip != NULL && local_ip->family != 0)
 		conn->conn.local_ip = *local_ip;
 	conn->conn.local_port = local_port;
@@ -1126,7 +1128,6 @@ smtp_server_connection_create_from_streams(
 		conn->conn.remote_ip = *remote_ip;
 	if (remote_port != 0)
 		conn->conn.remote_port = remote_port;
-	conn_event = smtp_server_connection_event_create(server, set);
 	conn->conn.event_parent = conn_event;
 	connection_init_from_streams(server->conn_list,	&conn->conn, NULL,
 				     input, output);
