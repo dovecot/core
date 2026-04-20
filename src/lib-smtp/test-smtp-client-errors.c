@@ -122,7 +122,7 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 		       test_client_init_t client_test,
 		       test_server_init_t server_test,
 		       unsigned int server_tests_count,
-		       test_dns_init_t dns_test) ATTR_NULL(3);
+		       test_dns_init_t dns_test);
 
 static void test_root_event_free(struct event *event)
 {

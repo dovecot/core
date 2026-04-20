@@ -43,8 +43,7 @@ struct smtp_client_transaction *
 smtp_client_transaction_create_empty(
 	struct smtp_client_connection *conn,
 	enum smtp_client_transaction_flags flags,
-	smtp_client_transaction_callback_t *callback, void *context)
-	ATTR_NULL(4);
+	smtp_client_transaction_callback_t *callback, void *context);
 #define smtp_client_transaction_create_empty(conn, flags, callback, context) \
 	smtp_client_transaction_create_empty(conn, flags - \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
@@ -56,8 +55,7 @@ smtp_client_transaction_create(struct smtp_client_connection *conn,
 		const struct smtp_address *mail_from,
 		const struct smtp_params_mail *mail_params,
 		enum smtp_client_transaction_flags flags,
-		smtp_client_transaction_callback_t *callback, void *context)
-		ATTR_NULL(2, 3, 6);
+		smtp_client_transaction_callback_t *callback, void *context);
 #define smtp_client_transaction_create(conn, \
 		mail_from, mail_params, flags, callback, context) \
 	smtp_client_transaction_create(conn, mail_from, mail_params, flags - \
@@ -125,7 +123,7 @@ smtp_client_transaction_add_mail(struct smtp_client_transaction *trans,
 				 const struct smtp_params_mail *mail_params,
 				 smtp_client_command_callback_t *mail_callback,
 				 void *context)
-	ATTR_NOWARN_UNUSED_RESULT ATTR_NULL(3,5);
+	ATTR_NOWARN_UNUSED_RESULT;
 #define smtp_client_transaction_add_mail(trans, \
 		mail_from, mail_params, mail_callback, context) \
 	smtp_client_transaction_add_mail(trans, mail_from - \
@@ -153,7 +151,7 @@ smtp_client_transaction_add_rcpt(struct smtp_client_transaction *trans,
 				 smtp_client_command_callback_t *rcpt_callback,
 				 smtp_client_command_callback_t *data_callback,
 				 void *context)
-	ATTR_NOWARN_UNUSED_RESULT ATTR_NULL(3,5,6);
+	ATTR_NOWARN_UNUSED_RESULT;
 #define smtp_client_transaction_add_rcpt(trans, \
 		rcpt_to, rcpt_params, rcpt_callback, data_callback, context) \
 	smtp_client_transaction_add_rcpt(trans, rcpt_to - \
@@ -177,7 +175,7 @@ smtp_client_transaction_add_pool_rcpt(
 	const struct smtp_address *rcpt_to,
 	const struct smtp_params_rcpt *rcpt_params,
 	smtp_client_command_callback_t *rcpt_callback, void *context)
-	ATTR_NOWARN_UNUSED_RESULT ATTR_NULL(4,6,7);
+	ATTR_NOWARN_UNUSED_RESULT;
 #define smtp_client_transaction_add_pool_rcpt(trans, pool, \
 		rcpt_to, rcpt_params, rcpt_callback, context) \
 	smtp_client_transaction_add_pool_rcpt(trans, pool, rcpt_to - \
@@ -195,8 +193,7 @@ void smtp_client_transaction_rcpt_abort(
    smtp_client_transaction_send() is called for the transaction (see below). */
 void smtp_client_transaction_rcpt_set_data_callback(
 	struct smtp_client_transaction_rcpt *rcpt,
-	smtp_client_command_callback_t *callback, void *context)
-	ATTR_NULL(3);
+	smtp_client_command_callback_t *callback, void *context);
 #define smtp_client_transaction_rcpt_set_data_callback(trans, \
 						       callback, context) \
 	smtp_client_transaction_rcpt_set_data_callback(trans, \

@@ -41,22 +41,19 @@ smtp_client_connection_create(struct smtp_client *client,
 			      enum smtp_protocol protocol,
 			      const char *host, in_port_t port,
 			      enum smtp_client_connection_ssl_mode ssl_mode,
-			      const struct smtp_client_settings *set)
-			      ATTR_NULL(6);
+			      const struct smtp_client_settings *set);
 struct smtp_client_connection *
 smtp_client_connection_create_ip(struct smtp_client *client,
 				 enum smtp_protocol protocol,
 				 const struct ip_addr *ip, in_port_t port,
 				 const char *hostname,
 				 enum smtp_client_connection_ssl_mode ssl_mode,
-				 const struct smtp_client_settings *set)
-				 ATTR_NULL(5, 7);
+				 const struct smtp_client_settings *set);
 struct smtp_client_connection *
 smtp_client_connection_create_unix(struct smtp_client *client,
 				   enum smtp_protocol protocol,
 				   const char *path,
-				   const struct smtp_client_settings *set)
-				   ATTR_NULL(4);
+				   const struct smtp_client_settings *set);
 
 void smtp_client_connection_ref(struct smtp_client_connection *conn);
 void smtp_client_connection_unref(struct smtp_client_connection **_conn);
