@@ -42,7 +42,7 @@
 #define SERVER_KILL_TIMEOUT_SECS      (20 * VALGRIND_TIMEOUT_MULTIPLIER)
 #define MAX_PARALLEL_PENDING          200
 
-static bool debug = FALSE;
+static struct event *common_event, *client_event, *server_event;
 static bool small_socket_buffers = FALSE;
 static const char *failure = NULL;
 
@@ -130,7 +130,7 @@ static void test_files_read_dir(const char *path)
 
 	/* Close the directory */
 	if (closedir(dirp) < 0)
-		i_error("test files: "
+		e_error(common_event, "test files: "
 			"failed to close directory %s: %m", path);
 }
 
@@ -161,10 +161,8 @@ static struct istream *test_file_open(const char *path)
 			i_fatal("test files: "
 				"open(%s) failed: %m", path);
 		}
-		if (debug) {
-			i_debug("test files: "
-				"open(%s) failed: %m", path);
-		}
+		e_debug(common_event, "test files: "
+			"open(%s) failed: %m", path);
 		return NULL;
 	}
 
@@ -223,18 +221,13 @@ client_transaction_read_more(struct client_transaction *ctrans)
 	size_t psize, fsize, pleft;
 	off_t ret;
 
-	if (debug) {
-		i_debug("test server: read more payload for [%s]",
-			ctrans->path);
-	}
+	e_debug(server_event, "read more payload for [%s]", ctrans->path);
 
 	/* read payload */
 	while ((ret = i_stream_read_more(payload, &pdata, &psize)) > 0) {
-		if (debug) {
-			i_debug("test server: "
-				"got data for [%s] (size=%d)",
-				ctrans->path, (int)psize);
-		}
+		e_debug(server_event, "got data for [%s] (size=%d)",
+			ctrans->path, (int)psize);
+
 		/* compare with file on disk */
 		pleft = psize;
 		while ((ret = i_stream_read_more(ctrans->file,
@@ -261,11 +254,8 @@ client_transaction_read_more(struct client_transaction *ctrans)
 	}
 
 	if (ret == 0) {
-		if (debug) {
-			i_debug("test server: "
-				"need more data for [%s]",
-				ctrans->path);
-		}
+		e_debug(server_event, "need more data for [%s]", ctrans->path);
+
 		/* we will be called again for this request */
 		return 0;
 	}
@@ -284,11 +274,7 @@ client_transaction_read_more(struct client_transaction *ctrans)
 			"(at least %zu bytes left)", fsize);
 	}
 
-	if (debug) {
-		i_debug("test server: "
-			"finished transaction for [%s]",
-			ctrans->path);
-	}
+	e_debug(server_event, "finished transaction for [%s]", ctrans->path);
 
 	/* dereference payload stream; finishes the request */
 	i_stream_unref(&payload);
@@ -309,10 +295,7 @@ client_transaction_handle_payload(struct client_transaction *ctrans,
 
 	ctrans->path = p_strdup(trans->pool, path);
 
-	if (debug) {
-		i_debug("test server: got transaction for: %s",
-			path);
-	}
+	e_debug(server_event, "got transaction for: %s", path);
 
 	fstream = test_file_open(path);
 	if (fstream == NULL)
@@ -370,11 +353,7 @@ test_server_conn_cmd_rcpt(void *conn_ctx ATTR_UNUSED,
 			  struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 			  struct smtp_server_recipient *rcpt)
 {
-	if (debug) {
-		i_debug("test server: RCPT TO:%s",
-			smtp_address_encode(rcpt->path));
-	}
-
+	e_debug(server_event, "RCPT TO:%s", smtp_address_encode(rcpt->path));
 	return 1;
 }
 
@@ -389,8 +368,7 @@ test_server_conn_cmd_data_begin(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 
 	i_assert(fpath != NULL);
 
-	if (debug)
-		i_debug("test server: DATA (file path = %s)", fpath);
+	e_debug(server_event, "DATA (file path = %s)", fpath);
 
 	ctrans = client_transaction_init(client, cmd, trans);
 	client_transaction_handle_payload(ctrans, fpath, data_input);
@@ -406,8 +384,7 @@ test_server_conn_cmd_data_continue(void *conn_ctx ATTR_UNUSED,
 	struct client_transaction *ctrans =
 		(struct client_transaction *)trans->context;
 
-	if (debug)
-		i_debug("test server: DATA continue");
+	e_debug(server_event, "DATA continue");
 
 	ctrans->data_cmd = cmd;
 
@@ -902,10 +879,7 @@ static void test_client_finished(unsigned int files_idx)
 	const char **paths;
 	unsigned int count;
 
-	if (debug) {
-		i_debug("test client: "
-			"finished [%u]", files_idx);
-	}
+	e_debug(client_event, "finished [%u]", files_idx);
 
 	paths = array_get_modifiable(&files, &count);
 	i_assert(files_idx < count);
@@ -985,11 +959,7 @@ test_client_transaction_data(const struct smtp_reply *reply,
 	if (to_client_progress != NULL)
 		timeout_reset(to_client_progress);
 
-	if (debug) {
-		i_debug("test client: "
-			"got response for DATA [%u]",
-			tctrans->files_idx);
-	}
+	e_debug(client_event, "got response for DATA [%u]", tctrans->files_idx);
 
 	paths = array_get_modifiable(&files, &count);
 	i_assert(tctrans->files_idx < count);
@@ -997,11 +967,7 @@ test_client_transaction_data(const struct smtp_reply *reply,
 	path = paths[tctrans->files_idx];
 	i_assert(path != NULL);
 
-	if (debug) {
-		i_debug("test client: "
-			"path for [%u]: %s",
-			tctrans->files_idx, path);
-	}
+	e_debug(client_event, "path for [%u]: %s", tctrans->files_idx, path);
 
 	if (reply->status / 100 != 2) {
 		i_fatal("test client: "
@@ -1017,8 +983,7 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 	const char **paths;
 	unsigned int count, pending_count, i;
 
-	if (debug)
-		i_debug("test client: continue");
+	e_debug(client_event, "continue");
 
 	timeout_remove(&client_to);
 	if (to_client_progress != NULL)
@@ -1039,17 +1004,14 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 			pending_count++;
 	}
 
-	if (debug) {
-		i_debug("test client: finished until [%u/%u]; "
-			"sending until [%u/%u] (%u pending)",
-			client_files_first-1, count,
-			client_files_last, count, pending_count);
-	}
+	e_debug(client_event, "finished until [%u/%u]; "
+		"sending until [%u/%u] (%u pending)",
+		client_files_first-1, count,
+		client_files_last, count, pending_count);
 
-	if (debug && client_files_first < count) {
+	if (event_want_debug(client_event) && client_files_first < count) {
 		const char *path = paths[client_files_first];
-		i_debug("test client: "
-			"next blocking: %s [%d]",
+		e_debug(client_event, "next blocking: %s [%d]",
 			(path == NULL ? "none" : path),
 			client_files_first);
 	}
@@ -1068,11 +1030,8 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 		fstream = test_file_open(path);
 		if (fstream == NULL) {
 			paths[client_files_last] = NULL;
-			if (debug) {
-				i_debug("test client: "
-					"skipping %s [%u]",
-					path, client_files_last);
-			}
+			e_debug(client_event, "skipping %s [%u]",
+				path, client_files_last);
 			if (client_to == NULL) {
 				client_to = timeout_add_short(
 					0, test_client_continue, NULL);
@@ -1080,11 +1039,8 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 			continue;
 		}
 
-		if (debug) {
-			i_debug("test client: "
-				"retrieving %s [%u]",
-				path, client_files_last);
-		}
+		e_debug(client_event, "retrieving %s [%u]",
+			path, client_files_last);
 
 		tctrans = test_client_transaction_new();
 		tctrans->files_idx = client_files_last;
@@ -1122,12 +1078,12 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 			i_stream_unref(&b64_stream);
 		}
 
-		if (debug) {
+		if (event_want_debug(client_event)) {
 			uoff_t raw_size = UOFF_T_MAX, b64_size = UOFF_T_MAX;
 
 			(void)i_stream_get_size(fstream, TRUE, &raw_size);
 			(void)i_stream_get_size(payload, TRUE, &b64_size);
-			i_debug("test client: "
+			e_debug(client_event,
 				"sending %"PRIuUOFF_T"/%"PRIuUOFF_T" bytes payload %s [%u]",
 				raw_size, b64_size, path, client_files_last);
 		}
@@ -1218,8 +1174,7 @@ static int test_run_server(struct test_server_data *data)
 
 	i_set_failure_prefix("SERVER: ");
 
-	if (debug)
-		i_debug("PID=%s", my_pid);
+	e_debug(server_event, "PID=%s", my_pid);
 
 	test_subprocess_notify_signal_send_parent(SIGUSR1);
 	ioloop = io_loop_create();
@@ -1228,8 +1183,7 @@ static int test_run_server(struct test_server_data *data)
 	test_server_deinit();
 	io_loop_destroy(&ioloop);
 
-	if (debug)
-		i_debug("Terminated");
+	e_debug(server_event, "Terminated");
 
 	i_close_fd(&fd_listen);
 	test_files_deinit();
@@ -1254,8 +1208,7 @@ test_run_client(
 
 	i_set_failure_prefix("CLIENT: ");
 
-	if (debug)
-		i_debug("client: PID=%s", my_pid);
+	e_debug(client_event, "PID=%s", my_pid);
 
 	ioloop = io_loop_create();
 	test_client_init();
@@ -1264,8 +1217,7 @@ test_run_client(
 	test_client_deinit();
 	io_loop_destroy(&ioloop);
 
-	if (debug)
-		i_debug("Terminated");
+	e_debug(client_event, "Terminated");
 }
 
 static void
@@ -1302,6 +1254,7 @@ test_run_client_server(
 	};
 	struct settings_simple test_set;
 	settings_simple_init(&test_set, settings);
+	event_set_forced_debug(test_set.event, event_want_debug(server_event));
 	server_set->event_parent = test_set.event;
 
 	i_zero(&data);
@@ -1360,11 +1313,11 @@ test_run_scenarios(
 	smtp_server_set.max_pipelined_commands = 1;
 	smtp_server_set.auth_optional = (tset.sasl_mech == NULL);
 	smtp_server_set.ssl = &ssl_server_set;
-	smtp_server_set.debug = debug;
 	smtp_server_set.max_recipients = SET_UINT_UNLIMITED;
 
 	/* client settings */
 	i_zero(&smtp_client_set);
+	smtp_client_set.event_parent = client_event;
 	smtp_client_set.my_hostname = "localhost";
 	smtp_client_set.command_timeout_msecs = CLIENT_PROGRESS_TIMEOUT_MSECS;
 	smtp_client_set.connect_timeout_msecs = CLIENT_PROGRESS_TIMEOUT_MSECS;
@@ -1530,6 +1483,12 @@ static void main_init(void)
 {
 	ssl_iostream_openssl_init();
 	password_schemes_init();
+
+	common_event = event_create(test_event);
+	client_event = event_create(common_event);
+	event_set_append_log_prefix(client_event, "test client: ");
+	server_event = event_create(common_event);
+	event_set_append_log_prefix(server_event, "test server: ");
 }
 
 static void main_deinit(void)
@@ -1537,15 +1496,19 @@ static void main_deinit(void)
 	password_schemes_deinit();
 	ssl_iostream_context_cache_free();
 	ssl_iostream_openssl_deinit();
+
+	event_unref(&client_event);
+	event_unref(&server_event);
+	event_unref(&common_event);
 }
 
 int main(int argc, char *argv[])
 {
+	bool debug = FALSE;
 	int c;
 	int ret;
 
 	lib_init();
-	main_init();
 
 	while ((c = getopt(argc, argv, "DS")) > 0) {
 		switch (c) {
@@ -1564,6 +1527,7 @@ int main(int argc, char *argv[])
 	event_set_forced_debug(test_event, debug);
 	test_dir_init("smtp-payload");
 	test_subprocesses_init();
+	main_init();
 
 	/* listen on localhost */
 	i_zero(&bind_ip);
