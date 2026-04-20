@@ -447,8 +447,7 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 					    "key decryption error: %s", error);
 			return -1;
 		}
-	} else if (ktype == DCRYPT_KEY_EC) {
-		/* perform ECDHE */
+	} else if (ktype == DCRYPT_KEY_EC || ktype == DCRYPT_KEY_KEM) {
 		buffer_t *temp_key = t_buffer_create(256);
 		buffer_t *secret = t_buffer_create(256);
 		buffer_t peer_key;

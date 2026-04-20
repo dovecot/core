@@ -285,8 +285,7 @@ o_stream_encrypt_key_for_pubkey_v2(struct encrypt_ostream *stream,
 					    error);
 			return -1;
 		}
-	} else if (ktype == DCRYPT_KEY_EC) {
-		/* R = our ephemeral public key */
+	} else if (ktype == DCRYPT_KEY_EC || ktype == DCRYPT_KEY_KEM) {
 		buffer_t *secret = t_buffer_create(256);
 
 		/* derive ephemeral key and shared secret */
