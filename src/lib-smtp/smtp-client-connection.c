@@ -2298,9 +2298,9 @@ smtp_client_connection_create(struct smtp_client *client,
 			      const struct smtp_client_parameters *params,
 			      const struct smtp_client_settings *set)
 {
-	return smtp_client_connection_create_ip(client, event_parent,
-						protocol, NULL, port, host,
-						ssl_mode, params, set);
+	return smtp_client_connection_create_ip(client, event_parent, protocol,
+						NULL, port, host, ssl_mode,
+						params, set);
 }
 
 struct smtp_client_connection *
@@ -2321,6 +2321,48 @@ smtp_client_connection_create_unix(struct smtp_client *client,
 	e_debug(conn->event, "Connection created");
 
 	return conn;
+}
+
+int smtp_client_connection_create_auto(
+	struct smtp_client *client, struct event *event_parent,
+	enum smtp_protocol protocol,
+	const struct smtp_client_parameters *params,
+	struct smtp_client_connection **conn_r, const char **error_r)
+{
+	i_assert(event_parent != NULL);
+
+	const struct setting_parser_info *set_info;
+	const struct smtp_client_settings *set;
+
+	*conn_r = NULL;
+	*error_r = NULL;
+
+	switch (protocol) {
+	case SMTP_PROTOCOL_SMTP:
+		set_info = &smtp_client_setting_parser_info;
+		break;
+	case SMTP_PROTOCOL_LMTP:
+		set_info = &lmtp_client_setting_parser_info;
+		break;
+	default:
+		i_unreached();
+	}
+
+	if (settings_get(event_parent, set_info, 0, &set, error_r) < 0)
+		return -1;
+	if (*set->host == '\0') {
+		*error_r = "Host not configured";
+		settings_free(set);
+		return 0;
+	}
+
+	*conn_r = smtp_client_connection_create_ip(client, event_parent,
+						   protocol, NULL,
+						   set->port, set->host,
+						   set->parsed.ssl_mode,
+						   params, set);
+	settings_free(set);
+	return 1;
 }
 
 void smtp_client_connection_ref(struct smtp_client_connection *conn)

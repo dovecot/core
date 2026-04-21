@@ -3,11 +3,19 @@
 
 #include "smtp-common.h"
 
+/* <settings checks> */
 #define SMTP_DEFAULT_CONNECT_TIMEOUT_MSECS (1000*30)
 #define SMTP_DEFAULT_COMMAND_TIMEOUT_MSECS (1000*60*5)
 #define SMTP_DEFAULT_MAX_REPLY_SIZE (SIZE_MAX)
 #define SMTP_DEFAULT_MAX_DATA_CHUNK_SIZE NET_BLOCK_SIZE
 #define SMTP_DEFAULT_MAX_DATA_CHUNK_PIPELINE 4
+
+enum smtp_client_connection_ssl_mode {
+	SMTP_CLIENT_SSL_MODE_NONE = 0,
+	SMTP_CLIENT_SSL_MODE_IMMEDIATE,
+	SMTP_CLIENT_SSL_MODE_STARTTLS
+};
+/* </settings checks> */
 
 struct smtp_client_settings {
 	pool_t pool;
@@ -15,6 +23,10 @@ struct smtp_client_settings {
 	const char *hostname;
 
 	const char *source_ip;
+
+	const char *host;
+	in_port_t port;
+	const char *ssl;
 
 	/* Directory for writing raw log data for debugging purposes */
 	const char *rawlog_dir;
@@ -47,8 +59,12 @@ struct smtp_client_settings {
 	/* generated: */
 	struct {
 		struct ip_addr source_ip;
+		enum smtp_client_connection_ssl_mode ssl_mode;
 	} parsed;
 };
+
+extern const struct setting_parser_info smtp_client_setting_parser_info;
+extern const struct setting_parser_info lmtp_client_setting_parser_info;
 
 /* Reference the provided settings struct, even when it is a struct on the call
    stack without a pool, in which case it is cloned to our pool. In both cases,

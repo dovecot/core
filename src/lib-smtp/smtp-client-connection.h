@@ -5,6 +5,7 @@
 #include "smtp-common.h"
 
 #include "smtp-client-command.h"
+#include "smtp-client-settings.h"
 
 enum smtp_capability;
 
@@ -14,12 +15,6 @@ struct smtp_client_capability_extra;
 struct smtp_client_parameters;
 struct smtp_client_settings;
 struct smtp_client_command;
-
-enum smtp_client_connection_ssl_mode {
-	SMTP_CLIENT_SSL_MODE_NONE = 0,
-	SMTP_CLIENT_SSL_MODE_IMMEDIATE,
-	SMTP_CLIENT_SSL_MODE_STARTTLS
-};
 
 enum smtp_client_connection_state {
 	/* No connection */
@@ -61,6 +56,12 @@ smtp_client_connection_create_unix(struct smtp_client *client,
 				   const char *path,
 				   const struct smtp_client_parameters *params,
 				   const struct smtp_client_settings *set);
+
+int smtp_client_connection_create_auto(
+	struct smtp_client *client, struct event *event_parent,
+	enum smtp_protocol protocol,
+	const struct smtp_client_parameters *params,
+	struct smtp_client_connection **conn_r, const char **error_r);
 
 void smtp_client_connection_ref(struct smtp_client_connection *conn);
 void smtp_client_connection_unref(struct smtp_client_connection **_conn);
