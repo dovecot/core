@@ -946,37 +946,16 @@ smtp_client_connection_send_auth(struct smtp_client_connection *conn,
 }
 
 static bool
-smtp_client_connection_authenticate(struct smtp_client_connection *conn)
+smtp_client_connection_init_sasl(struct smtp_client_connection *conn)
 {
 	struct smtp_client *client = conn->client;
 	const struct smtp_client_settings *set = &conn->set;
 	struct client_auth_settings sasl_set;
-	const char *mech_name = NULL;
-	const unsigned char *sasl_output;
-	size_t sasl_output_len;
-	string_t *sasl_output_base64;
-	const char *error;
+	const char *mech_name = NULL, *error;
 	int ret;
 
-	if (set->username == NULL &&
-	    (set->sasl_mechanisms == NULL || *set->sasl_mechanisms == '\0')) {
-		if (!conn->params.xclient_defer)
-			smtp_client_connection_send_xclient(conn);
-		return (conn->xclient_replies_expected == 0);
-	}
-
-	smtp_client_connection_send_xclient(conn);
-	if (conn->xclient_replies_expected > 0)
-		return FALSE;
-	if (conn->authenticated)
+	if (conn->sasl_session != NULL)
 		return TRUE;
-
-	if ((conn->caps.standard & SMTP_CAPABILITY_AUTH) == 0) {
-		smtp_client_connection_fail(
-			conn, SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED,
-			NULL, "Authentication not supported");
-		return FALSE;
-	}
 
 	if (smtp_client_connection_get_sasl_mech(conn, &mech_name,
 						 &error) < 0) {
@@ -1015,6 +994,43 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 			error, "Internal authentication failure");
 		return FALSE;
 	}
+	return TRUE;
+}
+
+static bool
+smtp_client_connection_authenticate(struct smtp_client_connection *conn)
+{
+	const struct smtp_client_settings *set = &conn->set;
+	const char *mech_name = NULL;
+	const unsigned char *sasl_output;
+	size_t sasl_output_len;
+	string_t *sasl_output_base64;
+	const char *error;
+
+	if (set->username == NULL &&
+	    (set->sasl_mechanisms == NULL || *set->sasl_mechanisms == '\0')) {
+		if (!conn->params.xclient_defer)
+			smtp_client_connection_send_xclient(conn);
+		return (conn->xclient_replies_expected == 0);
+	}
+
+	smtp_client_connection_send_xclient(conn);
+	if (conn->xclient_replies_expected > 0)
+		return FALSE;
+	if (conn->authenticated)
+		return TRUE;
+
+	if ((conn->caps.standard & SMTP_CAPABILITY_AUTH) == 0) {
+		smtp_client_connection_fail(
+			conn, SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED,
+			NULL, "Authentication not supported");
+		return FALSE;
+	}
+
+	if (!smtp_client_connection_init_sasl(conn))
+		return FALSE;
+
+	i_assert(conn->sasl_session != NULL);
 	mech_name = dsasl_client_session_get_mech_name(conn->sasl_session);
 
 	if (conn->ssl_iostream != NULL) {
