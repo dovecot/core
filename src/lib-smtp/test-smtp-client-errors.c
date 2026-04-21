@@ -111,8 +111,9 @@ static void test_server_run(unsigned int index);
 static void server_connection_deinit(struct server_connection **_conn);
 
 /* client */
-static void test_client_defaults(struct smtp_client_settings *smtp_set,
-				 struct test_smtp_client_settings *test_set);
+static void
+test_client_defaults(struct smtp_client_settings *smtp_set,
+		     struct test_smtp_client_settings *test_set);
 static void test_client_deinit(void);
 
 /* test*/
@@ -2924,7 +2925,6 @@ static void test_client_deinit_early(void)
 
 	test_client_defaults(&smtp_client_set, NULL);
 
-
 	test_begin("client deinit early");
 	test_run_client_server(&smtp_client_set,
 			       test_client_client_deinit_early,
@@ -4039,6 +4039,7 @@ static void test_close_in_failure(void)
 /*
  * Invalid SSL certificate
  */
+
 /* dns */
 
 static void
@@ -4050,7 +4051,6 @@ test_dns_invalid_ssl_certificate_input(struct server_connection *conn)
 		conn->version_sent = TRUE;
 		o_stream_nsend_str(conn->conn.output, "VERSION\tdns\t1\t0\n");
 	}
-
 
 	while ((line = i_stream_read_next_line(conn->conn.input)) != NULL) {
 		if (debug)
@@ -4341,8 +4341,9 @@ static void (*const test_functions[])(void) = {
  * Test client
  */
 
-static void test_client_defaults(struct smtp_client_settings *smtp_set,
-				 struct test_smtp_client_settings *test_set)
+static void
+test_client_defaults(struct smtp_client_settings *smtp_set,
+		     struct test_smtp_client_settings *test_set)
 {
 	/* client settings */
 	i_zero(smtp_set);
