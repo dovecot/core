@@ -145,7 +145,7 @@ array_create_i(struct array *array, pool_t pool,
 {
 	buffer_t *buffer;
 
-	buffer = buffer_create_dynamic_max(pool, init_count * element_size,
+	buffer = buffer_create_dynamic_max(pool, MALLOC_MULTIPLY(init_count, element_size),
 		SIZE_MAX / element_size < UINT_MAX ? SIZE_MAX :
 		UINT_MAX * element_size);
 	array_create_from_buffer_i(array, buffer, element_size);
@@ -209,7 +209,7 @@ array_count_i(const struct array *array)
 static inline void
 array_append_i(struct array *array, const void *data, unsigned int count)
 {
-	buffer_append(array->buffer, data, count * array->element_size);
+	buffer_append_array(array->buffer, data, count, array->element_size);
 }
 
 #define array_append(array, data, count) \
@@ -230,8 +230,9 @@ static inline void
 array_insert_i(struct array *array, unsigned int idx,
 	       const void *data, unsigned int count)
 {
-	buffer_insert(array->buffer, idx * array->element_size,
-		      data, count * array->element_size);
+	buffer_insert_array(array->buffer,
+			    MALLOC_MULTIPLY(idx, array->element_size),
+			    data, count, array->element_size);
 }
 
 #define array_insert(array, idx, data, count) \
@@ -241,8 +242,8 @@ array_insert_i(struct array *array, unsigned int idx,
 static inline void
 array_delete_i(struct array *array, unsigned int idx, unsigned int count)
 {
-	buffer_delete(array->buffer, idx * array->element_size,
-		      count * array->element_size);
+	buffer_delete(array->buffer, MALLOC_MULTIPLY(idx, array->element_size),
+		      MALLOC_MULTIPLY(count, array->element_size));
 }
 #define array_delete(array, idx, count) \
 	array_delete_i(&(array)->arr, idx, count)
@@ -273,7 +274,7 @@ static inline const void * ATTR_PURE
 array_idx_i(const struct array *array, unsigned int idx)
 {
 	i_assert(idx < array->buffer->used / array->element_size);
-	return CONST_PTR_OFFSET(array->buffer->data, idx * array->element_size);
+	return CONST_PTR_OFFSET(array->buffer->data, MALLOC_MULTIPLY(idx, array->element_size));
 }
 
 #define array_front(array) array_idx(array, 0)
@@ -353,9 +354,9 @@ array_copy(struct array *dest, unsigned int dest_idx,
 {
 	i_assert(dest->element_size == src->element_size);
 
-	buffer_copy(dest->buffer, dest_idx * dest->element_size,
-		    src->buffer, src_idx * src->element_size,
-		    count * dest->element_size);
+	buffer_copy(dest->buffer, MALLOC_MULTIPLY(dest_idx, dest->element_size),
+		    src->buffer, MALLOC_MULTIPLY(src_idx, src->element_size),
+		    MALLOC_MULTIPLY(count, dest->element_size));
 }
 
 bool array_cmp_i(const struct array *array1,

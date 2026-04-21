@@ -9,9 +9,21 @@ void *i_malloc(size_t size)
 	return p_malloc(default_pool, size);
 }
 
+void *i_malloc_array(size_t count, size_t size)
+{
+	return p_malloc(default_pool, MALLOC_MULTIPLY(count, size));
+}
+
 void *i_realloc(void *mem, size_t old_size, size_t new_size)
 {
 	return p_realloc(default_pool, mem, old_size, new_size);
+}
+
+void *i_realloc_array(void *mem, size_t old_count, size_t new_count, size_t size)
+{
+	return p_realloc(default_pool, mem,
+			 MALLOC_MULTIPLY(old_count, size),
+			 MALLOC_MULTIPLY(new_count, size));
 }
 
 char *i_strdup(const char *str)
