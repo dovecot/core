@@ -80,8 +80,8 @@ libdriver_sqlite_la_CPPFLAGS = $(AM_CPPFLAGS) $(SQLITE_CFLAGS)
 libdriver_sqlite_la_SOURCES = driver-sqlite.c
 
 libdriver_cassandra_la_LDFLAGS = -module -avoid-version
-libdriver_cassandra_la_LIBADD = $(CASSANDRA_LIBS)
-libdriver_cassandra_la_CPPFLAGS = $(AM_CPPFLAGS) $(CASSANDRA_CFLAGS)
+libdriver_cassandra_la_LIBADD = $(CASSANDRA_LIBS) $(SSL_LIBS)
+libdriver_cassandra_la_CPPFLAGS = $(AM_CPPFLAGS) $(CASSANDRA_CFLAGS) $(SSL_CFLAGS)
 libdriver_cassandra_la_SOURCES = driver-cassandra.c
 else
 endif
