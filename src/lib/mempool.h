@@ -136,20 +136,6 @@ p_realloc(pool_t pool, void *mem, size_t old_size, size_t new_size)
 	return pool->v->realloc(pool, mem, old_size, new_size);
 }
 
-static inline void * ATTR_MALLOC ATTR_RETURNS_NONNULL
-p_malloc_array(pool_t pool, size_t count, size_t size)
-{
-	return p_malloc(pool, MALLOC_MULTIPLY(count, size));
-}
-
-static inline void * ATTR_WARN_UNUSED_RESULT ATTR_RETURNS_NONNULL
-p_realloc_array(pool_t pool, void *mem, size_t old_count, size_t new_count, size_t size)
-{
-	return p_realloc(pool, mem,
-			 MALLOC_MULTIPLY(old_count, size),
-			 MALLOC_MULTIPLY(new_count, size));
-}
-
 /* Free the memory. p_free() and p_free_and_null() are now guaranteed to both
    set mem=NULL, so either one of them can be used. */
 #define p_free(pool, mem) \

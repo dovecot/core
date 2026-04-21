@@ -9,21 +9,22 @@ void *i_malloc(size_t size)
 	return p_malloc(default_pool, size);
 }
 
-void *i_malloc_array(size_t count, size_t size)
-{
-	return p_malloc(default_pool, MALLOC_MULTIPLY(count, size));
-}
-
 void *i_realloc(void *mem, size_t old_size, size_t new_size)
 {
-	return p_realloc(default_pool, mem, old_size, new_size);
-}
+	i_assert(old_size < SIZE_MAX);
+	i_assert(new_size < SIZE_MAX);
 
-void *i_realloc_array(void *mem, size_t old_count, size_t new_count, size_t size)
-{
-	return p_realloc(default_pool, mem,
-			 MALLOC_MULTIPLY(old_count, size),
-			 MALLOC_MULTIPLY(new_count, size));
+	if (old_size == new_size)
+		return mem;
+
+	if (old_size != 0 && new_size == 0)
+		i_panic("Trying to reallocate %zu -> %zu bytes",
+			old_size, new_size);
+
+	if (mem == NULL)
+		return i_malloc(new_size);
+
+	return p_realloc(default_pool, mem, old_size, new_size);
 }
 
 char *i_strdup(const char *str)

@@ -10,10 +10,7 @@ extern pool_t default_pool;
 	p_realloc_type(default_pool, mem, type, old_count, new_count)
 
 void *i_malloc(size_t size) ATTR_MALLOC ATTR_RETURNS_NONNULL;
-void *i_malloc_array(size_t count, size_t size) ATTR_MALLOC ATTR_RETURNS_NONNULL;
 void *i_realloc(void *mem, size_t old_size, size_t new_size)
-	ATTR_WARN_UNUSED_RESULT ATTR_RETURNS_NONNULL;
-void *i_realloc_array(void *mem, size_t old_count, size_t new_count, size_t size)
 	ATTR_WARN_UNUSED_RESULT ATTR_RETURNS_NONNULL;
 
 /* i_free() and i_free_and_null() are now guaranteed to both set mem=NULL,
