@@ -1,3 +1,63 @@
+v2.4.4 2026-05-06  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* CVE-2026-27851: lib-var-expand: Safe filter marks all following pipelines safe.
+	* CVE-2026-33603: auth: CRAM-SHA-*-PLUS channel binding could be faked.
+	  MITM attacker with a certificate trusted by the client could have
+	  bypassed the requirement for channel binding.
+	* CVE-2026-40020: IMAP folders can be shared-spammed to everyone.
+	* CVE-2026-42006: An attacker can cause uncontrolled memory usage with
+	  excessive bracing over IMAP. The fix in CVE-2026-27857 was incomplete.
+	* indexer-worker, quota-status, script-login, program-client-local: Root
+	  privileges are now dropped permanently before serving requests.
+	* indexer-worker: Default restart_request_count changed to 1 to work
+	  correctly after permanent root privilege drop.
+	* lmtp: Add back service_extra_groups=$SET:default_internal_group that was
+	  incorrectly removed in v2.4.3.
+	* master: inet_listener_reuse_port has been replaced by service_reuse_port.
+	  The new setting properly pre-creates all listener sockets at startup and
+	  assigns one unique socket per process. Using this allows evenly distributing
+	  incoming connections to login processes. See
+	  https://doc.dovecot.org/latest/core/config/service.html#service_reuse_port
+	  for details.
+	- auth: Fix LDAP escaping of 0x13 control character.
+	- auth: Use timing-safe comparison for certificate and public key fingerprints.
+	- fts: Correctly handle internal http-client response errors.
+	- fts: Don't send request to Tika if there is no body text.
+	- fts: Fix address header indexing for RFC 2047 encoded-words.
+	- fts: tika, fts-solr: Fix use-after-free crash during DNS lookup.
+	- imap: Fix assertion panic on invalid REPLACE 0 command.
+	- lib-auth-client: Avoid "unknown id" errors for aborted auth requests.
+	- lib-dcrypt: Fix potential crash if trying to access untrusted/corrupted keys.
+	- lib-dcrypt: Improve error message if keys aren't in hex format as expected.
+	- lib-index: Fix potential crash if fsck fails.
+	- lib-ldap: Fix using OpenLDAP default CA when ssl_client_ca_dir/file is unset.
+	  v2.4.3 regression.
+	- lib-master, master: Fix behavior for services with client_limit>1 and
+	  restart_request_count so that processes reaching restart_request_count are
+	  no longer counted towards process_limit.
+	- lib-master: Fix crash when reaching client_limit with restart_request_count>1.
+	- lib-master: haproxy - Don't trust client certificate common name when
+	  HAProxy reports verification failure.
+	- lib-sasl: cram-md5 - Fix out of bounds memory read.
+	- lib-sasl: oauth2 - Fix one byte out of bounds read.
+	- lib-sql: cassandra - Fix reusing Cassandra SSL connections.
+	- lib-sql: sqlite - Fix sqlite_journal_mode=wal to actually work.
+	- lib-storage: Auto-rename non-NFC subscription file entries to NFC on read.
+	- lib-storage: Prevent non-atom SEARCH keywords from causing IMAP
+	  command injection.
+	- lib-var-expand-crypt: Return error if hex decoding fails.
+	- lib-var-expand: Fix crash (SIGFPE) with non-positive divisor for / and %.
+	- log: Fix memory leak at deinit.
+	- login-common: When process is full, don't destroy clients waiting on
+	  master auth.
+	- login-proxy: Fix crash with rawlog and multiplexing during reconnection.
+	- mail-compress: Fix panic when save method unavailable.
+	- mail-crypt: Fix crash when HMAC-based algorithm is used.
+	- mail-crypt: Use AEAD instead of HMAC with ChaCha20-Poly1305.
+	- mdbox: Create files with O_NOFOLLOW.
+	- push-notification: ox - Fix use-after-free crash during DNS lookup.
+	- quota: quota-status - Limit input buffer size to 1 kB.
+
 v2.4.3 2026-03-27  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* CVE-2025-59028: Invalid base64 authentication can cause DoS for other
