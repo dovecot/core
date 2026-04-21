@@ -85,7 +85,7 @@ char *p_strdup_until(pool_t pool, const void *start, const void *end)
 
 	size = (size_t) ((const char *) end - (const char *) start);
 
-	mem = p_malloc(pool, size + 1);
+	mem = p_malloc(pool, MALLOC_ADD(size, 1));
 	memcpy(mem, start, size);
 	return mem;
 }
@@ -105,7 +105,7 @@ char *p_strndup(pool_t pool, const void *str, size_t max_chars)
 	else
 		len = p - (const char *)str;
 
-	mem = p_malloc(pool, len+1);
+	mem = p_malloc(pool, MALLOC_ADD(len, 1));
 	memcpy(mem, str, len);
 	return mem;
 }
@@ -758,12 +758,8 @@ split_str_slow(pool_t pool, const char *data, const char *separators, bool space
 			/* separator found */
 			if (count+1 >= alloc_count) {
 				new_alloc_count = nearest_power(alloc_count+1);
-				size_t old_size =
-					MALLOC_MULTIPLY(sizeof(char *), alloc_count);
-				size_t new_size =
-					MALLOC_MULTIPLY(sizeof(char *), new_alloc_count);
-				array = p_realloc(pool, array,
-						  old_size, new_size);
+				array = p_realloc_array(pool, array, alloc_count,
+							new_alloc_count, sizeof(char *));
 				alloc_count = new_alloc_count;
 			}
 
@@ -809,12 +805,8 @@ split_str_fast(pool_t pool, const char *data, char sep)
 		/* separator found */
 		if (count+1 >= alloc_count) {
 			new_alloc_count = nearest_power(alloc_count+1);
-			size_t old_size =
-				MALLOC_MULTIPLY(sizeof(char *), alloc_count);
-			size_t new_size =
-				MALLOC_MULTIPLY(sizeof(char *), new_alloc_count);
-			array = p_realloc(pool, array,
-					  old_size, new_size);
+			array = p_realloc_array(pool, array, alloc_count,
+						new_alloc_count, sizeof(char *));
 			alloc_count = new_alloc_count;
 		}
 		*str++ = '\0';
@@ -894,7 +886,7 @@ p_strarray_join_n(pool_t pool, const char *const *arr, unsigned int arr_len,
 
 	for (i = 0; i < arr_len; i++) {
 		len = strlen(arr[i]);
-		needed_space = pos + len + sep_len + 1;
+		needed_space = MALLOC_ADD(MALLOC_ADD(pos, len), MALLOC_ADD(sep_len, 1));
 		if (needed_space > alloc_len) {
 			alloc_len = nearest_power(needed_space);
 			str = t_buffer_reget(str, alloc_len);
@@ -957,14 +949,16 @@ bool str_array_icase_find(const char *const *arr, const char *value)
 
 const char **p_strarray_dup(pool_t pool, const char *const *arr)
 {
-	unsigned int i;
+	unsigned int i, count;
 	const char **ret;
 	char *p;
-	size_t len, size = sizeof(const char *);
+	size_t len, size;
 
-	/* @UNSAFE: integer overflow checks are missing */
-	for (i = 0; arr[i] != NULL; i++)
-		size += sizeof(const char *) + strlen(arr[i]) + 1;
+	for (count = 0; arr[count] != NULL; count++) ;
+
+	size = MALLOC_MULTIPLY(count + 1, sizeof(const char *));
+	for (i = 0; i < count; i++)
+		size = MALLOC_ADD(size, MALLOC_ADD(strlen(arr[i]), 1));
 
 	ret = p_malloc(pool, size);
 	p = PTR_OFFSET(ret, sizeof(const char *) * (i + 1));
