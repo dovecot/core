@@ -3,6 +3,7 @@
 #include "submission-common.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "hostpid.h"
 #include "settings.h"
 #include "mail-user.h"
 #include "iostream-ssl.h"
@@ -1114,7 +1115,9 @@ submission_backend_relay_create(
 	i_zero(&smtp_set);
 	smtp_set.peer_trusted = set->trusted;
 	smtp_set.event_parent = event;
-	smtp_set.my_hostname = set->my_hostname;
+	smtp_set.my_hostname = (set->my_hostname != NULL &&
+				*set->my_hostname != '\0' ?
+				set->my_hostname : my_hostdomain());
 
 	smtp_set.rawlog_dir = set->rawlog_dir;
 

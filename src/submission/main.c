@@ -347,7 +347,6 @@ int main(int argc, char *argv[])
 	enum master_service_flags service_flags = 0;
 	enum mail_storage_service_flags storage_service_flags = 0;
 	struct smtp_server_settings smtp_server_set;
-	struct smtp_client_settings smtp_client_set;
 	const char *username = NULL;
 	const char *error;
 	int c;
@@ -440,9 +439,7 @@ int main(int argc, char *argv[])
 	smtp_server_command_register(smtp_server, "BURL", cmd_burl, 0);
 
 	/* initialize SMTP client */
-	i_zero(&smtp_client_set);
-	smtp_client_set.my_hostname = my_hostdomain();
-	smtp_client = smtp_client_init(&smtp_client_set);
+	smtp_client = smtp_client_init(master_service_get_event(master_service));
 
 	if (!IS_STANDALONE())
 		login_server = login_server_init(master_service, &login_set);

@@ -2214,63 +2214,40 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 		}
 	}
 
-	conn->set = client->set;
 	if (set != NULL) {
-		if (set->my_ip.family != 0)
-			conn->set.my_ip = set->my_ip;
-		if (set->my_hostname != NULL && *set->my_hostname != '\0') {
-			conn->set.my_hostname =
-				p_strdup(pool, set->my_hostname);
-		}
+		conn->set.my_ip = set->my_ip;
+		conn->set.my_hostname = p_strdup(pool, set->my_hostname);
 
-		if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0') {
-			conn->set.rawlog_dir =
-				p_strdup_empty(pool, set->rawlog_dir);
-		}
+		conn->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
 
-		if (set->master_user != NULL && *set->master_user != '\0') {
-			conn->set.master_user =
-				p_strdup_empty(pool, set->master_user);
-		}
-		if (set->username != NULL && *set->username != '\0') {
-			conn->set.username =
-				p_strdup_empty(pool, set->username);
-		}
-		if (set->password != NULL && *set->password != '\0')
-			conn->set.password = p_strdup(pool, set->password);
-		if (set->sasl_mechanisms != NULL &&
-		    *set->sasl_mechanisms != '\0') {
-			conn->set.sasl_mechanisms =
-				p_strdup(pool, set->sasl_mechanisms);
-		}
+		conn->set.master_user = p_strdup_empty(pool, set->master_user);
+		conn->set.username = p_strdup_empty(pool, set->username);
+		conn->set.password = p_strdup(pool, set->password);
+		conn->set.sasl_mechanisms = p_strdup(pool, set->sasl_mechanisms);
 
-		if (set->command_timeout_msecs > 0) {
-			conn->set.command_timeout_msecs =
-				set->command_timeout_msecs;
-		}
-		if (set->connect_timeout_msecs > 0) {
-			conn->set.connect_timeout_msecs =
-				set->connect_timeout_msecs;
-		}
-		if (set->max_reply_size > 0)
-			conn->set.max_reply_size = set->max_reply_size;
-		if (set->max_data_chunk_size > 0) {
-			conn->set.max_data_chunk_size =
-				set->max_data_chunk_size;
-		}
-		if (set->max_data_chunk_pipeline > 0) {
-			conn->set.max_data_chunk_pipeline =
-				set->max_data_chunk_pipeline;
-		}
+		conn->set.connect_timeout_msecs =
+			set->connect_timeout_msecs != 0 ?
+				set->connect_timeout_msecs :
+				SMTP_DEFAULT_CONNECT_TIMEOUT_MSECS;
+		conn->set.command_timeout_msecs =
+			set->command_timeout_msecs != 0 ?
+				set->command_timeout_msecs :
+				SMTP_DEFAULT_COMMAND_TIMEOUT_MSECS;
+		conn->set.max_reply_size =
+			set->max_reply_size != 0 ?
+				set->max_reply_size :
+				SMTP_DEFAULT_MAX_REPLY_SIZE;
+		conn->set.max_data_chunk_size =
+			set->max_data_chunk_size != 0 ?
+				set->max_data_chunk_size :
+				SMTP_DEFAULT_MAX_DATA_CHUNK_SIZE;
+		conn->set.max_data_chunk_pipeline =
+			set->max_data_chunk_pipeline != 0 ?
+				set->max_data_chunk_pipeline :
+				SMTP_DEFAULT_MAX_DATA_CHUNK_PIPELINE;
 
-		if (set->socket_send_buffer_size > 0) {
-			conn->set.socket_send_buffer_size =
-				set->socket_send_buffer_size;
-		}
-		if (set->socket_recv_buffer_size > 0) {
-			conn->set.socket_recv_buffer_size =
-				set->socket_recv_buffer_size;
-		}
+		conn->set.socket_send_buffer_size = set->socket_send_buffer_size;
+		conn->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
 
 		conn->set.peer_trusted = set->peer_trusted;
 	}

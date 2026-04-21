@@ -107,7 +107,6 @@ static struct lmtp_proxy *
 lmtp_proxy_init(struct client *client,
 		struct smtp_server_transaction *trans)
 {
-	struct smtp_client_settings lmtp_set;
 	struct lmtp_proxy *proxy;
 
 	proxy = i_new(struct lmtp_proxy, 1);
@@ -115,12 +114,6 @@ lmtp_proxy_init(struct client *client,
 	proxy->trans = trans;
 	i_array_init(&proxy->rcpt_to, 32);
 	i_array_init(&proxy->connections, 32);
-
-	i_zero(&lmtp_set);
-	lmtp_set.my_hostname = client->my_domain;
-	lmtp_set.max_reply_size = LMTP_MAX_REPLY_SIZE;
-	lmtp_set.rawlog_dir = client->lmtp_set->lmtp_proxy_rawlog_dir;
-	lmtp_set.event_parent = client->event;
 
 	struct smtp_proxy_data proxy_data;
 
@@ -132,7 +125,7 @@ lmtp_proxy_init(struct client *client,
 	else
 		proxy->initial_ttl = proxy_data.ttl_plus_1 - 2;
 
-	proxy->lmtp_client = smtp_client_init(&lmtp_set);
+	proxy->lmtp_client = smtp_client_init(client->event);
 
 	return proxy;
 }
@@ -305,10 +298,13 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 
 	i_zero(&lmtp_set);
 	lmtp_set.event_parent = conn->event;
+	lmtp_set.my_hostname = client->my_domain;
 	lmtp_set.my_ip = conn->set.set.source_ip;
 	lmtp_set.peer_trusted = !set->set.remote_not_trusted;
 	lmtp_set.command_timeout_msecs = set->set.timeout_msecs;
 	lmtp_set.connect_timeout_msecs = set->set.timeout_msecs;
+	lmtp_set.max_reply_size = LMTP_MAX_REPLY_SIZE;
+	lmtp_set.rawlog_dir = client->lmtp_set->lmtp_proxy_rawlog_dir;
 
 	if (conn->set.set.host_ip.family != 0) {
 		conn->lmtp_conn = smtp_client_connection_create_ip(

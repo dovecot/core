@@ -25,7 +25,7 @@ struct event_category event_category_smtp_client = {
  * Client
  */
 
-struct smtp_client *smtp_client_init(const struct smtp_client_settings *set)
+struct smtp_client *smtp_client_init(struct event *event_parent)
 {
 	struct smtp_client *client;
 	pool_t pool;
@@ -34,36 +34,11 @@ struct smtp_client *smtp_client_init(const struct smtp_client_settings *set)
 	client = p_new(pool, struct smtp_client, 1);
 	client->pool = pool;
 
-	client->set.my_ip = set->my_ip;
-	client->set.my_hostname = p_strdup(pool, set->my_hostname);
-
-	client->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
-
-	client->set.master_user = p_strdup_empty(pool, set->master_user);
-	client->set.username = p_strdup_empty(pool, set->username);
-	client->set.sasl_mechanisms = p_strdup(pool, set->sasl_mechanisms);
-
-	client->set.connect_timeout_msecs = set->connect_timeout_msecs != 0 ?
-		set->connect_timeout_msecs :
-		SMTP_DEFAULT_CONNECT_TIMEOUT_MSECS;
-	client->set.command_timeout_msecs = set->command_timeout_msecs != 0 ?
-		set->command_timeout_msecs :
-		SMTP_DEFAULT_COMMAND_TIMEOUT_MSECS;
-	client->set.max_reply_size = set->max_reply_size != 0 ?
-		set->max_reply_size : SMTP_DEFAULT_MAX_REPLY_SIZE;
-	client->set.max_data_chunk_size = set->max_data_chunk_size != 0 ?
-		set->max_data_chunk_size : SMTP_DEFAULT_MAX_DATA_CHUNK_SIZE;
-	client->set.max_data_chunk_pipeline = set->max_data_chunk_pipeline != 0 ?
-		set->max_data_chunk_pipeline : SMTP_DEFAULT_MAX_DATA_CHUNK_PIPELINE;
-
-	client->set.socket_send_buffer_size = set->socket_send_buffer_size;
-	client->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
-
 	client->conn_list = smtp_client_connection_list_init();
 
 	/* There is no event log prefix added here, since the client itself does
 	   not log anything and the prefix is protocol-dependent. */
-	client->event = event_create(set->event_parent);
+	client->event = event_create(event_parent);
 	event_add_category(client->event, &event_category_smtp_client);
 
 	return client;

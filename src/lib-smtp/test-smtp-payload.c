@@ -805,6 +805,7 @@ struct test_client_transaction {
 
 static struct test_client_connection test_conns[MAX_PARALLEL_PENDING];
 static struct smtp_client *smtp_client;
+static const struct smtp_client_settings *test_client_set;
 static enum smtp_protocol client_protocol;
 static struct test_client_transaction *client_requests;
 static unsigned int client_files_first, client_files_last;
@@ -839,7 +840,7 @@ static struct test_client_connection *test_client_connection_get(void)
 	if (test_conns[i].conn == NULL) {
 		struct smtp_client_settings set;
 
-		i_zero(&set);
+		set = *test_client_set;
 		if (tset.sasl_mech != NULL) {
 			i_assert(tset.authid != NULL);
 			set.username = tset.authid;
@@ -1122,7 +1123,8 @@ test_client(enum smtp_protocol protocol,
 	}
 
 	/* create client */
-	smtp_client = smtp_client_init(client_set);
+	test_client_set = client_set;
+	smtp_client = smtp_client_init(client_event);
 	smtp_client_set_ssl_settings(smtp_client, ssl_client_set);
 
 	/* start querying server */

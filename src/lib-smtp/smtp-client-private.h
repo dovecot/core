@@ -251,8 +251,6 @@ struct smtp_client_connection {
 struct smtp_client {
 	pool_t pool;
 
-	struct smtp_client_settings set;
-
 	struct event *event;
 	struct ioloop *ioloop;
 	const struct ssl_iostream_settings *ssl_set;

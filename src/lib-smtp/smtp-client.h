@@ -118,7 +118,7 @@ struct smtp_client_settings {
 	bool peer_trusted;
 };
 
-struct smtp_client *smtp_client_init(const struct smtp_client_settings *set);
+struct smtp_client *smtp_client_init(struct event *event_parent);
 void smtp_client_deinit(struct smtp_client **_client);
 
 /* Specify the SSL settings. By default lib-ssl-iostream automatically looks
