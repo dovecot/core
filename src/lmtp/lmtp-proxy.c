@@ -297,7 +297,6 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 		proxy_data->ttl_plus_1--;
 
 	i_zero(&lmtp_set);
-	lmtp_set.event_parent = conn->event;
 	lmtp_set.my_hostname = client->my_domain;
 	lmtp_set.my_ip = conn->set.set.source_ip;
 	lmtp_set.peer_trusted = !set->set.remote_not_trusted;
@@ -308,13 +307,13 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 
 	if (conn->set.set.host_ip.family != 0) {
 		conn->lmtp_conn = smtp_client_connection_create_ip(
-			proxy->lmtp_client, set->protocol,
+			proxy->lmtp_client, conn->event, set->protocol,
 			&conn->set.set.host_ip, conn->set.set.port,
 			conn->set.set.host, ssl_mode,
 			&lmtp_params, &lmtp_set);
 	} else {
 		conn->lmtp_conn = smtp_client_connection_create(
-			proxy->lmtp_client, set->protocol,
+			proxy->lmtp_client, conn->event, set->protocol,
 			conn->set.set.host, conn->set.set.port, ssl_mode,
 			&lmtp_params, &lmtp_set);
 	}

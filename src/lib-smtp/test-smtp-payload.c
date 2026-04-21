@@ -848,7 +848,7 @@ static struct test_client_connection *test_client_connection_get(void)
 		}
 
 		test_conns[i].conn = smtp_client_connection_create(
-			smtp_client, client_protocol,
+			smtp_client, client_event, client_protocol,
 			net_ip2addr(&bind_ip), bind_port, ssl_mode,
 			NULL, &set);
 	}
@@ -1309,7 +1309,6 @@ test_run_scenarios(
 
 	/* client settings */
 	i_zero(&smtp_client_set);
-	smtp_client_set.event_parent = client_event;
 	smtp_client_set.my_hostname = "localhost";
 	smtp_client_set.command_timeout_msecs = CLIENT_PROGRESS_TIMEOUT_MSECS;
 	smtp_client_set.connect_timeout_msecs = CLIENT_PROGRESS_TIMEOUT_MSECS;

@@ -1114,7 +1114,6 @@ submission_backend_relay_create(
 
 	i_zero(&smtp_set);
 	smtp_set.peer_trusted = set->trusted;
-	smtp_set.event_parent = event;
 	smtp_set.my_hostname = (set->my_hostname != NULL &&
 				*set->my_hostname != '\0' ?
 				set->my_hostname : my_hostdomain());
@@ -1127,7 +1126,7 @@ submission_backend_relay_create(
 	smtp_set.connect_timeout_msecs = set->connect_timeout_msecs;
 	smtp_set.command_timeout_msecs = set->command_timeout_msecs;
 
-	rbackend->conn = smtp_client_connection_create(smtp_client,
+	rbackend->conn = smtp_client_connection_create(smtp_client, event,
 						       set->protocol,
 						       set->host, set->port,
 						       set->ssl_mode,

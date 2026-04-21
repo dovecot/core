@@ -311,7 +311,6 @@ static void smtp_submit_send_host(struct smtp_submit *subm)
 	}
 
 	i_zero(&smtp_set);
-	smtp_set.event_parent = subm->event;
 	smtp_set.my_hostname = set->hostname;
 	smtp_set.connect_timeout_msecs = set->submission_timeout*1000;
 	smtp_set.command_timeout_msecs = set->submission_timeout*1000;
@@ -326,8 +325,9 @@ static void smtp_submit_send_host(struct smtp_submit *subm)
 	}
 
 	smtp_client = smtp_client_init(subm->event);
-	smtp_conn = smtp_client_connection_create(smtp_client,
-		  SMTP_PROTOCOL_SMTP, host, port, ssl_mode, NULL, &smtp_set);
+	smtp_conn = smtp_client_connection_create(
+		smtp_client, subm->event, SMTP_PROTOCOL_SMTP,
+		host, port, ssl_mode, NULL, &smtp_set);
 
 	smtp_trans = smtp_client_transaction_create(smtp_conn,
 		subm->mail_from, NULL, 0, smtp_submit_send_host_finished, subm);

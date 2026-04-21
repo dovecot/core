@@ -39,6 +39,7 @@ extern const char *const smtp_client_connection_state_names[];
 
 struct smtp_client_connection *
 smtp_client_connection_create(struct smtp_client *client,
+			      struct event *event_parent,
 			      enum smtp_protocol protocol,
 			      const char *host, in_port_t port,
 			      enum smtp_client_connection_ssl_mode ssl_mode,
@@ -46,6 +47,7 @@ smtp_client_connection_create(struct smtp_client *client,
 			      const struct smtp_client_settings *set);
 struct smtp_client_connection *
 smtp_client_connection_create_ip(struct smtp_client *client,
+				 struct event *event_parent,
 				 enum smtp_protocol protocol,
 				 const struct ip_addr *ip, in_port_t port,
 				 const char *hostname,
@@ -54,6 +56,7 @@ smtp_client_connection_create_ip(struct smtp_client *client,
 				 const struct smtp_client_settings *set);
 struct smtp_client_connection *
 smtp_client_connection_create_unix(struct smtp_client *client,
+				   struct event *event_parent,
 				   enum smtp_protocol protocol,
 				   const char *path,
 				   const struct smtp_client_parameters *params,

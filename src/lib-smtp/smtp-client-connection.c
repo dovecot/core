@@ -2171,7 +2171,8 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 }
 
 static struct smtp_client_connection *
-smtp_client_connection_do_create(struct smtp_client *client, const char *name,
+smtp_client_connection_do_create(struct smtp_client *client,
+				 struct event *event_parent, const char *name,
 				 enum smtp_protocol protocol,
 				 const struct smtp_client_parameters *params,
 				 const struct smtp_client_settings *set)
@@ -2261,17 +2262,19 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 	conn->state_pool = pool_alloconly_create(
 		"smtp client connection state", 512);
 
-	if (set != NULL && set->event_parent != NULL)
-		conn_event = event_create(set->event_parent);
-	else
+	if (event_parent == NULL)
 		conn_event = event_create(client->event);
+	else {
+		conn_event = event_create(event_parent);
+		event_add_category(conn_event, &event_category_smtp_client);
+	}
+
 	event_set_append_log_prefix(
 		conn_event,
 		t_strdup_printf("%s-client: ",
 				smtp_protocol_name(conn->protocol)));
 	event_add_str(conn_event, "protocol",
 		      smtp_protocol_name(conn->protocol));
-	event_add_category(conn_event, &event_category_smtp_client);
 
 	conn->conn.event_parent = conn_event;
 	connection_init(conn->client->conn_list, &conn->conn, name);
@@ -2283,6 +2286,7 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 
 struct smtp_client_connection *
 smtp_client_connection_create_ip(struct smtp_client *client,
+				 struct event *event_parent,
 				 enum smtp_protocol protocol,
 				 const struct ip_addr *ip, in_port_t port,
 				 const char *hostname,
@@ -2322,8 +2326,8 @@ smtp_client_connection_create_ip(struct smtp_client *client,
 	else
 		i_unreached();
 
-	conn = smtp_client_connection_do_create(client, name, protocol,
-						params, set);
+	conn = smtp_client_connection_do_create(client, event_parent,
+						name, protocol, params, set);
 	conn->host = p_strdup(conn->pool, hostname);
 	conn->port = port;
 	conn->ssl_mode = ssl_mode;
@@ -2347,19 +2351,21 @@ smtp_client_connection_create_ip(struct smtp_client *client,
 
 struct smtp_client_connection *
 smtp_client_connection_create(struct smtp_client *client,
+			      struct event *event_parent,
 			      enum smtp_protocol protocol,
 			      const char *host, in_port_t port,
 			      enum smtp_client_connection_ssl_mode ssl_mode,
 			      const struct smtp_client_parameters *params,
 			      const struct smtp_client_settings *set)
 {
-	return smtp_client_connection_create_ip(client, protocol,
-						NULL, port, host,
+	return smtp_client_connection_create_ip(client, event_parent,
+						protocol, NULL, port, host,
 						ssl_mode, params, set);
 }
 
 struct smtp_client_connection *
 smtp_client_connection_create_unix(struct smtp_client *client,
+				   struct event *event_parent,
 				   enum smtp_protocol protocol,
 				   const char *path,
 				   const struct smtp_client_parameters *params,
@@ -2368,8 +2374,8 @@ smtp_client_connection_create_unix(struct smtp_client *client,
 	struct smtp_client_connection *conn;
 	const char *name = t_strconcat("unix:", path, NULL);
 
-	conn = smtp_client_connection_do_create(client, name, protocol,
-						params, set);
+	conn = smtp_client_connection_do_create(client, event_parent,
+						name, protocol, params, set);
 	conn->path = p_strdup(conn->pool, path);
 
 	e_debug(conn->event, "Connection created");
