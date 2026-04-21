@@ -67,6 +67,7 @@ install_headers(
   'smtp-client-command.h',
   'smtp-client-transaction.h',
   'smtp-client-connection.h',
+  'smtp-client-settings.h',
   'smtp-client-private.h',
   'smtp-client.h',
   'smtp-server-private.h',
