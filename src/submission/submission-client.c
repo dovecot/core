@@ -137,9 +137,6 @@ client_create_backend_default(struct client *client,
 	relay_set.protocol = SMTP_PROTOCOL_SMTP;
 	relay_set.host = set->submission_relay_host;
 	relay_set.port = set->submission_relay_port;
-	relay_set.user = set->submission_relay_user;
-	relay_set.master_user = set->submission_relay_master_user;
-	relay_set.password = set->submission_relay_password;
 	relay_set.rawlog_dir = set->submission_relay_rawlog_dir;
 	relay_set.max_idle_time = set->submission_relay_max_idle_time;
 	relay_set.connect_timeout_msecs = set->submission_relay_connect_timeout;

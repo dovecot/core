@@ -78,13 +78,6 @@ struct smtp_client_settings {
 	struct ip_addr my_ip;
 	const char *my_hostname;
 
-	const char *master_user;
-	const char *username;
-	const char *password;
-	/* Space-separated list of SASL mechanisms to try (in the specified
-	   order). The default is to use only SASL PLAIN. */
-	const char *sasl_mechanisms;
-
 	const char *rawlog_dir;
 
 	/* Timeout for SMTP commands. Reset every time more data is being

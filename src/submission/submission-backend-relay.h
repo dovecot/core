@@ -16,9 +16,6 @@ struct submision_backend_relay_settings {
 	const char *host;
 	in_port_t port;
 
-	const char *user, *master_user;
-	const char *password;
-
 	enum smtp_client_connection_ssl_mode ssl_mode;
 
 	const char *rawlog_dir;

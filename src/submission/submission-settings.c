@@ -86,10 +86,6 @@ static const struct setting_define submission_setting_defines[] = {
 	DEF(IN_PORT, submission_relay_port),
 	DEF(BOOL, submission_relay_trusted),
 
-	DEF(STR, submission_relay_user),
-	DEF(STR, submission_relay_master_user),
-	DEF(STR, submission_relay_password),
-
 	DEF(ENUM, submission_relay_ssl),
 
 	DEF(PATH_DIR, submission_relay_rawlog_dir),
@@ -127,10 +123,6 @@ static const struct submission_settings submission_default_settings = {
 	.submission_relay_host = "",
 	.submission_relay_port = 25,
 	.submission_relay_trusted = FALSE,
-
-	.submission_relay_user = "",
-	.submission_relay_master_user = "",
-	.submission_relay_password = "",
 
 	.submission_relay_ssl = "no:smtps:starttls",
 

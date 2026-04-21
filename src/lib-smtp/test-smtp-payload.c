@@ -838,19 +838,10 @@ static struct test_client_connection *test_client_connection_get(void)
 	}
 
 	if (test_conns[i].conn == NULL) {
-		struct smtp_client_settings set;
-
-		set = *test_client_set;
-		if (tset.sasl_mech != NULL) {
-			i_assert(tset.authid != NULL);
-			set.username = tset.authid;
-			set.password = tset.password;
-		}
-
 		test_conns[i].conn = smtp_client_connection_create(
-			smtp_client, client_event, client_protocol,
+			smtp_client, NULL, client_protocol,
 			net_ip2addr(&bind_ip), bind_port, ssl_mode,
-			NULL, &set);
+			NULL, test_client_set);
 	}
 	return &test_conns[i];
 }
@@ -1122,10 +1113,29 @@ test_client(enum smtp_protocol protocol,
 			test_client_progress_timeout, NULL);
 	}
 
+	struct event *event = event_create(client_event);
+	if (tset.sasl_mech != NULL) {
+		settings_instance_free(&set_instance);
+		set_instance = settings_instance_new(set_root);
+
+		/* initialize auth client settings */
+		settings_override(set_instance,
+				  "client_auth_mechanism", tset.sasl_mech,
+				  SETTINGS_OVERRIDE_TYPE_CODE);
+		settings_override(set_instance,
+				  "client_auth_authid", tset.authid,
+				  SETTINGS_OVERRIDE_TYPE_CODE);
+		settings_override(set_instance,
+				  "client_auth_password", tset.password,
+				  SETTINGS_OVERRIDE_TYPE_CODE);
+		event_set_ptr(event, SETTINGS_EVENT_INSTANCE, set_instance);
+	}
+
 	/* create client */
 	test_client_set = client_set;
-	smtp_client = smtp_client_init(client_event);
+	smtp_client = smtp_client_init(event);
 	smtp_client_set_ssl_settings(smtp_client, ssl_client_set);
+	event_unref(&event);
 
 	/* start querying server */
 	client_files_first = client_files_last = 0;
@@ -1312,7 +1322,6 @@ test_run_scenarios(
 	smtp_client_set.my_hostname = "localhost";
 	smtp_client_set.command_timeout_msecs = CLIENT_PROGRESS_TIMEOUT_MSECS;
 	smtp_client_set.connect_timeout_msecs = CLIENT_PROGRESS_TIMEOUT_MSECS;
-	smtp_client_set.sasl_mechanisms = tset.sasl_mech;
 
 	if (small_socket_buffers) {
 		smtp_client_set.socket_send_buffer_size = 4096;

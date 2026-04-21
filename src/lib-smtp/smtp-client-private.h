@@ -233,6 +233,7 @@ struct smtp_client_connection {
 
 	bool host_is_ip:1;
 	bool old_smtp:1;
+	bool no_authentication:1;
 	bool authenticated:1;
 	bool xclient_sent:1;
 	bool xclient_rejected:1;

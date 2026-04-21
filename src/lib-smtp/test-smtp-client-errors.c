@@ -3236,6 +3236,7 @@ struct _authentication_peer {
 	struct _authentication *context;
 	unsigned int index;
 
+	struct settings_instance *set_instance;
 	struct smtp_client_connection *conn;
 	struct smtp_client_transaction *trans;
 };
@@ -3368,6 +3369,7 @@ test_client_authentication_finished(
 	}
 
 	pctx->trans = NULL;
+	settings_instance_free(&pctx->set_instance);
 	i_free(pctx);
 }
 
@@ -3377,7 +3379,6 @@ test_client_authentication_submit(struct _authentication *ctx,
 				  unsigned int index)
 {
 	struct _authentication_peer *pctx;
-	struct smtp_client_settings smtp_set;
 	static const char *message =
 		"From: stephan@example.com\r\n"
 		"To: timo@example.com\r\n"
@@ -3385,17 +3386,18 @@ test_client_authentication_submit(struct _authentication *ctx,
 		"\r\n"
 		"Frop!\r\n";
 	struct istream *input;
+	struct event *event;
+	const char *sasl_mechanism = "PLAIN", *authid, *password = NULL;
 
 	pctx = i_new(struct _authentication_peer, 1);
 	pctx->context = ctx;
 	pctx->index = index;
+	pctx->set_instance = settings_instance_new(set_root);
 
-	smtp_set = *client_set;
-	smtp_set.username = "peter.wolfsen";
-
+	authid = "peter.wolfsen";
 	switch (index) {
 	case 3: /* Much too large for initial response */
-		smtp_set.password =
+		password =
 			"0123456789abcdef0123456789abcdef"
 			"0123456789abcdef0123456789abcdef"
 			"0123456789abcdef0123456789abcdef"
@@ -3415,7 +3417,7 @@ test_client_authentication_submit(struct _authentication *ctx,
 			"0123456789abcdef0123456789abcdef";
 		break;
 	case 4: /* Just small enough for initial response */
-		smtp_set.password =
+		password =
 			"0123456789abcdef0123456789abcdef"
 			"0123456789abcdef0123456789abcdef"
 			"0123456789abcdef0123456789abcdef"
@@ -3430,7 +3432,7 @@ test_client_authentication_submit(struct _authentication *ctx,
 			"01234";
 		break;
 	case 5: /* Just too large for initial response */
-		smtp_set.password =
+		password =
 			"0123456789abcdef0123456789abcdef"
 			"0123456789abcdef0123456789abcdef"
 			"0123456789abcdef0123456789abcdef"
@@ -3445,18 +3447,34 @@ test_client_authentication_submit(struct _authentication *ctx,
 			"012345";
 		break;
 	case 6: /* Server succeeds without the CRAM-MD5 exchange */
-		smtp_set.sasl_mechanisms = "CRAM-MD5";
-		smtp_set.password = "crybaby";
+		sasl_mechanism = "CRAM-MD5";
+		password = "crybaby";
 		break;
 	default:
-		smtp_set.password = "crybaby";
+		password = "crybaby";
 		break;
 	}
 
+	/* initialize auth client settings */
+	event = event_create(client_event);
+	settings_override(pctx->set_instance,
+			  "client_auth_authid", authid,
+			  SETTINGS_OVERRIDE_TYPE_CODE);
+	settings_override(pctx->set_instance,
+			  "client_auth_password", password,
+			  SETTINGS_OVERRIDE_TYPE_CODE);
+	settings_override(pctx->set_instance, "client_auth", sasl_mechanism,
+			  SETTINGS_OVERRIDE_TYPE_CODE);
+	settings_override(pctx->set_instance,
+			  t_strdup_printf("client_auth/%s/mechanism",
+					  sasl_mechanism), sasl_mechanism,
+			  SETTINGS_OVERRIDE_TYPE_CODE);
+	event_set_ptr(event, SETTINGS_EVENT_INSTANCE, pctx->set_instance);
+
 	pctx->conn = smtp_client_connection_create(
-		smtp_client, client_event, SMTP_PROTOCOL_SMTP,
+		smtp_client, event, SMTP_PROTOCOL_SMTP,
 		net_ip2addr(&bind_ip), bind_ports[index],
-		SMTP_CLIENT_SSL_MODE_NONE, NULL, &smtp_set);
+		SMTP_CLIENT_SSL_MODE_NONE, NULL, client_set);
 	pctx->trans = smtp_client_transaction_create(
 		pctx->conn, &((struct smtp_address){
 			.localpart = "sender",
@@ -3484,6 +3502,7 @@ test_client_authentication_submit(struct _authentication *ctx,
 		pctx->trans, input,
 		test_client_authentication_data_cb, pctx);
 	i_stream_unref(&input);
+	event_unref(&event);
 }
 
 static bool
@@ -4168,11 +4187,17 @@ static void test_server_channel_binding(unsigned int index)
 
 /* client */
 
+struct _channel_binding_peer {
+	struct smtp_client_connection *conn;
+	struct settings_instance *set_instance;
+};
+
 static void
 test_client_channel_binding_login_cb(const struct smtp_reply *reply,
 				     void *context)
 {
-	struct smtp_client_connection *conn = context;
+	struct _channel_binding_peer *pctx = context;
+	struct smtp_client_connection *conn = pctx->conn;
 
 	if (debug)
 		i_debug("LOGIN REPLY: %s", smtp_reply_log(reply));
@@ -4180,17 +4205,25 @@ test_client_channel_binding_login_cb(const struct smtp_reply *reply,
 	/* the server replies only if the client asked for channel binding */
 	test_assert_cmp(reply->status, ==, 535);
 	smtp_client_connection_unref(&conn);
+
+	settings_instance_free(&pctx->set_instance);
+	i_free(pctx);
 	io_loop_stop(ioloop);
 }
 
 static bool
 test_client_channel_binding(const struct smtp_client_settings *client_set)
 {
+	struct _channel_binding_peer *pctx;
 	struct smtp_client_connection *conn;
 	struct smtp_client_settings client_set_new = *client_set;
-	struct ssl_iostream_settings *ssl_client_set; 
+	struct ssl_iostream_settings *ssl_client_set;
+	struct event *event;
 
 	test_expect_errors(1);
+
+	pctx = i_new(struct _channel_binding_peer, 1);
+	pctx->set_instance = settings_instance_new(set_root);
 
 	/* the test server's certificate isn't valid for its address */
 	ssl_client_set = ssl_iostream_test_settings_client();
@@ -4199,18 +4232,30 @@ test_client_channel_binding(const struct smtp_client_settings *client_set)
 	smtp_client_set_ssl_settings(smtp_client, ssl_client_set);
 	settings_free(ssl_client_set);
 
-	i_zero(&client_set_new);
-	client_set_new.my_hostname = client_set->my_hostname;
-	client_set_new.username = "peter.wolfsen";
-	client_set_new.password = "crybaby";
-	client_set_new.sasl_mechanisms = "SCRAM-SHA-256-PLUS";
+	/* initialize auth client settings */
+	event = event_create(client_event);
+	settings_override(pctx->set_instance,
+			  "client_auth_authid", "peter.wolfsen",
+			  SETTINGS_OVERRIDE_TYPE_CODE);
+	settings_override(pctx->set_instance,
+			  "client_auth_password", "crybaby",
+			  SETTINGS_OVERRIDE_TYPE_CODE);
+	settings_override(pctx->set_instance,
+			  "client_auth", "SCRAM-SHA-256-PLUS",
+			  SETTINGS_OVERRIDE_TYPE_CODE);
+	settings_override(pctx->set_instance,
+			  "client_auth/SCRAM-SHA-256-PLUS/mechanism",
+			  "SCRAM-SHA-256-PLUS",
+			  SETTINGS_OVERRIDE_TYPE_CODE);
+	event_set_ptr(event, SETTINGS_EVENT_INSTANCE, pctx->set_instance);
 
-	conn = smtp_client_connection_create(
-		smtp_client, client_event, SMTP_PROTOCOL_SMTP, "example.com",
+	conn = pctx->conn = smtp_client_connection_create(
+		smtp_client, event, SMTP_PROTOCOL_SMTP, "example.com",
 		bind_ports[0], SMTP_CLIENT_SSL_MODE_IMMEDIATE,
 		NULL, &client_set_new);
 	smtp_client_connection_connect(
-		conn, test_client_channel_binding_login_cb, conn);
+		conn, test_client_channel_binding_login_cb, pctx);
+	event_unref(&event);
 	return TRUE;
 }
 
