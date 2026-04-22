@@ -511,6 +511,9 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 
 	sasl_server_instance_unref(&server_inst);
 	sasl_server_deinit(&server);
+#ifdef HAVE_GSSAPI
+	gss_dummy_deinit();
+#endif
 	test_end();
 }
 
