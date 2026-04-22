@@ -260,6 +260,16 @@ static void proxy_rawlog_deinit(struct login_proxy *proxy)
 	proxy->server_output = proxy->pre_rawlog_output;
 }
 
+static void proxy_multiplex_deinit(struct login_proxy *proxy)
+{
+	i_assert(proxy->server_input == proxy->multiplex_input);
+	i_stream_unref(&proxy->side_channel_input);
+	i_stream_unref(&proxy->server_input);
+	proxy->server_input = proxy->multiplex_orig_input;
+	proxy->multiplex_input = NULL;
+	proxy->multiplex_orig_input = NULL;
+}
+
 static void proxy_plain_connected(struct login_proxy *proxy)
 {
 	proxy->server_input =
@@ -1228,11 +1238,7 @@ void login_proxy_detach(struct login_proxy *proxy)
 		/* both sides of the proxy want multiplexing and there are no
 		   plugins hooking into the ostream. We can just step out of
 		   the way and let the two sides multiplex directly. */
-		i_stream_unref(&proxy->side_channel_input);
-		i_stream_unref(&proxy->server_input);
-		proxy->server_input = proxy->multiplex_orig_input;
-		proxy->multiplex_input = NULL;
-		proxy->multiplex_orig_input = NULL;
+		proxy_multiplex_deinit(proxy);
 
 		o_stream_unref(&proxy->client_output);
 		proxy->client_output = client->multiplex_orig_output;
@@ -1296,12 +1302,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 
 	if (proxy->multiplex_orig_input != NULL) {
 		/* restart multiplexing after TLS iostreams are set up */
-		i_assert(proxy->server_input == proxy->multiplex_input);
-		i_stream_unref(&proxy->server_input);
-		proxy->server_input = proxy->multiplex_orig_input;
-		i_stream_unref(&proxy->side_channel_input);
-		proxy->multiplex_input = NULL;
-		proxy->multiplex_orig_input = NULL;
+		proxy_multiplex_deinit(proxy);
 		add_multiplex_istream = TRUE;
 	}
 	const struct ssl_iostream_client_autocreate_parameters parameters = {
