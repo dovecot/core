@@ -27,6 +27,8 @@ bool iostream_fd_unref(struct iostream_fd **_ref)
 	i_assert(ref != NULL);
 	i_assert(ref->refcount > 0);
 
+	*_ref = NULL;
+
 	if (--ref->refcount > 0)
 		return TRUE;
 	i_free(ref);
