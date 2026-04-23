@@ -231,6 +231,7 @@ master_service_haproxy_parse_ssl_tlv(struct master_service_haproxy_conn *hpconn,
 		 (PP2_CLIENT_CERT_CONN | PP2_CLIENT_CERT_SESS)) != 0;
 	bool client_cert_verified =
 		client_cert_present && ssl_kv->verify == 0;
+	hpconn->conn.haproxy.ssl_client_cert = client_cert_verified;
 
 	/* try parse some more */
 	for(size_t i = 0; i < ssl_kv->len;) {
