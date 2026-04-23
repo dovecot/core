@@ -165,6 +165,11 @@ struct quota_transaction_context {
 	bool auto_updating:1;
 	/* Quota doesn't need to be updated within this transaction. */
 	bool no_quota_updates:1;
+	/* TRUE if this transaction is for an IMAP MOVE operation. Used by
+	   quota_try_alloc() to avoid double-counting the expunged source
+	   mail: quota_mail_expunge() already accounts for it in the source
+	   transaction via quota_free_bytes(). */
+	bool moving:1;
 };
 
 void quota_add_user_namespace(struct quota *quota, const char *root_name,
