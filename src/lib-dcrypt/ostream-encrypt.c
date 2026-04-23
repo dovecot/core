@@ -300,7 +300,7 @@ o_stream_encrypt_key_for_pubkey_v2(struct encrypt_ostream *stream,
 		struct dcrypt_context_symmetric *dctx;
 		if (!dcrypt_ctx_sym_create(calg, DCRYPT_MODE_ENCRYPT,
 					   &dctx, &error)) {
-			buffer_clear_safe(temp_key);
+			buffer_clear_safe(secret);
 			io_stream_set_error(&stream->ostream.iostream,
 					    "Cannot perform key encryption: %s",
 					    error);
