@@ -1994,8 +1994,8 @@ static void test_xd_keypair(struct dcrypt_keypair *pair)
 	/* perform ecdh */
 	buffer_t *R = t_buffer_create(64), *S = t_buffer_create(64);
 	buffer_t *S2 = t_buffer_create(64);
-	test_assert(dcrypt_ecdh_derive_secret_peer(pair->pub, R, S, &error));
-	test_assert(dcrypt_ecdh_derive_secret_local(pair->priv, R, S2, &error));
+	test_assert(dcrypt_derive_secret_peer(pair->pub, R, S, &error));
+	test_assert(dcrypt_derive_secret_local(pair->priv, R, S2, &error));
 	test_assert(S->used > 0);
 	test_assert(R->used > 0);
 	test_assert(buffer_cmp(S, S2));

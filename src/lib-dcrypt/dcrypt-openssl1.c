@@ -4385,8 +4385,8 @@ static struct dcrypt_vfs dcrypt_openssl_vfs = {
 	.ctx_hmac_init = dcrypt_openssl_ctx_hmac_init,
 	.ctx_hmac_update = dcrypt_openssl_ctx_hmac_update,
 	.ctx_hmac_final = dcrypt_openssl_ctx_hmac_final,
-	.ecdh_derive_secret_local = dcrypt_openssl_ecdh_derive_secret_local,
-	.ecdh_derive_secret_peer = dcrypt_openssl_ecdh_derive_secret_peer,
+	.derive_secret_local = dcrypt_openssl_ecdh_derive_secret_local,
+	.derive_secret_peer = dcrypt_openssl_ecdh_derive_secret_peer,
 	.pbkdf2 = dcrypt_openssl_pbkdf2,
 	.generate_keypair = dcrypt_openssl_generate_keypair,
 	.load_private_key = dcrypt_openssl_load_private_key,
@@ -4425,7 +4425,7 @@ static struct dcrypt_vfs dcrypt_openssl_vfs = {
 	.key_set_usage_private = dcrypt_openssl_key_set_usage_private,
 	.sign = dcrypt_openssl_sign,
 	.verify = dcrypt_openssl_verify,
-	.ecdh_derive_secret = dcrypt_openssl_ecdh_derive_secret,
+	.derive_secret = dcrypt_openssl_ecdh_derive_secret,
 };
 
 void dcrypt_openssl_init(struct module *module ATTR_UNUSED)

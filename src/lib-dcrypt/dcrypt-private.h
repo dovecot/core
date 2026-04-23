@@ -86,12 +86,12 @@ struct dcrypt_vfs {
 	bool (*ctx_hmac_final)(struct dcrypt_context_hmac *ctx,
 			       buffer_t *result, const char **error_r);
 
-	bool (*ecdh_derive_secret_local)(struct dcrypt_private_key *local_key,
-					 buffer_t *R, buffer_t *S,
-					 const char **error_r);
-	bool (*ecdh_derive_secret_peer)(struct dcrypt_public_key *peer_key,
-					buffer_t *R, buffer_t *S,
-					const char **error_r);
+	bool (*derive_secret_local)(struct dcrypt_private_key *local_key,
+				    buffer_t *R, buffer_t *S,
+				    const char **error_r);
+	bool (*derive_secret_peer)(struct dcrypt_public_key *peer_key,
+				   buffer_t *R, buffer_t *S,
+				   const char **error_r);
 	bool (*pbkdf2)(const unsigned char *password, size_t password_len,
 		       const unsigned char *salt, size_t salt_len,
 		       const char *hash, unsigned int rounds,
@@ -202,9 +202,9 @@ struct dcrypt_vfs {
 		       const unsigned char *signature, size_t signature_len,
 		       bool *valid_r, enum dcrypt_padding padding,
 		       const char **error_r);
-	bool (*ecdh_derive_secret)(struct dcrypt_private_key *priv_key,
-				   struct dcrypt_public_key *pub_key,
-				   buffer_t *shared_secret, const char **error_r);
+	bool (*derive_secret)(struct dcrypt_private_key *priv_key,
+			      struct dcrypt_public_key *pub_key,
+			      buffer_t *shared_secret, const char **error_r);
 };
 
 void dcrypt_set_vfs(struct dcrypt_vfs *vfs);

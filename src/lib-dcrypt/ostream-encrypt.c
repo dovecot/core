@@ -168,10 +168,10 @@ o_stream_encrypt_keydata_create_v1(struct encrypt_ostream *stream)
 	encrypted_key = t_buffer_create(256);
 	secret = t_buffer_create(256);
 
-	if (!dcrypt_ecdh_derive_secret_peer(stream->pub, ephemeral_key,
-					    secret, &error)) {
+	if (!dcrypt_derive_secret_peer(stream->pub, ephemeral_key,
+				       secret, &error)) {
 		io_stream_set_error(&stream->ostream.iostream,
-				    "Cannot perform ECDH: %s", error);
+				    "Cannot perform derivation: %s", error);
 		return -1;
 	}
 
@@ -290,10 +290,10 @@ o_stream_encrypt_key_for_pubkey_v2(struct encrypt_ostream *stream,
 		buffer_t *secret = t_buffer_create(256);
 
 		/* derive ephemeral key and shared secret */
-		if (!dcrypt_ecdh_derive_secret_peer(pubkey, ephemeral_key,
-						    secret, &error)) {
+		if (!dcrypt_derive_secret_peer(pubkey, ephemeral_key,
+					       secret, &error)) {
 			io_stream_set_error(&stream->ostream.iostream,
-					    "Cannot perform ECDH: %s", error);
+					    "Cannot perform derivation: %s", error);
 			return -1;
 		}
 

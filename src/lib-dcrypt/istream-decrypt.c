@@ -193,10 +193,10 @@ i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 	}
 
 	/* derive shared secret */
-	if (!dcrypt_ecdh_derive_secret_local(stream->priv_key,
+	if (!dcrypt_derive_secret_local(stream->priv_key,
 		&ephemeral_key, secret, &error)) {
 		io_stream_set_error(&stream->istream.iostream,
-				    "Cannot perform ECDH: %s", error);
+				    "Cannot perform derivation: %s", error);
 		return -1;
 	}
 
@@ -454,8 +454,8 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 		buffer_t peer_key;
 		buffer_create_from_const_data(&peer_key,
 			ephemeral_key, ep_key_len);
-		if (!dcrypt_ecdh_derive_secret_local(stream->priv_key,
-			&peer_key, secret, &error)) {
+		if (!dcrypt_derive_secret_local(stream->priv_key,
+						&peer_key, secret, &error)) {
 			io_stream_set_error(&stream->istream.iostream,
 				"Key decryption error: corrupted header");
 			return -1;
