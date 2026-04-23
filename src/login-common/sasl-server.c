@@ -123,8 +123,9 @@ client_get_auth_flags(struct client *client)
 {
         enum auth_request_flags auth_flags = 0;
 
-	if (client->ssl_iostream != NULL &&
-	    ssl_iostream_has_valid_cert(client->ssl_iostream))
+	if ((client->ssl_iostream != NULL &&
+	     ssl_iostream_has_valid_cert(client->ssl_iostream)) ||
+	    client->haproxy_ssl_client_cert)
 		auth_flags |= AUTH_REQUEST_FLAG_VALID_CLIENT_CERT;
 	if (client->connection_tls_secured)
 		auth_flags |= AUTH_REQUEST_FLAG_CONN_SECURED_TLS;

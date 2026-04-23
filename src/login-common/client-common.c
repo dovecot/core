@@ -338,6 +338,7 @@ int client_alloc(int fd, const struct master_service_connection *conn,
 		   TLS secured anyway. */
 		client->connection_tls_secured = conn->haproxy.ssl;
 		client->haproxy_terminated_tls = conn->haproxy.ssl;
+		client->haproxy_ssl_client_cert = conn->haproxy.ssl_client_cert;
 		/* Start by assuming this is the end client connection.
 		   Later on this can be overwritten. */
 		client->end_client_tls_secured = conn->haproxy.ssl;
