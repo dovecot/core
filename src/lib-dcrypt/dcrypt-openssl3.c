@@ -1421,18 +1421,24 @@ dcrypt_openssl_cipher_key_dovecot_v2(const char *cipher,
 				     const char **error_r)
 {
 	struct dcrypt_context_symmetric *dctx;
-	bool res;
+	unsigned char tag[DCRYPT_AEAD_TAG_LEN];
+	bool res, aead;
 
 	if (!dcrypt_openssl_ctx_sym_create(cipher, mode, &dctx, error_r))
 		return FALSE;
+	unsigned long flags = EVP_CIPHER_get_flags(dctx->cipher);
+	aead = (flags & EVP_CIPH_FLAG_AEAD_CIPHER) != 0;
 
 	/* generate encryption key/iv based on secret/salt */
-	buffer_t *key_data = t_buffer_create(128);
+	size_t key_data_len = dcrypt_openssl_ctx_sym_get_key_length(dctx) +
+			      dcrypt_openssl_ctx_sym_get_iv_length(dctx);
+	if (aead && mode == DCRYPT_MODE_ENCRYPT)
+		key_data_len += sizeof(tag); /* TAG SIZE */
+	buffer_t *key_data = t_buffer_create(key_data_len);
+
 	res = dcrypt_openssl_pbkdf2(secret->data, secret->used,
 		salt->data, salt->used, digalgo, rounds, key_data,
-		dcrypt_openssl_ctx_sym_get_key_length(dctx) +
-			dcrypt_openssl_ctx_sym_get_iv_length(dctx),
-		error_r);
+		key_data_len, error_r);
 
 	if (!res) {
 		dcrypt_openssl_ctx_sym_destroy(&dctx);
@@ -1449,15 +1455,38 @@ dcrypt_openssl_cipher_key_dovecot_v2(const char *cipher,
 		kd + dcrypt_openssl_ctx_sym_get_key_length(dctx),
 		dcrypt_openssl_ctx_sym_get_iv_length(dctx));
 
-	if (!dcrypt_openssl_ctx_sym_init(dctx, error_r) ||
+	if (!dcrypt_openssl_ctx_sym_init(dctx, error_r))
+		res = FALSE;
+
+	size_t input_size = input->used;
+
+	if (res && aead && mode == DCRYPT_MODE_DECRYPT) {
+		if (input_size < sizeof(tag)) {
+			*error_r = "Corrupted data";
+			res = FALSE;
+		} else {
+			/* take tag from end of the input */
+			memcpy(tag, CONST_PTR_OFFSET(input->data,
+					input_size - sizeof(tag)), sizeof(tag));
+			input_size -= sizeof(tag);
+		}
+		dcrypt_openssl_ctx_sym_set_tag(dctx, tag, sizeof(tag));
+	} else if (res && aead && mode == DCRYPT_MODE_ENCRYPT) {
+		size_t pos = dcrypt_openssl_ctx_sym_get_key_length(dctx) +
+			dcrypt_openssl_ctx_sym_get_iv_length(dctx);
+		dcrypt_openssl_ctx_sym_set_aad(dctx, kd + pos, DCRYPT_AEAD_TAG_LEN);
+	}
+
+	if (!res ||
 	    !dcrypt_openssl_ctx_sym_update(dctx, input->data,
-					   input->used, tmp, error_r) ||
+					   input_size, tmp, error_r) ||
 	    !dcrypt_openssl_ctx_sym_final(dctx, tmp, error_r)) {
 		res = FALSE;
 	} else {
 		/* provide result if succeeded */
+		if (aead && mode == DCRYPT_MODE_ENCRYPT)
+			dcrypt_openssl_ctx_sym_get_tag(dctx, tmp);
 		buffer_append_buf(result_r, tmp, 0, SIZE_MAX);
-		res = TRUE;
 	}
 	/* and ensure no data leaks */
 	buffer_clear_safe(tmp);

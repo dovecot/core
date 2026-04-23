@@ -2,6 +2,8 @@
 #define DCRYPT_H 1
 #include "array.h"
 
+#define DCRYPT_AEAD_TAG_LEN 16
+
 struct dcrypt_context_symmetric;
 struct dcrypt_context_hmac;
 struct dcrypt_public_key;

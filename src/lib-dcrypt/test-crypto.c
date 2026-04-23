@@ -595,6 +595,54 @@ static void test_load_v2_public_key(void)
 	test_end();
 }
 
+static void
+test_store_load_v2_key_encrypted_algo(const char *algo, struct dcrypt_keypair *pair)
+{
+	bool ok;
+	const char *error;
+	string_t *dest = t_str_new(128);
+	/* store it encrypted without aead */
+	ok = dcrypt_key_store_private(pair->priv, DCRYPT_FORMAT_DOVECOT,
+				      algo, dest, "password", NULL,
+				      &error);
+	if (!ok) {
+		i_error("%s", error);
+	} else {
+		struct dcrypt_private_key *priv;
+		/* ok, and try load it now */
+		ok = dcrypt_key_load_private(&priv, str_c(dest), "password",
+					     NULL, &error);
+		if (!ok)
+			i_error("%s", error);
+		else {
+			dcrypt_key_unref_private(&pair->priv);
+			pair->priv = priv;
+		}
+	}
+}
+
+static void test_store_load_v2_key_encrypted(void)
+{
+	test_begin("test_store_load_v2_encrypted_key");
+
+	/* generate keypair */
+	struct dcrypt_keypair pair;
+	const char *error;
+
+	bool ok = dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "prime256v1",
+					  &error);
+	if (!ok)
+		i_fatal("%s", error);
+
+	test_store_load_v2_key_encrypted_algo("aes-256-ctr", &pair);
+	test_store_load_v2_key_encrypted_algo("aes-256-gcm", &pair);
+	test_store_load_v2_key_encrypted_algo("chacha20-poly1305", &pair);
+
+	dcrypt_keypair_unref(&pair);
+
+	test_end();
+}
+
 static void test_get_info_v2_key(void)
 {
 	test_begin("test_get_info_v2_key");
@@ -2025,6 +2073,9 @@ static void test_xd_keypair(struct dcrypt_keypair *pair)
 	test_assert(ret == TRUE);
 
 	dcrypt_key_unref_public(&pub2);
+
+	test_store_load_v2_key_encrypted_algo("aes-256-gcm", pair);
+
 	dcrypt_keypair_unref(pair);
 	dcrypt_keypair_unref(&pair2);
 }
@@ -2145,6 +2196,11 @@ static void test_kem_key_load(void)
 	if (!ok)
 		i_error("%s", error);
 
+	/* ensure it works with gcm */
+	test_store_load_v2_key_encrypted_algo("aes-256-gcm", &pair);
+
+	dcrypt_keypair_unref(&pair);
+
 	test_end();
 }
 
@@ -2240,6 +2296,7 @@ int main(void)
 		test_load_v1_public_key,
 		test_load_v2_key,
 		test_load_v2_public_key,
+		test_store_load_v2_key_encrypted,
 		test_get_info_v2_key,
 		test_gen_and_get_info_rsa_pem,
 		test_get_info_rsa_private_key,
