@@ -126,7 +126,7 @@ static int auth_fields_import_prefixed_args(struct auth_fields *fields,
 	for (; *args != NULL; args++) {
 		value = strchr(*args, '=');
 		if (value == NULL) {
-			key = *args;
+			key = *prefix != '\0' ? t_strconcat(prefix, *args, NULL) : *args;
 		} else {
 			key = t_strdup_until(*args, value++);
 			if (*prefix != '\0')
