@@ -60,6 +60,12 @@ libsql_la_SOURCES = \
 	$(driver_sources) \
 	driver-sqlpool.c
 libsql_la_LIBADD = $(SQL_LIBS)
+if !SQL_PLUGINS
+if BUILD_CASSANDRA
+libsql_la_LIBADD += $(SSL_LIBS)
+endif
+endif
+
 
 nodist_libsql_la_SOURCES = sql-drivers-register.c
 
