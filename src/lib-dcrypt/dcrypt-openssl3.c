@@ -2833,6 +2833,10 @@ dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key,
 		obj = OBJ_nid2obj(EVP_PKEY_id(pkey));
 	}
 
+
+	if (obj == NULL)
+		return dcrypt_openssl_error(error_r);
+
 	int enctype = DCRYPT_KEY_ENCRYPTION_TYPE_NONE;
 	int len = OBJ_obj2txt(objtxt, sizeof(objtxt), obj, 1);
 	if (len < 1)
