@@ -1874,7 +1874,7 @@ static void test_sign_verify_ed25519(void)
 
 	ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "ED25519", &error);
 	if (!ret)
-		i_panic("%s", error);
+		i_fatal("%s", error);
 
 	test_assert(dcrypt_sign(pair.priv, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
 		 data, strlen(data), signature, 0, &error));
@@ -1910,7 +1910,7 @@ static void test_static_verify_ed25519(void)
 
 	ret = dcrypt_key_load_public(&pub, key, &error);
 	if (!ret)
-		i_panic("%s", error);
+		i_fatal("%s", error);
 
 	/* verify signature */
 	test_assert(dcrypt_verify(pub, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
@@ -1948,7 +1948,7 @@ static void test_static_verify_ed448(void)
 
 	ret = dcrypt_key_load_public(&pub, key, &error);
 	if (!ret)
-		i_panic("%s", error);
+		i_fatal("%s", error);
 
 	/* verify signature */
 	test_assert(dcrypt_verify(pub, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
@@ -1972,7 +1972,7 @@ static void test_sign_verify_ed448(void)
 
 	ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "ED448", &error);
 	if (!ret)
-		i_panic("%s", error);
+		i_fatal("%s", error);
 
 	test_assert(dcrypt_sign(pair.priv, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
 		 data, strlen(data), signature, 0, &error));
@@ -2036,7 +2036,7 @@ static void test_xd25519_keypair(void)
 	const char *error = NULL;
 
 	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "X25519", &error))
-		i_panic("%s", error);
+		i_fatal("%s", error);
 
 	test_xd_keypair(&pair);
 
@@ -2050,7 +2050,7 @@ static void test_xd448_keypair(void)
 	const char *error = NULL;
 
 	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "X448", &error))
-		i_panic("%s", error);
+		i_fatal("%s", error);
 
 	test_xd_keypair(&pair);
 

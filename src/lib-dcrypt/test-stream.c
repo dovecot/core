@@ -445,7 +445,7 @@ static void test_write_read_v2_x25519(void)
 	bool ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0,
 					   SN_X25519, &error);
 	if (!ret)
-		i_panic("%s", error);
+		i_fatal("%s", error);
 
 	test_write_read_v2_algos(SN_X25519, &pair);
 	dcrypt_keypair_unref(&pair);
@@ -458,7 +458,7 @@ static void test_write_read_v2_x448(void)
 	bool ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0,
 					   SN_X448, &error);
 	if (!ret)
-		i_panic("%s", error);
+		i_fatal("%s", error);
 
 	test_write_read_v2_algos(SN_X448, &pair);
 	dcrypt_keypair_unref(&pair);
