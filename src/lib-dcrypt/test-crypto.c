@@ -73,7 +73,7 @@ static void test_cipher_test_vectors(void)
 		hex_to_binary(vectors[i].pt, pt);
 		hex_to_binary(vectors[i].ct, ct);
 
-		if (!dcrypt_ctx_sym_create("AES-128-CBC", DCRYPT_MODE_ENCRYPT,
+		if (!dcrypt_ctx_sym_create(SN_aes_128_cbc, DCRYPT_MODE_ENCRYPT,
 					   &ctx, &error)) {
 			test_assert_failed("dcrypt_ctx_sym_create",
 					   __FILE__, __LINE__-1);
@@ -95,7 +95,7 @@ static void test_cipher_test_vectors(void)
 
 		dcrypt_ctx_sym_destroy(&ctx);
 
-		if (!dcrypt_ctx_sym_create("AES-128-CBC", DCRYPT_MODE_DECRYPT,
+		if (!dcrypt_ctx_sym_create(SN_aes_128_cbc, DCRYPT_MODE_DECRYPT,
 					   &ctx, NULL)) {
 			test_assert_failed("dcrypt_ctx_sym_create",
 					   __FILE__, __LINE__-1);
@@ -127,7 +127,7 @@ static void test_cipher_aead_test_vectors(void)
 
 	test_begin("test_cipher_aead_test_vectors");
 
-	if (!dcrypt_ctx_sym_create("aes-128-gcm", DCRYPT_MODE_ENCRYPT,
+	if (!dcrypt_ctx_sym_create(SN_aes_128_gcm, DCRYPT_MODE_ENCRYPT,
 				   &ctx, &error)) {
 		test_assert_failed("dcrypt_ctx_sym_create",
 				   __FILE__, __LINE__-1);
@@ -171,7 +171,7 @@ static void test_cipher_aead_test_vectors(void)
 
 	dcrypt_ctx_sym_destroy(&ctx);
 
-	if (!dcrypt_ctx_sym_create("aes-128-gcm", DCRYPT_MODE_DECRYPT,
+	if (!dcrypt_ctx_sym_create(SN_aes_128_gcm, DCRYPT_MODE_DECRYPT,
 				   &ctx, &error)) {
 		test_assert_failed("dcrypt_ctx_sym_create",
 				   __FILE__, __LINE__-1);
@@ -214,7 +214,7 @@ static void test_hmac_test_vectors(void)
 		      "2959098b3ef8c122d9635514ced565fe", res);
 
 	struct dcrypt_context_hmac *hctx;
-	if (!dcrypt_ctx_hmac_create("sha256", &hctx, &error)) {
+	if (!dcrypt_ctx_hmac_create(SN_sha256, &hctx, &error)) {
 		test_assert_failed("dcrypt_ctx_hmac_create",
 				   __FILE__, __LINE__-1);
 	} else {
@@ -365,7 +365,7 @@ static void test_load_v1_key(void)
 		test_assert(dcrypt_key_store_public(pubkey,
 			    DCRYPT_FORMAT_DOVECOT, key_1, NULL));
 		buffer_set_used_size(key_1, 0);
-		dcrypt_key_id_public(pubkey, "sha256", key_1, &error);
+		dcrypt_key_id_public(pubkey, SN_sha256, key_1, &error);
 		test_assert(strcmp("792caad4d38c9eb2134a0cbc844eae38"
 				   "6116de096a0ccafc98479825fc99b6a1",
 				   binary_to_hex(key_1->data, key_1->used))
@@ -516,7 +516,7 @@ static void test_load_v2_key(void)
 	test_assert_idx(dcrypt_key_load_private(&priv,
 		keys[2], "This Is Sparta", NULL, &error), 2);
 	test_assert_idx(dcrypt_key_store_private(priv,
-		DCRYPT_FORMAT_DOVECOT, "aes-256-ctr", tmp,
+		DCRYPT_FORMAT_DOVECOT, SN_aes_256_ctr, tmp,
 		"This Is Sparta", NULL, &error), 2);
 	buffer_set_used_size(tmp, 0);
 	dcrypt_key_unref_private(&priv);
@@ -526,7 +526,7 @@ static void test_load_v2_key(void)
 	test_assert_idx(dcrypt_key_load_private(&priv,
 		keys[3], NULL, priv2, &error), 3);
 	test_assert_idx(dcrypt_key_store_private(priv,
-		DCRYPT_FORMAT_DOVECOT, "ecdh-aes-256-ctr", tmp,
+		DCRYPT_FORMAT_DOVECOT, "ecdh-"SN_aes_256_ctr, tmp,
 		NULL, pub, &error), 3);
 	buffer_set_used_size(tmp, 0);
 	dcrypt_key_unref_private(&priv2);
@@ -629,14 +629,14 @@ static void test_store_load_v2_key_encrypted(void)
 	struct dcrypt_keypair pair;
 	const char *error;
 
-	bool ok = dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "prime256v1",
-					  &error);
+	bool ok = dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0,
+					  SN_X9_62_prime256v1, &error);
 	if (!ok)
 		i_fatal("%s", error);
 
-	test_store_load_v2_key_encrypted_algo("aes-256-ctr", &pair);
-	test_store_load_v2_key_encrypted_algo("aes-256-gcm", &pair);
-	test_store_load_v2_key_encrypted_algo("chacha20-poly1305", &pair);
+	test_store_load_v2_key_encrypted_algo(SN_aes_256_ctr, &pair);
+	test_store_load_v2_key_encrypted_algo(SN_aes_256_gcm, &pair);
+	test_store_load_v2_key_encrypted_algo(SN_chacha20_poly1305, &pair);
 
 	dcrypt_keypair_unref(&pair);
 
@@ -833,17 +833,17 @@ static void test_get_info_key_encrypted(void)
 	struct dcrypt_keypair p1, p2;
 	const char *error = NULL;
 	bool ret = dcrypt_keypair_generate(&p1,
-		DCRYPT_KEY_EC, 0, "secp521r1", &error);
+		DCRYPT_KEY_EC, 0, SN_secp521r1, &error);
 	test_assert(ret == TRUE);
 	ret = dcrypt_keypair_generate(&p2,
-		DCRYPT_KEY_EC, 0, "secp521r1", &error);
+		DCRYPT_KEY_EC, 0, SN_secp521r1, &error);
 	test_assert(ret == TRUE);
 
 	string_t* buf = t_str_new(4096);
 
 	buffer_set_used_size(buf, 0);
 	ret = dcrypt_key_store_private(p1.priv,
-		DCRYPT_FORMAT_DOVECOT, "ecdh-aes-256-ctr", buf,
+		DCRYPT_FORMAT_DOVECOT, "ecdh-"SN_aes_256_ctr, buf,
 		NULL, p2.pub, &error);
 	test_assert(ret == TRUE);
 
@@ -878,12 +878,12 @@ static void test_get_info_pw_encrypted(void)
 	i_zero(&p1);
 	const char *error;
 	bool ret = dcrypt_keypair_generate(&p1,
-		DCRYPT_KEY_EC, 0, "secp521r1", &error);
+		DCRYPT_KEY_EC, 0, SN_secp521r1, &error);
 	test_assert(ret == TRUE);
 
 	string_t* buf = t_str_new(4096);
 	ret = dcrypt_key_store_private(p1.priv,
-		DCRYPT_FORMAT_DOVECOT, "aes-256-ctr", buf, "pw", NULL, &error);
+		DCRYPT_FORMAT_DOVECOT, SN_aes_256_ctr, buf, "pw", NULL, &error);
 	test_assert(ret == TRUE);
 
 	enum dcrypt_key_format format;
@@ -917,12 +917,12 @@ static void test_password_change(void)
 	const char *error = NULL;
 
 	bool ret = dcrypt_keypair_generate(&orig,
-		DCRYPT_KEY_EC, 0, "secp521r1", &error);
+		DCRYPT_KEY_EC, 0, SN_secp521r1, &error);
 	test_assert(ret == TRUE);
 
 	string_t *buf = t_str_new(4096);
 	ret = dcrypt_key_store_private(orig.priv,
-		DCRYPT_FORMAT_DOVECOT, "aes-256-ctr", buf, pw1, NULL, &error);
+		DCRYPT_FORMAT_DOVECOT, SN_aes_256_ctr, buf, pw1, NULL, &error);
 	test_assert(ret == TRUE);
 
 	/* load the pw-encrypted key */
@@ -933,14 +933,14 @@ static void test_password_change(void)
 	/* encrypt a key with the pw-encrypted key k1 */
 	struct dcrypt_keypair k2;
 	ret = dcrypt_keypair_generate(&k2,
-		DCRYPT_KEY_EC, 0, "secp521r1", &error);
+		DCRYPT_KEY_EC, 0, SN_secp521r1, &error);
 	test_assert(ret == TRUE);
 
 	string_t *buf2 = t_str_new(4096);
 	struct dcrypt_public_key *k1_pub = NULL;
 	dcrypt_key_convert_private_to_public(k1_priv, &k1_pub);
 	ret = dcrypt_key_store_private(k2.priv,
-		DCRYPT_FORMAT_DOVECOT, "ecdh-aes-256-ctr", buf2,
+		DCRYPT_FORMAT_DOVECOT, "ecdh-"SN_aes_256_ctr, buf2,
 		NULL, k1_pub, &error);
 	test_assert(ret == TRUE);
 
@@ -950,7 +950,7 @@ static void test_password_change(void)
 
 	/* encrypt k1 with pw2 */
 	ret = dcrypt_key_store_private(k1_priv,
-		DCRYPT_FORMAT_DOVECOT, "aes-256-ctr", buf3, pw2, NULL, &error);
+		DCRYPT_FORMAT_DOVECOT, SN_aes_256_ctr, buf3, pw2, NULL, &error);
 	test_assert(ret == TRUE);
 
 	/* load the pw2 encrypted key */
@@ -1322,7 +1322,7 @@ static void test_raw_keys(void)
 
 	/* generate ECC key */
 	struct dcrypt_keypair pair;
-	i_assert(dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "prime256v1", &error));
+	i_assert(dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, SN_X9_62_prime256v1, &error));
 
 	/* store it */
 	test_assert(dcrypt_key_store_private_raw(pair.priv, pool, &t, &priv_key,
@@ -1340,7 +1340,7 @@ static void test_raw_keys(void)
 	dcrypt_keypair_unref(&pair);
 
 	/* test load known raw private key */
-	const char *curve = "prime256v1";
+	const char *curve = SN_X9_62_prime256v1;
 	const unsigned char priv_key_data[] = {
 		0x16, 0x9e, 0x62, 0x36, 0xaf, 0x9c, 0xae, 0x0e, 0x71, 0xda,
 		0xf2, 0x63, 0xe2, 0xe0, 0x5d, 0xf1, 0xd5, 0x35, 0x8c, 0x2b,
@@ -1454,10 +1454,10 @@ static void test_sign_verify_rsa(void)
 	if (priv_key == NULL)
 		i_fatal("%s", error);
 	dcrypt_key_convert_private_to_public(priv_key, &pub_key);
-	test_assert(dcrypt_sign(priv_key, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+	test_assert(dcrypt_sign(priv_key, SN_sha256, DCRYPT_SIGNATURE_FORMAT_DSS,
 		 data, strlen(data), signature, 0, &error));
 	/* verify signature */
-	test_assert(dcrypt_verify(pub_key, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+	test_assert(dcrypt_verify(pub_key, SN_sha256, DCRYPT_SIGNATURE_FORMAT_DSS,
 		 data, strlen(data),
 		 signature->data, signature->used, &valid, 0, &error) && valid);
 
@@ -1491,10 +1491,10 @@ static void test_sign_verify_ecdsa(void)
 	if (priv_key == NULL)
 		i_fatal("%s", error);
 	dcrypt_key_convert_private_to_public(priv_key, &pub_key);
-	test_assert(dcrypt_sign(priv_key, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+	test_assert(dcrypt_sign(priv_key, SN_sha256, DCRYPT_SIGNATURE_FORMAT_DSS,
 		data, strlen(data), signature, 0, &error));
 	/* verify signature */
-	test_assert(dcrypt_verify(pub_key, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+	test_assert(dcrypt_verify(pub_key, SN_sha256, DCRYPT_SIGNATURE_FORMAT_DSS,
 		data, strlen(data), signature->data,
 		signature->used, &valid, 0, &error) && valid);
 
@@ -1528,10 +1528,10 @@ static void test_sign_verify_x962(void)
 	if (priv_key == NULL)
 		i_fatal("%s", error);
 	dcrypt_key_convert_private_to_public(priv_key, &pub_key);
-	test_assert(dcrypt_sign(priv_key, "sha256", DCRYPT_SIGNATURE_FORMAT_X962,
+	test_assert(dcrypt_sign(priv_key, SN_sha256, DCRYPT_SIGNATURE_FORMAT_X962,
 		data, strlen(data), signature, 0, &error));
 	/* verify signature */
-	test_assert(dcrypt_verify(pub_key, "sha256", DCRYPT_SIGNATURE_FORMAT_X962,
+	test_assert(dcrypt_verify(pub_key, SN_sha256, DCRYPT_SIGNATURE_FORMAT_X962,
 		data, strlen(data), signature->data,
 		signature->used, &valid, 0, &error) && valid);
 
@@ -1623,7 +1623,7 @@ static void test_static_verify_ecdsa(void)
 	test_assert(dcrypt_key_load_public(&pair.pub, pub_key_pem, &error));
 	test_assert(dcrypt_key_load_private(&pair.priv, priv_key_pem, NULL, NULL, &error));
 	/* validate signature */
-	test_assert(dcrypt_verify(pair.pub, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+	test_assert(dcrypt_verify(pair.pub, SN_sha256, DCRYPT_SIGNATURE_FORMAT_DSS,
 				  input, strlen(input),
 				  sig, sizeof(sig), &valid, 0, &error) &&
 		    valid == TRUE);
@@ -1861,7 +1861,7 @@ static void test_static_verify_rsa(void)
 	test_assert(dcrypt_key_load_public(&pub_key, key, &error));
 	if (pub_key == NULL)
 		i_fatal("%s", error);
-	test_assert(dcrypt_verify(pub_key, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+	test_assert(dcrypt_verify(pub_key, SN_sha256, DCRYPT_SIGNATURE_FORMAT_DSS,
 		data, strlen(data),
 		sig, sizeof(sig), &valid, DCRYPT_PADDING_RSA_PKCS1, &error) &&
 		valid);
@@ -1899,7 +1899,7 @@ static void test_static_verify_ecdsa_x962(void)
 	test_assert(dcrypt_key_load_public(&pub_key, key, &error));
 	if (pub_key == NULL)
 		i_fatal("%s", error);
-	test_assert(dcrypt_verify(pub_key, "sha256", DCRYPT_SIGNATURE_FORMAT_X962,
+	test_assert(dcrypt_verify(pub_key, SN_sha256, DCRYPT_SIGNATURE_FORMAT_X962,
 		data, strlen(data),
 		sig, sizeof(sig), &valid, DCRYPT_PADDING_RSA_PKCS1, &error) &&
 		valid);
@@ -1920,14 +1920,14 @@ static void test_sign_verify_ed25519(void)
 
 	test_begin("sign and verify (ed25519)");
 
-	ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "ED25519", &error);
+	ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, SN_ED25519, &error);
 	if (!ret)
 		i_fatal("%s", error);
 
-	test_assert(dcrypt_sign(pair.priv, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+	test_assert(dcrypt_sign(pair.priv, SN_sha256, DCRYPT_SIGNATURE_FORMAT_DSS,
 		 data, strlen(data), signature, 0, &error));
 	/* verify signature */
-	test_assert(dcrypt_verify(pair.pub, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+	test_assert(dcrypt_verify(pair.pub, SN_sha256, DCRYPT_SIGNATURE_FORMAT_DSS,
 		 data, strlen(data),
 		 signature->data, signature->used, &valid, 0, &error) && valid);
 
@@ -1961,7 +1961,7 @@ static void test_static_verify_ed25519(void)
 		i_fatal("%s", error);
 
 	/* verify signature */
-	test_assert(dcrypt_verify(pub, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+	test_assert(dcrypt_verify(pub, SN_sha256, DCRYPT_SIGNATURE_FORMAT_DSS,
 		 data, strlen(data),
 		 sig, sizeof(sig), &valid, 0, &error) && valid);
 	dcrypt_key_unref_public(&pub);
@@ -1999,7 +1999,7 @@ static void test_static_verify_ed448(void)
 		i_fatal("%s", error);
 
 	/* verify signature */
-	test_assert(dcrypt_verify(pub, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+	test_assert(dcrypt_verify(pub, SN_sha256, DCRYPT_SIGNATURE_FORMAT_DSS,
 		 data, strlen(data),
 		 sig, sizeof(sig), &valid, 0, &error) && valid);
 	dcrypt_key_unref_public(&pub);
@@ -2018,14 +2018,14 @@ static void test_sign_verify_ed448(void)
 
 	test_begin("sign and verify (ed448)");
 
-	ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "ED448", &error);
+	ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, SN_ED448, &error);
 	if (!ret)
 		i_fatal("%s", error);
 
-	test_assert(dcrypt_sign(pair.priv, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+	test_assert(dcrypt_sign(pair.priv, SN_sha256, DCRYPT_SIGNATURE_FORMAT_DSS,
 		 data, strlen(data), signature, 0, &error));
 	/* verify signature */
-	test_assert(dcrypt_verify(pair.pub, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+	test_assert(dcrypt_verify(pair.pub, SN_sha256, DCRYPT_SIGNATURE_FORMAT_DSS,
 		 data, strlen(data),
 		 signature->data, signature->used, &valid, 0, &error) && valid);
 
@@ -2074,7 +2074,7 @@ static void test_xd_keypair(struct dcrypt_keypair *pair)
 
 	dcrypt_key_unref_public(&pub2);
 
-	test_store_load_v2_key_encrypted_algo("aes-256-gcm", pair);
+	test_store_load_v2_key_encrypted_algo(SN_aes_256_gcm, pair);
 
 	dcrypt_keypair_unref(pair);
 	dcrypt_keypair_unref(&pair2);
@@ -2086,7 +2086,7 @@ static void test_xd25519_keypair(void)
 	struct dcrypt_keypair pair;
 	const char *error = NULL;
 
-	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "X25519", &error))
+	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, SN_X25519, &error))
 		i_fatal("%s", error);
 
 	test_xd_keypair(&pair);
@@ -2100,7 +2100,7 @@ static void test_xd448_keypair(void)
 	struct dcrypt_keypair pair;
 	const char *error = NULL;
 
-	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "X448", &error))
+	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, SN_X448, &error))
 		i_fatal("%s", error);
 
 	test_xd_keypair(&pair);
@@ -2197,7 +2197,7 @@ static void test_kem_key_load(void)
 		i_error("%s", error);
 
 	/* ensure it works with gcm */
-	test_store_load_v2_key_encrypted_algo("aes-256-gcm", &pair);
+	test_store_load_v2_key_encrypted_algo(SN_aes_256_gcm, &pair);
 
 	dcrypt_keypair_unref(&pair);
 
@@ -2266,7 +2266,7 @@ static void test_kem_keypair_curve(const char *curve)
 static void test_kem_keypair(void)
 {
 	static const char *const curves[] = {
-		"ML-KEM-512", "ML-KEM-768", "ML-KEM-1024"
+		LN_ML_KEM_512, LN_ML_KEM_768, LN_ML_KEM_1024
 	};
 	for (size_t i = 0; i < N_ELEMENTS(curves); i++) T_BEGIN {
 		test_kem_keypair_curve(curves[i]);
