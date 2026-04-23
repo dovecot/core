@@ -205,6 +205,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 			"(submission_relay_host is unset)";
 		send_error(fd_out, event, set->hostname,
 			   "4.3.5", MAIL_ERRSTR_CRITICAL_MSG);
+		settings_free(set);
 		mail_user_deinit(&mail_user);
 		event_unref(&event);
 		return -1;
@@ -213,6 +214,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	if (ret < 0) {
 		send_error(fd_out, event, my_hostname,
 			"4.7.0", MAIL_ERRSTR_CRITICAL_MSG);
+		settings_free(set);
 		mail_user_deinit(&mail_user);
 		event_unref(&event);
 		return -1;
