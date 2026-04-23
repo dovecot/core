@@ -2863,16 +2863,16 @@ dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key,
 		ptr = buffer_append_space_unsafe(buf, len);
 		BN_bn2mpi(pk, ptr);
 		BN_free(pk);
-	} else if (IS_XD_CURVE(EVP_PKEY_base_id(pkey)) ||
-		   IS_ED_CURVE(EVP_PKEY_base_id(pkey))) {
-		size_t len;
-		unsigned char *ptr = buffer_append_space_unsafe(buf, 64);
-		EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY,
-						ptr, 64, &len);
-		buffer_set_used_size(buf, len);
 	} else {
-		/* Loading the key should have failed */
-		i_unreached();
+		/* should work for most key types */
+		size_t len;
+		EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY, NULL, 0, &len);
+		unsigned char *ptr = buffer_append_space_unsafe(buf, len);
+		EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY,
+						ptr, len, &len);
+		if (len == SIZE_MAX)
+			return dcrypt_openssl_error(error_r);
+		buffer_set_used_size(buf, len);
 	}
 
 	/* see if we want ECDH based or password based encryption */
