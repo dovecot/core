@@ -52,6 +52,7 @@ struct smtp_submit {
 	const char *error;
 
 	struct program_client *prg_client;
+	struct smtp_client_connection *smtp_conn;
 	struct smtp_client_transaction *smtp_trans;
 
 	smtp_submit_callback_t *callback;
@@ -160,6 +161,8 @@ void smtp_submit_deinit(struct smtp_submit **_subm)
 		program_client_destroy(&subm->prg_client);
 	if (subm->smtp_trans != NULL)
 		smtp_client_transaction_destroy(&subm->smtp_trans);
+	if (subm->smtp_conn != NULL)
+		smtp_client_connection_unref(&subm->smtp_conn);
 
 	timeout_remove(&subm->to_error);
 
@@ -261,6 +264,7 @@ static void smtp_submit_send_host_finished(struct smtp_submit *subm)
 {
 	i_assert(subm->status > 0 || subm->error != NULL);
 	smtp_submit_callback(subm, subm->status, subm->error);
+	smtp_client_connection_unref(&subm->smtp_conn);
 	subm->smtp_trans = NULL;
 }
 
@@ -342,13 +346,13 @@ static void smtp_submit_send_host(struct smtp_submit *subm)
 
 	smtp_trans = smtp_client_transaction_create(smtp_conn,
 		subm->mail_from, NULL, 0, smtp_submit_send_host_finished, subm);
-	smtp_client_connection_unref(&smtp_conn);
 
 	array_foreach_elem(&subm->rcpt_to, rcpt) {
 		smtp_client_transaction_add_rcpt(smtp_trans,
 			rcpt, NULL, rcpt_to_callback, data_dummy_callback, subm);
 	}
 
+	subm->smtp_conn = smtp_conn;
 	subm->smtp_trans = smtp_trans;
 
 	smtp_client_transaction_send(smtp_trans, subm->input,
