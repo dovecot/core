@@ -26,6 +26,19 @@ static struct var_expand_table table[] = {
 	{ .key = "user", .value = "foo" },
 	{ .key = "salt-encrypted", .value ="s=foo,r=1000$da793a4ae62eb1d415228b40c43b93a8$" },
 	{ .key = "ecb-encrypted", .value = "$3bca3caa565f2d940acef1244a07c836$" },
+	{ .key = "trunckey", .value = "cc2981c8f38aea59cc2981c8f38aea5" },
+	{ .key = "invalidkey", .value = "invalid" },
+	{ .key = "trunciv", .value = "cc2981c8f38aea59cc2981c8f38aea5" },
+	{ .key = "invalidiv", .value = "invalid" },
+	{
+		.key = "encrypted-bad-1",
+		.value = "98b3b40a48ca40f998b3b40a48ca40fx$46b58741763fe22598014be26331a082$"
+	},
+	{
+		.key = "encrypted-bad-2",
+		.value = "98b3b40a48ca40f998b3b40a48ca40f9$46b58741763fe22598014be26331a08x$"
+	},
+
 	{ NULL, NULL, NULL }
 };
 
@@ -111,6 +124,41 @@ static void test_var_expand_crypt(void)
 			"hello, world",
 			0
 		},
+		{
+			"%{decrypted|encrypt(algorithm='aes-128-cbc',key=trunckey,iv=iv)|"
+			"decrypt(key=trunckey,algorithm='aes-128-cbc')}",
+			"Invalid key",
+			-1
+		},
+		{
+			"%{decrypted|encrypt(algorithm='aes-128-cbc',key=invalidkey,iv=iv)|"
+			"decrypt(key=invalidkey,algorithm='aes-128-cbc')}",
+			"Invalid key",
+			-1
+		},
+		{
+			"%{decrypted|encrypt(algorithm='aes-128-cbc',key=key,iv=trunciv)|"
+			"decrypt(key=key,algorithm='aes-128-cbc')}",
+			"Invalid iv",
+			-1
+		},
+		{
+			"%{decrypted|encrypt(algorithm='aes-128-cbc',key=key,iv=invalidiv)|"
+			"decrypt(key=key,algorithm='aes-128-cbc')}",
+			"Invalid iv",
+			-1
+		},
+		{
+			"%{encrypted-bad-1|decrypt(algorithm='aes-128-cbc',key=key)}",
+			"Invalid iv",
+			-1
+		},
+		{
+			"%{encrypted-bad-2|decrypt(algorithm='aes-128-cbc',key=key)}",
+			"Invalid input",
+			-1
+		},
+
 	};
 
 	unsigned int i;
