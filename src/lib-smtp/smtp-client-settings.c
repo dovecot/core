@@ -6,8 +6,9 @@
 #include "smtp-client-settings.h"
 
 static const struct smtp_client_settings smtp_client_default_settings = {
-	.my_ip = "",
 	.my_hostname = "",
+
+	.source_ip = "",
 
 	.rawlog_dir = "",
 
@@ -25,8 +26,9 @@ static const struct smtp_client_settings smtp_client_default_settings = {
 };
 
 static const struct smtp_client_settings lmtp_client_default_settings = {
-	.my_ip = "",
 	.my_hostname = "",
+
+	.source_ip = "",
 
 	.rawlog_dir = "",
 
@@ -74,12 +76,13 @@ smtp_client_settings_ref(pool_t pool, enum smtp_protocol protocol,
 	set_new->pool = pool;
 	pool_ref(pool);
 
-	if (set->parsed.my_ip.family != 0)
-		set_new->parsed.my_ip = set->parsed.my_ip;
 	if (set->my_hostname != NULL && *set->my_hostname != '\0')
 		set_new->my_hostname = p_strdup(pool, set->my_hostname);
 	else
 		set_new->my_hostname = p_strdup(pool, my_hostdomain());
+
+	if (set->parsed.source_ip.family != 0)
+		set_new->parsed.source_ip = set->parsed.source_ip;
 
 	if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
 		set_new->rawlog_dir = p_strdup(pool, set->rawlog_dir);

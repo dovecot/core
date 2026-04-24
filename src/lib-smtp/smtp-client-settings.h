@@ -12,8 +12,9 @@
 struct smtp_client_settings {
 	pool_t pool;
 
-	const char *my_ip;
 	const char *my_hostname;
+
+	const char *source_ip;
 
 	/* Directory for writing raw log data for debugging purposes */
 	const char *rawlog_dir;
@@ -45,7 +46,7 @@ struct smtp_client_settings {
 
 	/* generated: */
 	struct {
-		struct ip_addr my_ip;
+		struct ip_addr source_ip;
 	} parsed;
 };
 
