@@ -862,10 +862,14 @@ int connection_client_connect_with_retries(struct connection *conn,
 		connection_update_properties(conn);
 		conn->io = io_add_to(conn->ioloop, conn->fd_out, IO_WRITE,
 				     connection_socket_connected, conn);
-		e_debug(conn->event,
-			"Waiting for connect (fd=%d) to finish for max %u msecs",
-			fd, set->client_connect_timeout_msecs);
-		if (set->client_connect_timeout_msecs != 0) {
+		if (set->client_connect_timeout_msecs == 0) {
+			e_debug(conn->event,
+				"Waiting for connect (fd=%d) to finish", fd);
+		} else {
+			e_debug(conn->event,
+				"Waiting for connect (fd=%d) to finish "
+				"(timeout %u msecs)",
+				fd, set->client_connect_timeout_msecs);
 			conn->to = timeout_add_to(conn->ioloop,
 						  set->client_connect_timeout_msecs,
 						  *conn->v.connect_timeout, conn);
