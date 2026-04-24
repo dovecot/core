@@ -123,14 +123,20 @@ static void test_var_expand_crypt(void)
 		int ret = var_expand(dest, test_cases[i].input, &params, &error);
 		if (ret < 0) {
 			if (test_cases[i].expect_ret == -1) {
-				i_info("Expected: var_expand(%s): %s",
-				       test_cases[i].input, error);
+				const char *match =
+					strstr(error, test_cases[i].output);
+				if (match == NULL) {
+					i_info("Expected: var_expand(%s): %s",
+					       test_cases[i].input, error);
+				}
+				test_assert_idx(match != NULL, i);
 			} else {
 				i_error("var_expand(%s): %s",
 					test_cases[i].input, error);
 			}
+		} else {
+			test_assert_strcmp_idx(str_c(dest), test_cases[i].output, i);
 		}
-		test_assert_strcmp_idx(str_c(dest), test_cases[i].output, i);
 		test_assert_idx(ret == test_cases[i].expect_ret, i);
 	} T_END;
 
