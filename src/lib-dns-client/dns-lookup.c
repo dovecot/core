@@ -188,6 +188,8 @@ static void dns_client_disconnect(struct dns_client *client, const char *error)
 static void dns_client_destroy(struct connection *conn)
 {
 	struct dns_client *client = container_of(conn, struct dns_client, conn);
+
+	dns_client_disconnect(client, connection_disconnect_reason(&client->conn));
 	client->connected = FALSE;
 	timeout_remove(&client->to_idle);
 	connection_deinit(conn);
