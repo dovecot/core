@@ -1114,9 +1114,9 @@ submission_backend_relay_create(
 
 	i_zero(&smtp_set);
 	smtp_set.peer_trusted = set->trusted;
-	smtp_set.my_hostname = (set->my_hostname != NULL &&
-				*set->my_hostname != '\0' ?
-				set->my_hostname : my_hostdomain());
+	smtp_set.hostname = (set->my_hostname != NULL &&
+			     *set->my_hostname != '\0' ?
+			     set->my_hostname : my_hostdomain());
 
 	smtp_set.rawlog_dir = set->rawlog_dir;
 

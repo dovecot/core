@@ -297,7 +297,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 		proxy_data->ttl_plus_1--;
 
 	i_zero(&lmtp_set);
-	lmtp_set.my_hostname = client->my_domain;
+	lmtp_set.hostname = client->my_domain;
 	lmtp_set.parsed.source_ip = conn->set.set.source_ip;
 	lmtp_set.peer_trusted = !set->set.remote_not_trusted;
 	lmtp_set.command_timeout_msecs = set->set.timeout_msecs;

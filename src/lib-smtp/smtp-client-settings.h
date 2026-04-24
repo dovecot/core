@@ -12,7 +12,7 @@
 struct smtp_client_settings {
 	pool_t pool;
 
-	const char *my_hostname;
+	const char *hostname;
 
 	const char *source_ip;
 

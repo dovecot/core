@@ -1296,7 +1296,7 @@ smtp_client_connection_handshake(struct smtp_client_connection *conn)
 		conn, flags, smtp_client_connection_handshake_cb, conn);
 	smtp_client_command_write(cmd, command);
 	smtp_client_command_write(cmd, " ");
-	smtp_client_command_write(cmd, conn->set->my_hostname);
+	smtp_client_command_write(cmd, conn->set->hostname);
 	smtp_client_command_submit(cmd);
 	smtp_client_connection_set_state(
 		conn, SMTP_CLIENT_CONNECTION_STATE_HANDSHAKING);
@@ -2189,8 +2189,8 @@ smtp_client_connection_do_create(struct smtp_client *client,
 	}
 
 	conn->set = smtp_client_settings_ref(conn->pool, protocol, set);
-	i_assert(conn->set->my_hostname != NULL &&
-		 *conn->set->my_hostname != '\0');
+	i_assert(conn->set->hostname != NULL &&
+		 *conn->set->hostname != '\0');
 	i_assert(conn->set->command_timeout_msecs != 0);
 	i_assert(conn->set->connect_timeout_msecs != 0);
 	i_assert(conn->set->max_data_chunk_size != 0);
