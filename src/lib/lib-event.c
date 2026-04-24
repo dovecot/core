@@ -1708,6 +1708,11 @@ void event_register_callback(event_callback_t *callback)
 	array_push_back(&event_handlers, &callback);
 }
 
+void event_register_callback_prepend(event_callback_t *callback)
+{
+	array_push_front(&event_handlers, &callback);
+}
+
 void event_unregister_callback(event_callback_t *callback)
 {
 	unsigned int idx;

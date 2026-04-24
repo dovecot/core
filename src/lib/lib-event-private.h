@@ -100,6 +100,13 @@ event_get_registered_categories(unsigned int *count_r);
 
 /* Register callback to be called for event's different states. */
 void event_register_callback(event_callback_t *callback);
+/* Register a callback that runs before all callbacks registered with
+   event_register_callback(). Useful for plugins that need to annotate
+   an outgoing event with extra fields before the stats client exports
+   it: the stats client registers via event_register_callback() early
+   in master_service_init(), so anything registered later with the
+   regular API sees the event only after it has been exported. */
+void event_register_callback_prepend(event_callback_t *callback);
 void event_unregister_callback(event_callback_t *callback);
 
 /* Register callback to be called whenever categories are registered or
