@@ -311,7 +311,7 @@ smtp_client_command_timeout(struct smtp_client_connection *conn)
 void smtp_client_connection_start_cmd_timeout(
 	struct smtp_client_connection *conn)
 {
-	unsigned int msecs = conn->set->command_timeout_msecs;
+	unsigned int msecs = conn->params.overrides.command_timeout_msecs;
 
 	if (conn->state < SMTP_CLIENT_CONNECTION_STATE_READY) {
 		/* pre-login uses connect timeout */
@@ -339,7 +339,7 @@ void smtp_client_connection_start_cmd_timeout(
 void smtp_client_connection_update_cmd_timeout(
 	struct smtp_client_connection *conn)
 {
-	unsigned int msecs = conn->set->command_timeout_msecs;
+	unsigned int msecs = conn->params.overrides.command_timeout_msecs;
 
 	if (conn->state < SMTP_CLIENT_CONNECTION_STATE_READY) {
 		/* pre-login uses connect timeout */
@@ -1806,13 +1806,14 @@ smtp_client_connection_connected(struct connection *_conn, bool success)
 static void
 smtp_client_connection_connect_timeout(struct smtp_client_connection *conn)
 {
+	unsigned int msecs = conn->params.overrides.connect_timeout_msecs;
 	switch (conn->state) {
 	case SMTP_CLIENT_CONNECTION_STATE_CONNECTING:
 		smtp_client_connection_fail(
 			conn, SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED,
 			t_strdup_printf(
 				"Connection timed out after %u seconds",
-				conn->set->connect_timeout_msecs/1000),
+				msecs / 1000),
 			"Connect timed out");
 		break;
 	case SMTP_CLIENT_CONNECTION_STATE_HANDSHAKING:
@@ -1820,7 +1821,7 @@ smtp_client_connection_connect_timeout(struct smtp_client_connection *conn)
 			conn, SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED,
 			t_strdup_printf(
 				"SMTP handshake timed out after %u seconds",
-				conn->set->connect_timeout_msecs/1000),
+				msecs / 1000),
 			"Handshake timed out");
 		break;
 	case SMTP_CLIENT_CONNECTION_STATE_AUTHENTICATING:
@@ -1828,7 +1829,7 @@ smtp_client_connection_connect_timeout(struct smtp_client_connection *conn)
 			conn, SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED,
 			t_strdup_printf(
 				"Authentication timed out after %u seconds",
-				conn->set->connect_timeout_msecs/1000),
+				msecs / 1000),
 			"Authentication timed out");
 		break;
 	default:
@@ -1855,7 +1856,7 @@ smtp_client_connection_do_connect(struct smtp_client_connection *conn)
 
 	/* don't use connection.h timeout because we want this timeout
 	   to include also the SSL handshake */
-	msecs = conn->set->connect_timeout_msecs;
+	msecs = conn->params.overrides.connect_timeout_msecs;
 	i_assert(conn->to_connect == NULL);
 	if (msecs > 0) {
 		e_debug(conn->event, "Start connect timeout (%u msecs)", msecs);
@@ -2198,10 +2199,19 @@ smtp_client_connection_do_create(struct smtp_client *client,
 	conn->set = smtp_client_settings_ref(conn->pool, protocol, set);
 	i_assert(conn->set->hostname != NULL &&
 		 *conn->set->hostname != '\0');
-	i_assert(conn->set->command_timeout_msecs != 0);
-	i_assert(conn->set->connect_timeout_msecs != 0);
 	i_assert(conn->set->max_data_chunk_size != 0);
 	i_assert(conn->set->max_data_chunk_pipeline != 0);
+
+	if (conn->params.overrides.command_timeout_msecs == 0) {
+		conn->params.overrides.command_timeout_msecs =
+			conn->set->command_timeout_msecs;
+	}
+	if (conn->params.overrides.connect_timeout_msecs == 0) {
+		conn->params.overrides.connect_timeout_msecs =
+			conn->set->connect_timeout_msecs;
+	}
+	i_assert(conn->params.overrides.command_timeout_msecs != 0);
+	i_assert(conn->params.overrides.connect_timeout_msecs != 0);
 
 	conn->caps.standard = conn->params.forced_capabilities;
 	conn->cap_pool = pool_alloconly_create(

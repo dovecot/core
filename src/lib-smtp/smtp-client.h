@@ -68,6 +68,17 @@ struct smtp_client_parameters {
 	/* Yield verbose user-visible errors for commands and connections that
 	   failed locally. */
 	bool verbose_user_errors;
+
+	/* Settings overrides:
+	   When assigned, these values take precedence over the related
+	   settings. See smtp-client-settings.h for detailed descriptions.
+	 */
+	struct {
+		/* Timeout for SMTP commands. */
+		unsigned int command_timeout_msecs;
+		/* Timeout for connecting */
+		unsigned int connect_timeout_msecs;
+	} overrides;
 };
 
 struct smtp_client *smtp_client_init(struct event *event_parent);
