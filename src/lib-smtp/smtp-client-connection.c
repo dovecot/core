@@ -1867,7 +1867,7 @@ static bool smtp_client_connection_last_ip(struct smtp_client_connection *conn)
 static void
 smtp_client_connection_connect_next_ip(struct smtp_client_connection *conn)
 {
-	const struct ip_addr *ip, *my_ip = &conn->set->my_ip;
+	const struct ip_addr *ip, *my_ip = &conn->set->parsed.my_ip;
 
 	timeout_remove(&conn->to_connect);
 

@@ -12,7 +12,7 @@
 struct smtp_client_settings {
 	pool_t pool;
 
-	struct ip_addr my_ip;
+	const char *my_ip;
 	const char *my_hostname;
 
 	/* Directory for writing raw log data for debugging purposes */
@@ -42,6 +42,11 @@ struct smtp_client_settings {
 
 	/* peer is trusted, so e.g. attempt sending XCLIENT data */
 	bool peer_trusted;
+
+	/* generated: */
+	struct {
+		struct ip_addr my_ip;
+	} parsed;
 };
 
 /* Reference the provided settings struct, even when it is a struct on the call
