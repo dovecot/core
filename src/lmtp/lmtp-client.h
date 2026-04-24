@@ -20,7 +20,6 @@ struct lmtp_local_deliver_context {
 	const char *rcpt_default_mailbox;
 
 	const struct mail_storage_settings *mail_set;
-	const struct smtp_submit_settings *smtp_set;
 
 	struct mail_deliver_session *session;
 };

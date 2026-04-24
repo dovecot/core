@@ -23,7 +23,6 @@
 #include "imap-util.h"
 #include "imap-urlauth.h"
 #include "mail-error.h"
-#include "smtp-submit-settings.h"
 #include "mail-namespace.h"
 #include "mail-storage-service.h"
 #include "mail-autoexpunge.h"
@@ -120,7 +119,6 @@ struct client *client_create(int fd_in, int fd_out,
 			     enum client_create_flags flags,
 			     struct event *event, struct mail_user *user,
 			     const struct imap_settings *set,
-			     const struct smtp_submit_settings *smtp_set,
 			     const buffer_t *input_buf)
 {
 	struct client *client;
@@ -138,7 +136,6 @@ struct client *client_create(int fd_in, int fd_out,
 	event_ref(client->event);
 	client->unhibernated = (flags & CLIENT_CREATE_FLAG_UNHIBERNATED) != 0;
 	client->set = set;
-	client->smtp_set = smtp_set;
 	client->fd_in = fd_in;
 	client->fd_out = fd_out;
 	client->input = i_stream_create_fd(fd_in,
@@ -611,7 +608,6 @@ static void client_default_destroy(struct client *client, const char *reason)
 	DLLIST_REMOVE(&imap_clients, client);
 
 	settings_free(client->set);
-	settings_free(client->smtp_set);
 	event_unref(&client->event);
 	i_free(client->last_cmd_name);
 	pool_unref(&client->pool);

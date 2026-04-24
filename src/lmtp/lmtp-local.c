@@ -496,13 +496,6 @@ lmtp_local_deliver(struct lmtp_local *local,
 		mail_storage_service_user_get_log_prefix(service_user));
 
 	lldctx.rcpt_user = rcpt_user;
-	if (settings_get(rcpt_user->event, &smtp_submit_setting_parser_info, 0,
-			 &lldctx.smtp_set, &error) < 0) {
-		e_error(rcpt->event, "%s", error);
-		smtp_server_recipient_reply(rcpt, 451, "4.3.0",
-					    "Temporary internal error");
-		return -1;
-	}
 
 	if (*lrcpt->detail == '\0' ||
 	    !client->lmtp_set->lmtp_save_to_detail_mailbox)
@@ -517,7 +510,6 @@ lmtp_local_deliver(struct lmtp_local *local,
 
 	lmtp_local_rcpt_anvil_disconnect(llrcpt);
 
-	settings_free(lldctx.smtp_set);
 	return ret;
 }
 
@@ -583,7 +575,6 @@ int lmtp_local_default_deliver(struct client *client,
 	i_zero(&dinput);
 	dinput.session = lldctx->session;
 	dinput.set = llrcpt->lda_set;
-	dinput.smtp_set = lldctx->smtp_set;
 	dinput.session_id = lldctx->session_id;
 	dinput.event_parent = event;
 	dinput.src_mail = lldctx->src_mail;

@@ -190,7 +190,6 @@ static void test_client_set_mailbox_modseq(struct client *client)
 static struct client *test_client_create(int *peer_fd_r)
 {
 	/* the client keeps a pointer to this */
-	static struct smtp_submit_settings smtp_set;
 	struct mail_user *mail_user;
 	const char *error;
 
@@ -230,7 +229,7 @@ static struct client *test_client_create(int *peer_fd_r)
 	struct client *client =
 		client_create(client_fds[0], client_fds[0], 0, event,
 			      mail_user, imap_setting_parser_info.defaults,
-			      &smtp_set, NULL);
+			      NULL);
 	event_unref(&event);
 	client->autoexpunge_next_check = 1234567890;
 	*peer_fd_r = client_fds[1];

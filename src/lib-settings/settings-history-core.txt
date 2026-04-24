@@ -2,6 +2,10 @@
 # rename <old-setting-key> <new-setting-key> <ce-version> <pro-version>
 # value <old-setting-key>=<old-value> <new-setting-key>=<new-value> <ce-version> <pro-version>
 # deprecate <setting-key> <ce-version> <pro-version>
+rename	submission_ssl	mail_submit/smtp_client_ssl	2.4.6	3.3.0
+rename	submission_timeout	mail_submit_timeout	2.4.6	3.3.0
+deprecate	submission_host	2.4.6	3.3.0
+deprecate	sendmail_path	2.4.6	3.3.0
 rename	submission_relay_master_user	submission_relay/client_auth_authid	2.4.6	3.3.0
 rename	submission_relay_user	submission_relay/client_auth_authzid	2.4.6	3.3.0
 rename	submission_relay_password	submission_relay/client_auth_password	2.4.6	3.3.0

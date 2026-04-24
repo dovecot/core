@@ -190,7 +190,6 @@ struct client {
 
 	pool_t pool;
 	const struct imap_settings *set;
-	const struct smtp_submit_settings *smtp_set;
 	string_t *capability_string;
 	const char *init_error;
 	const char *disconnect_reason;
@@ -301,7 +300,6 @@ struct client *client_create(int fd_in, int fd_out,
 			     enum client_create_flags flags,
 			     struct event *event, struct mail_user *user,
 			     const struct imap_settings *set,
-			     const struct smtp_submit_settings *smtp_set,
 			     const buffer_t *input_buf);
 void client_create_finish_io(struct client *client);
 /* Finish creating the client. Returns 0 if ok, -1 if there's an error. */

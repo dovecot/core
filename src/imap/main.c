@@ -18,7 +18,6 @@
 #include "login-server.h"
 #include "mail-user.h"
 #include "mail-storage-service.h"
-#include "smtp-submit-settings.h"
 #include "imap-master-client.h"
 #include "imap-resp-code.h"
 #include "imap-commands.h"
@@ -228,7 +227,6 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 	struct mail_user *mail_user;
 	struct client *client;
 	struct imap_settings *imap_set;
-	struct smtp_submit_settings *smtp_set = NULL;
 	struct event *event;
 
 	event = event_create(NULL);
@@ -259,11 +257,8 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 
 	restrict_access_allow_coredumps(TRUE);
 
-	if (settings_get(mail_user->event, &smtp_submit_setting_parser_info, 0,
-			 &smtp_set, error_r) < 0 ||
-	    settings_get(mail_user->event, &imap_setting_parser_info, 0,
+	if (settings_get(mail_user->event, &imap_setting_parser_info, 0,
 			 &imap_set, error_r) < 0) {
-		settings_free(smtp_set);
 		mail_user_deinit(&mail_user);
 		event_unref(&event);
 		return -1;
@@ -272,7 +267,7 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 		verbose_proctitle = TRUE;
 
 	client = client_create(fd_in, fd_out, flags,
-			       event, mail_user, imap_set, smtp_set, input_buf);
+			       event, mail_user, imap_set, input_buf);
 	client->userdb_fields = input->userdb_fields == NULL ? NULL :
 		p_strarray_dup(client->pool, input->userdb_fields);
 	/* For imap_logout_format statistics: */

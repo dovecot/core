@@ -324,7 +324,6 @@ void mail_deliver_init(struct mail_deliver_context *ctx,
 {
 	i_zero(ctx);
 	ctx->set = input->set;
-	ctx->smtp_set = input->smtp_set;
 
 	ctx->session = input->session;
 	ctx->pool = input->session->pool;
