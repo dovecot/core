@@ -328,8 +328,8 @@ void smtp_client_connection_start_cmd_timeout(
 		return;
 	}
 
-	e_debug(conn->event, "Start timeout");
 	if (conn->to_commands == NULL) {
+		e_debug(conn->event, "Start command timeout (%u msecs)", msecs);
 		conn->to_commands = timeout_add_to(
 			conn->conn.ioloop, msecs,
 			smtp_client_command_timeout, conn);
@@ -354,11 +354,11 @@ void smtp_client_connection_update_cmd_timeout(
 	if (conn->cmd_wait_list_head == NULL && !conn->sending_command) {
 		if (conn->to_commands != NULL) {
 			e_debug(conn->event,
-				"No commands pending; stop timeout");
+				"No commands pending; stop command timeout");
 		}
 		timeout_remove(&conn->to_commands);
 	} else if (conn->to_commands != NULL)  {
-		e_debug(conn->event, "Reset timeout");
+		e_debug(conn->event, "Reset command timeout");
 		timeout_reset(conn->to_commands);
 	} else {
 		smtp_client_connection_start_cmd_timeout(conn);
@@ -1858,6 +1858,7 @@ smtp_client_connection_do_connect(struct smtp_client_connection *conn)
 	msecs = conn->set->connect_timeout_msecs;
 	i_assert(conn->to_connect == NULL);
 	if (msecs > 0) {
+		e_debug(conn->event, "Start connect timeout (%u msecs)", msecs);
 		conn->to_connect = timeout_add_to(
 			conn->conn.ioloop, msecs,
 			smtp_client_connection_connect_timeout, conn);
