@@ -57,7 +57,7 @@ static void test_var_expand_crypt(void)
 			"46b58741763fe22598014be26331a082",
 			0
 		},
-		{ "%{encrypted|decrypt(algorithm='null')}", "", -1 },
+		{ "%{encrypted|decrypt(key=key,algorithm='null')}", "Invalid cipher null", -1 },
 		{
 			"%{encrypted|decrypt(algorithm='aes-128-cbc',key=key)}",
 			"hello, world",
