@@ -69,6 +69,7 @@ typedef bool
  */
 
 /* common */
+static struct event *common_event, *client_event, *server_event;
 static struct ip_addr bind_ip;
 static in_port_t *bind_ports = NULL;
 static struct ioloop *ioloop;
@@ -743,6 +744,7 @@ static void test_server_denied_second_rcpt(unsigned int index)
 static void test_smtp_submit_input_init(struct smtp_submit_input *smtp_input_r)
 {
 	i_zero(smtp_input_r);
+	smtp_input_r->event_parent = client_event;
 }
 
 static bool
@@ -1349,13 +1351,13 @@ static void test_successful_delivery_input(struct server_connection *conn)
 			case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 				return;
 			case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
-				i_error("test server: "
+				e_error(server_event,
 					"Failed to read all message payload [%s]",
 					ctx->file_path);
 				server_connection_deinit(&conn);
 				return;
 			case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
-				i_error("test server: "
+				e_error(server_event,
 					"Failed to write all message payload [%s]",
 					ctx->file_path);
 				server_connection_deinit(&conn);
@@ -1464,7 +1466,7 @@ test_client_parallel_delivery_callback(const struct smtp_submit_result *result,
 				       struct _parallel_delivery_client *ctx)
 {
 	if (result->status <= 0)
-		i_error("Submit failed: %s", result->error);
+		e_error(client_event, "Submit failed: %s", result->error);
 
 	if (--ctx->count == 0)
 		io_loop_stop(current_ioloop);
@@ -1704,7 +1706,7 @@ test_client_parallel_sendmail_callback(const struct smtp_submit_result *result,
 				       struct _parallel_sendmail_client *ctx)
 {
 	if (result->status <= 0)
-		i_error("Submit failed: %s", result->error);
+		e_error(client_event, "Submit failed: %s", result->error);
 
 	if (--ctx->count == 0)
 		io_loop_stop(current_ioloop);
@@ -1839,7 +1841,6 @@ static void test_client_defaults(struct smtp_submit_settings *smtp_set)
 	smtp_set->hostname = "test";
 	smtp_set->submission_host = "";
 	smtp_set->sendmail_path = "/bin/false";
-	smtp_set->mail_debug = debug;
 }
 
 static void test_client_deinit(void)
@@ -1851,7 +1852,6 @@ test_client_smtp_send_simple(const struct smtp_submit_settings *smtp_set,
 			     const char *message, const char *host,
 			     const char **error_r)
 {
-	struct smtp_submit_input smtp_input;
 	struct smtp_submit_settings smtp_submit_set;
 	struct smtp_submit *smtp_submit;
 	struct ostream *output;
@@ -1859,9 +1859,11 @@ test_client_smtp_send_simple(const struct smtp_submit_settings *smtp_set,
 
 	/* send the message */
 	smtp_submit_set = *smtp_set;
-	smtp_submit_set.submission_host = host,
+	smtp_submit_set.submission_host = host;
 
-	i_zero(&smtp_input);
+	struct smtp_submit_input smtp_input = {
+		.event_parent = client_event,
+	};
 	smtp_submit = smtp_submit_init_simple(
 		&smtp_input, &smtp_submit_set, &((struct smtp_address){
 			.localpart = "sender",
@@ -1915,6 +1917,7 @@ static void server_connection_init(int fd)
 	conn = p_new(pool, struct server_connection, 1);
 	conn->pool = pool;
 
+	conn->conn.event_parent = server_event;
 	connection_init_server(server_conn_list, &conn->conn,
 			       "server connection", fd, fd);
 
@@ -2002,8 +2005,7 @@ struct test_server_data {
 static int test_open_server_fd(in_port_t *bind_port)
 {
 	int fd = net_listen(&bind_ip, bind_port, 128);
-	if (debug)
-		i_debug("server listening on %u", *bind_port);
+	e_debug(server_event, "server listening on %u", *bind_port);
 	if (fd == -1) {
 		i_fatal("listen(%s:%u) failed: %m",
 			net_ip2addr(&bind_ip), *bind_port);
@@ -2034,7 +2036,8 @@ static void test_tmp_dir_deinit(void)
 
 	if (unlink_directory(tmp_dir, UNLINK_DIRECTORY_FLAG_RMDIR,
 			     &error) < 0) {
-		i_warning("failed to remove temporary directory `%s': %s.",
+		e_warning(server_event,
+			  "failed to remove temporary directory `%s': %s.",
 			  tmp_dir, error);
 	}
 
@@ -2078,25 +2081,23 @@ static int test_run_server(struct test_server_data *data)
 {
 	server_port = bind_ports[data->index];
 
-	main_deinit();
 	master_service_deinit_forked(&master_service);
 
 	i_set_failure_prefix("SERVER[%u]: ", data->index + 1);
 
-	if (debug)
-		i_debug("PID=%s", my_pid);
+	e_debug(server_event, "PID=%s", my_pid);
 
 	test_subprocess_notify_signal_send_parent(SIGUSR1);
 	ioloop = io_loop_create();
 	data->server_test(data->index);
 	io_loop_destroy(&ioloop);
 
-	if (debug)
-		i_debug("Terminated");
+	e_debug(server_event, "Terminated");
 
 	i_close_fd(&fd_listen);
 	i_free(bind_ports);
 	test_tmp_dir_deinit();
+	main_deinit();
 	return 0;
 }
 
@@ -2106,8 +2107,7 @@ test_run_client(const struct smtp_submit_settings *submit_set,
 {
 	i_set_failure_prefix("CLIENT: ");
 
-	if (debug)
-		i_debug("PID=%s", my_pid);
+	e_debug(client_event, "PID=%s", my_pid);
 
 	server_port = 0;
 	i_sleep_msecs(100); /* wait a little for server setup */
@@ -2118,8 +2118,7 @@ test_run_client(const struct smtp_submit_settings *submit_set,
 	test_client_deinit();
 	io_loop_destroy(&ioloop);
 
-	if (debug)
-		i_debug("Terminated");
+	e_debug(client_event, "Terminated");
 }
 
 static void
@@ -2171,12 +2170,18 @@ test_run_client_server(const struct smtp_submit_settings *submit_set,
 
 static void main_init(void)
 {
-	/* nothing yet */
+	common_event = event_create(test_event);
+	client_event = event_create(common_event);
+	event_set_append_log_prefix(client_event, "test client: ");
+	server_event = event_create(common_event);
+	event_set_append_log_prefix(server_event, "test server: ");
 }
 
 static void main_deinit(void)
 {
-	/* nothing yet; also called from sub-processes */
+	event_unref(&client_event);
+	event_unref(&server_event);
+	event_unref(&common_event);
 }
 
 int main(int argc, char *argv[])
@@ -2189,7 +2194,6 @@ int main(int argc, char *argv[])
 
 	master_service = master_service_init("test-smtp-submit", service_flags,
 					     &argc, &argv, "D");
-	main_init();
 
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
@@ -2207,6 +2211,7 @@ int main(int argc, char *argv[])
 	event_set_forced_debug(test_event, debug);
 	test_dir_init("smtp-submit");
 	test_subprocesses_init();
+	main_init();
 
 	/* listen on localhost */
 	i_zero(&bind_ip);
