@@ -306,7 +306,7 @@ static char **p_strsplit_tabescaped_inplace(pool_t pool, char *data)
 	size_t array_size = MALLOC_MULTIPLY(sizeof(char *), alloc_count);
 	array = pool == unsafe_data_stack_pool ?
 		t_malloc_no0(array_size) :
-		p_malloc(pool, array_size);
+		p_new(pool, char *, alloc_count);
 
 	array[0] = data; count = 1;
 	char *need_unescape = NULL;
@@ -320,12 +320,8 @@ static char **p_strsplit_tabescaped_inplace(pool_t pool, char *data)
 		}
 		if (count+1 >= alloc_count) {
 			new_alloc_count = nearest_power(alloc_count+1);
-			size_t old_size =
-				MALLOC_MULTIPLY(sizeof(char *), alloc_count);
-			size_t new_size =
-				MALLOC_MULTIPLY(sizeof(char *), new_alloc_count);
-			array = p_realloc(pool, array,
-					  old_size, new_size);
+			array = p_realloc_type(pool, array, char *,
+					       alloc_count, new_alloc_count);
 			alloc_count = new_alloc_count;
 		}
 		*data++ = '\0';

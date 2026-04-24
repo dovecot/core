@@ -8,24 +8,24 @@ void *
 array_idx_modifiable_i(const struct array *array, unsigned int idx)
 {
 	i_assert(idx < array->buffer->used / array->element_size);
-	return PTR_OFFSET(array->buffer->data, idx * array->element_size);
+	return PTR_OFFSET(array->buffer->data, MALLOC_MULTIPLY(idx, array->element_size));
 }
 
 void *array_idx_get_space_i(struct array *array, unsigned int idx)
 {
-	return buffer_get_space_unsafe(array->buffer, idx * array->element_size,
+	return buffer_get_space_unsafe(array->buffer, MALLOC_MULTIPLY(idx, array->element_size),
 				       array->element_size);
 }
 
 void array_idx_set_i(struct array *array, unsigned int idx, const void *data)
 {
-	buffer_write(array->buffer, idx * array->element_size,
+	buffer_write(array->buffer, MALLOC_MULTIPLY(idx, array->element_size),
 		     data, array->element_size);
 }
 
 void array_idx_clear_i(struct array *array, unsigned int idx)
 {
-	buffer_write_zero(array->buffer, idx * array->element_size,
+	buffer_write_zero(array->buffer, MALLOC_MULTIPLY(idx, array->element_size),
 			  array->element_size);
 }
 
@@ -34,8 +34,8 @@ void *array_insert_space_i(struct array *array, unsigned int idx)
 	void *data;
 	size_t pos;
 
-	pos = idx * array->element_size;
-	buffer_copy(array->buffer, pos + array->element_size,
+	pos = MALLOC_MULTIPLY(idx, array->element_size);
+	buffer_copy(array->buffer, MALLOC_ADD(pos, array->element_size),
 		    array->buffer, pos, SIZE_MAX);
 
 	data = buffer_get_space_unsafe(array->buffer, pos, array->element_size);
