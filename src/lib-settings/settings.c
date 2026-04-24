@@ -2353,6 +2353,11 @@ settings_instance_overrides_add_filters(struct settings_apply_ctx *ctx,
 		set->type = SETTINGS_OVERRIDE_TYPE_DEFAULT;
 		set->key = set->orig_key = defaults[i].key;
 		set->value = defaults[i].value;
+		/* These overrides are recreated on every settings_get(), so
+		   there is no persistent overrides_array to add filter array
+		   defaults into. Any needed defaults must be listed
+		   explicitly in the default_settings. */
+		set->array_default_added = TRUE;
 		if ((ret = settings_apply_add_override(ctx, set, &error)) < 0)
 			i_panic("Applying default settings failed: %s", error);
 		if (ret == 0)
