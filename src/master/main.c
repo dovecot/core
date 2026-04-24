@@ -49,6 +49,7 @@
 #define FATAL_FILENAME "master-fatal.lastlog"
 #define MASTER_PID_FILE_NAME "master.pid"
 #define SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_MSECS (60*3*1000)
+#define SERVICE_TIME_MOVED_FORWARDS_MIN_WARNING_MSECS (200*1000)
 
 struct master_delayed_error {
 	enum log_type type;
@@ -659,8 +660,13 @@ master_time_moved(const struct timeval *old_time,
 
 	if (diff < 0) {
 		diff = -diff;
-		i_warning("Time moved forward by %lld.%06lld seconds - adjusting timeouts.",
-			  diff / 1000000, diff % 1000000);
+		if (diff < SERVICE_TIME_MOVED_FORWARDS_MIN_WARNING_MSECS) {
+			i_info("Time moved forward by %lld.%06lld seconds - adjusting timeouts.",
+			       diff / 1000000, diff % 1000000);
+		} else {
+			i_warning("Time moved forward by %lld.%06lld seconds - adjusting timeouts.",
+				  diff / 1000000, diff % 1000000);
+		}
 		return;
 	}
 	msecs = (unsigned int)(diff/1000);
