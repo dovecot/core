@@ -285,6 +285,12 @@ smtp_client_connection_get_state(struct smtp_client_connection *conn)
 	return conn->state;
 }
 
+const char *
+smtp_client_connection_get_name(struct smtp_client_connection *conn)
+{
+	return conn->conn.name;
+}
+
 void smtp_client_connection_get_remote_ip(
 	struct smtp_client_connection *conn, struct ip_addr *ip_r)
 {
