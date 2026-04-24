@@ -553,6 +553,17 @@ struct event *event_get_global(void)
 	return current_global_event;
 }
 
+struct event *event_get_global_root(void)
+{
+	if (array_is_created(&global_event_stack) &&
+	    array_count(&global_event_stack) > 0) {
+		struct event *const *events =
+			array_front(&global_event_stack);
+		return events[0];
+	}
+	return current_global_event;
+}
+
 #undef event_reason_begin
 struct event_reason *
 event_reason_begin(const char *reason_code, const char *source_filename,
