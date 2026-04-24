@@ -1576,11 +1576,99 @@ static void test_sasl_bad_credentials(void)
 	}
 }
 
+static void test_sasl_oauthbearer_malformed_input(void)
+{
+	/* Two inputs missing the final 0x01 terminator.
+	 * Valid format:  gs2-header ^A *kvpair ^A
+	 * Malformed:     gs2-header ^A *kvpair       (no final ^A)
+	 *
+	 * Case 1: each kvpair ends with ^A so sasl_oauth2_kvpair_parse
+	 * succeeds and advances `in' to in_end.  The old loop condition
+	 * "while (*in != 0x01 && in < in_end)" dereferenced `in' before
+	 * checking the bound, causing a one-byte OOB read.  The fixed
+	 * condition "while (in < in_end && *in != 0x01)" is safe.
+	 *
+	 * Case 2: kvpair itself lacks the trailing ^A; parse returns an
+	 * error and the loop exits before re-evaluating the condition.
+	 *
+	 * The buffers are heap-allocated to exactly data_size bytes so that
+	 * ASAN/valgrind detect any one-byte OOB read past in_end. */
+	static const struct {
+		const char *label;
+		const unsigned char data[64];
+		size_t data_size;
+	} cases[] = {
+		{
+			"kvpair ok but final separator missing",
+			"n,a=user,\x01""auth=Bearer tokentokentoken\x01",
+			38,
+		},
+		{
+			"kvpair separator missing too",
+			"n,a=user,\x01""auth=Bearer tokentokentoken",
+			37,
+		},
+	};
+
+	const struct test_sasl test = {
+		.mech = "OAUTHBEARER",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.failure = TRUE,
+		.server = {
+			.authid = "user",
+			.password = "tokentokentoken",
+		},
+	};
+
+	const struct sasl_server_settings server_set = {
+		.event_parent = test_event,
+	};
+
+	for (unsigned int i = 0; i < N_ELEMENTS(cases); i++) {
+		test_begin(t_strconcat("sasl oauthbearer malformed: ",
+				       cases[i].label, NULL));
+
+		struct sasl_server *server =
+			sasl_server_init(test_event, &server_funcs);
+		struct sasl_server_instance *server_inst =
+			sasl_server_instance_create(server, &server_set);
+		sasl_server_mech_register_oauthbearer(
+			server_inst, &server_oauth2_funcs, NULL);
+
+		const struct sasl_server_mech *mech =
+			sasl_server_mech_find(server_inst, "OAUTHBEARER");
+		i_assert(mech != NULL);
+
+		struct test_sasl_context tctx;
+		i_zero(&tctx);
+		tctx.pool = pool_alloconly_create(
+			MEMPOOL_GROWING"test_sasl", 1024);
+		tctx.test = &test;
+
+		sasl_server_request_create(&tctx.ssrctx, mech, "imap", NULL);
+		void *data_dup = i_memdup(cases[i].data, cases[i].data_size);
+		sasl_server_request_initial(&tctx.ssrctx,
+					    data_dup,
+					    cases[i].data_size);
+		i_free(data_dup);
+
+		test_assert(tctx.finished);
+		sasl_server_request_destroy(&tctx.ssrctx);
+
+		pool_unref(&tctx.pool);
+		sasl_server_instance_unref(&server_inst);
+		sasl_server_deinit(&server);
+
+		test_end();
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	static void (*const test_functions[])(void) = {
 		test_sasl_success,
 		test_sasl_bad_credentials,
+		test_sasl_oauthbearer_malformed_input,
 		NULL
 	};
 	struct ioloop *ioloop;
