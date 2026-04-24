@@ -31,6 +31,8 @@ struct smtp_submit_session {
 	pool_t pool;
 	struct smtp_submit_settings set;
 	struct event *event;
+
+	struct smtp_client *smtp_client;
 };
 
 struct smtp_submit {
@@ -50,7 +52,6 @@ struct smtp_submit {
 	const char *error;
 
 	struct program_client *prg_client;
-	struct smtp_client *smtp_client;
 	struct smtp_client_transaction *smtp_trans;
 
 	smtp_submit_callback_t *callback;
@@ -93,8 +94,19 @@ void smtp_submit_session_deinit(struct smtp_submit_session **_session)
 
 	*_session = NULL;
 
+	if (session->smtp_client != NULL)
+		smtp_client_deinit(&session->smtp_client);
+
 	event_unref(&session->event);
 	pool_unref(&session->pool);
+}
+
+static struct smtp_client *
+smtp_submit_session_get_smtp_client(struct smtp_submit_session *session)
+{
+	if (session->smtp_client == NULL)
+		session->smtp_client = smtp_client_init(session->event);
+	return session->smtp_client;
 }
 
 struct smtp_submit *
@@ -148,8 +160,6 @@ void smtp_submit_deinit(struct smtp_submit **_subm)
 		program_client_destroy(&subm->prg_client);
 	if (subm->smtp_trans != NULL)
 		smtp_client_transaction_destroy(&subm->smtp_trans);
-	if (subm->smtp_client != NULL)
-		smtp_client_deinit(&subm->smtp_client);
 
 	timeout_remove(&subm->to_error);
 
@@ -293,7 +303,8 @@ data_dummy_callback(const struct smtp_reply *reply ATTR_UNUSED,
 
 static void smtp_submit_send_host(struct smtp_submit *subm)
 {
-	const struct smtp_submit_settings *set = &subm->session->set;
+	struct smtp_submit_session *session = subm->session;
+	const struct smtp_submit_settings *set = &session->set;
 	struct smtp_client_settings smtp_set;
 	struct smtp_client *smtp_client;
 	struct smtp_client_connection *smtp_conn;
@@ -324,7 +335,7 @@ static void smtp_submit_send_host(struct smtp_submit *subm)
 			ssl_mode = SMTP_CLIENT_SSL_MODE_STARTTLS;
 	}
 
-	smtp_client = smtp_client_init(subm->event);
+	smtp_client = smtp_submit_session_get_smtp_client(session);
 	smtp_conn = smtp_client_connection_create(
 		smtp_client, subm->event, SMTP_PROTOCOL_SMTP,
 		host, port, ssl_mode, NULL, &smtp_set);
@@ -338,7 +349,6 @@ static void smtp_submit_send_host(struct smtp_submit *subm)
 			rcpt, NULL, rcpt_to_callback, data_dummy_callback, subm);
 	}
 
-	subm->smtp_client = smtp_client;
 	subm->smtp_trans = smtp_trans;
 
 	smtp_client_transaction_send(smtp_trans, subm->input,
