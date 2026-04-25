@@ -89,7 +89,7 @@ static const struct setting_define submission_setting_defines[] = {
 	DEF(ENUM, submission_relay_ssl),
 
 	DEF(PATH_DIR, submission_relay_rawlog_dir),
-	DEF(TIME, submission_relay_max_idle_time),
+	DEF(TIME_HIDDEN, submission_relay_max_idle_time),
 
 	DEF(TIME_MSECS, submission_relay_connect_timeout),
 	DEF(TIME_MSECS, submission_relay_command_timeout),
@@ -220,10 +220,6 @@ submission_settings_verify(void *_set, pool_t pool ATTR_UNUSED, const char **err
 		return FALSE;
 
 #ifndef CONFIG_BINARY
-	if (set->submission_relay_max_idle_time == 0) {
-		*error_r = "submission_relay_max_idle_time must not be 0";
-		return FALSE;
-	}
 	if (set->submission_max_recipients == 0) {
 		*error_r = "submission_max_recipients must not be 0";
 		return FALSE;

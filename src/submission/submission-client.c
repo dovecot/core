@@ -138,7 +138,6 @@ client_create_backend_default(struct client *client,
 	relay_set.host = set->submission_relay_host;
 	relay_set.port = set->submission_relay_port;
 	relay_set.rawlog_dir = set->submission_relay_rawlog_dir;
-	relay_set.max_idle_time = set->submission_relay_max_idle_time;
 	relay_set.connect_timeout_msecs = set->submission_relay_connect_timeout;
 	relay_set.command_timeout_msecs = set->submission_relay_command_timeout;
 	relay_set.trusted = set->submission_relay_trusted;

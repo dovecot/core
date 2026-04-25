@@ -19,7 +19,6 @@ struct submision_backend_relay_settings {
 	enum smtp_client_connection_ssl_mode ssl_mode;
 
 	const char *rawlog_dir;
-	unsigned int max_idle_time;
 
 	unsigned int connect_timeout_msecs;
 	unsigned int command_timeout_msecs;
