@@ -1,4 +1,7 @@
-deps = [dep_lib]
+deps = [
+  dep_lib,
+  dep_settings,
+]
 
 lib_auth = static_library(
   'auth',
@@ -8,6 +11,7 @@ lib_auth = static_library(
   'auth-scram-client.c',
   'auth-scram-server.c',
   'crypt-blowfish.c',
+  'client-auth-settings.c',
   'password-scheme.c',
   'password-scheme-md5crypt.c',
   'password-scheme-scram.c',
@@ -29,6 +33,7 @@ install_headers(
   'auth-scram.h',
   'auth-scram-client.h',
   'auth-scram-server.h',
+  'client-auth-settings.h',
   'password-scheme.h',
   install_dir: dovecot_includedir,
 )

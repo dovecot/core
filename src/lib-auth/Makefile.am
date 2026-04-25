@@ -8,7 +8,8 @@ endif
 AM_CPPFLAGS = \
 	$(LIBSODIUM_CFLAGS) \
 	-I$(top_srcdir)/src/lib \
-	-I$(top_srcdir)/src/lib-test
+	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-settings
 
 libauth_la_SOURCES = \
 	auth-digest.c \
@@ -17,6 +18,7 @@ libauth_la_SOURCES = \
 	auth-scram-client.c \
 	auth-scram-server.c \
 	crypt-blowfish.c \
+	client-auth-settings.c \
 	password-scheme.c \
 	password-scheme-md5crypt.c \
 	password-scheme-scram.c \
@@ -42,6 +44,7 @@ headers = \
 	auth-scram.h \
 	auth-scram-client.h \
 	auth-scram-server.h \
+	client-auth-settings.h \
 	password-scheme.h
 
 pkginc_libdir=$(pkgincludedir)
