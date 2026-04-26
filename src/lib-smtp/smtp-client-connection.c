@@ -297,6 +297,11 @@ void smtp_client_connection_get_remote_ip(
 	*ip_r = conn->conn.remote_ip;
 }
 
+bool smtp_client_connection_is_trusted(struct smtp_client_connection *conn)
+{
+	return conn->set->peer_trusted;
+}
+
 static void
 smtp_client_command_timeout(struct smtp_client_connection *conn)
 {

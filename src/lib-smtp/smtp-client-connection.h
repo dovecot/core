@@ -106,4 +106,6 @@ smtp_client_connection_get_name(struct smtp_client_connection *conn);
 void smtp_client_connection_get_remote_ip(
 	struct smtp_client_connection *conn, struct ip_addr *ip_r);
 
+bool smtp_client_connection_is_trusted(struct smtp_client_connection *conn);
+
 #endif
