@@ -1121,10 +1121,7 @@ submission_backend_relay_create(
 	smtp_set.connect_timeout_msecs = set->connect_timeout_msecs;
 	smtp_set.command_timeout_msecs = set->command_timeout_msecs;
 
-	if (set->path != NULL) {
-		rbackend->conn = smtp_client_connection_create_unix(
-			smtp_client, set->protocol, set->path, &smtp_set);
-	} else if (set->ip.family == 0) {
+	if (set->ip.family == 0) {
 		rbackend->conn = smtp_client_connection_create(
 			smtp_client, set->protocol, set->host, set->port,
 			set->ssl_mode, &smtp_set);

@@ -13,7 +13,7 @@ struct submision_backend_relay_settings {
 	const char *my_hostname;
 
 	enum smtp_protocol protocol;
-	const char *path, *host;
+	const char *host;
 	struct ip_addr ip; /* if empty, resolve host */
 	in_port_t port;
 
