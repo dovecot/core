@@ -11,6 +11,9 @@
 #include "printf-format-fix.h"
 #include "strfuncs.h"
 #include "array.h"
+#include "hash.h"
+#include "hmac.h"
+#include "sha2.h"
 
 #include <stdio.h>
 #include <limits.h>
@@ -655,6 +658,32 @@ bool str_equals_timing_almost_safe(const char *s1, const char *s2)
 	   above loop early. */
 	timing_safety_unoptimization = ret;
 	return ret == 0;
+}
+
+bool str_equals_hash_timing_safe(const char *s1, const char *s2)
+{
+	struct hmac_context ctx;
+	unsigned char digest1[SHA256_RESULTLEN];
+	unsigned char digest2[SHA256_RESULTLEN];
+
+	/* Compare HMAC-SHA256 digests of the inputs rather than the inputs
+	   themselves. The digest length is constant, so the subsequent
+	   mem_equals_timing_safe() leaks no length information. The HMAC
+	   times depend on the input lengths, but each side's length is either
+	   a deployment constant (for the secret) or already known to the
+	   attacker (for their own input), so neither leaks a useful signal.
+	   hash_iv keys the HMAC to prevent precomputation. */
+	hmac_init(&ctx, (const unsigned char *)&hash_iv, sizeof(hash_iv),
+		  &hash_method_sha256);
+	hmac_update(&ctx, s1, strlen(s1));
+	hmac_final(&ctx, digest1);
+
+	hmac_init(&ctx, (const unsigned char *)&hash_iv, sizeof(hash_iv),
+		  &hash_method_sha256);
+	hmac_update(&ctx, s2, strlen(s2));
+	hmac_final(&ctx, digest2);
+
+	return mem_equals_timing_safe(digest1, digest2, sizeof(digest1));
 }
 
 size_t

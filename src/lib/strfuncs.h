@@ -93,6 +93,11 @@ bool mem_equals_timing_safe(const void *p1, const void *p2, size_t size);
    the string lengths are the same. If not, the length of the secret string may
    be leaked, but otherwise the contents won't be. */
 bool str_equals_timing_almost_safe(const char *s1, const char *s2);
+/* Returns TRUE if the two strings are equal. Safe against timing attacks:
+   neither the contents nor the length of either string is leaked.
+   Implemented by HMAC-SHA256ing both inputs under a random per-process key
+   and comparing the fixed-length digests. */
+bool str_equals_hash_timing_safe(const char *s1, const char *s2);
 
 size_t str_match(const char *p1, const char *p2) ATTR_PURE;
 size_t str_match_icase(const char *p1, const char *p2) ATTR_PURE;
