@@ -191,8 +191,15 @@ static struct imap_arg *imap_arg_create(struct imap_parser *parser)
 	return arg;
 }
 
-static void imap_parser_open_list(struct imap_parser *parser)
+static bool imap_parser_open_list(struct imap_parser *parser)
 {
+	if (parser->list_count >= parser->list_count_limit) {
+		parser->error_msg = "Too many '('";
+		parser->error = IMAP_PARSE_ERROR_BAD_SYNTAX;
+		return FALSE;
+	}
+	parser->list_count++;
+
 	parser->list_arg = imap_arg_create(parser);
 	parser->list_arg->type = IMAP_ARG_LIST;
 	p_array_init(&parser->list_arg->_data.list, parser->pool,
@@ -200,6 +207,7 @@ static void imap_parser_open_list(struct imap_parser *parser)
 	parser->cur_list = &parser->list_arg->_data.list;
 
 	parser->cur_type = ARG_PARSE_NONE;
+	return TRUE;
 }
 
 static bool imap_parser_close_list(struct imap_parser *parser)
@@ -217,12 +225,6 @@ static bool imap_parser_close_list(struct imap_parser *parser)
 		parser->error = IMAP_PARSE_ERROR_BAD_SYNTAX;
 		return FALSE;
 	}
-	if (parser->list_count >= parser->list_count_limit) {
-		parser->error_msg = "Too many '('";
-		parser->error = IMAP_PARSE_ERROR_BAD_SYNTAX;
-		return FALSE;
-	}
-	parser->list_count++;
 
 	arg = imap_arg_create(parser);
 	arg->type = IMAP_ARG_EOL;
@@ -673,7 +675,8 @@ static bool imap_parser_read_arg(struct imap_parser *parser)
 			parser->literal8 = FALSE;
 			break;
 		case '(':
-			imap_parser_open_list(parser);
+			if (!imap_parser_open_list(parser))
+				return FALSE;
 			if ((parser->flags & IMAP_PARSE_FLAG_STOP_AT_LIST) != 0) {
 				i_stream_skip(parser->input, 1);
 				return FALSE;
