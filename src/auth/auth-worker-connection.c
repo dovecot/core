@@ -65,6 +65,7 @@ static const char *worker_socket_path;
 
 static void auth_worker_deinit(struct auth_worker_connection **worker,
 			       const char *reason, bool restart) ATTR_NULL(2);
+static void auth_worker_refill_workers(void);
 
 static void auth_worker_idle_timeout(struct auth_worker_connection *worker)
 {
@@ -173,8 +174,10 @@ static int auth_worker_handshake_args(struct connection *conn,
 		/* Don't undo the throttling while workers are failing.
 		   auth_worker_success() grows it back once they recover. */
 		if (auth_workers_throttle_count == 0 ||
-		    auth_workers_with_errors == 0)
+		    auth_workers_with_errors == 0) {
 			auth_workers_throttle_count = auth_worker_process_limit;
+			auth_worker_refill_workers();
+		}
 	}
 
 	if (auth_workers_throttle_count == 0) {
@@ -315,6 +318,21 @@ static struct auth_worker_connection *auth_worker_find_free(void)
 	i_unreached();
 }
 
+static void auth_worker_refill_workers(void)
+{
+	struct auth_worker_connection *worker;
+
+	/* Called when auth_workers_throttle_count grows. */
+	while (aqueue_count(worker_request_queue) > 0) {
+		worker = auth_worker_find_free();
+		if (worker == NULL)
+			worker = auth_worker_create();
+		if (worker == NULL)
+			return;
+		auth_worker_request_send_next(worker);
+	}
+}
+
 static int auth_worker_request_handle(struct auth_worker_connection *worker,
 				      const char *const *args)
 {
@@ -393,6 +411,8 @@ static void auth_worker_success(struct auth_worker_connection *worker)
 	} else if (auth_workers_throttle_count < auth_worker_process_limit)
 		auth_workers_throttle_count++;
 	worker->received_error = FALSE;
+
+	auth_worker_refill_workers();
 }
 
 static int worker_input_args(struct connection *conn, const char *const *args)
