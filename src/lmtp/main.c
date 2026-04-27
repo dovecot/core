@@ -45,7 +45,8 @@ lmtp_client_created_hook_set(lmtp_client_created_func_t *new_hook)
 void lmtp_anvil_init(void)
 {
 	if (anvil == NULL) {
-		const char *path = t_strdup_printf("%s/anvil", base_dir);
+		const char *path = t_strdup_printf("%s/anvil-connect-limit",
+						   base_dir);
 		anvil = anvil_client_init(path, NULL, 0);
 	}
 }

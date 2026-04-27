@@ -270,7 +270,7 @@ void login_anvil_init(void)
 		.reconnect = anvil_reconnect_callback,
 		.command = anvil_cmd_input,
 	};
-	anvil = anvil_client_init("anvil", &callbacks, 0);
+	anvil = anvil_client_init("anvil-connect-limit", &callbacks, 0);
 	if (anvil_client_connect(anvil, TRUE) < 0)
 		i_fatal("Couldn't connect to anvil");
 }
