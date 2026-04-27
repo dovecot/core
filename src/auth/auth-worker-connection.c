@@ -30,6 +30,7 @@
 #define AUTH_WORKER_DELAY_WARN_SECS 3
 #define AUTH_WORKER_DELAY_WARN_MIN_INTERVAL_SECS (5*60)
 #define AUTH_WORKER_CONNECT_RETRY_TIMEOUT_MSECS (5*1000)
+#define AUTH_WORKER_CREATE_RETRY_MSECS 1000
 
 struct auth_worker_request {
 	unsigned int id;
@@ -62,10 +63,12 @@ static unsigned int auth_workers_throttle_count;
 static unsigned int auth_worker_process_limit = 0;
 
 static const char *worker_socket_path;
+static struct timeout *to_worker_refill;
 
 static void auth_worker_deinit(struct auth_worker_connection **worker,
 			       const char *reason, bool restart) ATTR_NULL(2);
 static void auth_worker_refill_workers(void);
+static void auth_worker_refill_timeout(void *context);
 
 static void auth_worker_idle_timeout(struct auth_worker_connection *worker)
 {
@@ -249,6 +252,11 @@ static struct auth_worker_connection *auth_worker_create(void)
 			worker->conn.name);
 		connection_deinit(&worker->conn);
 		i_free(worker);
+		if (to_worker_refill == NULL) {
+			to_worker_refill =
+				timeout_add(AUTH_WORKER_CREATE_RETRY_MSECS,
+					    auth_worker_refill_timeout, NULL);
+		}
 		return NULL;
 	}
 
@@ -316,6 +324,12 @@ static struct auth_worker_connection *auth_worker_find_free(void)
 	}
 
 	i_unreached();
+}
+
+static void auth_worker_refill_timeout(void *context ATTR_UNUSED)
+{
+	timeout_remove(&to_worker_refill);
+	auth_worker_refill_workers();
 }
 
 static void auth_worker_refill_workers(void)
@@ -571,6 +585,7 @@ void auth_worker_connection_init(void)
 
 void auth_worker_connection_deinit(void)
 {
+	timeout_remove(&to_worker_refill);
 	connection_list_deinit(&connections);
 
 	aqueue_deinit(&worker_request_queue);
