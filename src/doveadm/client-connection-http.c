@@ -963,7 +963,7 @@ doveadm_http_server_auth_basic(struct client_request_http *req,
 	b64_value = t_base64_encode_str(0, UINT_MAX, value);
 
 	if (creds->data != NULL &&
-	    str_equals_timing_almost_safe(str_c(b64_value), creds->data))
+	    str_equals_hash_timing_safe(str_c(b64_value), creds->data))
 		return TRUE;
 
 	e_error(conn->conn.event,
@@ -989,7 +989,7 @@ doveadm_http_server_auth_api_key(struct client_request_http *req,
 
 	b64_value = t_base64_encode_str(0, UINT_MAX, set->doveadm_api_key);
 	if (creds->data != NULL &&
-	    str_equals_timing_almost_safe(creds->data, str_c(b64_value)))
+	    str_equals_hash_timing_safe(creds->data, str_c(b64_value)))
 		return TRUE;
 
 	e_error(conn->conn.event,
