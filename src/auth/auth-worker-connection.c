@@ -282,9 +282,10 @@ static void auth_worker_deinit(struct auth_worker_connection **_worker,
 		auth_workers_with_errors--;
 	}
 
-	if (worker->request == NULL)
+	if (worker->request == NULL) {
+		i_assert(idle_count > 0);
 		idle_count--;
-	else {
+	} else {
 		e_error(worker->conn.event, "Aborted %s request for %s: %s",
 			t_strcut(worker->request->data, '\t'),
 			worker->request->username, reason);
