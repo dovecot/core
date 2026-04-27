@@ -405,6 +405,13 @@ static int worker_input_args(struct connection *conn, const char *const *args)
 		return 1;
 	} else if (strcmp(args[0], "SHUTDOWN") == 0) {
 		worker->shutdown = TRUE;
+		if (worker->request == NULL) {
+			/* Worker is idle and announced it wants to exit.
+			   Disconnect now so no further requests get dispatched
+			   to it. */
+			auth_worker_deinit(&worker, "Idle kill", FALSE);
+			return -1;
+		}
 		return 1;
 	} else if (strcmp(args[0],  "RESTART") == 0) {
 		worker->restart = TRUE;
