@@ -490,6 +490,17 @@ dsasl_client_session_create_common(
 		return -1;
 	}
 
+	if (msession->authzid != NULL && msession->authid != NULL) {
+		e_debug(event, "Authenticating as %s on behalf of user %s",
+			msession->authid, msession->authzid);
+	} else if (msession->authzid != NULL || msession->authid != NULL) {
+		e_debug(event, "Authenticating as %s",
+			(msession->authid == NULL ?
+			 msession->authzid : msession->authid));
+	} else {
+		e_debug(event, "Authenticating");
+	}
+
 	*session_r = session;
 	return 1;
 }

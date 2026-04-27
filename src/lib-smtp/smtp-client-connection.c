@@ -971,15 +971,6 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 		return FALSE;
 	}
 
-	if (set->master_user != NULL) {
-		e_debug(conn->event, "Authenticating as %s for user %s",
-			set->master_user, set->username);
-	} else if (set->username == NULL) {
-		e_debug(conn->event, "Authenticating");
-	} else {
-		e_debug(conn->event, "Authenticating as %s", set->username);
-	}
-
 	if (smtp_client_connection_get_sasl_mech(conn, &mech_name,
 						 &error) < 0) {
 		error = t_strdup_printf("Authentication failed: %s", error);

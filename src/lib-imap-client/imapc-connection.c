@@ -1089,13 +1089,6 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	const char *mech_name = NULL, *error;
 	int ret;
 
-	if (*set->imapc_master_user == '\0') {
-		e_debug(conn->event, "Authenticating as %s", set->imapc_user);
-	} else {
-		e_debug(conn->event, "Authenticating as %s for user %s",
-			set->imapc_master_user, set->imapc_user);
-	}
-
 	if (array_not_empty(&set->imapc_sasl_mechanisms)) {
 		if (imapc_connection_get_sasl_mech(conn, &mech_name,
 						   &error) < 0) {
@@ -1112,6 +1105,8 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	if ((set->parsed_features & IMAPC_FEATURE_PROXYAUTH) != 0 &&
 	    *set->imapc_master_user != '\0') {
 		/* We can use LOGIN command */
+		e_debug(conn->event, "Logging in as %s (PROXYAUTH)",
+			set->imapc_master_user);
 		cmd = imapc_connection_cmd(conn, imapc_connection_proxyauth_login_cb,
 					   conn);
 		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
@@ -1124,6 +1119,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	      !need_literal(set->imapc_user) && !need_literal(client->password)) ||
 	     (conn->capabilities & IMAPC_CAPABILITY_AUTH_PLAIN) == 0)) {
 		/* We can use LOGIN command */
+		e_debug(conn->event, "Logging in as %s", set->imapc_user);
 		cmd = imapc_connection_cmd(conn, imapc_connection_login_cb,
 					   conn);
 		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
