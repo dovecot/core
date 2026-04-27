@@ -119,7 +119,6 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 	enum mailbox_list_path_type type;
 	const char *path, *name;
 	char sep;
-	int ret;
 
 	/* src_list is subscriptions=yes, dest_list is subscriptions=no
 	   (or the same as src_list) */
@@ -164,11 +163,8 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 	if (subsfile_list_fstat(subsfile_ctx, &st) == 0)
 		dest_list->subscriptions_mtime = st.st_mtime;
 	while ((name = subsfile_list_next(subsfile_ctx)) != NULL) T_BEGIN {
-		T_BEGIN {
-			ret = mailbox_list_subscription_fill_one(dest_list,
-								 src_list, name);
-		} T_END;
-		if (ret < 0) {
+		if (mailbox_list_subscription_fill_one(dest_list, src_list,
+						       name) < 0) {
 			e_warning(dest_list->event,
 				  "Subscriptions file %s: "
 				  "Removing invalid entry: %s",
