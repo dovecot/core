@@ -106,7 +106,7 @@ static void client_connected(struct master_service_connection *conn)
 		if (strcmp(type_str, "penalty") == 0)
 			type = ANVIL_CONNECTION_TYPE_AUTH_PENALTY;
 		else
-			type = ANVIL_CONNECTION_TYPE_DEFAULT;
+			type = ANVIL_CONNECTION_TYPE_ADMIN;
 	}
 
 	master_service_client_connection_accept(conn);
