@@ -105,6 +105,8 @@ static void client_connected(struct master_service_connection *conn)
 
 		if (strcmp(type_str, "penalty") == 0)
 			type = ANVIL_CONNECTION_TYPE_AUTH_PENALTY;
+		else if (strcmp(type_str, "connect-limit") == 0)
+			type = ANVIL_CONNECTION_TYPE_CONNECT_LIMIT;
 		else
 			type = ANVIL_CONNECTION_TYPE_ADMIN;
 	}

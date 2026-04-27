@@ -5,6 +5,7 @@ enum anvil_connection_type {
 	ANVIL_CONNECTION_TYPE_ADMIN,
 	ANVIL_CONNECTION_TYPE_SHARED_FIFO,
 	ANVIL_CONNECTION_TYPE_AUTH_PENALTY,
+	ANVIL_CONNECTION_TYPE_CONNECT_LIMIT,
 };
 
 /* Error is set and reply=NULL on internal errors. */
