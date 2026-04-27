@@ -111,6 +111,51 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 	return 0;
 }
 
+static void
+mailbox_list_subscriptions_apply_nfc_renames(struct mailbox_list *src_list,
+					     struct mailbox_list *dest_list,
+					     const char *path,
+					     const ARRAY_TYPE(const_string) *renames)
+{
+	const char *const *names;
+	unsigned int i, count;
+	const char *temp_prefix = mailbox_list_get_temp_prefix(src_list);
+
+	names = array_get(renames, &count);
+	for (i = 0; i < count; i += 2) {
+		const char *old_name = names[i];
+		const char *new_name = names[i + 1];
+
+		/* Add the NFC name first so a crash between the two
+		   operations leaves the subscription intact (just under
+		   the non-NFC name, which a later refresh will retry). */
+		if (subsfile_set_subscribed(src_list, path, temp_prefix,
+					    new_name, TRUE) < 0) {
+			mailbox_list_set_critical(dest_list,
+				"Failed to add NFC-normalized subscription "
+				"'%s' to %s: %s", new_name, path,
+				mailbox_list_get_last_internal_error(src_list,
+								     NULL));
+			break;
+		}
+		if (subsfile_set_subscribed(src_list, path, temp_prefix,
+					    old_name, FALSE) < 0) {
+			mailbox_list_set_critical(dest_list,
+				"Failed to remove non-NFC subscription '%s' "
+				"from %s: %s", old_name, path,
+				mailbox_list_get_last_internal_error(src_list,
+								     NULL));
+			break;
+		}
+		e_debug(dest_list->event,
+			"Subscription '%s' renamed to '%s' "
+			"for NFC normalization", old_name, new_name);
+	}
+	/* The file mtime changed; invalidate so a subsequent read re-stats
+	   but tree state is already correct. */
+	dest_list->subscriptions_mtime = (time_t)-1;
+}
+
 int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 				       struct mailbox_list *dest_list)
 {
@@ -119,6 +164,9 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 	enum mailbox_list_path_type type;
 	const char *path, *name;
 	char sep;
+	bool nfc = src_list->mail_set->mailbox_list_normalize_names_to_nfc;
+	ARRAY_TYPE(const_string) nfc_renames = ARRAY_INIT;
+	pool_t nfc_pool = NULL;
 
 	/* src_list is subscriptions=yes, dest_list is subscriptions=no
 	   (or the same as src_list) */
@@ -163,8 +211,19 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 	if (subsfile_list_fstat(subsfile_ctx, &st) == 0)
 		dest_list->subscriptions_mtime = st.st_mtime;
 	while ((name = subsfile_list_next(subsfile_ctx)) != NULL) T_BEGIN {
+		const char *nfc_name = name;
+		bool change_to_nfc = FALSE;
+
+		if (nfc) {
+			int nfc_ret = uni_utf8_to_nfc(name, strlen(name),
+						      &nfc_name);
+			if (nfc_ret >= 0 && strcmp(name, nfc_name) != 0)
+				change_to_nfc = TRUE;
+			else
+				nfc_name = name;
+		}
 		if (mailbox_list_subscription_fill_one(dest_list, src_list,
-						       name) < 0) {
+						       nfc_name) < 0) {
 			e_warning(dest_list->event,
 				  "Subscriptions file %s: "
 				  "Removing invalid entry: %s",
@@ -173,13 +232,32 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 				mailbox_list_get_temp_prefix(src_list),
 				name, FALSE);
 
+		} else if (change_to_nfc) {
+			/* The on-disk subscription name was not in NFC form.
+			   Remember to rewrite it after we're done reading. */
+			if (nfc_pool == NULL) {
+				nfc_pool = pool_alloconly_create(
+					"subscriptions nfc renames", 256);
+				p_array_init(&nfc_renames, nfc_pool, 4);
+			}
+			const char *old_name_dup = p_strdup(nfc_pool, name);
+			const char *new_name_dup = p_strdup(nfc_pool, nfc_name);
+			array_push_back(&nfc_renames, &old_name_dup);
+			array_push_back(&nfc_renames, &new_name_dup);
 		}
 	} T_END;
 
 	if (subsfile_list_deinit(&subsfile_ctx) < 0) {
 		dest_list->subscriptions_mtime = (time_t)-1;
+		pool_unref(&nfc_pool);
 		return -1;
 	}
+
+	if (array_not_empty(&nfc_renames)) {
+		mailbox_list_subscriptions_apply_nfc_renames(
+			src_list, dest_list, path, &nfc_renames);
+	}
+	pool_unref(&nfc_pool);
 	return 0;
 }
 
