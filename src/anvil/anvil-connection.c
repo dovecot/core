@@ -382,17 +382,13 @@ kick_alt_user(struct anvil_connection *conn,
 }
 
 static int
-anvil_cmd_connect(struct anvil_connection *conn,
+anvil_cmd_connect(struct anvil_connection *conn ATTR_UNUSED,
 		  const char *const *args, const char **error_r)
 {
 	guid_128_t conn_guid;
 	struct connect_limit_key key;
 	pid_t pid;
 
-	if (conn->conn_type != ANVIL_CONNECTION_TYPE_SHARED_FIFO) {
-		*error_r = "CONNECT: Not allowed on this connection type";
-		return -1;
-	}
 	if (args[0] == NULL || args[1] == NULL) {
 		*error_r = "CONNECT: Not enough parameters";
 		return -1;
@@ -442,17 +438,13 @@ anvil_cmd_connect(struct anvil_connection *conn,
 }
 
 static int
-anvil_cmd_disconnect(struct anvil_connection *conn,
+anvil_cmd_disconnect(struct anvil_connection *conn ATTR_UNUSED,
 		     const char *const *args, const char **error_r)
 {
 	guid_128_t conn_guid;
 	struct connect_limit_key key;
 	pid_t pid;
 
-	if (conn->conn_type != ANVIL_CONNECTION_TYPE_SHARED_FIFO) {
-		*error_r = "DISCONNECT: Not allowed on this connection type";
-		return -1;
-	}
 	if (args[0] == NULL || args[1] == NULL) {
 		*error_r = "DISCONNECT: Not enough parameters";
 		return -1;
@@ -478,12 +470,8 @@ anvil_cmd_disconnect(struct anvil_connection *conn,
 static int
 anvil_cmd_connect_dump(struct anvil_connection *conn,
 		       const char *const *args ATTR_UNUSED,
-		       const char **error_r)
+		       const char **error_r ATTR_UNUSED)
 {
-	if (conn->conn_type != ANVIL_CONNECTION_TYPE_ADMIN) {
-		*error_r = "CONNECT-DUMP: Not allowed on this connection type";
-		return -1;
-	}
 	anvil_global_connect_dump_count++;
 	connect_limit_dump(connect_limit, conn->conn.output);
 	return 0;
@@ -495,10 +483,6 @@ anvil_cmd_kick_user(struct anvil_connection *conn,
 {
 	guid_128_t conn_guid;
 
-	if (conn->conn_type != ANVIL_CONNECTION_TYPE_ADMIN) {
-		*error_r = "KICK-USER: Not allowed on this connection type";
-		return -1;
-	}
 	if (args[0] == NULL) {
 		*error_r = "KICK-USER: Not enough parameters";
 		return -1;
@@ -519,10 +503,6 @@ anvil_cmd_kick_alt_user(struct anvil_connection *conn,
 {
 	struct ip_addr except_ip;
 
-	if (conn->conn_type != ANVIL_CONNECTION_TYPE_ADMIN) {
-		*error_r = "KICK-ALT-USER: Not allowed on this connection type";
-		return -1;
-	}
 	if (args[0] == NULL || args[1] == NULL) {
 		*error_r = "KICK-ALT-USER: Not enough parameters";
 		return -1;
@@ -539,15 +519,11 @@ anvil_cmd_kick_alt_user(struct anvil_connection *conn,
 }
 
 static int
-anvil_cmd_kill(struct anvil_connection *conn,
+anvil_cmd_kill(struct anvil_connection *conn ATTR_UNUSED,
 	       const char *const *args, const char **error_r)
 {
 	pid_t pid;
 
-	if (conn->conn_type != ANVIL_CONNECTION_TYPE_SHARED_FIFO) {
-		*error_r = "KILL: Not allowed on this connection type";
-		return -1;
-	}
 	if (args[0] == NULL) {
 		*error_r = "KILL: Not enough parameters";
 		return -1;
@@ -567,10 +543,6 @@ anvil_cmd_lookup(struct anvil_connection *conn,
 	struct connect_limit_key key;
 	unsigned int value;
 
-	if (conn->conn_type != ANVIL_CONNECTION_TYPE_CONNECT_LIMIT) {
-		*error_r = "LOOKUP: Not allowed on this connection type";
-		return -1;
-	}
 	if (args[0] == NULL) {
 		*error_r = "LOOKUP: Not enough parameters";
 		return -1;
@@ -596,10 +568,6 @@ anvil_cmd_penalty_get(struct anvil_connection *conn,
 	unsigned int value;
 	time_t stamp;
 
-	if (conn->conn_type != ANVIL_CONNECTION_TYPE_AUTH_PENALTY) {
-		*error_r = "PENALTY-GET: Not allowed on this connection type";
-		return -1;
-	}
 	if (args[0] == NULL) {
 		*error_r = "PENALTY-GET: Not enough parameters";
 		return -1;
@@ -611,15 +579,11 @@ anvil_cmd_penalty_get(struct anvil_connection *conn,
 }
 
 static int
-anvil_cmd_penalty_inc(struct anvil_connection *conn,
+anvil_cmd_penalty_inc(struct anvil_connection *conn ATTR_UNUSED,
 		      const char *const *args, const char **error_r)
 {
 	unsigned int value, checksum;
 
-	if (conn->conn_type != ANVIL_CONNECTION_TYPE_AUTH_PENALTY) {
-		*error_r = "PENALTY-INC: Not allowed on this connection type";
-		return -1;
-	}
 	if (args[0] == NULL || args[1] == NULL || args[2] == NULL) {
 		*error_r = "PENALTY-INC: Not enough parameters";
 		return -1;
@@ -636,17 +600,12 @@ anvil_cmd_penalty_inc(struct anvil_connection *conn,
 }
 
 static int
-anvil_cmd_penalty_set_expire_secs(struct anvil_connection *conn,
+anvil_cmd_penalty_set_expire_secs(struct anvil_connection *conn ATTR_UNUSED,
 				  const char *const *args,
 				  const char **error_r)
 {
 	unsigned int value;
 
-	if (conn->conn_type != ANVIL_CONNECTION_TYPE_AUTH_PENALTY) {
-		*error_r = "PENALTY-SET-EXPIRE-SECS: "
-			"Not allowed on this connection type";
-		return -1;
-	}
 	if (args[0] == NULL || str_to_uint(args[0], &value) < 0) {
 		*error_r = "PENALTY-SET-EXPIRE-SECS: Invalid parameters";
 		return -1;
@@ -658,51 +617,62 @@ anvil_cmd_penalty_set_expire_secs(struct anvil_connection *conn,
 static int
 anvil_cmd_penalty_dump(struct anvil_connection *conn,
 		       const char *const *args ATTR_UNUSED,
-		       const char **error_r)
+		       const char **error_r ATTR_UNUSED)
 {
-	if (conn->conn_type != ANVIL_CONNECTION_TYPE_ADMIN) {
-		*error_r = "PENALTY-DUMP: Not allowed on this connection type";
-		return -1;
-	}
 	penalty_dump(penalty, conn->conn.output);
 	return 0;
 }
+
+struct anvil_command {
+	const char *name;
+	enum anvil_connection_type allowed_type;
+	int (*handler)(struct anvil_connection *conn,
+		       const char *const *args, const char **error_r);
+};
+
+static const struct anvil_command anvil_commands[] = {
+	{ "CONNECT", ANVIL_CONNECTION_TYPE_SHARED_FIFO, anvil_cmd_connect },
+	{ "DISCONNECT", ANVIL_CONNECTION_TYPE_SHARED_FIFO, anvil_cmd_disconnect },
+	{ "KILL", ANVIL_CONNECTION_TYPE_SHARED_FIFO, anvil_cmd_kill },
+	{ "CONNECT-DUMP", ANVIL_CONNECTION_TYPE_ADMIN, anvil_cmd_connect_dump },
+	{ "KICK-USER", ANVIL_CONNECTION_TYPE_ADMIN, anvil_cmd_kick_user },
+	{ "KICK-ALT-USER", ANVIL_CONNECTION_TYPE_ADMIN, anvil_cmd_kick_alt_user },
+	{ "PENALTY-DUMP", ANVIL_CONNECTION_TYPE_ADMIN, anvil_cmd_penalty_dump },
+	{ "LOOKUP", ANVIL_CONNECTION_TYPE_CONNECT_LIMIT, anvil_cmd_lookup },
+	{ "PENALTY-GET", ANVIL_CONNECTION_TYPE_AUTH_PENALTY,
+	  anvil_cmd_penalty_get },
+	{ "PENALTY-INC", ANVIL_CONNECTION_TYPE_AUTH_PENALTY,
+	  anvil_cmd_penalty_inc },
+	{ "PENALTY-SET-EXPIRE-SECS", ANVIL_CONNECTION_TYPE_AUTH_PENALTY,
+	  anvil_cmd_penalty_set_expire_secs },
+};
 
 static int
 anvil_connection_request(struct anvil_connection *conn,
 			 const char *const *args, const char **error_r)
 {
 	const char *cmd = args[0];
+	const struct anvil_command *cmd_def = NULL;
 
 	anvil_global_cmd_counter++;
 	anvil_refresh_proctitle_delayed();
 
-	args++;
-	if (strcmp(cmd, "CONNECT") == 0)
-		return anvil_cmd_connect(conn, args, error_r);
-	else if (strcmp(cmd, "DISCONNECT") == 0)
-		return anvil_cmd_disconnect(conn, args, error_r);
-	else if (strcmp(cmd, "CONNECT-DUMP") == 0)
-		return anvil_cmd_connect_dump(conn, args, error_r);
-	else if (strcmp(cmd, "KICK-USER") == 0)
-		return anvil_cmd_kick_user(conn, args, error_r);
-	else if (strcmp(cmd, "KICK-ALT-USER") == 0)
-		return anvil_cmd_kick_alt_user(conn, args, error_r);
-	else if (strcmp(cmd, "KILL") == 0)
-		return anvil_cmd_kill(conn, args, error_r);
-	else if (strcmp(cmd, "LOOKUP") == 0)
-		return anvil_cmd_lookup(conn, args, error_r);
-	else if (strcmp(cmd, "PENALTY-GET") == 0)
-		return anvil_cmd_penalty_get(conn, args, error_r);
-	else if (strcmp(cmd, "PENALTY-INC") == 0)
-		return anvil_cmd_penalty_inc(conn, args, error_r);
-	else if (strcmp(cmd, "PENALTY-SET-EXPIRE-SECS") == 0)
-		return anvil_cmd_penalty_set_expire_secs(conn, args, error_r);
-	else if (strcmp(cmd, "PENALTY-DUMP") == 0)
-		return anvil_cmd_penalty_dump(conn, args, error_r);
-
-	*error_r = t_strconcat("Unknown command: ", cmd, NULL);
-	return -1;
+	for (unsigned int i = 0; i < N_ELEMENTS(anvil_commands); i++) {
+		if (strcmp(cmd, anvil_commands[i].name) == 0) {
+			cmd_def = &anvil_commands[i];
+			break;
+		}
+	}
+	if (cmd_def == NULL) {
+		*error_r = t_strconcat("Unknown command: ", cmd, NULL);
+		return -1;
+	}
+	if (conn->conn_type != cmd_def->allowed_type) {
+		*error_r = t_strdup_printf(
+			"%s: Not allowed on this connection type", cmd_def->name);
+		return -1;
+	}
+	return cmd_def->handler(conn, args + 1, error_r);
 }
 
 static int
