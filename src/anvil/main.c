@@ -99,7 +99,7 @@ static void client_connected(struct master_service_connection *conn)
 	enum anvil_connection_type type;
 
 	if (conn->fifo)
-		type = ANVIL_CONNECTION_TYPE_MASTER;
+		type = ANVIL_CONNECTION_TYPE_SHARED_FIFO;
 	else {
 		const char *type_str = master_service_connection_get_type(conn);
 

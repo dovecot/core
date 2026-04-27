@@ -503,7 +503,7 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "KILL: Not enough parameters";
 			return -1;
 		}
-		if (conn->conn_type != ANVIL_CONNECTION_TYPE_MASTER) {
+		if (conn->conn_type != ANVIL_CONNECTION_TYPE_SHARED_FIFO) {
 			*error_r = "KILL sent by a non-master connection";
 			return -1;
 		}
@@ -648,7 +648,7 @@ anvil_connection_input_line(struct connection *_conn, const char *line)
 		if (!version_string_verify(line, "anvil-client",
 				ANVIL_CLIENT_PROTOCOL_MAJOR_VERSION)) {
 			if (anvil_restarted &&
-			    (conn->conn_type == ANVIL_CONNECTION_TYPE_MASTER ||
+			    (conn->conn_type == ANVIL_CONNECTION_TYPE_SHARED_FIFO ||
 			     conn->fifo)) {
 				/* old pending data. ignore input until we get
 				   the handshake. */
