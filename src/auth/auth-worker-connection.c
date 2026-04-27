@@ -276,6 +276,9 @@ static void auth_worker_deinit(struct auth_worker_connection **_worker,
 
 	*_worker = NULL;
 
+	e_debug(worker->conn.event, "Disconnecting: %s (restart=%s)",
+		reason, restart ? "yes" : "no");
+
 	if (worker->received_error) {
 		i_assert(auth_workers_with_errors > 0);
 		i_assert(connections == NULL || auth_workers_with_errors <= connections->connections_count);
