@@ -156,6 +156,23 @@ int dsasl_client_session_check_password(
 	return 0;
 }
 
+static struct event *
+dsasl_client_session_create_event(struct dsasl_client *client,
+				  struct event *event_parent)
+{
+	struct event *event;
+
+	if (event_parent == NULL) {
+		event = event_create(client->event);
+		event_drop_parent_log_prefixes(event, 1);
+	} else {
+		event = event_create(event_parent);
+		event_add_category(event, &event_category_sasl_client);
+	}
+
+	return event;
+}
+
 int dsasl_client_session_create(struct dsasl_client *client,
 				struct event *event_parent,
 				const struct dsasl_client_mech *mech,
@@ -169,9 +186,7 @@ int dsasl_client_session_create(struct dsasl_client *client,
 	*session_r = NULL;
 	*error_r = NULL;
 
-	event = event_create(event_parent);
-
-	event_add_category(event, &event_category_sasl_client);
+	event = dsasl_client_session_create_event(client, event_parent);
 	event_set_append_log_prefix(event,
 		t_strdup_printf("sasl(%s): ", t_str_lcase(mech->name)));
 
