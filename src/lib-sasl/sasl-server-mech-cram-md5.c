@@ -26,7 +26,7 @@ struct cram_auth_request {
 
 	/* received: */
 	char *username;
-	char *response;
+	char response[MD5_RESULTLEN];
 	unsigned long maxbuf;
 };
 
@@ -54,7 +54,6 @@ verify_credentials(struct sasl_server_mech_request *auth_request,
 			     auth_request);
 	unsigned char digest[MD5_RESULTLEN];
         struct hmac_context ctx;
-	const char *response_hex;
 
 	if (size != CRAM_MD5_CONTEXTLEN) {
 		e_error(auth_request->event, "invalid credentials length");
@@ -67,11 +66,8 @@ verify_credentials(struct sasl_server_mech_request *auth_request,
 	hmac_update(&ctx, request->challenge, strlen(request->challenge));
 	hmac_final(&ctx, digest);
 
-	response_hex = binary_to_hex(digest, sizeof(digest));
-
-	if (strlen(request->response) != sizeof(digest) * 2 ||
-	    !mem_equals_timing_safe(response_hex, request->response,
-				    sizeof(digest) * 2)) {
+	if (!mem_equals_timing_safe(digest, request->response,
+				    sizeof(digest))) {
 		sasl_server_request_password_mismatch(auth_request);
 		return;
 	}
@@ -104,8 +100,19 @@ parse_cram_response(struct cram_auth_request *request,
 
 	request->username = p_strndup(auth_request->pool, data, space);
 	space++;
-	request->response =
-		p_strndup(auth_request->pool, data + space, size - space);
+
+	const char *response_hex = t_strndup(data + space, size - space);
+	if (strlen(response_hex) != sizeof(request->response) * 2) {
+		e_info(auth_request->event, "invalid digest size");
+		return FALSE;
+	}
+	buffer_t buf;
+	buffer_create_from_data(&buf, request->response,
+				sizeof(request->response));
+	if (hex_to_binary(response_hex, &buf) < 0) {
+		e_info(auth_request->event, "invalid hex in digest");
+		return FALSE;
+	}
 	return TRUE;
 }
 
