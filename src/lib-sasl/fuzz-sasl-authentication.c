@@ -8,6 +8,7 @@
 #include "hex-binary.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "client-auth-settings.h"
 #include "password-scheme.h"
 #include "gssapi-dummy.h"
 #include "sasl-server.h"
@@ -699,7 +700,7 @@ static void fuzz_sasl_run(struct istream *input)
 
 	sasl_server_request_create(&fctx.ssrctx, server_mech, "imap", NULL);
 
-	struct dsasl_client_settings client_set = {
+	struct client_auth_settings client_set = {
 		.mechanism = params.mech,
 		.authid = params.authid,
 		.authzid = params.authzid,

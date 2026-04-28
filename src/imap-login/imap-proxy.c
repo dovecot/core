@@ -11,6 +11,7 @@
 #include "safe-memset.h"
 #include "compression.h"
 #include "ostream-zlib.h"
+#include "client-auth-settings.h"
 #include "dsasl-client.h"
 #include "imap-login-client.h"
 #include "client-authenticate.h"
@@ -109,7 +110,7 @@ static int proxy_write_starttls(struct imap_client *client, string_t *str)
 
 static int proxy_write_login(struct imap_client *client, string_t *str)
 {
-	struct dsasl_client_settings sasl_set;
+	struct client_auth_settings sasl_set;
 	const unsigned char *sasl_output;
 	size_t sasl_output_len;
 	const char *mech_name, *error;

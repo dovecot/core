@@ -1,7 +1,9 @@
 #ifndef DSASL_CLIENT_PROTECTED_H
 #define DSASL_CLIENT_PROTECTED_H
 
+#include "client-auth-settings.h"
 #include "sasl-common.h"
+
 #include "dsasl-client.h"
 
 struct dsasl_client_mech_session;
@@ -36,7 +38,7 @@ struct dsasl_client_mech_session {
 	pool_t pool;
 	struct event *event;
 	struct dsasl_client_parameters params;
-	struct dsasl_client_settings set;
+	const struct client_auth_settings *set;
 	const struct dsasl_client_mech *mech;
 	struct dsasl_client_session *session;
 

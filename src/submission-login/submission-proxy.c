@@ -9,6 +9,7 @@
 #include "str.h"
 #include "str-sanitize.h"
 #include "strescape.h"
+#include "client-auth-settings.h"
 #include "dsasl-client.h"
 #include "client.h"
 #include "smtp-syntax.h"
@@ -257,7 +258,7 @@ proxy_send_auth_command(struct submission_client *client,
 static int
 proxy_send_login(struct submission_client *client, struct ostream *output)
 {
-	struct dsasl_client_settings sasl_set;
+	struct client_auth_settings sasl_set;
 	const unsigned char *sasl_output;
 	size_t sasl_output_len;
 	const char *mech_name, *error;
@@ -271,9 +272,6 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 			"Authentication support not advertised (TLS required?)");
 		return -1;
 	}
-
-	if (client->common.proxy_mech_name == NULL)
-		client->common.proxy_mech_name = SASL_MECH_NAME_PLAIN;
 
 	i_assert(client->common.proxy_sasl_session == NULL);
 	i_zero(&sasl_set);

@@ -324,6 +324,7 @@ static void client_proxy_failed(struct client *client)
 {
 	login_proxy_free(&client->login_proxy);
 	proxy_free_password(client);
+	i_free_and_null(client->proxy_mech_name);
 	i_free_and_null(client->proxy_user);
 	i_free_and_null(client->proxy_master_user);
 

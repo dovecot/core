@@ -1,8 +1,10 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "array.h"
 #include "safe-memset.h"
+#include "settings.h"
 #include "dsasl-client-private.h"
 
 struct event_category event_category_sasl_client = {
@@ -129,6 +131,18 @@ void dsasl_client_mech_unregister(struct dsasl_client *client,
 }
 
 static int
+dsasl_client_check_mech_name(const char *mech_name, const char **error_r)
+{
+	if (!sasl_mechanism_name_is_valid(t_str_ucase(mech_name))) {
+		*error_r = t_strdup_printf(
+			"Configured SASL mechanism has invalid name '%s'",
+			mech_name);
+		return -1;
+	}
+	return 0;
+}
+
+static int
 dsasl_client_require_mech(struct dsasl_client *client, const char *mech_name,
 			  const struct dsasl_client_mech **mech_r,
 			  const char **error_r)
@@ -179,6 +193,122 @@ int dsasl_client_session_check_password(
 	return 0;
 }
 
+static bool
+dsasl_client_check_server_support(const struct dsasl_client_parameters *params,
+				  const char *mech_name)
+{
+	if (params == NULL || params->server_mechanisms == NULL)
+		return TRUE;
+
+	return str_array_icase_find(params->server_mechanisms, mech_name);
+}
+
+static int
+dsasl_client_session_select_mech(struct dsasl_client *client,
+				 struct event *event, pool_t pool,
+				 const struct dsasl_client_parameters *params,
+				 const struct client_auth_settings *set,
+				 const struct dsasl_client_mech **mech_r,
+				 const struct client_auth_settings **set_r,
+				 const char **error_r)
+{
+	*mech_r = NULL;
+	*set_r = NULL;
+	*error_r = NULL;
+
+	if (set->pool == NULL || array_is_empty(&set->mechanisms)) {
+		if (set->mechanism != NULL && *set->mechanism != '\0') {
+			/* Mechanism set explicitly;
+			   Don't check server support
+			 */
+			if (dsasl_client_check_mech_name(set->mechanism,
+							 error_r) < 0)
+				return -1;
+			if (dsasl_client_require_mech(client, set->mechanism,
+						      mech_r, error_r) < 0)
+				return -1;
+			*set_r = client_auth_settings_ref(pool, set);
+			return 0;
+		}
+
+		if (dsasl_client_check_server_support(params, "PLAIN")) {
+			/* Either server support is unknown or PLAIN is
+			   supported by server. Use it as the default. */
+			*mech_r = &dsasl_client_mech_plain;
+			*set_r = client_auth_settings_ref(pool, set);
+			return 0;
+		}
+
+		/* Check whether we support any suitable mechanism offered by
+		   the server.
+		 */
+		const char *const *mech_p = params->server_mechanisms;
+		const struct dsasl_client_mech *mech;
+
+		while (*mech_p != NULL) {
+			mech = dsasl_client_mech_find(client, *mech_p);
+			if (mech != NULL &&
+			    HAS_NO_BITS(mech->flags,
+					DSASL_MECH_SEC_NO_PASSWORD)) {
+				*mech_r = mech;
+				*set_r = client_auth_settings_ref(pool, set);
+				return 0;
+			}
+			mech_p++;
+		}
+
+		*error_r = t_strdup_printf(
+			"No suitable SASL mechanism offered by the server "
+			"(configured: none, offered: %s)",
+			t_strarray_join(params->server_mechanisms, ", "));
+		return -1;
+	}
+
+	/* Select first suitable mechanism */
+	const char *mech_name;
+	array_foreach_elem(&set->mechanisms, mech_name) {
+		if (dsasl_client_check_mech_name(mech_name, error_r) < 0)
+			return -1;
+		if (!dsasl_client_check_server_support(params, mech_name)) {
+			/* Not supported by server */
+			continue;
+		}
+
+		if (settings_get_filter(event,
+					CLIENT_AUTH_SETTINGS_FILTER, mech_name,
+					&client_auth_setting_parser_info, 0,
+					set_r, error_r) < 0)
+			return -1;
+		if (dsasl_client_require_mech(client, mech_name,
+					      mech_r, error_r) < 0) {
+			settings_free(*set_r);
+			return -1;
+		}
+		return 0;
+	}
+
+	string_t *client_mechanisms = t_str_new(64);
+	const char *server_mechanisms;
+	array_foreach_elem(&set->mechanisms, mech_name) {
+		if (str_len(client_mechanisms) > 0)
+			str_append(client_mechanisms, ", ");
+		str_append(client_mechanisms, mech_name);
+	}
+	if (params == NULL || params->server_mechanisms == NULL)
+		server_mechanisms = "unknown";
+	else if (*params->server_mechanisms == NULL)
+		server_mechanisms = "none";
+	else {
+		server_mechanisms =
+			t_strarray_join(params->server_mechanisms, ", ");
+	}
+	*error_r = t_strdup_printf(
+		"No configured SASL mechanism is offered by the server "
+		"(configured: %s, offered: %s)",
+		str_c(client_mechanisms), server_mechanisms);
+	return -1;
+}
+
 static struct event *
 dsasl_client_session_create_event(struct dsasl_client *client,
 				  struct event *event_parent)
@@ -192,38 +322,60 @@ dsasl_client_session_create_event(struct dsasl_client *client,
 		event = event_create(event_parent);
 		event_add_category(event, &event_category_sasl_client);
 	}
+	event_set_append_log_prefix(event, "sasl: ");
 
 	return event;
 }
 
-int dsasl_client_session_create(struct dsasl_client *client,
-				struct event *event_parent,
-				const struct dsasl_client_parameters *params,
-				const struct dsasl_client_settings *set,
-				struct dsasl_client_session **session_r,
-				const char **error_r)
+int dsasl_client_session_create(
+	struct dsasl_client *client, struct event *event_parent,
+	const struct dsasl_client_parameters *params,
+	const struct client_auth_settings *set_mult,
+	struct dsasl_client_session **session_r, const char **error_r)
 {
-	struct event *event;
-	const struct dsasl_client_mech *mech;
-
 	*session_r = NULL;
 	*error_r = NULL;
 
-	i_assert(set->mechanism != NULL);
+	const struct client_auth_settings *set;
+	struct event *event;
+	const struct dsasl_client_mech *mech;
+	pool_t pool;
+	int ret;
 
 	event = dsasl_client_session_create_event(client, event_parent);
-
-	if (dsasl_client_require_mech(client, set->mechanism,
-				      &mech, error_r) < 0)
+	pool = pool_alloconly_create("sasl client session", 1024);
+	ret = dsasl_client_session_select_mech(client, event, pool,
+					       params, set_mult,
+					       &mech, &set, error_r);
+	if (ret < 0) {
+		pool_unref(&pool);
 		return -1;
+	}
+
+	const char *authid = set->authid;
+	const char *authzid = set->authzid;
+	const char *password = set->password;
+
+	if (authid != NULL && *authid == '\0')
+		authid = NULL;
+	if (authzid != NULL && *authzid == '\0')
+		authzid = NULL;
+	if (!set->manual && password != NULL && *password == '\0')
+		password = NULL;
+	if (null_strcmp(authzid, authid) == 0)
+		authzid = NULL;
+	if (authid == NULL) {
+		authid = authzid;
+		authzid = NULL;
+	}
 
 	event_set_append_log_prefix(event,
 		t_strdup_printf("sasl(%s): ", t_str_lcase(mech->name)));
+	settings_event_add_list_filter_name(event, CLIENT_AUTH_SETTINGS_FILTER,
+					    mech->name);
 
 	struct dsasl_client_session *session;
-	pool_t pool;
 
-	pool = pool_alloconly_create("sasl client session", 512);
 	session = p_new(pool, struct dsasl_client_session, 1);
 	session->pool = pool;
 	session->refcount = 1;
@@ -240,10 +392,11 @@ int dsasl_client_session_create(struct dsasl_client *client,
 	msession->pool = pool;
 	msession->event = event;
 	msession->mech = mech;
+	msession->set = set;
 	msession->session = session;
-	msession->authid = p_strdup_empty(pool, set->authid);
-	msession->authzid = p_strdup_empty(pool, set->authzid);
-	msession->password = p_strdup(pool, set->password);
+	msession->authid = authid;
+	msession->authzid = authzid;
+	msession->password = password;
 	session->mech = msession;
 
 	if (params != NULL) {
@@ -287,6 +440,7 @@ void dsasl_client_session_unref(struct dsasl_client_session **_session)
 
 	if (msession->mech->auth_free != NULL)
 		msession->mech->auth_free(msession);
+	settings_free(msession->set);
 	event_unref(&session->event);
 	dsasl_client_unref(&session->client);
 	pool_unref(&session->pool);

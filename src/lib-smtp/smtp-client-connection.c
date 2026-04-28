@@ -14,6 +14,7 @@
 #include "iostream-ssl.h"
 #include "str.h"
 #include "settings.h"
+#include "client-auth-settings.h"
 #include "dsasl-client.h"
 #include "dns-lookup.h"
 #include "smtp-syntax.h"
@@ -893,19 +894,10 @@ smtp_client_connection_get_sasl_mech(struct smtp_client_connection *conn,
 	const struct smtp_client_settings *set = &conn->set;
 	const char *const *mechanisms;
 
-	if (set->sasl_mech != NULL) {
-		if (!str_array_icase_find(conn->caps.auth_mechanisms,
-					  set->sasl_mech)) {
-			*error_r = t_strdup_printf(
-				"Server doesn't support `%s' SASL mechanism",
-				set->sasl_mech);
-			return -1;
-		}
-		*mech_name_r = set->sasl_mech;
-		return 0;
-	}
+	*mech_name_r = NULL;
+
 	if (set->sasl_mechanisms == NULL || set->sasl_mechanisms[0] == '\0') {
-		*mech_name_r = SASL_MECH_NAME_PLAIN;
+		*mech_name_r = "";
 		return 0;
 	}
 
@@ -951,14 +943,15 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 {
 	struct smtp_client *client = conn->client;
 	const struct smtp_client_settings *set = &conn->set;
-	struct dsasl_client_settings sasl_set;
-	const char *mech_name;
+	struct client_auth_settings sasl_set;
+	const char *mech_name = NULL;
 	const unsigned char *sasl_output;
 	size_t sasl_output_len;
 	string_t *sasl_output_base64;
 	const char *error;
 
-	if (set->username == NULL && set->sasl_mech == NULL) {
+	if (set->username == NULL &&
+	    (set->sasl_mechanisms == NULL || *set->sasl_mechanisms == '\0')) {
 		if (!conn->set.xclient_defer)
 			smtp_client_connection_send_xclient(conn);
 		return (conn->xclient_replies_expected == 0);
@@ -2198,10 +2191,8 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 			conn->password = p_strdup(pool, set->password);
 			conn->set.password = conn->password;
 		}
-		if (set->sasl_mech != NULL)
-			conn->set.sasl_mech = set->sasl_mech;
-		else if (set->sasl_mechanisms != NULL &&
-			 *set->sasl_mechanisms != '\0') {
+		if (set->sasl_mechanisms != NULL &&
+		    *set->sasl_mechanisms != '\0') {
 			conn->set.sasl_mechanisms =
 				p_strdup(pool, set->sasl_mechanisms);
 		}

@@ -3,13 +3,15 @@
 #include "lib.h"
 #include "str.h"
 #include "strfuncs.h"
+#include "settings.h"
 #include "test-common.h"
+#include "client-auth-settings.h"
 #include "dsasl-client.h"
 
 static struct dsasl_client_session *
 test_init_sasl_session_params(struct dsasl_client *client,
 			      const struct dsasl_client_parameters *params,
-			      const struct dsasl_client_settings *set,
+			      const struct client_auth_settings *set,
 			      const char **error_r)
 {
 	struct dsasl_client_session *session;
@@ -23,7 +25,7 @@ test_init_sasl_session_params(struct dsasl_client *client,
 
 static struct dsasl_client_session *
 test_init_sasl_session(struct dsasl_client *client,
-		       const struct dsasl_client_settings *set,
+		       const struct client_auth_settings *set,
 		       const char **error_r)
 {
 	struct dsasl_client_parameters params = {
@@ -34,16 +36,16 @@ test_init_sasl_session(struct dsasl_client *client,
 
 static void test_sasl_client_login(void)
 {
-	const struct dsasl_client_settings sasl_empty_set = {
+	const struct client_auth_settings sasl_empty_set = {
 		.mechanism = "LOGIN",
 		.authid = NULL,
 	};
-	const struct dsasl_client_settings sasl_no_password_set = {
+	const struct client_auth_settings sasl_no_password_set = {
 		.mechanism = "LOGIN",
 		.authid = "testuser",
 	};
-	const struct dsasl_client_settings sasl_set = {
-		.mechanism = "lOGIN",
+	const struct client_auth_settings sasl_set = {
+		.mechanism = "LOGIN",
 		.authid = "testuser",
 		.password = "testpassword"
 	};
@@ -126,20 +128,20 @@ static void test_sasl_client_login(void)
 
 static void test_sasl_client_plain(void)
 {
-	const struct dsasl_client_settings sasl_empty_set = {
+	const struct client_auth_settings sasl_empty_set = {
 		.mechanism = "PLAIN",
 		.authid = NULL,
 	};
-	const struct dsasl_client_settings sasl_no_password_set = {
+	const struct client_auth_settings sasl_no_password_set = {
 		.mechanism = "PLAIN",
 		.authid = "testuser",
 	};
-	const struct dsasl_client_settings sasl_set = {
+	const struct client_auth_settings sasl_set = {
 		.mechanism = "PLAIN",
 		.authid = "testuser",
 		.password = "testpassword"
 	};
-	const struct dsasl_client_settings sasl_master_set = {
+	const struct client_auth_settings sasl_master_set = {
 		.mechanism = "PLAIN",
 		.authzid = "testuser",
 		.authid = "masteruser",
@@ -226,12 +228,12 @@ static void test_sasl_client_plain(void)
 
 static void test_sasl_client_external(void)
 {
-	const struct dsasl_client_settings sasl_set = {
+	const struct client_auth_settings sasl_set = {
 		.mechanism = "EXTERNAL",
 		.authid = "testuser",
 		.password = "testpassword"
 	};
-	const struct dsasl_client_settings sasl_master_set = {
+	const struct client_auth_settings sasl_master_set = {
 		.mechanism = "EXTERNAL",
 		.authzid = "testuser",
 		.authid = "masteruser",
@@ -288,15 +290,15 @@ static void test_sasl_client_external(void)
 
 static void test_sasl_client_oauthbearer(void)
 {
-	const struct dsasl_client_settings sasl_empty_set = {
+	const struct client_auth_settings sasl_empty_set = {
 		.mechanism = "OAUTHBEARER",
 		.authid = NULL,
 	};
-	const struct dsasl_client_settings sasl_no_password_set = {
+	const struct client_auth_settings sasl_no_password_set = {
 		.mechanism = "OAUTHBEARER",
 		.authid = "testuser",
 	};
-	const struct dsasl_client_settings sasl_set = {
+	const struct client_auth_settings sasl_set = {
 		.mechanism = "OAUTHBEARER",
 		.authid = "testuser",
 		.password = "testpassword"
@@ -396,15 +398,15 @@ static void test_sasl_client_oauthbearer(void)
 
 static void test_sasl_client_xoauth2(void)
 {
-	const struct dsasl_client_settings sasl_empty_set = {
+	const struct client_auth_settings sasl_empty_set = {
 		.mechanism = "XOAUTH2",
 		.authid = NULL,
 	};
-	const struct dsasl_client_settings sasl_no_password_set = {
+	const struct client_auth_settings sasl_no_password_set = {
 		.mechanism = "XOAUTH2",
 		.authid = "testuser",
 	};
-	const struct dsasl_client_settings sasl_set = {
+	const struct client_auth_settings sasl_set = {
 		.mechanism = "XOAUTH2",
 		.authid = "testuser",
 		.password = "testpassword"

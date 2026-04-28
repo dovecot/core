@@ -11,6 +11,7 @@
 #include "str-sanitize.h"
 #include "strescape.h"
 #include "uri-util.h"
+#include "client-auth-settings.h"
 #include "dsasl-client.h"
 #include "client.h"
 #include "pop3-proxy.h"
@@ -22,7 +23,7 @@ static_assert_array_size(pop3_proxy_state_names, POP3_PROXY_STATE_COUNT);
 
 static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 {
-	struct dsasl_client_settings sasl_set;
+	struct client_auth_settings sasl_set;
 	const unsigned char *sasl_output;
 	size_t sasl_output_len;
 	const char *mech_name, *value, *error;

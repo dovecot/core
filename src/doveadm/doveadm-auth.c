@@ -11,6 +11,7 @@
 #include "strescape.h"
 #include "var-expand.h"
 #include "randgen.h"
+#include "client-auth-settings.h"
 #include "dsasl-client.h"
 #include "settings.h"
 #include "settings-parser.h"
@@ -327,13 +328,12 @@ static void auth_connected(struct auth_client *client,
 
 static void cmd_auth_init_sasl_client(struct authtest_input *input)
 {
-	struct dsasl_client_settings sasl_set;
+	struct client_auth_settings sasl_set;
 	struct dsasl_client_parameters sasl_params;
 	const char *error;
 
 	i_zero(&sasl_set);
-	sasl_set.mechanism = (input->mechanism == NULL ?
-			      SASL_MECH_NAME_PLAIN : input->mechanism);
+	sasl_set.mechanism = input->mechanism;
 	if (input->master_user == NULL)
 		sasl_set.authid = input->username;
 	else {

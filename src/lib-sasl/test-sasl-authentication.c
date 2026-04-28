@@ -6,7 +6,9 @@
 #include "base64.h"
 #include "randgen.h"
 #include "ioloop.h"
+#include "settings.h"
 #include "test-common.h"
+#include "client-auth-settings.h"
 #include "password-scheme.h"
 #include "gssapi-dummy.h"
 #include "sasl-server.h"
@@ -414,7 +416,7 @@ test_sasl_run_once(const struct test_sasl *test,
 				test->client.password :
 				test->server.password);
 
-	struct dsasl_client_settings client_set = {
+	struct client_auth_settings client_set = {
 		.mechanism = test->mech,
 		.authid = (realm == NULL ? authid :
 			   t_strconcat(authid, "@", realm, NULL)),
@@ -427,7 +429,7 @@ test_sasl_run_once(const struct test_sasl *test,
 		.host = "example.com",
 		.server_mechanisms = server_mechanisms,
 	};
-	if (dsasl_client_session_create(tctx.client, test_event,
+	if (dsasl_client_session_create(tctx.client, NULL,
 					&client_params, &client_set,
 					&tctx.session, &error) < 0)
 		i_fatal("Failed to create SASL session: %s", error);

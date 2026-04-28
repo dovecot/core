@@ -10,6 +10,7 @@
 #include "str.h"
 #include "time-util.h"
 #include "dns-lookup.h"
+#include "client-auth-settings.h"
 #include "dsasl-client.h"
 #include "iostream-rawlog.h"
 #include "iostream-ssl.h"
@@ -1084,7 +1085,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	struct imapc_client *client = conn->client;
 	const struct imapc_settings *set = client->set;
 	struct imapc_command *cmd;
-	struct dsasl_client_settings sasl_set;
+	struct client_auth_settings sasl_set;
 	const char *mech_name = NULL, *error;
 
 	if (*set->imapc_master_user == '\0') {
@@ -1131,8 +1132,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	}
 
 	i_zero(&sasl_set);
-	sasl_set.mechanism = (mech_name == NULL ?
-			      SASL_MECH_NAME_PLAIN : mech_name);
+	sasl_set.mechanism = mech_name;
 	if (*set->imapc_master_user == '\0')
 		sasl_set.authid = set->imapc_user;
 	else {

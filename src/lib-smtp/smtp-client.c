@@ -54,11 +54,7 @@ struct smtp_client *smtp_client_init(const struct smtp_client_settings *set)
 
 	client->set.master_user = p_strdup_empty(pool, set->master_user);
 	client->set.username = p_strdup_empty(pool, set->username);
-	client->set.sasl_mech = set->sasl_mech;
-	if (set->sasl_mech == NULL) {
-		client->set.sasl_mechanisms =
-			p_strdup(pool, set->sasl_mechanisms);
-	}
+	client->set.sasl_mechanisms = p_strdup(pool, set->sasl_mechanisms);
 
 	client->set.connect_timeout_msecs = set->connect_timeout_msecs != 0 ?
 		set->connect_timeout_msecs :

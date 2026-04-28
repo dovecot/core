@@ -4,6 +4,8 @@
 #include "iostream-ssl.h"
 #include "sasl-common.h"
 
+struct client_auth_settings;
+
 struct dsasl_client;
 struct dsasl_client_session;
 
@@ -29,19 +31,6 @@ struct dsasl_client_parameters {
 
 	/* sasl mechanisms supported by server */
 	const char *const *server_mechanisms;
-};
-
-struct dsasl_client_settings {
-	/* Name of the SASL mechanism */
-	const char *mechanism;
-
-	/* authentication ID - must be set with most mechanisms */
-	const char *authid;
-	/* authorization ID (who to log in as, if authentication ID is a
-	   master user) */
-	const char *authzid;
-	/* password - must be set with most mechanisms */
-	const char *password;
 };
 
 typedef int
@@ -74,7 +63,7 @@ void dsasl_client_init_gssapi(struct dsasl_client *client);
 int dsasl_client_session_create(struct dsasl_client *client,
 				struct event *event_parent,
 				const struct dsasl_client_parameters *params,
-				const struct dsasl_client_settings *set,
+				const struct client_auth_settings *set,
 				struct dsasl_client_session **session_r,
 				const char **error_r);
 void dsasl_client_session_ref(struct dsasl_client_session *session);
