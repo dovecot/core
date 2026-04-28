@@ -92,12 +92,13 @@ void admin_cmd_send(const char *service, pid_t pid, const char *cmd,
 
 static void client_connected(struct master_service_connection *conn)
 {
-	/* The first listen_fd is a pipe connected directly to the master
-	   process. It's not actually the first configured listener in the
-	   service settings. */
+	/* The master process passes two pipes to anvil as the first listen
+	   fds: one for KILL notifications from the master itself, and one
+	   shared by all service processes for CONNECT/DISCONNECT/KILL. Both
+	   arrive here as fifo connections and use the same connection type. */
 	enum anvil_connection_type type;
 
-	if (conn->listen_fd == MASTER_LISTEN_FD_FIRST)
+	if (conn->fifo)
 		type = ANVIL_CONNECTION_TYPE_MASTER;
 	else {
 		const char *type_str = master_service_connection_get_type(conn);
