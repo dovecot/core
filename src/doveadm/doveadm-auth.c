@@ -342,7 +342,6 @@ static void cmd_auth_init_sasl_client(struct authtest_input *input)
 		input->sasl_mech = &dsasl_client_mech_plain;
 
 	i_zero(&sasl_set);
-	sasl_set.event_parent = input->event;
 	if (input->master_user == NULL)
 		sasl_set.authid = input->username;
 	else {
@@ -369,7 +368,8 @@ static void cmd_auth_init_sasl_client(struct authtest_input *input)
 		sasl_params.host = "localhost";
 	sasl_params.port = input->info.local_port;
 
-	if (dsasl_client_session_create(input->sasl_client, input->sasl_mech,
+	if (dsasl_client_session_create(input->sasl_client, input->event,
+					input->sasl_mech,
 					&sasl_params, &sasl_set,
 					&input->sasl_session, &error) < 0)
 		i_fatal("Failed to initialize SASL client session: %s", error);

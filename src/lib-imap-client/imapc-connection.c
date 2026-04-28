@@ -1134,7 +1134,6 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	}
 
 	i_zero(&sasl_set);
-	sasl_set.event_parent = conn->event;
 	if (*set->imapc_master_user == '\0')
 		sasl_set.authid = set->imapc_user;
 	else {
@@ -1152,8 +1151,8 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 
 	if (sasl_mech == NULL)
 		sasl_mech = &dsasl_client_mech_plain;
-	if (dsasl_client_session_create(client->sasl_client, sasl_mech,
-					&sasl_params, &sasl_set,
+	if (dsasl_client_session_create(client->sasl_client, conn->event,
+					sasl_mech, &sasl_params, &sasl_set,
 					&conn->sasl_session, &error) < 0) {
 		e_error(conn->event, "Failed to create SASL session: %s",
 			error);

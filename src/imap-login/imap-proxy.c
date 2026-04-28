@@ -154,7 +154,6 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 
 	i_assert(client->common.proxy_sasl_session == NULL);
 	i_zero(&sasl_set);
-	sasl_set.event_parent = client->common.event;
 	sasl_set.authid = client->common.proxy_master_user != NULL ?
 		client->common.proxy_master_user : client->common.proxy_user;
 	sasl_set.authzid = client->common.proxy_user;
@@ -165,7 +164,8 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 		.host = login_proxy_get_host(client->common.login_proxy),
 		.port = login_proxy_get_port(client->common.login_proxy),
 	};
-	if (dsasl_client_session_create(sasl_client, client->common.proxy_mech,
+	if (dsasl_client_session_create(sasl_client, client->common.event,
+					client->common.proxy_mech,
 					&sasl_params, &sasl_set,
 					&client->common.proxy_sasl_session,
 					&error) < 0) {

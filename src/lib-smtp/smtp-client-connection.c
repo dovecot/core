@@ -1007,7 +1007,6 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 	}
 
 	i_zero(&sasl_set);
-	sasl_set.event_parent = conn->event;
 	if (set->master_user == NULL)
 		sasl_set.authid = set->username;
 	else {
@@ -1024,7 +1023,8 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 	};
 
 	if (dsasl_client_session_create(smtp_client_get_sasl_client(client),
-					sasl_mech, &sasl_params, &sasl_set,
+					conn->event, sasl_mech,
+					&sasl_params, &sasl_set,
 					&conn->sasl_session, &error) < 0) {
 		error = t_strdup_printf(
 			"Failed to initialize authentication: %s", error);

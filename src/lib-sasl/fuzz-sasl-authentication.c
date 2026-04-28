@@ -701,7 +701,6 @@ static void fuzz_sasl_run(struct istream *input)
 	sasl_server_request_create(&fctx.ssrctx, server_mech, "imap", NULL);
 
 	struct dsasl_client_settings client_set = {
-		.event_parent = fuzz_event,
 		.authid = params.authid,
 		.authzid = params.authzid,
 		.password = params.client_password,
@@ -713,7 +712,8 @@ static void fuzz_sasl_run(struct istream *input)
 	client_mech = dsasl_client_mech_find(fctx.client, params.mech);
 	ret = -1;
 	if (client_mech != NULL) {
-		ret = dsasl_client_session_create(fctx.client, client_mech,
+		ret = dsasl_client_session_create(fctx.client, fuzz_event,
+						  client_mech,
 						  &client_params, &client_set,
 						  &fctx.session, &error);
 		if (ret < 0) {

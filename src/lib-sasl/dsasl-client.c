@@ -157,6 +157,7 @@ int dsasl_client_session_check_password(
 }
 
 int dsasl_client_session_create(struct dsasl_client *client,
+				struct event *event_parent,
 				const struct dsasl_client_mech *mech,
 				const struct dsasl_client_parameters *params,
 				const struct dsasl_client_settings *set,
@@ -168,7 +169,7 @@ int dsasl_client_session_create(struct dsasl_client *client,
 	*session_r = NULL;
 	*error_r = NULL;
 
-	event = event_create(set->event_parent);
+	event = event_create(event_parent);
 
 	event_add_category(event, &event_category_sasl_client);
 	event_set_append_log_prefix(event,

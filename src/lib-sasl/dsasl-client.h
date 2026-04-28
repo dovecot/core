@@ -31,8 +31,6 @@ struct dsasl_client_parameters {
 };
 
 struct dsasl_client_settings {
-	struct event *event_parent;
-
 	/* authentication ID - must be set with most mechanisms */
 	const char *authid;
 	/* authorization ID (who to log in as, if authentication ID is a
@@ -70,6 +68,7 @@ void dsasl_client_init_gssapi(struct dsasl_client *client);
  */
 
 int dsasl_client_session_create(struct dsasl_client *client,
+				struct event *event_parent,
 				const struct dsasl_client_mech *mech,
 				const struct dsasl_client_parameters *params,
 				const struct dsasl_client_settings *set,

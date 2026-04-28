@@ -34,7 +34,7 @@ test_init_sasl_session_params(struct dsasl_client *client,
 {
 	struct dsasl_client_session *session;
 
-	if (dsasl_client_session_create(client, mech, params, set,
+	if (dsasl_client_session_create(client, NULL, mech, params, set,
 					&session, error_r) < 0)
 		session = NULL;
 
