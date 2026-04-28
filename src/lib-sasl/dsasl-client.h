@@ -79,6 +79,9 @@ void dsasl_client_session_ref(struct dsasl_client_session *session);
 void dsasl_client_session_unref(struct dsasl_client_session **_session);
 void dsasl_client_session_destroy(struct dsasl_client_session **_session);
 
+const char *
+dsasl_client_session_get_mech_name(struct dsasl_client_session *session);
+
 /* Enable channel binding support for this session. */
 void dsasl_client_session_enable_channel_binding(
 	struct dsasl_client_session *session,

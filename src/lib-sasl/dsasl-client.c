@@ -257,6 +257,12 @@ void dsasl_client_session_destroy(struct dsasl_client_session **_session)
 	dsasl_client_session_unref(&session);
 }
 
+const char *
+dsasl_client_session_get_mech_name(struct dsasl_client_session *session)
+{
+	return session->mech->mech->name;
+}
+
 void dsasl_client_session_enable_channel_binding(
 	struct dsasl_client_session *session,
 	enum ssl_iostream_protocol_version channel_version,
