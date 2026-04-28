@@ -1576,6 +1576,139 @@ static void test_sasl_bad_credentials(void)
 	}
 }
 
+static void
+test_server_request_output_no_client(struct sasl_server_req_ctx *rctx,
+				     const struct sasl_server_output *output)
+{
+	struct test_sasl_context *tctx =
+		container_of(rctx, struct test_sasl_context, ssrctx);
+
+	switch (output->status) {
+	case SASL_SERVER_OUTPUT_INTERNAL_FAILURE:
+	case SASL_SERVER_OUTPUT_PASSWORD_MISMATCH:
+	case SASL_SERVER_OUTPUT_FAILURE:
+	case SASL_SERVER_OUTPUT_SUCCESS:
+		tctx->finished = TRUE;
+		break;
+	case SASL_SERVER_OUTPUT_CONTINUE:
+		/* server-sent challenge; ignore */
+		break;
+	}
+}
+
+static void test_sasl_cram_md5_malformed_input(void)
+{
+	/* Verifies that a CRAM-MD5 client response with a malformed digest
+	   fails cleanly instead of reading out of bounds.
+
+	   CRAM-MD5 client response format: <username> SPACE <hex digest>
+	   The hex digest must be exactly MD5_RESULTLEN*2 = 32 hex chars.
+	   Older code (before commits d4b656103b / 397ec60437) copied the
+	   digest into a heap-allocated string and then compared a fixed
+	   number of bytes against it, which read past the end when the
+	   digest was shorter than 32 chars.
+
+	   The data buffers are heap-allocated to exactly data_size bytes so
+	   that ASAN/valgrind detect any OOB read past the end. */
+	static const struct {
+		const char *label;
+		const char *data;
+		size_t data_size;
+	} cases[] = {
+		{
+			"digest too short",
+			"user deadbeef",
+			13,
+		},
+		{
+			"digest too long",
+			"user 0123456789abcdef0123456789abcdef0123456789abcdef",
+			53,
+		},
+		{
+			"digest empty",
+			"user ",
+			5,
+		},
+		{
+			"digest one byte",
+			"user a",
+			6,
+		},
+		{
+			"digest odd length",
+			"user 0123456789abcdef0123456789abcde",
+			36,
+		},
+		{
+			"digest right length but invalid hex",
+			"user xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+			37,
+		},
+		{
+			"digest right length with non-ASCII hex",
+			"user 0123456789abcdef0123456789abcdeg",
+			37,
+		},
+	};
+
+	const struct test_sasl test = {
+		.mech = "CRAM-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.failure = TRUE,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+	};
+
+	const struct sasl_server_settings server_set = {
+		.event_parent = test_event,
+	};
+
+	struct sasl_server_request_funcs funcs_no_client = server_funcs;
+	funcs_no_client.request_output = test_server_request_output_no_client;
+
+	for (unsigned int i = 0; i < N_ELEMENTS(cases); i++) {
+		test_begin(t_strconcat("sasl cram-md5 malformed: ",
+				       cases[i].label, NULL));
+
+		struct sasl_server *server =
+			sasl_server_init(test_event, &funcs_no_client);
+		struct sasl_server_instance *server_inst =
+			sasl_server_instance_create(server, &server_set);
+		sasl_server_mech_register_cram_md5(server_inst);
+
+		const struct sasl_server_mech *mech =
+			sasl_server_mech_find(server_inst, "CRAM-MD5");
+		i_assert(mech != NULL);
+
+		struct test_sasl_context tctx;
+		i_zero(&tctx);
+		tctx.pool = pool_alloconly_create(
+			MEMPOOL_GROWING"test_sasl", 1024);
+		tctx.test = &test;
+
+		sasl_server_request_create(&tctx.ssrctx, mech, "imap", NULL);
+		/* server sends challenge, no initial response from client */
+		sasl_server_request_initial(&tctx.ssrctx, NULL, 0);
+
+		void *data_dup = i_memdup(cases[i].data, cases[i].data_size);
+		sasl_server_request_input(&tctx.ssrctx,
+					  data_dup, cases[i].data_size);
+		i_free(data_dup);
+
+		test_assert(tctx.finished);
+		sasl_server_request_destroy(&tctx.ssrctx);
+
+		pool_unref(&tctx.pool);
+		sasl_server_instance_unref(&server_inst);
+		sasl_server_deinit(&server);
+
+		test_end();
+	}
+}
+
 static void test_sasl_oauthbearer_malformed_input(void)
 {
 	/* Two inputs missing the final 0x01 terminator.
@@ -1669,6 +1802,7 @@ int main(int argc, char *argv[])
 		test_sasl_success,
 		test_sasl_bad_credentials,
 		test_sasl_oauthbearer_malformed_input,
+		test_sasl_cram_md5_malformed_input,
 		NULL
 	};
 	struct ioloop *ioloop;
