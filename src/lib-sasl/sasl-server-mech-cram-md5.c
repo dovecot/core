@@ -69,7 +69,8 @@ verify_credentials(struct sasl_server_mech_request *auth_request,
 
 	response_hex = binary_to_hex(digest, sizeof(digest));
 
-	if (!mem_equals_timing_safe(response_hex, request->response,
+	if (strlen(request->response) != sizeof(digest) * 2 ||
+	    !mem_equals_timing_safe(response_hex, request->response,
 				    sizeof(digest) * 2)) {
 		sasl_server_request_password_mismatch(auth_request);
 		return;
