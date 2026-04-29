@@ -1087,6 +1087,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	struct imapc_command *cmd;
 	struct client_auth_settings sasl_set;
 	const char *mech_name = NULL, *error;
+	int ret;
 
 	if (*set->imapc_master_user == '\0') {
 		e_debug(conn->event, "Authenticating as %s", set->imapc_user);
@@ -1148,9 +1149,10 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		.server_mechanisms = imapc_connection_get_auth_mechs(conn),
 	};
 
-	if (dsasl_client_session_create(client->sasl_client, conn->event,
-					&sasl_params, &sasl_set,
-					&conn->sasl_session, &error) < 0) {
+	ret = dsasl_client_session_create(client->sasl_client, conn->event,
+					  &sasl_params, &sasl_set,
+					  &conn->sasl_session, &error);
+	if (ret <= 0) {
 		e_error(conn->event, "Failed to create SASL session: %s",
 			error);
 		struct imapc_command_reply reply = {

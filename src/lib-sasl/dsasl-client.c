@@ -297,6 +297,13 @@ dsasl_client_session_select_mech(struct dsasl_client *client,
 						      mech_r, error_r) < 0)
 				return -1;
 			*set_r = client_auth_settings_ref(pool, set);
+			return 1;
+		}
+
+		if ((set->authid == NULL || *set->authid == '\0') &&
+		    (set->authzid == NULL || *set->authzid == '\0')) {
+			e_debug(event, "Authentication not configured");
+			*error_r = "Authentication not configured";
 			return 0;
 		}
 
@@ -305,7 +312,7 @@ dsasl_client_session_select_mech(struct dsasl_client *client,
 			   supported by server. Use it as the default. */
 			*mech_r = &dsasl_client_mech_plain;
 			*set_r = client_auth_settings_ref(pool, set);
-			return 0;
+			return 1;
 		}
 
 		/* Check whether we support any suitable mechanism offered by
@@ -321,7 +328,7 @@ dsasl_client_session_select_mech(struct dsasl_client *client,
 					DSASL_MECH_SEC_NO_PASSWORD)) {
 				*mech_r = mech;
 				*set_r = client_auth_settings_ref(pool, set);
-				return 0;
+				return 1;
 			}
 			mech_p++;
 		}
@@ -353,7 +360,7 @@ dsasl_client_session_select_mech(struct dsasl_client *client,
 			settings_free(*set_r);
 			return -1;
 		}
-		return 0;
+		return 1;
 	}
 
 	string_t *client_mechanisms = t_str_new(64);
@@ -415,9 +422,9 @@ dsasl_client_session_create_common(
 	ret = dsasl_client_session_select_mech(client, event, pool,
 					       params, set_mult,
 					       &mech, &set, error_r);
-	if (ret < 0) {
+	if (ret <= 0) {
 		pool_unref(&pool);
-		return -1;
+		return ret;
 	}
 
 	const char *authid = set->authid;
@@ -484,7 +491,7 @@ dsasl_client_session_create_common(
 	}
 
 	*session_r = session;
-	return 0;
+	return 1;
 }
 
 int dsasl_client_session_create(

@@ -949,6 +949,7 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 	size_t sasl_output_len;
 	string_t *sasl_output_base64;
 	const char *error;
+	int ret;
 
 	if (set->username == NULL &&
 	    (set->sasl_mechanisms == NULL || *set->sasl_mechanisms == '\0')) {
@@ -1005,9 +1006,10 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 		.server_mechanisms = conn->caps.auth_mechanisms,
 	};
 
-	if (dsasl_client_session_create(smtp_client_get_sasl_client(client),
-					conn->event, &sasl_params, &sasl_set,
-					&conn->sasl_session, &error) < 0) {
+	ret = dsasl_client_session_create(smtp_client_get_sasl_client(client),
+					  conn->event, &sasl_params, &sasl_set,
+					  &conn->sasl_session, &error);
+	if (ret <= 0) {
 		error = t_strdup_printf(
 			"Failed to initialize authentication: %s", error);
 		smtp_client_connection_fail(

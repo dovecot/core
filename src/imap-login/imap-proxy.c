@@ -114,6 +114,7 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 	const unsigned char *sasl_output;
 	size_t sasl_output_len;
 	const char *mech_name, *error;
+	int ret;
 
 	/* Send CAPABILITY command if we don't know the capabilities yet.
 	   Also as kind of a Dovecot-backend workaround if the client insisted
@@ -166,10 +167,11 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 		.host = login_proxy_get_host(client->common.login_proxy),
 		.port = login_proxy_get_port(client->common.login_proxy),
 	};
-	if (dsasl_client_session_create(sasl_client, client->common.event,
-					&sasl_params, &sasl_set,
-					&client->common.proxy_sasl_session,
-					&error) < 0) {
+	ret = dsasl_client_session_create(sasl_client, client->common.event,
+					  &sasl_params, &sasl_set,
+					  &client->common.proxy_sasl_session,
+					  &error);
+	if (ret <= 0) {
 		const char *reason = t_strdup_printf(
 			"SASL client session init failed: %s", error);
 		login_proxy_failed(client->common.login_proxy,

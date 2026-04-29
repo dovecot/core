@@ -331,6 +331,7 @@ static void cmd_auth_init_sasl_client(struct authtest_input *input)
 	struct client_auth_settings sasl_set;
 	struct dsasl_client_parameters sasl_params;
 	const char *error;
+	int ret;
 
 	i_zero(&sasl_set);
 	sasl_set.mechanism = input->mechanism;
@@ -360,9 +361,10 @@ static void cmd_auth_init_sasl_client(struct authtest_input *input)
 		sasl_params.host = "localhost";
 	sasl_params.port = input->info.local_port;
 
-	if (dsasl_client_session_create(input->sasl_client, input->event,
-					&sasl_params, &sasl_set,
-					&input->sasl_session, &error) < 0)
+	ret = dsasl_client_session_create(input->sasl_client, input->event,
+					  &sasl_params, &sasl_set,
+					  &input->sasl_session, &error);
+	if (ret <= 0)
 		i_fatal("Failed to initialize SASL client session: %s", error);
 
 	dsasl_client_session_enable_channel_binding(

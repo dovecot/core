@@ -28,6 +28,7 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 	size_t sasl_output_len;
 	const char *mech_name, *value, *error;
 	string_t *str = t_str_new(128);
+	int ret;
 
 	i_assert(client->common.proxy_ttl > 1);
 	if (client->proxy_xclient &&
@@ -99,10 +100,11 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 		.host = login_proxy_get_host(client->common.login_proxy),
 		.port = login_proxy_get_port(client->common.login_proxy),
 	};
-	if (dsasl_client_session_create(sasl_client, client->common.event,
-					&sasl_params, &sasl_set,
-					&client->common.proxy_sasl_session,
-					&error) < 0) {
+	ret = dsasl_client_session_create(sasl_client, client->common.event,
+					  &sasl_params, &sasl_set,
+					  &client->common.proxy_sasl_session,
+					  &error);
+	if (ret <= 0) {
 		const char *reason = t_strdup_printf(
 			"SASL client session init failed: %s", error);
 		login_proxy_failed(client->common.login_proxy,
