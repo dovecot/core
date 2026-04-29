@@ -202,14 +202,6 @@ auth_cache_node_destroy(struct auth_cache *cache, struct auth_cache_node *node)
 	i_free(node);
 }
 
-static void sig_auth_cache_clear(const siginfo_t *si ATTR_UNUSED, void *context)
-{
-	struct auth_cache *cache = context;
-
-	e_info(cache->event, "SIGHUP received, %u cache entries flushed",
-	       auth_cache_clear(cache));
-}
-
 static void sig_auth_cache_stats(const siginfo_t *si ATTR_UNUSED, void *context)
 {
 	struct auth_cache *cache = context;
@@ -253,8 +245,6 @@ struct auth_cache *auth_cache_new(size_t max_size, unsigned int ttl_secs,
 	cache->neg_ttl_secs = neg_ttl_secs;
 	cache->event = event_create(auth_event);
 
-	lib_signals_set_handler(SIGHUP, LIBSIG_FLAGS_SAFE,
-				sig_auth_cache_clear, cache);
 	lib_signals_set_handler(SIGUSR2, LIBSIG_FLAGS_SAFE,
 				sig_auth_cache_stats, cache);
 	return cache;
@@ -265,7 +255,6 @@ void auth_cache_free(struct auth_cache **_cache)
 	struct auth_cache *cache = *_cache;
 
 	*_cache = NULL;
-	lib_signals_unset_handler(SIGHUP, sig_auth_cache_clear, cache);
 	lib_signals_unset_handler(SIGUSR2, sig_auth_cache_stats, cache);
 
 	auth_cache_clear(cache);
