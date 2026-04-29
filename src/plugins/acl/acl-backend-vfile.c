@@ -279,6 +279,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 	linenum = 0;
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		linenum++;
+		line = str_skip_lwsp(line);
 		if (line[0] == '\0' || line[0] == '#')
 			continue;
 		T_BEGIN {

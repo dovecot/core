@@ -192,24 +192,55 @@ static void test_acl_rights_parse_line(void)
 	} tests[] = {
 		{ "user=foo lr", ACL_ID_USER, "foo",
 		  "lookup read", "(null)" },
+		/* tab between ID and rights */
+		{ "user=foo\tlr", ACL_ID_USER, "foo",
+		  "lookup read", "(null)" },
+		/* mixed whitespace */
+		{ "user=foo \tlr", ACL_ID_USER, "foo",
+		  "lookup read", "(null)" },
+		/* multiple spaces */
+		{ "user=foo    lr", ACL_ID_USER, "foo",
+		  "lookup read", "(null)" },
 		/* no rights at all is not the same as no rights entry */
 		{ "user=foo", ACL_ID_USER, "foo", "", "(null)" },
+		/* trailing whitespace with no rights */
+		{ "user=foo\t", ACL_ID_USER, "foo", "", "(null)" },
 		{ "owner "TEST_ACL_LETTERS_ALL, ACL_ID_OWNER, NULL,
 		  TEST_ACL_RIGHTS_ALL_SORTED, "(null)" },
 		{ "anyone l", ACL_ID_ANYONE, NULL, "lookup", "(null)" },
+		/* tab with anyone */
+		{ "anyone\tlr", ACL_ID_ANYONE, NULL,
+		  "lookup read", "(null)" },
 		{ "anonymous l", ACL_ID_ANYONE, NULL, "lookup", "(null)" },
 		{ "authenticated lr", ACL_ID_AUTHENTICATED, NULL,
 		  "lookup read", "(null)" },
+		/* tab with authenticated */
+		{ "authenticated\tlr", ACL_ID_AUTHENTICATED, NULL,
+		  "lookup read", "(null)" },
 		{ "group=g1 lr", ACL_ID_GROUP, "g1",
+		  "lookup read", "(null)" },
+		/* tab with group */
+		{ "group=admins\tlr", ACL_ID_GROUP, "admins",
 		  "lookup read", "(null)" },
 		{ "group-override=g2 a", ACL_ID_GROUP_OVERRIDE, "g2",
 		  "admin", "(null)" },
 		/* '-' prefix makes the rights negative */
 		{ "-user=foo lr", ACL_ID_USER, "foo",
 		  "(null)", "lookup read" },
+		/* negative ACL with tab separator */
+		{ "-user=foo\tlr", ACL_ID_USER, "foo",
+		  "(null)", "lookup read" },
 		/* identifiers with spaces are quoted */
 		{ "\"user=foo bar\" lr", ACL_ID_USER, "foo bar",
 		  "lookup read", "(null)" },
+		/* quoted ID with tab */
+		{ "\"user=foo\"\tlr", ACL_ID_USER, "foo",
+		  "lookup read", "(null)" },
+		/* quoted ID with multiple spaces */
+		{ "\"user=foo\"   lr", ACL_ID_USER, "foo",
+		  "lookup read", "(null)" },
+		/* quoted ID with trailing tab and no rights */
+		{ "\"user=foo\"\t", ACL_ID_USER, "foo", "", "(null)" },
 		{ "\"-user=foo bar\" lr", ACL_ID_USER, "foo bar",
 		  "(null)", "lookup read" },
 		{ "\"user=foo\\\\bar\" l", ACL_ID_USER, "foo\\bar",
@@ -248,11 +279,13 @@ static void test_acl_rights_parse_line_errors(void)
 		const char *error;
 	} tests[] = {
 		{ "", "Unknown ID ''" },
+		/* leading whitespace is stripped by the vfile reader, not here */
+		{ " user=foo lr", "Unknown ID ''" },
 		{ "foo lr", "Unknown ID 'foo'" },
 		{ "user=foo z", "Unknown ACL 'z'" },
 		{ "user=foo lr x", "Missing ':' prefix in ACL extensions" },
 		{ "\"user=foo lr", "Invalid quoted ID" },
-		{ "\"user=foo\"x l", "Invalid quoted ID" },
+		{ "\"user=foo\"x l", "End-quote not followed by whitespace" },
 	};
 	pool_t pool = pool_alloconly_create("test acl parse errors", 1024);
 	struct acl_rights rights;

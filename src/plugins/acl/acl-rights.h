@@ -133,7 +133,8 @@ int acl_rights_update_import(struct acl_rights_update *update,
 const char *acl_rights_export(const struct acl_rights *rights);
 
 /* <settings checks> */
-/* Parses line containing identifier and rights */
+/* Parses line containing identifier and rights.
+ * Requires all leading whitespace to be stripped by the caller. */
 int acl_rights_parse_line(const char *line, pool_t pool,
 			  struct acl_rights *rights_r, const char **error_r);
 /* </settings checks> */
