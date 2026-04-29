@@ -165,7 +165,7 @@ int file_create_locked(const char *path, const struct file_create_settings *set,
 	int fd, ret;
 
 	for (i = 0; i < MAX_RETRY_COUNT; i++) {
-		fd = open(path, O_RDWR);
+		fd = open(path, O_RDWR | O_NOFOLLOW);
 		if (fd != -1) {
 			ret = try_lock_existing(fd, path, set, lock_r, error_r);
 			if (ret > 0) {
