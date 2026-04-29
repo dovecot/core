@@ -389,6 +389,7 @@ test_sasl_run_once(const struct test_sasl *test,
 {
 	const struct dsasl_client_mech *client_mech;
 	struct test_sasl_context tctx;
+	const char *error;
 
 	i_zero(&tctx);
 	tctx.pool = pool_alloconly_create(MEMPOOL_GROWING"test_sasl", 2048);
@@ -429,8 +430,10 @@ test_sasl_run_once(const struct test_sasl *test,
 	};
 	client_mech = dsasl_client_mech_find(tctx.client, test->mech);
 	i_assert(client_mech != NULL);
-	tctx.session = dsasl_client_session_create(tctx.client, client_mech,
-						   &client_params, &client_set);
+	if (dsasl_client_session_create(tctx.client, client_mech,
+					&client_params, &client_set,
+					&tctx.session, &error) < 0)
+		i_fatal("Failed to create SASL session: %s", error);
 	i_assert(tctx.session != NULL);
 
 	dsasl_client_session_enable_channel_binding(

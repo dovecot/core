@@ -17,6 +17,8 @@ struct dsasl_client_mech {
 
 	struct dsasl_client_mech_session *(*auth_new)(pool_t pool);
 	void (*auth_free)(struct dsasl_client_mech_session *msession);
+	int (*auth_check)(struct dsasl_client_mech_session *msession,
+			  const char **error_r);
 	enum dsasl_client_result
 	(*auth_input)(struct dsasl_client_mech_session *msession,
 		      const unsigned char *input, size_t input_len,

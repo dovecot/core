@@ -1152,8 +1152,19 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 
 	if (sasl_mech == NULL)
 		sasl_mech = &dsasl_client_mech_plain;
-	conn->sasl_session = dsasl_client_session_create(
-		client->sasl_client, sasl_mech, &sasl_params, &sasl_set);
+	if (dsasl_client_session_create(client->sasl_client, sasl_mech,
+					&sasl_params, &sasl_set,
+					&conn->sasl_session, &error) < 0) {
+		e_error(conn->event, "Failed to create SASL session: %s",
+			error);
+		struct imapc_command_reply reply = {
+			.state = IMAPC_COMMAND_STATE_DISCONNECTED,
+			.text_full = "",
+		};
+		imapc_auth_failed(conn, &reply, error);
+		imapc_connection_disconnect(conn);
+		return;
+	}
 
 	mech_name = dsasl_client_mech_get_name(sasl_mech);
 	if (conn->ssl_iostream != NULL) {

@@ -680,6 +680,8 @@ static void fuzz_sasl_run(struct istream *input)
 
 	const struct dsasl_client_mech *client_mech;
 	struct fuzz_sasl_context fctx;
+	const char *error;
+	int ret;
 
 	i_zero(&fctx);
 	fctx.pool = pool_alloconly_create(MEMPOOL_GROWING"fuzz_sasl", 2048);
@@ -709,19 +711,28 @@ static void fuzz_sasl_run(struct istream *input)
 		.host = "example.com",
 	};
 	client_mech = dsasl_client_mech_find(fctx.client, params.mech);
+	ret = -1;
 	if (client_mech != NULL) {
-		fctx.session = dsasl_client_session_create(
-			fctx.client, client_mech, &client_params, &client_set);
-		i_assert(fctx.session != NULL);
-
+		ret = dsasl_client_session_create(fctx.client, client_mech,
+						  &client_params, &client_set,
+						  &fctx.session, &error);
+		if (ret < 0) {
+			e_debug(fuzz_event,
+				"Failed to create %s SASL session: %s",
+				params.mech, error);
+		} else {
+			i_assert(fctx.session != NULL);
+		}
+	}
+	if (ret >= 0) {
 		dsasl_client_session_enable_channel_binding(
 			fctx.session, SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3,
 			fuzz_client_channel_binding_callback, &fctx);
 
 		fuzz_sasl_interact(&fctx);
+		dsasl_client_session_destroy(&fctx.session);
 	}
 
-	dsasl_client_session_destroy(&fctx.session);
 	dsasl_client_unref(&fctx.client);
 	sasl_server_request_destroy(&fctx.ssrctx);
 

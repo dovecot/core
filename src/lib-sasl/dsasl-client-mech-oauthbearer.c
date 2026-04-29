@@ -24,6 +24,31 @@ static struct dsasl_client_mech_session *mech_oauthbearer_auth_new(pool_t pool)
 	return &osession->session;
 }
 
+static int
+mech_oauthbearer_auth_check(struct dsasl_client_mech_session *msession,
+			    const char **error_r)
+{
+	if (msession->authid == NULL) {
+		*error_r = "authid not set";
+		return -1;
+	}
+	if (msession->password == NULL) {
+		*error_r = "password not set";
+		return -1;
+	}
+	if (!sasl_oauth2_kvpair_check_value(msession->password)) {
+		*error_r = "password contains unsupported characters";
+		return -1;
+	}
+	if (msession->mech == &dsasl_client_mech_oauthbearer &&
+	    msession->params.host != NULL &&
+	    !sasl_oauth2_kvpair_check_value(msession->params.host)) {
+		*error_r = "host contains unsupported characters";
+		return -1;
+	}
+	return 0;
+}
+
 static enum dsasl_client_result
 mech_oauthbearer_auth_input(struct dsasl_client_mech_session *msession,
 			    const unsigned char *input, size_t input_len,
@@ -99,29 +124,11 @@ mech_oauthbearer_auth_input(struct dsasl_client_mech_session *msession,
 static enum dsasl_client_result
 mech_oauthbearer_auth_output(struct dsasl_client_mech_session *msession,
 			     const unsigned char **output_r, size_t *output_len_r,
-			     const char **error_r)
+			     const char **error_r ATTR_UNUSED)
 {
 	struct oauthbearer_sasl_session *osession =
 		container_of(msession, struct oauthbearer_sasl_session, session);
 	string_t *str;
-
-	if (msession->authid == NULL) {
-		*error_r = "authid not set";
-		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
-	}
-	if (msession->password == NULL) {
-		*error_r = "password not set";
-		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
-	}
-	if (!sasl_oauth2_kvpair_check_value(msession->password)) {
-		*error_r = "password contains unsupported characters";
-		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
-	}
-	if (msession->params.host != NULL &&
-	    !sasl_oauth2_kvpair_check_value(msession->params.host)) {
-		*error_r = "host contains unsupported characters";
-		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
-	}
 
 	struct auth_gs2_header gs2_header = {
 		.authzid = msession->authid,
@@ -146,24 +153,11 @@ mech_oauthbearer_auth_output(struct dsasl_client_mech_session *msession,
 static enum dsasl_client_result
 mech_xoauth2_auth_output(struct dsasl_client_mech_session *msession,
 			 const unsigned char **output_r, size_t *output_len_r,
-			 const char **error_r)
+			 const char **error_r ATTR_UNUSED)
 {
 	struct oauthbearer_sasl_session *osession =
 		container_of(msession, struct oauthbearer_sasl_session, session);
 	string_t *str;
-
-	if (msession->authid == NULL) {
-		*error_r = "authid not set";
-		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
-	}
-	if (msession->password == NULL) {
-		*error_r = "password not set";
-		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
-	}
-	if (strchr(msession->password, 0x01) != NULL) {
-		*error_r = "password contains unsupported characters";
-		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
-	}
 
 	str = str_new(msession->pool, 64);
 
@@ -198,6 +192,7 @@ const struct dsasl_client_mech dsasl_client_mech_oauthbearer = {
 	.name = SASL_MECH_NAME_OAUTHBEARER,
 
 	.auth_new = mech_oauthbearer_auth_new,
+	.auth_check = mech_oauthbearer_auth_check,
 	.auth_input = mech_oauthbearer_auth_input,
 	.auth_output = mech_oauthbearer_auth_output,
 	.auth_get_result = mech_oauthbearer_auth_get_result,
@@ -207,6 +202,7 @@ const struct dsasl_client_mech dsasl_client_mech_xoauth2 = {
 	.name = SASL_MECH_NAME_XOAUTH2,
 
 	.auth_new = mech_oauthbearer_auth_new,
+	.auth_check = mech_oauthbearer_auth_check,
 	.auth_input = mech_oauthbearer_auth_input,
 	.auth_output = mech_xoauth2_auth_output,
 	.auth_get_result = mech_oauthbearer_auth_get_result,

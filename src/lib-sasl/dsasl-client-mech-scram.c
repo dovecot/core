@@ -31,6 +31,21 @@ static void mech_scram_auth_free(struct dsasl_client_mech_session *msession)
 }
 
 static int
+mech_scram_auth_check(struct dsasl_client_mech_session *msession,
+		      const char **error_r)
+{
+	if (msession->authid == NULL) {
+		*error_r = "authid not set";
+		return -1;
+	}
+	if (msession->password == NULL) {
+		*error_r = "password not set";
+		return -1;
+	}
+	return 0;
+}
+
+static int
 mech_scram_init_channel_binding(struct scram_sasl_session *ssession,
 				const char **error_r)
 {
@@ -132,15 +147,6 @@ mech_scram_auth_output(struct dsasl_client_mech_session *msession,
 	*output_r = NULL;
 	*output_len_r = 0;
 
-	if (msession->authid == NULL) {
-		*error_r = "authid not set";
-		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
-	}
-	if (msession->password == NULL) {
-		*error_r = "password not set";
-		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
-	}
-
 	if (ssession->scram_client.state == AUTH_SCRAM_CLIENT_STATE_INIT &&
 	    mech_scram_init(ssession, error_r) < 0)
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
@@ -155,6 +161,7 @@ const struct dsasl_client_mech dsasl_client_mech_scram_sha_1 = {
 
 	.auth_new = mech_scram_auth_new,
 	.auth_free = mech_scram_auth_free,
+	.auth_check = mech_scram_auth_check,
 	.auth_input = mech_scram_auth_input,
 	.auth_output = mech_scram_auth_output,
 };
@@ -164,6 +171,7 @@ const struct dsasl_client_mech dsasl_client_mech_scram_sha_1_plus = {
 
 	.auth_new = mech_scram_auth_new,
 	.auth_free = mech_scram_auth_free,
+	.auth_check = mech_scram_auth_check,
 	.auth_input = mech_scram_auth_input,
 	.auth_output = mech_scram_auth_output,
 };
@@ -173,6 +181,7 @@ const struct dsasl_client_mech dsasl_client_mech_scram_sha_256 = {
 
 	.auth_new = mech_scram_auth_new,
 	.auth_free = mech_scram_auth_free,
+	.auth_check = mech_scram_auth_check,
 	.auth_input = mech_scram_auth_input,
 	.auth_output = mech_scram_auth_output,
 };
@@ -182,6 +191,7 @@ const struct dsasl_client_mech dsasl_client_mech_scram_sha_256_plus = {
 
 	.auth_new = mech_scram_auth_new,
 	.auth_free = mech_scram_auth_free,
+	.auth_check = mech_scram_auth_check,
 	.auth_input = mech_scram_auth_input,
 	.auth_output = mech_scram_auth_output,
 };

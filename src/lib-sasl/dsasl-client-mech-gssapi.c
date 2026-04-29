@@ -62,6 +62,21 @@ static void mech_gssapi_auth_free(struct dsasl_client_mech_session *msession)
 	buffer_free(&gsession->out_buf);
 }
 
+static int
+mech_gssapi_auth_check(struct dsasl_client_mech_session *msession,
+		       const char **error_r)
+{
+	if (msession->params.protocol == NULL) {
+		*error_r = "protocol not set";
+		return -1;
+	}
+	if (msession->params.host == NULL) {
+		*error_r = "host not set";
+		return -1;
+	}
+	return 0;
+}
+
 static void
 mech_gssapi_error_append(string_t *msg, unsigned int *entries,
 			 OM_uint32 status_value, int status_type)
@@ -114,15 +129,6 @@ mech_gssapi_gs1_init(struct gssapi_sasl_session *gsession, gss_buffer_t in_buf,
 	OM_uint32 major_status, minor_status;
 	string_t *principal_name;
 	gss_buffer_desc namebuf;
-
-	if (msession->params.protocol == NULL) {
-		*error_r = "protocol not set";
-		return -1;
-	}
-	if (msession->params.host == NULL) {
-		*error_r = "host not set";
-		return -1;
-	}
 
 	gsession->gss_ctx = GSS_C_NO_CONTEXT;
 	gsession->gss_principal = GSS_C_NO_NAME;
@@ -383,6 +389,7 @@ static const struct dsasl_client_mech dsasl_client_mech_gssapi = {
 
 	.auth_new = mech_gssapi_auth_new,
 	.auth_free = mech_gssapi_auth_free,
+	.auth_check = mech_gssapi_auth_check,
 	.auth_input = mech_gssapi_gs1_auth_input,
 	.auth_output = mech_gssapi_gs1_auth_output,
 };
@@ -393,6 +400,7 @@ static const struct dsasl_client_mech dsasl_client_mech_gss_spnego = {
 
 	.auth_new = mech_gssapi_auth_new,
 	.auth_free = mech_gssapi_auth_free,
+	.auth_check = mech_gssapi_auth_check,
 	.auth_input = mech_gssapi_gs1_auth_input,
 	.auth_output = mech_gssapi_gs1_auth_output,
 };

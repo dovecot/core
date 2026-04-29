@@ -132,13 +132,17 @@ void dsasl_client_mech_unregister(struct dsasl_client *client,
  * Session
  */
 
-struct dsasl_client_session *
-dsasl_client_session_create(struct dsasl_client *client,
-			    const struct dsasl_client_mech *mech,
-			    const struct dsasl_client_parameters *params,
-			    const struct dsasl_client_settings *set)
+int dsasl_client_session_create(struct dsasl_client *client,
+				const struct dsasl_client_mech *mech,
+				const struct dsasl_client_parameters *params,
+				const struct dsasl_client_settings *set,
+				struct dsasl_client_session **session_r,
+				const char **error_r)
 {
 	struct event *event;
+
+	*session_r = NULL;
+	*error_r = NULL;
 
 	event = event_create(set->event_parent);
 
@@ -181,7 +185,14 @@ dsasl_client_session_create(struct dsasl_client *client,
 			 p_strarray_dup(pool, params->server_mechanisms));
 	}
 
-	return session;
+	if (mech->auth_check != NULL &&
+	    mech->auth_check(msession, error_r) < 0) {
+		dsasl_client_session_destroy(&session);
+		return -1;
+	}
+
+	*session_r = session;
+	return 0;
 }
 
 void dsasl_client_session_ref(struct dsasl_client_session *session)

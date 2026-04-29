@@ -1023,9 +1023,16 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 		.server_mechanisms = conn->caps.auth_mechanisms,
 	};
 
-	conn->sasl_session = dsasl_client_session_create(
-		smtp_client_get_sasl_client(client), sasl_mech,
-		&sasl_params, &sasl_set);
+	if (dsasl_client_session_create(smtp_client_get_sasl_client(client),
+					sasl_mech, &sasl_params, &sasl_set,
+					&conn->sasl_session, &error) < 0) {
+		error = t_strdup_printf(
+			"Failed to initialize authentication: %s", error);
+		smtp_client_connection_fail(
+			conn, SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED,
+			error, "Internal authentication failure");
+		return FALSE;
+	}
 	mech_name =  dsasl_client_mech_get_name(sasl_mech);
 
 	if (dsasl_client_session_output(conn->sasl_session,

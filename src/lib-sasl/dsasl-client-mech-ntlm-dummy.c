@@ -31,6 +31,21 @@ static struct dsasl_client_mech_session *mech_ntlm_auth_new(pool_t pool)
 	return &nsession->session;
 }
 
+static int
+mech_ntlm_auth_check(struct dsasl_client_mech_session *msession,
+		     const char **error_r)
+{
+	if (msession->authid == NULL) {
+		*error_r = "authid not set";
+		return -1;
+	}
+	if (msession->password == NULL) {
+		*error_r = "password not set";
+		return -1;
+	}
+	return 0;
+}
+
 static enum dsasl_client_result
 mech_ntlm_auth_input(struct dsasl_client_mech_session *msession,
 		     const unsigned char *input, size_t input_len,
@@ -58,20 +73,10 @@ mech_ntlm_auth_input(struct dsasl_client_mech_session *msession,
 static enum dsasl_client_result
 mech_ntlm_auth_output(struct dsasl_client_mech_session *msession,
 		      const unsigned char **output_r, size_t *output_len_r,
-		      const char **error_r)
+		      const char **error_r ATTR_UNUSED)
 {
 	struct ntlm_sasl_session *nsession =
 		container_of(msession, struct ntlm_sasl_session, session);
-
-	if (msession->authid == NULL) {
-		*error_r = "authid not set";
-		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
-	}
-	if (msession->password == NULL) {
-		*error_r = "password not set";
-		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
-	}
-
 	const char *response;
 
 	switch (nsession->state) {
@@ -93,6 +98,7 @@ const struct dsasl_client_mech dsasl_client_mech_ntlm = {
 	.name = SASL_MECH_NAME_NTLM,
 
 	.auth_new = mech_ntlm_auth_new,
+	.auth_check = mech_ntlm_auth_check,
 	.auth_input = mech_ntlm_auth_input,
 	.auth_output = mech_ntlm_auth_output,
 };

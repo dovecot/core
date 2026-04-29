@@ -49,6 +49,29 @@ static struct dsasl_client_mech_session *mech_digest_md5_auth_new(pool_t pool)
 	return &dsession->session;
 }
 
+static int
+mech_digest_md5_auth_check(struct dsasl_client_mech_session *msession,
+			   const char **error_r)
+{
+	if (msession->authid == NULL) {
+		*error_r = "authid not set";
+		return -1;
+	}
+	if (msession->password == NULL) {
+		*error_r = "password not set";
+		return -1;
+	}
+	if (msession->params.protocol == NULL) {
+		*error_r = "protocol not set";
+		return -1;
+	}
+	if (msession->params.host == NULL) {
+		*error_r = "host not set";
+		return -1;
+	}
+	return 0;
+}
+
 static void
 value_append_escaped(string_t *dest, const void *src)
 {
@@ -194,29 +217,11 @@ handle_confirmation_field(struct digest_md5_sasl_session *dsession ATTR_UNUSED,
 	return TRUE;
 }
 
-static int
-mech_digest_md5_init(struct digest_md5_sasl_session *dsession,
-		     const char **error_r)
+
+static void mech_digest_md5_init(struct digest_md5_sasl_session *dsession)
 {
 	struct dsasl_client_mech_session *msession = &dsession->session;
 	const char *realm;
-
-	if (msession->authid == NULL) {
-		*error_r = "authid not set";
-		return -1;
-	}
-	if (msession->password == NULL) {
-		*error_r = "password not set";
-		return -1;
-	}
-	if (msession->params.protocol == NULL) {
-		*error_r = "protocol not set";
-		return -1;
-	}
-	if (msession->params.host == NULL) {
-		*error_r = "host not set";
-		return -1;
-	}
 
 	/* Assume user@realm format for username. If user@domain is wanted
 	   in the username, allow also user@domain@realm. */
@@ -235,7 +240,6 @@ mech_digest_md5_init(struct digest_md5_sasl_session *dsession,
 	dsession->req_uri = p_strdup_printf(msession->pool, "%s/%s",
 					    msession->params.protocol,
 					    msession->params.host);
-	return 0;
 }
 
 static int
@@ -469,10 +473,7 @@ mech_digest_md5_auth_input(struct dsasl_client_mech_session *msession,
 
 	switch (dsession->state) {
 	case DIGEST_MD5_STATE_INIT:
-		if (mech_digest_md5_init(dsession, error_r) < 0) {
-			dsession->state = DIGEST_MD5_STATE_END;
-			return DSASL_CLIENT_RESULT_ERR_INTERNAL;
-		}
+		mech_digest_md5_init(dsession);
 		dsession->state = DIGEST_MD5_STATE_SERVER_FIRST;
 		/* Fall through */
 	case DIGEST_MD5_STATE_SERVER_FIRST:
@@ -508,7 +509,7 @@ mech_digest_md5_auth_input(struct dsasl_client_mech_session *msession,
 static enum dsasl_client_result
 mech_digest_md5_auth_output(struct dsasl_client_mech_session *msession,
 			    const unsigned char **output_r, size_t *output_len_r,
-			    const char **error_r)
+			    const char **error_r ATTR_UNUSED)
 {
 	struct digest_md5_sasl_session *dsession =
 		container_of(msession, struct digest_md5_sasl_session, session);
@@ -516,10 +517,7 @@ mech_digest_md5_auth_output(struct dsasl_client_mech_session *msession,
 
 	switch (dsession->state) {
 	case DIGEST_MD5_STATE_INIT:
-		if (mech_digest_md5_init(dsession, error_r) < 0) {
-			dsession->state = DIGEST_MD5_STATE_END;
-			return DSASL_CLIENT_RESULT_ERR_INTERNAL;
-		}
+		mech_digest_md5_init(dsession);
 		dsession->state = DIGEST_MD5_STATE_SERVER_FIRST;
 		/* Fall through */
 	case DIGEST_MD5_STATE_SERVER_FIRST:
@@ -550,6 +548,7 @@ const struct dsasl_client_mech dsasl_client_mech_digest_md5 = {
 	.name = SASL_MECH_NAME_DIGEST_MD5,
 
 	.auth_new = mech_digest_md5_auth_new,
+	.auth_check = mech_digest_md5_auth_check,
 	.auth_input = mech_digest_md5_auth_input,
 	.auth_output = mech_digest_md5_auth_output,
 };

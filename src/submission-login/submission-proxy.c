@@ -287,9 +287,17 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 		.host = login_proxy_get_host(client->common.login_proxy),
 		.port = login_proxy_get_port(client->common.login_proxy),
 	};
-	client->common.proxy_sasl_session = dsasl_client_session_create(
-		sasl_client, client->common.proxy_mech,
-		&sasl_params, &sasl_set);
+	if (dsasl_client_session_create(sasl_client, client->common.proxy_mech,
+					&sasl_params, &sasl_set,
+					&client->common.proxy_sasl_session,
+					&error) < 0) {
+		const char *reason = t_strdup_printf(
+			"SASL client session init failed: %s", error);
+		login_proxy_failed(client->common.login_proxy,
+			login_proxy_get_event(client->common.login_proxy),
+			LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
+		return -1;
+	}
 	mech_name = dsasl_client_mech_get_name(client->common.proxy_mech);
 
 	if (dsasl_client_session_output(client->common.proxy_sasl_session,
