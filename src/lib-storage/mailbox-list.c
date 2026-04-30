@@ -403,14 +403,11 @@ const char *mailbox_list_get_storage_name(struct mailbox_list *list,
 }
 
 const char *
-mailbox_list_unescape_name_params(const char *src, const char *ns_prefix,
-				  char ns_sep, char list_sep, char escape_char)
+mailbox_list_unescape_name_params(const char *src, char ns_sep, char list_sep,
+				  char escape_char)
 {
 	string_t *dest = t_str_new(strlen(src));
 	unsigned int num;
-
-	if (str_begins(src, ns_prefix, &src))
-		str_append(dest, ns_prefix);
 
 	for (; *src != '\0'; src++) {
 		if (*src == escape_char &&
@@ -495,7 +492,6 @@ mailbox_list_default_get_vname_part(struct mailbox_list *list,
 
 	if (list->mail_set->mailbox_list_storage_escape_char[0] != '\0') {
 		vname = mailbox_list_unescape_name_params(vname,
-				list->ns->prefix,
 				'\0', '\0', /* no separator conversion */
 				list->mail_set->mailbox_list_storage_escape_char[0]);
 	}

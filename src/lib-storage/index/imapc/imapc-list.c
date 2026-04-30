@@ -217,7 +217,7 @@ const char *
 imapc_list_storage_to_remote_name(struct imapc_mailbox_list *list,
 				  const char *storage_name)
 {
-	return mailbox_list_unescape_name_params(storage_name, "",
+	return mailbox_list_unescape_name_params(storage_name,
 		list->root_sep, mailbox_list_get_hierarchy_sep(&list->list),
 		list->list.mail_set->mailbox_list_storage_escape_char[0]);
 }
@@ -518,7 +518,7 @@ imapc_list_fs_to_storage_name(struct imapc_mailbox_list *list,
 	if (fs_name == NULL)
 		return NULL;
 
-	remote_name = mailbox_list_unescape_name_params(fs_name, "",
+	remote_name = mailbox_list_unescape_name_params(fs_name,
 			list->root_sep,
 			mailbox_list_get_hierarchy_sep(fs_list),
 			fs_list->mail_set->mailbox_list_storage_escape_char[0]);

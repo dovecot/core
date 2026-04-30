@@ -200,8 +200,8 @@ const char *
 mailbox_list_escape_name_params(const char *vname, char ns_sep, char list_sep,
 				char escape_char, const char *maildir_name);
 const char *
-mailbox_list_unescape_name_params(const char *src, const char *ns_prefix,
-				  char ns_sep, char list_sep, char escape_char);
+mailbox_list_unescape_name_params(const char *src, char ns_sep, char list_sep,
+				  char escape_char);
 
 int mailbox_list_default_get_storage(struct mailbox_list **list,
 				     const char **vname,
