@@ -962,9 +962,14 @@ const char **p_strarray_dup(pool_t pool, const char *const *arr)
 	char *p;
 	size_t len, size = sizeof(const char *);
 
-	/* @UNSAFE: integer overflow checks are missing */
-	for (i = 0; arr[i] != NULL; i++)
-		size += sizeof(const char *) + strlen(arr[i]) + 1;
+	for (i = 0; arr[i] != NULL; i++) {
+		len = strlen(arr[i]) + 1;
+		/* Check for integer overflow before accumulation */
+		if (len > SIZE_MAX - sizeof(const char *) ||
+		    size > SIZE_MAX - (sizeof(const char *) + len))
+			i_panic("p_strarray_dup(): size overflow");
+		size += sizeof(const char *) + len;
+	}
 
 	ret = p_malloc(pool, size);
 	p = PTR_OFFSET(ret, sizeof(const char *) * (i + 1));

@@ -104,6 +104,26 @@ static void test_p_strarray_dup(void)
 	test_end();
 }
 
+static void test_p_strarray_dup_large_inputs(void)
+{
+	const char *arr[1000];
+	unsigned int i;
+
+	test_begin("p_strarray_dup() large inputs");
+
+	for (i = 0; i < 999; i++)
+		arr[i] = "test";
+	arr[999] = NULL;
+
+	const char **ret = p_strarray_dup(default_pool, arr);
+	for (i = 0; i < 999; i++)
+		test_assert(strcmp(ret[i], "test") == 0);
+	test_assert(ret[999] == NULL);
+	i_free(ret);
+
+	test_end();
+}
+
 static void test_t_split_key_value(void)
 {
 	const char *key, *value;
@@ -761,6 +781,7 @@ void test_strfuncs(void)
 	test_p_strdup_empty();
 	test_p_strdup_until();
 	test_p_strarray_dup();
+	test_p_strarray_dup_large_inputs();
 	test_t_split_key_value();
 	test_t_strsplit();
 	test_t_strsplit_spaces();
