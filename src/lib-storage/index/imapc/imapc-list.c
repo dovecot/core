@@ -26,6 +26,19 @@
     - this is generated from remote_name
     - separator is changed from / to .
     - storage_name_escape_character=% and fs_list separator . are escaped
+
+   Lossless round-trip across all four name forms is guaranteed when
+   mailbox_list_visible_escape_char is set: invalid mUTF-7 bytes in
+   remote_name are escaped as <visible_escape_char><hex> in vname, and
+   imap_escaped_utf8_to_utf7() emits the original raw byte from those
+   escapes (without the "&" -> "&-" mUTF-7 re-encoding) when going back
+   to the wire.
+
+   With mailbox_list_visible_escape_char unset and mailbox_list_utf8=no,
+   mailboxes whose remote names are invalid mUTF-7 are not accessible -
+   their vname falls through to the raw mUTF-7 form, and a subsequent
+   SELECT would re-encode literal '&' as "&-", producing a name the
+   remote server does not recognise.
 */
 
 #include "lib.h"
