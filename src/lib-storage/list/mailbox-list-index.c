@@ -641,6 +641,7 @@ mailbox_name_hdr_decode_storage_name(struct mailbox_list *list,
 
 	const char list_sep = mailbox_list_get_hierarchy_sep(list);
 	const char escape_char = list->mail_set->mailbox_list_storage_escape_char[0];
+	bool first_part = TRUE;
 	array_foreach_elem(&raw_parts, raw_part) {
 		if (str_len(storage_name) > 0)
 			str_append_c(storage_name, list_sep);
@@ -650,8 +651,10 @@ mailbox_name_hdr_decode_storage_name(struct mailbox_list *list,
 			str_append(storage_name,
 				   mailbox_list_escape_name_params(raw_part,
 					'\0', list_sep, escape_char,
-					list->mail_set->mailbox_directory_name));
+					list->mail_set->mailbox_directory_name,
+					first_part));
 		}
+		first_part = FALSE;
 	}
 	return str_c(storage_name);
 }

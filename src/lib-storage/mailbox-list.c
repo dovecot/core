@@ -210,15 +210,20 @@ static bool need_escape_dirstart(const char *vname, const char *maildir_name)
 
 const char *
 mailbox_list_escape_name_params(const char *vname, char ns_sep, char list_sep,
-				char escape_char, const char *maildir_name)
+				char escape_char, const char *maildir_name,
+				bool first_part)
 {
 	string_t *escaped_name = t_str_new(64);
 	bool dirstart = TRUE;
 
 	i_assert(escape_char != '\0');
 
-	/* escape the mailbox name */
-	if (*vname == '~') {
+	/* escape the mailbox name. The leading '~' is escaped only at the very
+	   beginning of the full name, since '~' is otherwise a perfectly valid
+	   character in a hierarchy component. Callers operating on a single
+	   hierarchy part (already split from the full vname) pass first_part=FALSE
+	   for non-leading parts to skip this check. */
+	if (first_part && *vname == '~') {
 		str_printfa(escaped_name, "%c%02x", escape_char, *vname);
 		vname++;
 		dirstart = FALSE;
@@ -390,7 +395,8 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 				   '\0', /* no separator conversion */
 				   mailbox_list_get_hierarchy_sep(list),
 				   list->mail_set->mailbox_list_storage_escape_char[0],
-				   list->mail_set->mailbox_directory_name));
+				   list->mail_set->mailbox_directory_name,
+				   i == 0 && prefix[0] == '\0'));
 		}
 	}
 	return str_c(storage_name);
