@@ -209,12 +209,12 @@ static bool need_escape_dirstart(const char *vname, const char *maildir_name)
 	return FALSE;
 }
 
-const char *
-mailbox_list_escape_name_params(const char *vname, char ns_sep, char list_sep,
-				char escape_char, const char *maildir_name,
-				bool first_part)
+void
+mailbox_list_escape_name_params_to_str(string_t *escaped_name, const char *vname,
+				       char ns_sep, char list_sep,
+				       char escape_char, const char *maildir_name,
+				       bool first_part)
 {
-	string_t *escaped_name = t_str_new(64);
 	bool dirstart = TRUE;
 
 	i_assert(escape_char != '\0');
@@ -244,6 +244,17 @@ mailbox_list_escape_name_params(const char *vname, char ns_sep, char list_sep,
 		}
 		dirstart = *vname == '/';
 	}
+}
+
+const char *
+mailbox_list_escape_name_params(const char *vname, char ns_sep, char list_sep,
+				char escape_char, const char *maildir_name,
+				bool first_part)
+{
+	string_t *escaped_name = t_str_new(64);
+	mailbox_list_escape_name_params_to_str(escaped_name, vname, ns_sep,
+					       list_sep, escape_char,
+					       maildir_name, first_part);
 	return str_c(escaped_name);
 }
 
