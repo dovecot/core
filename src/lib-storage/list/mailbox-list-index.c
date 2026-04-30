@@ -580,10 +580,20 @@ const unsigned char *
 mailbox_name_hdr_encode(struct mailbox_list *list, const char *storage_name,
 			size_t *name_len_r)
 {
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 	const char sep[] = {
 		mailbox_list_get_hierarchy_sep(list),
 		'\0'
 	};
+	uint8_t flags = 0;
+
+	/* The on-disk name loses the <escape>49NBOX -> "INBOX" distinction
+	   after per-part unescape below, so detect <ns prefix>/INBOX from the
+	   storage_name before splitting and remember it as a flag bit. */
+	if (ilist != NULL && ilist->inbox_inbox_storage_name != NULL &&
+	    strcmp(storage_name, ilist->inbox_inbox_storage_name) == 0)
+		flags |= MAILBOX_NAME_HDR_FLAG_INBOX_INBOX;
+
 	/* NOTE: The stored mailbox name may be UTF-8 or mUTF-7 depending on
 	   mailbox_list_utf8 setting. Ideally it would be UTF-8 always.
 	   However, the name is stored unescaped. */
@@ -603,6 +613,21 @@ mailbox_name_hdr_encode(struct mailbox_list *list, const char *storage_name,
 		str_append_c(str, '\0');
 		str_append(str, name_parts[i]);
 	}
+	if (flags != 0) {
+		/* Backwards compatible extension: append two NUL bytes after
+		   the last name part and one byte of flags. The double NUL
+		   distinguishes the new format unambiguously - old format
+		   never produces two consecutive trailing NULs, since real
+		   mailbox storage names contain no empty hierarchy parts. Old
+		   Dovecot versions don't know about the flag byte and will
+		   parse it as an extra trailing single-byte hierarchy
+		   component, so the decoded name on old code paths becomes
+		   slightly wrong. This is acceptable because old code never
+		   wrote <ns prefix>/INBOX in the first place. */
+		str_append_c(str, '\0');
+		str_append_c(str, '\0');
+		str_append_c(str, flags);
+	}
 	*name_len_r = str_len(str);
 	return str_data(str);
 }
@@ -610,10 +635,34 @@ mailbox_name_hdr_encode(struct mailbox_list *list, const char *storage_name,
 const char *
 mailbox_name_hdr_decode_storage_name(struct mailbox_list *list,
 				     const unsigned char *name_hdr,
-				     size_t name_hdr_size)
+				     size_t name_hdr_size,
+				     uint8_t *flags_r)
 {
 	ARRAY_TYPE(const_string) raw_parts;
 	const char *raw_part;
+	uint8_t flags = 0;
+
+	/* lib-index may grow the header with trailing zero padding, so strip
+	   any trailing NULs first. The flag byte (if present) is non-zero by
+	   construction, so it survives the strip. */
+	while (name_hdr_size > 0 && name_hdr[name_hdr_size-1] == '\0')
+		name_hdr_size--;
+
+	/* New-format header ends with "<name parts>\0\0<nonzero flag byte>".
+	   Old-format headers never produce two consecutive trailing NULs
+	   because the encoder splits storage names on the hierarchy
+	   separator and real storage names contain no empty parts. So
+	   data[size-3]=='\0' && data[size-2]=='\0' unambiguously marks the
+	   new format - treat the trailing byte as flags even if some bits
+	   are unknown to this Dovecot version, so unknown future flag bits
+	   don't get misparsed as a trailing hierarchy component. */
+	if (name_hdr_size >= 3 && name_hdr[name_hdr_size-3] == '\0' &&
+	    name_hdr[name_hdr_size-2] == '\0') {
+		flags = name_hdr[name_hdr_size-1];
+		name_hdr_size -= 3;
+	}
+	if (flags_r != NULL)
+		*flags_r = flags;
 
 	/* NOTE: The stored mailbox name may be UTF-8 or mUTF-7 depending on
 	   mailbox_list_utf8 setting. Ideally it would be UTF-8 always.

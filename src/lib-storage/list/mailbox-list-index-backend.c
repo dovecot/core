@@ -592,7 +592,7 @@ static int index_list_mailbox_open(struct mailbox *box)
 		/* Mailbox name is corrupted. Rename it to the previous name. */
 		const char *newname =
 			mailbox_name_hdr_decode_storage_name(
-				box->list, name_hdr, name_hdr_size);
+				box->list, name_hdr, name_hdr_size, NULL);
 		index_list_rename_corrupted(box, newname);
 	}
 	return 0;

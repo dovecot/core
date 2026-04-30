@@ -99,7 +99,7 @@ mail_storage_list_index_rebuild_unlock_lists(struct mail_storage_list_index_rebu
 
 static bool try_get_mailbox_name(struct mail_storage_list_index_rebuild_ctx *ctx,
 				 struct mailbox_list *list, const char *path,
-				 const char **name_r)
+				 const char **name_r, uint8_t *flags_r)
 {
 	struct mail_index *index =
 		mail_index_alloc(ctx->storage->event, path, MAIL_INDEX_PREFIX);
@@ -107,6 +107,7 @@ static bool try_get_mailbox_name(struct mail_storage_list_index_rebuild_ctx *ctx
 	uint32_t box_name_hdr_ext_id;
 	bool ret = FALSE;
 	int rc;
+	*flags_r = 0;
 	if ((rc = mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY)) > 0) {
 		if (mail_index_ext_lookup(index, "box-name", &box_name_hdr_ext_id)) {
 			view = mail_index_view_open(index);
@@ -115,7 +116,8 @@ static bool try_get_mailbox_name(struct mail_storage_list_index_rebuild_ctx *ctx
 			mail_index_get_header_ext(view, box_name_hdr_ext_id,
 						  &name_hdr, &name_hdr_size);
 			*name_r = mailbox_name_hdr_decode_storage_name(list,
-							name_hdr, name_hdr_size);
+							name_hdr, name_hdr_size,
+							flags_r);
 			ret = TRUE;
 			mail_index_view_close(&view);
 		} else {
@@ -134,7 +136,8 @@ static bool try_get_mailbox_name(struct mail_storage_list_index_rebuild_ctx *ctx
 }
 
 static const char *get_box_name(struct mail_storage_list_index_rebuild_ctx *ctx,
-				struct mail_storage_list_index_rebuild_mailbox *box)
+				struct mail_storage_list_index_rebuild_mailbox *box,
+				uint8_t *flags_r)
 {
 	const char *path =
 		t_strdup_printf("%s/%s",
@@ -142,7 +145,8 @@ static const char *get_box_name(struct mail_storage_list_index_rebuild_ctx *ctx,
 				guid_128_to_string(box->guid));
 	const char *box_name;
 
-	if (try_get_mailbox_name(ctx, box->list, path, &box_name)) {
+	*flags_r = 0;
+	if (try_get_mailbox_name(ctx, box->list, path, &box_name, flags_r)) {
 		e_debug(ctx->storage->event, "Found '%s' from storage %s",
 			box_name, path);
 	} else {
@@ -455,13 +459,18 @@ static int mail_storage_list_index_add_missing(struct mail_storage_list_index_re
 		   fallback to trying to find the box-name header from the
 		   mailbox's index. */
 		const char *name = box->storage_name;
+		uint8_t name_hdr_flags = 0;
 		if (name == NULL)
-			name = get_box_name(ctx, box);
+			name = get_box_name(ctx, box, &name_hdr_flags);
 
-		/* Differentiate between INBOX and <ns prefix>/INBOX */
+		/* Differentiate between INBOX and <ns prefix>/INBOX. The flag
+		   bit lets us recover <ns prefix>/INBOX from a box-name header
+		   where the on-disk name is just "INBOX". */
 		const char *orig_vname;
-		if ((box->list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
-		    strcmp(name, "INBOX") == 0)
+		if ((name_hdr_flags & MAILBOX_NAME_HDR_FLAG_INBOX_INBOX) != 0)
+			orig_vname = t_strconcat(box->list->ns->prefix, "INBOX", NULL);
+		else if ((box->list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+			 strcmp(name, "INBOX") == 0)
 			orig_vname = "INBOX";
 		else
 			orig_vname = t_strconcat(box->list->ns->prefix, name, NULL);

@@ -195,15 +195,28 @@ void mailbox_list_get_escaped_mailbox_name(struct mailbox_list *list,
 					   const struct mailbox_list_index_node *node,
 					   string_t *escaped_name);
 
+/* Flags appended to box-name header after the mailbox name's trailing NUL.
+   Old Dovecot versions wrote no trailing NUL and no flag byte. The flag byte
+   is only present when at least one bit is set, so a 0 byte never encodes
+   "no flags" - that case is encoded by omitting the trailing NUL+flag. */
+enum mailbox_name_hdr_flags {
+	/* The mailbox is <ns prefix>/INBOX (encoded in the header as just
+	   "INBOX" so that old Dovecot versions still see a sensible name). */
+	MAILBOX_NAME_HDR_FLAG_INBOX_INBOX = 0x01,
+};
+
 /* Return mailbox name encoded into box-name header. */
 const unsigned char *
 mailbox_name_hdr_encode(struct mailbox_list *list, const char *storage_name,
 			size_t *name_len_r);
-/* Return mailbox name decoded from box-name header. */
+/* Return mailbox name decoded from box-name header. If flags_r is non-NULL,
+   it is set to the decoded flag bits (0 if the header is in the old format
+   without a flag byte). */
 const char *
 mailbox_name_hdr_decode_storage_name(struct mailbox_list *list,
 				     const unsigned char *name_hdr,
-				     size_t name_hdr_size);
+				     size_t name_hdr_size,
+				     uint8_t *flags_r);
 
 int mailbox_list_index_index_open(struct mailbox_list *list);
 bool mailbox_list_index_need_refresh(struct mailbox_list_index *ilist,
