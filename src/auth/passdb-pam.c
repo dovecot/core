@@ -113,7 +113,14 @@ pam_userpass_conv(int num_msg, pam_const struct pam_message **msg,
 
 	*resp_r = NULL;
 
-	resp = calloc(num_msg, sizeof(struct pam_response));
+	if (num_msg < 0 ||
+	    (size_t)num_msg > SIZE_MAX / sizeof(struct pam_response)) {
+		e_error(authdb_event(ctx->request),
+			"pam: invalid response count: %d", num_msg);
+		return PAM_CONV_ERR;
+	}
+
+	resp = calloc((size_t)num_msg, sizeof(struct pam_response));
 	if (resp == NULL)
 		i_fatal_status(FATAL_OUTOFMEM, "Out of memory");
 
