@@ -117,6 +117,7 @@ liblib_la_SOURCES = \
 	base32.c \
 	base64.c \
 	bits.c \
+	bitmap.c \
 	bsearch-insert-pos.c \
 	buffer.c \
 	buffer-istream.c \
@@ -288,6 +289,7 @@ headers = \
 	base32.h \
 	base64.h \
 	bits.h \
+	bitmap.h \
 	bsearch-insert-pos.h \
 	buffer.h \
 	byteorder.h \
@@ -465,6 +467,7 @@ test_lib_SOURCES = \
 	test-base32.c \
 	test-base64.c \
 	test-bits.c \
+	test-bitmap.c \
 	test-bsearch-insert-pos.c \
 	test-buffer.c \
 	test-buffer-istream.c \
