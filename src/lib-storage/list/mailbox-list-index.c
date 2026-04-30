@@ -649,7 +649,7 @@ mailbox_name_hdr_decode_storage_name(struct mailbox_list *list,
 		else {
 			str_append(storage_name,
 				   mailbox_list_escape_name_params(raw_part,
-					"", '\0', list_sep, escape_char,
+					'\0', list_sep, escape_char,
 					list->mail_set->mailbox_directory_name));
 		}
 	}

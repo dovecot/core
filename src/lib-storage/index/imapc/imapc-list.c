@@ -199,7 +199,7 @@ imapc_list_remote_to_storage_name(struct imapc_mailbox_list *list,
 	/* typically mailbox_list_escape_name() is used to escape vname into
 	   a list name. but we want to convert remote IMAP name to a list name,
 	   so we need to use the remote IMAP separator. */
-	return mailbox_list_escape_name_params(remote_name, "",
+	return mailbox_list_escape_name_params(remote_name,
 		list->root_sep,
 		mailbox_list_get_hierarchy_sep(&list->list),
 		list->list.mail_set->mailbox_list_storage_escape_char[0], "");
@@ -503,7 +503,7 @@ imapc_list_storage_to_fs_name(struct imapc_mailbox_list *list,
 		return NULL;
 
 	remote_name = imapc_list_storage_to_remote_name(list, storage_name);
-	return mailbox_list_escape_name_params(remote_name, "",
+	return mailbox_list_escape_name_params(remote_name,
 		list->root_sep, mailbox_list_get_hierarchy_sep(fs_list),
 		fs_list->mail_set->mailbox_list_storage_escape_char[0], "");
 }

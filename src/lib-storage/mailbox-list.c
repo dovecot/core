@@ -209,18 +209,13 @@ static bool need_escape_dirstart(const char *vname, const char *maildir_name)
 }
 
 const char *
-mailbox_list_escape_name_params(const char *vname, const char *ns_prefix,
-				char ns_sep, char list_sep, char escape_char,
-				const char *maildir_name)
+mailbox_list_escape_name_params(const char *vname, char ns_sep, char list_sep,
+				char escape_char, const char *maildir_name)
 {
 	string_t *escaped_name = t_str_new(64);
 	bool dirstart = TRUE;
 
 	i_assert(escape_char != '\0');
-
-	/* no escaping of namespace prefix */
-	if (str_begins(vname, ns_prefix, &vname))
-		str_append(escaped_name, ns_prefix);
 
 	/* escape the mailbox name */
 	if (*vname == '~') {
@@ -392,7 +387,6 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 		else {
 			str_append(storage_name,
 				   mailbox_list_escape_name_params(raw_parts[i],
-				   list->ns->prefix,
 				   '\0', /* no separator conversion */
 				   mailbox_list_get_hierarchy_sep(list),
 				   list->mail_set->mailbox_list_storage_escape_char[0],

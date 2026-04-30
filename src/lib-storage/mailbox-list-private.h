@@ -197,9 +197,8 @@ void mailbox_lists_init(void);
 void mailbox_lists_deinit(void);
 
 const char *
-mailbox_list_escape_name_params(const char *vname, const char *ns_prefix,
-				char ns_sep, char list_sep, char escape_char,
-				const char *maildir_name);
+mailbox_list_escape_name_params(const char *vname, char ns_sep, char list_sep,
+				char escape_char, const char *maildir_name);
 const char *
 mailbox_list_unescape_name_params(const char *src, const char *ns_prefix,
 				  char ns_sep, char list_sep, char escape_char);
