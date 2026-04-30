@@ -8,6 +8,8 @@
 #include "file-lock.h"
 #include "file-dotlock.h"
 #include "crc32.h"
+#include "randgen.h"
+#include "xxh64.h"
 #include "safe-mkstemp.h"
 #include "str.h"
 #include "mail-index-private.h"
@@ -24,6 +26,12 @@ struct mail_index_strmap {
 	struct file_lock *file_lock;
 	struct dotlock *dotlock;
 	struct dotlock_settings dotlock_settings;
+
+	/* If TRUE, new files are created in v2 format (xxh64-keyed hashes).
+	   If FALSE, new files are created in v1 format (crc32). Existing
+	   files of either version are always read; on rebuild they are
+	   recreated in this preferred format. */
+	bool enable_xxh64;
 };
 
 struct mail_index_strmap_view {
@@ -33,6 +41,14 @@ struct mail_index_strmap_view {
 	ARRAY_TYPE(mail_index_strmap_rec) recs;
 	ARRAY(uint32_t) recs_hash;
 	struct hash2_table *hash;
+
+	/* On-disk format version that view's hash values are computed
+	   against. v1 = crc32_str_nonzero, v2 = keyed xxh64. Set from the
+	   file header when opening an existing file; otherwise from
+	   strmap->enable_xxh64. */
+	uint8_t format_version;
+	/* Per-file random IV mixed into the xxh64 hash. Unused for v1. */
+	uint64_t hash_iv;
 
 	mail_index_strmap_key_cmp_t *key_compare;
 	mail_index_strmap_rec_cmp_t *rec_compare;
@@ -92,7 +108,8 @@ static const struct dotlock_settings default_dotlock_settings = {
 };
 
 struct mail_index_strmap *
-mail_index_strmap_init(struct mail_index *index, const char *suffix)
+mail_index_strmap_init(struct mail_index *index, const char *suffix,
+		       bool enable_xxh64)
 {
 	struct mail_index_strmap *strmap;
 
@@ -102,6 +119,7 @@ mail_index_strmap_init(struct mail_index *index, const char *suffix)
 	strmap->index = index;
 	strmap->path = i_strconcat(index->filepath, suffix, NULL);
 	strmap->fd = -1;
+	strmap->enable_xxh64 = enable_xxh64;
 
 	strmap->dotlock_settings = default_dotlock_settings;
 	strmap->dotlock_settings.use_excl_lock =
@@ -198,6 +216,9 @@ mail_index_strmap_view_open(struct mail_index_strmap *strmap,
 
 	i_array_init(&view->recs, 64);
 	i_array_init(&view->recs_hash, 64);
+	view->format_version = strmap->enable_xxh64 ?
+		MAIL_INDEX_STRMAP_VERSION_V2 : MAIL_INDEX_STRMAP_VERSION_V1;
+	random_fill(&view->hash_iv, sizeof(view->hash_iv));
 	view->hash = hash2_create(0, sizeof(struct mail_index_strmap_rec),
 				  mail_index_strmap_hash_key,
 				  mail_index_strmap_hash_cmp, view);
@@ -250,7 +271,7 @@ static int mail_index_strmap_open(struct mail_index_strmap_view *view)
 	const struct mail_index_header *idx_hdr;
 	struct mail_index_strmap_header hdr;
 	const unsigned char *data;
-	size_t size;
+	size_t size, hdr_size;
 	int ret;
 
 	i_assert(strmap->fd == -1);
@@ -263,7 +284,12 @@ static int mail_index_strmap_open(struct mail_index_strmap_view *view)
 		return -1;
 	}
 	strmap->input = i_stream_create_fd(strmap->fd, SIZE_MAX);
-	ret = i_stream_read_bytes(strmap->input, &data, &size, sizeof(hdr));
+
+	/* Read the smaller v1 header first; bytes 0..7 have identical
+	   layout in both formats so we can decide based on the version
+	   byte before reading the v2 tail. */
+	ret = i_stream_read_bytes(strmap->input, &data, &size,
+				  MAIL_INDEX_STRMAP_HEADER_V1_SIZE);
 	if (ret <= 0) {
 		if (ret < 0) {
 			mail_index_strmap_set_syscall_error(strmap, "read()");
@@ -274,23 +300,55 @@ static int mail_index_strmap_open(struct mail_index_strmap_view *view)
 		}
 		return ret;
 	}
-	memcpy(&hdr, data, sizeof(hdr));
+
+	i_zero(&hdr);
+	hdr_size = data[0] == MAIL_INDEX_STRMAP_VERSION_V2 ?
+		MAIL_INDEX_STRMAP_HEADER_V2_SIZE :
+		MAIL_INDEX_STRMAP_HEADER_V1_SIZE;
+	if (hdr_size > MAIL_INDEX_STRMAP_HEADER_V1_SIZE) {
+		ret = i_stream_read_bytes(strmap->input, &data, &size, hdr_size);
+		if (ret <= 0) {
+			if (ret < 0) {
+				mail_index_strmap_set_syscall_error(strmap, "read()");
+				mail_index_strmap_close(strmap);
+			} else {
+				mail_index_strmap_view_set_corrupted(view);
+			}
+			return ret;
+		}
+	}
+	memcpy(&hdr, data, hdr_size);
 
 	idx_hdr = mail_index_get_header(view->view);
-	if (hdr.version != MAIL_INDEX_STRMAP_VERSION ||
-	    hdr.uid_validity != idx_hdr->uid_validity) {
+	uint8_t compat_flags = 0;
+#ifndef WORDS_BIGENDIAN
+	if (hdr.version >= MAIL_INDEX_STRMAP_VERSION_V2)
+		compat_flags |= MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
+#endif
+	if ((hdr.version != MAIL_INDEX_STRMAP_VERSION_V1 &&
+	     hdr.version != MAIL_INDEX_STRMAP_VERSION_V2) ||
+	    hdr.compat_flags != compat_flags ||
+	    hdr.uid_validity != idx_hdr->uid_validity ||
+	    (strmap->enable_xxh64 &&
+	     hdr.version < MAIL_INDEX_STRMAP_VERSION_V2)) {
 		/* need to rebuild. if we already had something in the strmap,
-		   we can keep it. */
+		   we can keep it. The enable_xxh64 case forces a v1 file to
+		   be discarded so the next write creates a v2 file - we never
+		   stay on v1 once the dovecot_storage_version threshold has
+		   been reached. */
 		i_unlink(strmap->path);
 		mail_index_strmap_close(strmap);
 		return 0;
 	}
+	view->format_version = hdr.version;
+	view->hash_iv = hdr.version >= MAIL_INDEX_STRMAP_VERSION_V2 ?
+		hdr.hash_iv : 0;
 
 	/* we'll read the entire file from the beginning */
 	view->last_added_uid = 0;
 	view->last_read_uid = 0;
 	view->total_ref_count = 0;
-	view->last_read_block_offset = sizeof(struct mail_index_strmap_header);
+	view->last_read_block_offset = hdr_size;
 	view->next_str_idx = 1;
 
 	mail_index_strmap_view_reset(view);
@@ -750,6 +808,17 @@ static inline uint32_t crc32_str_nonzero(const char *str)
 	return value == 0 ? 1 : value;
 }
 
+static inline uint32_t
+strmap_hash_str(const struct mail_index_strmap_view *view, const char *str)
+{
+	if (view->format_version < MAIL_INDEX_STRMAP_VERSION_V2)
+		return crc32_str_nonzero(str);
+
+	uint32_t value = xxh64_to_32(xxh64_data(str, strlen(str), view->hash_iv));
+	/* 0 is reserved as a sentinel meaning "unique / no hash stored" */
+	return value == 0 ? 1 : value;
+}
+
 void mail_index_strmap_view_sync_add(struct mail_index_strmap_view_sync *sync,
 				     uint32_t uid, uint32_t ref_index,
 				     const char *key)
@@ -764,7 +833,7 @@ void mail_index_strmap_view_sync_add(struct mail_index_strmap_view_sync *sync,
 		  ref_index > view->last_ref_index));
 
 	hash_key.str = key;
-	hash_key.hash = crc32_str_nonzero(key);
+	hash_key.hash = strmap_hash_str(view, key);
 
 	old_rec = hash2_lookup(view->hash, &hash_key);
 	if (old_rec != NULL) {
@@ -971,14 +1040,29 @@ mail_index_strmap_recreate_write(struct mail_index_strmap_view *view,
 {
 	const struct mail_index_header *idx_hdr;
 	struct mail_index_strmap_header hdr;
+	size_t hdr_size;
 
 	idx_hdr = mail_index_get_header(view->view);
 
+	/* view->format_version was set either at view_open() time (from the
+	   strmap-wide enable_xxh64 preference for fresh files) or in
+	   mail_index_strmap_open() from the existing file's header. Reuse
+	   it as-is so renumber recreates preserve the file's format. */
+
 	/* write header */
 	i_zero(&hdr);
-	hdr.version = MAIL_INDEX_STRMAP_VERSION;
+	hdr.version = view->format_version;
 	hdr.uid_validity = idx_hdr->uid_validity;
-	o_stream_nsend(output, &hdr, sizeof(hdr));
+	if (view->format_version >= MAIL_INDEX_STRMAP_VERSION_V2) {
+#ifndef WORDS_BIGENDIAN
+		hdr.compat_flags |= MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
+#endif
+		hdr.hash_iv = view->hash_iv;
+		hdr_size = MAIL_INDEX_STRMAP_HEADER_V2_SIZE;
+	} else {
+		hdr_size = MAIL_INDEX_STRMAP_HEADER_V1_SIZE;
+	}
+	o_stream_nsend(output, &hdr, hdr_size);
 
 	view->total_ref_count = 0;
 	mail_index_strmap_write_block(view, output, 0, 1);

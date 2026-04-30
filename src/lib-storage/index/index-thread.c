@@ -7,6 +7,9 @@
 #include "bsearch-insert-pos.h"
 #include "hash2.h"
 #include "message-id.h"
+#include "master-service.h"
+#include "master-service-settings.h"
+#include "storage-version.h"
 #include "mail-search.h"
 #include "mail-search-build.h"
 #include "mailbox-search-result-private.h"
@@ -659,8 +662,15 @@ void index_thread_mailbox_opened(struct mailbox *box)
 	box->v.close = mail_thread_mailbox_close;
 	box->v.free = mail_thread_mailbox_free;
 
+	const struct master_service_settings *master_set =
+		master_service_get_service_settings(master_service);
+	bool use_xxh64 = master_set != NULL &&
+		storage_version_has_mail_index_strmap_v2(
+			master_set->dovecot_storage_version);
+
 	tbox->strmap = mail_index_strmap_init(box->index,
-					      MAIL_THREAD_INDEX_SUFFIX);
+					      MAIL_THREAD_INDEX_SUFFIX,
+					      use_xxh64);
 	tbox->next_msgid_idx = 1;
 
 	tbox->cache = i_new(struct mail_thread_cache, 1);

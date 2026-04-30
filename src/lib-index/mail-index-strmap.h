@@ -7,12 +7,22 @@ struct mail_index;
 struct mail_index_view;
 
 struct mail_index_strmap_header {
-#define MAIL_INDEX_STRMAP_VERSION 1
+/* On-disk format version. The header struct below describes version 2;
+   version 1 files use the same first 8 bytes (version + 3 unused + uid_validity)
+   without the trailing compat_flags / unused / hash_iv fields. */
+#define MAIL_INDEX_STRMAP_VERSION_V1 1
+#define MAIL_INDEX_STRMAP_VERSION_V2 2
 	uint8_t version;
-	uint8_t unused[3];
+	uint8_t compat_flags; /* enum mail_index_header_compat_flags, v2+ */
+	uint8_t unused[2];
 
 	uint32_t uid_validity;
+
+	/* v2+ fields - not present on disk for v1 files. */
+	uint64_t hash_iv; /* per-file random IV mixed into the xxh64 hash */
 };
+#define MAIL_INDEX_STRMAP_HEADER_V1_SIZE 8
+#define MAIL_INDEX_STRMAP_HEADER_V2_SIZE sizeof(struct mail_index_strmap_header)
 
 struct mail_index_strmap_rec {
 	uint32_t uid;
@@ -40,7 +50,8 @@ typedef void mail_index_strmap_remap_t(const uint32_t *idx_map,
 				       unsigned int new_count, void *context);
 
 struct mail_index_strmap *
-mail_index_strmap_init(struct mail_index *index, const char *suffix);
+mail_index_strmap_init(struct mail_index *index, const char *suffix,
+		       bool enable_xxh64);
 void mail_index_strmap_deinit(struct mail_index_strmap **strmap);
 
 /* Returns strmap records and hash that can be used for read-only access.
