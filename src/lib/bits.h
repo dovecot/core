@@ -24,13 +24,13 @@
 /* Returns x, such that x is the smallest power of 2 >= num. */
 size_t nearest_power(size_t num) ATTR_CONST;
 
-/* Return the idx'th bit from a 64bit integer. */
+/* Return the idx'th bit from a uint64_t array used as a bitmap. */
 static inline bool bit64_get(const uint64_t *bits, unsigned int idx)
 {
 	return (bits[idx / 64] & (1ULL << (idx % 64))) != 0;
 }
 
-/* Set the idx'th bit to a 64bit integer. */
+/* Set the idx'th bit in a uint64_t array used as a bitmap. */
 static inline void bit64_set(uint64_t *bits, unsigned int idx)
 {
 	bits[idx / 64] |= 1ULL << (idx % 64);
