@@ -190,15 +190,23 @@ void mailbox_list_get_escaped_mailbox_name(struct mailbox_list *list,
 					   string_t *escaped_name)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
-	const char escape_chars[] = {
-		list->mail_set->mailbox_list_storage_escape_char[0],
-		mailbox_list_get_hierarchy_sep(list),
-		'\0'
-	};
-	if (node->raw_name != ilist->raw_inbox_inbox_name_ptr)
-		mailbox_list_name_escape(node->raw_name, escape_chars, escaped_name);
-	else
+	char escape_char =
+		list->mail_set->mailbox_list_storage_escape_char[0];
+
+	if (node->raw_name == ilist->raw_inbox_inbox_name_ptr) {
 		str_append(escaped_name, ilist->inbox_inbox_storage_name);
+		return;
+	}
+	if (escape_char == '\0') {
+		str_append(escaped_name, node->raw_name);
+		return;
+	}
+	mailbox_list_escape_name_params_to_str(escaped_name, node->raw_name,
+		'\0', /* no separator conversion */
+		mailbox_list_get_hierarchy_sep(list),
+		escape_char,
+		list->mail_set->mailbox_directory_name,
+		node->parent == NULL);
 }
 
 void mailbox_list_index_node_get_path(struct mailbox_list *list,
