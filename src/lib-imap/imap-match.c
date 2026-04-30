@@ -5,6 +5,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "bitmap.h"
 #include "unichar.h"
 #include "imap-match.h"
 
@@ -355,17 +356,17 @@ literal_matches(const struct imap_match_nfa_state *s,
 }
 
 static void
-nfa_eps_close(const struct imap_match_pattern *pat, uint64_t *bits)
+nfa_eps_close(const struct imap_match_pattern *pat, struct bitmap *bits)
 {
 	/* Linear forward pass: since each state can only epsilon-skip to
 	   i+1, one pass suffices to propagate skips through consecutive
 	   skippable states. */
 	for (unsigned int i = 0; i < pat->n_states; i++) {
-		if (!bit64_get(bits, i))
+		if (!bitmap_get(bits, i))
 			continue;
 		uint8_t t = pat->states[i].type;
 		if (t == IMAP_MATCH_NFA_PERCENT || t == IMAP_MATCH_NFA_STAR)
-			bit64_set(bits, i + 1);
+			bitmap_set(bits, i + 1);
 	}
 }
 
@@ -383,18 +384,17 @@ imap_match_pattern_run(const struct imap_match_pattern *pat,
 		inboxcase_end += INBOXLEN;
 	}
 
-	unsigned int n_bits = pat->n_states + 1;
-	unsigned int n_words = (n_bits + 63) / 64;
 	enum imap_match_result result = IMAP_MATCH_NO;
 	bool parent_flag = FALSE;
 	bool data_ends_with_sep = FALSE;
 
-	uint64_t *cur = t_new(uint64_t, n_words);
-	uint64_t *next = t_new(uint64_t, n_words);
+	struct bitmap cur, next;
+	t_bitmap_init(&cur, pat->n_states + 1);
+	t_bitmap_init(&next, pat->n_states + 1);
 
 	/* initial active set: {0} with epsilon closure */
-	bit64_set(cur, 0);
-	nfa_eps_close(pat, cur);
+	bitmap_set(&cur, 0);
+	nfa_eps_close(pat, &cur);
 
 	struct uni_gc_scanner sc;
 	uni_gc_scanner_init(&sc, data, strlen(data));
@@ -407,12 +407,12 @@ imap_match_pattern_run(const struct imap_match_pattern *pat,
 
 		/* PARENT: ACCEPT is reachable here and there is still at least
 		   one more hierarchy level of data after this point. */
-		if (gc_is_sep && bit64_get(cur, pat->n_states))
+		if (gc_is_sep && bitmap_get(&cur, pat->n_states))
 			parent_flag = TRUE;
 
-		memset(next, 0, n_words * sizeof(*next));
+		bitmap_reset_all(&next);
 		for (unsigned int i = 0; i < pat->n_states; i++) {
-			if (!bit64_get(cur, i))
+			if (!bitmap_get(&cur, i))
 				continue;
 			const struct imap_match_nfa_state *s =
 				&pat->states[i];
@@ -420,32 +420,32 @@ imap_match_pattern_run(const struct imap_match_pattern *pat,
 			case IMAP_MATCH_NFA_LITERAL:
 				if (literal_matches(s, gc, gc_size,
 						    inboxcase_pos))
-					bit64_set(next, i + 1);
+					bitmap_set(&next, i + 1);
 				break;
 			case IMAP_MATCH_NFA_PERCENT:
 				if (!gc_is_sep)
-					bit64_set(next, i);
+					bitmap_set(&next, i);
 				break;
 			case IMAP_MATCH_NFA_STAR:
-				bit64_set(next, i);
+				bitmap_set(&next, i);
 				break;
 			}
 		}
 
-		uint64_t *tmp = cur; cur = next; next = tmp;
-		nfa_eps_close(pat, cur);
+		bitmap_swap(&cur, &next);
+		nfa_eps_close(pat, &cur);
 		data_ends_with_sep = gc_is_sep;
 
 		(void)uni_gc_scan_shift(&sc);
 	}
 
-	if (bit64_get(cur, pat->n_states))
+	if (bitmap_get(&cur, pat->n_states))
 		result = IMAP_MATCH_YES;
 	else {
 		bool has_nonaccept = FALSE;
 		bool has_sep_accept = FALSE;
 		for (unsigned int i = 0; i < pat->n_states; i++) {
-			if (!bit64_get(cur, i))
+			if (!bitmap_get(&cur, i))
 				continue;
 			has_nonaccept = TRUE;
 			if (pat->states[i].sep_accept) {
