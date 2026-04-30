@@ -211,13 +211,15 @@ void mailbox_list_get_escaped_mailbox_name(struct mailbox_list *list,
 
 void mailbox_list_index_node_get_path(struct mailbox_list *list,
 				      const struct mailbox_list_index_node *node,
-				      string_t *str)
+				      string_t *storage_name)
 {
 	if (node->parent != NULL) {
-		mailbox_list_index_node_get_path(list, node->parent, str);
-		str_append_c(str, mailbox_list_get_hierarchy_sep(list));
+		mailbox_list_index_node_get_path(list, node->parent,
+						 storage_name);
+		str_append_c(storage_name,
+			     mailbox_list_get_hierarchy_sep(list));
 	}
-	mailbox_list_get_escaped_mailbox_name(list, node, str);
+	mailbox_list_get_escaped_mailbox_name(list, node, storage_name);
 }
 
 void mailbox_list_index_node_unlink(struct mailbox_list_index *ilist,
