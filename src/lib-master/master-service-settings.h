@@ -102,4 +102,9 @@ const char *
 master_service_get_binary_config_cache_path(const char *cache_dir,
 					    const char *main_path);
 
+/* Returns TRUE if version is in the list of dovecot_config_version values
+   accepted by this build. Sets *error_r to a descriptive list of supported
+   versions on FALSE. */
+bool dovecot_config_version_find(const char *version, const char **error_r);
+
 #endif
