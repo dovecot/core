@@ -749,6 +749,13 @@ imap_state_import_compress(struct client *client, const unsigned char *data,
 		*error_r = t_strdup_printf("Unknown COMPRESS handler %s", name);
 		return IMAP_STATE_CORRUPTED;
 	}
+	/* Recreate the side channel that cmd-compress would have created in
+	   the previous (now-exited) imap process. It is used to forward
+	   dict_reset commands back to the imap-login proxy after every tagged
+	   reply. */
+	if (client->multiplex_output != NULL &&
+	    client->side_channel_output == NULL)
+		client_create_side_channel_output(client);
 	*skip_r = (p - data) + 1;
 	return IMAP_STATE_OK;
 }
