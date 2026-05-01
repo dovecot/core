@@ -214,14 +214,26 @@ static bool storage_version_check(const char *version, const char **error_r)
 			STORAGE_MIN_VERSION);
 		return FALSE;
 	}
-	if (version_is_valid(DOVECOT_VERSION) &&
-	    version_cmp(version, DOVECOT_VERSION) > 0) {
-		*error_r = t_strdup_printf(
-			"dovecot_storage_version is too new - "
-			"current version is %s", DOVECOT_VERSION);
-		return FALSE;
+	/* Legacy: any version <= 2.3.22.1 is accepted. */
+	if (version_cmp(version, "2.3.22.1") <= 0)
+		return TRUE;
+#ifdef DOVECOT_PRO_EDITION
+	if (version_cmp(version, "3.0.0") >= 0 &&
+	    version_cmp(version, "3.0.5") <= 0)
+		return TRUE;
+#endif
+	const char *config_err;
+	if (dovecot_config_version_find(version, &config_err))
+		return TRUE;
+
+	if (strcmp(version, storage_version_default()) == 0) {
+		/* git build */
+		return TRUE;
 	}
-	return TRUE;
+	*error_r = t_strdup_printf(
+		"Unsupported dovecot_storage_version %s. %s",
+		version, config_err);
+	return FALSE;
 }
 
 static bool
