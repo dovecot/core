@@ -525,7 +525,7 @@ auth_scram_server_input_client_first(struct auth_scram_server *server,
 	int ret;
 
 	username = login_username = NULL;
-	
+
 	/* Parse client-first message */
 	ret = auth_scram_parse_client_first(server, input, input_len,
 					    &username, &login_username,
@@ -548,7 +548,7 @@ auth_scram_server_input_client_first(struct auth_scram_server *server,
 		*error_code_r = AUTH_SCRAM_SERVER_ERROR_BAD_LOGIN_USERNAME;
 		return -1;
 	}
-	
+
 	return 0;
 }
 
@@ -560,7 +560,7 @@ auth_scram_server_input_client_final(struct auth_scram_server *server,
 				     const char **error_r)
 {
 	int ret;
-	
+
 	/* Parse client-final message */
 	ret = auth_scram_parse_client_final(server, input, input_len, error_r);
 	if (ret < 0) {
