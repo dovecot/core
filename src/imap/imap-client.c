@@ -697,6 +697,15 @@ void client_send_tagline(struct client_command_context *cmd, const char *data)
 	cmd->client->v.send_tagline(cmd, data);
 }
 
+void client_create_side_channel_output(struct client *client)
+{
+	i_assert(client->multiplex_output != NULL);
+	i_assert(client->side_channel_output == NULL);
+	client->side_channel_output =
+		o_stream_multiplex_add_channel(client->multiplex_output, 1);
+	o_stream_set_no_error_handling(client->side_channel_output, TRUE);
+}
+
 static bool
 client_tagline_has_resp_code(const char *data)
 {

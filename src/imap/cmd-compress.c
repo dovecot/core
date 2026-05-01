@@ -4,7 +4,6 @@
 #include "imap-commands.h"
 #include "istream.h"
 #include "ostream.h"
-#include "ostream-multiplex.h"
 #include "iostream-rawlog.h"
 #include "str.h"
 #include "strescape.h"
@@ -89,13 +88,8 @@ bool cmd_compress(struct client_command_context *cmd)
 		/* Let imap-login process handle the COMPRESS. It's the one
 		   that will send the tagged reply to the client. */
 		client->compress_handler = handler;
-		if (client->side_channel_output == NULL) {
-			client->side_channel_output =
-				o_stream_multiplex_add_channel(
-					client->multiplex_output, 1);
-			o_stream_set_no_error_handling(
-				client->side_channel_output, TRUE);
-		}
+		if (client->side_channel_output == NULL)
+			client_create_side_channel_output(client);
 		string_t *str = t_str_new(64);
 		str_append(str, "compress\t");
 		str_append_tabescaped(str, handler->name);

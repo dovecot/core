@@ -291,6 +291,11 @@ void client_add_istream_prefix(struct client *client,
 			       const unsigned char *data, size_t size);
 void client_destroy(struct client *client, const char *reason) ATTR_NULL(2);
 
+/* Add the side-channel ostream used to send commands (e.g. dict_reset) back
+   to the imap-login proxy. Must only be called when multiplex_output is set
+   and the channel hasn't been created yet. */
+void client_create_side_channel_output(struct client *client);
+
 /* Disconnect client connection */
 void client_disconnect(struct client *client, const char *reason);
 void client_disconnect_with_error(struct client *client,
