@@ -3117,40 +3117,6 @@ config_parser_check_warnings(struct config_parser_context *ctx, const char *key,
 	hash_table_insert(ctx->seen_settings, path, first_pos);
 }
 
-static bool config_version_find(const char *version, const char **error_r)
-{
-	const char *const supported_versions[] = {
-#ifdef DOVECOT_PRO_EDITION
-		"3.1.0",
-		"3.1.1",
-		"3.1.2",
-		"3.1.3",
-		"3.1.4",
-		"3.1.5",
-		"3.2.0",
-#else
-		"2.4.0",
-		"2.4.1",
-		"2.4.2",
-		"2.4.3",
-		"2.4.4",
-#endif
-		NULL
-	};
-	/* FIXME: implement full version checking later */
-	if (!str_array_find(supported_versions, version) &&
-	    strcmp(DOVECOT_CONFIG_VERSION, version) != 0) {
-		*error_r = t_strdup_printf(
-			"Currently supported versions are: %s%s",
-			t_strarray_join(supported_versions, " "),
-			str_array_find(supported_versions,
-				       DOVECOT_CONFIG_VERSION) ? "" :
-			t_strdup_printf(" %s", DOVECOT_CONFIG_VERSION));
-		return FALSE;
-	}
-	return TRUE;
-}
-
 static bool
 dovecot_config_version_equals(struct config_parser_context *ctx, const char *value)
 {
@@ -3192,7 +3158,7 @@ static bool config_parser_get_version(struct config_parser_context *ctx,
 
 	if (line->type != CONFIG_LINE_TYPE_KEYVALUE)
 		ctx->error = "Invalid dovecot_config_version: value is not a string";
-	else if (!config_version_find(line->value, &error)) {
+	else if (!dovecot_config_version_find(line->value, &error)) {
 		ctx->error = p_strdup_printf(ctx->pool,
 			"Invalid dovecot_config_version: %s", error);
 	} else if (strcmp(line->value, CONFIG_VERSION_GIT) == 0) {

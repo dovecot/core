@@ -156,6 +156,44 @@ master_service_set_process_shutdown_filter_wrapper(struct event_filter *filter)
 	master_service_set_process_shutdown_filter(master_service, filter);
 }
 
+/* List of dovecot_config_versions accepted at parse / startup time.
+   dovecot_storage_version accepts these as well, plus an extra legacy set
+   defined in storage_version_check(). */
+static const char *const dovecot_config_supported_versions[] = {
+#ifdef DOVECOT_PRO_EDITION
+	"3.1.0",
+	"3.1.1",
+	"3.1.2",
+	"3.1.3",
+	"3.1.4",
+	"3.1.5",
+	"3.2.0",
+#else
+	"2.4.0",
+	"2.4.1",
+	"2.4.2",
+	"2.4.3",
+	"2.4.4",
+#endif
+	NULL
+};
+
+bool dovecot_config_version_find(const char *version, const char **error_r)
+{
+	/* FIXME: implement full version checking later */
+	if (!str_array_find(dovecot_config_supported_versions, version) &&
+	    strcmp(DOVECOT_CONFIG_VERSION, version) != 0) {
+		*error_r = t_strdup_printf(
+			"Currently supported versions are: %s%s",
+			t_strarray_join(dovecot_config_supported_versions, " "),
+			str_array_find(dovecot_config_supported_versions,
+				       DOVECOT_CONFIG_VERSION) ? "" :
+			t_strdup_printf(" %s", DOVECOT_CONFIG_VERSION));
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static bool storage_version_check(const char *version, const char **error_r)
 {
 #define STORAGE_MIN_VERSION "2.3.0"
