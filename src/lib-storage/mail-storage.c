@@ -4030,10 +4030,18 @@ int mailbox_lock_file_create(struct mailbox *box, const char *lock_fname,
 		   be too large as a filename and creating the full directory
 		   structure would be pretty troublesome. It would also make
 		   it more difficult to perform the automated deletion of empty
-		   lock directories. */
+		   lock directories.
+		   The SHA1 is calculated from the namespace prefix concatenated
+		   with the mailbox name (prefix first, then name) to avoid
+		   collisions when multiple namespaces share the same
+		   mail_volatile_path. */
 		str_printfa(str, "%s/%s.", box->list->mail_set->mail_volatile_path,
 			    lock_fname);
-		sha1_get_digest(box->name, strlen(box->name), box_name_sha1);
+		struct sha1_ctxt ctx;
+		sha1_init(&ctx);
+		sha1_loop(&ctx, box->list->ns->prefix, box->list->ns->prefix_len);
+		sha1_loop(&ctx, box->name, strlen(box->name));
+		sha1_result(&ctx, box_name_sha1);
 		binary_to_hex_append(str, box_name_sha1, sizeof(box_name_sha1));
 		lock_path = str_c(str);
 		set.mkdir_mode = 0700;
