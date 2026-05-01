@@ -47,6 +47,10 @@ struct config_export_setting {
 	unsigned int list_idx;
 	unsigned int list_count;
 	const char *value;
+	/* Non-NULL if value was stored using <<MARKER heredoc syntax */
+	const char *heredoc_marker;
+	/* TRUE if value is SET_FILE inline content (not a file path) */
+	bool value_is_file_inline;
 	bool value_stop_list;
 };
 

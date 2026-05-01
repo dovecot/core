@@ -37,6 +37,8 @@ struct config_line {
 	/* key/value is inside "quotes" */
 	bool key_quoted;
 	bool value_quoted;
+	/* non-NULL if value was set using <<MARKER heredoc syntax */
+	const char *heredoc_marker;
 };
 
 /* Returns TRUE if section is inside strlist { .. } or boollist { .. } */
@@ -124,8 +126,25 @@ extern int (*hook_config_parser_end)(struct config_parser_context *ctx,
 static inline const char *
 set_str_expanded(const union config_module_parser_setting *value)
 {
-	i_assert(value->prefixed_str[0] == CONFIG_VALUE_PREFIX_EXPANDED);
+	uint8_t prefix = (uint8_t)value->prefixed_str[0];
+	if ((prefix & CONFIG_VALUE_PREFIX_HEREDOC) != 0) {
+		/* HEREDOC or HEREDOC|FILE_INLINE: skip marker+\n */
+		const char *p = strchr(value->prefixed_str + 1, '\n');
+		i_assert(p != NULL);
+		return p + 1;
+	}
+	i_assert(prefix == CONFIG_VALUE_PREFIX_EXPANDED ||
+		 prefix == CONFIG_VALUE_PREFIX_FILE_INLINE);
 	return value->prefixed_str + 1;
+}
+
+static inline const char *
+set_str_heredoc_marker(const union config_module_parser_setting *value)
+{
+	i_assert(((uint8_t)value->prefixed_str[0] & CONFIG_VALUE_PREFIX_HEREDOC) != 0);
+	const char *p = strchr(value->prefixed_str + 1, '\n');
+	i_assert(p != NULL);
+	return t_strdup_until(value->prefixed_str + 1, p);
 }
 
 /* Apply a key-value setting. $VARIABLE expansion is not done for the value. */
