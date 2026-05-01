@@ -422,7 +422,13 @@ auth_scram_parse_client_final(struct auth_scram_server *server,
 	/* proof           = "p=" base64
 	 */
 	if (fields[field_count-1][0] == 'p') {
-		size_t len = strlen(&fields[field_count-1][2]);
+		size_t len = strlen(fields[field_count - 1]);
+
+		if (len < 3 || fields[field_count-1][1] != '=') {
+			*error_r = "Invalid ClientProof";
+			return -1;
+		}
+		len -= 2;
 
 		server->proof = buffer_create_dynamic(server->pool,
 					MAX_BASE64_DECODED_SIZE(len));
