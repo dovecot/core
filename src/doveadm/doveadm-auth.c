@@ -501,6 +501,55 @@ static void cmd_auth_cache_flush(struct doveadm_cmd_context *cctx)
 	auth_master_deinit(&conn);
 }
 
+static void cmd_auth_cache_status(struct doveadm_cmd_context *cctx)
+{
+	const char *master_socket_path;
+	struct auth_master_connection *conn;
+	struct auth_master_cache_status status;
+	bool reset = FALSE;
+	unsigned int total, hit_pct;
+
+	if (!doveadm_cmd_param_str(cctx, "socket-path", &master_socket_path)) {
+		master_socket_path = t_strconcat(doveadm_settings->base_dir,
+						 "/auth-master", NULL);
+	}
+	(void)doveadm_cmd_param_bool(cctx, "reset", &reset);
+
+	conn = doveadm_get_auth_master_conn(master_socket_path);
+	if (auth_master_cache_get_status(conn, reset, &status) < 0) {
+		e_error(cctx->event, "Cache status query failed");
+		doveadm_exit_code = EX_TEMPFAIL;
+		auth_master_deinit(&conn);
+		return;
+	}
+
+	total = status.hit_count + status.miss_count;
+	hit_pct = total == 0 ? 100 : (status.hit_count * 100 / total);
+
+	doveadm_print_init(DOVEADM_PRINT_TYPE_PAGER);
+	doveadm_print_header_simple("hits");
+	doveadm_print_header_simple("misses");
+	doveadm_print_header_simple("hit_ratio_percent");
+	doveadm_print_header_simple("pos_entries");
+	doveadm_print_header_simple("neg_entries");
+	doveadm_print_header_simple("pos_size");
+	doveadm_print_header_simple("neg_size");
+	doveadm_print_header_simple("used_size");
+	doveadm_print_header_simple("max_size");
+
+	doveadm_print(dec2str(status.hit_count));
+	doveadm_print(dec2str(status.miss_count));
+	doveadm_print(dec2str(hit_pct));
+	doveadm_print(dec2str(status.pos_entries));
+	doveadm_print(dec2str(status.neg_entries));
+	doveadm_print(dec2str(status.pos_size));
+	doveadm_print(dec2str(status.neg_size));
+	doveadm_print(dec2str(status.used_size));
+	doveadm_print(dec2str(status.max_size));
+
+	auth_master_deinit(&conn);
+}
+
 static void authtest_input_init(struct authtest_input *input)
 {
 	dsasl_clients_init();
@@ -955,6 +1004,15 @@ DOVEADM_CMD_PARAMS_END
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('\0', "user-mask", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.cmd = cmd_auth_cache_status,
+	.name = "auth cache status",
+	.usage = "[-a <master socket path>] [--reset]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "reset", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAMS_END
 },
 {
