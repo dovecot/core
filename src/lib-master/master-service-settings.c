@@ -16,6 +16,7 @@
 #include "env-util.h"
 #include "execv-const.h"
 #include "version.h"
+#include "storage-version.h"
 #include "settings.h"
 #include "stats-client.h"
 #include "master-service-private.h"
@@ -573,15 +574,10 @@ master_service_settings_read_int(struct master_service *service,
 	} else if (!settings_has_mmap(service->settings_root)) {
 		/* Use default settings. Set dovecot_storage_version to the
 		   latest version, so it won't cause a failure. Use userdb
-		   type, so it can still be overridden with -o parameter.
-
-		   When building from git we don't know the latest version, so
-		   just use 9999. The version validity checks are disabled for
-		   git builds, so this should work. */
-		const char *version = version_is_valid(DOVECOT_VERSION) ?
-			DOVECOT_VERSION : "9999";
+		   type, so it can still be overridden with -o parameter. */
 		settings_root_override(service->settings_root,
-				       "dovecot_storage_version", version,
+				       "dovecot_storage_version",
+				       storage_version_default(),
 				       SETTINGS_OVERRIDE_TYPE_USERDB);
 	}
 	if (!settings_has_mmap(service->settings_root)) {
