@@ -245,6 +245,45 @@ static void test_imap_parser_read_literal(void)
 	test_end();
 }
 
+static void test_imap_parser_nesting_limit(void)
+{
+	struct istream *input;
+	struct imap_parser *parser;
+	const struct imap_arg *args;
+	char *test_input;
+	unsigned int i, depth = 101;
+
+	test_begin("imap parser nesting limit");
+
+	test_input = t_malloc(depth + 3);
+	for (i = 0; i < depth; i++)
+		test_input[i] = '(';
+	test_input[i++] = ')';
+	test_input[i++] = '\n';
+	test_input[i++] = '\0';
+
+	/* test default ceiling (100) */
+	input = test_istream_create(test_input);
+	parser = imap_parser_create(input, NULL, 1024, NULL);
+	(void)i_stream_read(input);
+	test_assert_idx(imap_parser_read_args(parser, 0, 0, &args) == -1, 0);
+	test_assert_idx(strcmp(imap_parser_get_error(parser, NULL), "List nesting too deep") == 0, 0);
+	imap_parser_unref(&parser);
+	i_stream_destroy(&input);
+
+	/* test custom list_count_limit (2) */
+	const struct imap_parser_params params = { .list_count_limit = 2 };
+	input = test_istream_create("((()))\n");
+	parser = imap_parser_create(input, NULL, 1024, &params);
+	(void)i_stream_read(input);
+	test_assert_idx(imap_parser_read_args(parser, 0, 0, &args) == -1, 1);
+	test_assert_idx(strcmp(imap_parser_get_error(parser, NULL), "List nesting too deep") == 0, 1);
+	imap_parser_unref(&parser);
+	i_stream_destroy(&input);
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -253,6 +292,7 @@ int main(void)
 		test_imap_parser_list_limit,
 		test_imap_parser_read_tag_cmd,
 		test_imap_parser_read_literal,
+		test_imap_parser_nesting_limit,
 		NULL
 	};
 	return test_run(test_functions);
