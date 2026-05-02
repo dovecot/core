@@ -74,7 +74,10 @@ static void test_nearest_power(void)
 	test_assert_idx(nearest_power(num-1) == num,    b);
 	test_assert_idx(nearest_power(num  ) == num,    b);
 	/* i_assert()s: test_assert_idx(nearest_power(num+1) == num<<1, b); */
-	test_end();
+
+	test_assert_idx(nearest_power(num-1) == num,    b);
+	test_assert_idx(nearest_power(num  ) == num,    b);
+	/* i_assert()s: test_assert_idx(nearest_power(num+1) == num<<1, b); */
 }
 
 static void test_bits_is_power_of_two(void)

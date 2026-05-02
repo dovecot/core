@@ -560,6 +560,7 @@ const char *p_str_rtrim(pool_t pool, const char *str, const char *chars)
 	return p_strdup_until(pool, begin, end);
 }
 
+
 int null_strcmp(const char *s1, const char *s2)
 {
 	if (s1 == NULL)

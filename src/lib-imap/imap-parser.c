@@ -21,6 +21,9 @@
 
 #define LIST_INIT_COUNT 7
 
+/* Maximum depth of nested lists to prevent stack exhaustion in recursive consumers. */
+#define IMAP_PARSER_MAX_NESTING_DEPTH 100
+
 enum arg_parse_type {
 	ARG_PARSE_NONE = 0,
 	ARG_PARSE_ATOM,
@@ -48,6 +51,7 @@ struct imap_parser {
         ARRAY_TYPE(imap_arg_list) *cur_list;
 	struct imap_arg *list_arg;
 	unsigned int list_count;
+	unsigned int cur_nesting_depth;
 
 	enum arg_parse_type cur_type;
 	size_t cur_pos; /* parser position in input buffer */
@@ -129,6 +133,7 @@ void imap_parser_reset(struct imap_parser *parser)
 	parser->cur_list = &parser->root_list;
 	parser->list_arg = NULL;
 	parser->list_count = 0;
+	parser->cur_nesting_depth = 0;
 
 	parser->cur_type = ARG_PARSE_NONE;
 	parser->cur_pos = 0;
@@ -193,11 +198,19 @@ static struct imap_arg *imap_arg_create(struct imap_parser *parser)
 
 static void imap_parser_open_list(struct imap_parser *parser)
 {
+	if (parser->cur_nesting_depth >= IMAP_PARSER_MAX_NESTING_DEPTH ||
+	    parser->cur_nesting_depth >= parser->list_count_limit) {
+		parser->error = IMAP_PARSE_ERROR_BAD_SYNTAX;
+		parser->error_msg = "List nesting too deep";
+		return;
+	}
+
 	parser->list_arg = imap_arg_create(parser);
 	parser->list_arg->type = IMAP_ARG_LIST;
 	p_array_init(&parser->list_arg->_data.list, parser->pool,
 		     LIST_INIT_COUNT);
 	parser->cur_list = &parser->list_arg->_data.list;
+	parser->cur_nesting_depth++;
 
 	parser->cur_type = ARG_PARSE_NONE;
 }
