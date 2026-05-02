@@ -60,6 +60,7 @@ static void test_nearest_power(void)
 	unsigned int b;
 	size_t num;
 	test_begin("nearest_power()");
+	test_assert(nearest_power(0)==1);
 	test_assert(nearest_power(1)==1);
 	test_assert(nearest_power(2)==2);
 	for (b = 2; b < CHAR_BIT*sizeof(size_t) - 1; ++b) {
@@ -74,6 +75,10 @@ static void test_nearest_power(void)
 	test_assert_idx(nearest_power(num-1) == num,    b);
 	test_assert_idx(nearest_power(num  ) == num,    b);
 	/* i_assert()s: test_assert_idx(nearest_power(num+1) == num<<1, b); */
+	/* Test edge case: nearest_power should never return a value smaller than input */
+	num = ((size_t)1 << (sizeof(size_t) * 8 - 1));
+	test_assert(nearest_power(num) >= num);
+	test_assert(nearest_power(num + 1) >= num + 1);
 	test_end();
 }
 
