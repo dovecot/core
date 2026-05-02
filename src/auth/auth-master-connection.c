@@ -17,6 +17,7 @@
 #include "userdb.h"
 #include "userdb-blocking.h"
 #include "passdb-cache.h"
+#include "auth-cache.h"
 #include "auth-request-handler.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
@@ -151,6 +152,51 @@ static int master_input_request(struct auth_master_connection *conn,
 		o_stream_nsend_str(conn->conn.output,
 				   t_strdup_printf("FAIL\t%u\n", id));
 	}
+	return 1;
+}
+
+static int master_input_cache_status(struct auth_master_connection *conn,
+				     const char *const *args)
+{
+	string_t *str;
+	bool reset = FALSE;
+	unsigned int i;
+
+	/* <id> [reset] */
+	if (args[0] == NULL) {
+		e_error(conn->conn.event, "BUG: doveadm sent broken CACHE-STATUS");
+		return -1;
+	}
+	for (i = 1; args[i] != NULL; i++) {
+		if (strcmp(args[i], "reset") == 0)
+			reset = TRUE;
+		else {
+			e_error(conn->conn.event,
+				"BUG: doveadm sent unknown CACHE-STATUS arg: %s",
+				args[i]);
+			return -1;
+		}
+	}
+
+	str = t_str_new(128);
+	str_printfa(str, "OK\t%s", args[0]);
+	if (passdb_cache != NULL) {
+		struct auth_cache_status status;
+
+		auth_cache_get_status(passdb_cache, &status);
+		str_printfa(str, "\thits=%u\tmisses=%u",
+			    status.hit_count, status.miss_count);
+		str_printfa(str, "\tpos_entries=%u\tneg_entries=%u",
+			    status.pos_entries, status.neg_entries);
+		str_printfa(str, "\tpos_size=%llu\tneg_size=%llu",
+			    status.pos_size, status.neg_size);
+		str_printfa(str, "\tused_size=%zu\tmax_size=%zu",
+			    status.used_size, status.max_size);
+		if (reset)
+			auth_cache_reset_counters(passdb_cache);
+	}
+	str_append_c(str, '\n');
+	o_stream_nsend(conn->conn.output, str_data(str), str_len(str));
 	return 1;
 }
 
@@ -682,6 +728,8 @@ static int auth_master_input_args(struct connection *_conn,
 			return master_input_request(conn, args + 1);
 		if (strcmp(args[0], "CACHE-FLUSH") == 0)
 			return master_input_cache_flush(conn, args + 1);
+		if (strcmp(args[0], "CACHE-STATUS") == 0)
+			return master_input_cache_status(conn, args + 1);
 		if (strcmp(args[0], "CPID") == 0) {
 			e_error(_conn->event,
 				"Authentication client trying to connect to "

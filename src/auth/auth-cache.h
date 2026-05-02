@@ -16,6 +16,13 @@ struct auth_cache_node {
 struct auth_cache;
 struct auth_request;
 
+struct auth_cache_status {
+	unsigned int hit_count, miss_count;
+	unsigned int pos_entries, neg_entries;
+	unsigned long long pos_size, neg_size;
+	size_t max_size, used_size;
+};
+
 /* Parses all %variables from query and compresses them into tab-separated
    list, so it can be used as a cache key. Adds also variables from "fields",
    except variables prefixed with <exclude_driver>":" */
@@ -38,6 +45,13 @@ unsigned int ATTR_NOWARN_UNUSED_RESULT
 auth_cache_clear(struct auth_cache *cache);
 unsigned int auth_cache_clear_users(struct auth_cache *cache,
 				    const char *const *user_masks);
+
+/* Snapshot the cache statistics into status_r. The hit/miss/insert counters
+   are NOT reset; callers can poll repeatedly. */
+void auth_cache_get_status(const struct auth_cache *cache,
+			   struct auth_cache_status *status_r);
+/* Reset the hit/miss/insert counters back to zero. */
+void auth_cache_reset_counters(struct auth_cache *cache);
 
 /* Look key from cache. key should be the same string as returned by
    auth_cache_parse_key(). Returned node can't be used after any other

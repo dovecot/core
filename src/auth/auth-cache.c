@@ -274,6 +274,27 @@ void auth_cache_free(struct auth_cache **_cache)
 	i_free(cache);
 }
 
+void auth_cache_get_status(const struct auth_cache *cache,
+			   struct auth_cache_status *status_r)
+{
+	i_zero(status_r);
+	status_r->hit_count = cache->hit_count;
+	status_r->miss_count = cache->miss_count;
+	status_r->pos_entries = cache->pos_entries;
+	status_r->neg_entries = cache->neg_entries;
+	status_r->pos_size = cache->pos_size;
+	status_r->neg_size = cache->neg_size;
+	status_r->max_size = cache->max_size;
+	status_r->used_size = cache->max_size - cache->size_left;
+}
+
+void auth_cache_reset_counters(struct auth_cache *cache)
+{
+	cache->hit_count = cache->miss_count = 0;
+	cache->pos_entries = cache->neg_entries = 0;
+	cache->pos_size = cache->neg_size = 0;
+}
+
 unsigned int auth_cache_clear(struct auth_cache *cache)
 {
 	unsigned int ret = hash_table_count(cache->hash);
