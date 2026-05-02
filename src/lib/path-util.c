@@ -92,7 +92,7 @@ static int path_normalize(const char *path, bool resolve_links,
 			i_assert(npath_pos >= npath);
 			if ((size_t)((npath_pos - npath) + seglen + 1) >= asize) {
 				ptrdiff_t npath_offset = npath_pos - npath;
-				asize = nearest_power(npath_offset + seglen + 2);
+				asize = nearest_power(MALLOC_ADD3(npath_offset, seglen, 2));
 				npath = t_buffer_reget(npath, asize);
 				npath_pos = npath + npath_offset;
 			}
@@ -143,7 +143,7 @@ static int path_normalize(const char *path, bool resolve_links,
 				i_assert(npath_pos >= npath);
 				if ((size_t)((npath_pos - npath) + espace + lsize) >= asize) {
 					ptrdiff_t npath_offset = npath_pos - npath;
-					asize = nearest_power((npath_offset + espace + lsize) + 1);
+					asize = nearest_power(MALLOC_ADD3(npath_offset, espace, lsize) + 1);
 					lsize = asize - (npath_offset + espace);
 					npath = t_buffer_reget(npath, asize);
 					npath_pos = npath + npath_offset;
@@ -191,7 +191,7 @@ static int path_normalize(const char *path, bool resolve_links,
 					if ((size_t)((npath_pos - npath) + espace + lsize) >= asize ||
 					    lsize == (size_t)ret) {
 						ptrdiff_t npath_offset = npath_pos - npath;
-						asize = nearest_power((npath_offset + espace + lsize) + 1);
+						asize = nearest_power(MALLOC_ADD3(npath_offset, espace, lsize) + 1);
 						lsize = asize - (npath_offset + espace);
 						npath = t_buffer_reget(npath, asize);
 						npath_pos = npath + npath_offset;

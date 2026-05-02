@@ -196,7 +196,7 @@ char *vstrconcat(const char *str1, va_list args, size_t *ret_len)
 
 		if (i + len >= bufsize) {
 			/* need more memory */
-			bufsize = nearest_power(i + len + 1);
+			bufsize = nearest_power(MALLOC_ADD3(i, len, 1));
 			temp = t_buffer_reget(temp, bufsize);
 		}
 
@@ -886,7 +886,7 @@ p_strarray_join_n(pool_t pool, const char *const *arr, unsigned int arr_len,
 
 	for (i = 0; i < arr_len; i++) {
 		len = strlen(arr[i]);
-		needed_space = pos + len + sep_len + 1;
+		needed_space = MALLOC_ADD(MALLOC_ADD3(pos, len, sep_len), 1);
 		if (needed_space > alloc_len) {
 			alloc_len = nearest_power(needed_space);
 			str = t_buffer_reget(str, alloc_len);
