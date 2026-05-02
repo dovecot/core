@@ -33,7 +33,8 @@ struct tika_fts_parser {
 	struct io *io;
 	struct istream *payload;
 
-	bool failed;
+	bool data_sent:1;
+	bool failed:1;
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(fts_parser_tika_user_module,
@@ -117,6 +118,8 @@ static void
 fts_tika_parser_response(const struct http_response *response,
 			 struct tika_fts_parser *parser)
 {
+	bool retry = FALSE;
+
 	i_assert(parser->payload == NULL);
 	struct event *event = parser->user->event;
 	const struct fts_settings *set = fts_user_get_settings(parser->user);
@@ -139,19 +142,21 @@ fts_tika_parser_response(const struct http_response *response,
 			http_response_get_message(response));
 		parser->payload = i_stream_create_from_data("", 0);
 		break;
+	case HTTP_CLIENT_REQUEST_ERROR_ABORTED:
+	case HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED:
+	case HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST:
+		/* These can be triggered due to legitimate server activities
+		 * (e.g. restart of Tika thread), so retry will probably
+		 * be successful. */
+		retry = TRUE;
+		break;
 	default:
 		if (response->status / 100 == 5) {
 			/* Server Error - the problem could be anything (in Tika or
 			   HTTP server or proxy) and might be retriable, but Tika has
 			   trouble processing some documents and throws up this error
 			   every time for those documents. */
-			parser->parser.may_need_retry = TRUE;
-			i_free(parser->parser.retriable_error_msg);
-			parser->parser.retriable_error_msg =
-				i_strdup_printf("fts_tika: PUT %s failed: %s",
-						set->decoder_tika_url,
-						http_response_get_message(response));
-			parser->payload = i_stream_create_from_data("", 0);
+			retry = TRUE;
 		} else {
 			e_error(event, "fts_tika: PUT %s failed: %s",
 				set->decoder_tika_url,
@@ -160,6 +165,17 @@ fts_tika_parser_response(const struct http_response *response,
 		}
 		break;
 	}
+
+	if (retry) {
+		parser->parser.may_need_retry = TRUE;
+		i_free(parser->parser.retriable_error_msg);
+		parser->parser.retriable_error_msg =
+			i_strdup_printf("fts_tika: PUT %s failed: %s",
+				set->decoder_tika_url,
+				http_response_get_message(response));
+		parser->payload = i_stream_create_from_data("", 0);
+	}
+
 	parser->http_req = NULL;
 	io_loop_stop(current_ioloop);
 }
@@ -223,11 +239,18 @@ static void fts_parser_tika_more(struct fts_parser *_parser,
 						     block->data,
 						     block->size) < 0)
 			parser->failed = TRUE;
+		else
+			parser->data_sent = TRUE;
 		block->size = 0;
 		return;
 	}
 
 	if (parser->payload == NULL) {
+		/* No data exists in this part. Optimize by aborting the HTTP
+		 * request since there's nothing for Tika to parse. */
+		if (!parser->data_sent)
+			return;
+
 		/* read the result from Tika */
 		if (!parser->failed &&
 		    http_client_request_finish_payload(&parser->http_req) < 0)

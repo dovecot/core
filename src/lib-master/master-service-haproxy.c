@@ -185,8 +185,10 @@ static int get_ssl_tlv(const unsigned char *kvdata, size_t dlen,
 	if (dlen < SIZEOF_PP2_TLV_SSL)
 		return -1;
 	kv->client = kvdata[0];
-	/* spec does not specify the endianness of this field */
-	kv->verify = cpu32_to_cpu_unaligned(kvdata+1);
+	/* The PROXY protocol v2 spec does not explicitly state the
+	   endianness of the verify field, but the reference HAProxy
+	   implementation sends it via htonl() (network byte order). */
+	kv->verify = be32_to_cpu_unaligned(kvdata+1);
 	kv->data = kvdata+SIZEOF_PP2_TLV_SSL;
 	kv->len = dlen - SIZEOF_PP2_TLV_SSL;
 	return 0;
@@ -220,6 +222,17 @@ master_service_haproxy_parse_ssl_tlv(struct master_service_haproxy_conn *hpconn,
 {
 	hpconn->conn.haproxy.ssl = (ssl_kv->client & (PP2_CLIENT_SSL)) != 0;
 
+	/* The client byte indicates whether a client certificate was
+	   presented on this connection or session. Only trust the
+	   sub-TLVs (e.g. the common name) when HAProxy reports the
+	   certificate was successfully verified (verify == 0). */
+	bool client_cert_present =
+		(ssl_kv->client &
+		 (PP2_CLIENT_CERT_CONN | PP2_CLIENT_CERT_SESS)) != 0;
+	bool client_cert_verified =
+		client_cert_present && ssl_kv->verify == 0;
+	hpconn->conn.haproxy.ssl_client_cert = client_cert_verified;
+
 	/* try parse some more */
 	for(size_t i = 0; i < ssl_kv->len;) {
 		struct haproxy_pp2_tlv kv;
@@ -236,6 +249,8 @@ master_service_haproxy_parse_ssl_tlv(struct master_service_haproxy_conn *hpconn,
 		case PP2_SUBTYPE_SSL_KEY_ALG:
 			break;
 		case PP2_SUBTYPE_SSL_CN:
+			if (!client_cert_verified)
+				break;
 			hpconn->conn.haproxy.cert_common_name =
 				p_strndup(hpconn->pool, kv.data, kv.len);
 			break;

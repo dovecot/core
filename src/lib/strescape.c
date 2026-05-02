@@ -302,9 +302,8 @@ static char **p_strsplit_tabescaped_inplace(pool_t pool, char *data)
 		return p_new(pool, char *, 1);
 
 	alloc_count = 32;
-	size_t array_size = MALLOC_MULTIPLY(alloc_count, sizeof(char *));
 	array = pool == unsafe_data_stack_pool ?
-		t_malloc_no0(array_size) :
+		t_malloc_no0(MALLOC_MULTIPLY(sizeof(char *), alloc_count)) :
 		p_new(pool, char *, alloc_count);
 
 	array[0] = data; count = 1;

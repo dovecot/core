@@ -338,6 +338,7 @@ void var_expand_state_set_transfer(struct var_expand_state *state, const char *v
 void var_expand_state_unset_transfer(struct var_expand_state *state)
 {
 	str_truncate(state->transfer, 0);
+	state->transfer_safe = FALSE;
 	state->transfer_set = FALSE;
 }
 

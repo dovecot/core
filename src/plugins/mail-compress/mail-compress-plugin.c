@@ -370,9 +370,6 @@ static void mail_compress_mail_user_created(struct mail_user *user)
 	int ret;
 
 	zuser = p_new(user->pool, struct mail_compress_user, 1);
-	zuser->module_ctx.super = *v;
-	user->vlast = &zuser->module_ctx.super;
-	v->deinit = mail_compress_mail_user_deinit;
 
 	if (settings_get(user->event, &mail_compress_setting_parser_info, 0,
 			 &set, &error) < 0) {
@@ -394,6 +391,9 @@ static void mail_compress_mail_user_created(struct mail_user *user)
 	}
 	settings_free(set);
 
+	zuser->module_ctx.super = *v;
+	user->vlast = &zuser->module_ctx.super;
+	v->deinit = mail_compress_mail_user_deinit;
 	MODULE_CONTEXT_SET(user, mail_compress_user_module, zuser);
 }
 

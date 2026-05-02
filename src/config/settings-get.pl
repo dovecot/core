@@ -113,6 +113,7 @@ foreach my $file (@ARGV) {
       $write = 1;
       $state = "root" if (!/\\$/);
     } elsif ($state eq "copy-to-end-of-settings-checks") {
+      s/(\w+(?:\[\])?)(\s*=\s*\{)/$1 __attribute__((weak))$2/ if /^const .*= \{/;
       $code .= $_;
       if (/\/\* <\/settings checks> \*\//) {
         $state = "root";

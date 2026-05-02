@@ -105,4 +105,7 @@ const struct imap_arg *imap_arg_as_list(const struct imap_arg *arg);
 /* Returns TRUE if arg is atom and case-insensitively matches str */
 bool imap_arg_atom_equals(const struct imap_arg *arg, const char *str);
 
+/* Returns TRUE if str contains only valid IMAP ATOM characters (non-empty) */
+bool imap_str_is_atom(const char *str);
+
 #endif

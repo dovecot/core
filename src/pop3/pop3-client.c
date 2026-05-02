@@ -441,7 +441,8 @@ struct client *client_create(int fd_in, int fd_out,
 void client_create_finish(struct client *client)
 {
 	if (client->set->rawlog_dir[0] != '\0') {
-		(void)iostream_rawlog_create(client->set->rawlog_dir,
+		(void)iostream_rawlog_create(client->event, "rawlog_dir",
+					     client->set->rawlog_dir,
 					     &client->input, &client->output);
 	}
 	client->io = io_add_istream(client->input, client_input, client);

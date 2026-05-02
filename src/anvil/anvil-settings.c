@@ -30,7 +30,7 @@ struct service_settings anvil_service_settings = {
 };
 
 const struct setting_keyvalue anvil_service_settings_defaults[] = {
-	{ "unix_listener", "anvil anvil-auth-penalty" },
+	{ "unix_listener", "anvil anvil-auth-penalty anvil-connect-limit" },
 
 	{ "unix_listener/anvil/path", "anvil" },
 	{ "unix_listener/anvil/mode", "0660" },
@@ -45,6 +45,11 @@ const struct setting_keyvalue anvil_service_settings_defaults[] = {
 	{ "unix_listener/anvil-auth-penalty/mode", "0660" },
 #endif
 	{ "unix_listener/anvil-auth-penalty/group", "$SET:default_internal_group" },
+
+	{ "unix_listener/anvil-connect-limit/path", "anvil-connect-limit" },
+	{ "unix_listener/anvil-connect-limit/type", "connect-limit" },
+	{ "unix_listener/anvil-connect-limit/mode", "0660" },
+	{ "unix_listener/anvil-connect-limit/group", "$SET:default_internal_group" },
 
 	{ NULL, NULL }
 };

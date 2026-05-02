@@ -106,4 +106,10 @@
 /* IMAP response codes (RFC9586) */
 #define IMAP_RESP_CODE_UIDREQUIRED "UIDREQUIRED"
 
+/* Dovecot extension: emitted when any event during the command was
+   throttled. Written onto cmd->global_event via the field name below
+   by plugins that perform throttling. */
+#define IMAP_RESP_CODE_THROTTLED "THROTTLED"
+#define IMAP_EVENT_FIELD_THROTTLED_ANY "throttled_any"
+
 #endif

@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
+#include "imap-arg.h"
 #include "imap-date.h"
 #include "imap-seqset.h"
 #include "imap-utf7.h"
@@ -142,7 +143,22 @@ imap_search_new(struct mail_search_build_context *ctx)
 	return sarg;
 }
 
-CALLBACK_STR(keyword, SEARCH_KEYWORDS)
+static struct mail_search_arg *
+imap_search_keyword(struct mail_search_build_context *ctx)
+{
+	struct mail_search_arg *sarg;
+
+	sarg = mail_search_build_str(ctx, SEARCH_KEYWORDS);
+	if (sarg == NULL)
+		return NULL;
+
+	/* KEYWORD must be a valid IMAP ATOM (RFC 3501 section 9) */
+	if (!imap_str_is_atom(sarg->value.str)) {
+		ctx->_error = "Invalid characters in keyword";
+		return NULL;
+	}
+	return sarg;
+}
 
 static struct mail_search_arg *
 imap_search_unkeyword(struct mail_search_build_context *ctx)
@@ -380,6 +396,11 @@ arg_modseq_set_ext(struct mail_search_build_context *ctx,
 			return -1;
 		}
 	} else {
+		/* Keyword name must be a valid IMAP ATOM */
+		if (!imap_str_is_atom(name)) {
+			ctx->_error = "Invalid characters in MODSEQ keyword";
+			return -1;
+		}
 		sarg->value.str = p_strdup(ctx->pool, name);
 	}
 

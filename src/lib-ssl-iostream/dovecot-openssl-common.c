@@ -79,7 +79,15 @@ void dovecot_openssl_common_global_ref(void)
 		/*i_warning("CRYPTO_set_mem_functions() was called too late");*/
 	}
 
-	OPENSSL_init_ssl(0, NULL);
+	/* Pass OPENSSL_INIT_NO_ATEXIT to prevent libcrypto from registering
+	   its own atexit() handler.  That handler runs after main() returns,
+	   which is after Dovecot has dlclose()d plugins that may have
+	   registered OpenSSL callbacks (e.g. libcassandra).  Accessing those
+	   unmapped code pages from OPENSSL_cleanup() crashes the process.
+	   Dovecot calls OPENSSL_cleanup() explicitly via
+	   dovecot_openssl_common_global_unref() while the relevant modules
+	   are still loaded. */
+	OPENSSL_init_ssl(OPENSSL_INIT_NO_ATEXIT, NULL);
 }
 
 bool dovecot_openssl_common_global_unref(void)

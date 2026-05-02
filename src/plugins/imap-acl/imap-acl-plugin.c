@@ -881,6 +881,11 @@ imap_acl_identifier_parse(struct client_command_context *cmd,
 	allow_anyone = set->allow_anyone;
 	settings_free(set);
 
+	if (!acl_id_is_valid(id)) {
+		*client_error_r = "Invalid identifier";
+		return -1;
+	}
+
 	if (str_begins_with(id, IMAP_ACL_GLOBAL_PREFIX)) {
 		*client_error_r = t_strdup_printf(
 			"Global ACLs can't be modified: %s", id);

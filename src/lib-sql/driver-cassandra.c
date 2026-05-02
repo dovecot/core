@@ -24,6 +24,7 @@
 #include <cassandra.h>
 /* </settings checks> */
 #include <pthread.h>
+#include <openssl/crypto.h>
 
 #define IS_CONNECTED(db) \
 	((db)->api.state != SQL_DB_STATE_DISCONNECTED && \
@@ -2924,6 +2925,16 @@ const char *driver_cassandra_version = DOVECOT_ABI_VERSION;
 
 void driver_cassandra_init(void)
 {
+	/* Suppress libcrypto's own atexit handler.  libcassandra initializes
+	   libcrypto lazily on first SSL use; if that init happens before
+	   anyone else passes OPENSSL_INIT_NO_ATEXIT, libcrypto registers
+	   atexit(OPENSSL_cleanup).  That handler runs after main() returns,
+	   which is after Dovecot has dlclose()d libdriver_cassandra.so and
+	   its libcassandra dependency.  OPENSSL_cleanup() then walks
+	   per-thread OpenSSL state holding method pointers into unmapped
+	   libcassandra/libuv code, crashing the process at exit. */
+	OPENSSL_init_crypto(OPENSSL_INIT_NO_ATEXIT, NULL);
+
 	i_array_init(&cassandra_db_cache, 4);
 	sql_driver_register(&driver_cassandra_db);
 }

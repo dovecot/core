@@ -215,6 +215,11 @@ struct event *event_push_global(struct event *event);
 struct event *event_pop_global(struct event *event);
 /* Returns the current global event. */
 struct event *event_get_global(void);
+/* Returns the bottom-most (oldest pushed) global event, or NULL if the
+   global event stack is empty. Useful for plugins that need to annotate
+   the outermost active caller's event (e.g. an IMAP command's global
+   event) from within a nested global event context. */
+struct event *event_get_global_root(void);
 
 /* Shortcut to create and push a global event and set its reason_code field. */
 struct event_reason *

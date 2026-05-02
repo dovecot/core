@@ -147,7 +147,8 @@ bool cmd_compress(struct client_command_context *cmd)
 	o_stream_unref(&old_output);
 
 	if (client->pre_rawlog_input != NULL) {
-		(void)iostream_rawlog_create(client->set->rawlog_dir,
+		(void)iostream_rawlog_create(client->event, "rawlog_dir",
+					     client->set->rawlog_dir,
 					     &client->input, &client->output);
 		client->post_rawlog_input = client->input;
 		client->post_rawlog_output = client->output;

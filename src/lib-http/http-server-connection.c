@@ -156,7 +156,8 @@ static void http_server_connection_ready(struct http_server_connection *conn)
 
 	if (set->rawlog_dir != NULL &&
 	    stat(set->rawlog_dir, &st) == 0) {
-		iostream_rawlog_create(set->rawlog_dir,
+		iostream_rawlog_create(conn->event, "http_server_rawlog_dir",
+				       set->rawlog_dir,
 				       &conn->conn.input, &conn->conn.output);
 	}
 

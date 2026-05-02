@@ -1590,7 +1590,9 @@ smtp_client_connection_streams_changed(struct smtp_client_connection *conn)
 
 	if (conn->set.rawlog_dir != NULL &&
 	    stat(conn->set.rawlog_dir, &st) == 0) {
-		iostream_rawlog_create(conn->set.rawlog_dir,
+		/* FIXME: we don't know the setting name here */
+		iostream_rawlog_create(conn->event, "smtp client rawlog",
+				       conn->set.rawlog_dir,
 				       &conn->conn.input, &conn->conn.output);
 	}
 

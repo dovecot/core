@@ -34,6 +34,8 @@
 #define ACL_ID_NAME_GROUP_PREFIX "group="
 #define ACL_ID_NAME_GROUP_OVERRIDE_PREFIX "group-override="
 
+#define ACL_ID_MAX_LEN 1024
+
 struct acl_letter_map {
 	const char letter;
 	const char *name;
@@ -103,6 +105,10 @@ struct acl_rights_update {
 	/* These changes' "last changed" timestamp */
 	time_t last_change;
 };
+
+/* Returns TRUE if the ACL identifier string is valid: no longer than
+   ACL_ID_MAX_LEN bytes, no control characters and valid UTF-8. */
+bool acl_id_is_valid(const char *id);
 
 /* Returns the canonical ID for the right. */
 const char *acl_rights_get_id(const struct acl_rights *right);

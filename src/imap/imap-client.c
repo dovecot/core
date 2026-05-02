@@ -221,7 +221,8 @@ void client_create_finish_io(struct client *client)
 	if (client->set->rawlog_dir[0] != '\0') {
 		client->pre_rawlog_input = client->input;
 		client->pre_rawlog_output = client->output;
-		(void)iostream_rawlog_create(client->set->rawlog_dir,
+		(void)iostream_rawlog_create(client->event, "rawlog_dir",
+					     client->set->rawlog_dir,
 					     &client->input, &client->output);
 		if (client->input != client->pre_rawlog_input) {
 			/* rawlog enabled */
@@ -696,6 +697,36 @@ void client_send_tagline(struct client_command_context *cmd, const char *data)
 	cmd->client->v.send_tagline(cmd, data);
 }
 
+static bool
+client_tagline_has_resp_code(const char *data)
+{
+	const char *space = strchr(data, ' ');
+	return space != NULL && space[1] == '[';
+}
+
+static const char *
+client_tagline_insert_throttled(const char *data)
+{
+	const char *space = strchr(data, ' ');
+	if (space == NULL)
+		return t_strconcat(data, " ["IMAP_RESP_CODE_THROTTLED"]", NULL);
+	return t_strdup_printf("%.*s ["IMAP_RESP_CODE_THROTTLED"]%s",
+			       (int)(space - data), data, space);
+}
+
+static intmax_t
+client_tagline_throttled_msecs(struct client_command_context *cmd)
+{
+	if (cmd->global_event == NULL)
+		return 0;
+	const struct event_field *f = event_find_field_nonrecursive(
+		cmd->global_event, IMAP_EVENT_FIELD_THROTTLED_ANY);
+	if (f == NULL || f->value_type != EVENT_FIELD_VALUE_TYPE_INTMAX ||
+	    f->value.intmax <= 0)
+		return 0;
+	return f->value.intmax;
+}
+
 static void
 client_default_send_tagline(struct client_command_context *cmd, const char *data)
 {
@@ -707,14 +738,25 @@ client_default_send_tagline(struct client_command_context *cmd, const char *data
 
 	i_assert(!cmd->tagline_sent);
 	cmd->tagline_sent = TRUE;
-	cmd->tagline_reply = p_strdup(cmd->pool, data);
 
 	if (tag == NULL || *tag == '\0')
 		tag = "*";
 
 	T_BEGIN {
+		intmax_t throttled_msecs =
+			client_tagline_throttled_msecs(cmd);
+		if (throttled_msecs > 0 &&
+		    !client_tagline_has_resp_code(data))
+			data = client_tagline_insert_throttled(data);
+		cmd->tagline_reply = p_strdup(cmd->pool, data);
+
 		string_t *str = t_str_new(256);
 		str_printfa(str, "%s %s", tag, data);
+		if (throttled_msecs > 0) {
+			str_printfa(str, " (throttled %jd.%03jd secs)",
+				    throttled_msecs / 1000,
+				    throttled_msecs % 1000);
+		}
 		client_cmd_append_timing_stats(cmd, str);
 		str_append(str, "\r\n");
 		o_stream_nsend(client->output, str_data(str), str_len(str));

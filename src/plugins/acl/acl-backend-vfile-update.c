@@ -120,6 +120,7 @@ vfile_write_right(string_t *dest, const struct acl_rights *right,
 	if (neg) str_append_c(dest,'-');
 	acl_rights_write_id(dest, right);
 
+	i_assert(acl_id_is_valid(str_c(dest)));
 	if (strchr(str_c(dest), ' ') != NULL) T_BEGIN {
 		/* need to escape it */
 		const char *escaped = t_strdup(str_escape(str_c(dest)));

@@ -658,7 +658,8 @@ cmd_dsync_ibc_stream_init(struct dsync_cmd_context *ctx,
 		o_stream_set_max_buffer_size(ctx->output, SIZE_MAX);
 	}
 	if (ctx->rawlog_path != NULL) {
-		iostream_rawlog_create_path(ctx->rawlog_path,
+		iostream_rawlog_create_path(ctx->ctx.cctx->event,
+					    "dsync rawlog", ctx->rawlog_path,
 					    &ctx->input, &ctx->output);
 	}
 	return dsync_ibc_init_stream(ctx->input, ctx->output,

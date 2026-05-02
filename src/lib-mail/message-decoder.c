@@ -11,6 +11,7 @@
 #include "rfc2231-parser.h"
 #include "message-parser.h"
 #include "message-header-decode.h"
+#include "message-address.h"
 #include "message-decoder.h"
 
 struct message_decoder_context {
@@ -180,8 +181,17 @@ static bool message_decode_header(struct message_decoder_context *ctx,
 	} T_END;
 
 	buffer_set_used_size(ctx->buf, 0);
-	message_header_decode_utf8(hdr->full_value, hdr->full_value_len,
-				   ctx->buf, ctx->normalizer);
+	if ((ctx->flags & MESSAGE_DECODER_FLAG_RAW_ADDRESS_HEADERS) != 0 &&
+	    message_header_is_address(hdr->name)) {
+		/* Pass the raw header value through unchanged so the caller
+		   can run message_address_parse() on the original bytes
+		   (encoded-words intact) rather than on a string that may
+		   contain RFC 5322 special characters after decoding. */
+		buffer_append(ctx->buf, hdr->full_value, hdr->full_value_len);
+	} else {
+		message_header_decode_utf8(hdr->full_value, hdr->full_value_len,
+					   ctx->buf, ctx->normalizer);
+	}
 	value_len = ctx->buf->used;
 
 	if (ctx->normalizer != NULL) {

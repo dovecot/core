@@ -6,6 +6,7 @@
 #include "str.h"
 #include "utc-offset.h"
 #include "mail-index.h"
+#include "imap-arg.h"
 #include "imap-date.h"
 #include "imap-util.h"
 #include "imap-quote.h"
@@ -82,8 +83,9 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 			     bool utf8, const char **error_r)
 {
 	enum imap_quote_flags qflags = (utf8 ? IMAP_QUOTE_FLAG_UTF8 : 0);
-	unsigned int start_pos;
+	unsigned int not_pos, start_pos;
 
+	not_pos = str_len(dest);
 	if (arg->match_not)
 		str_append(dest, "NOT ");
 	start_pos = str_len(dest);
@@ -118,7 +120,13 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 		unsigned int i;
 
 		if (kw == NULL || kw->count == 0) {
-			/* uninitialized / invalid keyword */
+			/* uninitialized / invalid keyword - validate it's a
+			   valid IMAP ATOM to prevent command injection */
+			if (!imap_str_is_atom(arg->value.str)) {
+				str_truncate(dest, not_pos);
+				str_append(dest, "NOT ALL");
+				break;
+			}
 			str_printfa(dest, "KEYWORD %s", arg->value.str);
 			break;
 		}
@@ -250,6 +258,13 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 
 		str_append(dest, "MODSEQ ");
 		if (arg->value.str != NULL) {
+			/* validate keyword name is a valid IMAP ATOM to prevent
+			   command injection */
+			if (!imap_str_is_atom(arg->value.str)) {
+				str_truncate(dest, not_pos);
+				str_append(dest, "NOT ALL");
+				break;
+			}
 			str_printfa(dest, "/flags/%s", arg->value.str);
 			extended_output = TRUE;
 		} else if (arg->value.flags != 0) {

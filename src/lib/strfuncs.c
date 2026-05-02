@@ -956,9 +956,10 @@ const char **p_strarray_dup(pool_t pool, const char *const *arr)
 
 	for (count = 0; arr[count] != NULL; count++) ;
 
-	size = MALLOC_MULTIPLY(count + 1, sizeof(const char *));
-	for (i = 0; i < count; i++)
-		size = MALLOC_ADD(size, strlen(arr[i]) + 1);
+	for (i = 0; arr[i] != NULL; i++) {
+		size = MALLOC_ADD3(size, sizeof(const char *) + 1,
+				   strlen(arr[i]));
+	}
 
 	ret = p_malloc(pool, size);
 	p = PTR_OFFSET(ret, sizeof(const char *) * (i + 1));

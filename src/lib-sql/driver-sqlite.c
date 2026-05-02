@@ -295,6 +295,55 @@ driver_sqlite_set_pragma_synchronous(struct sqlite_db *db, const char *value)
 		(void)sqlite3_finalize(stmt);
 }
 
+static void
+driver_sqlite_log_pragma_journal_mode_failure(struct sqlite_db *db,
+					      const char *query, int rc)
+{
+	/* If the database file isn't writable, applying the journal mode
+	   fails, but the db still works in its previous mode and any real
+	   write by the caller will error clearly at that point. Log such
+	   failures only at debug level; log other failures as errors. */
+	if (rc == SQLITE_READONLY || rc == SQLITE_CANTOPEN ||
+	    rc == SQLITE_PERM) {
+		e_debug(db->api.event, "Failed to execute '%s': %s", query,
+			driver_sqlite_result_str(&db->api, rc));
+	} else {
+		e_error(db->api.event, "Failed to execute '%s': %s", query,
+			driver_sqlite_result_str(&db->api, rc));
+	}
+}
+
+static void
+driver_sqlite_set_pragma_journal_mode(struct sqlite_db *db, const char *value)
+{
+	const char *query =
+		t_strdup_printf("PRAGMA journal_mode = %s", t_str_ucase(value));
+	sqlite3_stmt *stmt = NULL;
+
+	int rc = sqlite3_prepare_v2(db->sqlite, query, -1, &stmt, NULL);
+	if (rc != SQLITE_OK) {
+		driver_sqlite_log_pragma_journal_mode_failure(db, query, rc);
+	} else {
+		/* PRAGMA journal_mode returns a row with the resulting mode. */
+		rc = sqlite3_step(stmt);
+		if (rc != SQLITE_ROW && !SQLITE_IS_OK(rc)) {
+			driver_sqlite_log_pragma_journal_mode_failure(db, query,
+								      rc);
+		} else if (rc == SQLITE_ROW) {
+			const char *got =
+				(const char *)sqlite3_column_text(stmt, 0);
+			if (got != NULL && strcasecmp(got, value) != 0) {
+				e_warning(db->api.event,
+					  "PRAGMA journal_mode = %s did not "
+					  "take effect, current mode is '%s'",
+					  value, got);
+			}
+		}
+	}
+	if (stmt != NULL)
+		(void)sqlite3_finalize(stmt);
+}
+
 static int driver_sqlite_connect(struct sql_db *_db)
 {
 	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
@@ -308,9 +357,6 @@ static int driver_sqlite_connect(struct sql_db *_db)
 	else
 		flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
 
-	if (db->set->parsed_journal_use_wal)
-		flags |= SQLITE_OPEN_WAL;
-
 	db->connect_rc = sqlite3_open_v2(db->set->path, &db->sqlite, flags, NULL);
 	db->connect_errno = sqlite3_system_errno(db->sqlite);
 
@@ -318,8 +364,10 @@ static int driver_sqlite_connect(struct sql_db *_db)
 	case SQLITE_OK:
 		db->connected = TRUE;
 		sqlite3_busy_timeout(db->sqlite, sqlite_busy_timeout);
-		if ((flags & SQLITE_OPEN_READONLY) == 0)
+		if ((flags & SQLITE_OPEN_READONLY) == 0) {
+			driver_sqlite_set_pragma_journal_mode(db, db->set->journal_mode);
 			driver_sqlite_set_pragma_synchronous(db, db->set->synchronous);
+		}
 		driver_sqlite_reopen_prepared_statements(db);
 		return 1;
 	case SQLITE_READONLY:

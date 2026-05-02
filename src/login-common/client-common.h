@@ -279,6 +279,9 @@ struct client {
 	bool connection_used_starttls:1;
 	/* HAProxy terminated the TLS connection. */
 	bool haproxy_terminated_tls:1;
+	/* HAProxy reports that the end client presented a verified client
+	   certificate. Implies haproxy_terminated_tls. */
+	bool haproxy_ssl_client_cert:1;
 	/* Connection from the previous hop (client, proxy, haproxy) is
 	   considered secured. Either because TLS is used, or because the
 	   connection is otherwise considered not to need TLS. Note that this

@@ -8,6 +8,7 @@
 #include "message-address.h"
 #include "message-parser.h"
 #include "message-decoder.h"
+#include "message-header-decode.h"
 #include "mail-storage.h"
 #include "index-mail.h"
 #include "fts-parser.h"
@@ -171,9 +172,17 @@ static int fts_build_mail_header(struct fts_mail_build_context *ctx,
 		ret = fts_build_unstructured_header(ctx, hdr);
 	} else T_BEGIN {
 		/* message address. normalize it to give better
-		   search results. */
+		   search results.
+
+		   The decoder was initialised with
+		   MESSAGE_DECODER_FLAG_RAW_ADDRESS_HEADERS, so hdr->full_value
+		   still holds the raw header bytes with RFC 2047 encoded-words
+		   intact. Parsing the raw value avoids having decoded display
+		   name characters (e.g. '(' or '[') reinterpreted as RFC 5322
+		   comments or other specials. After normalisation the result
+		   is decoded to UTF-8 for indexing. */
 		struct message_address *addr;
-		string_t *str;
+		string_t *str, *decoded;
 
 		addr = message_address_parse(pool_datastack_create(),
 					     hdr->full_value,
@@ -182,7 +191,12 @@ static int fts_build_mail_header(struct fts_mail_build_context *ctx,
 		str = t_str_new(hdr->full_value_len);
 		message_address_write(str, addr);
 
-		ret = fts_build_data(ctx, str_data(str), str_len(str), TRUE);
+		decoded = t_str_new(str_len(str));
+		message_header_decode_utf8(str_data(str), str_len(str),
+					   decoded,
+					   ctx->update_ctx->normalizer);
+		ret = fts_build_data(ctx, str_data(decoded),
+				     str_len(decoded), TRUE);
 	} T_END;
 
 	if ((ctx->update_ctx->backend->flags &
@@ -623,7 +637,8 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 	pool_t parts_pool = pool_alloconly_create("fts message parts", 512);
 	parser = message_parser_init(parts_pool, input, &parser_set);
 
-	decoder = message_decoder_init(update_ctx->normalizer, 0);
+	decoder = message_decoder_init(update_ctx->normalizer,
+				       MESSAGE_DECODER_FLAG_RAW_ADDRESS_HEADERS);
 	for (;;) {
 		ret = message_parser_parse_next_block(parser, &raw_block);
 		i_assert(ret != 0);

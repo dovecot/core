@@ -237,7 +237,8 @@ static void proxy_rawlog_init(struct login_proxy *proxy)
 
 	proxy->pre_rawlog_input = proxy->server_input;
 	proxy->pre_rawlog_output = proxy->server_output;
-	if (iostream_rawlog_create(proxy->rawlog_dir, &proxy->server_input,
+	if (iostream_rawlog_create(proxy->event, "login_proxy_rawlog_dir",
+				   proxy->rawlog_dir, &proxy->server_input,
 				   &proxy->server_output) < 0)
 		return;
 	proxy->rawlog_input = proxy->server_input;
@@ -257,6 +258,21 @@ static void proxy_rawlog_deinit(struct login_proxy *proxy)
 	o_stream_destroy(&proxy->rawlog_output);
 	proxy->server_input = proxy->pre_rawlog_input;
 	proxy->server_output = proxy->pre_rawlog_output;
+	proxy->pre_rawlog_input = NULL;
+	proxy->pre_rawlog_output = NULL;
+}
+
+static void proxy_multiplex_deinit(struct login_proxy *proxy)
+{
+	if (proxy->multiplex_input == NULL)
+		return;
+
+	i_assert(proxy->server_input == proxy->multiplex_input);
+	i_stream_unref(&proxy->side_channel_input);
+	i_stream_unref(&proxy->server_input);
+	proxy->server_input = proxy->multiplex_orig_input;
+	proxy->multiplex_input = NULL;
+	proxy->multiplex_orig_input = NULL;
 }
 
 static void proxy_plain_connected(struct login_proxy *proxy)
@@ -598,9 +614,9 @@ static void login_proxy_disconnect(struct login_proxy *proxy)
 
 	io_remove(&proxy->side_channel_io);
 	io_remove(&proxy->server_io);
-	i_stream_destroy(&proxy->multiplex_orig_input);
-	proxy->multiplex_input = NULL;
-	i_stream_destroy(&proxy->side_channel_input);
+	proxy_multiplex_deinit(proxy);
+	proxy_rawlog_deinit(proxy);
+
 	i_stream_destroy(&proxy->server_input);
 	o_stream_destroy(&proxy->server_output);
 	if (proxy->server_fd != -1) {
@@ -1227,11 +1243,7 @@ void login_proxy_detach(struct login_proxy *proxy)
 		/* both sides of the proxy want multiplexing and there are no
 		   plugins hooking into the ostream. We can just step out of
 		   the way and let the two sides multiplex directly. */
-		i_stream_unref(&proxy->side_channel_input);
-		i_stream_unref(&proxy->server_input);
-		proxy->server_input = proxy->multiplex_orig_input;
-		proxy->multiplex_input = NULL;
-		proxy->multiplex_orig_input = NULL;
+		proxy_multiplex_deinit(proxy);
 
 		o_stream_unref(&proxy->client_output);
 		proxy->client_output = client->multiplex_orig_output;
@@ -1289,20 +1301,17 @@ int login_proxy_starttls(struct login_proxy *proxy)
 	if ((proxy->ssl_flags & AUTH_PROXY_SSL_FLAG_ANY_CERT) != 0)
 		ssl_flags |= SSL_IOSTREAM_FLAG_ALLOW_INVALID_CERT;
 
+	if (proxy->multiplex_orig_input != NULL) {
+		/* restart multiplexing after TLS iostreams are set up.
+		   Multiplex sits on top of rawlog, so it must be removed
+		   before proxy_rawlog_deinit() to satisfy its server_input ==
+		   rawlog_input assertion. */
+		proxy_multiplex_deinit(proxy);
+		add_multiplex_istream = TRUE;
+	}
 	proxy_rawlog_deinit(proxy);
 	io_remove(&proxy->side_channel_io);
 	io_remove(&proxy->server_io);
-
-	if (proxy->multiplex_orig_input != NULL) {
-		/* restart multiplexing after TLS iostreams are set up */
-		i_assert(proxy->server_input == proxy->multiplex_input);
-		i_stream_unref(&proxy->server_input);
-		proxy->server_input = proxy->multiplex_orig_input;
-		i_stream_unref(&proxy->side_channel_input);
-		proxy->multiplex_input = NULL;
-		proxy->multiplex_orig_input = NULL;
-		add_multiplex_istream = TRUE;
-	}
 	const struct ssl_iostream_client_autocreate_parameters parameters = {
 		.event_parent = proxy->event,
 		.host = proxy->host,

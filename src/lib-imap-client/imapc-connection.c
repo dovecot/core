@@ -1771,7 +1771,8 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 	}
 
 	if (*conn->client->imapc_rawlog_dir != '\0') {
-		iostream_rawlog_create(conn->client->imapc_rawlog_dir,
+		iostream_rawlog_create(conn->event, "imapc_rawlog_dir",
+				       conn->client->imapc_rawlog_dir,
 				       &conn->input, &conn->output);
 	}
 
@@ -1906,7 +1907,8 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 
 	if (*conn->client->imapc_rawlog_dir != '\0' &&
 	    conn->client->ssl_mode != IMAPC_CLIENT_SSL_MODE_IMMEDIATE) {
-		iostream_rawlog_create(conn->client->imapc_rawlog_dir,
+		iostream_rawlog_create(conn->event, "imapc_rawlog_dir",
+				       conn->client->imapc_rawlog_dir,
 				       &conn->input, &conn->output);
 	}
 

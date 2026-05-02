@@ -55,10 +55,16 @@ static int parse_parameters(struct var_expand_crypt_context *ctx,
 		}
 	} else {
 		ctx->iv = t_buffer_create(32);
-		hex_to_binary(parts[0], ctx->iv);
+		if (hex_to_binary(parts[0], ctx->iv) < 0) {
+			*error_r = "Invalid iv";
+			return -1;
+		}
 	}
 	ctx->input = t_buffer_create(strlen(parts[1]) / 2);
-	hex_to_binary(parts[1], ctx->input);
+	if (hex_to_binary(parts[1], ctx->input) < 0) {
+		*error_r = "Invalid input";
+		return -1;
+	}
 	return 0;
 }
 
@@ -144,7 +150,10 @@ static int var_expand_crypt_settings(struct var_expand_state *state,
 				return -1;
 			}
 			ctx->iv = t_buffer_create(strlen(iv) / 2);
-			hex_to_binary(iv, ctx->iv);
+			if (hex_to_binary(iv, ctx->iv) < 0) {
+				*error_r = "Invalid iv";
+				return -1;
+			}
 		} else if (strcmp(key, "key") == 0) {
 			if (var_expand_parameter_string_or_var(state, par, &enckey,
 							       error_r) < 0) {
@@ -229,7 +238,10 @@ static int var_expand_crypt_settings(struct var_expand_state *state,
 		buffer_append(ctx->iv, data + enckey_len, iv_len);
 	} else {
 		ctx->enckey = t_buffer_create(strlen(enckey) / 2);
-		hex_to_binary(enckey, ctx->enckey);
+		if (hex_to_binary(enckey, ctx->enckey) < 0) {
+			*error_r = "Invalid key";
+			return -1;
+		}
 	}
 
 	/* IV can be optional in some algorithms */

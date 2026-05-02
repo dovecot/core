@@ -60,6 +60,12 @@ libsql_la_SOURCES = \
 	$(driver_sources) \
 	driver-sqlpool.c
 libsql_la_LIBADD = $(SQL_LIBS)
+if !SQL_PLUGINS
+if BUILD_CASSANDRA
+libsql_la_LIBADD += $(SSL_LIBS)
+endif
+endif
+
 
 nodist_libsql_la_SOURCES = sql-drivers-register.c
 
@@ -80,8 +86,8 @@ libdriver_sqlite_la_CPPFLAGS = $(AM_CPPFLAGS) $(SQLITE_CFLAGS)
 libdriver_sqlite_la_SOURCES = driver-sqlite.c
 
 libdriver_cassandra_la_LDFLAGS = -module -avoid-version
-libdriver_cassandra_la_LIBADD = $(CASSANDRA_LIBS)
-libdriver_cassandra_la_CPPFLAGS = $(AM_CPPFLAGS) $(CASSANDRA_CFLAGS)
+libdriver_cassandra_la_LIBADD = $(CASSANDRA_LIBS) $(SSL_LIBS)
+libdriver_cassandra_la_CPPFLAGS = $(AM_CPPFLAGS) $(CASSANDRA_CFLAGS) $(SSL_CFLAGS)
 libdriver_cassandra_la_SOURCES = driver-cassandra.c
 else
 endif

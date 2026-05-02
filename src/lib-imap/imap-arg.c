@@ -135,3 +135,14 @@ bool imap_arg_atom_equals(const struct imap_arg *arg, const char *str)
 		return FALSE;
 	return strcasecmp(value, str) == 0;
 }
+
+bool imap_str_is_atom(const char *str)
+{
+	if (*str == '\0')
+		return FALSE;
+	for (; *str != '\0'; str++) {
+		if (!IS_ATOM_CHAR(*str))
+			return FALSE;
+	}
+	return TRUE;
+}

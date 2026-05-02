@@ -187,6 +187,82 @@ static void test_ostream_multiplex_packet_cork(void)
 	test_end();
 }
 
+static void test_ostream_multiplex_packet_cork_transfer(void)
+{
+	test_begin("ostream multiplex packet (cork transfer)");
+	buffer_t *output = t_buffer_create(128);
+	struct ostream *os = test_ostream_create(output);
+	o_stream_set_no_error_handling(os, TRUE);
+
+	/* Parent corked before wrapping. The multiplex must transfer
+	   the cork onto channel 0 instead of asserting. */
+	o_stream_cork(os);
+	test_assert(o_stream_is_corked(os));
+
+	struct ostream *chan0 = o_stream_create_multiplex(os, SIZE_MAX,
+		OSTREAM_MULTIPLEX_FORMAT_PACKET);
+	test_assert(!o_stream_is_corked(os));
+	test_assert(o_stream_is_corked(chan0));
+
+	/* Cork on channel 0 buffers the write. */
+	test_assert(o_stream_send_str(chan0, "hi") == 2);
+	test_assert(output->used == 0);
+
+	o_stream_uncork(chan0);
+	test_assert(o_stream_flush(os) == 1);
+	test_assert(output->used == 7);
+	test_assert(memcmp(output->data, "\0\0\0\0\2hi", 7) == 0);
+
+	/* Re-cork channel 0, then destroy the multiplex: cork must
+	   transfer back to the parent. */
+	o_stream_cork(chan0);
+	test_assert(!o_stream_is_corked(os));
+	o_stream_unref(&chan0);
+	test_assert(o_stream_is_corked(os));
+
+	o_stream_uncork(os);
+	o_stream_unref(&os);
+
+	test_end();
+}
+
+static void test_ostream_multiplex_packet_cork_transfer_buffered_parent(void)
+{
+	test_begin("ostream multiplex packet (cork transfer buffered parent)");
+	struct ioloop *ioloop = io_loop_create();
+	buffer_t *output = t_buffer_create(128);
+	struct ostream *os = test_ostream_create_nonblocking(output, 128);
+	o_stream_set_no_error_handling(os, TRUE);
+
+	/* Buffer data in the parent while corked. Wrapping must transfer
+	   the cork state without flushing this data early. */
+	o_stream_cork(os);
+	test_ostream_set_max_output_size(os, 0);
+	test_assert(o_stream_send_str(os, "pre") == 3);
+	test_assert(output->used == 0);
+
+	test_ostream_set_max_output_size(os, SIZE_MAX);
+	struct ostream *chan0 = o_stream_create_multiplex(os, SIZE_MAX,
+		OSTREAM_MULTIPLEX_FORMAT_PACKET);
+	test_assert(output->used == 0);
+	test_assert(!o_stream_is_corked(os));
+	test_assert(o_stream_is_corked(chan0));
+
+	test_assert(o_stream_send_str(chan0, "hi") == 2);
+	test_assert(output->used == 0);
+
+	o_stream_uncork(chan0);
+	test_assert(o_stream_flush(os) == 1);
+	test_assert(output->used == 10);
+	test_assert(memcmp(output->data, "pre\0\0\0\0\2hi", 10) == 0);
+
+	o_stream_unref(&chan0);
+	o_stream_unref(&os);
+	io_loop_destroy(&ioloop);
+
+	test_end();
+}
+
 struct test_hang_context {
 	struct istream *input1, *input2;
 	size_t sent_bytes, sent2_bytes;
@@ -500,6 +576,8 @@ void test_ostream_multiplex(void)
 	test_ostream_multiplex_packet_simple();
 	test_ostream_multiplex_packet_stream();
 	test_ostream_multiplex_packet_cork();
+	test_ostream_multiplex_packet_cork_transfer();
+	test_ostream_multiplex_packet_cork_transfer_buffered_parent();
 	test_ostream_multiplex_packet_hang();
 	test_ostream_multiplex_packet_flush_callback();
 	test_ostream_multiplex_stream();

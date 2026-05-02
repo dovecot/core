@@ -15,7 +15,12 @@ enum message_cte {
 
 enum message_decoder_flags {
 	/* Return binary MIME parts as-is without any conversion. */
-	MESSAGE_DECODER_FLAG_RETURN_BINARY	= 0x02
+	MESSAGE_DECODER_FLAG_RETURN_BINARY		= 0x02,
+	/* Don't decode RFC 2047 encoded-words in address headers (From, To,
+	   Cc, etc.). The raw header value is passed through unchanged so the
+	   caller can feed it to message_address_parse() and then decode the
+	   normalised result itself. */
+	MESSAGE_DECODER_FLAG_RAW_ADDRESS_HEADERS	= 0x04
 };
 
 struct message_block;

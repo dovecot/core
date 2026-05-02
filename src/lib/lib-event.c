@@ -553,6 +553,17 @@ struct event *event_get_global(void)
 	return current_global_event;
 }
 
+struct event *event_get_global_root(void)
+{
+	if (array_is_created(&global_event_stack) &&
+	    array_count(&global_event_stack) > 0) {
+		struct event *const *events =
+			array_front(&global_event_stack);
+		return events[0];
+	}
+	return current_global_event;
+}
+
 #undef event_reason_begin
 struct event_reason *
 event_reason_begin(const char *reason_code, const char *source_filename,
@@ -1706,6 +1717,11 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 void event_register_callback(event_callback_t *callback)
 {
 	array_push_back(&event_handlers, &callback);
+}
+
+void event_register_callback_prepend(event_callback_t *callback)
+{
+	array_push_front(&event_handlers, &callback);
 }
 
 void event_unregister_callback(event_callback_t *callback)

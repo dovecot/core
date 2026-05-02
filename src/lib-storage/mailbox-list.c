@@ -1505,6 +1505,14 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 {
 	int ret;
 
+	if (list->mail_set->mailbox_list_normalize_names_to_nfc) {
+		const char *nfc_name;
+
+		ret = uni_utf8_to_nfc(name, strlen(name), &nfc_name);
+		if (ret >= 0)
+			name = nfc_name;
+	}
+
 	/* make sure we'll refresh the file on next list */
 	list->subscriptions_mtime = (time_t)-1;
 
