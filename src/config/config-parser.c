@@ -10,6 +10,7 @@
 #include "istream.h"
 #include "module-dir.h"
 #include "version.h"
+#include "storage-version.h"
 #include "settings.h"
 #include "service-settings.h"
 #include "master-service-settings.h"
@@ -3702,15 +3703,10 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 
 	if ((flags & CONFIG_PARSE_FLAG_DEFAULT_VERSION) != 0) {
 		/* Use default settings. Set dovecot_storage_version to the
-		   latest version, so it won't cause a failure.
-
-		   When building from git we don't know the latest version, so
-		   just use 9999. The version validity checks are disabled for
-		   git builds, so this should work. */
-		const char *version = version_is_valid(DOVECOT_VERSION) ?
-			DOVECOT_VERSION : "9999";
+		   latest version, so it won't cause a failure. */
 		const char *prefixed_version =
-			t_strdup_printf("%c%s", CONFIG_VALUE_PREFIX_EXPANDED, version);
+			t_strdup_printf("%c%s", CONFIG_VALUE_PREFIX_EXPANDED,
+			storage_version_default());
 		if (config_apply_exact_line(&ctx, NULL, "dovecot_storage_version",
 					    prefixed_version) < 0)
 			i_panic("Couldn't set default dovecot_storage_version: %s", ctx.error);
