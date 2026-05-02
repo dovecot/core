@@ -196,4 +196,19 @@ void auth_user_info_export(string_t *str, const struct auth_user_info *info);
 int auth_master_cache_flush(struct auth_master_connection *conn,
 			    const char *const *user_masks, unsigned int *count_r);
 
+struct auth_master_cache_status {
+	bool cache_disabled;
+	unsigned int hit_count, miss_count;
+	unsigned int pos_entries, neg_entries;
+	uint64_t pos_size, neg_size;
+	uint64_t used_size, max_size;
+};
+
+/* Query authentication cache status counters. Returns 0 on success, -1 on
+   error. If reset=TRUE, the auth process clears its hit/miss/insert counters
+   after returning the snapshot. If the auth process has caching disabled,
+   status_r->cache_disabled is set and the counters are zero. */
+int auth_master_cache_get_status(struct auth_master_connection *conn, bool reset,
+				 struct auth_master_cache_status *status_r);
+
 #endif

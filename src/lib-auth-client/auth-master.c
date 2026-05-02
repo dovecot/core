@@ -1500,3 +1500,127 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 	*count_r = ctx.count;
 	return ctx.failed ? -1 : 0;
 }
+
+/* CACHE-STATUS */
+
+struct auth_master_cache_status_ctx {
+	struct event *event;
+	struct auth_master_cache_status status;
+	bool failed;
+};
+
+static int
+auth_cache_status_reply_callback(const struct auth_master_reply *reply,
+				 struct auth_master_cache_status_ctx *ctx)
+{
+	const char *const *args = reply->args;
+
+	if (reply->errormsg != NULL) {
+		e_error(ctx->event, "CACHE-STATUS failed: %s", reply->errormsg);
+		ctx->failed = TRUE;
+		return 1;
+	}
+	i_assert(reply->reply != NULL);
+	i_assert(args != NULL);
+
+	if (strcmp(reply->reply, "OK") != 0) {
+		e_error(ctx->event, "CACHE-STATUS failed: %s", reply->reply);
+		ctx->failed = TRUE;
+		return 1;
+	}
+
+	if (args[0] == NULL) {
+		/* No status fields - cache disabled in auth process. */
+		ctx->status.cache_disabled = TRUE;
+		return 1;
+	}
+
+	const struct {
+		const char *name;
+		unsigned int *ptr;
+	} uint_stats[] = {
+		{ "hits", &ctx->status.hit_count },
+		{ "misses", &ctx->status.miss_count },
+		{ "pos_entries", &ctx->status.pos_entries },
+		{ "neg_entries", &ctx->status.neg_entries },
+	};
+	const struct {
+		const char *name;
+		uint64_t *ptr;
+	} uint64_stats[] = {
+		{ "pos_size", &ctx->status.pos_size },
+		{ "neg_size", &ctx->status.neg_size },
+		{ "used_size", &ctx->status.used_size },
+		{ "max_size", &ctx->status.max_size },
+	};
+
+	for (; *args != NULL; args++) {
+		const char *eq = strchr(*args, '=');
+		const char *name, *value;
+
+		if (eq == NULL)
+			continue;
+		name = t_strdup_until(*args, eq);
+		value = eq + 1;
+
+		for (unsigned int i = 0; i < N_ELEMENTS(uint_stats); i++) {
+			if (strcmp(name, uint_stats[i].name) != 0)
+				continue;
+
+			if (str_to_uint(value, uint_stats[i].ptr) < 0) {
+				e_error(ctx->event, "Invalid CACHE-STATUS reply: "
+					"'%s' is not a valid uint for %s",
+					value, uint_stats[i].name);
+			}
+			break;
+		}
+		for (unsigned int i = 0; i < N_ELEMENTS(uint64_stats); i++) {
+			if (strcmp(name, uint64_stats[i].name) != 0)
+				continue;
+
+			if (str_to_uint64(value, uint64_stats[i].ptr) < 0) {
+				e_error(ctx->event, "Invalid CACHE-STATUS reply: "
+					"'%s' is not a valid uint64 for %s",
+					value, uint64_stats[i].name);
+			}
+			break;
+		}
+	}
+	return 1;
+}
+
+int auth_master_cache_get_status(struct auth_master_connection *conn, bool reset,
+				 struct auth_master_cache_status *status_r)
+{
+	struct auth_master_cache_status_ctx ctx;
+	struct auth_master_request *req;
+	string_t *args;
+
+	if (auth_master_connect(conn) < 0)
+		return -1;
+
+	i_zero(&ctx);
+	ctx.event = event_create(conn->conn.event);
+	event_drop_parent_log_prefixes(ctx.event, 1);
+	event_set_append_log_prefix(ctx.event, "auth cache status: ");
+
+	e_debug(ctx.event, "Started cache status query");
+
+	args = t_str_new(16);
+	if (reset)
+		str_append(args, "reset");
+	req = auth_master_request(conn, "CACHE-STATUS",
+				  str_data(args), str_len(args),
+				  auth_cache_status_reply_callback, &ctx);
+	auth_master_request_set_event(req, ctx.event);
+	(void)auth_master_request_wait(req);
+
+	if (ctx.failed)
+		e_debug(ctx.event, "Cache status query failed");
+	else
+		e_debug(ctx.event, "Finished cache status query");
+	event_unref(&ctx.event);
+
+	*status_r = ctx.status;
+	return ctx.failed ? -1 : 0;
+}
