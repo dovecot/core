@@ -24,7 +24,7 @@ static int t_getcwd_noalloc(char **dir_r, size_t *asize_r,
 			*error_r = t_strdup_printf("getcwd() failed: %m");
 			return -1;
 		}
-		asize = nearest_power(asize+1);
+		asize = nearest_power(MALLOC_ADD(asize, 1));
 		dir = t_buffer_get(asize);
 	}
 	if (asize_r != NULL)
@@ -92,7 +92,7 @@ static int path_normalize(const char *path, bool resolve_links,
 			i_assert(npath_pos >= npath);
 			if ((size_t)((npath_pos - npath) + seglen + 1) >= asize) {
 				ptrdiff_t npath_offset = npath_pos - npath;
-				asize = nearest_power(npath_offset + seglen + 2);
+				asize = nearest_power(MALLOC_ADD3(npath_offset, seglen, 2));
 				npath = t_buffer_reget(npath, asize);
 				npath_pos = npath + npath_offset;
 			}
@@ -143,7 +143,7 @@ static int path_normalize(const char *path, bool resolve_links,
 				i_assert(npath_pos >= npath);
 				if ((size_t)((npath_pos - npath) + espace + lsize) >= asize) {
 					ptrdiff_t npath_offset = npath_pos - npath;
-					asize = nearest_power((npath_offset + espace + lsize) + 1);
+					asize = nearest_power(MALLOC_ADD(MALLOC_ADD3(npath_offset, espace, lsize), 1));
 					lsize = asize - (npath_offset + espace);
 					npath = t_buffer_reget(npath, asize);
 					npath_pos = npath + npath_offset;
@@ -191,7 +191,7 @@ static int path_normalize(const char *path, bool resolve_links,
 					if ((size_t)((npath_pos - npath) + espace + lsize) >= asize ||
 					    lsize == (size_t)ret) {
 						ptrdiff_t npath_offset = npath_pos - npath;
-						asize = nearest_power((npath_offset + espace + lsize) + 1);
+						asize = nearest_power(MALLOC_ADD(MALLOC_ADD3(npath_offset, espace, lsize), 1));
 						lsize = asize - (npath_offset + espace);
 						npath = t_buffer_reget(npath, asize);
 						npath_pos = npath + npath_offset;
@@ -344,7 +344,7 @@ int t_readlink(const char *path, const char **dest_r, const char **error_r)
 
 	dest = t_buffer_get(size);
 	while ((ret = readlink(path, dest, size)) >= (ssize_t)size) {
-		size = nearest_power(size+1);
+		size = nearest_power(MALLOC_ADD(size, 1));
 		dest = t_buffer_get(size);
 	}
 	if (ret < 0) {
