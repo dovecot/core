@@ -105,7 +105,7 @@ mech_oauthbearer_auth_output(struct dsasl_client_mech_session *msession,
 		container_of(msession, struct oauthbearer_sasl_session, session);
 	string_t *str;
 
-	if (msession->set.authid == NULL || *msession->set.authid == '\0') {
+	if (msession->authid == NULL) {
 		*error_r = "authid not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
@@ -124,7 +124,7 @@ mech_oauthbearer_auth_output(struct dsasl_client_mech_session *msession,
 	}
 
 	struct auth_gs2_header gs2_header = {
-		.authzid = msession->set.authid,
+		.authzid = msession->authid,
 	};
 
 	str = str_new(msession->pool, 64);
@@ -152,7 +152,7 @@ mech_xoauth2_auth_output(struct dsasl_client_mech_session *msession,
 		container_of(msession, struct oauthbearer_sasl_session, session);
 	string_t *str;
 
-	if (msession->set.authid == NULL || *msession->set.authid == '\0') {
+	if (msession->authid == NULL) {
 		*error_r = "authid not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
@@ -167,7 +167,7 @@ mech_xoauth2_auth_output(struct dsasl_client_mech_session *msession,
 
 	str = str_new(msession->pool, 64);
 
-	str_printfa(str, "user=%s\x01", msession->set.authid);
+	str_printfa(str, "user=%s\x01", msession->authid);
 	str_printfa(str, "auth=Bearer %s\x01", msession->password);
 	str_append_c(str, '\x01');
 

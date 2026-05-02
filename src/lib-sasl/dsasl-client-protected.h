@@ -38,7 +38,7 @@ struct dsasl_client_mech_session {
 	const struct dsasl_client_mech *mech;
 	struct dsasl_client_session *session;
 
-	const char *password;
+	const char *authid, *authzid, *password;
 
 	enum ssl_iostream_protocol_version channel_version;
 };

@@ -166,11 +166,10 @@ dsasl_client_session_create(struct dsasl_client *client,
 	msession->pool = pool;
 	msession->event = event;
 	msession->mech = mech;
-	msession->set.authid = p_strdup(pool, set->authid);
-	msession->set.authzid = p_strdup(pool, set->authzid);
-	msession->set.password = p_strdup(pool, set->password);
 	msession->session = session;
-	msession->password = msession->set.password;
+	msession->authid = p_strdup_empty(pool, set->authid);
+	msession->authzid = p_strdup_empty(pool, set->authzid);
+	msession->password = p_strdup(pool, set->password);
 	session->mech = msession;
 
 	if (params != NULL) {

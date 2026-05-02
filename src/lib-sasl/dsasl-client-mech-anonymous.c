@@ -45,9 +45,8 @@ mech_anonymous_auth_output(struct dsasl_client_mech_session *msession,
 	struct anonymous_sasl_session *asession =
 		container_of(msession, struct anonymous_sasl_session, session);
 
-	const char *authid = msession->set.authid;
-	if (authid == NULL)
-		authid = "";
+	const char *authid = (msession->authid == NULL ? "" : msession->authid);
+
 	*output_r = (const unsigned char*)authid;
 	*output_len_r = strlen(authid);
 	asession->output_sent = TRUE;

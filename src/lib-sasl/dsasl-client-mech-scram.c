@@ -89,8 +89,8 @@ mech_scram_init(struct scram_sasl_session *ssession, const char **error_r)
 
 	i_zero(&scram_set);
 	scram_set.hash_method = hmethod;
-	scram_set.authid = msession->set.authid;
-	scram_set.authzid = msession->set.authzid;
+	scram_set.authid = msession->authid;
+	scram_set.authzid = msession->authzid;
 	scram_set.password = msession->password;
 	scram_set.cbind_support = (cbind ? // FIXME: See above.
 				   AUTH_SCRAM_CBIND_SERVER_SUPPORT_REQUIRED :
@@ -132,7 +132,7 @@ mech_scram_auth_output(struct dsasl_client_mech_session *msession,
 	*output_r = NULL;
 	*output_len_r = 0;
 
-	if (msession->set.authid == NULL || *msession->set.authid == '\0') {
+	if (msession->authid == NULL) {
 		*error_r = "authid not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}

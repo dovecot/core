@@ -46,10 +46,10 @@ mech_external_auth_output(struct dsasl_client_mech_session *msession,
 		container_of(msession, struct external_sasl_session, session);
 	const char *username;
 
-	if (msession->set.authzid != NULL && *msession->set.authzid != '\0')
-		username = msession->set.authzid;
-	else if (msession->set.authid != NULL && *msession->set.authid != '\0')
-		username = msession->set.authid;
+	if (msession->authzid != NULL)
+		username = msession->authzid;
+	else if (msession->authid != NULL)
+		username = msession->authid;
 	else
 		username = "";
 

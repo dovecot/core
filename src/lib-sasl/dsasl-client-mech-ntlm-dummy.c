@@ -63,7 +63,7 @@ mech_ntlm_auth_output(struct dsasl_client_mech_session *msession,
 	struct ntlm_sasl_session *nsession =
 		container_of(msession, struct ntlm_sasl_session, session);
 
-	if (msession->set.authid == NULL || *msession->set.authid == '\0') {
+	if (msession->authid == NULL) {
 		*error_r = "authid not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
@@ -81,7 +81,7 @@ mech_ntlm_auth_output(struct dsasl_client_mech_session *msession,
 		return DSASL_CLIENT_RESULT_OK;
 	case STATE_RESPONSE:
 		response = t_strconcat("Response: ",
-				       msession->set.authid, NULL);
+				       msession->authid, NULL);
 		*output_r = (const unsigned char *)response;
 		*output_len_r = strlen(response);
 		return DSASL_CLIENT_RESULT_OK;

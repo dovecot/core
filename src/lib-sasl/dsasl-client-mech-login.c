@@ -48,7 +48,7 @@ mech_login_auth_output(struct dsasl_client_mech_session *msession,
 	struct login_sasl_session *lsession =
 		container_of(msession, struct login_sasl_session, session);
 
-	if (msession->set.authid == NULL || *msession->set.authid == '\0') {
+	if (msession->authid == NULL) {
 		*error_r = "authid not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
@@ -63,12 +63,12 @@ mech_login_auth_output(struct dsasl_client_mech_session *msession,
 		*output_len_r = 0;
 		return DSASL_CLIENT_RESULT_OK;
 	case STATE_USER:
-		*output_r = (const unsigned char *)msession->set.authid;
-		*output_len_r = strlen(msession->set.authid);
+		*output_r = (const unsigned char *)msession->authid;
+		*output_len_r = strlen(msession->authid);
 		return DSASL_CLIENT_RESULT_OK;
 	case STATE_PASS:
-		*output_r = (const unsigned char *)msession->set.password;
-		*output_len_r = strlen(msession->set.password);
+		*output_r = (const unsigned char *)msession->password;
+		*output_len_r = strlen(msession->password);
 		return DSASL_CLIENT_RESULT_OK;
 	}
 	i_unreached();

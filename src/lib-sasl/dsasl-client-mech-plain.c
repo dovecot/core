@@ -47,7 +47,7 @@ mech_plain_auth_output(struct dsasl_client_mech_session *msession,
 		container_of(msession, struct plain_sasl_session, session);
 	string_t *str;
 
-	if (msession->set.authid == NULL || *msession->set.authid == '\0') {
+	if (msession->authid == NULL) {
 		*error_r = "authid not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
@@ -57,10 +57,10 @@ mech_plain_auth_output(struct dsasl_client_mech_session *msession,
 	}
 
 	str = str_new(msession->pool, 64);
-	if (msession->set.authzid != NULL && *msession->set.authzid != '\0')
-		str_append(str, msession->set.authzid);
+	if (msession->authzid != NULL)
+		str_append(str, msession->authzid);
 	str_append_c(str, '\0');
-	str_append(str, msession->set.authid);
+	str_append(str, msession->authid);
 	str_append_c(str, '\0');
 	str_append(str, msession->password);
 

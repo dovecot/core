@@ -72,7 +72,7 @@ mech_cram_md5_auth_output(struct dsasl_client_mech_session *msession,
 		container_of(msession, struct cram_md5_sasl_session, session);
 	string_t *str;
 
-	if (msession->set.authid == NULL || *msession->set.authid == '\0') {
+	if (msession->authid == NULL) {
 		*error_r = "authid not set";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
@@ -96,7 +96,7 @@ mech_cram_md5_auth_output(struct dsasl_client_mech_session *msession,
 	hmac_final(&ctx, digest);
 
 	str = str_new(msession->pool, 256);
-	str_append(str, msession->set.authid);
+	str_append(str, msession->authid);
 	str_append_c(str, ' ');
 	binary_to_hex_append(str, digest, sizeof(digest));
 

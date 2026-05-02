@@ -201,7 +201,7 @@ mech_digest_md5_init(struct digest_md5_sasl_session *dsession,
 	struct dsasl_client_mech_session *msession = &dsession->session;
 	const char *realm;
 
-	if (msession->set.authid == NULL || *msession->set.authid == '\0') {
+	if (msession->authid == NULL) {
 		*error_r = "authid not set";
 		return -1;
 	}
@@ -220,14 +220,14 @@ mech_digest_md5_init(struct digest_md5_sasl_session *dsession,
 
 	/* Assume user@realm format for username. If user@domain is wanted
 	   in the username, allow also user@domain@realm. */
-	realm = strrchr(msession->set.authid, '@');
+	realm = strrchr(msession->authid, '@');
 	if (realm != NULL) {
 		dsession->username = p_strdup_until(
-			msession->pool, msession->set.authid, realm);
+			msession->pool, msession->authid, realm);
 		realm++;
 		dsession->realm = p_strdup(msession->pool, realm);
 	} else {
-		dsession->username = msession->set.authid;
+		dsession->username = msession->authid;
 		dsession->realm = "";
 	}
 	dsession->nc = "00000001";
@@ -361,7 +361,7 @@ mech_digest_md5_output_first(struct digest_md5_sasl_session *dsession)
 	const char *a1_hex =
 		auth_digest_get_hash_a1(hmethod, a1_secret, dsession->nonce,
 					dsession->cnonce,
-					msession->set.authzid);
+					msession->authzid);
 	dsession->a1_hex = p_strdup(msession->pool, a1_hex);
 
 	const char *response_hex =
@@ -372,9 +372,9 @@ mech_digest_md5_output_first(struct digest_md5_sasl_session *dsession)
 	str_append(str, ",response=\"");
 	str_append(str, response_hex);
 	str_append(str, "\"");
-	if (msession->set.authzid != NULL && *msession->set.authzid != '\0') {
+	if (msession->authzid != NULL) {
 		str_append(str, ",authzid=\"");
-		str_append(str, msession->set.authzid);
+		str_append(str, msession->authzid);
 		str_append(str, "\"");
 	}
 
