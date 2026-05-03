@@ -1053,6 +1053,11 @@ bool client_forward_decode_base64(struct client *client, const char *value)
 	string_t *str = t_str_new(MAX_BASE64_DECODED_SIZE(value_len));
 	if (base64_decode(value, value_len, str) < 0)
 		return FALSE;
+	/* Embedded NUL would yield a created-but-empty array, panicking later
+	   in array_front() during sasl_server_auth_begin(). */
+	if (str_len(str) == 0 ||
+	    memchr(str_data(str), '\0', str_len(str)) != NULL)
+		return FALSE;
 
 	char **_fields = p_strsplit_tabescaped(client->preproxy_pool,
 					       str_c(str));
