@@ -495,7 +495,7 @@ proxy_redirect_reauth(struct client *client, const char *destuser,
 	t_array_init(&info.extra_fields, N_ELEMENTS(extra_fields));
 	array_append(&info.extra_fields, extra_fields,
 		     N_ELEMENTS(extra_fields));
-	if (array_is_created(&client->forward_fields)) {
+	if (array_not_empty(&client->forward_fields)) {
 		array_append_zero(&client->forward_fields);
 		array_pop_back(&client->forward_fields);
 		info.forward_fields = array_front(&client->forward_fields);
