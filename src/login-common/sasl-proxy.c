@@ -559,7 +559,7 @@ int sasl_proxy_auth_request_info_fill(struct client *client,
 	info_r->real_remote_port = client->real_remote_port;
 	if (client->client_id != NULL)
 		info_r->client_id = str_c(client->client_id);
-	if (array_is_created(&client->forward_fields)) {
+	if (array_not_empty(&client->forward_fields)) {
 		array_append_zero(&client->forward_fields);
 		array_pop_back(&client->forward_fields);
 		info_r->forward_fields = array_front(&client->forward_fields);
