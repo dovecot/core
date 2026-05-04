@@ -256,6 +256,7 @@ static void test_var_expand_builtin_filters(void) {
 		{ .in = "%{user | index('@',-1)}", .out = "domain", .ret = 0 },
 		{ .in = "%{user | username(0)}", .out = "username: Too many positional parameters", .ret = -1 },
 		{ .in = "%{user | domain(0)}", .out = "domain: Too many positional parameters", .ret = -1 },
+		{ .in = "%{user | index('',0)}", .out = "Empty separator", .ret = -1 },
 		{ .in = "%{literal('hello@') | domain }", .out = "", .ret = 0 },
 		{ .in = "%{literal('@hello') | username }", .out = "", .ret = 0 },
 		{ .in = "%{literal('@') | domain }", .out = "", .ret = 0 },

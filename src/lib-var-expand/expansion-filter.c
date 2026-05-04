@@ -904,6 +904,11 @@ static int fn_le_number(const struct var_expand_statement *stmt,
 static int fn_index_common(struct var_expand_state *state, int index,
 			   const char *separator, const char **error_r)
 {
+	if (*separator == '\0') {
+		*error_r = "Empty separator";
+		return -1;
+	}
+
 	const char *p;
 	const char *token;
 	const char *input = str_c(state->transfer);
