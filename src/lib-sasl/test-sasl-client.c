@@ -113,12 +113,12 @@ static void test_sasl_client_login(void)
 	/* missing username & password */
 	session = test_init_sasl_session(client, mech, &sasl_empty_set, &error);
 	i_assert(session == NULL);
-	test_assert_strcmp(error, "authid not set");
+	test_assert(str_begins_with(error, "No authentication or authorization identity configured for the LOGIN mechanism"));
 
 	/* missing password */
 	session = test_init_sasl_session(client, mech, &sasl_no_password_set, &error);
 	i_assert(session == NULL);
-	test_assert_strcmp(error, "password not set");
+	test_assert_strcmp(error, "No password configured (client_auth_password setting)");
 
 	/* unexpected NUL byte in input */
 	session = test_init_sasl_session(client, mech, &sasl_set, &error);
@@ -198,12 +198,12 @@ static void test_sasl_client_plain(void)
 	/* missing username & password */
 	session = test_init_sasl_session(client, mech, &sasl_empty_set, &error);
 	i_assert(session == NULL);
-	test_assert_strcmp(error, "authid not set");
+	test_assert(str_begins_with(error, "No authentication or authorization identity configured for the PLAIN mechanism"));
 
 	/* missing password */
 	session = test_init_sasl_session(client, mech, &sasl_no_password_set, &error);
 	i_assert(session == NULL);
-	test_assert_strcmp(error, "password not set");
+	test_assert_strcmp(error, "No password configured (client_auth_password setting)");
 
 	/* unexpected NUL byte in input */
 	session = test_init_sasl_session(client, mech, &sasl_set, &error);
@@ -350,12 +350,12 @@ static void test_sasl_client_oauthbearer(void)
 	/* missing username & password */
 	session = test_init_sasl_session(client, mech, &sasl_empty_set, &error);
 	i_assert(session == NULL);
-	test_assert_strcmp(error, "authid not set");
+	test_assert(str_begins_with(error, "No authentication or authorization identity configured for the OAUTHBEARER mechanism"));
 
 	/* missing password */
 	session = test_init_sasl_session(client, mech, &sasl_no_password_set, &error);
 	i_assert(session == NULL);
-	test_assert_strcmp(error, "password not set");
+	test_assert_strcmp(error, "No password configured (client_auth_password setting)");
 
 	/* unexpected NUL byte in input */
 	session = test_init_sasl_session(client, mech, &sasl_set, &error);
@@ -418,12 +418,12 @@ static void test_sasl_client_xoauth2(void)
 	/* missing username & password */
 	session = test_init_sasl_session(client, mech, &sasl_empty_set, &error);
 	i_assert(session == NULL);
-	test_assert_strcmp(error, "authid not set");
+	test_assert(str_begins_with(error, "No authentication or authorization identity configured for the XOAUTH2 mechanism"));
 
 	/* missing password */
 	session = test_init_sasl_session(client, mech, &sasl_no_password_set, &error);
 	i_assert(session == NULL);
-	test_assert_strcmp(error, "password not set");
+	test_assert_strcmp(error, "No password configured (client_auth_password setting)");
 
 	/* unexpected NUL byte in input */
 	session = test_init_sasl_session(client, mech, &sasl_set, &error);

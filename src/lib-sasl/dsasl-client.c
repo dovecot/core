@@ -132,6 +132,30 @@ void dsasl_client_mech_unregister(struct dsasl_client *client,
  * Session
  */
 
+int dsasl_client_session_check_authid(
+	struct dsasl_client_mech_session *msession, const char **error_r)
+{
+	if (msession->authid == NULL) {
+		*error_r = t_strdup_printf(
+			"No authentication or authorization identity configured for the %s mechanism "
+			"(client_auth_authzid and client_auth_authid settings are empty)",
+			msession->mech->name);
+		return -1;
+	}
+	return 0;
+}
+
+int dsasl_client_session_check_password(
+	struct dsasl_client_mech_session *msession, const char **error_r)
+{
+	if (msession->password == NULL) {
+		*error_r = "No password configured "
+			"(client_auth_password setting)";
+		return -1;
+	}
+	return 0;
+}
+
 int dsasl_client_session_create(struct dsasl_client *client,
 				const struct dsasl_client_mech *mech,
 				const struct dsasl_client_parameters *params,

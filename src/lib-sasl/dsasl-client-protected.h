@@ -70,6 +70,11 @@ void dsasl_client_mech_unregister(struct dsasl_client *client,
  * Session
  */
 
+int dsasl_client_session_check_authid(
+	struct dsasl_client_mech_session *msession, const char **error_r);
+int dsasl_client_session_check_password(
+	struct dsasl_client_mech_session *msession, const char **error_r);
+
 int dsasl_client_session_get_channel_binding(
 	struct dsasl_client_mech_session *msession, const char *type,
 	const buffer_t **data_r, const char **error_r);

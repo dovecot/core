@@ -35,14 +35,10 @@ static int
 mech_ntlm_auth_check(struct dsasl_client_mech_session *msession,
 		     const char **error_r)
 {
-	if (msession->authid == NULL) {
-		*error_r = "authid not set";
+	if (dsasl_client_session_check_authid(msession, error_r) < 0)
 		return -1;
-	}
-	if (msession->password == NULL) {
-		*error_r = "password not set";
+	if (dsasl_client_session_check_password(msession, error_r) < 0)
 		return -1;
-	}
 	return 0;
 }
 
