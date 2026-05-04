@@ -4,12 +4,17 @@
 #include "str.h"
 #include "path-util.h"
 
+#include <fcntl.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
 #define PATH_UTIL_MAX_PATH      8*1024
 #define PATH_UTIL_MAX_SYMLINKS  80
+/* Symlink-hop cap for t_openat_safe(). Lower than the realpath cap:
+   t_openat_safe() refuses absolute and escaping targets outright, so a
+   long chain inside the base dir is the only legitimate use. */
+#define PATH_UTIL_OPENAT_SAFE_MAX_SYMLINKS 16
 
 static int t_getcwd_noalloc(char **dir_r, size_t *asize_r,
 			    const char **error_r) ATTR_NULL(2)
@@ -356,6 +361,171 @@ int t_readlink(const char *path, const char **dest_r, const char **error_r)
 	t_buffer_alloc(ret + 1);
 	*dest_r = dest;
 	return 0;
+}
+
+/* Iteratively resolve `path` beneath `cur_fd` using openat() with
+   O_NOFOLLOW per component. Symlinks are resolved manually: their targets
+   are validated (non-absolute, no '..' past the base) and the loop
+   restarts with the target spliced into the remaining path. dir_depth
+   tracks how many directory levels we have descended below the original
+   base; '..' is refused when the depth would go negative.
+ */
+static int
+path_openat_safe_walk(int cur_fd, const char *path, int flags,
+		      const char **error_r)
+{
+	bool cur_owned = FALSE;
+	unsigned int symlink_count = 0;
+	unsigned int dir_depth = 0;
+
+	/* Absolute paths cannot stay beneath the base directory. */
+	if (*path == '/') {
+		errno = ELOOP;
+		*error_r = "Path is absolute (escapes base directory)";
+		return -1;
+	}
+
+	for (;;) {
+		while (*path == '/')
+			path++;
+
+		if (*path == '\0') {
+			/* Empty path or trailing slash: open the current
+			   directory itself with the requested flags. */
+			int fd = openat(cur_fd, ".",
+					flags | O_NOFOLLOW | O_CLOEXEC);
+			if (cur_owned)
+				i_close_fd(&cur_fd);
+			if (fd < 0) {
+				*error_r = t_strdup_printf(
+					"openat() failed: %m");
+			}
+			return fd;
+		}
+
+		const char *slash = strchr(path, '/');
+		size_t comp_len = (slash != NULL ?
+				   (size_t)(slash - path) : strlen(path));
+		bool is_last = (slash == NULL);
+
+		if (comp_len == 1 && path[0] == '.') {
+			path += comp_len;
+			continue;
+		}
+
+		if (comp_len == 2 && path[0] == '.' && path[1] == '.') {
+			if (dir_depth == 0) {
+				if (cur_owned)
+					i_close_fd(&cur_fd);
+				errno = ELOOP;
+				*error_r = "Path escapes base directory via '..'";
+				return -1;
+			}
+			int parent_fd = openat(cur_fd, "..",
+					       O_RDONLY | O_DIRECTORY |
+					       O_NOFOLLOW | O_CLOEXEC);
+			if (cur_owned)
+				i_close_fd(&cur_fd);
+			if (parent_fd < 0) {
+				*error_r = t_strdup_printf(
+					"openat(..) failed: %m");
+				return -1;
+			}
+			cur_fd = parent_fd;
+			cur_owned = TRUE;
+			dir_depth--;
+			path += comp_len;
+			continue;
+		}
+
+		const char *comp = t_strdup_until(path, path + comp_len);
+		int next_fd;
+		if (is_last) {
+			next_fd = openat(cur_fd, comp,
+					 flags | O_NOFOLLOW | O_CLOEXEC);
+		} else {
+			next_fd = openat(cur_fd, comp,
+					 O_RDONLY | O_DIRECTORY |
+					 O_NOFOLLOW | O_CLOEXEC);
+		}
+
+		if (next_fd < 0 && (errno == ELOOP || errno == EMLINK)) {
+			/* Component is a symlink. Resolve it ourselves and
+			   restart processing with its target spliced into
+			   `path`; that way the target is itself walked
+			   component-by-component and the boundary check
+			   continues to apply. (O_NOFOLLOW on a symlink reports
+			   ELOOP on Linux/macOS but EMLINK on the BSDs, so both
+			   must be treated as "this is a symlink".) */
+			if (++symlink_count >
+			    PATH_UTIL_OPENAT_SAFE_MAX_SYMLINKS) {
+				if (cur_owned)
+					i_close_fd(&cur_fd);
+				errno = ELOOP;
+				*error_r = "Too many symlink dereferences";
+				return -1;
+			}
+
+			char buf[PATH_UTIL_MAX_PATH];
+			ssize_t llen = readlinkat(cur_fd, comp,
+						  buf, sizeof(buf) - 1);
+			if (llen < 0) {
+				if (cur_owned)
+					i_close_fd(&cur_fd);
+				*error_r = t_strdup_printf(
+					"readlinkat(%s) failed: %m", comp);
+				return -1;
+			}
+			buf[llen] = '\0';
+
+			if (buf[0] == '/') {
+				if (cur_owned)
+					i_close_fd(&cur_fd);
+				errno = ELOOP;
+				*error_r = t_strdup_printf(
+					"Symlink '%s' has absolute target "
+					"'%s' (escapes base directory)",
+					comp, buf);
+				return -1;
+			}
+
+			path = is_last ? t_strdup(buf) :
+					 t_strconcat(buf, "/",
+						     slash + 1, NULL);
+			continue;
+		}
+
+		if (next_fd < 0) {
+			if (cur_owned)
+				i_close_fd(&cur_fd);
+			*error_r = t_strdup_printf(
+				"openat(%s) failed: %m", comp);
+			return -1;
+		}
+
+		if (is_last) {
+			if (cur_owned)
+				i_close_fd(&cur_fd);
+			return next_fd;
+		}
+
+		if (cur_owned)
+			i_close_fd(&cur_fd);
+		cur_fd = next_fd;
+		cur_owned = TRUE;
+		dir_depth++;
+		path = slash + 1;
+	}
+}
+
+int t_openat_safe(int base_fd, const char *path, int flags,
+		  const char **error_r)
+{
+	i_assert(base_fd >= 0);
+	i_assert(path != NULL);
+	i_assert(error_r != NULL);
+
+	return path_openat_safe_walk(base_fd, path, flags, error_r);
 }
 
 bool t_binary_abspath(const char **binpath, const char **error_r)

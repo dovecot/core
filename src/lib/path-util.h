@@ -57,6 +57,35 @@ int t_get_working_dir(const char **dir_r, const char **error_r);
  * -1 on failure. error_r is set on failure and cannot be NULL. */
 int t_readlink(const char *path, const char **dest_r, const char **error_r);
 
+/* Open `path` relative to `base_fd`, refusing any resolution that escapes
+   the directory referenced by `base_fd`. Each path component is opened with
+   O_NOFOLLOW so symlinks are detected explicitly rather than transparently
+   followed; symlinks are followed only when their (recursively resolved)
+   target also stays beneath `base_fd`. Absolute symlink targets, leading
+   '/', and '..' past the base are rejected.
+
+   `base_fd` must reference a directory (e.g. obtained via
+   open(dir, O_DIRECTORY|O_RDONLY|O_CLOEXEC)) and remains owned by the
+   caller; this function does not close it.
+
+   `flags` is OR-ed into the openat() call for the final component (e.g.
+   O_RDONLY). O_NOFOLLOW and O_CLOEXEC are added implicitly.
+
+   Anchoring resolution at `base_fd` makes the lookup TOCTOU-safe even when
+   intermediate path components are mutated on disk concurrently: the kernel
+   resolves all component lookups relative to the original directory inode
+   `base_fd` references.
+
+   Returns the new fd (>= 0) on success. On failure returns -1 with errno
+   set and *error_r set to a descriptive message:
+    errno=ELOOP   target escapes base, or symlink chain too deep
+    errno=ENOENT  file not found
+    errno=EACCES  permission denied
+    other errno   as set by openat()/readlinkat()
+ */
+int t_openat_safe(int base_fd, const char *path, int flags,
+		  const char **error_r);
+
 /* Update binpath to be absolute:
  * a) begins with '/' -> no change
  * b) contains '/' -> assume relative to working directory
