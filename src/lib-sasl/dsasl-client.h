@@ -66,6 +66,11 @@ int dsasl_client_session_create(struct dsasl_client *client,
 				const struct client_auth_settings *set,
 				struct dsasl_client_session **session_r,
 				const char **error_r);
+int dsasl_client_session_create_auto(struct dsasl_client *client,
+				     struct event *event_parent,
+				     const struct dsasl_client_parameters *params,
+				     struct dsasl_client_session **session_r,
+				     const char **error_r);
 void dsasl_client_session_ref(struct dsasl_client_session *session);
 void dsasl_client_session_unref(struct dsasl_client_session **_session);
 void dsasl_client_session_destroy(struct dsasl_client_session **_session);

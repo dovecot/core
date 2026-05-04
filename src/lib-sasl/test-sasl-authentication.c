@@ -390,7 +390,6 @@ test_sasl_run_once(const struct test_sasl *test,
 		   bool auth_initial)
 {
 	struct test_sasl_context tctx;
-	const char *error;
 
 	i_zero(&tctx);
 	tctx.pool = pool_alloconly_create(MEMPOOL_GROWING"test_sasl", 2048);
@@ -416,22 +415,42 @@ test_sasl_run_once(const struct test_sasl *test,
 				test->client.password :
 				test->server.password);
 
-	struct client_auth_settings client_set = {
-		.mechanism = test->mech,
-		.authid = (realm == NULL ? authid :
-			   t_strconcat(authid, "@", realm, NULL)),
-		.authzid = authzid,
-		.password = password,
-	};
+	struct settings_root *set_root;
+	struct event *event;
+	const char *error;
+
+	set_root = settings_root_init();
+	if (authid != NULL) {
+		const char *full_auth_id = (realm == NULL ?
+			authid : t_strconcat(authid, "@", realm, NULL));
+		settings_root_override(set_root, "client_auth_authid",
+				       full_auth_id, SETTINGS_OVERRIDE_TYPE_CODE);
+	}
+	if (authzid != NULL) {
+		settings_root_override(set_root, "client_auth_authzid",
+				       authzid, SETTINGS_OVERRIDE_TYPE_CODE);
+	}
+	if (password != NULL) {
+		settings_root_override(set_root, "client_auth_password",
+				       password, SETTINGS_OVERRIDE_TYPE_CODE);
+	}
+	settings_root_override(set_root, "client_auth",
+			       test->mech, SETTINGS_OVERRIDE_TYPE_CODE);
+	settings_root_override(set_root,
+		t_strdup_printf("client_auth/%s/mechanism", test->mech),
+		test->mech, SETTINGS_OVERRIDE_TYPE_CODE);
+	event = event_create(test_event);
+	event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
+
 	const char *server_mechanisms[] = { test->mech, NULL };
 	struct dsasl_client_parameters client_params = {
 		.protocol = "imap",
 		.host = "example.com",
 		.server_mechanisms = server_mechanisms,
 	};
-	if (dsasl_client_session_create(tctx.client, NULL,
-					&client_params, &client_set,
-					&tctx.session, &error) < 0)
+	if (dsasl_client_session_create_auto(tctx.client, event,
+					     &client_params, &tctx.session,
+					     &error) < 0)
 		i_fatal("Failed to create SASL session: %s", error);
 	i_assert(tctx.session != NULL);
 
@@ -442,6 +461,8 @@ test_sasl_run_once(const struct test_sasl *test,
 	test_sasl_interact(&tctx);
 
 	dsasl_client_session_destroy(&tctx.session);
+	event_unref(&event);
+	settings_root_deinit(&set_root);
 	dsasl_client_unref(&tctx.client);
 	sasl_server_request_destroy(&tctx.ssrctx);
 

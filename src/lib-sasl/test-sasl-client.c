@@ -8,46 +8,63 @@
 #include "client-auth-settings.h"
 #include "dsasl-client.h"
 
+static struct settings_root *set_root = NULL;
+
 static struct dsasl_client_session *
 test_init_sasl_session_params(struct dsasl_client *client,
 			      const struct dsasl_client_parameters *params,
-			      const struct client_auth_settings *set,
-			      const char **error_r)
+			      const char *const *settings, const char **error_r)
 {
+	struct event *event;
 	struct dsasl_client_session *session;
 
-	if (dsasl_client_session_create(client, NULL, params, set,
-					&session, error_r) < 0)
+	settings_root_deinit(&set_root);
+	set_root = settings_root_init();
+	for (unsigned int i = 0; settings[i] != NULL; i++) {
+		const char *key, *value;
+		t_split_key_value_eq(settings[i], &key, &value);
+		settings_root_override(set_root, key, value,
+				       SETTINGS_OVERRIDE_TYPE_CODE);
+	}
+	event = event_create(NULL);
+	event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
+
+	if (dsasl_client_session_create_auto(client, event, params,
+					     &session, error_r) < 0)
 		session = NULL;
+
+	event_unref(&event);
 
 	return session;
 }
 
 static struct dsasl_client_session *
-test_init_sasl_session(struct dsasl_client *client,
-		       const struct client_auth_settings *set,
+test_init_sasl_session(struct dsasl_client *client, const char *const *settings,
 		       const char **error_r)
 {
 	struct dsasl_client_parameters params = {
 	};
 
-	return test_init_sasl_session_params(client, &params, set, error_r);
+	return test_init_sasl_session_params(client, &params, settings,
+					     error_r);
 }
 
 static void test_sasl_client_login(void)
 {
-	const struct client_auth_settings sasl_empty_set = {
-		.mechanism = "LOGIN",
-		.authid = NULL,
+	static const char *const sasl_empty_set[] = {
+		"client_auth_mechanism=LOGIN",
+		NULL
 	};
-	const struct client_auth_settings sasl_no_password_set = {
-		.mechanism = "LOGIN",
-		.authid = "testuser",
+	static const char *const sasl_no_password_set[] = {
+		"client_auth_mechanism=LOGIN",
+		"client_auth_authid=testuser",
+		NULL
 	};
-	const struct client_auth_settings sasl_set = {
-		.mechanism = "LOGIN",
-		.authid = "testuser",
-		.password = "testpassword"
+	static const char *const sasl_set[] = {
+		"client_auth_mechanism=LOGIN",
+		"client_auth_authid=testuser",
+		"client_auth_password=testpassword",
+		NULL
 	};
 	struct dsasl_client *client;
 	struct dsasl_client_session *session;
@@ -62,7 +79,7 @@ static void test_sasl_client_login(void)
 	const unsigned char *output;
 	size_t olen;
 
-	session = test_init_sasl_session(client, &sasl_set, &error);
+	session = test_init_sasl_session(client, sasl_set, &error);
 	i_assert(session != NULL);
 
 	/* Any input is valid */
@@ -89,7 +106,7 @@ static void test_sasl_client_login(void)
 	test_assert(session == NULL);
 
 	/* server sends input after password */
-	session = test_init_sasl_session(client, &sasl_set, &error);
+	session = test_init_sasl_session(client, sasl_set, &error);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -101,17 +118,17 @@ static void test_sasl_client_login(void)
 	test_assert(session == NULL);
 
 	/* missing username & password */
-	session = test_init_sasl_session(client, &sasl_empty_set, &error);
+	session = test_init_sasl_session(client, sasl_empty_set, &error);
 	i_assert(session == NULL);
 	test_assert(str_begins_with(error, "No authentication or authorization identity configured for the LOGIN mechanism"));
 
 	/* missing password */
-	session = test_init_sasl_session(client, &sasl_no_password_set, &error);
+	session = test_init_sasl_session(client, sasl_no_password_set, &error);
 	i_assert(session == NULL);
 	test_assert_strcmp(error, "No password configured (client_auth_password setting)");
 
 	/* unexpected NUL byte in input */
-	session = test_init_sasl_session(client, &sasl_set, &error);
+	session = test_init_sasl_session(client, sasl_set, &error);
 	test_assert(session != NULL);
 	str_truncate(input, 0);
 	str_append_data(input, "unexpected\0", 11);
@@ -128,24 +145,27 @@ static void test_sasl_client_login(void)
 
 static void test_sasl_client_plain(void)
 {
-	const struct client_auth_settings sasl_empty_set = {
-		.mechanism = "PLAIN",
-		.authid = NULL,
+	static const char *const sasl_empty_set[] = {
+		"client_auth_mechanism=PLAIN",
+		NULL
 	};
-	const struct client_auth_settings sasl_no_password_set = {
-		.mechanism = "PLAIN",
-		.authid = "testuser",
+	static const char *const sasl_no_password_set[] = {
+		"client_auth_mechanism=PLAIN",
+		"client_auth_authid=testuser",
+		NULL
 	};
-	const struct client_auth_settings sasl_set = {
-		.mechanism = "PLAIN",
-		.authid = "testuser",
-		.password = "testpassword"
+	static const char *const sasl_set[] = {
+		"client_auth_mechanism=PLAIN",
+		"client_auth_authid=testuser",
+		"client_auth_password=testpassword",
+		NULL
 	};
-	const struct client_auth_settings sasl_master_set = {
-		.mechanism = "PLAIN",
-		.authzid = "testuser",
-		.authid = "masteruser",
-		.password = "masterpassword"
+	static const char *const sasl_master_set[] = {
+		"client_auth_mechanism=PLAIN",
+		"client_auth_authzid=testuser",
+		"client_auth_authid=masteruser",
+		"client_auth_password=masterpassword",
+		NULL
 	};
 	struct dsasl_client *client;
 	struct dsasl_client_session *session;
@@ -158,7 +178,7 @@ static void test_sasl_client_plain(void)
 	const unsigned char *output;
 	size_t olen;
 
-	session = test_init_sasl_session(client, &sasl_set, &error);
+	session = test_init_sasl_session(client, sasl_set, &error);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -169,7 +189,7 @@ static void test_sasl_client_plain(void)
 	dsasl_client_session_destroy(&session);
 	test_assert(session == NULL);
 
-	session = test_init_sasl_session(client, &sasl_master_set, &error);
+	session = test_init_sasl_session(client, sasl_master_set, &error);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -184,7 +204,7 @@ static void test_sasl_client_plain(void)
 
 	/* unexpected initial response */
 	const unsigned char input[] = "ir";
-	session = test_init_sasl_session(client, &sasl_set, &error);
+	session = test_init_sasl_session(client, sasl_set, &error);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, input, sizeof(input)-1, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, "Server sent non-empty initial response");
@@ -192,7 +212,7 @@ static void test_sasl_client_plain(void)
 	test_assert(session == NULL);
 
 	/* server sends input after response */
-	session = test_init_sasl_session(client, &sasl_set, &error);
+	session = test_init_sasl_session(client, sasl_set, &error);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -202,17 +222,17 @@ static void test_sasl_client_plain(void)
 	test_assert(session == NULL);
 
 	/* missing username & password */
-	session = test_init_sasl_session(client, &sasl_empty_set, &error);
+	session = test_init_sasl_session(client, sasl_empty_set, &error);
 	i_assert(session == NULL);
 	test_assert(str_begins_with(error, "No authentication or authorization identity configured for the PLAIN mechanism"));
 
 	/* missing password */
-	session = test_init_sasl_session(client, &sasl_no_password_set, &error);
+	session = test_init_sasl_session(client, sasl_no_password_set, &error);
 	i_assert(session == NULL);
 	test_assert_strcmp(error, "No password configured (client_auth_password setting)");
 
 	/* unexpected NUL byte in input */
-	session = test_init_sasl_session(client, &sasl_set, &error);
+	session = test_init_sasl_session(client, sasl_set, &error);
 	i_assert(session != NULL);
 	const unsigned char input2[] = "unexpected\0";
 	test_assert(dsasl_client_session_input(session, input2, sizeof(input2), &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
@@ -228,16 +248,18 @@ static void test_sasl_client_plain(void)
 
 static void test_sasl_client_external(void)
 {
-	const struct client_auth_settings sasl_set = {
-		.mechanism = "EXTERNAL",
-		.authid = "testuser",
-		.password = "testpassword"
+	static const char *const sasl_set[] = {
+		"client_auth_mechanism=EXTERNAL",
+		"client_auth_authid=testuser",
+		"client_auth_password=testpassword",
+		NULL
 	};
-	const struct client_auth_settings sasl_master_set = {
-		.mechanism = "EXTERNAL",
-		.authzid = "testuser",
-		.authid = "masteruser",
-		.password = "masterpassword"
+	static const char *const sasl_master_set[] = {
+		"client_auth_mechanism=EXTERNAL",
+		"client_auth_authzid=testuser",
+		"client_auth_authid=masteruser",
+		"client_auth_password=masterpassword",
+		NULL
 	};
 	struct dsasl_client *client;
 	struct dsasl_client_session *session;
@@ -250,7 +272,7 @@ static void test_sasl_client_external(void)
 	const unsigned char *output;
 	size_t olen;
 
-	session = test_init_sasl_session(client, &sasl_set, &error);
+	session = test_init_sasl_session(client, sasl_set, &error);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -261,7 +283,7 @@ static void test_sasl_client_external(void)
 	dsasl_client_session_destroy(&session);
 	test_assert(session == NULL);
 
-	session = test_init_sasl_session(client, &sasl_master_set, &error);
+	session = test_init_sasl_session(client, sasl_master_set, &error);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -274,7 +296,7 @@ static void test_sasl_client_external(void)
 	test_assert(session == NULL);
 
 	/* unexpected NUL byte in input */
-	session = test_init_sasl_session(client, &sasl_set, &error);
+	session = test_init_sasl_session(client, sasl_set, &error);
 	i_assert(session != NULL);
 	const unsigned char input2[] = "unexpected\0";
 	test_assert(dsasl_client_session_input(session, input2, sizeof(input2), &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
@@ -290,18 +312,20 @@ static void test_sasl_client_external(void)
 
 static void test_sasl_client_oauthbearer(void)
 {
-	const struct client_auth_settings sasl_empty_set = {
-		.mechanism = "OAUTHBEARER",
-		.authid = NULL,
+	static const char *const sasl_empty_set[] = {
+		"client_auth_mechanism=OAUTHBEARER",
+		NULL
 	};
-	const struct client_auth_settings sasl_no_password_set = {
-		.mechanism = "OAUTHBEARER",
-		.authid = "testuser",
+	static const char *const sasl_no_password_set[] = {
+		"client_auth_mechanism=OAUTHBEARER",
+		"client_auth_authid=testuser",
+		NULL
 	};
-	const struct client_auth_settings sasl_set = {
-		.mechanism = "OAUTHBEARER",
-		.authid = "testuser",
-		.password = "testpassword"
+	static const char *const sasl_set[] = {
+		"client_auth_mechanism=OAUTHBEARER",
+		"client_auth_authid=testuser",
+		"client_auth_password=testpassword",
+		NULL
 	};
 	struct dsasl_client *client;
 	struct dsasl_client_session *session;
@@ -316,7 +340,7 @@ static void test_sasl_client_oauthbearer(void)
 	const unsigned char *output;
 	size_t olen;
 
-	session = test_init_sasl_session(client, &sasl_set, &error);
+	session = test_init_sasl_session(client, sasl_set, &error);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -338,7 +362,7 @@ static void test_sasl_client_oauthbearer(void)
 		.host = "example.com",
 		.port = 143,
 	};
-	session = test_init_sasl_session_params(client, &params, &sasl_set, &error);
+	session = test_init_sasl_session_params(client, &params, sasl_set, &error);
 	i_assert(session != NULL);
 
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
@@ -358,7 +382,7 @@ static void test_sasl_client_oauthbearer(void)
 	test_assert(session == NULL);
 
 	/* test error response */
-	session = test_init_sasl_session(client, &sasl_set, &error);
+	session = test_init_sasl_session(client, sasl_set, &error);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -372,17 +396,17 @@ static void test_sasl_client_oauthbearer(void)
 	test_assert(session == NULL);
 
 	/* missing username & password */
-	session = test_init_sasl_session(client, &sasl_empty_set, &error);
+	session = test_init_sasl_session(client, sasl_empty_set, &error);
 	i_assert(session == NULL);
 	test_assert(str_begins_with(error, "No authentication or authorization identity configured for the OAUTHBEARER mechanism"));
 
 	/* missing password */
-	session = test_init_sasl_session(client, &sasl_no_password_set, &error);
+	session = test_init_sasl_session(client, sasl_no_password_set, &error);
 	i_assert(session == NULL);
 	test_assert_strcmp(error, "No password configured (client_auth_password setting)");
 
 	/* unexpected NUL byte in input */
-	session = test_init_sasl_session(client, &sasl_set, &error);
+	session = test_init_sasl_session(client, sasl_set, &error);
 	i_assert(session != NULL);
 	const unsigned char input2[] = "unexpected\0";
 	test_assert(dsasl_client_session_input(session, input2, sizeof(input2), &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
@@ -398,18 +422,20 @@ static void test_sasl_client_oauthbearer(void)
 
 static void test_sasl_client_xoauth2(void)
 {
-	const struct client_auth_settings sasl_empty_set = {
-		.mechanism = "XOAUTH2",
-		.authid = NULL,
+	static const char *const sasl_empty_set[] = {
+		"client_auth_mechanism=XOAUTH2",
+		NULL
 	};
-	const struct client_auth_settings sasl_no_password_set = {
-		.mechanism = "XOAUTH2",
-		.authid = "testuser",
+	static const char *const sasl_no_password_set[] = {
+		"client_auth_mechanism=XOAUTH2",
+		"client_auth_authid=testuser",
+		NULL
 	};
-	const struct client_auth_settings sasl_set = {
-		.mechanism = "XOAUTH2",
-		.authid = "testuser",
-		.password = "testpassword"
+	static const char *const sasl_set[] = {
+		"client_auth_mechanism=XOAUTH2",
+		"client_auth_authid=testuser",
+		"client_auth_password=testpassword",
+		NULL
 	};
 	struct dsasl_client *client;
 	struct dsasl_client_session *session;
@@ -423,7 +449,7 @@ static void test_sasl_client_xoauth2(void)
 	const unsigned char *output;
 	size_t olen;
 
-	session = test_init_sasl_session(client, &sasl_set, &error);
+	session = test_init_sasl_session(client, sasl_set, &error);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -438,7 +464,7 @@ static void test_sasl_client_xoauth2(void)
 	test_assert(session == NULL);
 
 	/* test error response */
-	session = test_init_sasl_session(client, &sasl_set, &error);
+	session = test_init_sasl_session(client, sasl_set, &error);
 	i_assert(session != NULL);
 	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_output(session, &output, &olen, &error) == DSASL_CLIENT_RESULT_OK);
@@ -450,17 +476,17 @@ static void test_sasl_client_xoauth2(void)
 	test_assert(session == NULL);
 
 	/* missing username & password */
-	session = test_init_sasl_session(client, &sasl_empty_set, &error);
+	session = test_init_sasl_session(client, sasl_empty_set, &error);
 	i_assert(session == NULL);
 	test_assert(str_begins_with(error, "No authentication or authorization identity configured for the XOAUTH2 mechanism"));
 
 	/* missing password */
-	session = test_init_sasl_session(client, &sasl_no_password_set, &error);
+	session = test_init_sasl_session(client, sasl_no_password_set, &error);
 	i_assert(session == NULL);
 	test_assert_strcmp(error, "No password configured (client_auth_password setting)");
 
 	/* unexpected NUL byte in input */
-	session = test_init_sasl_session(client, &sasl_set, &error);
+	session = test_init_sasl_session(client, sasl_set, &error);
 	i_assert(session != NULL);
 	const unsigned char input2[] = "unexpected\0";
 	test_assert(dsasl_client_session_input(session, input2, sizeof(input2), &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
@@ -485,5 +511,6 @@ int main(void)
 		NULL
 	};
 	int ret = test_run(test_functions);
+	settings_root_deinit(&set_root);
 	return ret;
 }

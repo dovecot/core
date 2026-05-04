@@ -327,8 +327,9 @@ dsasl_client_session_create_event(struct dsasl_client *client,
 	return event;
 }
 
-int dsasl_client_session_create(
-	struct dsasl_client *client, struct event *event_parent,
+static int
+dsasl_client_session_create_common(
+	struct dsasl_client *client, struct event *event,
 	const struct dsasl_client_parameters *params,
 	const struct client_auth_settings *set_mult,
 	struct dsasl_client_session **session_r, const char **error_r)
@@ -337,12 +338,10 @@ int dsasl_client_session_create(
 	*error_r = NULL;
 
 	const struct client_auth_settings *set;
-	struct event *event;
 	const struct dsasl_client_mech *mech;
 	pool_t pool;
 	int ret;
 
-	event = dsasl_client_session_create_event(client, event_parent);
 	pool = pool_alloconly_create("sasl client session", 1024);
 	ret = dsasl_client_session_select_mech(client, event, pool,
 					       params, set_mult,
@@ -369,6 +368,7 @@ int dsasl_client_session_create(
 		authzid = NULL;
 	}
 
+	event_ref(event);
 	event_set_append_log_prefix(event,
 		t_strdup_printf("sasl(%s): ", t_str_lcase(mech->name)));
 	settings_event_add_list_filter_name(event, CLIENT_AUTH_SETTINGS_FILTER,
@@ -416,6 +416,54 @@ int dsasl_client_session_create(
 
 	*session_r = session;
 	return 0;
+}
+
+int dsasl_client_session_create(
+	struct dsasl_client *client, struct event *event_parent,
+	const struct dsasl_client_parameters *params,
+	const struct client_auth_settings *set,
+	struct dsasl_client_session **session_r, const char **error_r)
+{
+	int ret;
+
+	*session_r = NULL;
+	*error_r = NULL;
+
+	struct event *event =
+		dsasl_client_session_create_event(client, event_parent);
+
+	ret = dsasl_client_session_create_common(client, event, params, set,
+						 session_r, error_r);
+
+	event_unref(&event);
+	return ret;
+}
+
+int dsasl_client_session_create_auto(
+	struct dsasl_client *client, struct event *event_parent,
+	const struct dsasl_client_parameters *params,
+	struct dsasl_client_session **session_r, const char **error_r)
+{
+	*session_r = NULL;
+	*error_r = NULL;
+
+	struct event *event =
+		dsasl_client_session_create_event(client, event_parent);
+	const struct client_auth_settings *set;
+	int ret;
+
+	if (settings_get(event, &client_auth_setting_parser_info, 0,
+			 &set, error_r) < 0) {
+		event_unref(&event);
+		return -1;
+	}
+
+	ret = dsasl_client_session_create_common(client, event, params, set,
+						 session_r, error_r);
+
+	settings_free(set);
+	event_unref(&event);
+	return ret;
 }
 
 void dsasl_client_session_ref(struct dsasl_client_session *session)
