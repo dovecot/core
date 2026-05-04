@@ -693,9 +693,10 @@ static void mbox_notify_changes(struct mailbox *box)
 }
 
 static bool
-mbox_is_internal_name(struct mailbox_list *list ATTR_UNUSED,
+mbox_is_internal_name(struct mailbox_list *list,
 		      const char *name)
 {
+	struct mbox_mailbox_list *mlist = MBOX_LIST_CONTEXT(list);
 	size_t len;
 
 	/* don't allow *.lock files/dirs */
@@ -703,7 +704,12 @@ mbox_is_internal_name(struct mailbox_list *list ATTR_UNUSED,
 	if (len > 5 && strcmp(name+len-5, ".lock") == 0)
 		return TRUE;
 
-	return strcmp(name, MBOX_INDEX_DIR_NAME) == 0;
+	if (strcmp(name, MBOX_INDEX_DIR_NAME) == 0)
+		return TRUE;
+
+	if (mlist->module_ctx.super.is_internal_name != NULL)
+		return mlist->module_ctx.super.is_internal_name(list, name);
+	return FALSE;
 }
 
 static void mbox_storage_add_list(struct mail_storage *storage ATTR_UNUSED,

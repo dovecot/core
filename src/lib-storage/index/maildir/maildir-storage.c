@@ -639,12 +639,20 @@ static void maildir_notify_changes(struct mailbox *box)
 }
 
 static bool
-maildir_is_internal_name(struct mailbox_list *list ATTR_UNUSED,
+maildir_is_internal_name(struct mailbox_list *list,
 			 const char *name)
 {
-	return strcmp(name, "cur") == 0 ||
-		strcmp(name, "new") == 0 ||
-		strcmp(name, "tmp") == 0;
+	struct maildir_mailbox_list_context *mlist =
+		MODULE_CONTEXT(list, maildir_mailbox_list_module);
+
+	if (strcmp(name, "cur") == 0 ||
+	    strcmp(name, "new") == 0 ||
+	    strcmp(name, "tmp") == 0)
+		return TRUE;
+
+	if (mlist->module_ctx.super.is_internal_name != NULL)
+		return mlist->module_ctx.super.is_internal_name(list, name);
+	return FALSE;
 }
 
 static void maildir_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
