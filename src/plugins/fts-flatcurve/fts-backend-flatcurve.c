@@ -749,7 +749,8 @@ int fts_backend_flatcurve_delete_dir(const char *path, const char **error_r)
 
 struct fts_backend fts_backend_flatcurve = {
 	.name = "flatcurve",
-	.flags = FTS_BACKEND_FLAG_TOKENIZED_INPUT,
+	.flags = FTS_BACKEND_FLAG_TOKENIZED_INPUT |
+		 FTS_BACKEND_FLAG_SEARCH_ARGS_V2,
 	.v = {
 		.alloc = fts_backend_flatcurve_alloc,
 		.init = fts_backend_flatcurve_init,

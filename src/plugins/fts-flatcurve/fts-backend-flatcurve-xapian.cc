@@ -2114,6 +2114,20 @@ fts_flatcurve_build_query_arg(struct flatcurve_fts_query *query,
 	if (arg->no_fts)
 		return;
 
+	/* Phrase searching is not supported natively, so we can only do
+	 * single token searching (as FTS core provides index terms without
+	 * positional context).
+	 *
+	 * We can do matching for the tokenized input, as these results reduce
+	 * the message space iterated by the core search code to do the full
+	 * phrase matching (since these results are ANDed with the phrase search
+	 * due to FTS_BACKEND_FLAG_SEARCH_ARGS_V2 being set). */
+	if (HAS_ANY_BITS(arg->value.search_flags, MAIL_SEARCH_ARG_FLAG_PHRASE_FULL)) {
+		/* We skip the full phrase and don't set "match_always", so
+		 * that the core FTS code will process this search argument. */
+		return;
+	}
+
 	switch (arg->type) {
 	case SEARCH_TEXT:
 	case SEARCH_BODY:
@@ -2148,19 +2162,9 @@ fts_flatcurve_build_query_arg(struct flatcurve_fts_query *query,
 		return;
 	}
 
-	if (strchr(arg->value.str, ' ') == NULL) {
-		/* Prepare search term.
-		 * This includes existence searches where arg is "" */
-		fts_flatcurve_build_query_arg_term(query, arg, arg->value.str);
-	} else {
-		/* Phrase searching is not supported natively, so we can only do
-		 * single term searching with Xapian (FTS core provides index
-		 * terms without positional context).
-
-		 * FTS core will send both the phrase search and individual search
-		 * terms separately as part of the same query. Therefore, if we
-		 * encounter a multi-term search, just ignore it */
-	}
+	/* Prepare search term.
+	 * This includes existence searches where arg is "" */
+	fts_flatcurve_build_query_arg_term(query, arg, arg->value.str);
 }
 
 void
