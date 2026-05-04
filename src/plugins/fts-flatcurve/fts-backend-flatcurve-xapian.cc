@@ -1987,13 +1987,25 @@ int fts_flatcurve_xapian_optimize_box(struct flatcurve_fts_backend *backend,
 }
 
 static void
+fts_flatcurve_build_add_maybe_query(struct flatcurve_fts_query *query,
+				    Xapian::Query *q)
+{
+	struct flatcurve_fts_query_xapian_maybe *mquery;
+	struct flatcurve_fts_query_xapian *x = query->xapian;
+
+	if (!array_is_created(&x->maybe_queries))
+		p_array_init(&x->maybe_queries, query->pool, 4);
+	mquery = array_append_space(&x->maybe_queries);
+	mquery->query = q;
+}
+
+static void
 fts_flatcurve_build_query_arg_term(struct flatcurve_fts_query *query,
 				   struct mail_search_arg *arg,
 				   const char *term)
 {
 	const char *hdr;
 	bool maybe_or = FALSE;
-	struct flatcurve_fts_query_xapian_maybe *mquery;
 	Xapian::Query::op op = Xapian::Query::OP_INVALID;
 	Xapian::Query *oldq, q;
 	struct flatcurve_fts_query_xapian *x = query->xapian;
@@ -2084,10 +2096,8 @@ fts_flatcurve_build_query_arg_term(struct flatcurve_fts_query *query,
 		/* Maybe searches are not added to the "master search" query if this
 		 * is an OR search; they will be run independently. Matches will be
 		 * placed in the maybe results array. */
-		if (!array_is_created(&x->maybe_queries))
-			p_array_init(&x->maybe_queries, query->pool, 4);
-		mquery = array_append_space(&x->maybe_queries);
-		mquery->query = new Xapian::Query(std_move(q));
+		fts_flatcurve_build_add_maybe_query(query,
+						    new Xapian::Query(std_move(q)));
 	} else if (x->query == NULL) {
 		x->query = new Xapian::Query(std_move(q));
 	} else {
