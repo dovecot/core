@@ -140,11 +140,11 @@ static const struct doveadm_cmd_dump *dumps_builtin[] = {
 
 void print_dump_types(void)
 {
-	unsigned int i;
+	const struct doveadm_cmd_dump *dump;
 
 	fprintf(stderr, "Available dump types: %s", dumps_builtin[0]->name);
-	for (i = 1; i < N_ELEMENTS(dumps_builtin); i++)
-		fprintf(stderr, " %s", dumps_builtin[i]->name);
+	array_foreach_elem(&dumps, dump)
+		fprintf(stderr, " %s", dump->name);
 	fprintf(stderr, "\n");
 }
 
