@@ -56,8 +56,9 @@ test_generate_settings(const char *port, const char *connection_timeout_interval
 	static const char *settings[] = {
 		"imapc_host", "127.0.0.1",
 		"imapc_port", "",
-		"imapc_user", "testuser",
-		"imapc_password", "testpass",
+		"imapc/client_auth_authid", "",
+		"imapc/client_auth_authzid", "testuser",
+		"imapc/client_auth_password", "testpass",
 		"imapc_connection_timeout_interval", "5s",
 		"imapc_connection_retry_count", "3",
 		"imapc_connection_retry_interval", "10ms",
@@ -68,7 +69,7 @@ test_generate_settings(const char *port, const char *connection_timeout_interval
 	if (port != NULL)
 		settings[3] = port;
 	if (connection_timeout_interval != NULL)
-		settings[9] = connection_timeout_interval;
+		settings[11] = connection_timeout_interval;
 
 	return settings;
 }

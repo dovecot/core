@@ -114,7 +114,7 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 	struct settings_instance *set_instance;
 
 	set_instance = settings_instance_new_from_event(event);
-	settings_override(set_instance, "imapc_password", password,
+	settings_override(set_instance, "imapc/client_auth_password", password,
 			  SETTINGS_OVERRIDE_TYPE_CODE);
 	event_set_ptr(event, SETTINGS_EVENT_INSTANCE, set_instance);
 

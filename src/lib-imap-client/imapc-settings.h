@@ -67,12 +67,6 @@ struct imapc_settings {
 	pool_t pool;
 	const char *imapc_host;
 	in_port_t imapc_port;
-
-	const char *imapc_user;
-	const char *imapc_master_user;
-	const char *imapc_password;
-	ARRAY_TYPE(const_string) imapc_sasl_mechanisms;
-
 	const char *imapc_ssl;
 
 	ARRAY_TYPE(const_string) imapc_features;
@@ -93,6 +87,9 @@ struct imapc_settings {
 	unsigned int throttle_init_msecs;
 	unsigned int throttle_max_msecs;
 	unsigned int throttle_shrink_min_msecs;
+
+	/* deprecated: */
+	ARRAY_TYPE(const_string) imapc_sasl_mechanisms;
 };
 
 extern const struct setting_parser_info imapc_setting_parser_info;

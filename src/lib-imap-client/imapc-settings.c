@@ -23,12 +23,6 @@ static const struct setting_define imapc_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "layout_imapc" },
 	DEF(STR, imapc_host),
 	DEF(IN_PORT, imapc_port),
-
-	DEF(STR, imapc_user),
-	DEF(STR, imapc_master_user),
-	DEF(STR, imapc_password),
-	DEF(BOOLLIST, imapc_sasl_mechanisms),
-
 	DEF(ENUM, imapc_ssl),
 
 	DEF(BOOLLIST, imapc_features),
@@ -43,18 +37,15 @@ static const struct setting_define imapc_setting_defines[] = {
 
 	DEF(STR, pop3_deleted_flag),
 
+	/* deprecated: */
+	DEF(BOOLLIST_HIDDEN, imapc_sasl_mechanisms),
+
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct imapc_settings imapc_default_settings = {
 	.imapc_host = "",
 	.imapc_port = 143,
-
-	.imapc_user = "%{owner_user}",
-	.imapc_master_user = "",
-	.imapc_password = "",
-	.imapc_sasl_mechanisms = ARRAY_INIT,
-
 	.imapc_ssl = "no:imaps:starttls",
 
 	.imapc_features = ARRAY_INIT,
@@ -68,10 +59,14 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_max_line_length = SET_SIZE_UNLIMITED,
 
 	.pop3_deleted_flag = "",
+
+	/* deprecated: */
+	.imapc_sasl_mechanisms = ARRAY_INIT,
 };
 
 static const struct setting_keyvalue imapc_default_settings_keyvalue[] = {
 	{ "imapc/mailbox_list_layout", "imapc" },
+	{ "imapc/client_auth_authzid", "%{owner_user}" },
 	/* We want to have all imapc mailboxes accessible, so escape them if
 	   necessary. */
 	{ "layout_imapc/mailbox_list_visible_escape_char", "~" },

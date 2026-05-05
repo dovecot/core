@@ -2,6 +2,10 @@
 # rename <old-setting-key> <new-setting-key> <ce-version> <pro-version>
 # value <old-setting-key>=<old-value> <new-setting-key>=<new-value> <ce-version> <pro-version>
 # deprecate <setting-key> <ce-version> <pro-version>
+rename	imapc_user	imapc/client_auth_authzid	2.4.6	3.3.0
+rename	imapc_master_user	imapc/client_auth_authid	2.4.6	3.3.0
+rename	imapc_password	imapc/client_auth_password	2.4.6	3.3.0
+deprecate	imapc_sasl_mechanisms	2.4.6	3.3.0
 default	textcat_filter_languages	no	2.4.6	3.3.0
 value	shutdown_clients=yes	service_shutdown_clients_timeout=0	2.4.6	3.3.0
 value	shutdown_clients=no	service_shutdown_clients_timeout=infinite	2.4.6	3.3.0

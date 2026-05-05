@@ -23,6 +23,7 @@ struct imapc_client {
 	int refcount;
 
 	struct event *event;
+	struct settings_instance *set_instance;
 	const struct imapc_settings *set;
 	struct imapc_parameters params;
 	enum imapc_client_ssl_mode ssl_mode;
