@@ -354,6 +354,10 @@ login_proxy_set_destination(struct login_proxy *proxy, const char *host,
 	proxy->state_rec = login_proxy_state_get(proxy_state, &proxy->ip,
 						 proxy->port);
 
+	event_add_str(proxy->event, "dest_host", host);
+	event_add_ip(proxy->event, "dest_ip", ip);
+	event_add_int(proxy->event, "dest_port", port);
+
 	/* Include destination ip:port also in the log prefix */
 	event_set_append_log_prefix(
 		proxy->event,
@@ -571,9 +575,6 @@ int login_proxy_new(struct client *client, struct event *event,
 	/* add event fields */
 	event_add_ip(proxy->event, "source_ip",
 		     login_proxy_get_source_host(proxy));
-	event_add_ip(proxy->event, "dest_ip", &set->ip);
-	event_add_int(proxy->event, "dest_port", set->port);
-	event_add_str(event, "dest_host", set->host);
 	event_add_str(event, "master_user", client->proxy_master_user);
 
 	client_ref(client);
