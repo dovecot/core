@@ -516,7 +516,8 @@ int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
 	}
 
 	if ((ret = imap_msgpart_url_open_mailbox(mpurl, &box, error_code_r,
-						 client_error_r)) < 0) {
+						 &error)) < 0) {
+		*client_error_r = t_strdup_printf("Invalid URLAUTH: %s", error);
 		imap_msgpart_url_free(&mpurl);
 		return -1;
 	}
