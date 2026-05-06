@@ -549,6 +549,13 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 				"MULTIPLEX started without being requested");
 			return -1;
 		}
+		if (login_proxy_multiplex_input_started(client->login_proxy)) {
+			login_proxy_failed(client->login_proxy,
+				login_proxy_get_event(client->login_proxy),
+				LOGIN_PROXY_FAILURE_TYPE_PROTOCOL,
+				"MULTIPLEX started twice");
+			return -1;
+		}
 		login_proxy_multiplex_input_start(client->login_proxy);
 		/* force caller to refresh istream */
 		return 1;
