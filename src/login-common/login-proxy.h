@@ -125,6 +125,8 @@ int login_proxy_starttls(struct login_proxy *proxy);
 bool login_proxy_failed_because_invalid_cert(struct login_proxy *proxy);
 /* MULTIPLEX input was started. */
 void login_proxy_multiplex_input_start(struct login_proxy *proxy);
+/* Returns TRUE if login_proxy_multiplex_input_start() has been called. */
+bool login_proxy_multiplex_input_started(struct login_proxy *proxy);
 
 void login_proxy_replace_client_iostream_pre(struct login_proxy *proxy);
 void login_proxy_replace_client_iostream_post(struct login_proxy *proxy,

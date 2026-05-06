@@ -1368,6 +1368,11 @@ void login_proxy_input_halt(struct login_proxy *proxy)
 	io_remove(&proxy->server_io);
 }
 
+bool login_proxy_multiplex_input_started(struct login_proxy *proxy)
+{
+	return proxy->multiplex_input != NULL;
+}
+
 void login_proxy_multiplex_input_start(struct login_proxy *proxy)
 {
 	struct istream *input = i_stream_create_multiplex(proxy->server_input,
