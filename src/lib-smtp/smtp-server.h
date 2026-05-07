@@ -479,6 +479,16 @@ void smtp_server_connection_set_ssl_streams(struct smtp_server_connection *conn,
 void smtp_server_connection_close(struct smtp_server_connection **_conn,
 				  const char *reason) ATTR_NULL(2);
 bool smtp_server_connection_is_closed(struct smtp_server_connection *conn);
+/* Send a reply line directly to the output stream, bypassing the per-command
+   reply queue. Useful when the caller is about to close the connection and
+   needs the reply on the wire before close/destroy aborts queued replies.
+   The formatted text must be a single line (no CR/LF); unlike
+   smtp_server_reply_add_text(), this function does not split on \n nor add
+   the SMTP continuation prefix to subsequent lines. */
+void smtp_server_connection_reply_immediate(struct smtp_server_connection *conn,
+					    unsigned int status,
+					    const char *fmt, ...)
+					    ATTR_FORMAT(3, 4);
 void smtp_server_connection_terminate(struct smtp_server_connection **_conn,
 				      const char *enh_code, const char *reason)
 				      ATTR_NULL(3);
