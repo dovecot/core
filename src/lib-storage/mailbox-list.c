@@ -23,6 +23,7 @@
 
 #include <time.h>
 #include <ctype.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/stat.h>
@@ -406,6 +407,46 @@ const char *mailbox_list_get_storage_name(struct mailbox_list *list,
 					  const char *vname)
 {
 	return list->v.get_storage_name(list, vname);
+}
+
+int mailbox_list_try_migrate_legacy_escape(struct mailbox_list *list,
+					   const char *parent_dir_path,
+					   const char *legacy_fname,
+					   const char *new_fname)
+{
+	const char *legacy_path, *new_path;
+
+	if (strcmp(legacy_fname, new_fname) == 0)
+		return 0;
+
+	legacy_path = t_strdup_printf("%s/%s", parent_dir_path, legacy_fname);
+	new_path = t_strdup_printf("%s/%s", parent_dir_path, new_fname);
+
+	if (rename(legacy_path, new_path) == 0) {
+		e_debug(list->event,
+			"Legacy escaped mailbox name '%s' renamed to '%s'",
+			legacy_fname, new_path);
+		return 1;
+	}
+	if (errno == ENOENT) {
+		/* legacy entry was just lost (migrated by another process?) */
+		return 1;
+	}
+	if (errno == EEXIST || errno == ENOTEMPTY) {
+		mailbox_list_set_critical(list,
+			"Found conflicting mailbox names: "
+			"Legacy escaped mailbox name '%s' "
+			"was attempted to be renamed to '%s', "
+			"but it already existed - needs to be resolved manually",
+			legacy_fname, new_path);
+		/* return success, since we don't want to fail the
+		   mailbox listing. */
+		return 1;
+	}
+	/* Unexpected error - fail mailbox listing. */
+	mailbox_list_set_critical(list, "rename(%s, %s) failed: %m",
+				  legacy_path, new_path);
+	return -1;
 }
 
 const char *

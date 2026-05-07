@@ -210,6 +210,15 @@ int mailbox_list_default_get_storage(struct mailbox_list **list,
 				     struct mail_storage **storage_r);
 const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 						  const char *vname);
+/* If legacy_fname differs from new_fname, rename legacy_fname to new_fname
+   in the parent_dir_path. If it fails, log an error. Returns 1 if the mailbox
+   name changed, 0 if they are equal, -1 on error. Intended to be used by
+   mailbox listing code to automatically rename mailboxes with legacy escaping
+   format. */
+int mailbox_list_try_migrate_legacy_escape(struct mailbox_list *list,
+					   const char *parent_dir_path,
+					   const char *legacy_fname,
+					   const char *new_fname);
 const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 					   const char *storage_name);
 const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
