@@ -337,6 +337,27 @@ maildir_fill_readdir_entry(struct maildir_list_iterate_context *ctx,
 	if (ret <= 0)
 		return ret;
 
+	/* If the on-disk fname's storage_name does not re-escape back from
+	   vname under the current rules, the entry was written with legacy
+	   escape rules (e.g. an older version that escaped leading '~' on
+	   every hierarchy part). Rename it so subsequent lookups find it.
+	   Deferred until after get_mailbox_flags() and the alias-symlink
+	   lstat() so those operations see the original on-disk path. */
+	if (list->mail_set->mailbox_list_storage_escape_char[0] != '\0') T_BEGIN {
+		const char *expected_storage_name =
+			mailbox_list_get_storage_name(list, vname);
+		const char *expected_fname = ctx->prefix_char != '\0' ?
+			t_strdup_printf("%c%s", ctx->prefix_char,
+					expected_storage_name) :
+			expected_storage_name;
+		ret = mailbox_list_try_migrate_legacy_escape(
+			list, ctx->dir, fname, expected_fname);
+		if (ret > 0)
+			fname = expected_fname;
+	} T_END_PASS_STR_IF(ret > 0, &fname);
+	if (ret < 0)
+		return -1;
+
 	/* we know the children flags ourself, so ignore if any of
 	   them were set. */
 	flags &= ENUM_NEGATE(MAILBOX_NOINFERIORS | MAILBOX_CHILDREN | MAILBOX_NOCHILDREN);
