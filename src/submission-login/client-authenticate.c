@@ -146,7 +146,6 @@ void submission_client_auth_result(struct client *client,
 		break;
 	}
 	case CLIENT_AUTH_RESULT_TEMPFAIL:
-	case CLIENT_AUTH_RESULT_LIMIT_REACHED:
 		/* RFC4954, Section 6:
 
 		   454 4.7.0 Temporary authentication failure
@@ -155,6 +154,24 @@ void submission_client_auth_result(struct client *client,
 		   authentication failed due to a temporary server failure.
 		 */
 		smtp_server_reply(cmd, 454, "4.7.0", "%s", text);
+		break;
+	case CLIENT_AUTH_RESULT_LIMIT_REACHED:
+		/* The user has too many concurrent connections. Reply with
+		   421 4.7.0: 421 means "service shutting down, closing
+		   transmission channel" (RFC 5321 Section 4.2.1) and
+		   signals the client that retrying on this same connection
+		   is pointless. The proxy uses the 421 + 4.7.0 combination
+		   to recognize this specifically as a connection-limit
+		   response (rather than a generic 421 internal/shutdown
+		   reply) and avoid reconnecting.
+
+		   Use reply_immediate() rather than the queued
+		   smtp_server_reply() because the caller (sasl-server)
+		   immediately tears the connection down after this returns,
+		   which would abort a queued reply before it reaches the
+		   wire. */
+		smtp_server_connection_reply_immediate(subm_client->conn,
+			421, "4.7.0 %s", text);
 		break;
 	case CLIENT_AUTH_RESULT_ABORTED:
 		/* RFC4954, Section 4:
