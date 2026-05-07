@@ -146,6 +146,7 @@ static int
 dir_entry_get(struct fs_list_iterate_context *ctx, const char *dir_path,
 	      struct list_dir_context *dir, const struct dirent *d)
 {
+	const char *fname = d->d_name;
 	const char *storage_name, *vname, *root_dir;
 	struct list_dir_entry *entry;
 	enum imap_match_result match;
@@ -153,12 +154,12 @@ dir_entry_get(struct fs_list_iterate_context *ctx, const char *dir_path,
 	int ret;
 
 	/* skip . and .. */
-	if (d->d_name[0] == '.' &&
-	    (d->d_name[1] == '\0' ||
-	     (d->d_name[1] == '.' && d->d_name[2] == '\0')))
+	if (fname[0] == '.' &&
+	    (fname[1] == '\0' ||
+	     (fname[1] == '.' && fname[2] == '\0')))
 		return 0;
 
-	if (strcmp(d->d_name, ctx->ctx.list->mail_set->mailbox_directory_name) == 0) {
+	if (strcmp(fname, ctx->ctx.list->mail_set->mailbox_directory_name) == 0) {
 		/* mail storage's internal directory (e.g. dbox-Mails).
 		   this also means that the parent is selectable */
 		dir->info_flags &= ENUM_NEGATE(MAILBOX_NOSELECT);
@@ -166,7 +167,7 @@ dir_entry_get(struct fs_list_iterate_context *ctx, const char *dir_path,
 		return 0;
 	}
 	if (ctx->ctx.list->mail_set->mailbox_subscriptions_filename[0] != '\0' &&
-	    strcmp(d->d_name, ctx->ctx.list->mail_set->mailbox_subscriptions_filename) == 0) {
+	    strcmp(fname, ctx->ctx.list->mail_set->mailbox_subscriptions_filename) == 0) {
 		/* if this is the subscriptions file, skip it */
 		root_dir = mailbox_list_get_root_forced(ctx->ctx.list,
 							MAILBOX_LIST_PATH_TYPE_DIR);
@@ -175,7 +176,7 @@ dir_entry_get(struct fs_list_iterate_context *ctx, const char *dir_path,
 	}
 
 	/* check the pattern */
-	storage_name = dir_get_storage_name(dir, d->d_name);
+	storage_name = dir_get_storage_name(dir, fname);
 	vname = mailbox_list_get_vname(ctx->ctx.list, storage_name);
 	if (!uni_utf8_str_is_valid(vname)) {
 		fs_list_rename_invalid(ctx, storage_name);
@@ -185,7 +186,7 @@ dir_entry_get(struct fs_list_iterate_context *ctx, const char *dir_path,
 	}
 
 	match = imap_match(ctx->ctx.glob, vname);
-	if (strcmp(d->d_name, "INBOX") == 0 && strcmp(vname, "INBOX") == 0 &&
+	if (strcmp(fname, "INBOX") == 0 && strcmp(vname, "INBOX") == 0 &&
 	    ctx->ctx.list->ns->prefix_len > 0) {
 		/* The glob was matched only against "INBOX", but this
 		   directory may hold also prefix/INBOX. Just assume here
@@ -211,7 +212,7 @@ dir_entry_get(struct fs_list_iterate_context *ctx, const char *dir_path,
 			return ret < 0 ? -1 : 0;
 	}
 	ret = ctx->ctx.list->v.
-		get_mailbox_flags(ctx->ctx.list, dir_path, d->d_name,
+		get_mailbox_flags(ctx->ctx.list, dir_path, fname,
 				  mailbox_list_get_file_type(d), &info_flags);
 	if (ret <= 0)
 		return ret;
@@ -236,7 +237,7 @@ dir_entry_get(struct fs_list_iterate_context *ctx, const char *dir_path,
 
 	/* entry matched a pattern. we're going to return this. */
 	entry = array_append_space(&dir->entries);
-	entry->fname = p_strdup(dir->pool, d->d_name);
+	entry->fname = p_strdup(dir->pool, fname);
 	entry->info_flags = info_flags;
 	return 0;
 }
