@@ -320,9 +320,6 @@ void smtp_server_connection_reply_lines(struct smtp_server_connection *conn,
 				        unsigned int status,
 					const char *enh_code,
 					const char *const *text_lines);
-void smtp_server_connection_reply_immediate(
-	struct smtp_server_connection *conn, unsigned int status,
-	const char *fmt, ...) ATTR_FORMAT(3, 4);
 
 void smtp_server_connection_reset_state(struct smtp_server_connection *conn);
 void smtp_server_connection_set_state(struct smtp_server_connection *conn,
