@@ -235,6 +235,41 @@ dir_entry_get(struct fs_list_iterate_context *ctx, const char *dir_path,
 		return 0;
 	}
 
+	/* If unescape(fname) -> vname does not re-escape back to fname, this
+	   entry was written using a legacy escape format (e.g. an older
+	   version that escaped leading '~' on every hierarchy part). Rename
+	   it in place so future lookups find it under the current rules.
+	   The migration is deferred until after all uses of the dirent
+	   (alias-symlink lstat, get_mailbox_flags) so the on-disk path
+	   remained valid for those operations. fs_list_entry() recurses
+	   into entry->fname, so storing the post-migration name here makes
+	   the iteration walk the new path and any nested legacy components
+	   hit the same logic on the next level. */
+	if (ctx->ctx.list->mail_set->mailbox_list_storage_escape_char[0] != '\0') {
+		const char *expected_storage_name =
+			mailbox_list_get_storage_name(ctx->ctx.list, vname);
+		const char list_sep =
+			mailbox_list_get_hierarchy_sep(ctx->ctx.list);
+		const char *p = strrchr(expected_storage_name, list_sep);
+		const char *expected_fname =
+			p == NULL ? expected_storage_name : p + 1;
+		const char *suffix;
+		/* A prefix sanity check to prevent a wrong rename when the
+		   re-escape diverges higher up the hierarchy than the current
+		   entry, e.g. for the INBOX/INBOX special case. */
+		bool prefix_ok = dir->storage_name[0] == '\0' ||
+			(str_begins(expected_storage_name, dir->storage_name,
+				    &suffix) &&
+			 suffix[0] == list_sep);
+		if (prefix_ok) {
+			if (mailbox_list_try_migrate_legacy_escape(
+					ctx->ctx.list, dir_path, fname,
+					expected_fname) < 0)
+				return -1;
+			fname = expected_fname;
+		}
+	}
+
 	/* entry matched a pattern. we're going to return this. */
 	entry = array_append_space(&dir->entries);
 	entry->fname = p_strdup(dir->pool, fname);
