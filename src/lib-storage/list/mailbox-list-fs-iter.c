@@ -304,10 +304,10 @@ fs_list_get_storage_path(struct fs_list_iterate_context *ctx,
 		if (!mailbox_list_get_root_path(ctx->ctx.list, type, &root))
 			return FALSE;
 		if (iter_from_index_dir &&
-		    set->parsed_mailbox_root_directory_prefix[0] != '\0') {
-			/* append "mailboxes/" to the index root */
+		    set->mailbox_root_directory_name[0] != '\0') {
+			/* append "mailboxes" to the index root */
 			root = t_strconcat(root, "/",
-				set->parsed_mailbox_root_directory_prefix, NULL);
+				set->mailbox_root_directory_name, NULL);
 		}
 		path = *path == '\0' ? root :
 			t_strconcat(root, "/", path, NULL);
