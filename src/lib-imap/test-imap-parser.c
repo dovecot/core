@@ -85,9 +85,15 @@ static void test_imap_parser_list_limit(void)
 	struct {
 		const char *input;
 		int ret;
+		const char *error;
 	} tests[] = {
-		{ "(())\r\n", 1 },
-		{ "((()))\r\n", -1 },
+		{ "(())\r\n", 1, NULL },
+		{ "((\r\n", -1, "Missing ')'" },
+		{ "(()\r\n", -1, "Missing ')'" },
+		{ "(()))\r\n", -1, "Unexpected ')'" },
+		{ "((()))\r\n", -1, "Too many '('" },
+		{ "(({10}\r\n", -2, NULL },
+		{ "((({10}\r\n", -1, "Too many '('" },
 	};
 	struct istream_chain *chain;
 	struct istream *chain_input;
@@ -112,6 +118,10 @@ static void test_imap_parser_list_limit(void)
 			(void)i_stream_read(chain_input);
 
 			test_assert_cmp(imap_parser_read_args(parser, 0, 0, &args), ==, tests[i].ret);
+			if (tests[i].ret == -1) {
+				enum imap_parser_error err;
+				test_assert_strcmp_idx(imap_parser_get_error(parser, &err), tests[i].error, i);
+			}
 			/* skip over CRLF */
 			i_stream_skip(chain_input, i_stream_get_data_size(chain_input));
 

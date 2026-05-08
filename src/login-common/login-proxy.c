@@ -354,6 +354,10 @@ login_proxy_set_destination(struct login_proxy *proxy, const char *host,
 	proxy->state_rec = login_proxy_state_get(proxy_state, &proxy->ip,
 						 proxy->port);
 
+	event_add_str(proxy->event, "dest_host", host);
+	event_add_ip(proxy->event, "dest_ip", ip);
+	event_add_int(proxy->event, "dest_port", port);
+
 	/* Include destination ip:port also in the log prefix */
 	event_set_append_log_prefix(
 		proxy->event,
@@ -571,9 +575,6 @@ int login_proxy_new(struct client *client, struct event *event,
 	/* add event fields */
 	event_add_ip(proxy->event, "source_ip",
 		     login_proxy_get_source_host(proxy));
-	event_add_ip(proxy->event, "dest_ip", &set->ip);
-	event_add_int(proxy->event, "dest_port", set->port);
-	event_add_str(event, "dest_host", set->host);
 	event_add_str(event, "master_user", client->proxy_master_user);
 
 	client_ref(client);
@@ -850,6 +851,14 @@ bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
 {
 	const char *log_prefix;
 	bool try_reconnect = TRUE;
+
+	if (type == LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT) {
+		proxy->redirect_callback(proxy->client, event, reason);
+		/* return value doesn't matter here, because we can't be
+		   coming from login_proxy_connect(). */
+		return FALSE;
+	}
+
 	event_add_str(event, "error", reason);
 
 	switch (type) {
@@ -882,11 +891,6 @@ bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL:
 		log_prefix = "";
 		break;
-	case LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT:
-		proxy->redirect_callback(proxy->client, event, reason);
-		/* return value doesn't matter here, because we can't be
-		   coming from login_proxy_connect(). */
-		return FALSE;
 	default:
 		i_unreached();
 	}
@@ -1017,8 +1021,18 @@ void login_proxy_redirect_finish(struct login_proxy *proxy,
 	/* disconnect from current backend */
 	login_proxy_disconnect(proxy);
 
-	e_debug(proxy->event, "Redirecting to %s", net_ipport2str(ip, port));
+	struct event_passthrough *ef = event_create_passthrough(proxy->event)->
+		add_str("disconnect_reason", "Redirecting")->
+		add_str("disconnect_side", LOGIN_PROXY_SIDE_SELF)->
+		add_str("error_code", "proxy_dest_redirected")->
+		set_name("proxy_session_finished");
+	e_debug(ef->event(), "Redirecting to %s", net_ipport2str(ip, port));
+
 	login_proxy_set_destination(proxy, net_ip2addr(ip), ip, port);
+	struct event_passthrough *es = event_create_passthrough(proxy->event)->
+		set_name("proxy_session_started");
+	e_debug(es->event(), "Started redirected proxy session");
+
 	(void)login_proxy_connect(proxy);
 }
 
@@ -1366,6 +1380,11 @@ bool login_proxy_failed_because_invalid_cert(struct login_proxy *proxy)
 void login_proxy_input_halt(struct login_proxy *proxy)
 {
 	io_remove(&proxy->server_io);
+}
+
+bool login_proxy_multiplex_input_started(struct login_proxy *proxy)
+{
+	return proxy->multiplex_input != NULL;
 }
 
 void login_proxy_multiplex_input_start(struct login_proxy *proxy)

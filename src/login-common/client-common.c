@@ -1543,9 +1543,10 @@ bool client_get_extra_disconnect_reason(struct client *client,
 			last_reason = "temporary authentication failure";
 			break;
 		case LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT:
-			event_reason = "redirected";
-			last_reason = "redirected";
-			break;
+			/* Redirects fire proxy_session_finished directly with
+			   error_code=proxy_dest_redirected, so this is
+			   unreachable. */
+			i_unreached();
 		case LOGIN_PROXY_FAILURE_TYPE_AUTH_LIMIT_REACHED_REPLIED:
 			event_reason = "connection_limit";
 			last_reason = "connection limit reached";

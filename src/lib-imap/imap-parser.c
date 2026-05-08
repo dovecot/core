@@ -199,13 +199,12 @@ static struct imap_arg *imap_arg_create(struct imap_parser *parser)
 
 static bool imap_parser_open_list(struct imap_parser *parser)
 {
-	if (parser->cur_nesting_depth >= IMAP_PARSER_MAX_NESTING_DEPTH ||
-	    parser->cur_nesting_depth >= parser->list_count_limit) {
-		parser->error_msg = "List nesting too deep";
+	if (parser->list_count >= parser->list_count_limit) {
+		parser->error_msg = "Too many '('";
 		parser->error = IMAP_PARSE_ERROR_BAD_SYNTAX;
 		return FALSE;
 	}
-	parser->cur_nesting_depth++;
+	parser->list_count++;
 
 	parser->list_arg = imap_arg_create(parser);
 	parser->list_arg->type = IMAP_ARG_LIST;
@@ -232,12 +231,6 @@ static bool imap_parser_close_list(struct imap_parser *parser)
 		parser->error = IMAP_PARSE_ERROR_BAD_SYNTAX;
 		return FALSE;
 	}
-	if (parser->list_count >= parser->list_count_limit) {
-		parser->error_msg = "Too many '('";
-		parser->error = IMAP_PARSE_ERROR_BAD_SYNTAX;
-		return FALSE;
-	}
-	parser->list_count++;
 
 	arg = imap_arg_create(parser);
 	arg->type = IMAP_ARG_EOL;

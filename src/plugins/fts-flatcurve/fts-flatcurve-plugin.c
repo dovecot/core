@@ -4,7 +4,9 @@
 #include "lib.h"
 #include "settings.h"
 #include "mail-storage-hooks.h"
+#include "mail-storage-private.h"
 #include "str-parse.h"
+#include "mailbox-list-private.h"
 #include "fts-user.h"
 #include "fts-backend-flatcurve.h"
 #include "fts-backend-flatcurve-xapian.h"
@@ -12,8 +14,17 @@
 
 const char *fts_flatcurve_plugin_version = DOVECOT_ABI_VERSION;
 
+static MODULE_CONTEXT_DEFINE_INIT(fts_flatcurve_mailbox_list_module,
+				  &mailbox_list_module_register);
 struct fts_flatcurve_user_module fts_flatcurve_user_module =
 	MODULE_CONTEXT_INIT(&mail_user_module_register);
+
+struct fts_flatcurve_mailbox_list {
+	union mailbox_list_module_context module_ctx;
+};
+
+#define FTS_FLATCURVE_LIST_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, fts_flatcurve_mailbox_list_module)
 
 static void fts_flatcurve_mail_user_deinit(struct mail_user *user)
 {
@@ -62,8 +73,41 @@ static void fts_flatcurve_mail_user_created(struct mail_user *user)
 	MODULE_CONTEXT_SET(user, fts_flatcurve_user_module, fuser);
 }
 
+static bool
+fts_flatcurve_is_internal_name(struct mailbox_list *list, const char *name)
+{
+	struct fts_flatcurve_mailbox_list *flist = FTS_FLATCURVE_LIST_CONTEXT(list);
+
+	/* We need to recognize the fts-flatcurve directory as an internal
+	   mailbox directory. This ensures that Maildir's non-recursive
+	   mailbox deletion (which only deletes known internal directories
+	   and skips potential sub-mailboxes) will successfully delete
+	   the FTS data. */
+	if (strcmp(name, FTS_FLATCURVE_LABEL) == 0)
+		return TRUE;
+
+	if (flist->module_ctx.super.is_internal_name != NULL)
+		return flist->module_ctx.super.is_internal_name(list, name);
+
+	return FALSE;
+}
+
+static void fts_flatcurve_mailbox_list_created(struct mailbox_list *list)
+{
+	struct fts_flatcurve_mailbox_list *flist;
+	struct mailbox_list_vfuncs *v = list->vlast;
+
+	flist = p_new(list->pool, struct fts_flatcurve_mailbox_list, 1);
+	flist->module_ctx.super = *v;
+	list->vlast = &flist->module_ctx.super;
+	v->is_internal_name = fts_flatcurve_is_internal_name;
+
+	MODULE_CONTEXT_SET(list, fts_flatcurve_mailbox_list_module, flist);
+}
+
 static struct mail_storage_hooks fts_backend_mail_storage_hooks = {
-	.mail_user_created = fts_flatcurve_mail_user_created
+	.mail_user_created = fts_flatcurve_mail_user_created,
+	.mailbox_list_created = fts_flatcurve_mailbox_list_created,
 };
 
 void fts_flatcurve_plugin_init(struct module *module ATTR_UNUSED)

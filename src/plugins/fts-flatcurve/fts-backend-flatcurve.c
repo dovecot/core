@@ -718,17 +718,17 @@ fts_backend_flatcurve_lookup(struct fts_backend *_backend, struct mailbox *box,
 /* Returns: 0 if FTS directory doesn't exist, 1 on deletion, -1 on error */
 int fts_backend_flatcurve_delete_dir(const char *path, const char **error_r)
 {
+	i_assert(error_r != NULL);
+
 	struct stat st;
 	enum unlink_directory_flags unlink_flags = UNLINK_DIRECTORY_FLAG_RMDIR;
 
 	if (stat(path, &st) < 0) {
 		if (errno == ENOENT)
 			return 0;
-		else {
-			*error_r = t_strdup_printf("Deleting fts data failed: "
-				"stat(%s) failed: %m", path);
-			return -1;
-		}
+		*error_r = t_strdup_printf("Deleting fts data failed: "
+			"stat(%s) failed: %m", path);
+		return -1;
 	}
 
 	if (S_ISDIR(st.st_mode)) {

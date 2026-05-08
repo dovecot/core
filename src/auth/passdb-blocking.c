@@ -79,7 +79,7 @@ verify_plain_callback(struct auth_worker_connection *conn ATTR_UNUSED,
 	enum passdb_result result;
 
 	result = passdb_blocking_auth_worker_reply_parse(request, args);
-	auth_request_verify_plain_callback(result, request);
+	auth_request_verify_plain_passdb_callback(result, request);
 	auth_request_unref(&request);
 	return TRUE;
 }

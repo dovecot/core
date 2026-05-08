@@ -408,7 +408,7 @@ void auth_request_db_log_login_failure(struct auth_request *request,
 void
 auth_request_verify_plain_callback_finish(enum passdb_result result,
                                           struct auth_request *request);
-void auth_request_verify_plain_callback(enum passdb_result result,
+void auth_request_verify_plain_passdb_callback(enum passdb_result result,
 					struct auth_request *request);
 void auth_request_lookup_credentials_callback(enum passdb_result result,
 					      const unsigned char *credentials,
