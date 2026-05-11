@@ -23,7 +23,7 @@ lib20_fts_plugin_la_LDFLAGS = -module -avoid-version
 module_LTLIBRARIES = \
 	lib20_fts_plugin.la
 
-lib20_fts_plugin_la_LIBADD = ../../lib-language/libdovecot-language.la
+lib20_fts_plugin_la_LIBADD = $(LIBDOVECOT_LIBLANG)
 
 lib20_fts_plugin_la_SOURCES = \
 	fts-api.c \
@@ -70,3 +70,15 @@ doveadm_module_LTLIBRARIES = \
 
 lib20_doveadm_fts_plugin_la_SOURCES = \
 	doveadm-fts.c
+
+test_programs = test-fts-search-args
+
+test_fts_search_args_SOURCES = test-fts-search-args.c
+test_fts_search_args_CPPFLAGS = $(AM_CPPFLAGS) -I$(top_srcdir)/src/lib-test
+test_fts_search_args_LDADD = \
+	$(LIBDOVECOT_LIBLANG) \
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT)
+test_fts_search_args_DEPENDENCIES = $(LIBDOVECOT_DEPS) $(LIBDOVECOT_STORAGE_DEPS) $(LIBDOVECOT_LIBLANG_DEPS)
+
+include $(top_srcdir)/Makefile.test.include
