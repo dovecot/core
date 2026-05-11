@@ -11,6 +11,8 @@
 #include "fts-user.h"
 #include "fts-search-args.h"
 
+#include <ctype.h>
+
 static void strings_deduplicate(ARRAY_TYPE(const_string) *arr)
 {
 	const char *const *strings;
@@ -40,6 +42,11 @@ fts_search_arg_create_or(const struct mail_search_arg *orig_arg, pool_t pool,
 
 	/* now create all the child args for the OR */
 	argp = &or_arg->value.subargs;
+	i_assert(orig_arg->type == SEARCH_TEXT ||
+		 orig_arg->type == SEARCH_BODY ||
+		 orig_arg->type == SEARCH_HEADER ||
+		 orig_arg->type == SEARCH_HEADER_ADDRESS ||
+		 orig_arg->type == SEARCH_HEADER_COMPRESS_LWSP);
 	array_foreach_elem(tokens, token) {
 		arg = p_new(pool, struct mail_search_arg, 1);
 		*arg = *orig_arg;
@@ -59,16 +66,18 @@ fts_backend_dovecot_expand_tokens(struct lang_filter *filter,
 				  struct mail_search_arg *parent_arg,
 				  const struct mail_search_arg *orig_arg,
 				  const char *orig_token, const char *token,
+				  enum mail_search_arg_flag token_flag,
 				  const char **error_r)
 {
-	struct mail_search_arg *arg;
+	struct mail_search_arg *arg, *subarg;
 	ARRAY_TYPE(const_string) tokens;
 	const char *token2, *error;
 	int ret;
 
 	t_array_init(&tokens, 4);
 	/* first add the word exactly as it without any tokenization */
-	array_push_back(&tokens, &orig_token);
+	if (orig_token != NULL)
+		array_push_back(&tokens, &orig_token);
 	/* then add it tokenized, but without filtering */
 	array_push_back(&tokens, &token);
 
@@ -93,20 +102,47 @@ fts_backend_dovecot_expand_tokens(struct lang_filter *filter,
 	strings_deduplicate(&tokens);
 
 	arg = fts_search_arg_create_or(orig_arg, pool, &tokens);
+	if (token_flag != 0) {
+		for (subarg = arg->value.subargs; subarg != NULL; subarg = subarg->next) {
+			if (orig_token != NULL && strcmp(subarg->value.str, orig_token) == 0)
+				subarg->value.search_flags |= MAIL_SEARCH_ARG_FLAG_PHRASE_FULL;
+			else
+				subarg->value.search_flags |= token_flag;
+		}
+	}
 	arg->next = parent_arg->value.subargs;
 	parent_arg->value.subargs = arg;
 	return 0;
 }
 
 static int
-fts_backend_dovecot_tokenize_lang(struct language_user *user_lang,
+fts_backend_dovecot_tokenize_lang(struct fts_backend *backend,
+				  struct language_user *user_lang,
 				  pool_t pool, struct mail_search_arg *or_arg,
 				  struct mail_search_arg *orig_arg,
 				  const char *orig_token, const char **error_r)
 {
+	/* Phrase search strategy:
+	 *
+	 * When FTS_BACKEND_FLAG_SEARCH_ARGS_V2 is set:
+	 *   1. The original phrase string is added as a separate SEARCH_TEXT arg
+	 *      with PHRASE_FULL flag.
+	 *   2. Each tokenized word is added as a SEARCH_TEXT arg with PHRASE_TERM
+	 *      flag (PHRASE_FIRST_TERM for the first word).
+	 *   3. The phrase arg and tokenized args are placed under the same AND
+	 *      (SUB) parent. Backends that support this flag treat the tokenized
+	 *      args as a filter to reduce the search space, while the phrase arg
+	 *      is handled by the core FTS fallback for exact matching.
+	 *
+	 * When the flag is NOT set (old behavior):
+	 *   1. Each tokenized word is OR'd with the original phrase string.
+	 *   2. Backends see all terms as equal alternatives. */
+
 	size_t orig_token_len = strlen(orig_token);
 	struct mail_search_arg *and_arg, *orig_or_args = or_arg->value.subargs;
 	const char *token, *error;
+	ARRAY_TYPE(const_string) tokenizer_tokens;
+	unsigned int i, count;
 	int ret;
 
 	/* we want all the tokens found from the string to be found, so create
@@ -117,28 +153,76 @@ fts_backend_dovecot_tokenize_lang(struct language_user *user_lang,
 	and_arg->next = orig_or_args;
 	or_arg->value.subargs = and_arg;
 
+	t_array_init(&tokenizer_tokens, 16);
+
 	/* reset tokenizer between search args in case there's any state left
 	   from some previous failure */
 	lang_tokenizer_reset(user_lang->search_tokenizer);
 	while ((ret = lang_tokenizer_next(user_lang->search_tokenizer,
 					 (const void *)orig_token,
 					 orig_token_len, &token, &error)) > 0) {
-		if (fts_backend_dovecot_expand_tokens(user_lang->filter, pool,
-						      and_arg, orig_arg, orig_token,
-						      token, error_r) < 0)
-			return -1;
+		array_push_back(&tokenizer_tokens, &token);
 	}
 	while (ret >= 0 &&
 	       (ret = lang_tokenizer_final(user_lang->search_tokenizer, &token, &error)) > 0) {
-		if (fts_backend_dovecot_expand_tokens(user_lang->filter, pool,
-						      and_arg, orig_arg, orig_token,
-						      token, error_r) < 0)
-			return -1;
+		array_push_back(&tokenizer_tokens, &token);
 	}
 	if (ret < 0) {
 		*error_r = t_strdup_printf("Couldn't tokenize search args: %s", error);
 		return -1;
 	}
+
+	const char *const *tokens = array_get(&tokenizer_tokens, &count);
+	bool phrase_and = HAS_ANY_BITS(backend->flags, FTS_BACKEND_FLAG_SEARCH_ARGS_V2);
+	/* We only treat this as a phrase if it actually contains spaces. If it
+	   doesn't contain spaces but tokenizes to multiple tokens (e.g. dotted
+	   words or email addresses), we don't want to treat it as a phrase
+	   because backends may handle these differently than actual phrases.
+	   Specifically, if we mark a single string as a phrase, backends
+	   might only match the split tokens and skip the original string.
+	   Since the core FTS fallback search logic requires a literal match for
+	   phrases, this could break matching for single strings that happen to
+	   split during tokenization. */
+	bool is_phrase = false;
+	if (count > 1) {
+		for (const char *p = orig_token; *p != '\0'; p++) {
+			if (i_isspace(*p)) {
+				is_phrase = true;
+				break;
+			}
+		}
+	}
+
+	/* Move full phrase term to the base of the AND argument. */
+	if (phrase_and && is_phrase) {
+		struct mail_search_arg *phrase_arg;
+		phrase_arg = p_new(pool, struct mail_search_arg, 1);
+		*phrase_arg = *orig_arg;
+		phrase_arg->next = NULL;
+		phrase_arg->match_not = FALSE;
+		phrase_arg->match_always = FALSE;
+		phrase_arg->nonmatch_always = FALSE;
+		phrase_arg->value.str = p_strdup(pool, orig_token);
+		phrase_arg->value.search_flags |= MAIL_SEARCH_ARG_FLAG_PHRASE_FULL;
+		and_arg->value.subargs = phrase_arg;
+	}
+
+	for (i = 0; i < count; i++) {
+		enum mail_search_arg_flag token_flag = 0;
+		if (is_phrase) {
+			token_flag |= MAIL_SEARCH_ARG_FLAG_PHRASE_TERM;
+			if (i == 0)
+				token_flag |= MAIL_SEARCH_ARG_FLAG_PHRASE_FIRST_TERM;
+		}
+
+		if (fts_backend_dovecot_expand_tokens(user_lang->filter, pool,
+						      and_arg, orig_arg,
+						      (phrase_and && is_phrase) ? NULL : orig_token,
+						      tokens[i], token_flag,
+						      error_r) < 0)
+			return -1;
+	}
+
 	if (and_arg->value.subargs == NULL) {
 		/* nothing was actually expanded, remove the empty and_arg */
 		or_arg->value.subargs = orig_or_args;
@@ -173,7 +257,7 @@ static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 	or_arg->next = orig_arg->next;
 
 	array_foreach_elem(languages, lang) {
-		if (fts_backend_dovecot_tokenize_lang(lang, pool, or_arg,
+		if (fts_backend_dovecot_tokenize_lang(backend, lang, pool, or_arg,
 						      orig_arg, orig_token, &error) < 0) {
 			e_error(event, "%s", error);
 			return -1;

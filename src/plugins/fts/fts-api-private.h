@@ -69,7 +69,19 @@ enum fts_backend_flags {
 	   directly indexable token at a time. Searching will modify the search
 	   args so that lookup() sees only tokens that can be directly
 	   searched. */
-	FTS_BACKEND_FLAG_TOKENIZED_INPUT	= 0x10
+	FTS_BACKEND_FLAG_TOKENIZED_INPUT	= 0x10,
+	/* Change the search argument behavior to pass the phrase term as
+	 * an AND'ed argument to the OR'd list of all the tokenized phrase
+	 * terms (instead of OR'd with those tokenized terms). This allows
+	 * FTS backends to use the tokenized terms to limit the mailbox
+	 * message search space that the lib-storage phrase search code has
+	 * to iterate in order to correctly complete a phrase search.
+	 *
+	 * Changes an existing phrase search from:
+	 * OR(SUB [tokenized], TEXT [phrase], SUB [tokenized]) # v1
+	 * to:
+	 * SUB(TEXT [phrase], OR(SUB [tokenized], SUB [tokenized])) # v2 */
+	FTS_BACKEND_FLAG_SEARCH_ARGS_V2	= 0x20
 };
 
 struct fts_header_filters {

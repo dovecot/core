@@ -74,6 +74,16 @@ enum mail_search_arg_flag {
 	   don't allow specifying timezone this isn't really possible with IMAP
 	   protocol, except using OLDER/YOUNGER searches. */
 	MAIL_SEARCH_ARG_FLAG_UTC_TIMES	= 0x01,
+
+	/* Used by FTS phrase searching.
+	 * PHRASE_FULL is set on the original full-phrase arg and is
+	 * mutually exclusive with PHRASE_TERM/PHRASE_FIRST_TERM.
+	 * PHRASE_TERM is set on each tokenized term of the phrase.
+	 * PHRASE_FIRST_TERM is set on the first tokenized term
+	 * (in addition to PHRASE_TERM). */
+	MAIL_SEARCH_ARG_FLAG_PHRASE_FULL	= 0x02,
+	MAIL_SEARCH_ARG_FLAG_PHRASE_FIRST_TERM	= 0x04,
+	MAIL_SEARCH_ARG_FLAG_PHRASE_TERM	= 0x08,
 };
 
 enum mail_search_modseq_type {
