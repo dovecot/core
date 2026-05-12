@@ -310,7 +310,7 @@ json_tree_node_add_data(struct json_tree_node *parent, const char *name,
 	struct json_value jvalue;
 	struct json_data jdata;
 
-	i_zero(&data);
+	i_zero(&jdata);
 	jdata.data = data;
 	jdata.size = size;
 
