@@ -201,6 +201,7 @@ struct smtp_client_connection {
 	struct istream *raw_input;
 	struct ostream *raw_output, *dot_output;
 
+	const struct ssl_iostream_settings *ssl_set;
 	struct ssl_iostream_context *ssl_ctx;
 	struct ssl_iostream *ssl_iostream;
 
@@ -253,6 +254,7 @@ struct smtp_client {
 
 	struct event *event;
 	struct ioloop *ioloop;
+	const struct ssl_iostream_settings *ssl_set;
 	struct ssl_iostream_context *ssl_ctx;
 	struct dns_client *dns_client;
 

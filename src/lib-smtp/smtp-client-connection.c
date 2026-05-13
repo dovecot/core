@@ -1649,11 +1649,20 @@ smtp_client_connection_init_ssl_ctx(struct smtp_client_connection *conn,
 				    const char **error_r)
 {
 	struct smtp_client *client = conn->client;
+	struct event *event_parent;
+	int ret;
 
 	if (conn->ssl_ctx != NULL)
 		return 0;
 
-	if (conn->set.ssl == NULL || conn->set.ssl == client->set.ssl) {
+	event_parent = event_get_parent(conn->event);
+	i_assert(event_parent != NULL);
+	event_parent = event_get_parent(event_parent);
+	i_assert(event_parent != NULL);
+
+	if ((conn->ssl_set == NULL &&
+	     (client->ssl_set != NULL || event_parent == client->event)) ||
+	    (conn->ssl_set != NULL && conn->ssl_set == client->ssl_set)) {
 		if (smtp_client_init_ssl_ctx(client, error_r) < 0)
 			return -1;
 		conn->ssl_ctx = client->ssl_ctx;
@@ -1661,12 +1670,31 @@ smtp_client_connection_init_ssl_ctx(struct smtp_client_connection *conn,
 		return 0;
 	}
 
+	const struct ssl_iostream_settings *set;
+
+	if (conn->ssl_set != NULL)
+		set = conn->ssl_set;
+	else {
+		/* no ssl settings given via
+		   smtp_client_connection_set_ssl_settings() */
+		const struct ssl_settings *ssl_set;
+
+		if (ssl_client_settings_get(conn->event, &ssl_set,
+					    error_r) < 0)
+			return -1;
+		ssl_client_settings_to_iostream_set(ssl_set, &set);
+		settings_free(ssl_set);
+	}
+
 	const char *const names[] = {
 		smtp_protocol_name(conn->protocol),
 		NULL
 	};
-	return ssl_iostream_client_context_cache_get(conn->set.ssl, names,
-						     &conn->ssl_ctx, error_r);
+	ret = ssl_iostream_client_context_cache_get(set, names,
+						    &conn->ssl_ctx, error_r);
+	if (conn->ssl_set == NULL)
+		settings_free(set);
+	return ret;
 }
 
 static int
@@ -1693,12 +1721,9 @@ smtp_client_connection_ssl_init(struct smtp_client_connection *conn,
 		conn->conn.output = conn->raw_output;
 	}
 
-	enum ssl_iostream_flags ssl_flags = 0;
-	if (conn->set.ssl_allow_invalid_cert)
-		ssl_flags |= SSL_IOSTREAM_FLAG_ALLOW_INVALID_CERT;
 	connection_input_halt(&conn->conn);
 	if (io_stream_create_ssl_client(
-		conn->ssl_ctx, conn->host, conn->event, ssl_flags,
+		conn->ssl_ctx, conn->host, conn->event, 0,
 		&conn->conn.input, &conn->conn.output,
 		&conn->ssl_iostream, &error) < 0) {
 		*error_r = t_strdup_printf(
@@ -1729,6 +1754,15 @@ smtp_client_connection_ssl_init(struct smtp_client_connection *conn,
 			conn->conn.output, smtp_client_connection_output, conn);
 	}
 	return 0;
+}
+
+void smtp_client_connection_set_ssl_settings(
+	struct smtp_client_connection *conn,
+	const struct ssl_iostream_settings *ssl)
+{
+	settings_free(conn->ssl_set);
+	conn->ssl_set = ssl;
+	pool_ref(conn->ssl_set->pool);
 }
 
 static void
@@ -2112,9 +2146,7 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 	timeout_remove(&conn->to_cmd_fail);
 
 	ssl_iostream_destroy(&conn->ssl_iostream);
-	settings_free(conn->set.ssl);
-	if (conn->ssl_ctx != NULL)
-		ssl_iostream_context_unref(&conn->ssl_ctx);
+	ssl_iostream_context_unref(&conn->ssl_ctx);
 	smtp_client_connection_auth_deinit(conn);
 
 	o_stream_destroy(&conn->dot_output);
@@ -2156,7 +2188,6 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 	conn->protocol = protocol;
 
 	conn->set = client->set;
-	conn->set.ssl = NULL;
 	if (set != NULL) {
 		if (set->my_ip.family != 0)
 			conn->set.my_ip = set->my_ip;
@@ -2176,12 +2207,6 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 			conn->set.rawlog_dir =
 				p_strdup_empty(pool, set->rawlog_dir);
 		}
-
-		if (set->ssl != NULL) {
-			conn->set.ssl = set->ssl;
-			pool_ref(conn->set.ssl->pool);
-		}
-		conn->set.ssl_allow_invalid_cert = set->ssl_allow_invalid_cert;
 
 		if (set->master_user != NULL && *set->master_user != '\0') {
 			conn->set.master_user =
@@ -2417,6 +2442,7 @@ void smtp_client_connection_unref(struct smtp_client_connection **_conn)
 		"Connection destroy");
 	smtp_client_connection_transactions_drop(conn);
 
+	settings_free(conn->ssl_set);
 	connection_deinit(&conn->conn);
 
 	i_free(conn->ips);

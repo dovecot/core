@@ -27,7 +27,6 @@ struct submision_backend_relay_settings {
 	unsigned int connect_timeout_msecs;
 	unsigned int command_timeout_msecs;
 
-	bool ssl_verify:1;
 	bool trusted:1;
 };
 

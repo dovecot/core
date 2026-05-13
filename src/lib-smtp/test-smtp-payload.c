@@ -1151,7 +1151,8 @@ static void test_client_progress_timeout(void *context ATTR_UNUSED)
 
 static void
 test_client(enum smtp_protocol protocol,
-	    const struct smtp_client_settings *client_set)
+	    const struct smtp_client_settings *client_set,
+	    const struct ssl_iostream_settings *ssl_client_set)
 {
 	client_protocol = protocol;
 
@@ -1163,6 +1164,7 @@ test_client(enum smtp_protocol protocol,
 
 	/* create client */
 	smtp_client = smtp_client_init(client_set);
+	smtp_client_set_ssl_settings(smtp_client, ssl_client_set);
 
 	/* start querying server */
 	client_files_first = client_files_last = 0;
@@ -1243,8 +1245,10 @@ static int test_run_server(struct test_server_data *data)
 static void
 test_run_client(
 	enum smtp_protocol protocol, struct smtp_client_settings *client_set,
+	const struct ssl_iostream_settings *ssl_client_set,
 	void (*client_init)(enum smtp_protocol protocol,
-			    const struct smtp_client_settings *client_set))
+			    const struct smtp_client_settings *client_set,
+			    const struct ssl_iostream_settings *ssl_client_set))
 {
 	struct ioloop *ioloop;
 
@@ -1255,7 +1259,7 @@ test_run_client(
 
 	ioloop = io_loop_create();
 	test_client_init();
-	client_init(protocol, client_set);
+	client_init(protocol, client_set, ssl_client_set);
 	io_loop_run(ioloop);
 	test_client_deinit();
 	io_loop_destroy(&ioloop);
@@ -1271,7 +1275,8 @@ test_run_client_server(
 	const struct ssl_iostream_settings *ssl_client_set,
 	struct smtp_server_settings *server_set,
 	void (*client_init)(enum smtp_protocol protocol,
-			    const struct smtp_client_settings *client_set))
+			    const struct smtp_client_settings *client_set,
+			    const struct ssl_iostream_settings *ssl_client_set))
 {
 	struct test_server_data data;
 
@@ -1314,7 +1319,7 @@ test_run_client_server(
 	i_close_fd(&fd_listen);
 
 	/* Run client */
-	test_run_client(protocol, client_set, client_init);
+	test_run_client(protocol, client_set, ssl_client_set, client_init);
 
 	i_unset_failure_prefix();
 	bind_port = 0;
@@ -1334,7 +1339,8 @@ test_run_scenarios(
 	enum smtp_protocol protocol,
 	enum smtp_capability capabilities,
 	void (*client_init)(enum smtp_protocol protocol,
-			    const struct smtp_client_settings *client_set))
+			    const struct smtp_client_settings *client_set,
+			    const struct ssl_iostream_settings *ssl_client_set))
 {
 	struct smtp_server_settings smtp_server_set;
 	struct smtp_client_settings smtp_client_set;
@@ -1363,7 +1369,6 @@ test_run_scenarios(
 	smtp_client_set.command_timeout_msecs = CLIENT_PROGRESS_TIMEOUT_MSECS;
 	smtp_client_set.connect_timeout_msecs = CLIENT_PROGRESS_TIMEOUT_MSECS;
 	smtp_client_set.sasl_mechanisms = tset.sasl_mech;
-	smtp_client_set.ssl = ssl_client_set;
 	smtp_client_set.debug = debug;
 
 	if (small_socket_buffers) {

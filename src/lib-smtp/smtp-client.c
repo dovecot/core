@@ -46,12 +46,6 @@ struct smtp_client *smtp_client_init(const struct smtp_client_settings *set)
 
 	client->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
 
-	if (set->ssl != NULL) {
-		client->set.ssl = set->ssl;
-		pool_ref(client->set.ssl->pool);
-	}
-	client->set.ssl_allow_invalid_cert = set->ssl_allow_invalid_cert;
-
 	client->set.master_user = p_strdup_empty(pool, set->master_user);
 	client->set.username = p_strdup_empty(pool, set->username);
 	client->set.sasl_mechanisms = p_strdup(pool, set->sasl_mechanisms);
@@ -93,13 +87,20 @@ void smtp_client_deinit(struct smtp_client **_client)
 
 	connection_list_deinit(&client->conn_list);
 
-	settings_free(client->set.ssl);
-	if (client->ssl_ctx != NULL)
-		ssl_iostream_context_unref(&client->ssl_ctx);
+	ssl_iostream_context_unref(&client->ssl_ctx);
+	settings_free(client->ssl_set);
 	dsasl_client_unref(&client->sasl_client);
 	event_unref(&client->event);
 	pool_unref(&client->pool);
 	*_client = NULL;
+}
+
+void smtp_client_set_ssl_settings(struct smtp_client *client,
+				  const struct ssl_iostream_settings *ssl)
+{
+	settings_free(client->ssl_set);
+	client->ssl_set = ssl;
+	pool_ref(client->ssl_set->pool);
 }
 
 void smtp_client_set_dns_client(struct smtp_client *client,
@@ -129,12 +130,12 @@ int smtp_client_init_ssl_ctx(struct smtp_client *client, const char **error_r)
 	if (client->ssl_ctx != NULL)
 		return 0;
 
-	if (client->set.ssl != NULL) {
-		return ssl_iostream_client_context_cache_get(client->set.ssl,
+	if (client->ssl_set != NULL) {
+		return ssl_iostream_client_context_cache_get(client->ssl_set,
 			NULL, &client->ssl_ctx, error_r);
 	}
-	/* no ssl settings given via smtp_client_settings -
-	   look them up automatically */
+
+	/* no ssl settings given via smtp_client_set_ssl_settings() */
 	if (ssl_client_settings_get(client->event, &ssl_set, error_r) < 0)
 		return -1;
 	ssl_client_settings_to_iostream_set(ssl_set, &set);

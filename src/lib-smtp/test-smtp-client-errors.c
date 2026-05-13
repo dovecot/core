@@ -4130,7 +4130,6 @@ test_client_invalid_ssl_certificate(
 	struct smtp_client_connection *sconn;
 	struct smtp_client_command *scmd;
 	struct _invalid_ssl_certificate *ctx;
-	struct smtp_client_settings client_set_new = *client_set;
 	const struct ssl_iostream_settings *ssl_client_set;
 
 	test_expect_errors(2);
@@ -4139,8 +4138,8 @@ test_client_invalid_ssl_certificate(
 	ctx->count = 2;
 
 	ssl_client_set = ssl_iostream_test_settings_client();
-	client_set_new.ssl = ssl_client_set;
-	smtp_client = smtp_client_init(&client_set_new);
+	smtp_client = smtp_client_init(client_set);
+	smtp_client_set_ssl_settings(smtp_client, ssl_client_set);
 	settings_free(ssl_client_set);
 
 	sconn = smtp_client_connection_create(
@@ -4269,20 +4268,18 @@ test_client_channel_binding(const struct smtp_client_settings *client_set)
 	/* the test server's certificate isn't valid for its address */
 	ssl_client_set = ssl_iostream_test_settings_client();
 	ssl_client_set->allow_invalid_cert = TRUE;
-	client_set_new.ssl = ssl_client_set;
 	smtp_client = smtp_client_init(&client_set_new);
+	smtp_client_set_ssl_settings(smtp_client, ssl_client_set);
+	settings_free(ssl_client_set);
 
 	i_zero(&client_set_new);
 	client_set_new.username = "peter.wolfsen";
 	client_set_new.password = "crybaby";
 	client_set_new.sasl_mechanisms = "SCRAM-SHA-256-PLUS";
-	client_set_new.ssl = ssl_client_set;
 
 	conn = smtp_client_connection_create(
 		smtp_client, SMTP_PROTOCOL_SMTP, "example.com",
 		bind_ports[0], SMTP_CLIENT_SSL_MODE_IMMEDIATE, &client_set_new);
-	settings_free(ssl_client_set);
-
 	smtp_client_connection_connect(
 		conn, test_client_channel_binding_login_cb, conn);
 	return TRUE;

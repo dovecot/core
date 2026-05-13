@@ -61,6 +61,8 @@ struct lmtp_proxy_recipient {
 
 struct lmtp_proxy_connection {
 	struct lmtp_proxy *proxy;
+	struct event *event;
+	struct settings_instance *set_instance;
 	struct lmtp_proxy_rcpt_settings set;
 	char *host;
 
@@ -163,6 +165,8 @@ static void lmtp_proxy_connection_deinit(struct lmtp_proxy_connection *conn)
 		smtp_client_connection_close(&conn->lmtp_conn);
 	timeout_remove(&conn->to);
 	i_stream_unref(&conn->data_input);
+	event_unref(&conn->event);
+	settings_instance_free(&conn->set_instance);
 	i_free(conn->host);
 	i_free(conn);
 }
@@ -207,6 +211,33 @@ lmtp_proxy_connection_has_rcpt_forward(struct lmtp_proxy_connection *conn)
 	return (cap_extra != NULL);
 }
 
+static struct settings_instance *
+lmtp_proxy_connection_init_settings(struct lmtp_proxy_connection *conn)
+{
+	if (conn->set_instance != NULL)
+		return conn->set_instance;
+
+	conn->set_instance = settings_instance_new_from_event(conn->event);
+	event_set_ptr(conn->event, SETTINGS_EVENT_INSTANCE,
+		      conn->set_instance);
+	return conn->set_instance;
+}
+
+static void
+lmtp_proxy_connection_handle_settings(
+	struct lmtp_proxy_connection *conn,
+	const struct lmtp_proxy_rcpt_settings *set)
+{
+	struct settings_instance *set_instance;
+
+	if (HAS_ANY_BITS(set->set.ssl_flags, AUTH_PROXY_SSL_FLAG_ANY_CERT)) {
+		set_instance = lmtp_proxy_connection_init_settings(conn);
+		settings_override(set_instance,
+			"ssl_client_require_valid_cert", "no",
+			SETTINGS_OVERRIDE_TYPE_CODE);
+	}
+}
+
 static struct lmtp_proxy_connection *
 lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 			  const struct lmtp_proxy_rcpt_settings *set)
@@ -241,6 +272,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 
 	conn = i_new(struct lmtp_proxy_connection, 1);
 	conn->proxy = proxy;
+	conn->event = event_create(client->event);
 	conn->set.protocol = set->protocol;
 	conn->set.set.host_ip = set->set.host_ip;
 	conn->host = i_strdup(set->set.host);
@@ -260,10 +292,11 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	else
 		ssl_mode = SMTP_CLIENT_SSL_MODE_STARTTLS;
 
+	lmtp_proxy_connection_handle_settings(conn, set);
+
 	i_zero(&lmtp_set);
+	lmtp_set.event_parent = conn->event;
 	lmtp_set.my_ip = conn->set.set.source_ip;
-	lmtp_set.ssl_allow_invalid_cert =
-		(set->set.ssl_flags & AUTH_PROXY_SSL_FLAG_ANY_CERT) != 0;
 	lmtp_set.peer_trusted = !set->set.remote_not_trusted;
 	lmtp_set.forced_capabilities = SMTP_CAPABILITY__ORCPT;
 	lmtp_set.disabled_capabilities = (set->set.nopipelining ?

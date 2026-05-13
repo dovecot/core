@@ -1086,12 +1086,14 @@ submission_backend_relay_create(
 	submission_backend_init(&rbackend->backend, pool, client,
 				&backend_relay_vfuncs);
 
-	event_set_append_log_prefix(rbackend->backend.event, "relay: ");
+	struct event *event = rbackend->backend.event;
+
+	event_set_append_log_prefix(event, "relay: ");
+	settings_event_add_filter_name(event, SUBMISSION_RELAY_SETTINGS_FILTER);
 
 	/* make relay connection */
 	i_zero(&smtp_set);
 	smtp_set.my_hostname = set->my_hostname;
-	smtp_set.ssl_allow_invalid_cert = !set->ssl_verify;
 	smtp_set.debug = event_want_debug(rbackend->backend.event);
 	smtp_set.event_parent = rbackend->backend.event;
 

@@ -4,6 +4,8 @@
 #include "smtp-server.h"
 
 /* <settings checks> */
+#define SUBMISSION_RELAY_SETTINGS_FILTER "submission_relay"
+
 enum submission_client_workarounds {
 	SUBMISSION_WORKAROUND_WHITESPACE_BEFORE_PATH	= BIT(0),
 	SUBMISSION_WORKAROUND_MAILBOX_FOR_PATH		= BIT(1),
@@ -43,7 +45,6 @@ struct submission_settings {
 	const char *submission_relay_password;
 
 	const char *submission_relay_ssl;
-	bool submission_relay_ssl_verify;
 
 	const char *submission_relay_rawlog_dir;
 	unsigned int submission_relay_max_idle_time;

@@ -61,6 +61,8 @@ const struct setting_keyvalue submission_service_settings_defaults[] = {
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct submission_settings)
 
 static const struct setting_define submission_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = SUBMISSION_RELAY_SETTINGS_FILTER },
+
 	DEF(BOOL, verbose_proctitle),
 	DEF(PATH_DIR, rawlog_dir),
 
@@ -89,7 +91,6 @@ static const struct setting_define submission_setting_defines[] = {
 	DEF(STR, submission_relay_password),
 
 	DEF(ENUM, submission_relay_ssl),
-	DEF(BOOL, submission_relay_ssl_verify),
 
 	DEF(PATH_DIR, submission_relay_rawlog_dir),
 	DEF(TIME, submission_relay_max_idle_time),
@@ -132,7 +133,6 @@ static const struct submission_settings submission_default_settings = {
 	.submission_relay_password = "",
 
 	.submission_relay_ssl = "no:smtps:starttls",
-	.submission_relay_ssl_verify = TRUE,
 
 	.submission_relay_rawlog_dir = "",
 	.submission_relay_max_idle_time = 60*29,

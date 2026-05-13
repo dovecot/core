@@ -75,6 +75,10 @@ void smtp_client_connection_switch_ioloop_to(
 	struct smtp_client_connection *conn, struct ioloop *ioloop);
 void smtp_client_connection_switch_ioloop(struct smtp_client_connection *conn);
 
+void smtp_client_connection_set_ssl_settings(
+	struct smtp_client_connection *conn,
+	const struct ssl_iostream_settings *ssl);
+
 enum smtp_capability
 smtp_client_connection_get_capabilities(struct smtp_client_connection *conn);
 uoff_t smtp_client_connection_get_size_capability(
