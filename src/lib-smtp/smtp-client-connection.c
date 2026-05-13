@@ -1666,7 +1666,7 @@ smtp_client_connection_init_ssl_ctx(struct smtp_client_connection *conn,
 	if (conn->ssl_ctx != NULL)
 		return 0;
 
-	if (conn->set.ssl == client->set.ssl) {
+	if (conn->set.ssl == NULL || conn->set.ssl == client->set.ssl) {
 		if (smtp_client_init_ssl_ctx(client, error_r) < 0)
 			return -1;
 		conn->ssl_ctx = client->ssl_ctx;
@@ -1674,11 +1674,6 @@ smtp_client_connection_init_ssl_ctx(struct smtp_client_connection *conn,
 		return 0;
 	}
 
-	if (conn->set.ssl == NULL) {
-		*error_r =
-			"Requested SSL connection, but no SSL settings given";
-		return -1;
-	}
 	const char *const names[] = {
 		smtp_protocol_name(conn->protocol),
 		NULL
@@ -2177,6 +2172,7 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 	conn->protocol = protocol;
 
 	conn->set = client->set;
+	conn->set.ssl = NULL;
 	if (set != NULL) {
 		if (set->my_ip.family != 0)
 			conn->set.my_ip = set->my_ip;
