@@ -15,6 +15,7 @@
 #include "iostream-ssl-test.h"
 #include "iostream-openssl.h"
 #include "connection.h"
+#include "settings.h"
 #include "test-common.h"
 #include "test-dir.h"
 #include "test-subprocess.h"
@@ -1689,6 +1690,9 @@ static void test_client_echo(const struct http_client_settings *client_set,
 struct test_server_data {
 	const struct http_server_settings *set;
 	const struct ssl_iostream_settings *ssl_set;
+
+	/* For cleanup: */
+	const struct ssl_iostream_settings *ssl_client_set;
 };
 
 static void test_open_server_fd(void)
@@ -1704,6 +1708,8 @@ static void test_open_server_fd(void)
 
 static int test_run_server(struct test_server_data *data)
 {
+	settings_free(data->ssl_client_set);
+
 	const struct http_server_settings *server_set = data->set;
 	const struct ssl_iostream_settings *ssl_set = data->ssl_set;
 	struct ioloop *ioloop;
@@ -1771,6 +1777,7 @@ test_run_client_server(
 	i_zero(&data);
 	data.set = server_set;
 	data.ssl_set = ssl_server_set;
+	data.ssl_client_set = ssl_client_set;
 
 	/* Fork server */
 	test_open_server_fd();
@@ -1820,13 +1827,13 @@ test_run_sequential(
 {
 	struct http_server_settings http_server_set;
 	struct http_client_settings http_client_set;
-	struct ssl_iostream_settings ssl_server_set, ssl_client_set;
+	struct ssl_iostream_settings ssl_server_set, *ssl_client_set;
 
 	/* download files from blocking server */
 
 	/* ssl settings */
 	ssl_iostream_test_settings_server(&ssl_server_set);
-	ssl_iostream_test_settings_client(&ssl_client_set);
+	ssl_client_set = ssl_iostream_test_settings_client();
 
 	/* server settings */
 	test_init_server_settings(&http_server_set);
@@ -1836,10 +1843,11 @@ test_run_sequential(
 	http_client_set.max_parallel_connections = 1;
 	http_client_set.max_pipelined_requests = 1;
 
-	test_run_client_server(&http_client_set, &ssl_client_set,
+	test_run_client_server(&http_client_set, ssl_client_set,
 			       &http_server_set, &ssl_server_set,
 			       client_init);
 	ssl_iostream_context_cache_free();
+	settings_free(ssl_client_set);
 
 	test_out_reason("sequential", (failure == NULL), failure);
 }
@@ -1851,13 +1859,13 @@ test_run_pipeline(
 {
 	struct http_server_settings http_server_set;
 	struct http_client_settings http_client_set;
-	struct ssl_iostream_settings ssl_server_set, ssl_client_set;
+	struct ssl_iostream_settings ssl_server_set, *ssl_client_set;
 
 	/* download files from blocking server */
 
 	/* ssl settings */
 	ssl_iostream_test_settings_server(&ssl_server_set);
-	ssl_iostream_test_settings_client(&ssl_client_set);
+	ssl_client_set = ssl_iostream_test_settings_client();
 
 	/* server settings */
 	test_init_server_settings(&http_server_set);
@@ -1868,10 +1876,11 @@ test_run_pipeline(
 	http_client_set.max_parallel_connections = 1;
 	http_client_set.max_pipelined_requests = 8;
 
-	test_run_client_server(&http_client_set, &ssl_client_set,
+	test_run_client_server(&http_client_set, ssl_client_set,
 			       &http_server_set, &ssl_server_set,
 			       client_init);
 	ssl_iostream_context_cache_free();
+	settings_free(ssl_client_set);
 
 	test_out_reason("pipeline", (failure == NULL), failure);
 }
@@ -1883,13 +1892,13 @@ test_run_parallel(
 {
 	struct http_server_settings http_server_set;
 	struct http_client_settings http_client_set;
-	struct ssl_iostream_settings ssl_server_set, ssl_client_set;
+	struct ssl_iostream_settings ssl_server_set, *ssl_client_set;
 
 	/* download files from blocking server */
 
 	/* ssl settings */
 	ssl_iostream_test_settings_server(&ssl_server_set);
-	ssl_iostream_test_settings_client(&ssl_client_set);
+	ssl_client_set = ssl_iostream_test_settings_client();
 
 	/* server settings */
 	test_init_server_settings(&http_server_set);
@@ -1900,10 +1909,11 @@ test_run_parallel(
 	http_client_set.max_parallel_connections = 40;
 	http_client_set.max_pipelined_requests = 8;
 
-	test_run_client_server(&http_client_set, &ssl_client_set,
+	test_run_client_server(&http_client_set, ssl_client_set,
 			       &http_server_set, &ssl_server_set,
 			       client_init);
 	ssl_iostream_context_cache_free();
+	settings_free(ssl_client_set);
 
 	test_out_reason("parallel", (failure == NULL), failure);
 }

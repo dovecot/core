@@ -1190,6 +1190,9 @@ static void test_client_deinit(void)
 struct test_server_data {
 	const struct smtp_server_settings *server_set;
 	struct settings_simple *settings;
+
+	/* For cleanup: */
+	const struct ssl_iostream_settings *ssl_client_set;
 };
 
 static void test_open_server_fd(void)
@@ -1206,6 +1209,8 @@ static void test_open_server_fd(void)
 
 static int test_run_server(struct test_server_data *data)
 {
+	settings_free(data->ssl_client_set);
+
 	const struct smtp_server_settings *server_set = data->server_set;
 	struct ioloop *ioloop;
 
@@ -1263,6 +1268,7 @@ static void
 test_run_client_server(
 	enum smtp_protocol protocol,
 	struct smtp_client_settings *client_set,
+	const struct ssl_iostream_settings *ssl_client_set,
 	struct smtp_server_settings *server_set,
 	void (*client_init)(enum smtp_protocol protocol,
 			    const struct smtp_client_settings *client_set))
@@ -1296,6 +1302,7 @@ test_run_client_server(
 	i_zero(&data);
 	data.server_set = server_set;
 	data.settings = &test_set;
+	data.ssl_client_set = ssl_client_set;
 
 	test_files_init();
 
@@ -1331,11 +1338,12 @@ test_run_scenarios(
 {
 	struct smtp_server_settings smtp_server_set;
 	struct smtp_client_settings smtp_client_set;
-	struct ssl_iostream_settings ssl_server_set, ssl_client_set;
+	struct ssl_iostream_settings ssl_server_set;
+	const struct ssl_iostream_settings *ssl_client_set;
 
 	/* ssl settings */
 	ssl_iostream_test_settings_server(&ssl_server_set);
-	ssl_iostream_test_settings_client(&ssl_client_set);
+	ssl_client_set = ssl_iostream_test_settings_client();
 
 	/* server settings */
 	i_zero(&smtp_server_set);
@@ -1355,7 +1363,7 @@ test_run_scenarios(
 	smtp_client_set.command_timeout_msecs = CLIENT_PROGRESS_TIMEOUT_MSECS;
 	smtp_client_set.connect_timeout_msecs = CLIENT_PROGRESS_TIMEOUT_MSECS;
 	smtp_client_set.sasl_mechanisms = tset.sasl_mech;
-	smtp_client_set.ssl = &ssl_client_set;
+	smtp_client_set.ssl = ssl_client_set;
 	smtp_client_set.debug = debug;
 
 	if (small_socket_buffers) {
@@ -1370,16 +1378,16 @@ test_run_scenarios(
 	tset.max_pending = 1;
 	tset.unknown_size = FALSE;
 	tset.ssl_mode = TEST_SSL_MODE_NONE;
-	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
-			       client_init);
+	test_run_client_server(protocol, &smtp_client_set, ssl_client_set,
+			       &smtp_server_set, client_init);
 
 	test_out_reason("sequential", (failure == NULL), failure);
 
 	tset.max_pending = MAX_PARALLEL_PENDING;
 	tset.unknown_size = FALSE;
 	tset.ssl_mode = TEST_SSL_MODE_NONE;
-	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
-			       client_init);
+	test_run_client_server(protocol, &smtp_client_set, ssl_client_set,
+			       &smtp_server_set, client_init);
 
 	test_out_reason("parallel", (failure == NULL), failure);
 
@@ -1388,8 +1396,8 @@ test_run_scenarios(
 	tset.max_pending = MAX_PARALLEL_PENDING;
 	tset.unknown_size = FALSE;
 	tset.ssl_mode = TEST_SSL_MODE_NONE;
-	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
-			       client_init);
+	test_run_client_server(protocol, &smtp_client_set, ssl_client_set,
+			       &smtp_server_set, client_init);
 
 	test_out_reason("parallel pipelining", (failure == NULL), failure);
 
@@ -1398,8 +1406,8 @@ test_run_scenarios(
 	tset.max_pending = MAX_PARALLEL_PENDING;
 	tset.unknown_size = TRUE;
 	tset.ssl_mode = TEST_SSL_MODE_NONE;
-	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
-			       client_init);
+	test_run_client_server(protocol, &smtp_client_set, ssl_client_set,
+			       &smtp_server_set, client_init);
 
 	test_out_reason("unknown payload size", (failure == NULL), failure);
 
@@ -1408,8 +1416,8 @@ test_run_scenarios(
 	tset.max_pending = MAX_PARALLEL_PENDING;
 	tset.unknown_size = FALSE;
 	tset.ssl_mode = TEST_SSL_MODE_IMMEDIATE;
-	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
-			       client_init);
+	test_run_client_server(protocol, &smtp_client_set, ssl_client_set,
+			       &smtp_server_set, client_init);
 
 	test_out_reason("parallel pipelining ssl",
 			(failure == NULL), failure);
@@ -1419,13 +1427,14 @@ test_run_scenarios(
 	tset.max_pending = MAX_PARALLEL_PENDING;
 	tset.unknown_size = FALSE;
 	tset.ssl_mode = TEST_SSL_MODE_STARTTLS;
-	test_run_client_server(protocol, &smtp_client_set, &smtp_server_set,
-			       client_init);
+	test_run_client_server(protocol, &smtp_client_set, ssl_client_set,
+			       &smtp_server_set, client_init);
 
 	test_out_reason("parallel pipelining startls",
 			(failure == NULL), failure);
 
 	ssl_iostream_context_cache_free();
+	settings_free(ssl_client_set);
 }
 
 static void test_smtp_normal(void)

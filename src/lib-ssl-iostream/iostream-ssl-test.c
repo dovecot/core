@@ -162,10 +162,16 @@ void ssl_iostream_test_settings_server(struct ssl_iostream_settings *test_set)
 	test_set->skip_crl_check = TRUE;
 }
 
-void ssl_iostream_test_settings_client(struct ssl_iostream_settings *test_set)
+struct ssl_iostream_settings *ssl_iostream_test_settings_client(void)
 {
-	i_zero(test_set);
-	test_set->pool = null_pool;
+	struct ssl_iostream_settings *test_set;
+	pool_t pool;
+
+	pool = pool_alloconly_create("test client ssl iostream settings", 256);
+	test_set = p_new(pool, struct ssl_iostream_settings, 1);
+	test_set->pool = pool;
 	test_set->ca.content = test_ca_cert;
 	test_set->skip_crl_check = TRUE;
+
+	return test_set;
 }

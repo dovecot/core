@@ -4,6 +4,6 @@
 struct ssl_iostream_settings;
 
 void ssl_iostream_test_settings_server(struct ssl_iostream_settings *test_set);
-void ssl_iostream_test_settings_client(struct ssl_iostream_settings *test_set);
+struct ssl_iostream_settings *ssl_iostream_test_settings_client(void);
 
 #endif

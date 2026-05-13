@@ -4130,13 +4130,18 @@ test_client_invalid_ssl_certificate(
 	struct smtp_client_connection *sconn;
 	struct smtp_client_command *scmd;
 	struct _invalid_ssl_certificate *ctx;
+	struct smtp_client_settings client_set_new = *client_set;
+	const struct ssl_iostream_settings *ssl_client_set;
 
 	test_expect_errors(2);
 
 	ctx = i_new(struct _invalid_ssl_certificate, 1);
 	ctx->count = 2;
 
-	smtp_client = smtp_client_init(client_set);
+	ssl_client_set = ssl_iostream_test_settings_client();
+	client_set_new.ssl = ssl_client_set;
+	smtp_client = smtp_client_init(&client_set_new);
+	settings_free(ssl_client_set);
 
 	sconn = smtp_client_connection_create(
 		smtp_client, SMTP_PROTOCOL_SMTP, "example.com", bind_ports[0],
@@ -4164,13 +4169,8 @@ test_client_invalid_ssl_certificate(
 static void test_invalid_ssl_certificate(void)
 {
 	struct smtp_client_settings smtp_client_set;
-	struct ssl_iostream_settings ssl_set;
-
-	/* ssl settings */
-	ssl_iostream_test_settings_client(&ssl_set);
 
 	test_client_defaults(&smtp_client_set, NULL);
-	smtp_client_set.ssl = &ssl_set;
 
 	test_begin("invalid ssl certificate");
 	test_run_client_server(&smtp_client_set,
@@ -4261,22 +4261,28 @@ static bool
 test_client_channel_binding(const struct smtp_client_settings *client_set)
 {
 	struct smtp_client_connection *conn;
-	struct smtp_client_settings smtp_set;
+	struct smtp_client_settings client_set_new = *client_set;
+	struct ssl_iostream_settings *ssl_client_set; 
 
 	test_expect_errors(1);
 
-	smtp_client = smtp_client_init(client_set);
+	/* the test server's certificate isn't valid for its address */
+	ssl_client_set = ssl_iostream_test_settings_client();
+	ssl_client_set->allow_invalid_cert = TRUE;
+	client_set_new.ssl = ssl_client_set;
+	smtp_client = smtp_client_init(&client_set_new);
 
-	i_zero(&smtp_set);
-	smtp_set.username = "peter.wolfsen";
-	smtp_set.password = "crybaby";
-	smtp_set.sasl_mechanisms = "SCRAM-SHA-256-PLUS";
-	smtp_set.ssl = client_set->ssl;
-	smtp_set.ssl_allow_invalid_cert = TRUE;
+	i_zero(&client_set_new);
+	client_set_new.username = "peter.wolfsen";
+	client_set_new.password = "crybaby";
+	client_set_new.sasl_mechanisms = "SCRAM-SHA-256-PLUS";
+	client_set_new.ssl = ssl_client_set;
 
 	conn = smtp_client_connection_create(
 		smtp_client, SMTP_PROTOCOL_SMTP, "example.com",
-		bind_ports[0], SMTP_CLIENT_SSL_MODE_IMMEDIATE, &smtp_set);
+		bind_ports[0], SMTP_CLIENT_SSL_MODE_IMMEDIATE, &client_set_new);
+	settings_free(ssl_client_set);
+
 	smtp_client_connection_connect(
 		conn, test_client_channel_binding_login_cb, conn);
 	return TRUE;
@@ -4287,14 +4293,8 @@ test_client_channel_binding(const struct smtp_client_settings *client_set)
 static void test_channel_binding(void)
 {
 	struct smtp_client_settings smtp_client_set;
-	struct ssl_iostream_settings ssl_set;
-
-	/* the test server's certificate isn't valid for its address */
-	ssl_iostream_test_settings_client(&ssl_set);
-	ssl_set.allow_invalid_cert = TRUE;
 
 	test_client_defaults(&smtp_client_set, NULL);
-	smtp_client_set.ssl = &ssl_set;
 
 	test_begin("authentication channel binding");
 	test_run_client_server(&smtp_client_set,
