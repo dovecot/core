@@ -426,6 +426,7 @@ struct cassandra_result {
 	bool finished:1;
 	bool paging_continues:1;
 	bool batch_unlogged:1;
+	bool any_uncertain:1;
 };
 
 struct cassandra_transaction_context {
@@ -2109,9 +2110,13 @@ static void query_callback(CassFuture *future, void *context)
 		counters_inc_error(db, error);
 		/* Timeouts bring uncertainty whether the query succeeded or
 		   not. Also _SERVER_UNAVAILABLE could have actually written
-		   enough copies of the data for the query to succeed. */
-		result->api.error_type =
-			driver_cassandra_error_is_uncertain(error) ?
+		   enough copies of the data for the query to succeed. Once
+		   any attempt has been uncertain, the result stays uncertain
+		   even if a later fallback attempt fails with a non-uncertain
+		   error - the original write may have applied. */
+		if (driver_cassandra_error_is_uncertain(error))
+			result->any_uncertain = TRUE;
+		result->api.error_type = result->any_uncertain ?
 			SQL_RESULT_ERROR_TYPE_WRITE_UNCERTAIN :
 			SQL_RESULT_ERROR_TYPE_UNKNOWN;
 		result->error = i_strdup_printf(
