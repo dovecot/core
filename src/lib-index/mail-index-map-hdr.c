@@ -247,6 +247,12 @@ bool mail_index_check_header_compat(const struct mail_index_header *hdr,
 			hdr->base_header_size, hdr->header_size);
 		return FALSE;
 	}
+	if (hdr->record_size < sizeof(struct mail_index_record)) {
+		*error_r = t_strdup_printf(
+			"record_size too small (%u < %zu)",
+			hdr->record_size, sizeof(struct mail_index_record));
+		return FALSE;
+	}
 	if (hdr->header_size > file_size) {
 		*error_r = t_strdup_printf(
 			"Header size is larger than file (%u > %"PRIuUOFF_T")",

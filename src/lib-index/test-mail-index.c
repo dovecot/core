@@ -212,6 +212,60 @@ static void test_mail_index_corruption_message_count(void)
 	test_end();
 }
 
+static void test_mail_index_corruption_record_size_zero(void)
+{
+	struct mail_index *index;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+
+	test_begin("mail index corruption: record_size zero");
+	index = test_mail_index_init(TRUE);
+
+	/* make dovecot.index at least MAIL_INDEX_MMAP_MIN_SIZE bytes */
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view,
+			MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+
+	uint32_t uid_validity = 1234;
+	mail_index_update_header(trans,
+				 offsetof(struct mail_index_header, uid_validity),
+				 &uid_validity, sizeof(uid_validity), TRUE);
+
+	uint32_t seq;
+	for (uint32_t uid = 1; uid <= 10000; uid++)
+		mail_index_append(trans, uid, &seq);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	mail_index_view_close(&view);
+
+	/* write dovecot.index */
+	struct mail_index_sync_ctx *sync_ctx;
+	test_assert(mail_index_sync_begin(index, &sync_ctx, &view, &trans, 0) > 0);
+	mail_index_write(index, FALSE, "test");
+	test_assert(mail_index_sync_commit(&sync_ctx) == 0);
+
+	test_mail_index_close(&index);
+
+	/* write a corrupted record_size */
+	const char *path = t_strconcat(test_mail_index_get_dir(),
+				       "/test.dovecot.index", NULL);
+	int fd = open(path, O_RDWR);
+	if (fd == -1)
+		i_fatal("open(%s) failed: %m", path);
+
+	uint32_t record_size = 0;
+	test_assert(pwrite(fd, &record_size, sizeof(record_size),
+			   offsetof(struct mail_index_header, record_size)) ==
+		    sizeof(record_size));
+	i_close_fd(&fd);
+
+	test_expect_error_string("record_size too small");
+	index = test_mail_index_open(FALSE);
+	test_expect_no_more_errors();
+	test_mail_index_deinit(&index);
+
+	test_end();
+}
+
 static void test_mail_index_map_fsck_fail_restores_map(void)
 {
 	struct mail_index *index;
@@ -272,6 +326,7 @@ int main(void)
 		test_mail_index_rotate,
 		test_mail_index_new_extension,
 		test_mail_index_corruption_message_count,
+		test_mail_index_corruption_record_size_zero,
 		test_mail_index_map_fsck_fail_restores_map,
 		NULL
 	};
