@@ -1129,6 +1129,10 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 			e_error(conn->event,
 				"Failed to create initial SASL reply: %s",
 				error);
+			struct imapc_command_reply reply = {
+				.state = IMAPC_COMMAND_STATE_DISCONNECTED,
+			};
+			imapc_auth_failed(conn, &reply, error);
 			imapc_connection_disconnect(conn);
 			return;
 		}
