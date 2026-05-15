@@ -1009,15 +1009,20 @@ static bool imapc_connection_have_auth(struct imapc_connection *conn,
 }
 
 static const char *const *
-imapc_connection_get_auth_mechs(struct imapc_connection *conn)
+imapc_connection_get_auth_mechs(struct imapc_connection *conn,
+				bool *login_disabled_r)
 {
 	const char *auth;
 	char *const *capa;
 	ARRAY_TYPE(const_string) mechs;
 
+	*login_disabled_r = FALSE;
+
 	t_array_init(&mechs, 8);
 	for (capa = conn->capabilities_list; *capa != NULL; capa++) {
-		if (str_begins_icase(*capa, "AUTH=", &auth))
+		if (strcasecmp(*capa, "LOGINDISABLED") == 0)
+			*login_disabled_r = TRUE;
+		else if (str_begins_icase(*capa, "AUTH=", &auth))
 			array_append(&mechs, &auth, 1);
 	}
 	array_append_space(&mechs);
@@ -1085,6 +1090,8 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	struct imapc_client *client = conn->client;
 	const struct imapc_settings *set = client->set;
 	struct imapc_command *cmd;
+	const char *const *server_mechanisms;
+	bool login_disabled = FALSE;
 	struct client_auth_settings sasl_set;
 	const char *mech_name = NULL, *error;
 	int ret;
@@ -1102,6 +1109,8 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		}
 	}
 
+	server_mechanisms = imapc_connection_get_auth_mechs(conn, &login_disabled);
+
 	if ((set->parsed_features & IMAPC_FEATURE_PROXYAUTH) != 0 &&
 	    *set->imapc_master_user != '\0') {
 		/* We can use LOGIN command */
@@ -1114,7 +1123,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 				    set->imapc_master_user, client->password);
 		return;
 	}
-	if (mech_name == NULL &&
+	if (!login_disabled && mech_name == NULL &&
 	    ((*set->imapc_master_user == '\0' &&
 	      !need_literal(set->imapc_user) && !need_literal(client->password)) ||
 	     (conn->capabilities & IMAPC_CAPABILITY_AUTH_PLAIN) == 0)) {
@@ -1142,7 +1151,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		.protocol = "imap",
 		.host = set->imapc_host,
 		.port = set->imapc_port,
-		.server_mechanisms = imapc_connection_get_auth_mechs(conn),
+		.server_mechanisms = server_mechanisms,
 	};
 
 	ret = dsasl_client_session_create(client->sasl_client, conn->event,
