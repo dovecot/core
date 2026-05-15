@@ -51,6 +51,7 @@ SUBDIRS = \
 	$(LIB_LUA) \
 	lib-language \
 	lib-imap-client \
+	lib-pop3-client \
 	lib-compression \
 	lib-index \
 	lib-storage \

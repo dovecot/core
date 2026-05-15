@@ -122,6 +122,7 @@ shlibs = \
 	index/mbox/libstorage_mbox.la \
 	index/imapc/libstorage_imapc.la \
 	../lib-imap-client/libimap_client.la \
+	../lib-pop3-client/libpop3_client.la \
 	index/pop3c/libstorage_pop3c.la \
 	index/raw/libstorage_raw.la \
 	list/libstorage_list.la \

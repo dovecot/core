@@ -875,6 +875,7 @@ src/lib-language/Makefile
 src/lib-http/Makefile
 src/lib-oauth2/Makefile
 src/lib-pop3/Makefile
+src/lib-pop3-client/Makefile
 src/lib-imap/Makefile
 src/lib-imap-storage/Makefile
 src/lib-imap-client/Makefile
