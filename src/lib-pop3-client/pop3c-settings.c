@@ -8,6 +8,10 @@
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct pop3c_settings)
 
+#undef DEF_MSECS
+#define DEF_MSECS(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name##_msecs, struct pop3c_settings)
+
 static const struct setting_define pop3c_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "pop3c" },
 	DEF(STR, pop3c_host),
@@ -22,6 +26,9 @@ static const struct setting_define pop3c_setting_defines[] = {
 
 	DEF(PATH_DIR, pop3c_rawlog_dir),
 	DEF(BOOL, pop3c_quick_received_date),
+
+	DEF_MSECS(TIME_MSECS, pop3c_connect_timeout),
+	DEF_MSECS(TIME_MSECS, pop3c_cmd_timeout),
 
 	DEF(BOOLLIST, pop3c_features),
 
@@ -41,6 +48,9 @@ static const struct pop3c_settings pop3c_default_settings = {
 
 	.pop3c_rawlog_dir = "",
 	.pop3c_quick_received_date = FALSE,
+
+	.pop3c_connect_timeout_msecs = (1000*30),
+	.pop3c_cmd_timeout_msecs = (1000*60*5),
 
 	.pop3c_features = ARRAY_INIT
 };
@@ -88,6 +98,14 @@ static bool pop3c_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 {
 	struct pop3c_settings *set = _set;
 
+	if (set->pop3c_connect_timeout_msecs == 0) {
+		*error_r = "pop3c_connect_timeout must not be 0";
+		return FALSE;
+	}
+	if (set->pop3c_cmd_timeout_msecs == 0) {
+		*error_r = "pop3c_cmd_timeout must not be 0";
+		return FALSE;
+	}
 	if (pop3c_settings_parse_features(set, error_r) < 0)
 		return FALSE;
 	return TRUE;

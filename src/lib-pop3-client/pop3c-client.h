@@ -39,6 +39,10 @@ struct pop3c_client_settings {
 	enum pop3c_features parsed_features;
 
 	const char *rawlog_dir;
+
+	unsigned int connect_timeout_msecs;
+	unsigned int cmd_timeout_msecs;
+
 	bool debug;
 };
 

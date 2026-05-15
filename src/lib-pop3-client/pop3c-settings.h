@@ -25,6 +25,9 @@ struct pop3c_settings {
 	const char *pop3c_rawlog_dir;
 	bool pop3c_quick_received_date;
 
+	unsigned int pop3c_connect_timeout_msecs;
+	unsigned int pop3c_cmd_timeout_msecs;
+
 	ARRAY_TYPE(const_string) pop3c_features;
 	enum pop3c_features parsed_features;
 };

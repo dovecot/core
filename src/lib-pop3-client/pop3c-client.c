@@ -17,12 +17,11 @@
 #include "settings.h"
 #include "dns-lookup.h"
 #include "pop3c-client.h"
+#include "pop3c-settings.h"
 
 #include <unistd.h>
 
 #define POP3C_MAX_INBUF_SIZE (1024*32)
-#define POP3C_CONNECT_TIMEOUT_MSECS (1000*30)
-#define POP3C_COMMAND_TIMEOUT_MSECS (1000*60*5)
 
 enum pop3c_client_state {
 	/* No connection */
@@ -130,6 +129,8 @@ pop3c_client_init(const struct pop3c_client_settings *set,
 	client->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
 	client->set.ssl_mode = set->ssl_mode;
 	client->set.ssl_allow_invalid_cert = set->ssl_allow_invalid_cert;
+	client->set.connect_timeout_msecs = set->connect_timeout_msecs;
+	client->set.cmd_timeout_msecs = set->cmd_timeout_msecs;
 	return client;
 }
 
@@ -233,20 +234,23 @@ static void pop3c_client_timeout(struct pop3c_client *client)
 	switch (client->state) {
 	case POP3C_CLIENT_STATE_CONNECTING:
 		e_error(client->event,
-			"connect(%s, %u) timed out after %u seconds",
+			"connect(%s, %u) timed out after %u.%03u seconds",
 			net_ip2addr(&client->ip), client->set.port,
-			POP3C_CONNECT_TIMEOUT_MSECS/1000);
+			client->set.connect_timeout_msecs / 1000,
+			client->set.connect_timeout_msecs % 1000);
 		break;
 	case POP3C_CLIENT_STATE_DONE:
 		e_error(client->event,
-			"Command timed out after %u seconds",
-			POP3C_COMMAND_TIMEOUT_MSECS/1000);
+			"Command timed out after %u.%03u seconds",
+			client->set.cmd_timeout_msecs / 1000,
+			client->set.cmd_timeout_msecs % 1000);
 		break;
 	default:
 		e_error(client->event,
-			"Timed out in state %s after %u seconds",
+			"Timed out in state %s after %u.%03u seconds",
 			pop3c_client_state_names[client->state],
-			POP3C_CONNECT_TIMEOUT_MSECS/1000);
+			client->set.connect_timeout_msecs / 1000,
+			client->set.connect_timeout_msecs % 1000);
 		break;
 	}
 	pop3c_client_disconnect(client);
@@ -306,7 +310,7 @@ void pop3c_client_wait_one(struct pop3c_client *client)
 		if (pop3c_client_dns_lookup(client) < 0)
 			failed = TRUE;
 	} else if (client->to == NULL) {
-		client->to = timeout_add(POP3C_COMMAND_TIMEOUT_MSECS,
+		client->to = timeout_add(client->set.cmd_timeout_msecs,
 					 pop3c_client_timeout, client);
 		timeout_added = TRUE;
 	}
@@ -429,7 +433,7 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 		/* the PASS reply can take a long time.
 		   switch to command timeout. */
 		timeout_remove(&client->to);
-		client->to = timeout_add(POP3C_COMMAND_TIMEOUT_MSECS,
+		client->to = timeout_add(client->set.cmd_timeout_msecs,
 					 pop3c_client_timeout, client);
 
 		o_stream_nsend_str(client->output,
@@ -649,7 +653,7 @@ static void pop3c_client_connect_ip(struct pop3c_client *client)
 	}
 	client->io = io_add(client->fd, IO_WRITE,
 			    pop3c_client_connected, client);
-	client->to = timeout_add(POP3C_CONNECT_TIMEOUT_MSECS,
+	client->to = timeout_add(client->set.connect_timeout_msecs,
 				 pop3c_client_timeout, client);
 	e_debug(client->event, "Connecting to %s:%u",
 		net_ip2addr(&client->ip), client->set.port);
