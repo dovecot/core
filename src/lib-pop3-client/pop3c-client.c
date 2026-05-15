@@ -206,6 +206,8 @@ static void pop3c_client_disconnect(struct pop3c_client *client)
 {
 	client->state = POP3C_CLIENT_STATE_DISCONNECTED;
 
+	e_debug(client->event, "Disconnected");
+
 	if (client->running)
 		io_loop_stop(current_ioloop);
 
@@ -795,7 +797,12 @@ static void pop3c_client_input(struct pop3c_client *client)
 	} while (ret > 0);
 
 	if (ret < 0) {
-		e_error(client->event, "Server disconnected unexpectedly");
+		if (array_count(&client->commands) > 0) {
+			e_error(client->event,
+				"Server disconnected unexpectedly "
+				"(%u commands pending)",
+				array_count(&client->commands));
+		}
 		pop3c_client_disconnect(client);
 	}
 }
