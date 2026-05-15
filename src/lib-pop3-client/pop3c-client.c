@@ -315,7 +315,8 @@ void pop3c_client_wait_one(struct pop3c_client *client)
 	i_assert(client->fd != -1 ||
 		 client->state == POP3C_CLIENT_STATE_CONNECTING);
 	i_assert(array_count(&client->commands) > 0 ||
-		 client->state == POP3C_CLIENT_STATE_CONNECTING);
+		 (client->state != POP3C_CLIENT_STATE_DISCONNECTED &&
+		  client->state != POP3C_CLIENT_STATE_DONE));
 
 	ioloop = io_loop_create();
 	pop3c_client_ioloop_changed(client);
@@ -837,6 +838,10 @@ pop3c_client_cmd_line_async(struct pop3c_client *client, const char *cmdline,
 			    pop3c_cmd_callback_t *callback, void *context)
 {
 	struct pop3c_client_cmd *cmd;
+
+	while (client->state != POP3C_CLIENT_STATE_DISCONNECTED &&
+	       client->state != POP3C_CLIENT_STATE_DONE)
+		pop3c_client_wait_one(client);
 
 	if ((client->capabilities & POP3C_CAPABILITY_PIPELINING) == 0) {
 		while (array_count(&client->commands) > 0)
