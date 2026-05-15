@@ -316,6 +316,16 @@ test_error_handler(const struct failure_context *ctx,
 		suppress = expect_error_check(&expected_error_str, format, args2);
 		expected_errors--;
 		va_end(args2);
+
+		if (event_want_debug(test_event)) {
+			va_list args3;
+			VA_COPY(args3, args);
+			e_debug(test_event, "%s: %s",
+				(suppress ?
+				 "Expected error" : "Unexpected error"),
+				t_strdup_vprintf(format, args3));
+			va_end(args3);
+		}
 	} else {
 		test_success = FALSE;
 	}
