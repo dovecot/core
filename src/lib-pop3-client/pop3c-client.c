@@ -16,6 +16,7 @@
 #include "str.h"
 #include "settings.h"
 #include "dns-lookup.h"
+#include "pop3-protocol.h"
 #include "pop3c-client.h"
 #include "pop3c-settings.h"
 
@@ -108,6 +109,12 @@ pop3c_client_init(const struct pop3c_client_settings *set,
 	struct pop3c_client *client;
 	pool_t pool;
 
+	i_assert(set->host != NULL && *set->host != '\0');
+	i_assert(set->username != NULL && *set->username != '\0');
+	i_assert(set->password != NULL && *set->password != '\0');
+	i_assert(set->temp_path_prefix != NULL &&
+		 *set->temp_path_prefix != '\0');
+
 	pool = pool_alloconly_create("pop3c client", 1024);
 	client = p_new(pool, struct pop3c_client, 1);
 	client->pool = pool;
@@ -119,7 +126,7 @@ pop3c_client_init(const struct pop3c_client_settings *set,
 
 	client->set.debug = set->debug;
 	client->set.host = p_strdup(pool, set->host);
-	client->set.port = set->port;
+	client->set.port = (set->port != 0 ? set->port : POP3_DEFAULT_PORT);
 	client->set.master_user = p_strdup_empty(pool, set->master_user);
 	client->set.username = p_strdup(pool, set->username);
 	client->set.password = p_strdup(pool, set->password);
@@ -260,7 +267,8 @@ static int pop3c_client_dns_lookup(struct pop3c_client *client)
 {
 	i_assert(client->state == POP3C_CLIENT_STATE_CONNECTING);
 
-	if (client->set.dns_client_socket_path[0] == '\0') {
+	if (client->set.dns_client_socket_path == NULL ||
+	    client->set.dns_client_socket_path[0] == '\0') {
 		struct ip_addr *ips;
 		unsigned int ips_count;
 		int ret;
@@ -597,7 +605,7 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 		return -1;
 	}
 
-	if (*client->set.rawlog_dir != '\0') {
+	if (client->set.rawlog_dir != NULL && *client->set.rawlog_dir != '\0') {
 		iostream_rawlog_create(client->event, "pop3c_rawlog_dir",
 				       client->set.rawlog_dir,
 				       &client->input, &client->output);
@@ -645,7 +653,8 @@ static void pop3c_client_connect_ip(struct pop3c_client *client)
 		o_stream_create_fd(client->fd, SIZE_MAX);
 	o_stream_set_no_error_handling(client->output, TRUE);
 
-	if (*client->set.rawlog_dir != '\0' &&
+	if (client->set.rawlog_dir != NULL &&
+	    *client->set.rawlog_dir != '\0' &&
 	    client->set.ssl_mode != POP3C_CLIENT_SSL_MODE_IMMEDIATE) {
 		iostream_rawlog_create(client->event, "pop3c_rawlog_dir",
 				       client->set.rawlog_dir,
@@ -842,6 +851,9 @@ static int seekable_fd_callback(const char **path_r, void *context)
 	struct pop3c_client *client = context;
 	string_t *path;
 	int fd;
+
+	i_assert(client->set.temp_path_prefix != NULL &&
+		 *client->set.temp_path_prefix != '\0');
 
 	path = t_str_new(128);
 	str_append(path, client->set.temp_path_prefix);
