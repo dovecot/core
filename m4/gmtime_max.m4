@@ -8,7 +8,7 @@ AC_DEFUN([DOVECOT_GMTIME_MAX], [
         FILE *f;
         int bits;
     
-        for (bits = 1; bits < sizeof(time_t)*8; bits++) {
+        for (bits = 1; bits < sizeof(time_t)*8 - 1; bits++) {
           time_t t = ((time_t)1 << bits) - 1;
           if (gmtime(&t) == NULL) {
             bits--;
