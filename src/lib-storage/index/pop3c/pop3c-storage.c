@@ -72,8 +72,13 @@ static struct pop3c_client *
 pop3c_client_create_from_set(struct mail_storage *storage,
 			     const struct pop3c_settings *set)
 {
+	struct pop3c_parameters params = {};
 	struct pop3c_client_settings client_set;
 	string_t *str;
+
+	str = t_str_new(128);
+	mail_user_set_get_temp_prefix(str, storage->user->set);
+	params.temp_path_prefix = str_c(str);
 
 	i_zero(&client_set);
 	client_set.host = set->pop3c_host;
@@ -81,11 +86,6 @@ pop3c_client_create_from_set(struct mail_storage *storage,
 	client_set.username = set->pop3c_user;
 	client_set.master_user = set->pop3c_master_user;
 	client_set.password = set->pop3c_password;
-
-	str = t_str_new(128);
-	mail_user_set_get_temp_prefix(str, storage->user->set);
-	client_set.temp_path_prefix = str_c(str);
-
 	client_set.debug = event_want_debug(storage->event);
 	client_set.rawlog_dir = set->pop3c_rawlog_dir;
 
@@ -98,7 +98,7 @@ pop3c_client_create_from_set(struct mail_storage *storage,
 		client_set.ssl_mode = POP3C_CLIENT_SSL_MODE_STARTTLS;
 	else
 		client_set.ssl_mode = POP3C_CLIENT_SSL_MODE_NONE;
-	return pop3c_client_init(&client_set, storage->event);
+	return pop3c_client_init(&client_set, &params, storage->event);
 }
 
 static struct mailbox *

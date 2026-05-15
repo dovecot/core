@@ -77,6 +77,7 @@ struct pop3c_client {
 	pool_t pool;
 	struct event *event;
 	struct pop3c_client_settings set;
+	struct pop3c_parameters params;
 	struct ip_addr ip;
 
 	int fd;
@@ -110,6 +111,7 @@ static void pop3c_client_input(struct pop3c_client *client);
 
 struct pop3c_client *
 pop3c_client_init(const struct pop3c_client_settings *set,
+		  const struct pop3c_parameters *params,
 		  struct event *event_parent)
 {
 	struct pop3c_client *client;
@@ -118,8 +120,8 @@ pop3c_client_init(const struct pop3c_client_settings *set,
 	i_assert(set->host != NULL && *set->host != '\0');
 	i_assert(set->username != NULL && *set->username != '\0');
 	i_assert(set->password != NULL && *set->password != '\0');
-	i_assert(set->temp_path_prefix != NULL &&
-		 *set->temp_path_prefix != '\0');
+	i_assert(params->temp_path_prefix != NULL &&
+		 *params->temp_path_prefix != '\0');
 
 	pool = pool_alloconly_create("pop3c client", 1024);
 	client = p_new(pool, struct pop3c_client, 1);
@@ -136,12 +138,13 @@ pop3c_client_init(const struct pop3c_client_settings *set,
 	client->set.master_user = p_strdup_empty(pool, set->master_user);
 	client->set.username = p_strdup(pool, set->username);
 	client->set.password = p_strdup(pool, set->password);
-	client->set.temp_path_prefix = p_strdup(pool, set->temp_path_prefix);
 	client->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
 	client->set.ssl_mode = set->ssl_mode;
 	client->set.ssl_allow_invalid_cert = set->ssl_allow_invalid_cert;
 	client->set.connect_timeout_msecs = set->connect_timeout_msecs;
 	client->set.cmd_timeout_msecs = set->cmd_timeout_msecs;
+	client->params.temp_path_prefix =
+		p_strdup(pool, params->temp_path_prefix);
 	return client;
 }
 
@@ -379,7 +382,7 @@ pop3c_client_get_sasl_plain_request(struct pop3c_client *client)
 		str_append(in, set->username);
 	}
 	str_append_c(in, '\0');
-	str_append(in, set->password);
+	str_append(in, client->set.password);
 
 	out = t_str_new(128);
 	base64_encode(str_data(in), str_len(in), out);
@@ -855,11 +858,11 @@ static int seekable_fd_callback(const char **path_r, void *context)
 	string_t *path;
 	int fd;
 
-	i_assert(client->set.temp_path_prefix != NULL &&
-		 *client->set.temp_path_prefix != '\0');
+	i_assert(client->params.temp_path_prefix != NULL &&
+		 *client->params.temp_path_prefix != '\0');
 
 	path = t_str_new(128);
-	str_append(path, client->set.temp_path_prefix);
+	str_append(path, client->params.temp_path_prefix);
 	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
 	if (fd == -1) {
 		e_error(client->event,

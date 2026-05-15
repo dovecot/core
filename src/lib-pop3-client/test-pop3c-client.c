@@ -221,7 +221,6 @@ test_run_client(test_client_init_t *client_test, const char *temp_path_prefix)
 		.username = set->pop3c_user,
 		.master_user = set->pop3c_master_user,
 		.password = set->pop3c_password,
-		.temp_path_prefix = temp_path_prefix,
 		.connect_timeout_msecs = set->pop3c_connect_timeout_msecs,
 		.cmd_timeout_msecs = set->pop3c_cmd_timeout_msecs,
 	};
@@ -234,8 +233,13 @@ test_run_client(test_client_init_t *client_test, const char *temp_path_prefix)
 	else
 		pop3_set.ssl_mode = POP3C_CLIENT_SSL_MODE_NONE;
 
+	struct pop3c_parameters pop3c_params = {
+		.temp_path_prefix = temp_path_prefix,
+	};
+
 	ioloop = io_loop_create();
-	pop3c_client = pop3c_client_init(&pop3_set, test_set.event);
+	pop3c_client = pop3c_client_init(&pop3_set, &pop3c_params,
+					 test_set.event);
 	settings_free(set);
 	client_test();
 	if (pop3c_client != NULL)
