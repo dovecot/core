@@ -4,6 +4,10 @@
 #include "settings-parser.h"
 #include "pop3c-settings.h"
 
+/* <settings checks> */
+#include "pop3-protocol.h"
+/* </settings checks> */
+
 #undef DEF
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct pop3c_settings)
@@ -37,7 +41,7 @@ static const struct setting_define pop3c_setting_defines[] = {
 
 static const struct pop3c_settings pop3c_default_settings = {
 	.pop3c_host = "",
-	.pop3c_port = 110,
+	.pop3c_port = POP3_DEFAULT_PORT,
 
 	.pop3c_user = "%{owner_user}",
 	.pop3c_master_user = "",
