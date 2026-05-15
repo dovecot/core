@@ -24,3 +24,18 @@ headers = \
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
+
+test_programs = \
+	test-pop3c-client
+
+test_deps = \
+	$(noinst_LTLIBRARIES) \
+	../lib-dovecot/libdovecot.la
+
+test_libs = \
+	$(test_deps) \
+	$(LIBDOVECOT_TEST_LIBS)
+
+test_pop3c_client_SOURCES = test-pop3c-client.c
+test_pop3c_client_LDADD = $(test_libs)
+test_pop3c_client_DEPENDENCIES = $(test_deps)
