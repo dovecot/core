@@ -226,7 +226,7 @@ gss_parse_sec_context(struct gss_ctx_id_struct *ctx,
 
 	if (_decode_uint32(&input, &input_left, &ctx->mech_type.length) < 0)
 	    return GSS_S_BAD_MECH;
-	if (ctx->mech_type.length > input_left)
+	if (ctx->mech_type.length == 0 || ctx->mech_type.length > input_left)
 	    return GSS_S_BAD_MECH;
 	ctx->mech_type.elements = p_malloc(ctx->pool, ctx->mech_type.length);
 	memcpy(ctx->mech_type.elements, input, ctx->mech_type.length);
