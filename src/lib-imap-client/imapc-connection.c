@@ -1056,10 +1056,10 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 
 	if (array_not_empty(&set->imapc_sasl_mechanisms)) {
 		if (imapc_connection_get_sasl_mech(conn, &sasl_mech, &error) < 0) {
-			struct imapc_command_reply reply;
-			i_zero(&reply);
-			reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
-			reply.text_full = "";
+			struct imapc_command_reply reply = {
+				.state = IMAPC_COMMAND_STATE_DISCONNECTED,
+				.text_full = "",
+			};
 			imapc_auth_failed(conn, &reply, error);
 			imapc_connection_disconnect(conn);
 			return;
