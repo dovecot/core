@@ -26,8 +26,12 @@ struct gss_ctx_id_struct {
 	gss_OID_desc mech_type;
 };
 
-gss_OID GSS_C_NT_HOSTBASED_SERVICE = NULL;
-const gss_OID GSS_KRB5_NT_PRINCIPAL_NAME = NULL;
+static gss_OID_desc GSS_C_NT_HOSTBASED_SERVICE_DESC =
+	{ .length = 1, .elements = "\x01" };
+static gss_OID_desc GSS_KRB5_NT_PRINCIPAL_NAME_DESC =
+	{ .length = 1, .elements = "\x02" };
+gss_OID GSS_C_NT_HOSTBASED_SERVICE = &GSS_C_NT_HOSTBASED_SERVICE_DESC;
+const gss_OID GSS_KRB5_NT_PRINCIPAL_NAME = &GSS_KRB5_NT_PRINCIPAL_NAME_DESC;
 
 static void gss_alloc_buffer(gss_buffer_t buffer, size_t length);
 
