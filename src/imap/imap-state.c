@@ -505,7 +505,7 @@ import_state_mailbox_struct(const unsigned char *data, size_t size,
 	}
 
 	/* GUID */
-	if (end-p < (int)sizeof(state_r->mailbox_guid)) {
+	if (p >= end || (size_t)(end-p) < sizeof(state_r->mailbox_guid)) {
 		*error_r = "Mailbox state truncated at GUID";
 		return 0;
 	}
