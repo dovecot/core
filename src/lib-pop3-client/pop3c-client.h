@@ -15,6 +15,7 @@ enum pop3c_command_state {
 	POP3C_COMMAND_STATE_ERR,
 	POP3C_COMMAND_STATE_DISCONNECTED
 };
+extern const char *pop3c_command_state_names[];
 
 enum pop3c_client_ssl_mode {
 	POP3C_CLIENT_SSL_MODE_NONE,

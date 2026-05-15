@@ -24,6 +24,12 @@
 
 #define POP3C_MAX_INBUF_SIZE (1024*32)
 
+const char *pop3c_command_state_names[] = {
+	"OK", "ERR", "(disconnected)"
+};
+static_assert_array_size(pop3c_command_state_names,
+			 POP3C_COMMAND_STATE_DISCONNECTED + 1);
+
 enum pop3c_client_state {
 	/* No connection */
 	POP3C_CLIENT_STATE_DISCONNECTED = 0,
