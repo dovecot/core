@@ -31,7 +31,6 @@ struct pop3c_client_settings {
 	const char *username;
 	const char *password;
 
-	const char *dns_client_socket_path;
 	const char *temp_path_prefix;
 
 	enum pop3c_client_ssl_mode ssl_mode;

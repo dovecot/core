@@ -136,8 +136,6 @@ pop3c_client_init(const struct pop3c_client_settings *set,
 	client->set.master_user = p_strdup_empty(pool, set->master_user);
 	client->set.username = p_strdup(pool, set->username);
 	client->set.password = p_strdup(pool, set->password);
-	client->set.dns_client_socket_path =
-		p_strdup(pool, set->dns_client_socket_path);
 	client->set.temp_path_prefix = p_strdup(pool, set->temp_path_prefix);
 	client->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
 	client->set.ssl_mode = set->ssl_mode;
@@ -271,39 +269,20 @@ static void pop3c_client_timeout(struct pop3c_client *client)
 	pop3c_client_disconnect(client);
 }
 
-static int pop3c_client_dns_lookup(struct pop3c_client *client)
+static void pop3c_client_dns_lookup(struct pop3c_client *client)
 {
 	i_assert(client->state == POP3C_CLIENT_STATE_CONNECTING);
 
-	if (client->set.dns_client_socket_path == NULL ||
-	    client->set.dns_client_socket_path[0] == '\0') {
-		struct ip_addr *ips;
-		unsigned int ips_count;
-		int ret;
-
-		ret = net_gethostbyname(client->set.host, &ips, &ips_count);
-		if (ret != 0) {
-			e_error(client->event,
-				"net_gethostbyname() failed: %s",
-				net_gethosterror(ret));
-			return -1;
-		}
-		i_assert(ips_count > 0);
-		client->ip = ips[0];
-		pop3c_client_connect_ip(client);
-	} else {
-		/* The result is delivered asynchronously via
-		   pop3c_dns_callback(). */
-		dns_lookup(client->set.host, NULL, client->event,
-			   pop3c_dns_callback, client, &client->dns_lookup);
-	}
-	return 0;
+	/* The result is delivered asynchronously via
+	   pop3c_dns_callback(). */
+	dns_lookup(client->set.host, NULL, client->event,
+		   pop3c_dns_callback, client, &client->dns_lookup);
 }
 
 void pop3c_client_wait_one(struct pop3c_client *client)
 {
 	struct ioloop *ioloop, *prev_ioloop = current_ioloop;
-	bool timeout_added = FALSE, failed = FALSE;
+	bool timeout_added = FALSE;
 
 	if (client->state == POP3C_CLIENT_STATE_DISCONNECTED &&
 	    array_count(&client->commands) > 0) {
@@ -324,19 +303,16 @@ void pop3c_client_wait_one(struct pop3c_client *client)
 	if (client->ip.family == 0) {
 		/* we're connecting, start DNS lookup after our ioloop
 		   is created */
-		if (pop3c_client_dns_lookup(client) < 0)
-			failed = TRUE;
+		pop3c_client_dns_lookup(client);
 	} else if (client->to == NULL) {
 		client->to = timeout_add(client->set.cmd_timeout_msecs,
 					 pop3c_client_timeout, client);
 		timeout_added = TRUE;
 	}
 
-	if (!failed) {
-		client->running = TRUE;
-		io_loop_run(ioloop);
-		client->running = FALSE;
-	}
+	client->running = TRUE;
+	io_loop_run(ioloop);
+	client->running = FALSE;
 
 	if (timeout_added && client->to != NULL)
 		timeout_remove(&client->to);
