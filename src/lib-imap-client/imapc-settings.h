@@ -7,6 +7,8 @@
 #define IMAPC_DEFAULT_MAX_IDLE_TIME (60*29)
 
 /* <settings checks> */
+#define IMAPC_SETTINGS_FILTER "imapc"
+
 enum imapc_features {
 	IMAPC_FEATURE_NO_FETCH_SIZE		= 0x01,
 	IMAPC_FEATURE_GUID_FORCED		= 0x02,

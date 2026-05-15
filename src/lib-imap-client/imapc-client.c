@@ -43,6 +43,7 @@ int imapc_client_init(const struct imapc_parameters *params,
 		*params->temp_path_prefix != '\0');
 
 	event = event_create(event_parent);
+	settings_event_add_filter_name(event, IMAPC_SETTINGS_FILTER);
 
 	if (settings_get(event, &imapc_setting_parser_info, 0,
 			 &set, error_r) < 0) {
