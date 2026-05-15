@@ -378,6 +378,10 @@ static void fuzz_assert_success_validity(struct fuzz_sasl_context *fctx)
 		SASL_MECH_NAME_OAUTHBEARER,
 		SASL_MECH_NAME_PLAIN,
 		SASL_MECH_NAME_XOAUTH2,
+#ifdef HAVE_GSSAPI
+		SASL_MECH_NAME_GSSAPI,
+		SASL_MECH_NAME_GSS_SPNEGO,
+#endif
 		NULL
 	};
 
