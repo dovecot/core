@@ -446,7 +446,8 @@ mech_gssapi_userok(struct gssapi_auth_request *request, const char *login_user)
 	if (!mech_gssapi_krb5_userok(request, request->authn_name,
 				     login_user, TRUE)) {
 		e_info(auth_request->event,
-		       "User not authorized to log in as %s", login_user);
+		       "User not authorized to log in as %s",
+		       str_sanitize(login_user, 128));
 		return -1;
 	}
 
