@@ -377,8 +377,11 @@ gss_unwrap(OM_uint32 *minor_status, gss_ctx_id_t context_handle ATTR_UNUSED,
 	i_assert(conf_state == NULL);
 
 	gss_alloc_buffer(output_message_buffer, input_message_buffer->length);
-	memcpy(output_message_buffer->value, input_message_buffer->value,
-	       input_message_buffer->length);
+	if (input_message_buffer->length > 0) {
+		memcpy(output_message_buffer->value,
+		       input_message_buffer->value,
+		       input_message_buffer->length);
+	}
 
 	*minor_status = 0;
 	return 0;
