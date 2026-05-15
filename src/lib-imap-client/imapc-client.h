@@ -87,9 +87,6 @@ struct imapc_parameters {
 	const char *session_id_prefix;
 	const char *temp_path_prefix;
 
-	/* imapc-storage creates custom paths based on the namespace user,
-	   this cannot be read from the config directly. */
-	const char *override_dns_client_socket_path;
 	const char *override_rawlog_dir;
 	const char *override_password;
 
