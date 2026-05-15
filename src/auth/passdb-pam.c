@@ -32,6 +32,8 @@
 #  define pam_const const
 #endif
 
+#define PAM_MAX_MESSAGES 1024
+
 typedef pam_const void *pam_item_t;
 
 struct pam_passdb_module {
@@ -112,6 +114,12 @@ pam_userpass_conv(int num_msg, pam_const struct pam_message **msg,
 	int i;
 
 	*resp_r = NULL;
+	if (num_msg > PAM_MAX_MESSAGES) {
+		e_error(authdb_event(ctx->request),
+			"PAM wanted to send %u messages, which exceeds limit %u",
+			num_msg, PAM_MAX_MESSAGES);
+		return PAM_CONV_ERR;
+	}
 
 	resp = calloc(num_msg, sizeof(struct pam_response));
 	if (resp == NULL)
