@@ -1558,7 +1558,9 @@ bool client_get_extra_disconnect_reason(struct client *client,
 		}
 		/* Authentication to the next hop failed. */
 		*event_reason_r = t_strdup_printf("proxy_dest_%s", event_reason);
-		last_reason = t_strdup_printf("proxy dest %s", last_reason);
+		last_reason = t_strdup_printf("proxy dest %s to %s",
+					      last_reason,
+					      client->proxy_last_host == NULL ? "(unknown)" : client->proxy_last_host);
 	} else if (client->auth_login_limit_reached) {
 		*event_reason_r = "connection_limit";
 		last_reason = "connection limit reached";

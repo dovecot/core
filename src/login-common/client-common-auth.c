@@ -567,6 +567,9 @@ void client_common_proxy_failed(struct client *client,
 
 	client->proxy_last_failure = type;
 	client->proxy_failed = TRUE;
+	if (client->login_proxy != NULL)
+		client->proxy_last_host = i_strdup(login_proxy_get_hostport(
+			client->login_proxy));
 	client_proxy_failed(client);
 }
 
