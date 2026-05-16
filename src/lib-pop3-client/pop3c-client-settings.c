@@ -20,11 +20,6 @@ static const struct setting_define pop3c_client_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = POP3C_SETTINGS_FILTER },
 	DEF(STR, pop3c_host),
 	DEF(IN_PORT, pop3c_port),
-
-	DEF(STR, pop3c_user),
-	DEF(STR, pop3c_master_user),
-	DEF(STR, pop3c_password),
-
 	DEF(ENUM, pop3c_ssl),
 
 	DEF(PATH_DIR, pop3c_rawlog_dir),
@@ -41,10 +36,6 @@ static const struct pop3c_client_settings pop3c_client_default_settings = {
 	.pop3c_host = "",
 	.pop3c_port = POP3_DEFAULT_PORT,
 
-	.pop3c_user = "%{owner_user}",
-	.pop3c_master_user = "",
-	.pop3c_password = "",
-
 	.pop3c_ssl = "no:pop3s:starttls",
 
 	.pop3c_rawlog_dir = "",
@@ -53,6 +44,11 @@ static const struct pop3c_client_settings pop3c_client_default_settings = {
 	.pop3c_cmd_timeout_msecs = (1000*60*5),
 
 	.pop3c_features = ARRAY_INIT,
+};
+
+static const struct setting_keyvalue pop3c_client_default_settings_keyvalue[] = {
+	{ "pop3c/client_auth_authzid", "%{owner_user}" },
+	{ NULL, NULL }
 };
 
 /* <settings checks> */
@@ -117,6 +113,7 @@ const struct setting_parser_info pop3c_client_setting_parser_info = {
 
 	.defines = pop3c_client_setting_defines,
 	.defaults = &pop3c_client_default_settings,
+	.default_settings = pop3c_client_default_settings_keyvalue,
 
 	.struct_size = sizeof(struct pop3c_client_settings),
 	.pool_offset1 = 1 + offsetof(struct pop3c_client_settings, pool),

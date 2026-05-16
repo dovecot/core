@@ -16,6 +16,7 @@
 #include "str.h"
 #include "settings.h"
 #include "dns-lookup.h"
+#include "client-auth-settings.h"
 #include "pop3-protocol.h"
 #include "pop3c-client.h"
 
@@ -90,7 +91,10 @@ struct pop3c_client {
 
 	enum pop3c_client_state state;
 	enum pop3c_capability capabilities;
+
+	const struct client_auth_settings *auth_set;
 	const char *auth_mech;
+	const char *authid, *authzid;
 
 	pop3c_login_callback_t *login_callback;
 	void *login_context;
@@ -250,6 +254,7 @@ void pop3c_client_deinit(struct pop3c_client **_client)
 	struct pop3c_client *client = *_client;
 
 	settings_free(client->set);
+	settings_free(client->auth_set);
 
 	pop3c_client_disconnect(client);
 	event_unref(&client->event);
@@ -353,48 +358,67 @@ static void pop3c_client_starttls(struct pop3c_client *client)
 	client->state = POP3C_CLIENT_STATE_STARTTLS;
 }
 
-static void pop3c_client_authenticate1(struct pop3c_client *client)
+static int pop3c_client_authenticate1(struct pop3c_client *client)
 {
-	const struct pop3c_client_settings *set = client->set;
+	const char *error;
 
-	if (*set->pop3c_master_user == '\0') {
-		e_debug(client->event,
-			"Authenticating as '%s' (with USER+PASS)",
-			set->pop3c_user);
-	} else {
-		e_debug(client->event,
-			"Authenticating as master user '%s'"
-			" for user '%s' (with SASL PLAIN)",
-			set->pop3c_master_user, set->pop3c_user);
+	settings_free(client->auth_set);
+	if (settings_get(client->event, &client_auth_setting_parser_info, 0,
+			 &client->auth_set, &error) < 0) {
+		e_error(client->event, "%s", error);
+		return -1;
 	}
 
-	if (*set->pop3c_master_user == '\0') {
+	client->authid = client->auth_set->authid;
+	client->authzid = client->auth_set->authzid;
+	if (*client->authid == '\0' && *client->authzid == '\0') {
+		e_error(client->event, "Authentication not configured");
+		return -1;
+	}
+
+	if (*client->authid == '\0') {
+		client->authid = client->authzid;
+		client->authzid = "";
+	}
+	if (*client->authzid == '\0') {
+		e_debug(client->event,
+			"Authenticating as '%s' (with USER+PASS)",
+			client->authid);
+	} else {
+		e_debug(client->event,
+			"Authenticating as '%s'"
+			" for user '%s' (with SASL PLAIN)",
+			client->authid, client->authzid);
+	}
+
+	if (*client->authzid == '\0') {
 		o_stream_nsend_str(client->output,
-			t_strdup_printf("USER %s\r\n", set->pop3c_user));
+			t_strdup_printf("USER %s\r\n", client->authid));
 		client->state = POP3C_CLIENT_STATE_USER;
 	} else {
 		client->state = POP3C_CLIENT_STATE_AUTH;
 		o_stream_nsend_str(client->output, "AUTH PLAIN\r\n");
 	}
+
+	return 0;
 }
 
 static const char *
 pop3c_client_get_sasl_plain_request(struct pop3c_client *client)
 {
-	const struct pop3c_client_settings *set = client->set;
 	string_t *in, *out;
 
 	in = t_str_new(128);
-	if (*set->pop3c_master_user != '\0') {
-		str_append(in, set->pop3c_user);
+	if (*client->authzid != '\0') {
+		str_append(in, client->authzid);
 		str_append_c(in, '\0');
-		str_append(in, set->pop3c_master_user);
+		str_append(in, client->authid);
 	} else {
 		str_append_c(in, '\0');
-		str_append(in, set->pop3c_user);
+		str_append(in, client->authid);
 	}
 	str_append_c(in, '\0');
-	str_append(in, client->set->pop3c_password);
+	str_append(in, client->auth_set->password);
 
 	out = t_str_new(128);
 	base64_encode(str_data(in), str_len(in), out);
@@ -430,8 +454,8 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 		}
 		if (client->ssl_mode == POP3C_CLIENT_SSL_MODE_STARTTLS)
 			pop3c_client_starttls(client);
-		else
-			pop3c_client_authenticate1(client);
+		else if (pop3c_client_authenticate1(client) < 0)
+			return -1;
 		break;
 	case POP3C_CLIENT_STATE_STARTTLS:
 		if (!success) {
@@ -454,7 +478,8 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 					 pop3c_client_timeout, client);
 
 		o_stream_nsend_str(client->output,
-			t_strdup_printf("PASS %s\r\n", client->set->pop3c_password));
+			t_strdup_printf("PASS %s\r\n",
+					client->auth_set->password));
 		client->state = POP3C_CLIENT_STATE_PASS;
 		client->auth_mech = "USER+PASS";
 		break;

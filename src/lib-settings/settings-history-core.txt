@@ -2,8 +2,11 @@
 # rename <old-setting-key> <new-setting-key> <ce-version> <pro-version>
 # value <old-setting-key>=<old-value> <new-setting-key>=<new-value> <ce-version> <pro-version>
 # deprecate <setting-key> <ce-version> <pro-version>
+rename	pop3c_user	pop3c/client_auth_authzid	2.4.6	3.3.0
+rename	pop3c_master_user	pop3c/client_auth_authid	2.4.6	3.3.0
+rename	pop3c_password	pop3c/client_auth_password	2.4.6	3.3.0
 rename	pop3c_ssl_verify	pop3c/ssl_client_require_valid_cert	2.4.6	3.3.0
-default	pop3c_user	%{user}	2.4.6	3.3.0
+default	pop3c/client_auth_authzid	%{user}	2.4.6	3.3.0
 rename	imapc_user	imapc/client_auth_authzid	2.4.6	3.3.0
 rename	imapc_master_user	imapc/client_auth_authid	2.4.6	3.3.0
 rename	imapc_password	imapc/client_auth_password	2.4.6	3.3.0

@@ -16,11 +16,6 @@ struct pop3c_client_settings {
 	pool_t pool;
 	const char *pop3c_host;
 	in_port_t pop3c_port;
-
-	const char *pop3c_user;
-	const char *pop3c_master_user;
-	const char *pop3c_password;
-
 	const char *pop3c_ssl;
 
 	const char *pop3c_rawlog_dir;

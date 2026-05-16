@@ -65,8 +65,11 @@ test_generate_settings(const char *port, const char *connection_timeout_interval
 	test_add_setting(&settings, "pop3c_host", "127.0.0.1");
 	if (port != NULL)
 		test_add_setting(&settings, "pop3c_port", port);
-	test_add_setting(&settings, "pop3c_user", "testuser");
-	test_add_setting(&settings, "pop3c_password", "testpass");
+	test_add_setting(&settings, "pop3c/client_auth_authid", "");
+	test_add_setting(&settings, "pop3c/client_auth_authzid",
+			 "testuser");
+	test_add_setting(&settings, "pop3c/client_auth_password",
+			 "testpass");
 	if (connection_timeout_interval != NULL) {
 		test_add_setting(&settings, "pop3c_cmd_timeout",
 				 connection_timeout_interval);
@@ -75,7 +78,6 @@ test_generate_settings(const char *port, const char *connection_timeout_interval
 	} else {
 		test_add_setting(&settings, "pop3c_cmd_timeout", "5s");
 		test_add_setting(&settings, "pop3c_connect_timeout", "5s");
-
 	}
 	array_append_zero(&settings);
 
