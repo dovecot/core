@@ -200,6 +200,8 @@ imapc_auth_failed(struct imapc_connection *conn, const struct imapc_command_repl
 	}
 	imapc_login_callback(conn, &reply);
 
+	dsasl_client_free(&conn->sasl_client);
+
 	if (conn->client->state_change_callback == NULL)
 		return;
 
@@ -476,6 +478,7 @@ void imapc_connection_disconnect_full(struct imapc_connection *conn,
 
 	if (conn->dns_lookup != NULL)
 		dns_lookup_abort(&conn->dns_lookup);
+	dsasl_client_free(&conn->sasl_client);
 	imapc_connection_lfiles_free(conn);
 	imapc_connection_literal_reset(&conn->literal);
 	timeout_remove(&conn->to_output);
