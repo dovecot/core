@@ -26,7 +26,6 @@ static const struct setting_define pop3c_client_setting_defines[] = {
 	DEF(STR, pop3c_password),
 
 	DEF(ENUM, pop3c_ssl),
-	DEF(BOOL, pop3c_ssl_verify),
 
 	DEF(PATH_DIR, pop3c_rawlog_dir),
 
@@ -47,7 +46,6 @@ static const struct pop3c_client_settings pop3c_client_default_settings = {
 	.pop3c_password = "",
 
 	.pop3c_ssl = "no:pop3s:starttls",
-	.pop3c_ssl_verify = TRUE,
 
 	.pop3c_rawlog_dir = "",
 

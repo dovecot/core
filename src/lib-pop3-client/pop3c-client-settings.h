@@ -22,7 +22,6 @@ struct pop3c_client_settings {
 	const char *pop3c_password;
 
 	const char *pop3c_ssl;
-	bool pop3c_ssl_verify;
 
 	const char *pop3c_rawlog_dir;
 
@@ -30,6 +29,7 @@ struct pop3c_client_settings {
 	unsigned int pop3c_cmd_timeout_msecs;
 
 	ARRAY_TYPE(const_string) pop3c_features;
+
 	enum pop3c_client_features parsed_features;
 };
 
