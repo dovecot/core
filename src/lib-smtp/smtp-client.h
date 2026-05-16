@@ -54,6 +54,9 @@ struct smtp_client_settings {
 	/* Capabilities that are assumed to be enabled no matter whether the
 	   server indicates support. */
 	enum smtp_capability forced_capabilities;
+	/* Capabilities that are disabled no matter whether the server indicates
+	   support. */
+	enum smtp_capability disabled_capabilities;
 	/* Record these extra capabilities if returned in the EHLO response */
 	const char *const *extra_capabilities;
 

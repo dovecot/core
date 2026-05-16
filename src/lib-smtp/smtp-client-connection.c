@@ -1299,6 +1299,9 @@ smtp_client_connection_handshake_cb(const struct smtp_reply *reply,
 
 	e_debug(conn->event, "Received server capabilities");
 
+	conn->caps.standard &= ENUM_NEGATE(conn->set.disabled_capabilities);
+	conn->caps.standard |= conn->set.forced_capabilities;
+
 	if (conn->to_connect != NULL)
 		timeout_reset(conn->to_connect);
 	if (smtp_client_connection_starttls(conn)) {
@@ -2183,6 +2186,7 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 		}
 
 		conn->set.forced_capabilities |= set->forced_capabilities;
+		conn->set.disabled_capabilities |= set->disabled_capabilities;
 		if (set->extra_capabilities != NULL) {
 			conn->set.extra_capabilities =
 				p_strarray_dup(pool, set->extra_capabilities);
