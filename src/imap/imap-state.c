@@ -323,6 +323,8 @@ import_string(const unsigned char **data, const unsigned char *end,
 {
 	const unsigned char *p;
 
+	i_assert(*data <= end);
+
 	p = memchr(*data, '\0', end - *data);
 	if (p == NULL)
 		return -1;
