@@ -4,6 +4,8 @@
 #include "net.h"
 
 /* <settings checks> */
+#define POP3C_SETTINGS_FILTER "pop3c"
+
 enum pop3c_client_features {
 	POP3C_FEATURE_NO_PIPELINING = 0x1,
 };
@@ -23,7 +25,6 @@ struct pop3c_client_settings {
 	bool pop3c_ssl_verify;
 
 	const char *pop3c_rawlog_dir;
-	bool pop3c_quick_received_date;
 
 	unsigned int pop3c_connect_timeout_msecs;
 	unsigned int pop3c_cmd_timeout_msecs;

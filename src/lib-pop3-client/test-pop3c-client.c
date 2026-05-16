@@ -204,43 +204,20 @@ static void
 test_run_client(test_client_init_t *client_test, const char *temp_path_prefix)
 {
 	struct ioloop *ioloop;
+	const char *error;
 
 	i_set_failure_prefix("CLIENT: ");
 
 	e_debug(client_event, "PID=%s", my_pid);
-
-	const struct pop3c_client_settings *set =
-		settings_get_or_fatal(test_set.event,
-				      &pop3c_client_setting_parser_info);
-	i_assert(set->pop3c_host[0] != '\0');
-	i_assert(set->pop3c_password[0] != '\0');
-
-	struct pop3c_client_internal_settings pop3_set = {
-		.host = set->pop3c_host,
-		.port = set->pop3c_port,
-		.username = set->pop3c_user,
-		.master_user = set->pop3c_master_user,
-		.password = set->pop3c_password,
-		.connect_timeout_msecs = set->pop3c_connect_timeout_msecs,
-		.cmd_timeout_msecs = set->pop3c_cmd_timeout_msecs,
-	};
-	if (!set->pop3c_ssl_verify)
-		pop3_set.ssl_allow_invalid_cert = TRUE;
-	if (strcmp(set->pop3c_ssl, "pop3s") == 0)
-		pop3_set.ssl_mode = POP3C_CLIENT_SSL_MODE_IMMEDIATE;
-	else if (strcmp(set->pop3c_ssl, "starttls") == 0)
-		pop3_set.ssl_mode = POP3C_CLIENT_SSL_MODE_STARTTLS;
-	else
-		pop3_set.ssl_mode = POP3C_CLIENT_SSL_MODE_NONE;
 
 	struct pop3c_parameters pop3c_params = {
 		.temp_path_prefix = temp_path_prefix,
 	};
 
 	ioloop = io_loop_create();
-	pop3c_client = pop3c_client_init(&pop3_set, &pop3c_params,
-					 test_set.event);
-	settings_free(set);
+	if (pop3c_client_init(&pop3c_params, test_set.event,
+			      &pop3c_client, &error) < 0)
+		i_fatal("Failed to initialize POP3 client: %s", error);
 	client_test();
 	if (pop3c_client != NULL)
 		pop3c_client_deinit(&pop3c_client);

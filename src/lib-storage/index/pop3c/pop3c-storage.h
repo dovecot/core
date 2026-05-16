@@ -2,12 +2,13 @@
 #define POP3C_STORAGE_H
 
 #include "index-storage.h"
+#include "pop3c-settings.h"
 
 #define POP3C_STORAGE_NAME "pop3c"
 
 struct pop3c_storage {
 	struct mail_storage storage;
-	const struct pop3c_client_settings *set;
+	const struct pop3c_settings *set;
 };
 
 struct pop3c_mailbox {

@@ -41,22 +41,9 @@ pop3c_storage_create(struct mail_storage *_storage,
 {
 	struct pop3c_storage *storage = POP3C_STORAGE(_storage);
 
-	if (settings_get(_storage->event, &pop3c_client_setting_parser_info, 0,
+	if (settings_get(_storage->event, &pop3c_setting_parser_info, 0,
 			 &storage->set, error_r) < 0)
 		return -1;
-
-	if (storage->set->pop3c_host[0] == '\0') {
-		*error_r = "missing pop3c_host";
-		return -1;
-	}
-	if (storage->set->pop3c_password[0] == '\0') {
-		*error_r = "missing pop3c_password";
-		return -1;
-	}
-	event_set_append_log_prefix(_storage->event, t_strdup_printf(
-		"pop3c(%s:%u): ",
-		storage->set->pop3c_host, storage->set->pop3c_port));
-
 	return 0;
 }
 
@@ -68,37 +55,19 @@ static void pop3c_storage_destroy(struct mail_storage *_storage)
 	index_storage_destroy(_storage);
 }
 
-static struct pop3c_client *
-pop3c_client_create_from_set(struct mail_storage *storage,
-			     const struct pop3c_client_settings *set)
+static int
+pop3c_client_create(struct mail_storage *_storage,
+		    struct pop3c_client **client_r, const char **error_r)
 {
+	struct mail_user *user = _storage->user;
 	struct pop3c_parameters params = {};
-	struct pop3c_client_internal_settings client_set;
 	string_t *str;
 
 	str = t_str_new(128);
-	mail_user_set_get_temp_prefix(str, storage->user->set);
+	mail_user_set_get_temp_prefix(str, user->set);
 	params.temp_path_prefix = str_c(str);
 
-	i_zero(&client_set);
-	client_set.host = set->pop3c_host;
-	client_set.port = set->pop3c_port;
-	client_set.username = set->pop3c_user;
-	client_set.master_user = set->pop3c_master_user;
-	client_set.password = set->pop3c_password;
-	client_set.debug = event_want_debug(storage->event);
-	client_set.rawlog_dir = set->pop3c_rawlog_dir;
-
-	if (!set->pop3c_ssl_verify)
-		client_set.ssl_allow_invalid_cert = TRUE;
-
-	if (strcmp(set->pop3c_ssl, "pop3s") == 0)
-		client_set.ssl_mode = POP3C_CLIENT_SSL_MODE_IMMEDIATE;
-	else if (strcmp(set->pop3c_ssl, "starttls") == 0)
-		client_set.ssl_mode = POP3C_CLIENT_SSL_MODE_STARTTLS;
-	else
-		client_set.ssl_mode = POP3C_CLIENT_SSL_MODE_NONE;
-	return pop3c_client_init(&client_set, &params, storage->event);
+	return pop3c_client_init(&params, _storage->event, client_r, error_r);
 }
 
 static struct mailbox *
@@ -163,6 +132,7 @@ static void pop3c_login_callback(enum pop3c_command_state state,
 static int pop3c_mailbox_open(struct mailbox *box)
 {
 	struct pop3c_mailbox *mbox = POP3C_MAILBOX(box);
+	const char *error;
 
 	if (strcmp(box->name, "INBOX") != 0) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
@@ -172,9 +142,12 @@ static int pop3c_mailbox_open(struct mailbox *box)
 
 	if (index_storage_mailbox_open(box, FALSE) < 0)
 		return -1;
-
-	mbox->client = pop3c_client_create_from_set(box->storage,
-						    mbox->storage->set);
+	if (pop3c_client_create(box->storage, &mbox->client, &error) < 0) {
+		mailbox_set_critical(box,
+			"Failed to initialize POP3 client: %s", error);
+		mailbox_close(box);
+		return -1;
+	}
 	pop3c_client_login(mbox->client, pop3c_login_callback, mbox);
 	pop3c_client_wait_one(mbox->client);
 	return mbox->logged_in ? 0 : -1;
@@ -299,7 +272,7 @@ struct mail_storage pop3c_storage = {
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_NO_ROOT |
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS,
 	.event_category = &event_category_pop3c,
-	.set_info = &pop3c_client_setting_parser_info,
+	.set_info = &pop3c_setting_parser_info,
 
 	.v = {
 		.alloc = pop3c_storage_alloc,

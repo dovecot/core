@@ -17,10 +17,12 @@ AM_CPPFLAGS = \
 
 libstorage_pop3c_la_SOURCES = \
 	pop3c-mail.c \
+	pop3c-settings.c \
 	pop3c-storage.c \
 	pop3c-sync.c
 
 headers = \
+	pop3c-settings.h \
 	pop3c-storage.h \
 	pop3c-sync.h
 

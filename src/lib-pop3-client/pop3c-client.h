@@ -4,6 +4,8 @@
 #include "net.h"
 #include "pop3c-client-settings.h"
 
+struct pop3c_client;
+
 enum pop3c_capability {
 	POP3C_CAPABILITY_PIPELINING	= 0x01,
 	POP3C_CAPABILITY_TOP		= 0x02,
@@ -27,38 +29,14 @@ struct pop3c_parameters {
 	const char *temp_path_prefix;
 };
 
-struct pop3c_client_internal_settings {
-	const char *host;
-	in_port_t port;
-
-	const char *master_user;
-	const char *username;
-	const char *password;
-
-	const char *temp_path_prefix;
-
-	enum pop3c_client_ssl_mode ssl_mode;
-	bool ssl_allow_invalid_cert;
-
-	enum pop3c_client_features parsed_features;
-
-	const char *rawlog_dir;
-
-	unsigned int connect_timeout_msecs;
-	unsigned int cmd_timeout_msecs;
-
-	bool debug;
-};
-
 typedef void pop3c_login_callback_t(enum pop3c_command_state state,
 				    const char *reply, void *context);
 typedef void pop3c_cmd_callback_t(enum pop3c_command_state state,
 				  const char *reply, void *context);
 
-struct pop3c_client *
-pop3c_client_init(const struct pop3c_client_internal_settings *set,
-		  const struct pop3c_parameters *params,
-		  struct event *event_parent);
+int pop3c_client_init(const struct pop3c_parameters *params,
+		      struct event *event_parent,
+		      struct pop3c_client **client_r, const char **error_r);
 void pop3c_client_deinit(struct pop3c_client **client);
 
 void pop3c_client_login(struct pop3c_client *client,

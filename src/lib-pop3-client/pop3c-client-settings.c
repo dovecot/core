@@ -17,7 +17,7 @@
 	SETTING_DEFINE_STRUCT_##type(#name, name##_msecs, struct pop3c_client_settings)
 
 static const struct setting_define pop3c_client_setting_defines[] = {
-	{ .type = SET_FILTER_NAME, .key = "pop3c" },
+	{ .type = SET_FILTER_NAME, .key = POP3C_SETTINGS_FILTER },
 	DEF(STR, pop3c_host),
 	DEF(IN_PORT, pop3c_port),
 
@@ -29,7 +29,6 @@ static const struct setting_define pop3c_client_setting_defines[] = {
 	DEF(BOOL, pop3c_ssl_verify),
 
 	DEF(PATH_DIR, pop3c_rawlog_dir),
-	DEF(BOOL, pop3c_quick_received_date),
 
 	DEF_MSECS(TIME_MSECS, pop3c_connect_timeout),
 	DEF_MSECS(TIME_MSECS, pop3c_cmd_timeout),
@@ -51,12 +50,11 @@ static const struct pop3c_client_settings pop3c_client_default_settings = {
 	.pop3c_ssl_verify = TRUE,
 
 	.pop3c_rawlog_dir = "",
-	.pop3c_quick_received_date = FALSE,
 
 	.pop3c_connect_timeout_msecs = (1000*30),
 	.pop3c_cmd_timeout_msecs = (1000*60*5),
 
-	.pop3c_features = ARRAY_INIT
+	.pop3c_features = ARRAY_INIT,
 };
 
 /* <settings checks> */
@@ -97,9 +95,8 @@ pop3c_client_settings_parse_features(struct pop3c_client_settings *set,
 	return 0;
 }
 
-static bool
-pop3c_client_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-			    const char **error_r)
+static bool pop3c_client_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+				 const char **error_r)
 {
 	struct pop3c_client_settings *set = _set;
 
@@ -118,7 +115,7 @@ pop3c_client_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 /* </settings checks> */
 
 const struct setting_parser_info pop3c_client_setting_parser_info = {
-	.name = "pop3-client",
+	.name = "pop3c-client",
 
 	.defines = pop3c_client_setting_defines,
 	.defaults = &pop3c_client_default_settings,
