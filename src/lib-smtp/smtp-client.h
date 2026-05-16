@@ -74,10 +74,20 @@ struct smtp_client_parameters {
 	   settings. See smtp-client-settings.h for detailed descriptions.
 	 */
 	struct {
+		const char *host;
+		struct ip_addr host_ip;
+		in_port_t port;
+		enum smtp_client_connection_ssl_mode ssl_mode;
+
+		struct ip_addr source_ip;
+
 		/* Timeout for SMTP commands. */
 		unsigned int command_timeout_msecs;
 		/* Timeout for connecting */
 		unsigned int connect_timeout_msecs;
+
+		/* peer is not trusted */
+		bool peer_not_trusted;
 	} overrides;
 };
 

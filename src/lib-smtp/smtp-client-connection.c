@@ -299,7 +299,7 @@ void smtp_client_connection_get_remote_ip(
 
 bool smtp_client_connection_is_trusted(struct smtp_client_connection *conn)
 {
-	return conn->set->peer_trusted;
+	return !conn->params.overrides.peer_not_trusted;
 }
 
 static void
@@ -620,7 +620,7 @@ void smtp_client_connection_send_xclient(struct smtp_client_connection *conn)
 	size_t offset;
 	string_t *str;
 
-	if (!conn->set->peer_trusted)
+	if (conn->params.overrides.peer_not_trusted)
 		return;
 	if (conn->xclient_sent)
 		return;
@@ -1607,13 +1607,13 @@ smtp_client_connection_ssl_handshaked(const char **error_r, void *context)
 static void
 smtp_client_connection_streams_changed(struct smtp_client_connection *conn)
 {
+	const char *rawlog_dir = conn->set->rawlog_dir;
 	struct stat st;
 
-	if (conn->set->rawlog_dir != NULL &&
-	    stat(conn->set->rawlog_dir, &st) == 0) {
+	if (*rawlog_dir != '\0' && stat(rawlog_dir, &st) == 0) {
 		/* FIXME: we don't know the setting name here */
 		iostream_rawlog_create(conn->event, "smtp client rawlog",
-				       conn->set->rawlog_dir,
+				       rawlog_dir,
 				       &conn->conn.input, &conn->conn.output);
 	}
 
@@ -1880,7 +1880,7 @@ static bool smtp_client_connection_last_ip(struct smtp_client_connection *conn)
 static void
 smtp_client_connection_connect_next_ip(struct smtp_client_connection *conn)
 {
-	const struct ip_addr *ip, *my_ip = &conn->set->parsed.source_ip;
+	const struct ip_addr *ip, *my_ip = &conn->params.overrides.source_ip;
 
 	timeout_remove(&conn->to_connect);
 
@@ -2177,6 +2177,7 @@ smtp_client_connection_do_create(struct smtp_client *client,
 
 	if (params != NULL) {
 		conn->params = *params;
+		conn->params.overrides.host = NULL;
 
 		if (params->extra_capabilities != NULL) {
 			conn->params.extra_capabilities =
@@ -2207,6 +2208,8 @@ smtp_client_connection_do_create(struct smtp_client *client,
 	i_assert(conn->set->max_data_chunk_size != 0);
 	i_assert(conn->set->max_data_chunk_pipeline != 0);
 
+	if (conn->params.overrides.source_ip.family == 0)
+		conn->params.overrides.source_ip = conn->set->parsed.source_ip;
 	if (conn->params.overrides.command_timeout_msecs == 0) {
 		conn->params.overrides.command_timeout_msecs =
 			conn->set->command_timeout_msecs;
@@ -2214,6 +2217,10 @@ smtp_client_connection_do_create(struct smtp_client *client,
 	if (conn->params.overrides.connect_timeout_msecs == 0) {
 		conn->params.overrides.connect_timeout_msecs =
 			conn->set->connect_timeout_msecs;
+	}
+	if (!conn->params.overrides.peer_not_trusted) {
+		conn->params.overrides.peer_not_trusted =
+			!conn->set->peer_trusted;
 	}
 	i_assert(conn->params.overrides.command_timeout_msecs != 0);
 	i_assert(conn->params.overrides.connect_timeout_msecs != 0);
@@ -2372,17 +2379,35 @@ int smtp_client_connection_create_auto(
 
 	if (settings_get(event_parent, set_info, 0, &set, error_r) < 0)
 		return -1;
-	if (*set->host == '\0') {
+
+	const char *host = set->host;
+	struct ip_addr host_ip = {};
+	in_port_t port = set->port;
+	enum smtp_client_connection_ssl_mode ssl_mode = set->parsed.ssl_mode;
+
+	if (params != NULL) {
+		if (params->overrides.host != NULL &&
+		    *params->overrides.host != '\0')
+			host = params->overrides.host;
+		if (params->overrides.host_ip.family != 0)
+			host_ip = params->overrides.host_ip;
+		if (params->overrides.port != 0)
+			port = params->overrides.port;
+		if ((params->overrides.host != NULL &&
+		     *params->overrides.host != '\0') ||
+		    params->overrides.host_ip.family != 0)
+			ssl_mode = params->overrides.ssl_mode;
+	}
+
+	if (*host == '\0' && host_ip.family == 0) {
 		*error_r = "Host not configured";
 		settings_free(set);
 		return 0;
 	}
 
 	*conn_r = smtp_client_connection_create_ip(client, event_parent,
-						   protocol, NULL,
-						   set->port, set->host,
-						   set->parsed.ssl_mode,
-						   params, set);
+						   protocol, &host_ip, port,
+						   host, ssl_mode, params, set);
 	settings_free(set);
 	return 1;
 }
