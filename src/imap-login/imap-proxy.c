@@ -16,6 +16,7 @@
 #include "imap-resp-code.h"
 #include "imap-url.h"
 #include "imap-quote.h"
+#include "imap-util.h"
 #include "imap-proxy.h"
 
 static const char *imap_proxy_sent_state_names[] = {
@@ -390,7 +391,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		imap_client->proxy_sent_state &= ENUM_NEGATE(IMAP_PROXY_SENT_STATE_STARTTLS);
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_STARTTLS;
 
-		if (!str_begins_icase_with(suffix, "OK ")) {
+		if (!imap_reply_begins(suffix, "OK", NULL)) {
 			/* STARTTLS failed */
 			const char *reason = t_strdup_printf(
 				"STARTTLS failed: %s",
@@ -410,7 +411,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			return -1;
 		o_stream_nsend(output, str_data(str), str_len(str));
 		return 1;
-	} else if (str_begins_icase(line, "L OK ", &suffix)) {
+	} else if (imap_reply_begins(line, "L OK", &suffix)) {
 		/* Login successful. Send this line to client. */
 		imap_client->proxy_sent_state &= ENUM_NEGATE(IMAP_PROXY_SENT_STATE_LOGIN);
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_LOGIN;
@@ -487,7 +488,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		/* Reply to CAPABILITY command we sent */
 		imap_client->proxy_sent_state &= ENUM_NEGATE(IMAP_PROXY_SENT_STATE_CAPABILITY);
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_CAPABILITY;
-		if (str_begins_icase_with(line, "C OK ") &&
+		if (imap_reply_begins(line, "C OK", NULL) &&
 		    HAS_NO_BITS(imap_client->proxy_sent_state,
 				IMAP_PROXY_SENT_STATE_AUTHENTICATE |
 				IMAP_PROXY_SENT_STATE_LOGIN)) {
@@ -506,11 +507,14 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		imap_client->proxy_sent_state &= ENUM_NEGATE(IMAP_PROXY_SENT_STATE_ID);
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_ID;
 
-		if (str_begins_icase(line, "NO ["IMAP_RESP_CODE_SERVERBUG"] ", &line)) {
+		const char *serverbug_suffix;
+		if (imap_reply_begins(line, "NO ["IMAP_RESP_CODE_SERVERBUG"]",
+				      &serverbug_suffix)) {
 			login_proxy_failed(client->login_proxy,
 				login_proxy_get_event(client->login_proxy),
 				LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG,
-				t_strdup_printf("ID command failed: %s", line));
+				t_strdup_printf("ID command failed: %s",
+						serverbug_suffix));
 			return -1;
 		} else if (!str_begins_icase(line, "OK", &line)) {
 			e_debug(login_proxy_get_event(client->login_proxy),
@@ -559,7 +563,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		login_proxy_multiplex_input_start(client->login_proxy);
 		/* force caller to refresh istream */
 		return 1;
-	} else if (str_begins_icase_with(line, "* BYE ")) {
+	} else if (imap_reply_begins(line, "* BYE", NULL)) {
 		/* Login unexpectedly failed (due to some internal error).
 		   Don't forward the BYE to the client, since we're not going
 		   to disconnect it. It could be a possibility to convert these
