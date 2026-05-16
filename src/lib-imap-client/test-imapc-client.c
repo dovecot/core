@@ -527,6 +527,146 @@ static void test_imapc_reconnect_server(void)
 	test_assert(i_stream_read_next_line(server.input) == NULL);
 }
 
+/*
+ * imapc short tagged reply (IMAP4rev2)
+ */
+
+static void test_imapc_short_reply_client(void)
+{
+	imapc_client_set_login_callback(imapc_client, imapc_login_callback, NULL);
+	imapc_client_login(imapc_client);
+	imapc_client_run(imapc_client);
+	test_assert(imapc_login_last_reply == IMAPC_COMMAND_STATE_OK);
+}
+
+static void test_imapc_short_reply_server(void)
+{
+	test_server_wait_connection(&server, TRUE);
+	test_assert(test_imapc_server_expect(
+		"1 LOGIN \"testuser\" \"testpass\""));
+	/* short reply: no human-readable text (IMAP4rev2 section 6.1) */
+	o_stream_nsend_str(server.output, "1 OK\r\n");
+
+	test_assert(test_imapc_server_expect("2 LOGOUT"));
+	o_stream_nsend_str(server.output, "* BYE\r\n"
+					  "2 OK\r\n");
+
+	test_assert(i_stream_read_next_line(server.input) == NULL);
+}
+
+static void test_imapc_short_reply(void)
+{
+	test_begin("imapc short tagged reply (IMAP4rev2)");
+	test_run_client_server(test_imapc_short_reply_client,
+			       test_imapc_short_reply_server,
+			       FALSE);
+	test_end();
+}
+
+/*
+ * imapc short tagged NO reply (IMAP4rev2)
+ */
+
+static void test_imapc_short_reply_no_client(void)
+{
+	imapc_client_set_login_callback(imapc_client, imapc_login_callback, NULL);
+	imapc_client_login(imapc_client);
+	test_expect_error_string("Authentication failed");
+	imapc_client_run(imapc_client);
+	test_expect_no_more_errors();
+	test_assert(imapc_login_last_reply == IMAPC_COMMAND_STATE_AUTH_FAILED);
+}
+
+static void test_imapc_short_reply_no_server(void)
+{
+	test_server_wait_connection(&server, TRUE);
+	test_assert(test_imapc_server_expect(
+		"1 LOGIN \"testuser\" \"testpass\""));
+	/* short reply: no human-readable text (IMAP4rev2 section 6.1) */
+	o_stream_nsend_str(server.output, "1 NO\r\n");
+}
+
+static void test_imapc_short_reply_no(void)
+{
+	test_begin("imapc short tagged NO reply (IMAP4rev2)");
+	test_run_client_server(test_imapc_short_reply_no_client,
+			       test_imapc_short_reply_no_server,
+			       FALSE);
+	test_end();
+}
+
+/*
+ * imapc short tagged BAD reply (IMAP4rev2)
+ */
+
+static void test_imapc_short_reply_bad_client(void)
+{
+	imapc_client_set_login_callback(imapc_client, imapc_login_callback, NULL);
+	imapc_client_login(imapc_client);
+	/* BAD logs 2 messages, both containing "failed":
+	   "Command X failed with BAD" + "Authentication failed" */
+	test_expect_error_string_n_times("failed", 2);
+	imapc_client_run(imapc_client);
+	test_expect_no_more_errors();
+}
+
+static void test_imapc_short_reply_bad_server(void)
+{
+	test_server_wait_connection(&server, TRUE);
+	test_assert(test_imapc_server_expect(
+		"1 LOGIN \"testuser\" \"testpass\""));
+	/* short reply: no human-readable text (IMAP4rev2 section 6.1) */
+	o_stream_nsend_str(server.output, "1 BAD\r\n");
+}
+
+static void test_imapc_short_reply_bad(void)
+{
+	test_begin("imapc short tagged BAD reply (IMAP4rev2)");
+	test_run_client_server(test_imapc_short_reply_bad_client,
+			       test_imapc_short_reply_bad_server,
+			       FALSE);
+	test_end();
+}
+
+/*
+ * imapc banner with resp-text-code but no human-readable text (IMAP4rev2)
+ */
+
+static void test_imapc_short_banner_client(void)
+{
+	imapc_client_set_login_callback(imapc_client, imapc_login_callback, NULL);
+	imapc_client_login(imapc_client);
+	imapc_client_run(imapc_client);
+	test_assert(imapc_login_last_reply == IMAPC_COMMAND_STATE_OK);
+}
+
+static void test_imapc_short_banner_server(void)
+{
+	test_server_wait_connection(&server, FALSE);
+	/* short banner: resp-text-code present but no human-readable text */
+	o_stream_nsend_str(server.output,
+		"* OK [CAPABILITY IMAP4rev1]\r\n");
+
+	test_assert(test_imapc_server_expect(
+		"1 LOGIN \"testuser\" \"testpass\""));
+	o_stream_nsend_str(server.output, "1 OK\r\n");
+
+	test_assert(test_imapc_server_expect("2 LOGOUT"));
+	o_stream_nsend_str(server.output, "* BYE\r\n"
+					  "2 OK\r\n");
+
+	test_assert(i_stream_read_next_line(server.input) == NULL);
+}
+
+static void test_imapc_short_banner(void)
+{
+	test_begin("imapc banner with short resp-text (IMAP4rev2)");
+	test_run_client_server(test_imapc_short_banner_client,
+			       test_imapc_short_banner_server,
+			       FALSE);
+	test_end();
+}
+
 static void test_imapc_reconnect(void)
 {
 	test_begin("imapc reconnect");
@@ -937,6 +1077,10 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		test_imapc_banner_hangs,
 		test_imapc_login_hangs,
 		test_imapc_login_fails,
+		test_imapc_short_reply,
+		test_imapc_short_reply_no,
+		test_imapc_short_reply_bad,
+		test_imapc_short_banner,
 		test_imapc_reconnect,
 		test_imapc_reconnect_resend_commands,
 		test_imapc_reconnect_resend_commands_failed,
