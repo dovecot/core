@@ -75,6 +75,10 @@ import_seq_range(const unsigned char **data, const unsigned char *end,
 	for (i = 0; i < count; i++) {
 		if (numpack_decode32(data, end, &num) < 0)
 			return -1;
+		/* num>>1 is the gap from next_uid to this range's first UID.
+		   Reject if adding it to next_uid would overflow uint32_t. */
+		if ((num >> 1) > UINT32_MAX - next_uid)
+			return -1;
 		uid1 = next_uid + (num >> 1);
 		if ((num & 1) == 0) {
 			uid2 = uid1;
@@ -82,8 +86,17 @@ import_seq_range(const unsigned char **data, const unsigned char *end,
 		} else {
 			if (numpack_decode32(data, end, &num) < 0)
 				return -1;
+			/* uid2 = uid1 + num + 1; reject if that overflows. */
+			if (num >= UINT32_MAX - uid1)
+				return -1;
 			uid2 = uid1 + num + 1;
 			seq_range_array_add_range(range, uid1, uid2);
+		}
+		if (uid2 == UINT32_MAX) {
+			/* would wrap next_uid; only valid as the last range */
+			if (i + 1 != count)
+				return -1;
+			break;
 		}
 		next_uid = uid2 + 1;
 	}
