@@ -17,11 +17,13 @@
 #include "settings.h"
 #include "dns-lookup.h"
 #include "client-auth-settings.h"
+#include "dsasl-client.h"
 #include "pop3-protocol.h"
 #include "pop3c-client.h"
 
 #include <unistd.h>
 
+#define POP3_LINE_LENGTH_LIMIT 255
 #define POP3C_MAX_INBUF_SIZE (1024*32)
 
 const char *pop3c_command_state_names[] = {
@@ -93,8 +95,11 @@ struct pop3c_client {
 	enum pop3c_capability capabilities;
 
 	const struct client_auth_settings *auth_set;
+	struct dsasl_client *sasl_client;
+	struct dsasl_client_session *sasl_session;
+	const char *const *sasl_mechanisms;
+	char *sasl_ir;
 	const char *auth_mech;
-	const char *authid, *authzid;
 
 	pop3c_login_callback_t *login_callback;
 	void *login_context;
@@ -144,6 +149,7 @@ int pop3c_client_init(const struct pop3c_parameters *params,
 	client->pool = pool;
 	client->event = event;
 	client->set = set;
+	client->sasl_client = dsasl_client_create(event);
 
 	client->params.temp_path_prefix =
 		p_strdup(pool, params->temp_path_prefix);
@@ -223,6 +229,7 @@ static void pop3c_client_reset_state(struct pop3c_client *client)
 {
 	i_zero(&client->ip);
 	client->capabilities = 0;
+	client->sasl_mechanisms = NULL;
 	client->capa_not_supported = FALSE;
 	client->authenticated = FALSE;
 	client->dot_input = NULL;
@@ -239,6 +246,8 @@ static void pop3c_client_disconnect(struct pop3c_client *client)
 
 	if (client->dns_lookup != NULL)
 		dns_lookup_abort(&client->dns_lookup);
+	dsasl_client_session_destroy(&client->sasl_session);
+	i_free(client->sasl_ir);
 	pop3c_client_reset_state(client);
 
 	timeout_remove(&client->to);
@@ -261,6 +270,8 @@ void pop3c_client_deinit(struct pop3c_client **_client)
 	settings_free(client->auth_set);
 
 	pop3c_client_disconnect(client);
+
+	dsasl_client_unref(&client->sasl_client);
 	event_unref(&client->event);
 	pool_unref(&client->pool);
 }
@@ -368,9 +379,57 @@ static int pop3c_client_starttls(struct pop3c_client *client)
 	return 0;
 }
 
+static int
+pop3c_connection_channel_bind_callback(const char *type, void *context,
+				       const buffer_t **data_r,
+				       const char **error_r)
+{
+	struct pop3c_client *client = context;
+
+	return ssl_iostream_get_channel_binding(client->ssl_iostream,
+						type, data_r, error_r);
+}
+
+static int
+pop3c_client_auth_failed(struct pop3c_client *client, const char *error)
+{
+	const char *prefix = "";
+
+	if (client->auth_mech != NULL) {
+		prefix = t_strdup_printf("Authentication via %s failed: ",
+					 client->auth_mech);
+	}
+	if (client->login_callback != NULL) {
+		e_debug(client->event, "%s%s", prefix, error);
+		client_login_callback(client, POP3C_COMMAND_STATE_ERR, error);
+	} else {
+		e_error(client->event, "%s%s", prefix, error);
+	}
+	return -1;
+}
+
+static void
+pop3c_client_send_auth(struct pop3c_client *client, const char *mech_name,
+		       const char *init_resp)
+{
+	if (init_resp == NULL) {
+		o_stream_nsend_str(client->output,
+				   t_strdup_printf("AUTH %s\r\n", mech_name));
+	} else if (*init_resp == '\0') {
+		o_stream_nsend_str(client->output,
+				   t_strdup_printf("AUTH %s =\r\n", mech_name));
+	} else {
+		o_stream_nsend_str(client->output,
+				   t_strdup_printf("AUTH %s %s\r\n",
+						   mech_name, init_resp));
+	}
+	client->state = POP3C_CLIENT_STATE_AUTH;
+}
+
 static int pop3c_client_authenticate1(struct pop3c_client *client)
 {
 	const char *error;
+	int ret;
 
 	settings_free(client->auth_set);
 	if (settings_get(client->event, &client_auth_setting_parser_info, 0,
@@ -379,61 +438,158 @@ static int pop3c_client_authenticate1(struct pop3c_client *client)
 		return -1;
 	}
 
-	client->authid = client->auth_set->authid;
-	client->authzid = client->auth_set->authzid;
-	if (*client->authid == '\0' && *client->authzid == '\0') {
-		e_error(client->event, "Authentication not configured");
-		return -1;
-	}
+	const char *authid = client->auth_set->authid;
+	const char *authzid = client->auth_set->authzid;
 
-	if (*client->authid == '\0') {
-		client->authid = client->authzid;
-		client->authzid = "";
+	if (*authid == '\0') {
+		authid = authzid;
+		authzid = "";
 	}
-	if (*client->authzid == '\0') {
+	if (*authzid == '\0' && *authid != '\0' &&
+	    !client_auth_settings_mechanism_configured(client->auth_set)) {
 		e_debug(client->event,
-			"Authenticating as '%s' (with USER+PASS)",
-			client->authid);
-	} else {
-		e_debug(client->event,
-			"Authenticating as '%s'"
-			" for user '%s' (with SASL PLAIN)",
-			client->authid, client->authzid);
-	}
-
-	if (*client->authzid == '\0') {
+			"Authenticating as '%s' (with USER+PASS)", authid);
 		o_stream_nsend_str(client->output,
-			t_strdup_printf("USER %s\r\n", client->authid));
+				   t_strdup_printf("USER %s\r\n", authid));
 		client->state = POP3C_CLIENT_STATE_USER;
-	} else {
-		client->state = POP3C_CLIENT_STATE_AUTH;
-		o_stream_nsend_str(client->output, "AUTH PLAIN\r\n");
+		return 0;
 	}
 
+	if (HAS_NO_BITS(client->capabilities, POP3C_CAPABILITY_SASL)) {
+		return pop3c_client_auth_failed(client,
+			"SASL authentication not supported by server");
+	}
+
+	struct dsasl_client_parameters sasl_params = {
+		.protocol = "pop",
+		.host = client->set->pop3c_host,
+		.port = client->set->pop3c_port,
+		.server_mechanisms = client->sasl_mechanisms,
+	};
+
+	ret = dsasl_client_session_create(client->sasl_client, client->event,
+					  &sasl_params, client->auth_set,
+					  &client->sasl_session, &error);
+	if (ret < 0)
+		return pop3c_client_auth_failed(client, error);
+	if (ret == 0) {
+		return pop3c_client_auth_failed(client,
+			"Authentication not configured");
+	}
+
+	const char *mech_name =
+		dsasl_client_session_get_mech_name(client->sasl_session);
+
+	client->auth_mech = p_strdup_printf(client->pool, "AUTH %s", mech_name);
+
+	if (client->ssl_iostream != NULL) {
+		dsasl_client_session_enable_channel_binding(
+			client->sasl_session,
+			ssl_iostream_get_protocol_version(client->ssl_iostream),
+			pop3c_connection_channel_bind_callback, client);
+	}
+
+	const unsigned char *sasl_output;
+	size_t sasl_output_len;
+	string_t *sasl_output_base64;
+
+	if (dsasl_client_session_output(client->sasl_session,
+					&sasl_output, &sasl_output_len,
+					&error) != DSASL_CLIENT_RESULT_OK)
+		return pop3c_client_auth_failed(client, error);
+	if (sasl_output == NULL) {
+		pop3c_client_send_auth(client, mech_name, NULL);
+		return 0;
+	}
+	if (sasl_output_len == 0) {
+		pop3c_client_send_auth(client, mech_name, "");
+		return 0;
+	}
+
+	sasl_output_base64 = t_str_new(MAX_BASE64_ENCODED_SIZE(sasl_output_len));
+	base64_encode(sasl_output, sasl_output_len, sasl_output_base64);
+
+	/* RFC 5034, Section 4:
+
+	   For the purposes of the initial client response, the 255-octet limit
+	   on the length of a single command, defined in Section 4 of [RFC2449],
+	   still applies. If specifying an initial response would cause the AUTH
+	   command to exceed this length, the client MUST NOT use the
+	   initial-response parameter (and must proceed instead by sending its
+	   initial response after an empty challenge from the server, as in
+	   Section 3 of [RFC4422]).
+	 */
+
+	const char *init_resp = NULL;
+
+	i_assert(client->sasl_ir == NULL);
+	if ((5 + strlen(mech_name) + 1 + str_len(sasl_output_base64)) >
+	    (POP3_LINE_LENGTH_LIMIT - 2))
+		client->sasl_ir = i_strdup(str_c(sasl_output_base64));
+	else
+		init_resp = str_c(sasl_output_base64);
+
+	pop3c_client_send_auth(client, mech_name, init_resp);
 	return 0;
 }
 
-static const char *
-pop3c_client_get_sasl_plain_request(struct pop3c_client *client)
+static int
+pop3c_client_send_sasl_response(struct pop3c_client *client,
+				const char *challenge)
 {
-	string_t *in, *out;
+	const unsigned char *sasl_output;
+	size_t input_len, sasl_output_len;
+	buffer_t *buf;
+	const char *error;
 
-	in = t_str_new(128);
-	if (*client->authzid != '\0') {
-		str_append(in, client->authzid);
-		str_append_c(in, '\0');
-		str_append(in, client->authid);
-	} else {
-		str_append_c(in, '\0');
-		str_append(in, client->authid);
+	if (client->sasl_ir != NULL) {
+		if (*challenge == '\0') {
+			/* Send initial response */
+			struct const_iovec iov[2];
+
+			iov[0].iov_base = client->sasl_ir;
+			iov[0].iov_len = strlen(client->sasl_ir);
+			iov[1].iov_base = "\r\n";
+			iov[1].iov_len = 2;
+
+			o_stream_nsendv(client->output, iov, N_ELEMENTS(iov));
+			i_free(client->sasl_ir);
+			return 0;
+		}
+		return pop3c_client_auth_failed(client,
+			t_strdup_printf(
+				"Server sent unexpected server-first challenge for AUTH: %s",
+				challenge));
 	}
-	str_append_c(in, '\0');
-	str_append(in, client->auth_set->password);
 
-	out = t_str_new(128);
-	base64_encode(str_data(in), str_len(in), out);
-	str_append(out, "\r\n");
-	return str_c(out);
+	input_len = strlen(challenge);
+	buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(input_len));
+	if (base64_decode(challenge, input_len, buf) < 0) {
+		return pop3c_client_auth_failed(client,
+			t_strdup_printf(
+				"Server sent bad base64 challenge for AUTH: %s",
+				challenge));
+	}
+	if (dsasl_client_session_input(client->sasl_session,
+				       buf->data, buf->used,
+				       &error) != DSASL_CLIENT_RESULT_OK)
+		return pop3c_client_auth_failed(client, error);
+	if (dsasl_client_session_output(client->sasl_session,
+					&sasl_output, &sasl_output_len,
+					&error) != DSASL_CLIENT_RESULT_OK)
+		return pop3c_client_auth_failed(client, error);
+
+	if (sasl_output_len == 0) {
+		o_stream_nsend_str(client->output, "\r\n");
+	} else {
+		string_t *imap_output =
+			t_str_new(MAX_BASE64_ENCODED_SIZE(sasl_output_len) + 2);
+		base64_encode(sasl_output, sasl_output_len, imap_output);
+		str_append(imap_output, "\r\n");
+		o_stream_nsend(client->output, str_data(imap_output),
+			       str_len(imap_output));
+	}
+	return 0;
 }
 
 static void pop3c_client_login_finished(struct pop3c_client *client)
@@ -481,7 +637,7 @@ static int
 pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 {
 	bool success = line[0] == '+';
-	const char *reply;
+	const char *reply, *capa_params;
 
 	switch (client->state) {
 	case POP3C_CLIENT_STATE_CONNECTING:
@@ -490,7 +646,8 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 				"Server sent invalid banner: %s", line);
 			return -1;
 		}
-		pop3c_client_update_capabilities(client);
+		if (pop3c_client_update_capabilities(client) < 0)
+			return -1;
 		break;
 	case POP3C_CLIENT_STATE_STARTTLS:
 		if (!success) {
@@ -499,7 +656,8 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 		}
 		if (pop3c_client_ssl_init(client) < 0)
 			return -1;
-		pop3c_client_update_capabilities(client);
+		if (pop3c_client_update_capabilities(client) < 0)
+			return -1;
 		break;
 	case POP3C_CLIENT_STATE_USER:
 		if (!success) {
@@ -520,15 +678,22 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 		client->auth_mech = "USER+PASS";
 		break;
 	case POP3C_CLIENT_STATE_AUTH:
-		if (line[0] != '+') {
-			e_error(client->event, "AUTH PLAIN failed: %s", line);
-			return -1;
+		if (str_begins_icase(line, "+ ", &reply)) {
+			if (pop3c_client_send_sasl_response(client, reply) < 0)
+				return -1;
+			break;
 		}
-		o_stream_nsend_str(client->output,
-			pop3c_client_get_sasl_plain_request(client));
+		if (strcmp(line, "+") == 0) {
+			/* Interpret as empty server challenge with omitted
+			   space. */
+			if (pop3c_client_send_sasl_response(client, "") < 0)
+				return -1;
+			break;
+		}
+		dsasl_client_session_destroy(&client->sasl_session);
+		i_free(client->sasl_ir);
 		client->state = POP3C_CLIENT_STATE_PASS;
-		client->auth_mech = "AUTH PLAIN";
-		break;
+		/* fall through */
 	case POP3C_CLIENT_STATE_PASS:
 		if (client->login_callback != NULL) {
 			if (!str_begins_icase(line, "+OK ", &reply) &&
@@ -545,7 +710,8 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 		if (!success)
 			return -1;
 		client->authenticated = TRUE;
-		pop3c_client_update_capabilities(client);
+		if (pop3c_client_update_capabilities(client) < 0)
+			return -1;
 		break;
 	case POP3C_CLIENT_STATE_CAPA:
 		if (str_begins_icase_with(line, "-ERR")) {
@@ -554,6 +720,9 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 			client->capa_not_supported = TRUE;
 			client->capabilities |= POP3C_CAPABILITY_UIDL;
 			client->capabilities |= POP3C_CAPABILITY_STLS;
+			client->capabilities |= POP3C_CAPABILITY_SASL;
+			client->sasl_mechanisms = (const char *const *)
+				p_strsplit(client->pool, "PLAIN", " ");
 			if (pop3c_client_continue(client) < 0)
 				return -1;
 			break;
@@ -571,6 +740,11 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 			client->capabilities |= POP3C_CAPABILITY_UIDL;
 		else if (strcasecmp(line, "STLS") == 0)
 			client->capabilities |= POP3C_CAPABILITY_STLS;
+		else if (str_begins_icase(line, "SASL ", &capa_params)) {
+			client->capabilities |= POP3C_CAPABILITY_SASL;
+			client->sasl_mechanisms = (const char *const *)
+				p_strsplit(client->pool, capa_params, " ");
+		}
 		break;
 	case POP3C_CLIENT_STATE_DISCONNECTED:
 	case POP3C_CLIENT_STATE_DONE:

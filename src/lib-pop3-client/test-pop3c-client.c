@@ -57,19 +57,39 @@ test_add_setting(ARRAY_TYPE(const_string) *settings, const char *name,
 }
 
 static const char *const *
-test_generate_settings(const char *port, const char *connection_timeout_interval)
+test_generate_settings(const char *port, const char *sasl_mech,
+		       const char *password,
+		       const char *connection_timeout_interval)
 {
 	ARRAY_TYPE(const_string) settings;
 
+	if (password == NULL)
+		password = "testpass";
+
 	t_array_init(&settings, 16);
 	test_add_setting(&settings, "pop3c_host", "127.0.0.1");
-	if (port != NULL)
+	if (port != NULL) {
 		test_add_setting(&settings, "pop3c_port", port);
+	}
 	test_add_setting(&settings, "pop3c/client_auth_authid", "");
-	test_add_setting(&settings, "pop3c/client_auth_authzid",
-			 "testuser");
-	test_add_setting(&settings, "pop3c/client_auth_password",
-			 "testpass");
+	if (sasl_mech == NULL || *sasl_mech == '\0') {
+		test_add_setting(&settings, "pop3c/client_auth_authzid",
+				 "testuser");
+		test_add_setting(&settings, "pop3c/client_auth_password",
+				 password);
+	} else {
+		test_add_setting(&settings, "pop3c/client_auth_authzid", "");
+		test_add_setting(&settings, "pop3c/client_auth+", sasl_mech);
+		test_add_setting(&settings,
+			t_strdup_printf("pop3c/client_auth/%s/mechanism",
+					sasl_mech), sasl_mech);
+		test_add_setting(&settings,
+			t_strdup_printf("pop3c/client_auth/%s/authzid",
+					sasl_mech), "testuser");
+		test_add_setting(&settings,
+			t_strdup_printf("pop3c/client_auth/%s/password",
+					sasl_mech), password);
+	}
 	if (connection_timeout_interval != NULL) {
 		test_add_setting(&settings, "pop3c_cmd_timeout",
 				 connection_timeout_interval);
@@ -78,6 +98,7 @@ test_generate_settings(const char *port, const char *connection_timeout_interval
 	} else {
 		test_add_setting(&settings, "pop3c_cmd_timeout", "5s");
 		test_add_setting(&settings, "pop3c_connect_timeout", "5s");
+
 	}
 	array_append_zero(&settings);
 
@@ -115,6 +136,7 @@ test_pop3c_server_expect_full(struct test_server *server,
 		       line, expected_line);
 		return FALSE;
 	} else {
+		i_assert(strlen(line) < (255 - 2));
 		return TRUE;
 	}
 }
@@ -231,6 +253,7 @@ test_run_client(test_client_init_t *client_test, const char *temp_path_prefix)
 static void
 test_run_client_server(test_client_init_t *client_test,
 		       test_server_init_t *server_test,
+		       const char *sasl_mech, const char *password,
 		       bool reduce_timeout)
 {
 	static unsigned int run_id = 0;
@@ -243,9 +266,9 @@ test_run_client_server(test_client_init_t *client_test,
 	server.fd = -1;
 	server.fd_listen = test_open_server_fd(&server.port);
 
-	const char *const *settings =
-		test_generate_settings(dec2str(server.port),
-				       reduce_timeout ? "500ms" : "5s");
+	const char *const *settings = test_generate_settings(
+		dec2str(server.port), sasl_mech, password,
+		(reduce_timeout ? "500ms" : "5s"));
 	settings_simple_init_with_event(&test_set, client_event, settings);
 
 	const char *temp_path_prefix = t_strdup_printf(
@@ -295,7 +318,8 @@ static void test_pop3c_connect_failed_client(void)
 static void test_pop3c_connect_failed(void)
 {
 	test_begin("pop3c connect failed");
-	test_run_client_server(test_pop3c_connect_failed_client, NULL, FALSE);
+	test_run_client_server(test_pop3c_connect_failed_client, NULL,
+			       NULL, NULL, FALSE);
 	test_end();
 }
 
@@ -324,7 +348,7 @@ static void test_pop3c_banner_hangs(void)
 	test_begin("pop3c banner hangs");
 	test_run_client_server(test_pop3c_banner_hangs_client,
 			       test_pop3c_banner_hangs_server,
-			       TRUE);
+			       NULL, NULL, TRUE);
 	test_end();
 }
 
@@ -357,7 +381,7 @@ static void test_pop3c_user_hangs(void)
 	test_begin("pop3c user hangs");
 	test_run_client_server(test_pop3c_user_hangs_client,
 			       test_pop3c_user_hangs_server,
-			       TRUE);
+			       NULL, NULL, TRUE);
 	test_end();
 }
 
@@ -392,7 +416,7 @@ static void test_pop3c_pass_hangs(void)
 	test_begin("pop3c pass hangs");
 	test_run_client_server(test_pop3c_pass_hangs_client,
 			       test_pop3c_pass_hangs_server,
-			       TRUE);
+			       NULL, NULL, TRUE);
 	test_end();
 }
 
@@ -424,7 +448,7 @@ static void test_pop3c_user_fails(void)
 	test_begin("pop3c user fails");
 	test_run_client_server(test_pop3c_user_fails_client,
 			       test_pop3c_user_fails_server,
-			       FALSE);
+			       NULL, NULL, FALSE);
 	test_end();
 }
 
@@ -456,7 +480,131 @@ static void test_pop3c_pass_fails(void)
 	test_begin("pop3c pass fails");
 	test_run_client_server(test_pop3c_pass_fails_client,
 			       test_pop3c_pass_fails_server,
-			       FALSE);
+			       NULL, NULL, FALSE);
+	test_end();
+}
+
+/*
+ * pop3c auth plain fails
+ */
+
+static void test_pop3c_auth_plain_fails_client(void)
+{
+	pop3c_client_login(pop3c_client, pop3c_login_callback, NULL);
+	pop3c_client_wait_one(pop3c_client);
+	test_assert(pop3c_login_last_reply == POP3C_COMMAND_STATE_ERR);
+}
+
+static void test_pop3c_auth_plain_fails_server(void)
+{
+	test_server_wait_connection(&server, TRUE);
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\nSASL PLAIN LOGIN\r\n.\r\n");
+	test_assert(test_pop3c_server_expect("AUTH PLAIN AHRlc3R1c2VyAHRlc3RwYXNz"));
+	o_stream_nsend_str(server.output, "-ERR Test login failed\r\n");
+}
+
+static void test_pop3c_auth_plain_fails(void)
+{
+	test_begin("pop3c auth plain fails");
+	test_run_client_server(test_pop3c_auth_plain_fails_client,
+			       test_pop3c_auth_plain_fails_server,
+			       "PLAIN", NULL, FALSE);
+	test_end();
+}
+
+/*
+ * pop3c auth no server support
+ */
+
+static void test_pop3c_auth_no_server_support_client(void)
+{
+	pop3c_client_login(pop3c_client, pop3c_login_callback, NULL);
+	pop3c_client_wait_one(pop3c_client);
+	test_assert(pop3c_login_last_reply == POP3C_COMMAND_STATE_ERR);
+}
+
+static void test_pop3c_auth_no_server_support_server(void)
+{
+	test_server_wait_connection(&server, TRUE);
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\nSASL PLAIN\r\n.\r\n");
+	test_assert(i_stream_read_next_line(server.input) == NULL);
+	test_server_disconnect(&server);
+}
+
+static void test_pop3c_auth_no_server_support(void)
+{
+	test_begin("pop3c auth no server support");
+	test_run_client_server(test_pop3c_auth_no_server_support_client,
+			       test_pop3c_auth_no_server_support_server,
+			       "LOGIN", NULL, FALSE);
+	test_end();
+}
+
+/*
+ * pop3c auth bad base64
+ */
+
+static void test_pop3c_auth_bad_base64_client(void)
+{
+	pop3c_client_login(pop3c_client, pop3c_login_callback, NULL);
+	pop3c_client_wait_one(pop3c_client);
+	test_assert(pop3c_login_last_reply == POP3C_COMMAND_STATE_ERR);
+}
+
+static void test_pop3c_auth_bad_base64_server(void)
+{
+	test_server_wait_connection(&server, TRUE);
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\nSASL LOGIN\r\n.\r\n");
+	test_assert(test_pop3c_server_expect("AUTH LOGIN"));
+	o_stream_nsend_str(server.output, "+ (FROP!)\r\n");
+	test_assert(i_stream_read_next_line(server.input) == NULL);
+	test_server_disconnect(&server);
+}
+
+static void test_pop3c_auth_bad_base64(void)
+{
+	test_begin("pop3c auth bad base64");
+	test_run_client_server(test_pop3c_auth_bad_base64_client,
+			       test_pop3c_auth_bad_base64_server,
+			       "LOGIN", NULL, FALSE);
+	test_end();
+}
+
+/*
+ * pop3c auth bad mech
+ */
+
+static void test_pop3c_auth_bad_mech_client(void)
+{
+	pop3c_client_login(pop3c_client, pop3c_login_callback, NULL);
+	pop3c_client_wait_one(pop3c_client);
+	test_assert(pop3c_login_last_reply == POP3C_COMMAND_STATE_ERR);
+}
+
+static void test_pop3c_auth_bad_mech_server(void)
+{
+	test_server_wait_connection(&server, TRUE);
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\nSASL CRAM-MD5\r\n.\r\n");
+	test_assert(test_pop3c_server_expect("AUTH CRAM-MD5"));
+	o_stream_nsend_str(server.output, "+ RlJPUA==\r\n");
+	test_assert(i_stream_read_next_line(server.input) == NULL);
+	test_server_disconnect(&server);
+}
+
+static void test_pop3c_auth_bad_mech(void)
+{
+	test_begin("pop3c auth bad mech");
+	test_run_client_server(test_pop3c_auth_bad_mech_client,
+			       test_pop3c_auth_bad_mech_server,
+			       "CRAM-MD5", NULL, FALSE);
 	test_end();
 }
 
@@ -497,7 +645,132 @@ static void test_pop3c_user_pass_success(void)
 	test_begin("pop3c user+pass success");
 	test_run_client_server(test_pop3c_user_pass_success_client,
 			       test_pop3c_user_pass_success_server,
-			       FALSE);
+			       NULL, NULL, FALSE);
+	test_end();
+}
+
+/*
+ * pop3c auth plain success
+ */
+
+static void test_pop3c_auth_plain_success_client(void)
+{
+	pop3c_client_login(pop3c_client, pop3c_login_callback, NULL);
+	pop3c_client_wait_one(pop3c_client);
+	test_assert(pop3c_login_last_reply == POP3C_COMMAND_STATE_OK);
+
+	const char *reply;
+	test_assert(pop3c_client_cmd_line(pop3c_client, "NOOP\r\n", &reply) == 0);
+	test_assert_strcmp(reply, "Doing nothing");
+}
+
+static void test_pop3c_auth_plain_success_server(void)
+{
+	test_server_wait_connection(&server, TRUE);
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\nSASL PLAIN LOGIN\r\n.\r\n");
+	test_assert(test_pop3c_server_expect("AUTH PLAIN AHRlc3R1c2VyAHRlc3RwYXNz"));
+	o_stream_nsend_str(server.output, "+OK\r\n");
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\n.\r\n");
+	test_assert(test_pop3c_server_expect("NOOP"));
+	o_stream_nsend_str(server.output, "+OK Doing nothing\r\n");
+}
+
+static void test_pop3c_auth_plain_success(void)
+{
+	test_begin("pop3c auth plain success");
+	test_run_client_server(test_pop3c_auth_plain_success_client,
+			       test_pop3c_auth_plain_success_server,
+			       "PLAIN", NULL, FALSE);
+	test_end();
+}
+
+/*
+ * pop3c auth login success
+ */
+
+static void test_pop3c_auth_login_success_client(void)
+{
+	pop3c_client_login(pop3c_client, pop3c_login_callback, NULL);
+	pop3c_client_wait_one(pop3c_client);
+	test_assert(pop3c_login_last_reply == POP3C_COMMAND_STATE_OK);
+
+	const char *reply;
+	test_assert(pop3c_client_cmd_line(pop3c_client, "NOOP\r\n", &reply) == 0);
+	test_assert_strcmp(reply, "Doing nothing");
+}
+
+static void test_pop3c_auth_login_success_server(void)
+{
+	test_server_wait_connection(&server, TRUE);
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\nSASL PLAIN LOGIN\r\n.\r\n");
+	test_assert(test_pop3c_server_expect("AUTH LOGIN"));
+	o_stream_nsend_str(server.output, "+ VXNlcm5hbWU6\r\n");
+	test_assert(test_pop3c_server_expect("dGVzdHVzZXI="));
+	o_stream_nsend_str(server.output, "+ UGFzc3dvcmQ6\r\n");
+	test_assert(test_pop3c_server_expect("dGVzdHBhc3M="));
+	o_stream_nsend_str(server.output, "+OK\r\n");
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\n.\r\n");
+	test_assert(test_pop3c_server_expect("NOOP"));
+	o_stream_nsend_str(server.output, "+OK Doing nothing\r\n");
+}
+
+static void test_pop3c_auth_login_success(void)
+{
+	test_begin("pop3c auth login success");
+	test_run_client_server(test_pop3c_auth_login_success_client,
+			       test_pop3c_auth_login_success_server,
+			       "LOGIN", NULL, FALSE);
+	test_end();
+}
+
+/*
+ * pop3c auth login non-standard
+ */
+
+static void test_pop3c_auth_login_nonstandard_client(void)
+{
+	pop3c_client_login(pop3c_client, pop3c_login_callback, NULL);
+	pop3c_client_wait_one(pop3c_client);
+	test_assert(pop3c_login_last_reply == POP3C_COMMAND_STATE_OK);
+
+	const char *reply;
+	test_assert(pop3c_client_cmd_line(pop3c_client, "NOOP\r\n", &reply) == 0);
+	test_assert_strcmp(reply, "Doing nothing");
+}
+
+static void test_pop3c_auth_login_nonstandard_server(void)
+{
+	test_server_wait_connection(&server, TRUE);
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\nSASL PLAIN LOGIN\r\n.\r\n");
+	test_assert(test_pop3c_server_expect("AUTH LOGIN"));
+	o_stream_nsend_str(server.output, "+\r\n"); /* empty and missing space */
+	test_assert(test_pop3c_server_expect("dGVzdHVzZXI="));
+	o_stream_nsend_str(server.output, "+\r\n"); /* empty and missing space */
+	test_assert(test_pop3c_server_expect("dGVzdHBhc3M="));
+	o_stream_nsend_str(server.output, "+OK\r\n");
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\n.\r\n");
+	test_assert(test_pop3c_server_expect("NOOP"));
+	o_stream_nsend_str(server.output, "+OK Doing nothing\r\n");
+}
+
+static void test_pop3c_auth_login_nonstandard(void)
+{
+	test_begin("pop3c auth login non-standard");
+	test_run_client_server(test_pop3c_auth_login_nonstandard_client,
+			       test_pop3c_auth_login_nonstandard_server,
+			       "LOGIN", NULL, FALSE);
 	test_end();
 }
 
@@ -534,7 +807,143 @@ static void test_pop3c_capa_failure_user_pass_success(void)
 	test_begin("pop3c capa failure, user+pass success");
 	test_run_client_server(test_pop3c_capa_failure_user_pass_success_client,
 			       test_pop3c_capa_failure_user_pass_success_server,
-			       FALSE);
+			       NULL, NULL, FALSE);
+	test_end();
+}
+
+/*
+ * pop3c capa failure, auth success
+ */
+
+static void test_pop3c_capa_failure_auth_success_client(void)
+{
+	pop3c_client_login(pop3c_client, pop3c_login_callback, NULL);
+	pop3c_client_wait_one(pop3c_client);
+	test_assert(pop3c_login_last_reply == POP3C_COMMAND_STATE_OK);
+
+	const char *reply;
+	test_assert(pop3c_client_cmd_line(pop3c_client, "NOOP\r\n", &reply) == 0);
+	test_assert_strcmp(reply, "Doing nothing");
+}
+
+static void test_pop3c_capa_failure_auth_success_server(void)
+{
+	test_server_wait_connection(&server, TRUE);
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output, "-ERR Unknown command\r\n");
+	test_assert(test_pop3c_server_expect("AUTH PLAIN AHRlc3R1c2VyAHRlc3RwYXNz"));
+	o_stream_nsend_str(server.output, "+OK\r\n");
+	test_assert(test_pop3c_server_expect("NOOP"));
+	o_stream_nsend_str(server.output, "+OK Doing nothing\r\n");
+}
+
+static void test_pop3c_capa_failure_auth_success(void)
+{
+	test_begin("pop3c capa failure, auth success");
+	test_run_client_server(test_pop3c_capa_failure_auth_success_client,
+			       test_pop3c_capa_failure_auth_success_server,
+			       "PLAIN", NULL, FALSE);
+	test_end();
+}
+
+/*
+ * pop3c auth plain max ir
+ */
+
+static void test_pop3c_auth_plain_max_ir_client(void)
+{
+	pop3c_client_login(pop3c_client, pop3c_login_callback, NULL);
+	pop3c_client_wait_one(pop3c_client);
+	test_assert(pop3c_login_last_reply == POP3C_COMMAND_STATE_OK);
+
+	const char *reply;
+	test_assert(pop3c_client_cmd_line(pop3c_client, "NOOP\r\n", &reply) == 0);
+	test_assert_strcmp(reply, "Doing nothing");
+}
+
+static void test_pop3c_auth_plain_max_ir_server(void)
+{
+	static const char *auth_plain =
+		"AUTH PLAIN "
+		"AHRlc3R1c2VyADAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5YWJjZGVmMDEyMz"
+		"Q1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5YWJjZGVmMDEy"
+		"MzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5YWJjZGVmMD"
+		"EyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5";
+
+	test_server_wait_connection(&server, TRUE);
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\nSASL PLAIN LOGIN\r\n.\r\n");
+	test_assert(test_pop3c_server_expect(auth_plain));
+	o_stream_nsend_str(server.output, "+OK\r\n");
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\n.\r\n");
+	test_assert(test_pop3c_server_expect("NOOP"));
+	o_stream_nsend_str(server.output, "+OK Doing nothing\r\n");
+}
+
+static void test_pop3c_auth_plain_max_ir(void)
+{
+	static const char *password =
+		"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+		"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+		"0123456789abcdef0123456789abcdef0123456789";
+	test_begin("pop3c auth plain max ir");
+	test_run_client_server(test_pop3c_auth_plain_max_ir_client,
+			       test_pop3c_auth_plain_max_ir_server,
+			       "PLAIN", password, FALSE);
+	test_end();
+}
+
+/*
+ * pop3c auth plain no ir
+ */
+
+static void test_pop3c_auth_plain_no_ir_client(void)
+{
+	pop3c_client_login(pop3c_client, pop3c_login_callback, NULL);
+	pop3c_client_wait_one(pop3c_client);
+	test_assert(pop3c_login_last_reply == POP3C_COMMAND_STATE_OK);
+
+	const char *reply;
+	test_assert(pop3c_client_cmd_line(pop3c_client, "NOOP\r\n", &reply) == 0);
+	test_assert_strcmp(reply, "Doing nothing");
+}
+
+static void test_pop3c_auth_plain_no_ir_server(void)
+{
+	static const char *auth_plain =
+		"AHRlc3R1c2VyADAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5YWJjZGVmMDEyMz"
+		"Q1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5YWJjZGVmMDEy"
+		"MzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5YWJjZGVmMD"
+		"EyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5YQ==";
+
+	test_server_wait_connection(&server, TRUE);
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\nSASL PLAIN LOGIN\r\n.\r\n");
+	test_assert(test_pop3c_server_expect("AUTH PLAIN"));
+	o_stream_nsend_str(server.output, "+ \r\n");
+	test_assert(test_pop3c_server_expect(auth_plain));
+	o_stream_nsend_str(server.output, "+OK\r\n");
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\n.\r\n");
+	test_assert(test_pop3c_server_expect("NOOP"));
+	o_stream_nsend_str(server.output, "+OK Doing nothing\r\n");
+}
+
+static void test_pop3c_auth_plain_no_ir(void)
+{
+	static const char *password =
+		"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+		"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+		"0123456789abcdef0123456789abcdef0123456789a";
+	test_begin("pop3c auth plain no ir");
+	test_run_client_server(test_pop3c_auth_plain_no_ir_client,
+			       test_pop3c_auth_plain_no_ir_server,
+			       "PLAIN", password, FALSE);
 	test_end();
 }
 
@@ -571,8 +980,18 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		test_pop3c_pass_hangs,
 		test_pop3c_user_fails,
 		test_pop3c_pass_fails,
+		test_pop3c_auth_plain_fails,
+		test_pop3c_auth_no_server_support,
+		test_pop3c_auth_bad_base64,
+		test_pop3c_auth_bad_mech,
 		test_pop3c_user_pass_success,
+		test_pop3c_auth_plain_success,
+		test_pop3c_auth_login_success,
+		test_pop3c_auth_login_nonstandard,
 		test_pop3c_capa_failure_user_pass_success,
+		test_pop3c_capa_failure_auth_success,
+		test_pop3c_auth_plain_max_ir,
+		test_pop3c_auth_plain_no_ir,
 		NULL
 	};
 

@@ -11,6 +11,7 @@ enum pop3c_capability {
 	POP3C_CAPABILITY_TOP		= 0x02,
 	POP3C_CAPABILITY_UIDL		= 0x04,
 	POP3C_CAPABILITY_STLS           = 0x08,
+	POP3C_CAPABILITY_SASL		= 0x10,
 };
 
 enum pop3c_command_state {
