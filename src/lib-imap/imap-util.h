@@ -31,4 +31,12 @@ const char *imap_args_to_str(const struct imap_arg *args);
    to avoid breaking clients that expect IMAP4rev1 to be the first. */
 void imap_write_capability(string_t *dest, const ARRAY_TYPE(const_string) *capabilities);
 
+/* Match a token-prefix on an IMAP reply line. Returns TRUE if `line` begins
+   (case-insensitively) with `prefix` AND the next character is either
+   end-of-string or a space. On match, `*suffix_r` (when non-NULL) is set to
+   point past the trailing space (or to "" if the line ends right after the
+   prefix). On no match, `*suffix_r` is left untouched. */
+bool imap_reply_begins(const char *line, const char *prefix,
+		       const char **suffix_r);
+
 #endif
