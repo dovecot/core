@@ -46,7 +46,8 @@ pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
 	test-fs-metawrap \
-	test-fs-posix
+	test-fs-posix \
+	test-fs-abort
 
 test_deps = \
 	$(noinst_LTLIBRARIES) \
@@ -69,3 +70,7 @@ test_fs_metawrap_DEPENDENCIES = $(test_deps)
 test_fs_posix_SOURCES = test-fs-posix.c
 test_fs_posix_LDADD = $(test_libs)
 test_fs_posix_DEPENDENCIES = $(test_deps)
+
+test_fs_abort_SOURCES = test-fs-abort.c
+test_fs_abort_LDADD = $(test_libs)
+test_fs_abort_DEPENDENCIES = $(test_deps)

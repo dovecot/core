@@ -1087,18 +1087,26 @@ int fs_write_stream_finish_async(struct fs_file *file)
 	return fs_write_stream_finish_int(file, TRUE);
 }
 
+/* Accepts both a caller-owned pointer (e.g. &output where output is a local
+ * variable) and &file->output itself. */
 static void fs_write_stream_abort(struct fs_file *file, struct ostream **output)
 {
 	int ret;
+	bool is_file_output = (output == &file->output);
 
 	i_assert(*output == file->output);
 	i_assert(file->output != NULL);
-	i_assert(output != &file->output);
 
-	*output = NULL;
+	if (!is_file_output)
+		*output = NULL;
+
 	o_stream_abort(file->output);
 	/* make sure we don't have an old error lying around */
 	ret = fs_write_stream_finish_int(file, FALSE);
+
+	if (is_file_output)
+		*output = NULL;
+
 	i_assert(ret != 0);
 }
 
