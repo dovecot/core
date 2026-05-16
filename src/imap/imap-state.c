@@ -770,6 +770,10 @@ import_state_searchres(struct client *client, const unsigned char *data,
 {
 	const unsigned char *p = data;
 
+	if (array_is_created(&client->search_saved_uidset)) {
+		*error_r = "Duplicate SEARCHRES";
+		return IMAP_STATE_CORRUPTED;
+	}
 	i_array_init(&client->search_saved_uidset, 128);
 	if (import_seq_range(&p, data+size, &client->search_saved_uidset) < 0) {
 		*error_r = "Invalid SEARCHRES seq-range";
