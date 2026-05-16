@@ -691,9 +691,9 @@ import_state_mailbox_open(struct client *client,
 	return IMAP_STATE_OK;
 }
 
-static ssize_t
+static enum imap_state_result
 import_state_mailbox(struct client *client, const unsigned char *data,
-		     size_t size, const char **error_r)
+		     size_t size, size_t *skip_r, const char **error_r)
 {
 	struct mailbox_import_state state;
 	enum imap_state_result open_result;
@@ -701,43 +701,47 @@ import_state_mailbox(struct client *client, const unsigned char *data,
 
 	if (client->mailbox != NULL) {
 		*error_r = "Duplicate mailbox state";
-		return 0;
+		return IMAP_STATE_CORRUPTED;
 	}
 
 	ret = import_state_mailbox_struct(data, size, &state, error_r);
 	if (ret <= 0) {
 		i_assert(*error_r != NULL);
-		return ret;
+		return IMAP_STATE_CORRUPTED;
 	}
 	open_result = import_state_mailbox_open(client, &state, error_r);
 	if (open_result != IMAP_STATE_OK) {
+		i_assert(*error_r != NULL);
 		*error_r = t_strdup_printf("Mailbox %s: %s", state.vname, *error_r);
-		return -1;
+		return open_result;
 	}
-	return ret;
+	*skip_r = ret + 1;
+	return IMAP_STATE_OK;
 }
 
-static ssize_t
+static enum imap_state_result
 import_state_compress(struct client *client, const unsigned char *data,
-		      size_t size, const char **error_r)
+		      size_t size, size_t *skip_r, const char **error_r)
 {
 	const unsigned char *p = data, *end = data + size;
 	const char *name;
 
 	if (import_string(&p, end, &name) < 0) {
 		*error_r = "COMPRESS name truncated";
-		return 0;
+		return IMAP_STATE_CORRUPTED;
 	}
 	if (compression_lookup_handler(name, &client->compress_handler) <= 0) {
 		*error_r = t_strdup_printf("Unknown COMPRESS handler %s", name);
-		return 0;
+		return IMAP_STATE_CORRUPTED;
 	}
-	return p - data;
+	*skip_r = (p - data) + 1;
+	return IMAP_STATE_OK;
 }
 
-static ssize_t
+static enum imap_state_result
 import_state_enabled_feature(struct client *client, const unsigned char *data,
-			     size_t size, const char **error_r)
+			     size_t size, size_t *skip_r,
+			     const char **error_r)
 {
 	const unsigned char *p = data, *end = data + size;
 	const char *name;
@@ -745,52 +749,58 @@ import_state_enabled_feature(struct client *client, const unsigned char *data,
 
 	if (import_string(&p, end, &name) < 0) {
 		*error_r = "Mailbox state truncated at name";
-		return 0;
+		return IMAP_STATE_CORRUPTED;
 	}
 	if (!imap_feature_lookup(name, &feature_idx)) {
 		*error_r = t_strdup_printf("Unknown feature '%s'", name);
-		return 0;
+		return IMAP_STATE_CORRUPTED;
 	}
 	if (!client_enable(client, feature_idx)) {
 		*error_r = t_strdup_printf("Feature '%s' couldn't be enabled",
 					   name);
-		return 0;
+		return IMAP_STATE_CORRUPTED;
 	}
-	return p - data;
+	*skip_r = (p - data) + 1;
+	return IMAP_STATE_OK;
 }
 
-static ssize_t
+static enum imap_state_result
 import_state_searchres(struct client *client, const unsigned char *data,
-		       size_t size, const char **error_r)
+		       size_t size, size_t *skip_r, const char **error_r)
 {
 	const unsigned char *p = data;
 
 	i_array_init(&client->search_saved_uidset, 128);
 	if (import_seq_range(&p, data+size, &client->search_saved_uidset) < 0) {
 		*error_r = "Invalid SEARCHRES seq-range";
-		return 0;
+		return IMAP_STATE_CORRUPTED;
 	}
-	return p - data;
+	*skip_r = (p - data) + 1;
+	return IMAP_STATE_OK;
 }
 
-static ssize_t
+static enum imap_state_result
 import_state_id_logged(struct client *client,
 		       const unsigned char *data ATTR_UNUSED,
 		       size_t size ATTR_UNUSED,
+		       size_t *skip_r,
 		       const char **error_r ATTR_UNUSED)
 {
 	client->id_logged = TRUE;
-	return 0;
+	*skip_r = 1;
+	return IMAP_STATE_OK;
 }
 
-static ssize_t
+static enum imap_state_result
 import_state_tls_compression(struct client *client,
 			     const unsigned char *data ATTR_UNUSED,
 			     size_t size ATTR_UNUSED,
+			     size_t *skip_r,
 			     const char **error_r ATTR_UNUSED)
 {
 	client->tls_compression = TRUE;
-	return 0;
+	*skip_r = 1;
+	return IMAP_STATE_OK;
 }
 
 void imap_state_import_idle_cmd_tag(struct client *client, const char *tag)
@@ -829,8 +839,9 @@ void imap_state_import_idle_cmd_tag(struct client *client, const char *tag)
 
 static struct {
 	enum imap_state_type_public type;
-	ssize_t (*import)(struct client *client, const unsigned char *data,
-			  size_t size, const char **error_r);
+	enum imap_state_result
+		(*import)(struct client *client, const unsigned char *data,
+			  size_t size, size_t *skip_r, const char **error_r);
 } imap_states_public[] = {
 	{ IMAP_STATE_TYPE_MAILBOX, import_state_mailbox },
 	{ IMAP_STATE_TYPE_COMPRESS, import_state_compress },
@@ -840,8 +851,9 @@ static struct {
 
 static struct {
 	enum imap_state_type_internal type;
-	ssize_t (*import)(struct client *client, const unsigned char *data,
-			  size_t size, const char **error_r);
+	enum imap_state_result
+		(*import)(struct client *client, const unsigned char *data,
+			  size_t size, size_t *skip_r, const char **error_r);
 } imap_states_internal[] = {
 	{ IMAP_STATE_TYPE_ID_LOGGED, import_state_id_logged },
 	{ IMAP_STATE_TYPE_TLS_COMPRESSION, import_state_tls_compression }
@@ -853,20 +865,17 @@ imap_state_try_import_public(struct client *client, const unsigned char *data,
 			     enum imap_state_result *state_r)
 {
 	unsigned int i;
-	ssize_t ret;
 
 	i_assert(size > 0);
 
 	for (i = 0; i < N_ELEMENTS(imap_states_public); i++) {
 		if (imap_states_public[i].type == data[0]) {
-			ret = imap_states_public[i].
-				import(client, data+1, size-1, error_r);
-			if (ret < 0) {
-				*state_r = IMAP_STATE_ERROR;
-				return 0;
-			}
-			*skip_r = ret + 1;
-			*state_r = IMAP_STATE_OK;
+			*error_r = NULL;
+			*state_r = imap_states_public[i].
+				import(client, data+1, size-1,
+				       skip_r, error_r);
+			i_assert(*state_r == IMAP_STATE_OK ||
+				 *error_r != NULL);
 			return 0;
 		}
 	}
@@ -879,20 +888,17 @@ imap_state_try_import_internal(struct client *client, const unsigned char *data,
 			       enum imap_state_result *state_r)
 {
 	unsigned int i;
-	ssize_t ret;
 
 	i_assert(size > 0);
 
 	for (i = 0; i < N_ELEMENTS(imap_states_internal); i++) {
 		if (imap_states_internal[i].type == data[0]) {
-			ret = imap_states_internal[i].
-				import(client, data+1, size-1, error_r);
-			if (ret < 0) {
-				*state_r = IMAP_STATE_ERROR;
-				return 0;
-			}
-			*skip_r = ret + 1;
-			*state_r = IMAP_STATE_OK;
+			*error_r = NULL;
+			*state_r = imap_states_internal[i].
+				import(client, data+1, size-1,
+				       skip_r, error_r);
+			i_assert(*state_r == IMAP_STATE_OK ||
+				 *error_r != NULL);
 			return 0;
 		}
 	}
