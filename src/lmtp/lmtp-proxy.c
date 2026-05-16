@@ -232,7 +232,10 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 		    (set->set.host_ip.family == 0 ||
 		     net_ip_compare(&conn->set.set.host_ip, &set->set.host_ip)) &&
 		    net_ip_compare(&conn->set.set.source_ip, &set->set.source_ip) &&
-		    conn->set.set.ssl_flags == set->set.ssl_flags)
+		    conn->set.set.ssl_flags == set->set.ssl_flags &&
+		    conn->set.set.timeout_msecs == set->set.timeout_msecs &&
+		    conn->set.set.remote_not_trusted == set->set.remote_not_trusted &&
+		    conn->set.set.nopipelining == set->set.nopipelining)
 			return conn;
 	}
 
@@ -246,6 +249,8 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	conn->set.set.port = set->set.port;
 	conn->set.set.ssl_flags = set->set.ssl_flags;
 	conn->set.set.timeout_msecs = set->set.timeout_msecs;
+	conn->set.set.remote_not_trusted = set->set.remote_not_trusted;
+	conn->set.set.nopipelining = set->set.nopipelining;
 	array_push_back(&proxy->connections, &conn);
 
 	if ((set->set.ssl_flags & AUTH_PROXY_SSL_FLAG_YES) == 0)
@@ -259,10 +264,14 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	lmtp_set.my_ip = conn->set.set.source_ip;
 	lmtp_set.ssl_allow_invalid_cert =
 		(set->set.ssl_flags & AUTH_PROXY_SSL_FLAG_ANY_CERT) != 0;
-	lmtp_set.peer_trusted = !conn->set.set.remote_not_trusted;
+	lmtp_set.peer_trusted = !set->set.remote_not_trusted;
 	lmtp_set.forced_capabilities = SMTP_CAPABILITY__ORCPT;
+	lmtp_set.disabled_capabilities = (set->set.nopipelining ?
+					  SMTP_CAPABILITY_PIPELINING : 0);
 	lmtp_set.mail_send_broken_path = TRUE;
 	lmtp_set.verbose_user_errors = client->lmtp_set->lmtp_verbose_replies;
+	lmtp_set.command_timeout_msecs = set->set.timeout_msecs;
+	lmtp_set.connect_timeout_msecs = set->set.timeout_msecs;
 
 	if (conn->set.set.host_ip.family != 0) {
 		conn->lmtp_conn = smtp_client_connection_create_ip(

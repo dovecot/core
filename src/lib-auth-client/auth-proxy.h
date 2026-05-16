@@ -12,6 +12,13 @@ enum auth_proxy_ssl_flags {
 	AUTH_PROXY_SSL_FLAG_ANY_CERT	= BIT(2),
 };
 
+/* To share proxy connections towards a backend between recipients with
+   compatible connection settings, the per-connection fields (host, host_ip,
+   port, ssl_flags, source_ip, timeout_msecs, nopipelining, remote_not_trusted)
+   are compared and copied in lmtp_proxy_get_connection(), while the
+   per-recipient/login fields (username, master_user, password, sasl_mechanism,
+   noauth, redirect_reauth) are not.
+ */
 struct auth_proxy_settings {
 	/* TRUE if proxying is enabled */
 	bool proxy;
