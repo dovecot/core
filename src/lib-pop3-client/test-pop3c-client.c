@@ -344,6 +344,9 @@ static void test_pop3c_user_hangs_client(void)
 static void test_pop3c_user_hangs_server(void)
 {
 	test_server_wait_connection(&server, TRUE);
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\n.\r\n");
 	test_assert(test_pop3c_server_expect("USER testuser"));
 	test_assert(i_stream_read_next_line(server.input) == NULL);
 	test_server_disconnect(&server);
@@ -374,6 +377,9 @@ static void test_pop3c_pass_hangs_client(void)
 static void test_pop3c_pass_hangs_server(void)
 {
 	test_server_wait_connection(&server, TRUE);
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\n.\r\n");
 	test_assert(test_pop3c_server_expect("USER testuser"));
 	o_stream_nsend_str(server.output, "+OK\r\n");
 	test_assert(test_pop3c_server_expect("PASS testpass"));
@@ -406,6 +412,9 @@ static void test_pop3c_user_fails_client(void)
 static void test_pop3c_user_fails_server(void)
 {
 	test_server_wait_connection(&server, TRUE);
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\n.\r\n");
 	test_assert(test_pop3c_server_expect("USER testuser"));
 	o_stream_nsend_str(server.output, "-ERR Test login failed\r\n");
 }
@@ -433,6 +442,9 @@ static void test_pop3c_pass_fails_client(void)
 static void test_pop3c_pass_fails_server(void)
 {
 	test_server_wait_connection(&server, TRUE);
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\n.\r\n");
 	test_assert(test_pop3c_server_expect("USER testuser"));
 	o_stream_nsend_str(server.output, "+OK\r\n");
 	test_assert(test_pop3c_server_expect("PASS testpass"));
@@ -466,6 +478,9 @@ static void test_pop3c_user_pass_success_client(void)
 static void test_pop3c_user_pass_success_server(void)
 {
 	test_server_wait_connection(&server, TRUE);
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output,
+		"+OK Capability list follows\r\nPIPELINING\r\n.\r\n");
 	test_assert(test_pop3c_server_expect("USER testuser"));
 	o_stream_nsend_str(server.output, "+OK\r\n");
 	test_assert(test_pop3c_server_expect("PASS testpass"));
@@ -482,6 +497,43 @@ static void test_pop3c_user_pass_success(void)
 	test_begin("pop3c user+pass success");
 	test_run_client_server(test_pop3c_user_pass_success_client,
 			       test_pop3c_user_pass_success_server,
+			       FALSE);
+	test_end();
+}
+
+/*
+ * pop3c capa failure, user+pass success
+ */
+
+static void test_pop3c_capa_failure_user_pass_success_client(void)
+{
+	pop3c_client_login(pop3c_client, pop3c_login_callback, NULL);
+	pop3c_client_wait_one(pop3c_client);
+	test_assert(pop3c_login_last_reply == POP3C_COMMAND_STATE_OK);
+
+	const char *reply;
+	test_assert(pop3c_client_cmd_line(pop3c_client, "NOOP\r\n", &reply) == 0);
+	test_assert_strcmp(reply, "Doing nothing");
+}
+
+static void test_pop3c_capa_failure_user_pass_success_server(void)
+{
+	test_server_wait_connection(&server, TRUE);
+	test_assert(test_pop3c_server_expect("CAPA"));
+	o_stream_nsend_str(server.output, "-ERR Unknown command\r\n");
+	test_assert(test_pop3c_server_expect("USER testuser"));
+	o_stream_nsend_str(server.output, "+OK\r\n");
+	test_assert(test_pop3c_server_expect("PASS testpass"));
+	o_stream_nsend_str(server.output, "+OK\r\n");
+	test_assert(test_pop3c_server_expect("NOOP"));
+	o_stream_nsend_str(server.output, "+OK Doing nothing\r\n");
+}
+
+static void test_pop3c_capa_failure_user_pass_success(void)
+{
+	test_begin("pop3c capa failure, user+pass success");
+	test_run_client_server(test_pop3c_capa_failure_user_pass_success_client,
+			       test_pop3c_capa_failure_user_pass_success_server,
 			       FALSE);
 	test_end();
 }
@@ -520,6 +572,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		test_pop3c_user_fails,
 		test_pop3c_pass_fails,
 		test_pop3c_user_pass_success,
+		test_pop3c_capa_failure_user_pass_success,
 		NULL
 	};
 

@@ -104,6 +104,8 @@ struct pop3c_client {
 	struct istream *dot_input;
 
 	bool running:1;
+	bool capa_not_supported:1;
+	bool authenticated:1;
 };
 
 static void
@@ -221,6 +223,8 @@ static void pop3c_client_reset_state(struct pop3c_client *client)
 {
 	i_zero(&client->ip);
 	client->capabilities = 0;
+	client->capa_not_supported = FALSE;
+	client->authenticated = FALSE;
 	client->dot_input = NULL;
 }
 
@@ -352,10 +356,16 @@ void pop3c_client_wait_one(struct pop3c_client *client)
 	io_loop_destroy(&ioloop);
 }
 
-static void pop3c_client_starttls(struct pop3c_client *client)
+static int pop3c_client_starttls(struct pop3c_client *client)
 {
+	if (HAS_NO_BITS(client->capabilities, POP3C_CAPABILITY_STLS)) {
+		e_error(client->event, "STARTTLS not supported by server");
+		return -1;
+	}
+
 	o_stream_nsend_str(client->output, "STLS\r\n");
 	client->state = POP3C_CLIENT_STATE_STARTTLS;
+	return 0;
 }
 
 static int pop3c_client_authenticate1(struct pop3c_client *client)
@@ -439,6 +449,34 @@ static void pop3c_client_login_finished(struct pop3c_client *client)
 		io_loop_stop(current_ioloop);
 }
 
+static int pop3c_client_continue(struct pop3c_client *client)
+{
+	if (client->ssl_iostream == NULL &&
+	    client->ssl_mode == POP3C_CLIENT_SSL_MODE_STARTTLS) {
+		if (pop3c_client_starttls(client) < 0)
+			return -1;
+	} else if (!client->authenticated) {
+		if (pop3c_client_authenticate1(client) < 0)
+			return -1;
+	} else {
+		pop3c_client_login_finished(client);
+	}
+	return 0;
+}
+
+static int pop3c_client_update_capabilities(struct pop3c_client *client)
+{
+	if (client->capa_not_supported) {
+		if (pop3c_client_continue(client) < 0)
+			return -1;
+	} else {
+		client->capabilities = 0;
+		o_stream_nsend_str(client->output, "CAPA\r\n");
+		client->state = POP3C_CLIENT_STATE_CAPA;
+	}
+	return 0;
+}
+
 static int
 pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 {
@@ -452,10 +490,7 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 				"Server sent invalid banner: %s", line);
 			return -1;
 		}
-		if (client->ssl_mode == POP3C_CLIENT_SSL_MODE_STARTTLS)
-			pop3c_client_starttls(client);
-		else if (pop3c_client_authenticate1(client) < 0)
-			return -1;
+		pop3c_client_update_capabilities(client);
 		break;
 	case POP3C_CLIENT_STATE_STARTTLS:
 		if (!success) {
@@ -463,7 +498,8 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 			return -1;
 		}
 		if (pop3c_client_ssl_init(client) < 0)
-			pop3c_client_disconnect(client);
+			return -1;
+		pop3c_client_update_capabilities(client);
 		break;
 	case POP3C_CLIENT_STATE_USER:
 		if (!success) {
@@ -508,19 +544,22 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 		}
 		if (!success)
 			return -1;
-
-		o_stream_nsend_str(client->output, "CAPA\r\n");
-		client->state = POP3C_CLIENT_STATE_CAPA;
+		client->authenticated = TRUE;
+		pop3c_client_update_capabilities(client);
 		break;
 	case POP3C_CLIENT_STATE_CAPA:
 		if (str_begins_icase_with(line, "-ERR")) {
-			/* CAPA command not supported. some commands still
-			   support UIDL though. */
+			/* CAPA command not supported.
+			   Enable some extensions anyway */
+			client->capa_not_supported = TRUE;
 			client->capabilities |= POP3C_CAPABILITY_UIDL;
-			pop3c_client_login_finished(client);
+			client->capabilities |= POP3C_CAPABILITY_STLS;
+			if (pop3c_client_continue(client) < 0)
+				return -1;
 			break;
 		} else if (strcmp(line, ".") == 0) {
-			pop3c_client_login_finished(client);
+			if (pop3c_client_continue(client) < 0)
+				return -1;
 			break;
 		}
 		if ((client->set->parsed_features & POP3C_FEATURE_NO_PIPELINING) == 0 &&
@@ -530,6 +569,8 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 			client->capabilities |= POP3C_CAPABILITY_TOP;
 		else if (strcasecmp(line, "UIDL") == 0)
 			client->capabilities |= POP3C_CAPABILITY_UIDL;
+		else if (strcasecmp(line, "STLS") == 0)
+			client->capabilities |= POP3C_CAPABILITY_STLS;
 		break;
 	case POP3C_CLIENT_STATE_DISCONNECTED:
 	case POP3C_CLIENT_STATE_DONE:
