@@ -696,6 +696,7 @@ import_state_mailbox(struct client *client, const unsigned char *data,
 		     size_t size, const char **error_r)
 {
 	struct mailbox_import_state state;
+	enum imap_state_result open_result;
 	ssize_t ret;
 
 	if (client->mailbox != NULL) {
@@ -708,7 +709,8 @@ import_state_mailbox(struct client *client, const unsigned char *data,
 		i_assert(*error_r != NULL);
 		return ret;
 	}
-	if (import_state_mailbox_open(client, &state, error_r) < 0) {
+	open_result = import_state_mailbox_open(client, &state, error_r);
+	if (open_result != IMAP_STATE_OK) {
 		*error_r = t_strdup_printf("Mailbox %s: %s", state.vname, *error_r);
 		return -1;
 	}
