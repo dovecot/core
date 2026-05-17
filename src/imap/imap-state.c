@@ -577,17 +577,11 @@ import_state_mailbox_open(struct client *client,
 	if (mailbox_open(box) < 0) {
 		enum mail_error error;
 		const char *errstr = mailbox_get_last_internal_error(box, &error);
-		const char *full_errstr = t_strdup_printf("Couldn't open mailbox: %s", errstr);
-		if (error == MAIL_ERROR_NOTFOUND) {
-			e_debug(box->event, "Unhibernation failed to open mailbox: %s", errstr);
-			client_disconnect_with_error(client,
-				"IMAP session state is inconsistent, please relogin.");
-			mailbox_free(&box);
-			return IMAP_STATE_INCONSISTENT;
-		}
-		*error_r = full_errstr;
+
+		*error_r = t_strdup_printf("Couldn't open mailbox: %s", errstr);
 		mailbox_free(&box);
-		return IMAP_STATE_ERROR;
+		return error == MAIL_ERROR_NOTFOUND ?
+			IMAP_STATE_INCONSISTENT : IMAP_STATE_ERROR;
 	}
 
 	ret = mailbox_enable(box, client_enabled_mailbox_features(client));
