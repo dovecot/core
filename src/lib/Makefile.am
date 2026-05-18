@@ -263,6 +263,7 @@ liblib_la_SOURCES = \
 	write-full.c
 
 headers = \
+	abnf.h \
 	aqueue.h \
 	array.h \
 	array-decl.h \
