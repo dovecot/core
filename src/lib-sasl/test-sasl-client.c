@@ -8,6 +8,9 @@
 #include "client-auth-settings.h"
 #include "dsasl-client.h"
 
+#include <unistd.h>
+
+static bool debug = FALSE;
 static struct settings_root *set_root = NULL;
 
 static struct dsasl_client_session *
@@ -500,17 +503,280 @@ static void test_sasl_client_xoauth2(void)
 	test_end();
 }
 
-int main(void)
+static void test_sasl_client_mech_select(void)
 {
+	struct settings_simple test_set;
+	struct dsasl_client *client;
+	struct dsasl_client_parameters params;
+	struct dsasl_client_session *session;
+	const char *error;
+	int ret;
+
+	client = dsasl_client_create(NULL);
+
+	/* none */
+
+	test_begin("sasl client mech select - none");
+	static const char *settings_none[] = {
+		"client_auth_mechanism", "",
+		"client_auth_authid", "",
+		"client_auth_authzid", "",
+		"client_auth_password", "",
+		NULL,
+	};
+	settings_simple_init(&test_set, settings_none);
+	event_set_forced_debug(test_set.event, debug);
+
+	ret = dsasl_client_session_create_auto(client, test_set.event, NULL,
+					       &session, &error);
+	test_assert(ret == 0);
+	test_assert(session == NULL);
+
+	settings_simple_deinit(&test_set);
+	test_end();
+
+	/* default */
+
+	test_begin("sasl client mech select - default");
+	static const char *settings_default[] = {
+		"client_auth_mechanism", "",
+		"client_auth_authid", "",
+		"client_auth_authzid", "testuser",
+		"client_auth_password", "frop",
+		NULL,
+	};
+	settings_simple_init(&test_set, settings_default);
+	event_set_forced_debug(test_set.event, debug);
+
+	ret = dsasl_client_session_create_auto(client, test_set.event, NULL,
+					       &session, &error);
+	test_assert(ret > 0);
+	i_assert(session != NULL);
+
+	test_assert_strcmp(dsasl_client_session_get_mech_name(session),
+			   "PLAIN");
+
+	dsasl_client_session_destroy(&session);
+	settings_simple_deinit(&test_set);
+	test_end();
+
+	/* default no PLAIN */
+
+	test_begin("sasl client mech select - default no PLAIN");
+	static const char *settings_default_no_plain[] = {
+		"client_auth_mechanism", "",
+		"client_auth_authid", "",
+		"client_auth_authzid", "testuser",
+		"client_auth_password", "frop",
+		NULL,
+	};
+	settings_simple_init(&test_set, settings_default_no_plain);
+	event_set_forced_debug(test_set.event, debug);
+
+	static const char *mechs_default_no_plain[] = {
+		"SCRAM-SHA-1", "LOGIN", NULL,
+	};
+	i_zero(&params);
+	params.server_mechanisms = mechs_default_no_plain;
+
+	ret = dsasl_client_session_create_auto(client, test_set.event, &params,
+					       &session, &error);
+	test_assert(ret > 0);
+	i_assert(session != NULL);
+
+	test_assert_strcmp(dsasl_client_session_get_mech_name(session),
+			   "SCRAM-SHA-1");
+
+	dsasl_client_session_destroy(&session);
+	settings_simple_deinit(&test_set);
+	test_end();
+
+	/* explicit PLAIN */
+
+	test_begin("sasl client mech select - explicit PLAIN");
+	static const char *settings_explicit_plain[] = {
+		"client_auth_mechanism", "PLAIN",
+		"client_auth_authid", "",
+		"client_auth_authzid", "testuser",
+		"client_auth_password", "frop",
+		NULL,
+	};
+	settings_simple_init(&test_set, settings_explicit_plain);
+	event_set_forced_debug(test_set.event, debug);
+
+	ret = dsasl_client_session_create_auto(client, test_set.event, NULL,
+					       &session, &error);
+	test_assert(ret > 0);
+	i_assert(session != NULL);
+
+	test_assert_strcmp(dsasl_client_session_get_mech_name(session),
+			   "PLAIN");
+
+	dsasl_client_session_destroy(&session);
+	settings_simple_deinit(&test_set);
+	test_end();
+
+	/* explicit LOGIN */
+
+	test_begin("sasl client mech select - explicit LOGIN");
+	static const char *settings_explicit_login[] = {
+		"client_auth_mechanism", "LOGIN",
+		"client_auth_authid", "",
+		"client_auth_authzid", "testuser",
+		"client_auth_password", "frop",
+		NULL,
+	};
+	settings_simple_init(&test_set, settings_explicit_login);
+	event_set_forced_debug(test_set.event, debug);
+
+	ret = dsasl_client_session_create_auto(client, test_set.event, NULL,
+					       &session, &error);
+	test_assert(ret > 0);
+	i_assert(session != NULL);
+
+	test_assert_strcmp(dsasl_client_session_get_mech_name(session),
+			   "LOGIN");
+
+	dsasl_client_session_destroy(&session);
+	settings_simple_deinit(&test_set);
+	test_end();
+
+	/* configured default */
+
+	test_begin("sasl client mech select - configured default");
+	static const char *settings_configured_default[] = {
+		"client_auth", "PLAIN LOGIN",
+		"client_auth/PLAIN/mechanism", "PLAIN",
+		"client_auth/PLAIN/authid", "",
+		"client_auth/PLAIN/authzid", "testuser",
+		"client_auth/PLAIN/password", "frop",
+		"client_auth/LOGIN/mechanism", "LOGIN",
+		"client_auth/LOGIN/authid", "",
+		"client_auth/LOGIN/authzid", "testuser",
+		"client_auth/LOGIN/password", "frop",
+		NULL,
+	};
+	settings_simple_init(&test_set, settings_configured_default);
+	event_set_forced_debug(test_set.event, debug);
+
+	ret = dsasl_client_session_create_auto(client, test_set.event, NULL,
+					       &session, &error);
+	test_assert(ret > 0);
+	i_assert(session != NULL);
+
+	test_assert_strcmp(dsasl_client_session_get_mech_name(session),
+			   "PLAIN");
+
+	dsasl_client_session_destroy(&session);
+	settings_simple_deinit(&test_set);
+	test_end();
+
+	/* configured first */
+
+	test_begin("sasl client mech select - configured first");
+	static const char *settings_configured_first[] = {
+		"client_auth", "PLAIN LOGIN",
+		"client_auth/PLAIN/mechanism", "PLAIN",
+		"client_auth/PLAIN/authid", "",
+		"client_auth/PLAIN/authzid", "testuser",
+		"client_auth/PLAIN/password", "frop",
+		"client_auth/LOGIN/mechanism", "LOGIN",
+		"client_auth/LOGIN/authid", "",
+		"client_auth/LOGIN/authzid", "testuser",
+		"client_auth/LOGIN/password", "frop",
+		NULL,
+	};
+	settings_simple_init(&test_set, settings_configured_first);
+	event_set_forced_debug(test_set.event, debug);
+
+	static const char *mechs_configured_first[] = {
+		"LOGIN", "PLAIN", NULL,
+	};
+	i_zero(&params);
+	params.server_mechanisms = mechs_configured_first;
+
+	ret = dsasl_client_session_create_auto(client, test_set.event, &params,
+					       &session, &error);
+	test_assert(ret > 0);
+	i_assert(session != NULL);
+
+	test_assert_strcmp(dsasl_client_session_get_mech_name(session),
+			   "PLAIN");
+
+	dsasl_client_session_destroy(&session);
+	settings_simple_deinit(&test_set);
+	test_end();
+
+	/* configured second */
+
+	test_begin("sasl client mech select - configured second");
+	static const char *settings_configured_second[] = {
+		"client_auth", "PLAIN LOGIN",
+		"client_auth/PLAIN/mechanism", "PLAIN",
+		"client_auth/PLAIN/authid", "",
+		"client_auth/PLAIN/authzid", "testuser",
+		"client_auth/PLAIN/password", "frop",
+		"client_auth/LOGIN/mechanism", "LOGIN",
+		"client_auth/LOGIN/authid", "",
+		"client_auth/LOGIN/authzid", "testuser",
+		"client_auth/LOGIN/password", "frop",
+		NULL,
+	};
+	settings_simple_init(&test_set, settings_configured_second);
+	event_set_forced_debug(test_set.event, debug);
+
+	static const char *mechs_configured_second[] = {
+		"SCRAM-SHA-1", "LOGIN", NULL,
+	};
+	i_zero(&params);
+	params.server_mechanisms = mechs_configured_second;
+
+	ret = dsasl_client_session_create_auto(client, test_set.event, &params,
+					       &session, &error);
+	test_assert(ret > 0);
+	i_assert(session != NULL);
+
+	test_assert_strcmp(dsasl_client_session_get_mech_name(session),
+			   "LOGIN");
+
+	dsasl_client_session_destroy(&session);
+	settings_simple_deinit(&test_set);
+	test_end();
+
+	dsasl_client_unref(&client);
+}
+
+int main(int argc ATTR_UNUSED, char *argv[])
+{
+	int c;
+	int ret;
+
+	lib_init();
+
 	static void (*const test_functions[])(void) = {
 		test_sasl_client_login,
 		test_sasl_client_plain,
 		test_sasl_client_external,
 		test_sasl_client_oauthbearer,
 		test_sasl_client_xoauth2,
+		test_sasl_client_mech_select,
 		NULL
 	};
-	int ret = test_run(test_functions);
+
+	while ((c = getopt(argc, argv, "D")) > 0) {
+		switch (c) {
+		case 'D':
+			debug = TRUE;
+			break;
+		default:
+			i_fatal("Usage: %s [-D]", argv[0]);
+		}
+	}
+
+	ret = test_run(test_functions);
+
 	settings_root_deinit(&set_root);
+	lib_deinit();
+
 	return ret;
 }
