@@ -149,6 +149,10 @@ struct var_expand_table *
 var_expand_merge_tables(pool_t pool, const struct var_expand_table *a,
 			const struct var_expand_table *b);
 
+/* Clone parameters to new pool */
+struct var_expand_params *
+var_expand_clone_params(pool_t pool, const struct var_expand_params *src);
+
 /* Returns true if provider is a built-in provider */
 bool var_expand_provider_is_builtin(const char *prefix);
 

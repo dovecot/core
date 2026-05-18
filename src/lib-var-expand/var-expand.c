@@ -283,6 +283,20 @@ static int var_expand_table_key_cmp(const char *key,
 	return strcmp(key, elem->key);
 }
 
+static struct var_expand_table *
+var_expand_clone_table(pool_t pool, const struct var_expand_table *src)
+{
+	size_t size = var_expand_table_size(src);
+	struct var_expand_table *new =
+		p_new(pool, struct var_expand_table, size + 1);
+
+	for (size_t i = 0; i < size; i++) {
+		new[i].key = p_strdup(pool, src[i].key);
+		new[i].value = p_strdup(pool, src[i].value);
+	}
+	return new;
+}
+
 struct var_expand_table *
 var_expand_merge_tables(pool_t pool, const struct var_expand_table *a,
 			    const struct var_expand_table *b)
@@ -313,6 +327,39 @@ var_expand_merge_tables(pool_t pool, const struct var_expand_table *a,
 	}
 	array_append_zero(&table);
 	return array_front_modifiable(&table);
+}
+
+static struct var_expand_provider *
+var_expand_clone_providers(pool_t pool, const struct var_expand_provider *src)
+{
+	size_t size = 0;
+
+	while (src[size].key != NULL)
+		size++;
+
+	struct var_expand_provider *new =
+		p_new(pool, struct var_expand_provider, size + 1);
+
+	for (size_t i = 0; i < size; i++) {
+		new[i].key = p_strdup(pool, src[i].key);
+		new[i].func = src[i].func;
+	}
+	return new;
+}
+
+struct var_expand_params *
+var_expand_clone_params(pool_t pool, const struct var_expand_params *src)
+{
+	struct var_expand_params *new = p_new(pool, struct var_expand_params, 1);
+
+	i_assert(src->tables_arr == NULL);
+	i_assert(src->providers_arr == NULL);
+
+	*new = *src;
+	new->table = var_expand_clone_table(pool, src->table);
+	new->providers = var_expand_clone_providers(pool, src->providers);
+
+	return new;
 }
 
 void var_expand_state_set_transfer_data(struct var_expand_state *state,
