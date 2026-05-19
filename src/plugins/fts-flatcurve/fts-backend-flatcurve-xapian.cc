@@ -524,9 +524,6 @@ fts_flatcurve_xapian_optimize_mailbox(struct flatcurve_fts_backend *backend)
 {
 	struct flatcurve_xapian *x = backend->xapian;
 
-	if (x->deinit || !fts_flatcurve_xapian_need_optimize(backend))
-		return;
-
 	if (!hash_table_is_created(x->optimize))
 		hash_table_create(&x->optimize, backend->pool, 0, str_hash,
 				  strcmp);
@@ -658,7 +655,8 @@ fts_flatcurve_xapian_db_read_add(struct flatcurve_fts_backend *backend,
 	++x->shards;
 	x->db_read->add_database(*(xdb->db));
 
-	fts_flatcurve_xapian_optimize_mailbox(backend);
+	if (!x->deinit && fts_flatcurve_xapian_need_optimize(backend))
+		fts_flatcurve_xapian_optimize_mailbox(backend);
 
 	return 1;
 }
@@ -1962,11 +1960,6 @@ int fts_flatcurve_xapian_optimize_box(struct flatcurve_fts_backend *backend,
 	if ((ret = fts_flatcurve_xapian_read_db(
 		backend, opts, &db, error_r)) <= 0)
 		return ret;
-
-	if (backend->xapian->deinit &&
-	    !fts_flatcurve_xapian_need_optimize(backend)) {
-		return fts_flatcurve_xapian_close(backend, error_r);
-	}
 
 	e_debug(event_create_passthrough(backend->event)->
 		set_name("fts_flatcurve_optimize")->
