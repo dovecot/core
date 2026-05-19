@@ -10,6 +10,7 @@ struct fts_flatcurve_settings {
 	unsigned int commit_limit;
 	unsigned int min_term_size;
 	unsigned int optimize_limit;
+	unsigned int optimize_density_percentage;
 	unsigned int rotate_count;
 	unsigned int rotate_time;
 	bool substring_search;

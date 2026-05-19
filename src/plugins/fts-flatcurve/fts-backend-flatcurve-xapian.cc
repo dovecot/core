@@ -158,6 +158,9 @@ struct flatcurve_xapian {
 	/* List of mailboxes to optimize at shutdown. */
 	HASH_TABLE(char *, char *) optimize;
 
+	/* Optimization triggers. */
+	uint64_t density_threshold;
+
 	bool deinit:1;
 };
 
@@ -236,11 +239,21 @@ fts_flatcurve_xapian_db_populate(struct flatcurve_fts_backend *backend,
 
 void fts_flatcurve_xapian_init(struct flatcurve_fts_backend *backend)
 {
+	struct fts_flatcurve_user *fuser = backend->fuser;
+
 	backend->xapian = p_new(backend->pool, struct flatcurve_xapian, 1);
 	backend->xapian->pool =
 		pool_alloconly_create(FTS_FLATCURVE_LABEL " xapian", 2048);
 	hash_table_create(&backend->xapian->dbs, backend->xapian->pool,
 			  4, str_hash, strcmp);
+
+	if (fuser != NULL &&
+	    fuser->set != NULL &&
+	    fuser->set->optimize_density_percentage > 0 &&
+	    fuser->set->rotate_count > 0)
+		backend->xapian->density_threshold =
+			(uint64_t)fuser->set->rotate_count *
+			fuser->set->optimize_density_percentage / 100;
 }
 
 void fts_flatcurve_xapian_deinit(struct flatcurve_fts_backend *backend)
@@ -1622,6 +1635,13 @@ int fts_flatcurve_xapian_expunge(struct flatcurve_fts_backend *backend,
 		if (fts_flatcurve_xapian_check_commit_limit(
 			backend, xdb, error_r) < 0)
 			return -1;
+
+		/* Check for density threshold when we are removing messages
+		 * from a non-current shard. */
+		if (backend->xapian->density_threshold &&
+		    xdb->type == FLATCURVE_XAPIAN_DB_TYPE_INDEX &&
+		    xdb->dbw->get_doccount() <= backend->xapian->density_threshold)
+			fts_flatcurve_xapian_optimize_mailbox(backend);
 		return 1;
 	} catch (Xapian::Error &e) {
 		*error_r = t_strdup_printf(
