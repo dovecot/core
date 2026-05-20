@@ -60,6 +60,7 @@ static void test_nearest_power(void)
 	unsigned int b;
 	size_t num;
 	test_begin("nearest_power()");
+	test_assert(nearest_power(0)==1);
 	test_assert(nearest_power(1)==1);
 	test_assert(nearest_power(2)==2);
 	for (b = 2; b < CHAR_BIT*sizeof(size_t) - 1; ++b) {
@@ -74,6 +75,9 @@ static void test_nearest_power(void)
 	test_assert_idx(nearest_power(num-1) == num,    b);
 	test_assert_idx(nearest_power(num  ) == num,    b);
 	/* i_assert()s: test_assert_idx(nearest_power(num+1) == num<<1, b); */
+	/* Test edge case: nearest_power should never return a value smaller than input */
+	num = ((size_t)1 << (CHAR_BIT * sizeof(size_t) - 1));
+	test_assert(nearest_power(num) >= num);
 	test_end();
 }
 
@@ -278,4 +282,21 @@ void test_bits(void)
 	test_bits_rotr64();
 	test_sum_overflows();
 	test_bit_tests();
+}
+
+enum fatal_test_state fatal_bits(unsigned int stage)
+{
+	/* Needs volatile to avoid compiler optimization */
+	volatile size_t num = ((size_t)1 << (CHAR_BIT * sizeof(size_t) - 1));
+	switch (stage) {
+	case 0:
+		test_begin("nearest_power() overflow");
+		test_expect_fatal_string("calculation would overflow");
+		num = nearest_power(num + 1);
+		return FATAL_TEST_FAILURE;
+	default:
+		break;
+	}
+	test_end();
+	return FATAL_TEST_FINISHED;
 }

@@ -14,7 +14,8 @@
 
 size_t nearest_power(size_t num)
 {
-	i_assert(num <= ((size_t)1 << (CHAR_BIT*sizeof(size_t) - 1)));
+	if (unlikely(num > ((size_t)1 << (CHAR_BIT*sizeof(size_t) - 1))))
+		i_panic("nearest_power(%zu): calculation would overflow", num);
 
 	if (num == 0)
 		return 1;
