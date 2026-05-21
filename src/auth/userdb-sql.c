@@ -111,10 +111,12 @@ static void sql_query_callback(struct sql_result *sql_result,
 	i_free(sql_request);
 }
 
-static const char *userdb_sql_escape(const char *str, void *context)
+static int userdb_sql_escape(const char *str, const char **output_r,
+			     void *context, const char **error_r ATTR_UNUSED)
 {
 	struct sql_db *db = context;
-	return sql_escape_string(db, str);
+	*output_r = sql_escape_string(db, str);
+	return 0;
 }
 
 static void userdb_sql_lookup(struct auth_request *auth_request,

@@ -44,9 +44,10 @@
 */
 typedef int value_provider_func_t(const char *key, const char **value_r,
 				  void *context, const char **error_r);
-/* Used for escaping values, gets given string to escape and context,
-   must return escaped string. */
-typedef const char *var_expand_escape_func_t(const char *str, void *context);
+/* Used for escaping values. On success sets output_r and returns 0.
+   On failure sets error_r and returns -1. */
+typedef int var_expand_escape_func_t(const char *input, const char **output_r,
+				     void *context, const char **error_r);
 
 struct var_expand_parser_state;
 struct var_expand_program;
