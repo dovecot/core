@@ -139,7 +139,8 @@ int dict_ldap_connect(struct ldap_dict *dict, const char **error_r)
 #define IS_LDAP_ESCAPED_CHAR(c) \
 	((((unsigned char)(c)) & 0x80) != 0 || strchr(LDAP_ESCAPE_CHARS, (c)) != NULL)
 
-static const char *ldap_escape(const char *str, void *context ATTR_UNUSED)
+static int ldap_escape(const char *str, const char **output_r,
+		       void *context ATTR_UNUSED, const char **error_r ATTR_UNUSED)
 {
 	string_t *ret = NULL;
 
@@ -154,7 +155,8 @@ static const char *ldap_escape(const char *str, void *context ATTR_UNUSED)
 			str_append_c(ret, *p);
 	}
 
-	return ret == NULL ? str : str_c(ret);
+	*output_r = ret == NULL ? str : str_c(ret);
+	return 0;
 }
 
 static

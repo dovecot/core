@@ -1143,8 +1143,11 @@ static int fn_escape(const struct var_expand_statement *stmt,
 		return -1;
 	}
 
-	const char *escaped = state->params->escape_func(
-		str_c(state->transfer), state->params->escape_context);
+	const char *escaped;
+	if (state->params->escape_func(str_c(state->transfer), &escaped,
+				       state->params->escape_context,
+				       error_r) < 0)
+		return -1;
 	var_expand_state_set_transfer(state, escaped);
 	return 0;
 }

@@ -57,6 +57,15 @@ escape_none(const char *string,
 	return string;
 }
 
+static int
+auth_request_escape_wrapper(const char *input, const char **output_r,
+			    void *context, const char **error_r ATTR_UNUSED)
+{
+	const struct auth_request_var_expand_ctx *ctx = context;
+	*output_r = ctx->escape_func(input, ctx->auth_request);
+	return 0;
+}
+
 const char *
 auth_request_str_escape(const char *string,
 			const struct auth_request *request ATTR_UNUSED)
@@ -248,9 +257,9 @@ int auth_request_var_expand_with_table(string_t *dest, const char *str,
 	const struct var_expand_params params = {
 		.table = table,
 		.providers = auth_request_var_expand_providers,
-		.escape_func = (var_expand_escape_func_t *)ctx.escape_func,
+		.escape_func = auth_request_escape_wrapper,
 		.context = &ctx,
-		.escape_context = (void *)auth_request,
+		.escape_context = &ctx,
 		.event = auth_request->event,
 	};
 

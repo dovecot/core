@@ -70,6 +70,14 @@ test_escape(const char *string, const struct auth_request *request)
 	return dest;
 }
 
+static int
+test_escape_varexpand(const char *string, const char **output_r,
+		      void *context, const char **error_r ATTR_UNUSED)
+{
+	*output_r = test_escape(string, context);
+	return 0;
+}
+
 static bool test_empty_request(string_t *str, const char *input)
 {
 	const struct var_expand_params params = {
@@ -102,7 +110,7 @@ static void test_auth_request_var_expand_keys(void)
 
 	const struct var_expand_params params = {
 		.table = auth_request_get_var_expand_table(&test_request),
-		.escape_func = (var_expand_escape_func_t *)test_escape,
+		.escape_func = test_escape_varexpand,
 		.escape_context = &test_request,
 	};
 
@@ -129,7 +137,7 @@ static void test_auth_request_var_expand_flags(void)
 
 	struct var_expand_params params = {
 		.table = auth_request_get_var_expand_table(&test_request),
-		.escape_func = (var_expand_escape_func_t *)test_escape,
+		.escape_func = test_escape_varexpand,
 		.escape_context = &test_request
 	};
 	test_assert(var_expand(str, test_input, &params, &error) == 0);
@@ -169,7 +177,7 @@ static void test_auth_request_var_expand_long(void)
 
 	const struct var_expand_params params = {
 		.table = auth_request_get_var_expand_table(&test_request),
-		.escape_func = (var_expand_escape_func_t *)test_escape,
+		.escape_func = test_escape_varexpand,
 		.escape_context = &test_request,
 	};
 
@@ -200,7 +208,7 @@ static void test_auth_request_var_expand_usernames(void)
 		test_request.fields.user = t_strdup_noconst(tests[i].username);
 		const struct var_expand_params params = {
 			.table = auth_request_get_var_expand_table(&test_request),
-			.escape_func = (var_expand_escape_func_t *)test_escape,
+			.escape_func = test_escape_varexpand,
 			.escape_context = &test_request,
 		};
 		str_truncate(str, 0);

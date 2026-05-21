@@ -1063,7 +1063,8 @@ void db_ldap_get_attribute_names(pool_t pool,
 		*sensitive_r = array_front(&sensitive_attr_names);
 }
 
-const char *ldap_escape(const char *input, void *context ATTR_UNUSED)
+int ldap_escape(const char *input, const char **output_r,
+		void *context ATTR_UNUSED, const char **error_r ATTR_UNUSED)
 {
 	/* This function escapes both LDAP filters and LDAP DNs. This works,
 	   because both allow using the method of escaping any characters.
@@ -1120,8 +1121,10 @@ const char *ldap_escape(const char *input, void *context ATTR_UNUSED)
 			   (required by DN) */
 			if (pos > 0 && input[pos - 1] == ' ')
 				pos--;
-			else
-				return input;
+			else {
+				*output_r = input;
+				return 0;
+			}
 		}
 	}
 
@@ -1136,7 +1139,8 @@ const char *ldap_escape(const char *input, void *context ATTR_UNUSED)
 			pos--;
 	} while (pos < input_len);
 	str_append_data(str, input, pos);
-	return str_c(str);
+	*output_r = str_c(str);
+	return 0;
 }
 
 static bool

@@ -754,7 +754,8 @@ static void test_var_expand_tables_arr(void)
 	test_end();
 }
 
-static const char *test_escape(const char *str, void *context)
+static int test_escape(const char *str, const char **output_r,
+		       void *context, const char **error_r ATTR_UNUSED)
 {
 	const char *escape_chars = context;
 	string_t *dest = t_str_new(strlen(str) + 2);
@@ -769,7 +770,8 @@ static const char *test_escape(const char *str, void *context)
 		}
 	}
 	str_append_c(dest, '\'');
-	return str_c(dest);
+	*output_r = str_c(dest);
+	return 0;
 }
 
 static void test_var_expand_escape(void)

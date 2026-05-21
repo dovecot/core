@@ -154,10 +154,13 @@ var_expand_program_execute_one_real(const struct var_expand_program *program,
 	if (state->transfer_set) {
 		if (!program->only_literal && params->escape_func != NULL &&
 		    !state->transfer_safe) {
-			str_append(state->result, params->escape_func(str_c(state->transfer),
-								      params->escape_context));
-			} else
-				str_append_str(state->result, state->transfer);
+			const char *escaped;
+			if (params->escape_func(str_c(state->transfer), &escaped,
+						params->escape_context, error_r) < 0)
+				return -1;
+			str_append(state->result, escaped);
+		} else
+			str_append_str(state->result, state->transfer);
 	} else {
 		*error_r = t_strdup(state->delayed_error);
 		ret = -1;
