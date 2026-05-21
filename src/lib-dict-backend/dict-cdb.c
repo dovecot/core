@@ -248,24 +248,27 @@ static bool cdb_dict_iterate(struct dict_iterate_context *_ctx,
 	if (!match)
 		return FALSE;
 
-	*key_r = key;
+	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) == 0) {
+		datalen = cdb_datalen(&dict->cdb);
+		data = buffer_append_space_unsafe(ctx->buffer, datalen + 1);
 
-	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0)
-		return TRUE;
+		if (cdb_read(&dict->cdb, data, datalen, cdb_datapos(&dict->cdb)) < 0) {
+			ctx->error = i_strdup_printf("cdb_read(%s) failed: %m",
+						     dict->path);
+			return FALSE;
+		}
 
-	datalen = cdb_datalen(&dict->cdb);
-	data = buffer_append_space_unsafe(ctx->buffer, datalen + 1);
-
-	if (cdb_read(&dict->cdb, data, datalen, cdb_datapos(&dict->cdb)) < 0) {
-		ctx->error = i_strdup_printf("cdb_read(%s) failed: %m",
-					     dict->path);
-		return FALSE;
+		data[datalen] = '\0';
+		ctx->values[0] = data;
+		*values_r = ctx->values;
 	}
 
-	data[datalen] = '\0';
-	ctx->values[0] = data;
-	*values_r = ctx->values;
-
+	/* cdb_dict_next() placed the key at the start of ctx->buffer. The
+	   buffer_append_space_unsafe() above may have reallocated ctx->buffer
+	   to fit the value, which would invalidate the local `key` pointer
+	   returned by cdb_dict_next(). Re-derive it from the buffer's current
+	   data pointer. */
+	*key_r = ctx->buffer->data;
 	return TRUE;
 }
 
