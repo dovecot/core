@@ -250,11 +250,15 @@ static ssize_t i_stream_binary_converter_read(struct istream_private *stream)
 	} else if (block.size == 0) {
 		/* end of header */
 		if (bstream->hdr_buf != NULL) {
-			/* message has no body */
+			/* message has no body. Detach hdr_buf before calling
+			   stream_add_data(), otherwise it self-aliases the
+			   buffer's own storage and a realloc-grow would
+			   invalidate the source pointer mid-copy. */
+			buffer_t *buf = bstream->hdr_buf;
+			bstream->hdr_buf = NULL;
 			bstream->convert_part = NULL;
-			stream_add_data(bstream, bstream->hdr_buf->data,
-					bstream->hdr_buf->used);
-			buffer_free(&bstream->hdr_buf);
+			stream_add_data(bstream, buf->data, buf->used);
+			buffer_free(&buf);
 		}
 		bstream->content_type_seen = FALSE;
 	} else if (block.part == bstream->convert_part) {

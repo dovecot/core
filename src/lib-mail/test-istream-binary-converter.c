@@ -153,6 +153,47 @@ static void test_istream_binary_converter_root_nonbinary(void)
 	test_end();
 }
 
+static void test_istream_binary_converter_bodyless_part(void)
+{
+	/* Bodyless MIME part with Content-Transfer-Encoding: binary and
+	   no Content-Type: boundary follows headers without a blank line,
+	   so end-of-headers fires as block.size == 0 with hdr_buf still
+	   live. Triggered a heap-use-after-free when flushing the buffer
+	   into stream_add_data() self-aliased on realloc grow. The padding
+	   is needed to force a buffer realloc on the self-append. */
+	static const char input[] =
+		"Content-Type: multipart/mixed; boundary=\"b\"\r\n"
+		"\r\n"
+		"\r\n--b\r\n"
+		"Content-Transfer-Encoding: binary\r\n"
+		"X-Padding: "
+		"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+		"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+		"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+		"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+		"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+		"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+		"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+		"\r\n"
+		"--b--\r\n";
+	struct istream *datainput, *input_stream;
+	const unsigned char *data;
+	size_t size;
+	int ret;
+
+	test_begin("istream binary converter body-less MIME part flush");
+	datainput = test_istream_create_data(input, sizeof(input)-1);
+	input_stream = i_stream_create_binary_converter(datainput);
+
+	while ((ret = i_stream_read_more(input_stream, &data, &size)) > 0)
+		i_stream_skip(input_stream, size);
+	test_assert(ret == -1);
+
+	i_stream_unref(&input_stream);
+	i_stream_unref(&datainput);
+	test_end();
+}
+
 static int test_input_file(const char *path)
 {
 	struct istream *file_input, *input, *input2;
@@ -206,6 +247,7 @@ int main(int argc, char *argv[])
 		test_istream_binary_converter_mime,
 		test_istream_binary_converter_root,
 		test_istream_binary_converter_root_nonbinary,
+		test_istream_binary_converter_bodyless_part,
 		NULL
 	};
 	if (argc > 1)
