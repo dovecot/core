@@ -61,7 +61,8 @@ static void fts_build_parse_content_type(struct fts_mail_build_context *ctx,
 		/* ... then store the remainder of the line - which may contain RFC2231
 		   parameters - without parsing it because not all backends need them. In
 		   the backends that need them further parsing can be implemented. */
-		ctx->content_type_params = i_strdup((const char *)parser.data);
+		ctx->content_type_params =
+			i_strdup_until(parser.data, parser.end);
 	} T_END;
 	rfc822_parser_deinit(&parser);
 }
