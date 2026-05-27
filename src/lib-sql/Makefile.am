@@ -171,3 +171,11 @@ test_sql_sqlite_SOURCES = test-sql-sqlite.c
 test_sql_sqlite_LDADD = $(SQLITE_LIB) $(pkglib_LTLIBRARIES) $(test_libs) $(DLLIB)
 test_sql_sqlite_DEPENDENCIES = $(SQLITE_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
 endif
+
+if BUILD_MYSQL
+noinst_PROGRAMS += test-sql-mysql
+test_sql_mysql_SOURCES = test-sql-mysql.c
+test_sql_mysql_LDADD = $(MYSQL_LIB) $(pkglib_LTLIBRARIES) $(test_libs) $(DLLIB)
+test_sql_mysql_DEPENDENCIES = $(MYSQL_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
+test_sql_mysql_CPPFLAGS = $(AM_CPPFLAGS) $(MYSQL_CFLAGS)
+endif
