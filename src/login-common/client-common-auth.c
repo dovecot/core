@@ -2,6 +2,7 @@
 
 #include "hostpid.h"
 #include "login-common.h"
+#include "abnf.h"
 #include "array.h"
 #include "base64.h"
 #include "iostream.h"
@@ -746,6 +747,19 @@ client_auth_result(struct client *client, enum client_auth_result result,
 	o_stream_uncork(client->output);
 }
 
+static bool proxy_has_illegal_credentials(const struct client_auth_reply *reply)
+{
+	if (reply->proxy.username != NULL &&
+	    abnf_contains_ascii_ctrl(reply->proxy.username))
+		return TRUE;
+
+	if (reply->proxy.password != NULL &&
+	    abnf_contains_ascii_ctrl(reply->proxy.password))
+		return TRUE;
+
+	return FALSE;
+}
+
 static bool
 client_auth_handle_reply(struct client *client,
 			 const struct client_auth_reply *reply, bool success)
@@ -779,6 +793,14 @@ client_auth_handle_reply(struct client *client,
 		   proxy host=.. [port=..] [destuser=..] pass=.. */
 		if (!success)
 			return FALSE;
+		if (proxy_has_illegal_credentials(reply)) {
+			client->last_auth_fail =
+				CLIENT_AUTH_FAIL_CODE_INVALID_CREDENTIALS;
+			client_auth_result(client, CLIENT_AUTH_RESULT_AUTHFAILED,
+					   reply, AUTH_FAILED_MSG);
+			client_auth_failed(client);
+			return TRUE;
+		}
 		if (proxy_start(client, reply) < 0)
 			client_auth_failed(client);
 		else {

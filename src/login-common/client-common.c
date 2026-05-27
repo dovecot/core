@@ -58,6 +58,7 @@ static const char *client_auth_fail_code_reasons[] = {
 	"tried to use unsupported auth mechanism",
 	"tried to use disallowed cleartext auth",
 	"anonymous logins disabled",
+	"credentials contain control characters",
 };
 static_assert_array_size(client_auth_fail_code_reasons,
 			 CLIENT_AUTH_FAIL_CODE_COUNT);
@@ -73,6 +74,7 @@ static const char *client_auth_fail_code_event_reasons[] = {
 	"invalid_mech",
 	"cleartext_auth_disabled",
 	"anonymous_auth_disabled",
+	"invalid_credentials",
 };
 static_assert_array_size(client_auth_fail_code_event_reasons,
 			 CLIENT_AUTH_FAIL_CODE_COUNT);
