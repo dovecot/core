@@ -391,7 +391,8 @@ int index_mailbox_get_virtual_size(struct mailbox *box,
 
 	mailbox_get_open_status(box, STATUS_MESSAGES | STATUS_UIDNEXT, &status);
 	update = index_mailbox_vsize_update_init(box);
-	if (update->vsize_hdr.highest_uid + 1 == status.uidnext &&
+	if (!update->rebuild &&
+	    update->vsize_hdr.highest_uid + 1 == status.uidnext &&
 	    update->vsize_hdr.message_count == status.messages) {
 		/* up to date */
 		metadata_r->virtual_size = update->vsize_hdr.vsize;
@@ -488,7 +489,8 @@ void index_mailbox_vsize_update_appends(struct mailbox *box)
 		   don't want to do this with imapc, because it could trigger
 		   a remote STATUS (UIDNEXT) call. */
 		mailbox_get_open_status(update->box, STATUS_UIDNEXT, &status);
-		if (update->vsize_hdr.highest_uid + 1 != status.uidnext &&
+		if ((update->rebuild ||
+		     update->vsize_hdr.highest_uid + 1 != status.uidnext) &&
 		    index_mailbox_vsize_update_try_lock(update)) {
 			struct event_reason *reason =
 				event_reason_begin("mailbox:vsize");
