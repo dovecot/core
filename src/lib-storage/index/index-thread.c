@@ -185,7 +185,7 @@ static void mail_thread_strmap_remap(const uint32_t *idx_map,
 	i_array_init(&new_nodes, new_count + invalid_count + 32);
 
 	/* optimization: allocate all nodes initially */
-	(void)array_idx_modifiable(&new_nodes, new_count-1);
+	(void)array_idx_get_space(&new_nodes, new_count-1);
 
 	/* renumber existing valid nodes. all existing records in old_nodes
 	   should also exist in idx_map since we've removed expunged messages
