@@ -57,5 +57,10 @@ headers = \
 	index-sync-private.h \
 	index-thread-private.h
 
+# test-index is built in the parent directory (src/lib-storage/Makefile.am)
+# because it depends on libstorage.la, and building it here causes
+# circular dependencies or ordering issues during parallel make.
+test_programs =
+
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)

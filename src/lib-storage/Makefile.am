@@ -1,5 +1,7 @@
 include $(top_srcdir)/Makefile.test.include
 
+AUTOMAKE_OPTIONS = subdir-objects
+
 SUBDIRS = list index
 
 noinst_LTLIBRARIES = libstorage.la
@@ -135,7 +137,8 @@ test_programs = \
 	test-mail \
 	test-mail-storage \
 	test-mailbox-get \
-	test-mailbox-list
+	test-mailbox-list \
+	test-index
 
 test_libs = \
 	$(top_builddir)/src/lib-var-expand/libvar_expand.la \
@@ -165,6 +168,10 @@ test_mail_storage_DEPENDENCIES = libstorage.la $(LIBDOVECOT_DEPS)
 test_mailbox_list_SOURCES = test-mailbox-list.c
 test_mailbox_list_LDADD = libstorage.la $(LIBDOVECOT)
 test_mailbox_list_DEPENDENCIES = libstorage.la $(LIBDOVECOT_DEPS)
+
+test_index_SOURCES = index/test-index.c
+test_index_LDADD = libstorage.la $(LIBDOVECOT)
+test_index_DEPENDENCIES = libstorage.la $(LIBDOVECOT_DEPS)
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)

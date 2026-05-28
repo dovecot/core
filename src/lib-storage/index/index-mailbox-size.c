@@ -48,6 +48,7 @@ struct mailbox_vsize_update {
 	bool lock_failed;
 	bool skip_write;
 	bool rebuild;
+	bool hdr_corrupted;
 	bool written;
 	bool finish_in_background;
 };
@@ -75,6 +76,7 @@ static void vsize_header_refresh(struct mailbox_vsize_update *update)
 			mailbox_set_critical(update->box,
 				"vsize-hdr has invalid size: %zu",
 				size);
+			update->hdr_corrupted = TRUE;
 		}
 		update->rebuild = TRUE;
 		i_zero(&update->vsize_hdr);
@@ -98,6 +100,7 @@ index_mailbox_vsize_check_rebuild(struct mailbox_vsize_update *update)
 			mailbox_set_critical(update->box,
 				"vsize-hdr has invalid message-count (%u < %u)",
 				update->vsize_hdr.message_count, seq2);
+			update->hdr_corrupted = TRUE;
 		} else {
 			/* some messages have been expunged, rescan */
 		}
@@ -162,7 +165,8 @@ bool index_mailbox_vsize_update_wait_lock(struct mailbox_vsize_update *update)
 
 bool index_mailbox_vsize_want_updates(struct mailbox_vsize_update *update)
 {
-	return update->vsize_hdr.highest_uid > 0;
+	return update->hdr_corrupted ||
+		update->vsize_hdr.highest_uid > 0;
 }
 
 static void
@@ -172,6 +176,9 @@ index_mailbox_vsize_update_write_to_index(struct mailbox_vsize_update *update)
 
 	trans = mail_index_transaction_begin(update->view,
 				MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	if (update->hdr_corrupted)
+		mail_index_ext_resize_hdr(trans, update->box->vsize_hdr_ext_id,
+				  sizeof(update->vsize_hdr));
 	mail_index_update_header_ext(trans, update->box->vsize_hdr_ext_id,
 				     0, &update->vsize_hdr,
 				     sizeof(update->vsize_hdr));
@@ -476,7 +483,7 @@ void index_mailbox_vsize_update_appends(struct mailbox *box)
 	struct mailbox_status status;
 
 	update = index_mailbox_vsize_update_init(box);
-	if (update->rebuild) {
+	if (update->rebuild && !update->hdr_corrupted) {
 		/* The vsize header doesn't exist. Don't create it. */
 		update->skip_write = TRUE;
 	}
