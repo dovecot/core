@@ -433,8 +433,12 @@ static void test_write_read_v2_empty(const char *curve, const char *algo,
 
 static void test_write_read_v2_algos(const char *kalg, const struct dcrypt_keypair *pair)
 {
-	for (size_t i = 0; i < N_ELEMENTS(test_algos); i++)
+	for (size_t i = 0; i < N_ELEMENTS(test_algos); i++) {
 		test_write_read_v2_real(pair, kalg, test_algos[i]);
+		test_write_read_v2_empty(kalg, test_algos[i], pair);
+		test_write_read_v2_short(kalg, test_algos[i], pair);
+	}
+
 }
 
 static void test_write_read_v2(void)
@@ -478,7 +482,7 @@ static void test_write_read_v2_kem_curve(const char *curve)
 	bool ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_KEM, 0,
 					   curve, &error);
 	if (!ret)
-		i_panic("%s", error);
+		i_fatal("%s", error);
 
 	test_write_read_v2_algos(curve, &pair);
 	dcrypt_keypair_unref(&pair);
@@ -551,12 +555,6 @@ static void test_write_read_v2_short(const char *curve, const char *algo,
 	test_end();
 }
 
-static void test_write_read_v2_short_algos(void)
-{
-	for (size_t i = 0; i < N_ELEMENTS(test_algos); i++)
-		test_write_read_v2_short(SN_X9_62_prime256v1, test_algos[i], &test_v2_kp);
-}
-
 static void test_write_read_v2_empty(const char *curve, const char *algo,
 				     const struct dcrypt_keypair *kp)
 {
@@ -604,12 +602,6 @@ static void test_write_read_v2_empty(const char *curve, const char *algo,
 	buffer_free(&buf);
 
 	test_end();
-}
-
-static void test_write_read_v2_empty_algos(void)
-{
-	for (size_t i = 0; i < N_ELEMENTS(test_algos); i++)
-		test_write_read_v2_empty(SN_X9_62_prime256v1, test_algos[i], &test_v2_kp);
 }
 
 static int
@@ -759,8 +751,6 @@ int main(void)
 		test_write_read_v1_short,
 		test_write_read_v1_empty,
 		test_write_read_v2,
-		test_write_read_v2_short_algos,
-		test_write_read_v2_empty_algos,
 #ifdef HAVE_X25519
 		test_write_read_v2_x448,
 		test_write_read_v2_x25519,
