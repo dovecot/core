@@ -335,10 +335,6 @@ static void mail_thread_root_thread_merge(struct thread_finish_context *ctx,
 
 		/* append last, since it breaks root and cur pointers */
 		array_push_back(&ctx->roots, &new_root);
-
-		/* make sure all shadow indexes are accessible directly */
-		(void)array_idx_modifiable(&ctx->shadow_nodes,
-					   new_root.node.idx);
 	}
 }
 
