@@ -66,6 +66,49 @@ ARRAY_TYPE(sql_drivers) sql_drivers;
 static void sql_query_delayed_callback(struct sql_query_result_delayed *cb);
 static void sql_commit_delayed_callback(struct sql_commit_result_delayed *cb);
 
+struct sql_result_error {
+	struct sql_result result;
+	char *error;
+};
+
+static void sql_result_error_free(struct sql_result *_result)
+{
+	struct sql_result_error *result =
+		container_of(_result, struct sql_result_error, result);
+	i_free(result->error);
+	i_free(result);
+}
+
+static int sql_result_error_next_row(struct sql_result *result ATTR_UNUSED)
+{
+	return -1;
+}
+
+static const char *
+sql_result_error_get_error(struct sql_result *_result)
+{
+	struct sql_result_error *result =
+		container_of(_result, struct sql_result_error, result);
+	return result->error;
+}
+
+static const struct sql_result_vfuncs sql_result_error_vfuncs = {
+	.free = sql_result_error_free,
+	.next_row = sql_result_error_next_row,
+	.get_error = sql_result_error_get_error,
+};
+
+static struct sql_result *sql_result_new_error(const char *error) ATTR_UNUSED;
+static struct sql_result *sql_result_new_error(const char *error)
+{
+	struct sql_result_error *result = i_new(struct sql_result_error, 1);
+	result->result.v = sql_result_error_vfuncs;
+	result->result.failed = TRUE;
+	result->result.refcount = 1;
+	result->error = i_strdup(error);
+	return &result->result;
+}
+
 void sql_drivers_init_without_drivers(void)
 {
 	i_array_init(&sql_drivers, 8);
