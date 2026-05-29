@@ -530,15 +530,17 @@ static void driver_sqlite_deinit_v(struct sql_db *_db)
 	i_free(db);
 }
 
-static const char *
+static int
 driver_sqlite_escape_string(struct sql_db *_db ATTR_UNUSED,
-			    const char *string)
+			    const char *string, const char **output_r,
+			    const char **error_r ATTR_UNUSED)
 {
 	const size_t len = strlen(string) * 2 + 1;
 	char *escaped = t_malloc_no0(len);
 	if (sqlite3_snprintf(len, escaped, "%q", string) == NULL)
 		i_unreached();
-	return escaped;
+	*output_r = escaped;
+	return 0;
 }
 
 static const char *driver_sqlite_readonly_error(struct sqlite_db *db,

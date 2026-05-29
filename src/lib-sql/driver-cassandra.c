@@ -831,22 +831,26 @@ static void driver_cassandra_disconnect(struct sql_db *_db)
 	driver_cassandra_close(db, "Disconnected");
 }
 
-static const char *
+static int
 driver_cassandra_escape_string(struct sql_db *db ATTR_UNUSED,
-			       const char *string)
+			       const char *string, const char **output_r,
+			       const char **error_r ATTR_UNUSED)
 {
 	string_t *escaped;
 	unsigned int i;
 
-	if (strchr(string, '\'') == NULL)
-		return string;
+	if (strchr(string, '\'') == NULL) {
+		*output_r = string;
+		return 0;
+	}
 	escaped = t_str_new(strlen(string)+10);
 	for (i = 0; string[i] != '\0'; i++) {
 		if (string[i] == '\'')
 			str_append_c(escaped, '\'');
 		str_append_c(escaped, string[i]);
 	}
-	return str_c(escaped);
+	*output_r = str_c(escaped);
+	return 0;
 }
 
 static void
@@ -2219,8 +2223,13 @@ static void cassandra_transaction_finish(struct cassandra_transaction_context *c
 		if (stmt->prep == NULL)
 			have_nonprepared = TRUE;
 		if (stmt->cass_stmt == NULL) {
-			stmt->cass_stmt = cass_statement_new(
-				sql_statement_get_query(&stmt->stmt), 0);
+			const char *query, *error;
+			if (sql_statement_get_query(&stmt->stmt,
+						    &query, &error) < 0) {
+				cassandra_transaction_finish(ctx, error);
+				return;
+			}
+			stmt->cass_stmt = cass_statement_new(query, 0);
 			if (stmt->timestamp != 0) {
 				cass_statement_set_timestamp(stmt->cass_stmt,
 							     stmt->timestamp);
@@ -2316,11 +2325,15 @@ driver_cassandra_try_commit_s(struct cassandra_transaction_context *ctx)
 		i_panic("cassandra: sql_transaction_commit_s() not supported for prepared statements");
 	}
 
+	const char *query, *error;
+	if (sql_statement_get_query(&stmt->stmt, &query, &error) < 0) {
+		transaction_set_failed(ctx, error);
+		return;
+	}
+
 	/* just a single query, send it */
 	driver_cassandra_sync_init(db);
-	result = driver_cassandra_sync_query(db,
-			sql_statement_get_query(&stmt->stmt),
-			ctx->query_type);
+	result = driver_cassandra_sync_query(db, query, ctx->query_type);
 	driver_cassandra_sync_deinit(db);
 
 	if (sql_result_next_row(result) < 0)
@@ -2823,8 +2836,14 @@ driver_cassandra_statement_query(struct sql_statement *_stmt,
 	} else {
 		/* Not a prepared statement. Generate a statement from
 		   the query string. */
-		stmt->result->statement =
-			cass_statement_new(sql_statement_get_query(_stmt), 0);
+		const char *query, *error;
+		if (sql_statement_get_query(_stmt, &query, &error) < 0) {
+			stmt->result->error = i_strdup(error);
+			result_finish(stmt->result);
+			cassandra_sql_statement_free(stmt);
+			return;
+		}
+		stmt->result->statement = cass_statement_new(query, 0);
 		stmt->result->timestamp = stmt->timestamp;
 		if (stmt->timestamp != 0) {
 			cass_statement_set_timestamp(stmt->result->statement,
@@ -2853,8 +2872,13 @@ driver_cassandra_update_stmt(struct sql_transaction_context *_ctx,
 
 	i_assert(affected_rows == NULL);
 
-	if (!driver_cassandra_update_query_type(ctx,
-			sql_statement_get_query(_stmt))) {
+	const char *query, *error;
+	if (sql_statement_get_query(_stmt, &query, &error) < 0) {
+		transaction_set_failed(ctx, error);
+		cassandra_sql_statement_free(stmt);
+		return;
+	}
+	if (!driver_cassandra_update_query_type(ctx, query)) {
 		cassandra_sql_statement_free(stmt);
 		return;
 	}

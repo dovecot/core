@@ -33,10 +33,12 @@ static int driver_test_sqlite_init(struct event *event, struct sql_db **db_r,
 static void driver_test_deinit(struct sql_db *_db);
 static int driver_test_connect(struct sql_db *_db);
 static void driver_test_disconnect(struct sql_db *_db);
-static const char *
-driver_test_mysql_escape_string(struct sql_db *_db, const char *string);
-static const char *
-driver_test_escape_string(struct sql_db *_db, const char *string);
+static int
+driver_test_mysql_escape_string(struct sql_db *_db, const char *string,
+				const char **output_r, const char **error_r);
+static int
+driver_test_escape_string(struct sql_db *_db, const char *string,
+			  const char **output_r, const char **error_r);
 static void driver_test_exec(struct sql_db *_db, const char *query);
 static void driver_test_query(struct sql_db *_db, const char *query,
 			       sql_query_callback_t *callback, void *context);
@@ -237,9 +239,10 @@ static int driver_test_connect(struct sql_db *_db ATTR_UNUSED)
 static void driver_test_disconnect(struct sql_db *_db ATTR_UNUSED)
 { }
 
-static const char *
+static int
 driver_test_mysql_escape_string(struct sql_db *_db ATTR_UNUSED,
-				 const char *string)
+				const char *string, const char **output_r,
+				const char **error_r ATTR_UNUSED)
 {
 	string_t *esc = t_str_new(strlen(string));
 	for(const char *ptr = string; *ptr != '\0'; ptr++) {
@@ -248,13 +251,17 @@ driver_test_mysql_escape_string(struct sql_db *_db ATTR_UNUSED,
 			str_append_c(esc, '\\');
 		str_append_c(esc, *ptr);
 	}
-	return str_c(esc);
+	*output_r = str_c(esc);
+	return 0;
 }
 
-static const char *
-driver_test_escape_string(struct sql_db *_db ATTR_UNUSED, const char *string)
+static int
+driver_test_escape_string(struct sql_db *_db ATTR_UNUSED, const char *string,
+			  const char **output_r,
+			  const char **error_r ATTR_UNUSED)
 {
-	return string;
+	*output_r = string;
+	return 0;
 }
 
 static void driver_test_exec(struct sql_db *_db, const char *query)

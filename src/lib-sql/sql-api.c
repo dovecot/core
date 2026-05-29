@@ -98,7 +98,6 @@ static const struct sql_result_vfuncs sql_result_error_vfuncs = {
 	.get_error = sql_result_error_get_error,
 };
 
-static struct sql_result *sql_result_new_error(const char *error) ATTR_UNUSED;
 static struct sql_result *sql_result_new_error(const char *error)
 {
 	struct sql_result_error *result = i_new(struct sql_result_error, 1);
@@ -327,9 +326,10 @@ void sql_disconnect(struct sql_db *db)
 	db->v.disconnect(db);
 }
 
-const char *sql_escape_string(struct sql_db *db, const char *string)
+int sql_escape_string(struct sql_db *db, const char *string,
+		      const char **output_r, const char **error_r)
 {
-	return db->v.escape_string(db, string);
+	return db->v.escape_string(db, string, output_r, error_r);
 }
 
 const char *sql_escape_blob(struct sql_db *db,
@@ -391,19 +391,25 @@ default_sql_statement_init_prepared(struct sql_prepared_statement *stmt)
 
 const char *sql_statement_get_log_query(struct sql_statement *stmt)
 {
+	const char *query, *error;
 	if (stmt->no_log_expanded_values)
 		return stmt->query_template;
-	return sql_statement_get_query(stmt);
+	if (sql_statement_get_query(stmt, &query, &error) < 0)
+		return stmt->query_template;
+	return query;
 }
 
-const char *sql_statement_get_query(struct sql_statement *stmt)
+int sql_statement_get_query(struct sql_statement *stmt,
+			    const char **query_r, const char **error_r)
 {
 	string_t *query = t_str_new(128);
 	const char *const *args;
-	unsigned int args_count, arg_pos = 0;
+	const bool *need_escaping_flags;
+	unsigned int args_count, need_escaping_count, arg_pos = 0;
 	const char *p0, *p1;
 
 	args = array_get(&stmt->args, &args_count);
+	need_escaping_flags = array_get(&stmt->args_need_escaping, &need_escaping_count);
 	p0 = stmt->query_template;
 	while ((p1 = strchr(p0, '?')) != NULL) {
 		/* append until ? */
@@ -413,7 +419,18 @@ const char *sql_statement_get_query(struct sql_statement *stmt)
 			i_panic("lib-sql: Missing bind for arg #%u in statement: %s",
 				arg_pos, stmt->query_template);
 		}
-		str_append(query, args[arg_pos++]);
+		if (arg_pos < need_escaping_count && need_escaping_flags[arg_pos]) {
+			const char *escaped;
+			if (sql_escape_string(stmt->db, args[arg_pos],
+					      &escaped, error_r) < 0)
+				return -1;
+			str_append_c(query, '\'');
+			str_append(query, escaped);
+			str_append_c(query, '\'');
+		} else {
+			str_append(query, args[arg_pos]);
+		}
+		arg_pos++;
 		p0 = p1 + 1;
 	}
 	str_append(query, p0);
@@ -422,23 +439,36 @@ const char *sql_statement_get_query(struct sql_statement *stmt)
 		i_panic("lib-sql: Too many bind args (%u) for statement: %s",
 			args_count, stmt->query_template);
 	}
-	return str_c(query);
+	*query_r = str_c(query);
+	return 0;
 }
 
 static void
 default_sql_statement_query(struct sql_statement *stmt,
 			    sql_query_callback_t *callback, void *context)
 {
-	sql_query(stmt->db, sql_statement_get_query(stmt),
-		  callback, context);
+	const char *query, *error;
+	if (sql_statement_get_query(stmt, &query, &error) < 0) {
+		sql_query_callback_delayed(stmt->db,
+					   sql_result_new_error(error),
+					   callback, context);
+		pool_unref(&stmt->pool);
+		return;
+	}
+	sql_query(stmt->db, query, callback, context);
 	pool_unref(&stmt->pool);
 }
 
 static struct sql_result *
 default_sql_statement_query_s(struct sql_statement *stmt)
 {
-	struct sql_result *result =
-		sql_query_s(stmt->db, sql_statement_get_query(stmt));
+	const char *query, *error;
+	if (sql_statement_get_query(stmt, &query, &error) < 0) {
+		struct sql_result *result = sql_result_new_error(error);
+		pool_unref(&stmt->pool);
+		return result;
+	}
+	struct sql_result *result = sql_query_s(stmt->db, query);
 	pool_unref(&stmt->pool);
 	return result;
 }
@@ -447,8 +477,14 @@ static void default_sql_update_stmt(struct sql_transaction_context *ctx,
 				    struct sql_statement *stmt,
 				    unsigned int *affected_rows)
 {
-	ctx->db->v.update(ctx, sql_statement_get_query(stmt),
-			  affected_rows);
+	const char *query, *error;
+	if (sql_statement_get_query(stmt, &query, &error) < 0) {
+		if (ctx->failed_error == NULL)
+			ctx->failed_error = i_strdup(error);
+		pool_unref(&stmt->pool);
+		return;
+	}
+	ctx->db->v.update(ctx, query, affected_rows);
 	pool_unref(&stmt->pool);
 }
 
@@ -490,6 +526,7 @@ sql_statement_init_fields(struct sql_statement *stmt, struct sql_db *db)
 {
 	stmt->db = db;
 	p_array_init(&stmt->args, stmt->pool, 8);
+	p_array_init(&stmt->args_need_escaping, stmt->pool, 8);
 }
 
 struct sql_statement *
@@ -548,10 +585,10 @@ void sql_statement_set_no_log_expanded_values(struct sql_statement *stmt,
 void sql_statement_bind_str(struct sql_statement *stmt,
 			    unsigned int column_idx, const char *value)
 {
-	const char *escaped_value =
-		p_strdup_printf(stmt->pool, "'%s'",
-				sql_escape_string(stmt->db, value));
-	array_idx_set(&stmt->args, column_idx, &escaped_value);
+	const char *value_dup = p_strdup(stmt->pool, value);
+	array_idx_set(&stmt->args, column_idx, &value_dup);
+	bool needs_escaping = TRUE;
+	array_idx_set(&stmt->args_need_escaping, column_idx, &needs_escaping);
 
 	if (stmt->db->v.statement_bind_str != NULL)
 		stmt->db->v.statement_bind_str(stmt, column_idx, value);
@@ -911,6 +948,13 @@ void sql_transaction_commit(struct sql_transaction_context **_ctx,
 	struct sql_db *db = ctx->db;
 	*_ctx = NULL;
 
+	if (ctx->failed_error != NULL) {
+		sql_commit_schedule_delayed(db, ctx->failed_error, callback, context);
+		i_free(ctx->failed_error);
+		ctx->db->v.transaction_rollback(ctx);
+		return;
+	}
+
 	if (ctx->db->v.transaction_commit != NULL) {
 		ctx->db->v.transaction_commit(ctx, callback, context);
 		return;
@@ -927,6 +971,12 @@ int sql_transaction_commit_s(struct sql_transaction_context **_ctx,
 	struct sql_transaction_context *ctx = *_ctx;
 
 	*_ctx = NULL;
+	if (ctx->failed_error != NULL) {
+		*error_r = t_strdup(ctx->failed_error);
+		i_free(ctx->failed_error);
+		ctx->db->v.transaction_rollback(ctx);
+		return -1;
+	}
 	return ctx->db->v.transaction_commit_s(ctx, error_r);
 }
 
@@ -935,6 +985,7 @@ void sql_transaction_rollback(struct sql_transaction_context **_ctx)
 	struct sql_transaction_context *ctx = *_ctx;
 
 	*_ctx = NULL;
+	i_free(ctx->failed_error);
 	ctx->db->v.transaction_rollback(ctx);
 }
 
