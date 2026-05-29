@@ -178,6 +178,14 @@ static void sql_lookup_pass(struct passdb_sql_request *sql_request)
 	const struct passdb_sql_settings *set;
 	const char *error;
 
+	if (sql_connect(module->db) < 0) {
+		e_error(authdb_event(sql_request->auth_request),
+			"Not connected to database");
+		sql_request->callback.verify_plain(
+			PASSDB_RESULT_INTERNAL_FAILURE,
+			sql_request->auth_request);
+		return;
+	}
 	const struct settings_get_params params = {
 		.escape_func = passdb_sql_escape,
 		.escape_context = module->db,
