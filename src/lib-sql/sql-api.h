@@ -118,7 +118,8 @@ int sql_connect(struct sql_db *db);
 void sql_disconnect(struct sql_db *db);
 
 /* Escape the given string if needed and return it. */
-const char *sql_escape_string(struct sql_db *db, const char *string);
+int sql_escape_string(struct sql_db *db, const char *string,
+		      const char **output_r, const char **error_r);
 /* Escape the given data as a string. */
 const char *sql_escape_blob(struct sql_db *db,
 			    const unsigned char *data, size_t size);

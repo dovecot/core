@@ -163,11 +163,10 @@ static void sql_query_callback(struct sql_result *result,
 }
 
 static int passdb_sql_escape(const char *str, const char **output_r,
-			     void *context, const char **error_r ATTR_UNUSED)
+			     void *context, const char **error_r)
 {
 	struct sql_db *db = context;
-	*output_r = sql_escape_string(db, str);
-	return 0;
+	return sql_escape_string(db, str, output_r, error_r);
 }
 
 static void sql_lookup_pass(struct passdb_sql_request *sql_request)

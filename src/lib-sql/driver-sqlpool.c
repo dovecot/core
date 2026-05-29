@@ -573,8 +573,9 @@ static void driver_sqlpool_disconnect(struct sql_db *_db)
 	driver_sqlpool_abort_requests(db);
 }
 
-static const char *
-driver_sqlpool_escape_string(struct sql_db *_db, const char *string)
+static int
+driver_sqlpool_escape_string(struct sql_db *_db, const char *string,
+			     const char **output_r, const char **error_r)
 {
 	struct sqlpool_db *db = (struct sqlpool_db *)_db;
 	const struct sqlpool_connection *conns;
@@ -584,11 +585,12 @@ driver_sqlpool_escape_string(struct sql_db *_db, const char *string)
 	conns = array_get(&db->all_connections, &count);
 	for (i = 0; i < count; i++) {
 		if (SQL_DB_IS_READY(conns[i].db))
-			return sql_escape_string(conns[i].db, string);
+			return sql_escape_string(conns[i].db, string,
+						 output_r, error_r);
 	}
 	/* no ready connections. just use the first one (we're guaranteed
 	   to always have one) */
-	return sql_escape_string(conns[0].db, string);
+	return sql_escape_string(conns[0].db, string, output_r, error_r);
 }
 
 static void driver_sqlpool_timeout(struct sqlpool_db *db)

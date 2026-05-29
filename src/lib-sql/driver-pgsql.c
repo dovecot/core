@@ -727,8 +727,9 @@ static void do_query(struct pgsql_result *result, const char *query)
 	}
 }
 
-static const char *
-driver_pgsql_escape_string(struct sql_db *_db, const char *string)
+static int
+driver_pgsql_escape_string(struct sql_db *_db, const char *string,
+			   const char **output_r, const char **error_r)
 {
 	struct pgsql_db *db = (struct pgsql_db *)_db;
 	size_t len = strlen(string);
@@ -744,14 +745,24 @@ driver_pgsql_escape_string(struct sql_db *_db, const char *string)
 
 		to = t_buffer_get(len * 2 + 1);
 		len = PQescapeStringConn(db->pg, to, string, len, &error);
-	} else
-#endif
-	{
-		to = t_buffer_get(len * 2 + 1);
-		len = PQescapeString(to, string, len);
+		if (error != 0) {
+			*error_r = last_error(db);
+			return -1;
+		}
+		t_buffer_alloc(len + 1);
+		*output_r = to;
+		return 0;
+	} else {
+		*error_r = SQL_ERRSTR_NOT_CONNECTED;
+		return -1;
 	}
+#else
+	to = t_buffer_get(len * 2 + 1);
+	len = PQescapeString(to, string, len);
 	t_buffer_alloc(len + 1);
-	return to;
+	*output_r = to;
+	return 0;
+#endif
 }
 
 static void exec_callback(struct sql_result *_result,

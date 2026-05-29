@@ -462,8 +462,9 @@ static int driver_mysql_do_query(struct mysql_db *db, const char *query,
 	return -1;
 }
 
-static const char *
-driver_mysql_escape_string(struct sql_db *_db, const char *string)
+static int
+driver_mysql_escape_string(struct sql_db *_db, const char *string,
+			   const char **output_r, const char **error_r)
 {
 	struct mysql_db *db = container_of(_db, struct mysql_db, api);
 	size_t len = strlen(string);
@@ -475,22 +476,15 @@ driver_mysql_escape_string(struct sql_db *_db, const char *string)
 	}
 
 	if (_db->state == SQL_DB_STATE_DISCONNECTED) {
-		/* FIXME: we don't have a valid connection, so fallback
-		   to using default escaping. the next query will most
-		   likely fail anyway so it shouldn't matter that much
-		   what we return here.. Anyway, this API needs
-		   changing so that the escaping function could already
-		   fail the query reliably. */
-		to = t_buffer_get(len * 2 + 1);
-		len = mysql_escape_string(to, string, len);
-		t_buffer_alloc(len + 1);
-		return to;
+		*error_r = SQL_ERRSTR_NOT_CONNECTED;
+		return -1;
 	}
 
 	to = t_buffer_get(len * 2 + 1);
 	len = mysql_real_escape_string(db->mysql, to, string, len);
 	t_buffer_alloc(len + 1);
-	return to;
+	*output_r = to;
+	return 0;
 }
 
 static void driver_mysql_exec(struct sql_db *_db, const char *query)
