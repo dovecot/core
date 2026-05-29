@@ -17,6 +17,8 @@ struct auth_oauth2_settings {
 	const char *introspection_url;
 	/* expected scope(s), optional */
 	ARRAY_TYPE(const_string) scope;
+	/* expected audience(s) (aud claim), optional */
+	ARRAY_TYPE(const_string) audience;
 	/* mode of introspection, one of auth, get, post, local
 	   - auth: send token with header Authorization: Bearer token
 	   - get: append token to url
