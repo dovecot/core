@@ -22,6 +22,7 @@ int main(int argc, char *argv[])
 		TEST_NAMED(test_auth_request_var_expand)
 		TEST_NAMED(test_auth_request_fields)
 		TEST_NAMED(test_username_filter)
+		TEST_NAMED(test_db_oauth2)
 #if defined(HAVE_LUA)
 		TEST_NAMED(test_db_lua)
 #endif
