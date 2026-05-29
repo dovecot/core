@@ -426,6 +426,11 @@ static void test_write_read_v2_real(const struct dcrypt_keypair *pair,
 	test_end();
 }
 
+static void test_write_read_v2_short(const char *curve, const char *algo,
+				     const struct dcrypt_keypair *kp);
+static void test_write_read_v2_empty(const char *curve, const char *algo,
+				     const struct dcrypt_keypair *kp);
+
 static void test_write_read_v2_algos(const char *kalg, const struct dcrypt_keypair *pair)
 {
 	for (size_t i = 0; i < N_ELEMENTS(test_algos); i++)
@@ -490,9 +495,10 @@ static void test_write_read_v2_kem(void)
 }
 #endif
 
-static void test_write_read_v2_short(const char *algo)
+static void test_write_read_v2_short(const char *curve, const char *algo,
+				     const struct dcrypt_keypair *kp)
 {
-	test_begin(t_strdup_printf("test_write_read_v2_short("SN_X9_62_prime256v1", %s)", algo));
+	test_begin(t_strdup_printf("test_write_read_v2_short(%s, %s)", curve, algo));
 	enum io_stream_encrypt_flags flags = 0;
 	unsigned char payload[1];
 	const unsigned char *ptr;
@@ -506,7 +512,7 @@ static void test_write_read_v2_short(const char *algo)
 	buffer_t *buf = buffer_create_dynamic(default_pool, 64);
 	struct ostream *os = o_stream_create_buffer(buf);
 	struct ostream *os_2 = o_stream_create_encrypt(os,
-		algo, test_v1_kp.pub, flags);
+		algo, kp->pub, flags);
 	o_stream_nsend(os_2, payload, sizeof(payload));
 	test_assert(o_stream_finish(os_2) > 0);
 	if (os_2->stream_errno != 0)
@@ -516,7 +522,7 @@ static void test_write_read_v2_short(const char *algo)
 	o_stream_unref(&os_2);
 
 	struct istream *is = test_istream_create_data(buf->data, buf->used);
-	struct istream *is_2 = i_stream_create_decrypt(is, test_v1_kp.priv);
+	struct istream *is_2 = i_stream_create_decrypt(is, kp->priv);
 
 	size_t offset = 0;
 	test_istream_set_allow_eof(is, FALSE);
@@ -548,15 +554,16 @@ static void test_write_read_v2_short(const char *algo)
 static void test_write_read_v2_short_algos(void)
 {
 	for (size_t i = 0; i < N_ELEMENTS(test_algos); i++)
-		test_write_read_v2_short(test_algos[i]);
+		test_write_read_v2_short(SN_X9_62_prime256v1, test_algos[i], &test_v2_kp);
 }
 
-static void test_write_read_v2_empty(const char *algo)
+static void test_write_read_v2_empty(const char *curve, const char *algo,
+				     const struct dcrypt_keypair *kp)
 {
 	const unsigned char *ptr;
 	size_t siz;
 	enum io_stream_encrypt_flags flags = 0;
-	test_begin(t_strdup_printf("test_write_read_v2_empty("SN_X9_62_prime256v1", %s)", algo));
+	test_begin(t_strdup_printf("test_write_read_v2_empty(%s, %s)", curve, algo));
 	if (strstr(algo, "-gcm") != NULL ||
 	    strstr(algo, "-poly1305") != NULL)
 		flags |= IO_STREAM_ENC_INTEGRITY_AEAD;
@@ -565,7 +572,7 @@ static void test_write_read_v2_empty(const char *algo)
 	buffer_t *buf = buffer_create_dynamic(default_pool, 64);
 	struct ostream *os = o_stream_create_buffer(buf);
 	struct ostream *os_2 = o_stream_create_encrypt(os,
-		algo, test_v1_kp.pub, flags);
+		algo, kp->pub, flags);
 	test_assert(o_stream_finish(os_2) > 0);
 	if (os_2->stream_errno != 0)
 		i_debug("error: %s", o_stream_get_error(os_2));
@@ -575,7 +582,7 @@ static void test_write_read_v2_empty(const char *algo)
 	/* this should've been enough */
 
 	struct istream *is = test_istream_create_data(buf->data, buf->used);
-	struct istream *is_2 = i_stream_create_decrypt(is, test_v1_kp.priv);
+	struct istream *is_2 = i_stream_create_decrypt(is, kp->priv);
 
 	/* read should not fail */
 	size_t offset = 0;
@@ -602,7 +609,7 @@ static void test_write_read_v2_empty(const char *algo)
 static void test_write_read_v2_empty_algos(void)
 {
 	for (size_t i = 0; i < N_ELEMENTS(test_algos); i++)
-		test_write_read_v2_empty(test_algos[i]);
+		test_write_read_v2_empty(SN_X9_62_prime256v1, test_algos[i], &test_v2_kp);
 }
 
 static int
