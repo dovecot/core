@@ -109,6 +109,20 @@ static struct sql_result *sql_result_new_error(const char *error)
 	return &result->result;
 }
 
+static void
+sql_query_callback_delayed(struct sql_db *db, struct sql_result *result,
+			   sql_query_callback_t *callback, void *context)
+{
+	struct sql_query_result_delayed *cb =
+		i_new(struct sql_query_result_delayed, 1);
+	cb->db = db;
+	cb->result = result;
+	cb->callback = callback;
+	cb->context = context;
+	cb->to = timeout_add_short(0, sql_query_delayed_callback, cb);
+	DLLIST_PREPEND(&db->query_delayed_list, cb);
+}
+
 void sql_drivers_init_without_drivers(void)
 {
 	i_array_init(&sql_drivers, 8);
@@ -347,13 +361,8 @@ void sql_query(struct sql_db *db, const char *query,
 		return;
 	}
 
-	struct sql_query_result_delayed *cb = i_new(struct sql_query_result_delayed, 1);
-	cb->db = db;
-	cb->result = sql_query_s(db, query);
-	cb->callback = callback;
-	cb->context = context;
-	cb->to = timeout_add_short(0, sql_query_delayed_callback, cb);
-	DLLIST_PREPEND(&db->query_delayed_list, cb);
+	sql_query_callback_delayed(db, sql_query_s(db, query),
+				   callback, context);
 }
 
 struct sql_result *sql_query_s(struct sql_db *db, const char *query)
