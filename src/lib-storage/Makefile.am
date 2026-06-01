@@ -1,6 +1,6 @@
 include $(top_srcdir)/Makefile.test.include
 
-AUTOMAKE_OPTIONS = subdir-objects
+AUTOMAKE_OPTIONS += subdir-objects
 
 SUBDIRS = list index
 
