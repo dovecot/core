@@ -369,6 +369,8 @@ hide_secrets_from_value(struct ostream *output, const char *key,
 
 	if (*value != '\0' &&
 	    (key_ends_with(key, eptr, "_password") ||
+	     key_ends_with(key, eptr, "_key_file") ||
+	     key_ends_with(key, eptr, "/key_file") ||
 	     key_ends_with(key, eptr, "_key") ||
 	     key_ends_with(key, eptr, "_nonce") ||
 	     key_ends_with(key, eptr, "_secret") ||
@@ -654,7 +656,6 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		}
 
 		bool hide_value = FALSE;
-		const char *full_key = key;
 		try_strip_prefix(&key, strip_prefix, strip_prefix2);
 		value = bool_list_elem ? strrchr(key, '=') : strchr(key, '=');
 		i_assert(value != NULL);
@@ -708,7 +709,9 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		} else if (hide_value)
 			; /* boollist value was already written */
 		else if (hide_passwords &&
-			 hide_secrets_from_value(output, full_key, value + 1, display_value))
+			 hide_secrets_from_value(output, strings[i],
+						 strchr(strings[i], '=') + 1,
+						 display_value))
 			/* sent */
 			;
 		else if (embedded_marker != NULL) {
@@ -914,9 +917,12 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 		unsigned int sub_indent;
 		size_t parent_list_prefix_len = str_len(list_prefix);
 		/* If we're asking for a specific setting, don't hide
-		   passwords. */
-		bool sub_hide_passwords = set_name_filter != NULL ?
-			FALSE : hide_passwords;
+		   passwords. An empty set_name_filter (e.g. trailing '/' in
+		   the query like "ssl_server/") means show all settings, not
+		   a specific one, so keep passwords hidden. */
+		bool sub_hide_passwords =
+			(set_name_filter == NULL || set_name_filter[0] == '\0') ?
+			hide_passwords : FALSE;
 
 		ctx = config_dump_human_init(scope, filter_parser);
 		sub_indent = hide_key ? 0 :
