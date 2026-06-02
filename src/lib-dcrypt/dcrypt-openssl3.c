@@ -3190,11 +3190,16 @@ dcrypt_openssl_private_to_public_key(struct dcrypt_private_key *priv_key,
 	EVP_PKEY *pk;
 
 	pk = EVP_PKEY_new();
-	i_assert(pk != NULL); /* we shouldn't get malloc() failures */
+	if (pk == NULL)
+		i_fatal_status(FATAL_OUTOFMEM, "%s(): OpenSSL malloc() failed", __func__);
 
 	OSSL_PARAM *params = NULL;
-	if (EVP_PKEY_todata(pkey, EVP_PKEY_PUBLIC_KEY, &params) == 0)
-		i_unreached();
+	if (EVP_PKEY_todata(pkey, EVP_PKEY_PUBLIC_KEY, &params) == 0) {
+		const char *error;
+		(void)dcrypt_openssl_error(&error);
+		i_fatal("%s(): OpenSSL error: %s", __func__, error);
+	}
+
 	/* keep the key format compressed */
 	OSSL_PARAM *param = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_EC_POINT_CONVERSION_FORMAT);
 	if (param != NULL)
@@ -3202,7 +3207,9 @@ dcrypt_openssl_private_to_public_key(struct dcrypt_private_key *priv_key,
 	EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_from_pkey(NULL, pkey, NULL);
 	if (EVP_PKEY_fromdata_init(ctx) < 1 ||
 	    EVP_PKEY_fromdata(ctx, &pk, EVP_PKEY_PUBLIC_KEY, params) < 1) {
-		i_unreached();
+		const char *error;
+		(void)dcrypt_openssl_error(&error);
+		i_fatal("%s(): OpenSSL error: %s", __func__, error);
 	}
 	EVP_PKEY_CTX_free(ctx);
 	OSSL_PARAM_free(params);
