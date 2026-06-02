@@ -890,6 +890,19 @@ static void sql_commit_delayed_callback(struct sql_commit_result_delayed *cb)
 	i_free(cb);
 }
 
+static void
+sql_commit_schedule_delayed(struct sql_db *db, const char *error,
+			    sql_commit_callback_t *callback, void *context)
+{
+	struct sql_commit_result_delayed *cb = i_new(struct sql_commit_result_delayed, 1);
+	cb->db = db;
+	cb->error = i_strdup(error);
+	cb->callback = callback;
+	cb->context = context;
+	cb->to = timeout_add_short(0, sql_commit_delayed_callback, cb);
+	DLLIST_PREPEND(&db->commit_delayed_list, cb);
+}
+
 #undef sql_transaction_commit
 void sql_transaction_commit(struct sql_transaction_context **_ctx,
 			    sql_commit_callback_t *callback, void *context)
@@ -903,15 +916,9 @@ void sql_transaction_commit(struct sql_transaction_context **_ctx,
 		return;
 	}
 
-	struct sql_commit_result_delayed *cb = i_new(struct sql_commit_result_delayed, 1);
 	const char *error = NULL;
 	ctx->db->v.transaction_commit_s(ctx, &error);
-	cb->db = db;
-	cb->error = i_strdup(error);
-	cb->callback = callback;
-	cb->context = context;
-	cb->to = timeout_add_short(0, sql_commit_delayed_callback, cb);
-	DLLIST_PREPEND(&db->commit_delayed_list, cb);
+	sql_commit_schedule_delayed(db, error, callback, context);
 }
 
 int sql_transaction_commit_s(struct sql_transaction_context **_ctx,
