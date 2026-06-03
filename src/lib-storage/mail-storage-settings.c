@@ -812,13 +812,11 @@ mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool,
 			set->mailbox_root_directory_name, "/", NULL);
 	}
 
-	if (set->mailbox_list_visible_escape_char != set_value_unknown &&
-	    strlen(set->mailbox_list_visible_escape_char) > 1) {
+	if (strlen(set->mailbox_list_visible_escape_char) > 1) {
 		*error_r = "mailbox_list_visible_escape_char value must be a single character";
 		return FALSE;
 	}
-	if (set->mailbox_list_storage_escape_char != set_value_unknown &&
-	    strlen(set->mailbox_list_storage_escape_char) > 1) {
+	if (strlen(set->mailbox_list_storage_escape_char) > 1) {
 		*error_r = "mailbox_list_storage_escape_char value must be a single character";
 		return FALSE;
 	}
