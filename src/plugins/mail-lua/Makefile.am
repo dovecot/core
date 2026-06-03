@@ -16,10 +16,11 @@ NOPLUGIN_LDFLAGS =
 module_LTLIBRARIES = \
 	lib01_mail_lua_plugin.la
 
-lib01_mail_lua_plugin_la_LDFLAGS = -module -avoid-version $(LUA_LIBS)
+lib01_mail_lua_plugin_la_LDFLAGS = -module -avoid-version
 lib01_mail_lua_plugin_la_LIBADD = \
 	../../lib-storage-lua/libdovecot-storage-lua.la \
-	$(LIBDOVECOT)
+	$(LIBDOVECOT) \
+	$(LUA_LIBS)
 lib01_mail_lua_plugin_la_SOURCES = \
 	mail-lua-plugin.c \
 	mail-lua-settings.c

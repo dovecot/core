@@ -21,12 +21,10 @@ LUA_LIB =
 AUTH_LUA_LIBS =
 AUTH_LUA_LDADD =
 if HAVE_LUA
-
-if AUTH_LUA_PLUGIN
-LUA_LIB += libauthdb_lua.la
-else
 AUTH_LUA_LIBS += $(LIBDOVECOT_LUA)
 AUTH_LUA_LDADD += $(LUA_LIBS)
+if AUTH_LUA_PLUGIN
+LUA_LIB += libauthdb_lua.la
 endif
 endif
 
@@ -199,10 +197,6 @@ auth_libs += $(LIBDOVECOT_LDAP)
 endif
 endif
 
-if HAVE_LUA
-auth_libs += $(LIBDOVECOT_LUA) $(LUA_LIBS)
-endif
-
 if AUTH_LUA_PLUGIN
 libauthdb_lua_la_LDFLAGS = -module -avoid-version -shared
 libauthdb_lua_la_LIBADD = $(LIBDOVECOT_LUA)
@@ -249,7 +243,7 @@ test_auth_SOURCES = \
 	test-mock.c \
 	test-main.c
 
-test_auth_LDADD = $(test_auth_ldadd_plugins) $(LIBDOVECOT) $(auth_libs) $(AUTH_LIBS)
+test_auth_LDADD = $(test_auth_ldadd_plugins) $(LIBDOVECOT) $(auth_libs) $(AUTH_LIBS) $(AUTH_LUA_LDADD)
 test_auth_DEPENDENCIES = $(test_auth_ldadd_plugins) $(pkglibexec_PROGRAMS) $(LIBDOVECOT_DEPS)
 
 test_mech_SOURCES = \
@@ -258,7 +252,7 @@ test_mech_SOURCES = \
 	test-mock.c \
 	test-mech.c
 
-test_mech_LDADD = $(LIBDOVECOT) $(auth_libs) $(AUTH_LIBS)
+test_mech_LDADD = $(LIBDOVECOT) $(auth_libs) $(AUTH_LIBS) $(AUTH_LUA_LDADD)
 test_mech_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(LIBDOVECOT_DEPS)
 
 test_auth_client_SOURCES = \
@@ -267,7 +261,7 @@ test_auth_client_SOURCES = \
 	test-mock.c \
 	test-auth-client.c
 
-test_auth_client_LDADD = $(LIBDOVECOT) $(auth_libs) $(AUTH_LIBS)
+test_auth_client_LDADD = $(LIBDOVECOT) $(auth_libs) $(AUTH_LIBS) $(AUTH_LUA_LDADD)
 test_auth_client_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(LIBDOVECOT_DEPS)
 
 test_auth_master_SOURCES = \
@@ -277,5 +271,5 @@ test_auth_master_SOURCES = \
 	test-auth-master.c \
 	test-auth-master-server.c
 
-test_auth_master_LDADD = $(LIBDOVECOT) $(auth_libs) $(AUTH_LIBS)
+test_auth_master_LDADD = $(LIBDOVECOT) $(auth_libs) $(AUTH_LIBS) $(AUTH_LUA_LDADD)
 test_auth_master_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(LIBDOVECOT_DEPS)
