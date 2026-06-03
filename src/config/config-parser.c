@@ -1781,13 +1781,14 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	return TRUE;
 }
 
-void config_fill_set_parser(struct setting_parser_context *parser,
+bool config_fill_set_parser(struct setting_parser_context *parser,
 			    const struct config_module_parser *p,
 			    bool expand_values)
 {
 	if (p->change_counters == NULL)
-		return;
+		return TRUE;
 
+	bool has_unknown_values = FALSE;
 	for (unsigned int i = 0; p->info->defines[i].key != NULL; i++) {
 		if (p->change_counters[i] == 0)
 			continue;
@@ -1829,6 +1830,7 @@ void config_fill_set_parser(struct setting_parser_context *parser,
 				/* We don't know what the variables would
 				   expand to. */
 				value = set_value_unknown;
+				has_unknown_values = TRUE;
 			}
 			(void)settings_parse_keyidx_value_nodup(parser, i,
 				p->info->defines[i].key, value);
@@ -1836,6 +1838,7 @@ void config_fill_set_parser(struct setting_parser_context *parser,
 		}
 		}
 	}
+	return !has_unknown_values;
 }
 
 static void
@@ -1886,11 +1889,20 @@ config_filter_parser_check(struct config_parser_context *ctx,
 		struct setting_parser_context *tmp_parser =
 			settings_parser_init(tmp_pool, p->info,
 					     settings_parser_flags);
+		ok = TRUE;
 		if (default_p != NULL) {
-			config_fill_set_parser(tmp_parser, default_p,
-					       ctx->expand_values);
+			ok = config_fill_set_parser(tmp_parser, default_p,
+						    ctx->expand_values);
 		}
-		config_fill_set_parser(tmp_parser, p, ctx->expand_values);
+		if (ok)
+			ok = config_fill_set_parser(tmp_parser, p, ctx->expand_values);
+		if (!ok) {
+			/* Can't check settings, e.g. %{variables} used in
+			   the parser. */
+			settings_parser_unref(&tmp_parser);
+			continue;
+		}
+
 		T_BEGIN {
 			ok = settings_parser_check(tmp_parser, tmp_pool,
 						   event, &error);

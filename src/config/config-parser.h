@@ -123,8 +123,10 @@ config_parsed_get_global_default_filter_parser(const struct config_parsed *confi
 /* Returns all filters */
 struct config_filter_parser *const *
 config_parsed_get_filter_parsers(const struct config_parsed *config);
-/* Fill settings parser with settings from the given module parser. */
-void config_fill_set_parser(struct setting_parser_context *parser,
+/* Fill settings parser with settings from the given module parser. Returns
+   TRUE if parser could be filled successfully, FALSE if some of the values
+   couldn't be expanded due to e.g. %{variables}. */
+bool config_fill_set_parser(struct setting_parser_context *parser,
 			    const struct config_module_parser *p,
 			    bool expand_values);
 HASH_TABLE_TYPE(config_key)
