@@ -86,6 +86,13 @@ int t_readlink(const char *path, const char **dest_r, const char **error_r);
 int t_openat_safe(int base_fd, const char *path, int flags,
 		  const char **error_r);
 
+/* Convenience wrapper: opens base_dir as a directory fd, then delegates to
+   t_openat_safe(). If O_NOFOLLOW is present in flags it is also applied to
+   the open() of base_dir itself, refusing a symlink as its final component.
+   Returns the new fd on success, -1 on failure. */
+int t_openat_safe_dir(const char *base_dir, const char *path, int flags,
+		      const char **error_r);
+
 /* Update binpath to be absolute:
  * a) begins with '/' -> no change
  * b) contains '/' -> assume relative to working directory
