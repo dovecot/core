@@ -577,31 +577,31 @@ static bool
 db_oauth2_token_in_scope(struct db_oauth2_request *req,
 			 enum passdb_result *result_r, const char **error_r)
 {
-	bool found = TRUE;
-	if (!array_is_empty(&req->db->set->scope)) {
-		found = FALSE;
-		const char *value = auth_fields_find(req->fields, "scope");
-		bool has_scope = value != NULL;
-		if (!has_scope)
-			value = auth_fields_find(req->fields, "aud");
-		e_debug(authdb_event(req->auth_request),
-			"Token scope(s): %s",
-			value);
-		if (value != NULL) {
-			const char *wanted_scope;
-			const char *const *entries = has_scope ?
-				t_strsplit_spaces(value, " ") :
-				t_strsplit_tabescaped(value);
-			array_foreach_elem(&req->db->set->scope, wanted_scope) {
-				if ((found = str_array_find(entries, wanted_scope)))
-					break;
-			}
+	if (array_is_empty(&req->db->set->scope))
+		return TRUE;
+
+	bool found = FALSE;
+	const char *value = auth_fields_find(req->fields, "scope");
+	bool has_scope = value != NULL;
+	if (!has_scope)
+		value = auth_fields_find(req->fields, "aud");
+	e_debug(authdb_event(req->auth_request),
+		"Token scope(s): %s",
+		value);
+	if (value != NULL) {
+		const char *wanted_scope;
+		const char *const *entries = has_scope ?
+			t_strsplit_spaces(value, " ") :
+			t_strsplit_tabescaped(value);
+		array_foreach_elem(&req->db->set->scope, wanted_scope) {
+			if ((found = str_array_find(entries, wanted_scope)))
+				break;
 		}
-		if (!found) {
-			*error_r = t_strdup_printf("Token is not valid for scope '%s'",
-						   req->db->oauth2_set.scope);
-			*result_r = PASSDB_RESULT_USER_DISABLED;
-		}
+	}
+	if (!found) {
+		*error_r = t_strdup_printf("Token is not valid for scope '%s'",
+			t_array_const_string_join(&req->db->set->scope, " "));
+		*result_r = PASSDB_RESULT_USER_DISABLED;
 	}
 	return found;
 }
