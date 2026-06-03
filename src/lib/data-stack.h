@@ -31,6 +31,11 @@
       overflows.
 */
 
+/* All data stack allocations - t_malloc(), t_malloc0(), t_buffer_get(),
+   t_try_realloc() etc. - preserve errno. It is therefore safe to allocate
+   temporary memory between a failing syscall and reading errno (or
+   formatting "%m"). */
+
 #ifndef STATIC_CHECKER
 typedef unsigned int data_stack_frame_t;
 #else
