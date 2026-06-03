@@ -528,6 +528,25 @@ int t_openat_safe(int base_fd, const char *path, int flags,
 	return path_openat_safe_walk(base_fd, path, flags, error_r);
 }
 
+int t_openat_safe_dir(const char *base_dir, const char *path, int flags,
+		      const char **error_r)
+{
+	i_assert(base_dir != NULL);
+	i_assert(path != NULL);
+	i_assert(error_r != NULL);
+
+	int dir_fd = open(base_dir,
+			  O_DIRECTORY | O_RDONLY | O_CLOEXEC |
+			  (flags & O_NOFOLLOW));
+	if (dir_fd < 0) {
+		*error_r = t_strdup_printf("open(%s) failed: %m", base_dir);
+		return -1;
+	}
+	int fd = t_openat_safe(dir_fd, path, flags, error_r);
+	i_close_fd(&dir_fd);
+	return fd;
+}
+
 bool t_binary_abspath(const char **binpath, const char **error_r)
 {
 	const char *path_env, *const *paths;

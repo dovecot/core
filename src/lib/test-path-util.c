@@ -356,6 +356,57 @@ static void test_openat_safe(void)
 		i_error("rmdir(%s) failed: %m", subdir);
 }
 
+static void test_openat_safe_dir(void)
+{
+	const char *error;
+	int fd;
+
+	/* Plain file: success. */
+	const char *plain = t_strconcat(tmpdir, "/plain2", NULL);
+	int wfd = creat(plain, 0600);
+	if (wfd < 0)
+		i_fatal("creat(%s) failed: %m", plain);
+	i_close_fd(&wfd);
+
+	fd = t_openat_safe_dir(tmpdir, "plain2", O_RDONLY, &error);
+	test_assert(fd >= 0);
+	i_close_fd(&fd);
+
+	/* Nonexistent base_dir. */
+	errno = 0;
+	fd = t_openat_safe_dir(t_strconcat(tmpdir, "/no-such-dir", NULL),
+			       "plain2", O_RDONLY, &error);
+	test_assert(fd == -1);
+	test_assert(errno == ENOENT);
+	test_assert(error != NULL);
+
+	/* Absolute symlink in relative part: refused. */
+	const char *abs_link2 = t_strconcat(tmpdir, "/abs-link2", NULL);
+	if (symlink("/etc/hostname", abs_link2) < 0)
+		i_fatal("symlink failed: %m");
+	errno = 0;
+	fd = t_openat_safe_dir(tmpdir, "abs-link2", O_RDONLY, &error);
+	test_assert(fd == -1);
+	test_assert(errno == ELOOP);
+
+	/* O_NOFOLLOW: symlink as base_dir final component refused. */
+	const char *dir_link = t_strconcat(tmpdir, "/dir-link", NULL);
+	if (symlink(tmpdir, dir_link) < 0)
+		i_fatal("symlink failed: %m");
+	errno = 0;
+	fd = t_openat_safe_dir(dir_link, "plain2",
+			       O_RDONLY | O_NOFOLLOW, &error);
+	test_assert(fd == -1);
+	/* Without O_NOFOLLOW the same symlinked base_dir succeeds. */
+	fd = t_openat_safe_dir(dir_link, "plain2", O_RDONLY, &error);
+	test_assert(fd >= 0);
+	i_close_fd(&fd);
+
+	i_unlink(plain);
+	i_unlink(abs_link2);
+	i_unlink(dir_link);
+}
+
 static void test_cleanup(void)
 {
 	const char *error;
@@ -398,6 +449,7 @@ void test_path_util(void)
 	test_link_alloc();
 	test_link_alloc2();
 	test_openat_safe();
+	test_openat_safe_dir();
 	test_cleanup();
 	alarm(0);
 	test_end();
