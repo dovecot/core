@@ -3,6 +3,9 @@
 
 /* For easy allocation of memory from default memory pool. */
 
+/* Like all pool allocations, i_malloc()/i_realloc()/i_free() and the
+   i_strdup*() helpers preserve errno (see mempool.h). */
+
 extern pool_t default_pool;
 
 #define i_new(type, count) p_new(default_pool, type, count)

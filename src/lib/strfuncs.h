@@ -13,6 +13,13 @@ extern const char *const empty_str_array[];
 int i_snprintf(char *dest, size_t max_chars, const char *format, ...)
 	ATTR_FORMAT(3, 4);
 
+/* The p_/t_/i_ strdup, strconcat and *printf helpers below preserve errno.
+   So this pattern is safe - errno still refers to the failed syscall when
+   "%m" is expanded:
+
+     if (syscall(...) < 0)
+             error = t_strdup_printf("syscall() failed: %m"); */
+
 char *p_strdup(pool_t pool, const char *str) ATTR_MALLOC;
 void *p_memdup(pool_t pool, const void *data, size_t size) ATTR_MALLOC;
 /* return NULL if str = "" */

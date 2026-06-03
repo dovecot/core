@@ -19,6 +19,12 @@
    zeroed, it will cost only a few CPU cycles and may well save some debug
    time. */
 
+/* All pool memory operations - p_malloc(), p_realloc(), p_free() and the
+   p_new()/p_strdup*() helpers built on them - preserve errno. This means an
+   allocation between a failing syscall and reading errno (e.g. when building
+   an error string with "%m") will not clobber errno. The same guarantee holds
+   for the t_* (data stack) and i_* (default pool) allocators. */
+
 typedef struct pool *pool_t;
 
 struct pool_vfuncs {
