@@ -273,6 +273,15 @@ static const struct http_header_parse_test invalid_header_parse_tests[] = {
 			"\r\n",
 		.flags = HTTP_HEADER_PARSE_FLAG_STRICT
 	},{
+		/* obsolete line folding (obs-fold) must be rejected in strict
+		   mode, the way the HTTP server parses requests */
+		.header =
+			"Host: www.example.com\r\n"
+			"X-Frop: folded\r\n"
+			"\tvalue\r\n"
+			"\r\n",
+		.flags = HTTP_HEADER_PARSE_FLAG_STRICT
+	},{
 		.header =
 			"Date: Sat, 06 Oct 2012 17:12:37 GMT\r\n"
 			"Server: Apache/2.2.16 (Debian) PHP/5.3.3-7+squeeze14 with\r\n"

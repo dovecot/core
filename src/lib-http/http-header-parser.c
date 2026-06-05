@@ -260,6 +260,16 @@ static int http_header_parse(struct http_header_parser *parser)
 		case HTTP_HEADER_PARSE_STATE_NEW_LINE:
 			if (*parser->cur == ' ' || *parser->cur == '\t') {
 				/* obs-fold */
+				if (HAS_ALL_BITS(parser->flags,
+				     HTTP_HEADER_PARSE_FLAG_STRICT)) {
+					/* RFC 7230, Section 3.2.4: a server
+					   MUST reject obsolete line folding with
+					   a 400 (Bad Request). Rejecting it also
+					   avoids request-smuggling desyncs with an
+					   upstream that folds differently. */
+					parser->error = "Obsolete line folding (obs-fold) not allowed in header fields";
+					return -1;
+				}
 				buffer_append_c(parser->value_buf, ' ');
 				parser->state = HTTP_HEADER_PARSE_STATE_OWS;
 				break;
