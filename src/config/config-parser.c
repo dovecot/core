@@ -2817,7 +2817,7 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 			if (envval != NULL)
 				str_append(prefixed_str, envval);
 		} else if (expand_values && var_is_set) {
-			static struct config_filter_parser *set_parser;
+			struct config_filter_parser *set_parser;
 			struct config_parser_key *config_key;
 			const char *full_set_name = set_name;
 
