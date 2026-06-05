@@ -916,7 +916,8 @@ int client_auth_read_line(struct client *client)
 	}
 	if (client->auth_response == NULL)
 		client->auth_response = str_new(default_pool, I_MAX(i+1, 256));
-	if (str_len(client->auth_response) + i > LOGIN_MAX_AUTH_BUF_SIZE) {
+	if (i > LOGIN_MAX_AUTH_BUF_SIZE ||
+	    str_len(client->auth_response) > LOGIN_MAX_AUTH_BUF_SIZE - i) {
 		client_destroy(client, "Authentication response too large");
 		return -1;
 	}
