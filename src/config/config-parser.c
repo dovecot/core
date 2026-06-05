@@ -2517,6 +2517,19 @@ static void config_filters_merge(struct config_parser_context *ctx,
 }
 
 static void
+config_filter_parser_clear_include_groups(struct config_filter_parser *filter)
+{
+	struct config_filter_parser *child;
+
+	/* The include groups have already been applied during parsing. Clear
+	   them so the filter can be merged into its parent. */
+	if (array_is_created(&filter->include_groups))
+		array_clear(&filter->include_groups);
+	for (child = filter->children_head; child != NULL; child = child->next)
+		config_filter_parser_clear_include_groups(child);
+}
+
+static void
 config_parse_merge_filters(struct config_parser_context *ctx,
 			   struct config_parsed *config,
 			   const struct config_filter *dump_filter)
@@ -2536,8 +2549,14 @@ config_parse_merge_filters(struct config_parser_context *ctx,
 			continue;
 		}
 
+		config_filter_parser_clear_include_groups(filter);
+		/* Promote group-included settings (CONFIG_PARSER_CHANGE_GROUP)
+		   to explicit. The include group reference was just cleared, so
+		   the settings can no longer be re-expanded from it; they must
+		   be dumped directly. Otherwise filters defined purely by a
+		   group (e.g. mailbox { } from a group) wouldn't be found. */
 		config_filters_merge(ctx, config, filter->parent, filter,
-				     TRUE, TRUE, 0);
+				     TRUE, TRUE, CONFIG_PARSER_CHANGE_EXPLICIT);
 	}
 }
 
