@@ -257,6 +257,37 @@ static void test_imap_parser_read_literal(void)
 	test_end();
 }
 
+static void test_imap_parser_quoted_escapes(void)
+{
+	const struct {
+		const char *input;
+		const char *output;
+	} tests[] = {
+		{ "\"foo\"\n", "foo" },		/* no escape */
+		{ "\"a\\\"b\"\n", "a\"b" },	/* "a\"b"  -> a"b */
+		{ "\"a\\\\b\"\n", "a\\b" },	/* "a\\b"  -> a\b */
+		{ "\"\\\"\\\\\"\n", "\"\\" },	/* "\"\\"  -> "\  */
+	};
+
+	test_begin("imap parser quoted-string escapes");
+	for (size_t i = 0; i < N_ELEMENTS(tests); i++) {
+		struct istream *input = test_istream_create(tests[i].input);
+		(void)i_stream_read(input);
+		struct imap_parser *parser =
+			imap_parser_create(input, NULL, 1024, NULL);
+		const struct imap_arg *args;
+		const char *str;
+
+		test_assert_idx(imap_parser_read_args(parser, 0, 0, &args) == 1, i);
+		test_assert_idx(imap_arg_get_astring(&args[0], &str), i);
+		test_assert_strcmp_idx(str, tests[i].output, i);
+
+		imap_parser_unref(&parser);
+		i_stream_destroy(&input);
+	}
+	test_end();
+}
+
 static void test_imap_arg_get_list_empty(void)
 {
 	/* An IMAP_ARG_LIST whose backing array is empty - i.e. holds no
@@ -288,6 +319,7 @@ int main(void)
 		test_imap_parser_list_limit,
 		test_imap_parser_read_tag_cmd,
 		test_imap_parser_read_literal,
+		test_imap_parser_quoted_escapes,
 		test_imap_arg_get_list_empty,
 		NULL
 	};

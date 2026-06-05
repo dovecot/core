@@ -53,7 +53,7 @@ struct imap_parser {
 	size_t cur_pos; /* parser position in input buffer */
 	bool cur_resp_text; /* we're parsing [resp-text-code] */
 
-	int str_first_escape; /* ARG_PARSE_STRING: index to first '\' */
+	bool str_have_escape; /* ARG_PARSE_STRING: a '\' escape was seen */
 	uoff_t literal_size; /* ARG_PARSE_LITERAL: string size */
 
 	enum imap_parser_error error;
@@ -134,7 +134,7 @@ void imap_parser_reset(struct imap_parser *parser)
 	parser->cur_pos = 0;
 	parser->cur_resp_text = FALSE;
 
-	parser->str_first_escape = 0;
+	parser->str_have_escape = FALSE;
 	parser->literal_size = 0;
 
 	parser->error = IMAP_PARSE_ERROR_NONE;
@@ -282,7 +282,7 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 		str = p_strndup(parser->pool, data+1, size-1);
 
 		/* remove the escapes */
-		if (parser->str_first_escape >= 0 &&
+		if (parser->str_have_escape &&
 		    (parser->flags & IMAP_PARSE_FLAG_NO_UNESCAPE) == 0)
 			(void)str_unescape(str);
 		arg->_data.str = str;
@@ -390,9 +390,8 @@ static bool imap_parser_read_string(struct imap_parser *parser,
 				break;
 			}
 
-			/* save the first escaped char */
-			if (parser->str_first_escape < 0)
-				parser->str_first_escape = i;
+			/* remember that the string contains an escape */
+			parser->str_have_escape = TRUE;
 
 			/* skip the escaped char */
 			i++;
@@ -646,7 +645,7 @@ static bool imap_parser_read_arg(struct imap_parser *parser)
 			return FALSE;
 		case '"':
 			parser->cur_type = ARG_PARSE_STRING;
-			parser->str_first_escape = -1;
+			parser->str_have_escape = FALSE;
 			break;
 		case '~':
 			/* This could be either literal8 or atom */
