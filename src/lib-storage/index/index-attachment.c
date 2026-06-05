@@ -389,12 +389,11 @@ bool index_attachment_parse_extrefs(const char *line, pool_t pool,
 	return TRUE;
 }
 
-static uoff_t
-index_attachment_base64_decoded_size(const struct mail_attachment_extref *extref)
+uoff_t index_attachment_base64_decoded_size(const struct mail_attachment_extref *extref)
 {
 	uoff_t encoded_size = extref->size;
 	unsigned int nl_size = extref->base64_have_crlf ? 2 : 1;
-	unsigned int line_size = extref->base64_blocks_per_line * 4;
+	unsigned int line_size = extref->base64_blocks_per_line * 4 + nl_size;
 	uoff_t nl_count = (encoded_size - 1) / line_size;
 	uoff_t nl_bytes = nl_size * nl_count;
 

@@ -49,4 +49,7 @@ int index_attachment_stream_get(struct fs *fs, const char *attachment_dir,
 				struct istream **stream, uoff_t full_size,
 				const char *ext_refs, const char **error_r);
 
+/* Return the base64-decoded size of an attachment from its encoded size. */
+uoff_t index_attachment_base64_decoded_size(const struct mail_attachment_extref *extref);
+
 #endif

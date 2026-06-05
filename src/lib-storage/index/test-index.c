@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "base64.h"
 #include "test-common.h"
 #include "test-dir.h"
 #include "master-service.h"
@@ -10,6 +11,7 @@
 #include "mail-storage-private.h"
 #include "index/index-storage.h"
 #include "index/index-mailbox-size.h"
+#include "index/index-attachment.h"
 
 static void test_mail_save(struct mailbox *box, const char *mail_input)
 {
@@ -195,11 +197,50 @@ static void test_vsize_hdr_msg_count_corruption_fix(void)
 	test_end();
 }
 
+static void test_index_attachment_base64_decoded_size(void)
+{
+	static const unsigned int blocks_per_line[] = { 1, 2, 18, 19, 20, 1000 };
+
+	test_begin("index attachment base64 decoded size");
+
+	/* For any decoded size, the encoded size stored in the extref must
+	   convert back into a decoded size that re-encodes to exactly the
+	   same encoded size. This is what keeps a missing attachment
+	   (reconstructed as spaces) the same size as the original. */
+	for (unsigned int i = 0; i < N_ELEMENTS(blocks_per_line); i++) {
+		unsigned int blocks = blocks_per_line[i];
+
+		for (unsigned int crlf = 0; crlf <= 1; crlf++) {
+			struct base64_encoder enc;
+			enum base64_encode_flags flags =
+				crlf != 0 ? BASE64_ENCODE_FLAG_CRLF : 0;
+
+			base64_encode_init(&enc, &base64_scheme, flags,
+					   blocks * 4);
+			for (uoff_t raw = 1; raw <= 10000; raw++) {
+				struct mail_attachment_extref extref = {
+					.size = base64_get_full_encoded_size(&enc, raw),
+					.base64_blocks_per_line = blocks,
+					.base64_have_crlf = crlf != 0,
+				};
+				uoff_t dec_size =
+					index_attachment_base64_decoded_size(&extref);
+				uoff_t enc_size2 =
+					base64_get_full_encoded_size(&enc,
+								     dec_size);
+				test_assert_idx(enc_size2 == extref.size, raw);
+			}
+		}
+	}
+	test_end();
+}
+
 int main(int argc, char *argv[])
 {
 	static void (* const test_functions[])(void) = {
 		test_vsize_hdr_corruption_fix,
 		test_vsize_hdr_msg_count_corruption_fix,
+		test_index_attachment_base64_decoded_size,
 		NULL
 	};
 
