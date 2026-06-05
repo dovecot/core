@@ -79,9 +79,13 @@ bool imap_arg_get_list_full(const struct imap_arg *arg,
 
 	*list_r = array_get(&arg->_data.list, &count);
 
-	if (count > 0 && (*list_r)[count-1].type == IMAP_ARG_EOL)
+	if (count == 0) {
+		/* Empty list, or imap-parser stopped early before storing
+		   anything (not even the temporary IMAP_ARG_EOL). Don't index
+		   past the zero-length array. */
+	} else if ((*list_r)[count-1].type == IMAP_ARG_EOL) {
 		count--;
-	else {
+	} else {
 		/* imap-parser stopped early (e.g. due to reading literal size).
 		   The IMAP_ARG_EOL was added to the list only temporarily. */
 		i_assert((*list_r)[count].type == IMAP_ARG_EOL);
