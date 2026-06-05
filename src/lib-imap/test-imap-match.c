@@ -209,7 +209,41 @@ static void test_imap_match_utf8(void)
 	/* wildcard with multi-byte characters */
 	glob = imap_match_init(pool, "imaptest/*", FALSE, '/');
 	test_assert(imap_match(glob, "imaptest/p\xc3\xa4\xc3\xa4") == IMAP_MATCH_YES);
+	pool_unref(&pool);
+	test_end();
+}
 
+static void test_imap_match_multibyte(void)
+{
+	/* Each state in the compiled NFA corresponds to one grapheme
+	   cluster of the pattern, but the cluster widths in octets vary.
+	   These cases keep a multi-octet character followed by further
+	   states, so the pattern byte offset and the NFA state index
+	   diverge - exactly the spot a refactor can get wrong (and which
+	   the 3.0 backport did get wrong by reusing a single counter for
+	   both).  "\xc3\xa4" is U+00E4 (a-umlaut), a 2-octet cluster. */
+	struct test_imap_match test[] = {
+		{ "\xc3\xa4""a", "\xc3\xa4""a", IMAP_MATCH_YES },
+		{ "\xc3\xa4""a", "\xc3\xa4""b", IMAP_MATCH_NO },
+		{ "a\xc3\xa4""b", "a\xc3\xa4""b", IMAP_MATCH_YES },
+		{ "\xc3\xa4\xc3\xa4", "\xc3\xa4\xc3\xa4", IMAP_MATCH_YES },
+		{ "\xc3\xa4%", "\xc3\xa4""foo", IMAP_MATCH_YES },
+		{ "\xc3\xa4*", "\xc3\xa4""foo/bar", IMAP_MATCH_YES },
+		{ "\xc3\xa4", "\xc3\xa4/", IMAP_MATCH_PARENT },
+		{ "\xc3\xa4/%", "\xc3\xa4/", IMAP_MATCH_YES }
+	};
+	struct imap_match_glob *glob;
+	unsigned int i;
+	pool_t pool;
+
+	pool = pool_alloconly_create("imap match multibyte", 1024);
+	test_begin("imap match multibyte");
+	for (i = 0; i < N_ELEMENTS(test); i++) {
+		glob = imap_match_init(pool, test[i].pattern, FALSE, '/');
+		test_assert_idx(imap_match(glob, test[i].input) ==
+				test[i].result, i);
+		p_clear(pool);
+	}
 	pool_unref(&pool);
 	test_end();
 }
@@ -221,6 +255,7 @@ int main(void)
 		test_imap_match_no_redos,
 		test_imap_match_globs_equal,
 		test_imap_match_utf8,
+		test_imap_match_multibyte,
 		NULL
 	};
 	return test_run(test_functions);
