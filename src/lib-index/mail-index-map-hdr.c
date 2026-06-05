@@ -118,7 +118,13 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 			return -1;
 		}
 	}
-	if (name[name_area_end_offset-1] != '\0') {
+	/* A header with no keyword names at all (e.g. keywords_count==0) has an
+	   empty name area; name_area_end_offset is then 0 and there is no
+	   terminating NUL to check. Guard against the unsigned underflow of
+	   name_area_end_offset-1, which would otherwise read ~4 GB out of
+	   bounds. */
+	if (name_area_end_offset > 0 &&
+	    name[name_area_end_offset - 1] != '\0') {
 		mail_index_set_error(index, "Corrupted index file %s: "
 				     "Keyword header doesn't end with NUL",
 				     index->filepath);
