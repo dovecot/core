@@ -175,7 +175,21 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 		   this isn't easy for seekable concat-istreams, because due to
 		   seeking it's not necessarily the cur_input that needs to be
 		   snapshotted. */
-		i_assert(cur_data_pos == data_size);
+		if (cur_data_pos != data_size) {
+			/* The child istream returned less data than it had
+			   already provided to us earlier. This can happen when
+			   the child's stat()-reported size is larger than the
+			   amount of data it can actually return (e.g. a
+			   corrupted or truncated stream). */
+			i_assert(cur_data_pos > data_size);
+			io_stream_set_error(&cstream->istream.iostream,
+				"read(%s) returned less data than expected "
+				"(%zu < %zu)",
+				i_stream_get_name(cstream->cur_input),
+				data_size, cur_data_pos);
+			stream->istream.stream_errno = EIO;
+			return -1;
+		}
 		ret = i_stream_read(cstream->cur_input);
 		if (ret == -2 || ret == 0)
 			return ret;

@@ -231,6 +231,47 @@ static void test_istream_concat_snapshot(void)
 	test_end();
 }
 
+static void test_istream_concat_input_size_mismatch(void)
+{
+	const unsigned char *data;
+	size_t size;
+
+	test_begin("istream concat input size mismatch");
+
+	/* A child istream first provides some data to the concat-istream,
+	   but then suddenly has less data available than it had already
+	   provided. This happens for example when the child's stat()-reported
+	   size is larger than the amount of data it can actually read, due to
+	   a corrupted or truncated stream. The concat-istream must fail
+	   cleanly with EIO instead of asserting and crashing. */
+	struct istream *child = test_istream_create("0123456789");
+	test_istream_set_allow_eof(child, TRUE);
+	test_istream_set_size(child, 10);
+
+	struct istream *streams[] = { child, NULL };
+	struct istream *input = i_stream_create_concat(streams);
+
+	/* surface all 10 bytes, but don't skip over them yet */
+	test_assert(i_stream_read(input) == 10);
+	data = i_stream_get_data(input, &size);
+	test_assert(size == 10);
+	test_assert(memcmp(data, "0123456789", 10) == 0);
+
+	/* The child loses the data it had already provided to the
+	   concat-istream (e.g. its backing stream was truncated or, as with
+	   shared attachment streams, got repositioned). It now has less data
+	   available than the concat-istream already read from it. */
+	i_stream_seek(child, 4);
+
+	test_assert(i_stream_read(input) == -1);
+	test_assert(input->stream_errno == EIO);
+
+	i_stream_unref(&input);
+	i_stream_unref(&child);
+
+	test_end();
+}
+
 void test_istream_concat(void)
 {
 	unsigned int i;
@@ -251,4 +292,5 @@ void test_istream_concat(void)
 	test_istream_concat_seek_end();
 	test_istream_concat_early_end();
 	test_istream_concat_snapshot();
+	test_istream_concat_input_size_mismatch();
 }
