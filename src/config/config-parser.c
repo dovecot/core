@@ -3078,17 +3078,22 @@ static bool config_parser_get_version(struct config_parser_context *ctx,
 static struct config_filter_parser *
 config_filter_parser_replace_parent(pool_t pool,
 				    const struct config_filter_parser *src,
-				    struct config_filter_parser *parent)
+				    struct config_filter_parser *parent,
+				    bool default_settings)
 {
 	struct config_filter_parser **p, *dest =
 		p_new(pool, struct config_filter_parser, 1);
 	*dest = *src;
 	dest->parent = parent;
 	dest->filter.parent = parent == NULL ? NULL : &parent->filter;
+	/* The filter must live in the same default/non-default settings tree
+	   as its parent. */
+	dest->filter.default_settings = default_settings;
 
 	/* Fix the parent pointer in children also */
 	for (p = &dest->children_head; *p != NULL; p = &(*p)->next) {
-		*p = config_filter_parser_replace_parent(pool, *p, dest);
+		*p = config_filter_parser_replace_parent(pool, *p, dest,
+							 default_settings);
 		dest->children_tail = *p;
 	}
 	return dest;
@@ -3123,18 +3128,26 @@ config_parser_include_merge(struct config_parser_context *ctx,
 
 	struct config_filter_parser *src_filter = include_filter->children_head;
 	for (; src_filter != NULL; src_filter = src_filter->next) {
-		/* replace @group parent with the current section */
-		struct config_filter_parser *dest, *new_src_filter =
-			config_filter_parser_replace_parent(ctx->pool,
-				src_filter, ctx->cur_section->filter_parser);
-		/* If parent filter now has a reverse default_settings,
-		   use the parent with the matching default_settings. */
+		/* If the group's filter has a different default_settings than
+		   the parent, and the parent has a reverse default_settings
+		   sibling, merge into the sibling whose default_settings
+		   matches the group's filter. If there is no such sibling, the
+		   parent exists only in a single tree, so the group's filter is
+		   forced into the parent's tree below. */
+		struct config_filter_parser *dest;
 		struct config_filter_parser *parent_parser =
 			ctx->cur_section->filter_parser;
-		if (parent_parser->filter.default_settings != new_src_filter->filter.default_settings) {
+		if (parent_parser->filter.default_settings != src_filter->filter.default_settings) {
 			config_parse_fill_reverse_default_siblings(ctx);
-			parent_parser = parent_parser->reverse_default_sibling;
+			if (parent_parser->reverse_default_sibling != NULL)
+				parent_parser = parent_parser->reverse_default_sibling;
 		}
+		/* replace @group parent with the chosen parent. The filter and
+		   its children must live in the same tree as the parent. */
+		struct config_filter_parser *new_src_filter =
+			config_filter_parser_replace_parent(ctx->pool,
+				src_filter, parent_parser,
+				parent_parser->filter.default_settings);
 
 		dest = config_filters_find_child(parent_parser,
 						 &new_src_filter->filter);
