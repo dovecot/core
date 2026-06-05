@@ -71,6 +71,7 @@ src/**/fuzz-*
 !src/**/fuzz-*.c
 !src/**/fuzz-*.h
 !src/**/fuzz-*.inc
+!src/**/fuzz-*.dict
 
 doc/man/*.1
 doc/man/*.7
