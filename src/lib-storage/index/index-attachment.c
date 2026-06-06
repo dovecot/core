@@ -392,10 +392,14 @@ bool index_attachment_parse_extrefs(const char *line, pool_t pool,
 static uoff_t
 index_attachment_base64_decoded_size(const struct mail_attachment_extref *extref)
 {
-	/* extref->size is base64 encoded size, convert into raw size */
-	uoff_t nl_count = (extref->size - 1)/(extref->base64_blocks_per_line * 4);
-	uoff_t nl_bytes = extref->base64_have_crlf ? 2 * nl_count : nl_count;
-	return MAX_BASE64_DECODED_SIZE(extref->size - nl_bytes);
+	uoff_t encoded_size = extref->size;
+	unsigned int nl_size = extref->base64_have_crlf ? 2 : 1;
+	unsigned int line_size = extref->base64_blocks_per_line * 4;
+	uoff_t nl_count = (encoded_size - 1) / line_size;
+	uoff_t nl_bytes = nl_size * nl_count;
+
+	i_assert(extref->base64_blocks_per_line > 0);
+	return MAX_BASE64_DECODED_SIZE(encoded_size - nl_bytes);
 }
 
 int index_attachment_stream_get(struct fs *fs, const char *attachment_dir,
