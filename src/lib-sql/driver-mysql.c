@@ -538,6 +538,7 @@ driver_mysql_query_s(struct sql_db *_db, const char *query)
 			/* failed */
 			if (result->result != NULL)
 				mysql_free_result(result->result);
+			result->result = NULL;
 			result->api = driver_mysql_error_result;
 			result->error = i_strdup(mysql_error(db->mysql));
 		}
