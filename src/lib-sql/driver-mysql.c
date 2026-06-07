@@ -136,6 +136,7 @@ struct mysql_result {
 
 	MYSQL_RES *result;
 	MYSQL_ROW row;
+	char *error;
 
 	MYSQL_FIELD *fields;
 	unsigned int fields_count;
@@ -507,9 +508,10 @@ driver_mysql_query_s(struct sql_db *_db, const char *query)
 	result->api = driver_mysql_result;
 	event = event_create(_db->event);
 
-	if (driver_mysql_do_query(db, query, event) < 0)
+	if (driver_mysql_do_query(db, query, event) < 0) {
 		result->api = driver_mysql_error_result;
-	else {
+		result->error = i_strdup(mysql_error(db->mysql));
+	} else {
 		/* query ok */
 		result->affected_rows = mysql_affected_rows(db->mysql);
 		result->result = mysql_store_result(db->mysql);
@@ -530,6 +532,7 @@ driver_mysql_query_s(struct sql_db *_db, const char *query)
 			if (result->result != NULL)
 				mysql_free_result(result->result);
 			result->api = driver_mysql_error_result;
+			result->error = i_strdup(mysql_error(db->mysql));
 		}
 	}
 
@@ -551,6 +554,7 @@ static void driver_mysql_result_free(struct sql_result *_result)
 	if (result->result != NULL)
 		mysql_free_result(result->result);
 	event_unref(&_result->event);
+	i_free(result->error);
 	i_free(result);
 }
 
@@ -584,6 +588,7 @@ static int driver_mysql_result_next_row(struct sql_result *_result)
 		/* fall-through */
 	default:
 		result->api.failed = TRUE;
+		result->error = i_strdup(mysql_error(db->mysql));
 		return -1;
 	}
 
@@ -684,9 +689,14 @@ driver_mysql_result_get_values(struct sql_result *_result)
 static const char *driver_mysql_result_get_error(struct sql_result *_result)
 {
 	struct mysql_db *db = container_of(_result->db, struct mysql_db, api);
+	struct mysql_result *result =
+		container_of(_result, struct mysql_result, api);
 	const char *errstr;
 	unsigned int idle_time;
 	int err;
+
+	if (result->error != NULL)
+		return result->error;
 
 	err = mysql_errno(db->mysql);
 	errstr = mysql_error(db->mysql);
