@@ -285,8 +285,15 @@ static int driver_mysql_connect(struct sql_db *_db)
 static void driver_mysql_disconnect(struct sql_db *_db)
 {
 	struct mysql_db *db = container_of(_db, struct mysql_db, api);
-	if (db->mysql != NULL)
+	if (db->mysql != NULL) {
 		mysql_close(db->mysql);
+		if (!_db->no_reconnect) {
+			if (mysql_init(db->mysql) == NULL)
+				i_fatal_status(FATAL_OUTOFMEM,
+					       "mysql_init() failed");
+		}
+	}
+	sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
 }
 
 static struct mysql_db_cache *
