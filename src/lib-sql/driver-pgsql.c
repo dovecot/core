@@ -957,6 +957,8 @@ static void driver_pgsql_result_fetch_fields(struct pgsql_result *result)
 
 	/* @UNSAFE */
 	result->fields_count = PQnfields(result->pgres);
+	if (result->fields_count == 0)
+		return;
 	result->fields = i_new(const char *, result->fields_count);
 	for (i = 0; i < result->fields_count; i++)
 		result->fields[i] = PQfname(result->pgres, i);
