@@ -80,11 +80,6 @@ static void sql_result_error_free(struct sql_result *_result)
 	i_free(result);
 }
 
-static int sql_result_error_next_row(struct sql_result *result ATTR_UNUSED)
-{
-	return -1;
-}
-
 static const char *
 sql_result_error_get_error(struct sql_result *_result)
 {
@@ -96,7 +91,15 @@ sql_result_error_get_error(struct sql_result *_result)
 static const struct sql_result_vfuncs sql_result_error_vfuncs = {
 	.free = sql_result_error_free,
 	.next_row = sql_result_error_next_row,
+	.get_fields_count = sql_result_error_get_fields_count,
+	.get_field_name = sql_result_error_get_field_name,
+	.find_field = sql_result_error_find_field,
+	.get_field_value = sql_result_error_get_field_value,
+	.get_field_value_binary = sql_result_error_get_field_value_binary,
+	.find_field_value = sql_result_error_find_field_value,
+	.get_values = sql_result_error_get_values,
 	.get_error = sql_result_error_get_error,
+	.more = sql_result_error_more,
 };
 
 static struct sql_result *sql_result_new_error(const char *error)
@@ -1184,12 +1187,6 @@ sql_result_not_connected_free(struct sql_result *result ATTR_UNUSED)
 {
 }
 
-static int
-sql_result_not_connected_next_row(struct sql_result *result ATTR_UNUSED)
-{
-	return -1;
-}
-
 static const char *
 sql_result_not_connected_get_error(struct sql_result *result ATTR_UNUSED)
 {
@@ -1433,13 +1430,80 @@ void sql_wait(struct sql_db *db)
 }
 
 
+int sql_result_error_next_row(struct sql_result *result ATTR_UNUSED)
+{
+	return -1;
+}
+
+unsigned int sql_result_error_get_fields_count(struct sql_result *result ATTR_UNUSED)
+{
+	return 0;
+}
+
+const char *sql_result_error_get_field_name(struct sql_result *result ATTR_UNUSED,
+					    unsigned int idx ATTR_UNUSED)
+{
+	return NULL;
+}
+
+const char *sql_result_error_get_field_value(struct sql_result *result ATTR_UNUSED,
+					     unsigned int idx ATTR_UNUSED)
+{
+	return NULL;
+}
+
+const unsigned char *
+sql_result_error_get_field_value_binary(struct sql_result *result ATTR_UNUSED,
+					unsigned int idx ATTR_UNUSED,
+					size_t *size_r)
+{
+	*size_r = 0;
+	return NULL;
+}
+
+int sql_result_error_find_field(struct sql_result *result ATTR_UNUSED,
+				const char *field_name ATTR_UNUSED)
+{
+	return -1;
+}
+
+const char *
+sql_result_error_find_field_value(struct sql_result *result ATTR_UNUSED,
+				  const char *field_name ATTR_UNUSED)
+{
+	return NULL;
+}
+
+const char *const *
+sql_result_error_get_values(struct sql_result *result ATTR_UNUSED)
+{
+	return NULL;
+}
+
+/* An error result's next_row() always returns SQL_RESULT_NEXT_ERROR, never
+   SQL_RESULT_NEXT_MORE, so sql_result_more()/sql_result_more_s() can never
+   call this function on such a result. */
+void sql_result_error_more(struct sql_result **result ATTR_UNUSED,
+			   bool async ATTR_UNUSED,
+			   sql_query_callback_t *callback ATTR_UNUSED,
+			   void *context ATTR_UNUSED)
+{
+	i_unreached();
+}
+
 struct sql_result sql_not_connected_result = {
 	.v = {
-		sql_result_not_connected_free,
-		sql_result_not_connected_next_row,
-		NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-		sql_result_not_connected_get_error,
-		NULL,
+		.free = sql_result_not_connected_free,
+		.next_row = sql_result_error_next_row,
+		.get_fields_count = sql_result_error_get_fields_count,
+		.get_field_name = sql_result_error_get_field_name,
+		.find_field = sql_result_error_find_field,
+		.get_field_value = sql_result_error_get_field_value,
+		.get_field_value_binary = sql_result_error_get_field_value_binary,
+		.find_field_value = sql_result_error_find_field_value,
+		.get_values = sql_result_error_get_values,
+		.get_error = sql_result_not_connected_get_error,
+		.more = sql_result_error_more,
 	},
 	.failed_try_retry = TRUE
 };

@@ -392,6 +392,24 @@ sql_query_finished_event(struct sql_db *db, struct event *event, const char *que
 			 bool success, int *duration_r);
 struct event_passthrough *sql_transaction_finished_event(struct sql_transaction_context *ctx);
 
+/* shared error result functions */
+int sql_result_error_next_row(struct sql_result *result);
+unsigned int sql_result_error_get_fields_count(struct sql_result *result);
+const char *sql_result_error_get_field_name(struct sql_result *result,
+					    unsigned int idx);
+const char *sql_result_error_get_field_value(struct sql_result *result,
+					     unsigned int idx);
+const unsigned char *
+sql_result_error_get_field_value_binary(struct sql_result *result,
+					unsigned int idx, size_t *size_r);
+int sql_result_error_find_field(struct sql_result *result,
+				const char *field_name);
+const char *sql_result_error_find_field_value(struct sql_result *result,
+					      const char *field_name);
+const char *const *sql_result_error_get_values(struct sql_result *result);
+void sql_result_error_more(struct sql_result **result, bool async,
+			   sql_query_callback_t *callback, void *context);
+
 /* default functions */
 void default_sql_prepared_statement_deinit(struct sql_prepared_statement *prep_stmt);
 struct sql_prepared_statement *
