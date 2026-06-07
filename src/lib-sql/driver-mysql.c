@@ -950,6 +950,7 @@ void driver_mysql_deinit(void)
 	}
 	array_free(&mysql_db_cache);
 	sql_driver_unregister(&driver_mysql_db);
+	mysql_library_end();
 }
 
 #endif
