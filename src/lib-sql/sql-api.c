@@ -1295,14 +1295,14 @@ void sql_db_set_state(struct sql_db *db, enum sql_db_state state)
 	}
 }
 
-void sql_transaction_add_query(struct sql_transaction_context *ctx, pool_t pool,
-			       const char *query, unsigned int *affected_rows)
+static struct sql_transaction_query *
+sql_transaction_add(struct sql_transaction_context *ctx, pool_t pool,
+		    unsigned int *affected_rows)
 {
 	struct sql_transaction_query *tquery;
 
 	tquery = p_new(pool, struct sql_transaction_query, 1);
 	tquery->trans = ctx;
-	tquery->query = p_strdup(pool, query);
 	tquery->affected_rows = affected_rows;
 
 	if (ctx->head == NULL)
@@ -1310,6 +1310,15 @@ void sql_transaction_add_query(struct sql_transaction_context *ctx, pool_t pool,
 	else
 		ctx->tail->next = tquery;
 	ctx->tail = tquery;
+	return tquery;
+}
+
+void sql_transaction_add_query(struct sql_transaction_context *ctx, pool_t pool,
+			       const char *query, unsigned int *affected_rows)
+{
+	struct sql_transaction_query *tquery =
+		sql_transaction_add(ctx, pool, affected_rows);
+	tquery->query = p_strdup(pool, query);
 }
 
 void sql_connection_log_finished(struct sql_db *db)
