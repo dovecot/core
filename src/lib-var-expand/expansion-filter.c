@@ -1127,10 +1127,14 @@ static int fn_text(const struct var_expand_statement *stmt,
 	return 0;
 }
 
-static int fn_safe(const struct var_expand_statement *stmt ATTR_UNUSED,
+static int fn_safe(const struct var_expand_statement *stmt,
 		   struct var_expand_state *state,
-		   const char **error_r ATTR_UNUSED)
+		   const char **error_r)
 {
+	if (stmt->next != NULL) {
+		*error_r = "safe filter must be last in the filter chain";
+		return -1;
+	}
 	state->transfer_safe = TRUE;
 	return 0;
 }

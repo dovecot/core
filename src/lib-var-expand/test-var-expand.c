@@ -834,6 +834,7 @@ static void test_var_expand_escape(void)
 		/* safe filter */
 		{ .in = "%{feisty}", "'\\' OR \\'1\\'=\\'1'", .ret = 0 },
 		{ .in = "%{clean|safe} and %{feisty}", "hello world and '\\' OR \\'1\\'=\\'1'", .ret = 0 },
+		{ .in = "%{clean|safe|upper}", .out = "safe filter must be last in the filter chain", .ret = -1 },
 	};
 
 	const struct var_expand_params params = {
