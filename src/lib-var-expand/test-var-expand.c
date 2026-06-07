@@ -288,6 +288,8 @@ static void test_var_expand_builtin_filters(void) {
 		{ .in = "%{first | md5 % 30 | hex(-4) }", .out = "1600", .ret = 0 },
 		{ .in = "%{\xce\xb8}", .out = "is theta", .ret = 0 },
 		{ .in = "%{\xff\xfe\xff}", .out = "Invalid UTF-8 string", .ret = -1 },
+		/* escape filter without escape_func */
+		{ .in = "%{first | escape}", .out = "No escape function available", .ret = -1 },
 	};
 
 	const struct var_expand_params params = {
@@ -835,6 +837,10 @@ static void test_var_expand_escape(void)
 		{ .in = "%{feisty}", "'\\' OR \\'1\\'=\\'1'", .ret = 0 },
 		{ .in = "%{clean|safe} and %{feisty}", "hello world and '\\' OR \\'1\\'=\\'1'", .ret = 0 },
 		{ .in = "%{clean|safe|upper}", .out = "safe filter must be last in the filter chain", .ret = -1 },
+		/* escape filter */
+		{ .in = "%{clean | escape}", .out = "'\\'hello world\\''", .ret = 0 },
+		{ .in = "%{clean | escape | safe}", .out = "'hello world'", .ret = 0 },
+		{ .in = "%{clean | escape | concat(' world') | safe}", .out = "'hello world' world", .ret = 0 },
 	};
 
 	const struct var_expand_params params = {

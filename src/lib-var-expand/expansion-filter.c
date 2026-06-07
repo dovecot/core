@@ -1127,6 +1127,23 @@ static int fn_text(const struct var_expand_statement *stmt,
 	return 0;
 }
 
+static int fn_escape(const struct var_expand_statement *stmt,
+		     struct var_expand_state *state, const char **error_r)
+{
+	ERROR_IF_ANY_PARAMETERS;
+	ERROR_IF_NO_TRANSFER_TO("escape");
+
+	if (state->params->escape_func == NULL) {
+		*error_r = "No escape function available";
+		return -1;
+	}
+
+	const char *escaped = state->params->escape_func(
+		str_c(state->transfer), state->params->escape_context);
+	var_expand_state_set_transfer(state, escaped);
+	return 0;
+}
+
 static int fn_safe(const struct var_expand_statement *stmt,
 		   struct var_expand_state *state,
 		   const char **error_r)
@@ -1177,6 +1194,7 @@ static const struct var_expand_filter var_expand_builtin_filters[] = {
 	{ .name = "encrypt", .filter = expansion_filter_encrypt },
 	{ .name = "decrypt", .filter = expansion_filter_decrypt },
 	{ .name = "switch", .filter = expansion_filter_switch },
+	{ .name = "escape", .filter = fn_escape },
 	{ .name = "safe", .filter = fn_safe },
 	{ .name = NULL }
 };
