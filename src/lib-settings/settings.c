@@ -1051,6 +1051,18 @@ settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 		    ctx->info->defines[key_idx].type == SET_BOOLLIST) {
 			list_key = (const char *)mmap->mmap_base + offset;
 			offset += strlen(list_key)+1;
+			/* Keys from the config are trusted, so expand their
+			   %variables the same way the values are expanded. This
+			   is done before the has_key() check so deduplication
+			   operates on the final key. */
+			const char *error;
+			if (settings_var_expand(ctx, key_idx, &list_key,
+						&error) < 0) {
+				*error_r = t_strdup_printf(
+					"Failed to expand %s list key variables: %s",
+					ctx->info->defines[key_idx].key, error);
+				return -1;
+			}
 			set_apply = set_apply &&
 				!settings_parse_list_has_key(ctx->parser,
 					key_idx, settings_section_unescape(list_key));
@@ -2392,6 +2404,25 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			const char *suffix;
 			if (!str_begins(key, ctx->info->defines[key_idx].key, &suffix))
 				i_unreached();
+			if (suffix[0] == '/' &&
+			    set->type == SETTINGS_OVERRIDE_TYPE_DEFAULT) {
+				/* Expand %variables in the key, but only for
+				   default overrides - the same way the value is
+				   expanded below. -o and userdb overrides keep
+				   their keys (and values) literal. Done before
+				   has_key() so dedup uses the final key. */
+				const char *exp_key = suffix + 1, *error;
+				if (settings_var_expand(ctx, key_idx, &exp_key,
+							&error) < 0) {
+					*error_r = t_strdup_printf(
+						"Failed to expand default setting %s key variables: %s",
+						key, error);
+					return -1;
+				}
+				key = t_strconcat(ctx->info->defines[key_idx].key,
+						  "/", exp_key, NULL);
+				suffix = key + strlen(ctx->info->defines[key_idx].key);
+			}
 			if (suffix[0] != '/') {
 				/* replace full boollist setting
 				   (invalid for strlist) */

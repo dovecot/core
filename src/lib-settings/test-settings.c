@@ -22,6 +22,7 @@ struct test2_settings {
 
 	const char *title;
 	ARRAY_TYPE(const_string) fruits;
+	ARRAY_TYPE(const_string) attrs;
 };
 
 #undef DEF
@@ -62,12 +63,14 @@ static struct setting_define test2_setting_defines[] = {
 	{ .type = SET_FILTER_ARRAY, .key = "test2_fruit",
 	   .offset = offsetof(struct test2_settings, fruits),
 	   .filter_array_field_name = "test2_fruit_name" },
+	DEF(STRLIST, attrs),
 	SETTING_DEFINE_LIST_END
 };
 
 static struct test2_settings test2_default_settings = {
 	.title = "",
 	.fruits = ARRAY_INIT,
+	.attrs = ARRAY_INIT,
 };
 
 static const struct setting_parser_info test2_setting_parser_info = {
@@ -340,11 +343,113 @@ static void test_var_expand_hierarchy(void)
 	test_end();
 }
 
+static void test_var_expand_strlist_key(void)
+{
+	test_begin("settings_get - strlist key expansion");
+
+	char *context1 = "context1";
+	struct var_expand_table tab1[] = {
+		{ .key = "key1", .func = test_var_expand_hierarchy_key1 },
+		{ .key = NULL }
+	};
+	struct var_expand_params params1 = {
+		.table = tab1,
+		.context = context1,
+	};
+
+	struct settings_root *set_root = settings_root_init();
+	/* key with a %variable - must be expanded, but its raw form is the
+	   list identity used for dedup/override */
+	settings_root_override(set_root, "test2_attrs/%{key1}", "v-%{key1}",
+			       SETTINGS_OVERRIDE_TYPE_DEFAULT);
+	/* a second, distinct raw key that must survive alongside the first */
+	settings_root_override(set_root, "test2_attrs/plain", "%{key1}",
+			       SETTINGS_OVERRIDE_TYPE_DEFAULT);
+
+	struct event *event = event_create(NULL);
+	event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
+	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, &params1);
+
+	struct test2_settings *set;
+	const char *error;
+	test_assert(settings_get(event, &test2_setting_parser_info, 0,
+				 &set, &error) == 0);
+
+	unsigned int count;
+	const char *const *attrs = array_get(&set->attrs, &count);
+	/* both raw keys survived dedup (no collision on raw identity);
+	   overrides are filled in reverse order */
+	test_assert(count == 4);
+	if (count == 4) {
+		/* literal key kept, value expanded */
+		test_assert_strcmp(attrs[0], "plain");
+		test_assert_strcmp(attrs[1], "key1_value");
+		/* key and value both expanded */
+		test_assert_strcmp(attrs[2], "key1_value");
+		test_assert_strcmp(attrs[3], "v-key1_value");
+	}
+	settings_free(set);
+
+	event_unref(&event);
+	settings_root_deinit(&set_root);
+	test_end();
+}
+
+static void test_strlist_key_no_override_expand(void)
+{
+	test_begin("settings_get - strlist key not expanded for overrides");
+
+	char *context1 = "context1";
+	struct var_expand_table tab1[] = {
+		{ .key = "key1", .func = test_var_expand_hierarchy_key1 },
+		{ .key = NULL }
+	};
+	struct var_expand_params params1 = {
+		.table = tab1,
+		.context = context1,
+	};
+
+	struct settings_root *set_root = settings_root_init();
+	/* -o style and userdb overrides must NOT have their keys or values
+	   expanded, the same way override values are not expanded. */
+	settings_root_override(set_root, "test2_attrs/%{key1}", "%{key1}",
+			       SETTINGS_OVERRIDE_TYPE_CLI_PARAM);
+	settings_root_override(set_root, "test2_attrs/u-%{key1}", "%{key1}",
+			       SETTINGS_OVERRIDE_TYPE_USERDB);
+
+	struct event *event = event_create(NULL);
+	event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
+	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, &params1);
+
+	struct test2_settings *set;
+	const char *error;
+	test_assert(settings_get(event, &test2_setting_parser_info, 0,
+				 &set, &error) == 0);
+
+	unsigned int count;
+	const char *const *attrs = array_get(&set->attrs, &count);
+	test_assert(count == 4);
+	if (count == 4) {
+		/* keys and values stay literal */
+		test_assert_strcmp(attrs[0], "%{key1}");    /* -o key   */
+		test_assert_strcmp(attrs[1], "%{key1}");    /* -o value */
+		test_assert_strcmp(attrs[2], "u-%{key1}");  /* userdb key   */
+		test_assert_strcmp(attrs[3], "%{key1}");    /* userdb value */
+	}
+	settings_free(set);
+
+	event_unref(&event);
+	settings_root_deinit(&set_root);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_settings_get,
 		test_var_expand_hierarchy,
+		test_var_expand_strlist_key,
+		test_strlist_key_no_override_expand,
 		NULL
 	};
 	return test_run(test_functions);
