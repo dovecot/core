@@ -186,12 +186,41 @@ static void test_imap_match_globs_equal(void)
 	test_end();
 }
 
+static void test_imap_match_utf8(void)
+{
+	/* Verify that patterns with multi-byte UTF-8 characters match correctly.
+	   The NFA state population loop must use separate byte and state indices. */
+	struct imap_match_glob *glob;
+	pool_t pool;
+
+	pool = pool_alloconly_create("imap match utf8", 1024);
+	test_begin("imap match utf8");
+
+	/* "pää" (p + U+00E4 + U+00E4) exact match */
+	glob = imap_match_init(pool, "p\xc3\xa4\xc3\xa4", FALSE, '/');
+	test_assert(imap_match(glob, "p\xc3\xa4\xc3\xa4") == IMAP_MATCH_YES);
+	test_assert(imap_match(glob, "paa") == IMAP_MATCH_NO);
+
+	/* "imaptest/pää" exact match */
+	glob = imap_match_init(pool, "imaptest/p\xc3\xa4\xc3\xa4", FALSE, '/');
+	test_assert(imap_match(glob, "imaptest/p\xc3\xa4\xc3\xa4") == IMAP_MATCH_YES);
+	test_assert(imap_match(glob, "imaptest/paa") == IMAP_MATCH_NO);
+
+	/* wildcard with multi-byte characters */
+	glob = imap_match_init(pool, "imaptest/*", FALSE, '/');
+	test_assert(imap_match(glob, "imaptest/p\xc3\xa4\xc3\xa4") == IMAP_MATCH_YES);
+
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_imap_match,
 		test_imap_match_no_redos,
 		test_imap_match_globs_equal,
+		test_imap_match_utf8,
 		NULL
 	};
 	return test_run(test_functions);
