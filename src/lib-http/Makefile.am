@@ -214,3 +214,13 @@ test_http_server_errors_LDADD = \
 	$(test_http_libs)
 test_http_server_errors_DEPENDENCIES = \
 	$(test_http_deps)
+
+if USE_FUZZER
+noinst_PROGRAMS += fuzz-http-request-parser
+nodist_EXTRA_fuzz_http_request_parser_SOURCES = force-cxx-linking.cxx
+fuzz_http_request_parser_SOURCES = fuzz-http-request-parser.c
+fuzz_http_request_parser_CPPFLAGS = $(FUZZER_CPPFLAGS)
+fuzz_http_request_parser_LDFLAGS = $(FUZZER_LDFLAGS)
+fuzz_http_request_parser_LDADD = libhttp.la $(test_libs)
+fuzz_http_request_parser_DEPENDENCIES = libhttp.la $(test_deps)
+endif
