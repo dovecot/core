@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "hash.h"
 #include "path-util.h"
 #include "module-dir.h"
 #include "env-util.h"
@@ -40,6 +41,12 @@ struct config_dump_human_context {
 	ARRAY_TYPE(const_string) strings;
 	struct config_export_context *export_ctx;
 
+	/* Flat global settings (e.g. cassandra_hosts) that are overridden
+	   inside a named filter (e.g. cassandra { hosts }). These are hidden
+	   from the global output, so the same setting isn't shown both flat
+	   and grouped. Only created for the global scope output. */
+	HASH_TABLE(const char *, const char *) hidden_keys;
+
 	bool list_prefix_sent:1;
 };
 
@@ -68,6 +75,13 @@ config_request_get_strings(const struct config_export_setting *set,
 			   struct config_dump_human_context *ctx)
 {
 	const char *p, *key, *value;
+
+	if (hash_table_is_created(ctx->hidden_keys) &&
+	    hash_table_lookup(ctx->hidden_keys,
+			      t_strcut(set->key, SETTINGS_SEPARATOR)) != NULL) {
+		/* overridden inside a named filter - hide the flat global */
+		return;
+	}
 
 	switch (set->type) {
 	case CONFIG_KEY_NORMAL:
@@ -204,6 +218,8 @@ config_dump_human_init(enum config_dump_scope scope,
 
 static void config_dump_human_deinit(struct config_dump_human_context *ctx)
 {
+	if (hash_table_is_created(ctx->hidden_keys))
+		hash_table_destroy(&ctx->hidden_keys);
 	array_free(&ctx->strings);
 	pool_unref(&ctx->pool);
 }
@@ -890,6 +906,60 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 	}
 }
 
+static void
+config_dump_human_init_hidden_keys(struct config_dump_human_context *ctx,
+				   struct config_filter_parser *global_filter)
+{
+	struct config_filter_parser *child;
+
+	hash_table_create(&ctx->hidden_keys, ctx->pool, 0, str_hash, strcmp);
+
+	for (child = global_filter->children_head; child != NULL;
+	     child = child->next) {
+		/* Only top-level named filters (e.g. "cassandra { }") share
+		   their settings with flat global settings (cassandra_hosts).
+		   Filter arrays (e.g. namespace inbox { }) don't. This also
+		   covers default_settings filters created by doveconf -d's
+		   default filter merging: their settings are still rendered in
+		   the (merged) named filter block, so the flat global is a
+		   duplicate there too. */
+		if (child->dropped || child->filter.filter_name == NULL ||
+		    child->filter.filter_name_array)
+			continue;
+
+		/* The named filter writes its prefixed settings with the
+		   prefix stripped (cassandra { hosts }), so only such settings
+		   duplicate a flat global (cassandra_hosts). Settings without
+		   the prefix (e.g. http_client_* configured inside the filter)
+		   belong to a different scope and must not be hidden. */
+		const char *prefix = t_strconcat(
+			t_strcut(child->filter.filter_name, '/'), "_", NULL);
+
+		const struct config_module_parser *p = child->module_parsers;
+		for (; p->info != NULL; p++) {
+			if (p->change_counters == NULL)
+				continue;
+			for (unsigned int i = 0;
+			     p->info->defines[i].key != NULL; i++) {
+				const char *key = p->info->defines[i].key;
+
+				if (!str_begins_with(key, prefix))
+					continue;
+				/* Hide the flat global only if the named filter
+				   would show it, which matches
+				   CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES. */
+				if (p->change_counters[i] <
+				    CONFIG_PARSER_CHANGE_DEFAULTS)
+					continue;
+				if (hash_table_lookup(ctx->hidden_keys, key) == NULL) {
+					hash_table_insert(ctx->hidden_keys,
+							  key, key);
+				}
+			}
+		}
+	}
+}
+
 static int
 config_dump_human(enum config_dump_scope scope,
 		  const char *setting_name_filter,
@@ -910,6 +980,12 @@ config_dump_human(enum config_dump_scope scope,
 	/* Check for the setting always even with a filter - it might be
 	   e.g. strlist/key */
 	ctx = config_dump_human_init(scope, filter_parser);
+	if (setting_name_filter == NULL) {
+		/* Full dump: hide flat global settings that are overridden
+		   inside a named filter. When a specific setting is requested,
+		   it must still be shown even if it's grouped. */
+		config_dump_human_init_hidden_keys(ctx, filter_parser);
+	}
 	config_dump_human_output(ctx, output, 0, NULL, setting_name_filter, NULL, NULL,
 				 hide_key, hide_passwords, NULL, NULL);
 	config_dump_human_deinit(ctx);
