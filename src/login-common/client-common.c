@@ -1649,6 +1649,11 @@ void client_notify_status(struct client *client, bool bad, const char *text)
 		client->v.notify_status(client, bad, text);
 }
 
+static void client_send_raw_data_destroy(struct client *client)
+{
+	client_destroy(client, "Disconnected: Output error");
+}
+
 void client_common_send_raw_data(struct client *client,
 				 const void *data, size_t size)
 {
@@ -1659,8 +1664,18 @@ void client_common_send_raw_data(struct client *client,
 		/* either disconnection or buffer full. in either case we want
 		   this connection destroyed. however destroying it here might
 		   break things if client is still tried to be accessed without
-		   being referenced.. */
+		   being referenced, so do it lazily from a timeout. */
+		io_remove(&client->io);
 		i_stream_close(client->input);
+		/* If the client is already being destroyed, don't schedule
+		   another destroy. Its to_disconnect was already removed and
+		   wouldn't be cleaned up again, leaking the timeout. */
+		if (!client->destroyed) {
+			timeout_remove(&client->to_disconnect);
+			client->to_disconnect =
+				timeout_add_short(0,
+					client_send_raw_data_destroy, client);
+		}
 	}
 }
 
