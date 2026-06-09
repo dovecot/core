@@ -26,6 +26,7 @@ struct last_login_settings {
 
 	const char *last_login_key;
 	const char *last_login_precision;
+	ARRAY_TYPE(const_string) last_login_dict_fields;
 };
 
 #undef DEF
@@ -35,12 +36,14 @@ static const struct setting_define last_login_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "last_login" },
 	DEF(STR, last_login_key),
 	DEF(ENUM, last_login_precision),
+	DEF(STRLIST, last_login_dict_fields),
 
 	SETTING_DEFINE_LIST_END
 };
 static const struct last_login_settings last_login_default_settings = {
 	.last_login_key = "last-login/%{user}",
 	.last_login_precision = "s:ms:us:ns",
+	.last_login_dict_fields = ARRAY_INIT,
 };
 
 const struct setting_parser_info last_login_setting_parser_info = {
@@ -178,6 +181,16 @@ static void last_login_mail_user_created(struct mail_user *user)
 	dict_set(trans,
 		 t_strconcat(DICT_PATH_SHARED, set->last_login_key, NULL),
 		 last_login_now_to_string(set->last_login_precision));
+	if (!array_is_empty(&set->last_login_dict_fields)) {
+		unsigned int field_count;
+		const char *const *fields = array_get(&set->last_login_dict_fields,
+						      &field_count);
+		i_assert(field_count % 2 == 0);
+		for (unsigned int i = 0; i < field_count; i += 2) {
+			dict_set(trans, t_strconcat(DICT_PATH_SHARED, fields[i], NULL),
+				 fields[i + 1]);
+		}
+	}
 	dict_transaction_commit_async(&trans, last_login_dict_commit, user);
 	settings_free(set);
 	event_unref(&event);
