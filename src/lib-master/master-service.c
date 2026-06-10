@@ -49,6 +49,10 @@
    force it. */
 #define MASTER_SERVICE_DIE_TIMEOUT_MSECS (30*1000)
 
+/* How often master_service_ioloop_run_interruptible() polls whether the
+   process has been killed. */
+#define MASTER_SERVICE_KILL_CHECK_MSECS 200
+
 struct master_service *master_service;
 
 const struct option master_service_helpopt = {"help", no_argument, NULL, 0};
@@ -1257,6 +1261,43 @@ void master_service_run(struct master_service *service,
 	if (run)
 		io_loop_run(service->ioloop);
 	service->callback = NULL;
+}
+
+struct master_service_interruptible_run {
+	struct master_service *service;
+	struct ioloop *ioloop;
+};
+
+static void
+master_service_ioloop_check_killed(struct master_service_interruptible_run *ctx)
+{
+	if (master_service_is_killed(ctx->service))
+		io_loop_stop(ctx->ioloop);
+}
+
+int master_service_ioloop_run_interruptible(struct master_service *service,
+					    struct ioloop *ioloop)
+{
+	if (service == NULL) {
+		/* running in a unit test */
+		io_loop_run(ioloop);
+		return 0;
+	}
+	struct master_service_interruptible_run ctx = {
+		.service = service,
+		.ioloop = ioloop,
+	};
+	struct timeout *to;
+
+	/* A kill signal stops only service->ioloop (and only while we're in
+	   master_service_run()). A nested ioloop such as this one isn't
+	   noticed, so poll master_service_is_killed() to interrupt a slow
+	   request instead of blocking until it finishes. */
+	to = timeout_add_short_to(ioloop, MASTER_SERVICE_KILL_CHECK_MSECS,
+				  master_service_ioloop_check_killed, &ctx);
+	io_loop_run(ioloop);
+	timeout_remove(&to);
+	return master_service_is_killed(service) ? -1 : 0;
 }
 
 void master_service_stop(struct master_service *service)

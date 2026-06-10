@@ -7,6 +7,8 @@
 #include <unistd.h> /* for getopt() opt* variables */
 #include <stdio.h> /* for getopt() opt* variables in Solaris */
 
+struct ioloop;
+
 #define MASTER_SERVICE_SHUTTING_DOWN_MSG "Server shutting down"
 #define MASTER_SERVICE_USER_KICKED_MSG "User kicked"
 
@@ -252,6 +254,11 @@ master_service_get_settings_root(struct master_service *service);
 void master_service_run(struct master_service *service,
 			master_service_connection_callback_t *callback)
 	ATTR_NULL(2);
+/* Run a nested ioloop until it's stopped, interrupting it also if the process
+   gets killed. Returns 0 if the ioloop was stopped normally, or -1 if it was
+   interrupted because the process was killed. */
+int master_service_ioloop_run_interruptible(struct master_service *service,
+					    struct ioloop *ioloop);
 /* Stop a running service. */
 void master_service_stop(struct master_service *service);
 /* Stop once we're done serving existing new connections, but don't accept
