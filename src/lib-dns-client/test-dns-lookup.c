@@ -242,6 +242,39 @@ static void test_dns_lookup_empty(void)
 	test_end();
 }
 
+static void test_dns_lookup_ip(void)
+{
+	struct dns_lookup *lookup;
+
+	test_begin("dns lookup (ip address)");
+	settings_simple_update(&test_set, set_dns_test);
+	create_dns_server(&test_server);
+
+	struct test_expect_result ctx = {
+		.ret = 0,
+		.result = "127.0.0.1",
+	};
+	/* The IP shortcut resolves without contacting the dns server, but
+	   must still set *lookup_r and call the callback asynchronously, so
+	   that callers relying on it (e.g. doveadm_client_create()) don't
+	   treat the lookup as not having started and connect a second time. */
+	lookup = NULL;
+	dns_lookup("127.0.0.1", NULL, test_set.event, test_callback_ips, &ctx, &lookup);
+	test_assert(lookup != NULL);
+	io_loop_run(test_server.loop);
+
+	ctx.result = "::1";
+	lookup = NULL;
+	dns_lookup("::1", NULL, test_set.event, test_callback_ips, &ctx, &lookup);
+	test_assert(lookup != NULL);
+	io_loop_run(test_server.loop);
+
+	test_assert_cmp(test_server.lookup_counter, ==, 0);
+
+	destroy_dns_server(&test_server);
+	test_end();
+}
+
 static void test_dns_lookup_timeout(void)
 {
 	test_begin("dns lookup (timeout)");
@@ -396,6 +429,7 @@ int main(void)
 	static void (*const test_functions[])(void) = {
 		test_dns_lookup,
 		test_dns_lookup_empty,
+		test_dns_lookup_ip,
 		test_dns_lookup_timeout,
 		test_dns_lookup_abort,
 		test_dns_lookup_cached,

@@ -636,6 +636,19 @@ void dns_client_lookup(struct dns_client *client, const char *host,
 		dns_lookup_async_finish(lookup, lookup_r);
 		return;
 	}
+	struct ip_addr ip;
+	if (net_addr2ip(host, &ip) == 0) {
+		pool_t pool = pool_alloconly_create("dns_lookup", 512);
+		struct dns_lookup *lookup =
+			dns_lookup_create(pool, client, FALSE, host, event,
+					  callback, context);
+		lookup->cached = TRUE;
+		lookup->result.ret = 0;
+		lookup->result.ips_count = 1;
+		lookup->result.ips = p_memdup(pool, &ip, sizeof(ip));
+		dns_lookup_async_finish(lookup, lookup_r);
+		return;
+	}
 	if (client->path[0] == '\0') {
 		/* Fallback to gethostbyname() */
 		pool_t pool = pool_alloconly_create("dns_lookup", 512);
