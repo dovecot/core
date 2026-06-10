@@ -1114,6 +1114,55 @@ static void test_lz4_chunk_size(void)
 	test_end();
 }
 
+static void test_lz4_many_empty_chunks(void)
+{
+	const struct compression_handler *lz4;
+	struct istream *file_input, *input;
+
+	if (compression_lookup_handler("lz4", &lz4) <= 0)
+		return; /* not compiled in or unknown */
+
+	test_begin("lz4 many empty chunks");
+
+	/* A crafted lz4 stream can contain an unbounded number of chunks that
+	   each decompress to zero bytes. i_stream_lz4_read() must iterate over
+	   them rather than recurse once per chunk, or the stack is exhausted
+	   (tail-call optimization is not guaranteed). */
+	buffer_t *buf = buffer_create_dynamic(default_pool, 1024*512);
+	struct iostream_lz4_header hdr;
+	memcpy(hdr.magic, IOSTREAM_LZ4_MAGIC, IOSTREAM_LZ4_MAGIC_LEN);
+	/* a valid (64k) max uncompressed chunk size, big-endian */
+	hdr.max_uncompressed_chunk_size[0] = 0x00;
+	hdr.max_uncompressed_chunk_size[1] = 0x01;
+	hdr.max_uncompressed_chunk_size[2] = 0x00;
+	hdr.max_uncompressed_chunk_size[3] = 0x00;
+	buffer_append(buf, &hdr, sizeof(hdr));
+
+	/* Each chunk: 4-byte big-endian compressed length (1), then a single
+	   0x00 byte, which LZ4_decompress_safe() decodes to zero bytes. */
+	static const unsigned char empty_chunk[] = {
+		0x00, 0x00, 0x00, 0x01, 0x00
+	};
+	for (unsigned int i = 0; i < 100000; i++)
+		buffer_append(buf, empty_chunk, sizeof(empty_chunk));
+
+	file_input = test_istream_create_data(buf->data, buf->used);
+	file_input->blocking = TRUE;
+	input = lz4->create_istream(file_input);
+	i_stream_unref(&file_input);
+
+	/* All chunks are empty: clean EOF, no content, no error - and, with
+	   the iterative read, no stack overflow. */
+	test_assert(i_stream_read(input) == -1);
+	test_assert(input->eof);
+	test_assert(input->stream_errno == 0);
+
+	i_stream_unref(&input);
+	buffer_free(&buf);
+
+	test_end();
+}
+
 static void test_uncompress_file(const char *path)
 {
 	const struct compression_handler *handler;
@@ -1238,6 +1287,7 @@ int main(int argc, char *argv[])
 		test_gz_large_header,
 		test_lz4_small_header,
 		test_lz4_chunk_size,
+		test_lz4_many_empty_chunks,
 		test_compression_ext,
 		test_compression_deinit,
 		NULL

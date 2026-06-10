@@ -156,6 +156,10 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 		zstream->header_read = TRUE;
 	}
 
+	/* Loop over chunks instead of recursing on zero-output chunks: a
+	   crafted stream can contain an unbounded number of chunks that each
+	   decompress to zero bytes, and tail-call recursion (which is not
+	   guaranteed) would let that exhaust the stack. */
 	for (;;) {
 		if (zstream->chunk_left == 0) {
 			while ((ret = i_stream_lz4_read_chunk_header(zstream)) == 0) {
@@ -190,8 +194,8 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 		if (stream->pos - stream->skip >= i_stream_get_max_buffer_size(&stream->istream))
 			return -2;
 		if (i_stream_get_data_size(zstream->istream.parent) > 0) {
-			/* Parent stream was only partially consumed. Set the stream's
-			   IO as pending to avoid hangs. */
+			/* Parent stream was only partially consumed. Set the
+			   stream's IO as pending to avoid hangs. */
 			i_stream_set_input_pending(&zstream->istream.istream, TRUE);
 		}
 		/* allocate enough space for the old data and the new
@@ -206,8 +210,12 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 			lz4_read_error(zstream, "corrupted lz4 chunk");
 			stream->istream.stream_errno = EINVAL;
 			return -1;
-		} else if (ret == 0)
-			return i_stream_lz4_read(stream);
+		} else if (ret == 0) {
+			/* chunk decompressed to zero bytes; read the next chunk
+			   without recursing so the stack stays bounded. */
+			buffer_set_used_size(zstream->chunk_buf, 0);
+			continue;
+		}
 		i_assert(ret > 0);
 		stream->pos += ret;
 		i_assert(stream->pos <= stream->buffer_size);
