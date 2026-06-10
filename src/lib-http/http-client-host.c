@@ -153,7 +153,7 @@ http_client_host_shared_lookup(struct http_client_host *host)
 		e_debug(host->client->event, "Performing asynchronous DNS lookup");
 		/* Note: dns_client_lookup() takes DNS settings from cctx->dns_client
 		   and may differ from host->client DNS settings */
-		(void)dns_client_lookup(cctx->dns_client, hshared->name,
+		dns_client_lookup(cctx->dns_client, hshared->name,
 					host->client->event,
 					http_client_host_shared_dns_callback,
 					hshared, &hshared->dns_lookup);
@@ -163,7 +163,7 @@ http_client_host_shared_lookup(struct http_client_host *host)
 		   get client-specific DNS settings. */
 		e_debug(host->client->event, "Performing asynchronous DNS lookup");
 		io_loop_set_current(cctx->ioloop);
-		(void)dns_lookup(hshared->name, NULL, host->client->event,
+		dns_lookup(hshared->name, NULL, host->client->event,
 				 http_client_host_shared_dns_callback,
 				 hshared, &hshared->dns_lookup);
 		io_loop_set_current(prev_ioloop);

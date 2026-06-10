@@ -710,21 +710,18 @@ doveadm_client_dns_lookup_callback(const struct dns_lookup_result *result,
 	}
 }
 
-static int doveadm_client_dns_lookup(struct doveadm_client *conn,
-				     const char **error_r)
+static void doveadm_client_dns_lookup(struct doveadm_client *conn)
 {
 	struct doveadm_client_dns_lookup_context *ctx =
 		p_new(conn->pool, struct doveadm_client_dns_lookup_context, 1);
 
 	ctx->conn = conn;
 
-	if (dns_lookup(conn->set.hostname, NULL, conn->conn.event,
-		       doveadm_client_dns_lookup_callback, ctx,
-		       &conn->dns_lookup) != 0) {
-		*error_r = t_strdup(ctx->error);
-		return -1;
-	}
-	return 0;
+	/* The lookup result (success or failure) is delivered asynchronously
+	   via doveadm_client_dns_lookup_callback(). */
+	dns_lookup(conn->set.hostname, NULL, conn->conn.event,
+		   doveadm_client_dns_lookup_callback, ctx,
+		   &conn->dns_lookup);
 }
 
 static int
@@ -736,10 +733,8 @@ doveadm_client_resolve_hostname(struct doveadm_client *conn,
 	int ret;
 
 	if (conn->set.dns_client_socket_path[0] != '\0') {
-		/* If there is an dns_client_socket_path do a dns
-		   lookup. */
-		if (doveadm_client_dns_lookup(conn, error_r) < 0)
-			return -1;
+		/* If there is a dns_client_socket_path do a dns lookup. */
+		doveadm_client_dns_lookup(conn);
 		return 0;
 	}
 

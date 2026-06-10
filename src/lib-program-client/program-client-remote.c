@@ -528,7 +528,7 @@ static int program_client_net_connect_init(struct program_client *pclient)
 		if (pclient->params.dns_client_socket_path != NULL) {
 			e_debug(pclient->event,
 				"Performing asynchronous DNS lookup");
-			(void)dns_lookup(prclient->address, NULL,
+			dns_lookup(prclient->address, NULL,
 					 pclient->event,
 					 program_client_net_connect_resolved,
 					 prclient, &prclient->lookup);

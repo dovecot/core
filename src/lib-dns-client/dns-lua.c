@@ -92,12 +92,10 @@ static int lua_dns_client_lookup(lua_State *L)
 		i_new(struct lua_dns_lookup, 1);
 	lua_lookup->L = L;
 	struct dns_lookup *lookup;
-	if (dns_client_lookup(client, host, event,
-			      lua_dns_client_lookup_callback, lua_lookup,
-			      &lookup) < 0) {
-		/* return values are pushed to stack by the callback */
-		return 3;
-	}
+	/* The result (success or error) is delivered asynchronously via the
+	   callback, which resumes the coroutine. */
+	dns_client_lookup(client, host, event,
+			  lua_dns_client_lookup_callback, lua_lookup, &lookup);
 	lua_lookup->resume = TRUE;
 
 	return lua_dns_client_async_continue(L,

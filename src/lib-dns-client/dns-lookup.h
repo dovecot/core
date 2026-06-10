@@ -49,23 +49,23 @@ struct dns_lookup_result {
 typedef void dns_lookup_callback_t(const struct dns_lookup_result *result,
 				   void *context);
 
-/* Do asynchronous DNS lookup via dns-client UNIX socket. Returns 0 if lookup
-   started, -1 if there was an error communicating with the UNIX socket.
-   When failing with -1, the callback is called before returning from the
-   function. */
-int dns_lookup(const char *host, const struct dns_client_parameters *params,
-	       struct event *event_parent, dns_lookup_callback_t *callback,
-	       void *context, struct dns_lookup **lookup_r) ATTR_NULL(4);
+/* Do asynchronous DNS lookup via dns-client UNIX socket. The callback is
+   always called asynchronously, also on errors (e.g. failure to communicate
+   with the UNIX socket). *lookup_r is set to the started lookup, which can be
+   aborted with dns_lookup_abort() until the callback is called. */
+void dns_lookup(const char *host, const struct dns_client_parameters *params,
+		struct event *event_parent, dns_lookup_callback_t *callback,
+		void *context, struct dns_lookup **lookup_r) ATTR_NULL(4);
 #define dns_lookup(host, params, event_parent, callback, context, lookup_r) \
 	dns_lookup(host - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct dns_lookup_result *, typeof(context))), \
 		params, event_parent, (dns_lookup_callback_t *)callback, context, lookup_r)
-int dns_lookup_ptr(const struct ip_addr *ip,
-		   const struct dns_client_parameters *params,
-		   struct event *event_parent,
-		   dns_lookup_callback_t *callback, void *context,
-		   struct dns_lookup **lookup_r) ATTR_NULL(4);
+void dns_lookup_ptr(const struct ip_addr *ip,
+		    const struct dns_client_parameters *params,
+		    struct event *event_parent,
+		    dns_lookup_callback_t *callback, void *context,
+		    struct dns_lookup **lookup_r) ATTR_NULL(4);
 #define dns_lookup_ptr(host, params, event_parent, callback, context, lookup_r) \
 	dns_lookup_ptr(host - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
@@ -88,19 +88,19 @@ void dns_client_deinit(struct dns_client **client);
 
 /* Connect immediately to the dns-lookup socket. */
 int dns_client_connect(struct dns_client *client, const char **error_r);
-int dns_client_lookup(struct dns_client *client, const char *host,
-		      struct event *event,
-		      dns_lookup_callback_t *callback, void *context,
-		      struct dns_lookup **lookup_r) ATTR_NULL(4);
+void dns_client_lookup(struct dns_client *client, const char *host,
+		       struct event *event,
+		       dns_lookup_callback_t *callback, void *context,
+		       struct dns_lookup **lookup_r) ATTR_NULL(4);
 #define dns_client_lookup(client, host, event, callback, context, lookup_r) \
 	dns_client_lookup(client, host - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct dns_lookup_result *, typeof(context))), \
 		event, (dns_lookup_callback_t *)callback, context, lookup_r)
-int dns_client_lookup_ptr(struct dns_client *client, const struct ip_addr *ip,
-			  struct event *event,
-			  dns_lookup_callback_t *callback, void *context,
-			  struct dns_lookup **lookup_r) ATTR_NULL(4);
+void dns_client_lookup_ptr(struct dns_client *client, const struct ip_addr *ip,
+			   struct event *event,
+			   dns_lookup_callback_t *callback, void *context,
+			   struct dns_lookup **lookup_r) ATTR_NULL(4);
 #define dns_client_lookup_ptr(client, ip, event, callback, context, lookup_r) \
 	dns_client_lookup_ptr(client, ip - \
 		CALLBACK_TYPECHECK(callback, void (*)( \

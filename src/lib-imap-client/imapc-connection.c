@@ -1986,7 +1986,7 @@ void imapc_connection_connect(struct imapc_connection *conn)
 		conn->ips = i_new(struct ip_addr, conn->ips_count);
 		conn->ips[0] = ip;
 	} else {
-		(void)dns_lookup(conn->client->set->imapc_host, NULL,
+		dns_lookup(conn->client->set->imapc_host, NULL,
 				 conn->event, imapc_connection_dns_callback,
 				 conn, &conn->dns_lookup);
 		return;

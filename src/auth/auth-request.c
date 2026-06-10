@@ -2435,12 +2435,11 @@ auth_request_proxy_host_lookup(struct auth_request *request,
 	auth_request_ref(request);
 	request->dns_lookup_ctx = ctx;
 
-	if (dns_client_lookup(auth->dns_client, host, proxy_event,
-			      auth_request_proxy_dns_callback, ctx,
-			      &ctx->dns_lookup) < 0) {
-		/* failed early */
-		return -1;
-	}
+	/* The result (success or failure) is delivered asynchronously via
+	   auth_request_proxy_dns_callback(). */
+	dns_client_lookup(auth->dns_client, host, proxy_event,
+			  auth_request_proxy_dns_callback, ctx,
+			  &ctx->dns_lookup);
 	ctx->callback = callback;
 	return 0;
 }

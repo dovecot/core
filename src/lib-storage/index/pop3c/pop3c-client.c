@@ -272,10 +272,10 @@ static int pop3c_client_dns_lookup(struct pop3c_client *client)
 		client->ip = ips[0];
 		pop3c_client_connect_ip(client);
 	} else {
-		if (dns_lookup(client->set.host, NULL, client->event,
-			       pop3c_dns_callback, client,
-			       &client->dns_lookup) < 0)
-			return -1;
+		/* The result is delivered asynchronously via
+		   pop3c_dns_callback(). */
+		dns_lookup(client->set.host, NULL, client->event,
+			   pop3c_dns_callback, client, &client->dns_lookup);
 	}
 	return 0;
 }
