@@ -80,6 +80,9 @@ const char *p_str_rtrim(pool_t pool, const char *str, const char *chars);
 int null_strcmp(const char *s1, const char *s2) ATTR_PURE;
 int null_strcasecmp(const char *s1, const char *s2) ATTR_PURE;
 int i_memcasecmp(const void *p1, const void *p2, size_t size) ATTR_PURE;
+/* Like memrchr(): return a pointer to the last occurrence of c within the
+   first size bytes of data, or NULL if not found. */
+void *i_memrchr(const void *data, int c, size_t size) ATTR_PURE;
 int i_strcmp_p(const char *const *p1, const char *const *p2) ATTR_PURE;
 int i_strcasecmp_p(const char *const *p1, const char *const *p2) ATTR_PURE;
 /* Returns TRUE if the two memory areas are equal. This function is safe

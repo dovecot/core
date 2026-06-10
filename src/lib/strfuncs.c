@@ -2,6 +2,10 @@
 
 /* @UNSAFE: whole file */
 
+#include "config.h"
+#ifdef HAVE_MEMRCHR
+#  define _GNU_SOURCE
+#endif
 #include "lib.h"
 #include "str.h"
 #include "printf-format-fix.h"
@@ -595,6 +599,22 @@ int i_memcasecmp(const void *p1, const void *p2, size_t size)
 	}
 
 	return 0;
+}
+
+void *i_memrchr(const void *data, int c, size_t size)
+{
+#ifdef HAVE_MEMRCHR
+	return memrchr(data, c, size);
+#else
+	const unsigned char *p = data;
+
+	while (size > 0) {
+		size--;
+		if (p[size] == (unsigned char)c)
+			return (void *)(p + size);
+	}
+	return NULL;
+#endif
 }
 
 int i_strcmp_p(const char *const *p1, const char *const *p2)
