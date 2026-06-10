@@ -426,7 +426,7 @@ void rfc822_decode_punycode(const char *input, size_t len, string_t *result)
 			delim = end;
 		if (str_begins(pos, "xn--", &value)) {
 			str_truncate(decoded, 0);
-			if (punycode_decode(value, delim - value, result) < 0)
+			if (punycode_decode((const unsigned char *)value, delim - value, result) < 0)
 				/* Consider it as data */
 				str_append_data(result, pos, delim - pos + 1);
 			else if (*delim == '.')

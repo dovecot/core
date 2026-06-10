@@ -36,7 +36,7 @@ static void test_punycode_decode(void)
 	test_begin("punycode decoding");
 	for (i = 0; i < N_ELEMENTS(cases); i ++) {
 		str_truncate(r, 0);
-		int ret = punycode_decode(cases[i].in, strlen(cases[i].in), r);
+		int ret = punycode_decode((const unsigned char *)cases[i].in, strlen(cases[i].in), r);
 		test_assert_idx(ret == cases[i].ret, i);
 		test_assert_strcmp_idx(str_c(r), cases[i].out, i);
 	}

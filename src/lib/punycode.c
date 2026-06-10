@@ -53,15 +53,15 @@ static unsigned int adapt(unsigned int delta, unsigned int numpoints, bool first
 }
 
 /* Decodes a punycoded string into output, or returns -1 on error. */
-int punycode_decode(const char *input, size_t len, string_t *output)
+int punycode_decode(const unsigned char *input, size_t len, string_t *output)
 {
 	ARRAY(unichar_t) label;
 	size_t i = 0;
 	size_t out = 0;
 	unsigned int n = initialN, bias = initialBias;
-	const char *delim = NULL;
-	const char *end = CONST_PTR_OFFSET(input, len);
-	const char *ptr = input;
+	const unsigned char *delim = NULL;
+	const unsigned char *end = CONST_PTR_OFFSET(input, len);
+	const unsigned char *ptr = input;
 	t_array_init(&label, len);
 
 	/* find the rightmost delimiter, if present in string */
@@ -74,12 +74,12 @@ int punycode_decode(const char *input, size_t len, string_t *output)
 	i_assert(delim <= end);
 
 	for (ptr = input; ptr < delim; ptr++) {
-		if ((unsigned char)*ptr >= 0x80)
+		if (*ptr >= 0x80)
 			/* Has non-ascii input, this cannot be punycoded. */
 			return -1;
 		i_assert(out < sizeof(label));
 		/* Add basic code points to label */
-		unichar_t ch = (unsigned char)*ptr;
+		unichar_t ch = *ptr;
 		array_push_back(&label, &ch);
 	}
 
