@@ -217,6 +217,10 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 	size_t size, out_size;
 	int ret;
 
+	/* Loop instead of recursing when an inflate step yields no output:
+	   a crafted stream can produce an unbounded number of zero-output
+	   steps, and tail-call recursion (not guaranteed) would exhaust the
+	   stack. */
 	for (;;) {
 		high_offset = stream->istream.v_offset + (stream->pos - stream->skip);
 		if (zstream->eof_offset == high_offset) {
@@ -363,8 +367,8 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 			i_fatal("inflate() failed with %d", ret);
 		}
 		if (out_size == 0) {
-			/* read more input */
-			return i_stream_zlib_read(stream);
+			/* no output yet; read more input without recursing */
+			continue;
 		}
 		return out_size;
 	}
