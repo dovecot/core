@@ -43,7 +43,25 @@ static void test_punycode_decode(void)
 	test_end();
 }
 
+static void test_punycode_decode_len_boundary(void)
+{
+	/* punycode_decode() must honor len and not scan past it.
+	   rfc822_decode_punycode() calls it with input pointing into a longer
+	   NUL-terminated dot-atom buffer and len equal to a single label's
+	   length, so a '-' in a later label lies past the len boundary. Decoding
+	   the "a" label of "a.b-c" (len=1) must not read the '-' at offset 3 nor
+	   abort. */
+	string_t *r = t_str_new(42);
+	const char *buf = "a.b-c"; /* NUL-terminated; '-' is at offset 3 */
+
+	test_begin("punycode decoding len boundary");
+	int ret = punycode_decode((const unsigned char *)buf, 1, r);
+	test_assert(ret == -1 || ret == 0);
+	test_end();
+}
+
 void test_punycode(void)
 {
 	test_punycode_decode();
+	test_punycode_decode_len_boundary();
 }

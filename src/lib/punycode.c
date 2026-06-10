@@ -64,9 +64,12 @@ int punycode_decode(const unsigned char *input, size_t len, string_t *output)
 	const unsigned char *ptr = input;
 	t_array_init(&label, len);
 
-	/* find the rightmost delimiter, if present in string */
-	delim = strrchr(ptr, delimiter);
-	i_assert(delim == NULL || delim < end);
+	/* Find the rightmost delimiter within the first len bytes. input is not
+	   necessarily NUL-terminated at len - callers such as
+	   rfc822_decode_punycode() pass a pointer into a longer string and a
+	   per-label len - so we must not scan past len (strrchr() would, and
+	   could return a delimiter belonging to a later label). */
+	delim = i_memrchr(input, delimiter, len);
 
 	/* no delimiter found, reset to start of string */
 	if (delim == NULL)
