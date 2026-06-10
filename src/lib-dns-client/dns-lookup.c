@@ -625,6 +625,17 @@ void dns_client_lookup(struct dns_client *client, const char *host,
 {
 	i_assert(host != NULL);
 
+	if (*host == '\0') {
+		pool_t pool = pool_alloconly_create("dns_lookup", 512);
+		struct dns_lookup *lookup =
+			dns_lookup_create(pool, client, FALSE, "", event,
+					  callback, context);
+		lookup->cached = TRUE;
+		lookup->result.ret = EAI_FAIL;
+		lookup->result.error = "Empty hostname";
+		dns_lookup_async_finish(lookup, lookup_r);
+		return;
+	}
 	if (client->path[0] == '\0') {
 		/* Fallback to gethostbyname() */
 		pool_t pool = pool_alloconly_create("dns_lookup", 512);

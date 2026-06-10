@@ -214,6 +214,34 @@ static void test_dns_lookup(void)
 	test_end();
 }
 
+static void test_callback_empty(const struct dns_lookup_result *result,
+				bool *called)
+{
+	io_loop_stop(current_ioloop);
+	test_assert_cmp(result->ret, ==, EAI_FAIL);
+	test_assert_strcmp(result->error, "Empty hostname");
+	*called = TRUE;
+}
+
+static void test_dns_lookup_empty(void)
+{
+	struct dns_lookup *lookup;
+	bool called = FALSE;
+
+	test_begin("dns lookup (empty hostname)");
+	settings_simple_update(&test_set, set_dns_test);
+	create_dns_server(&test_server);
+
+	/* The error is reported asynchronously via the callback. */
+	dns_lookup("", NULL, test_set.event, test_callback_empty, &called, &lookup);
+	test_assert(lookup != NULL);
+	io_loop_run(test_server.loop);
+	test_assert(called);
+
+	destroy_dns_server(&test_server);
+	test_end();
+}
+
 static void test_dns_lookup_timeout(void)
 {
 	test_begin("dns lookup (timeout)");
@@ -367,6 +395,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_dns_lookup,
+		test_dns_lookup_empty,
 		test_dns_lookup_timeout,
 		test_dns_lookup_abort,
 		test_dns_lookup_cached,
