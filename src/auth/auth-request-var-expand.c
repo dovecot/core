@@ -269,6 +269,24 @@ int t_auth_request_var_expand(const char *str,
 	return ret;
 }
 
+int auth_request_var_expand_program_execute(string_t *dest,
+					    const struct var_expand_program *program,
+					    const struct auth_request *auth_request,
+					    const char **error_r)
+{
+	struct auth_request_var_expand_ctx ctx = {
+		.auth_request = auth_request,
+	};
+	const struct var_expand_params params = {
+		.table = auth_request_get_var_expand_table(auth_request),
+		.providers = auth_request_var_expand_providers,
+		.context = &ctx,
+		.event = authdb_event(auth_request),
+	};
+
+	return var_expand_program_execute(dest, program, &params, error_r);
+}
+
 static void
 auth_request_event_var_expand_callback(void *context,
 				       struct var_expand_params *params_r)

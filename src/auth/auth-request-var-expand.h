@@ -32,7 +32,10 @@ int t_auth_request_var_expand(const char *str,
 			      const struct auth_request *auth_request,
 			      auth_request_escape_func_t *escape_func,
 			      const char **value_r, const char **error_r);
-
+int auth_request_var_expand_program_execute(string_t *dest,
+					    const struct var_expand_program *program,
+					    const struct auth_request *auth_request,
+					    const char **error_r);
 const char *auth_request_str_escape(const char *string,
 				    const struct auth_request *request);
 

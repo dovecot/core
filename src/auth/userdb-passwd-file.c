@@ -144,16 +144,10 @@ passwd_file_iterate_init(struct auth_request *auth_request,
 	ctx->ctx.context = context;
 	ctx->skip_passdb_entries = !module->pwf->userdb_warn_missing;
 	if (module->pwf->default_file == NULL) {
-		const struct var_expand_params params = {
-			.table = auth_request_get_var_expand_table(auth_request),
-			.providers = auth_request_var_expand_providers,
-			.context = auth_request,
-			.event = authdb_event(auth_request),
-		};
 		const char *error;
 		string_t *dest = t_str_new(32);
-		if (var_expand_program_execute(dest, module->pwf->prog, &params,
-					       &error) < 0) {
+		if (auth_request_var_expand_program_execute(dest,
+				module->pwf->prog, auth_request, &error) < 0) {
 			e_error(authdb_event(auth_request),
 				"passwd-file: User iteration failed: "
 				"Cannot expand '%s': %s", module->pwf->path, error);
