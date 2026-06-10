@@ -596,18 +596,9 @@ void auth_master_stop_idle(struct auth_master_connection *conn)
 	timeout_remove(&conn->to_idle);
 }
 
-static void auth_master_stop(struct auth_master_connection *conn)
-{
-	if (master_service_is_killed(master_service)) {
-		auth_master_connection_abort_requests(conn);
-		io_loop_stop(conn->ioloop);
-	}
-}
-
 void auth_master_wait(struct auth_master_connection *conn)
 {
 	struct ioloop *ioloop, *prev_ioloop;
-	struct timeout *to;
 	bool waiting = conn->waiting, was_corked = FALSE;
 
 	i_assert(conn->ioloop == NULL);
@@ -637,15 +628,17 @@ void auth_master_wait(struct auth_master_connection *conn)
 	i_assert(io_loop_have_ios(ioloop) ||
 		 io_loop_have_immediate_timeouts(ioloop));
 
-	/* add stop handler */
-	to = timeout_add_short(100, auth_master_stop, conn);
-
 	conn->waiting = TRUE;
-	while (auth_master_request_count(conn) > 0)
-		io_loop_run(ioloop);
+	while (auth_master_request_count(conn) > 0) {
+		if (master_service_ioloop_run_interruptible(
+				master_service, ioloop) < 0) {
+			/* Process was killed. Abort the pending requests so we
+			   don't wait for them to finish. */
+			auth_master_connection_abort_requests(conn);
+			break;
+		}
+	}
 	conn->waiting = waiting;
-
-	timeout_remove(&to);
 
 	if (conn->conn.output != NULL && was_corked)
 		o_stream_cork(conn->conn.output);

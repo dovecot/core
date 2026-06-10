@@ -345,22 +345,11 @@ auth_master_request_invalid(struct auth_master_connection *conn,
 	return req;
 }
 
-static void auth_master_request_stop(struct auth_master_request *req)
-{
-	struct auth_master_connection *conn = req->conn;
-
-	if (master_service_is_killed(master_service)) {
-		auth_master_request_abort(&req);
-		io_loop_stop(conn->ioloop);
-	}
-}
-
 bool auth_master_request_wait(struct auth_master_request *req)
 {
 	struct auth_master_connection *conn = req->conn;
 	struct ioloop *ioloop, *prev_ioloop;
 	enum auth_master_request_state last_state;
-	struct timeout *to;
 	bool waiting = conn->waiting, was_corked = FALSE, freed;
 
 	if (req->state >= AUTH_MASTER_REQUEST_STATE_FINISHED)
@@ -383,9 +372,6 @@ bool auth_master_request_wait(struct auth_master_request *req)
 
 	auth_master_request_ref(req);
 
-	/* add stop handler */
-	to = timeout_add_short(100, auth_master_request_stop, req);
-
 	conn->waiting = TRUE;
 	if (req->state < AUTH_MASTER_REQUEST_STATE_REPLIED) {
 		if (req->state == AUTH_MASTER_REQUEST_STATE_REPLIED_MORE)
@@ -400,14 +386,19 @@ bool auth_master_request_wait(struct auth_master_request *req)
 			i_assert(io_loop_have_ios(ioloop) ||
 				 io_loop_have_immediate_timeouts(ioloop));
 
-			io_loop_run(ioloop);
+			if (master_service_ioloop_run_interruptible(
+					master_service, ioloop) < 0) {
+				/* Process was killed. Abort the request, but
+				   don't touch the caller's req pointer - it's
+				   kept alive by our extra reference. */
+				struct auth_master_request *abort_req = req;
+				auth_master_request_abort(&abort_req);
+			}
 		} while (req->state < AUTH_MASTER_REQUEST_STATE_REPLIED_MORE);
 	}
 	conn->waiting = waiting;
 
 	e_debug(req->event, "Finished waiting for request");
-
-	timeout_remove(&to);
 
 	if (conn->conn.output != NULL && was_corked)
 		o_stream_cork(conn->conn.output);
