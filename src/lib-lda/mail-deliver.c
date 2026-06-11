@@ -244,16 +244,35 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 		return -1;
 	}
 
-	if (ctx->lda_mailbox_autocreate)
-		flags |= MAILBOX_FLAG_AUTO_CREATE;
-	if (ctx->lda_mailbox_autosubscribe)
-		flags |= MAILBOX_FLAG_AUTO_SUBSCRIBE;
 	*box_r = box = mailbox_alloc_for_user(ctx->user, name, flags);
 
 	if (mailbox_open(box) == 0)
 		return 0;
 	*error_str_r = mailbox_get_last_internal_error(box, error_r);
-	return -1;
+
+	/* Autocreate the mailbox if it does not exist yet and
+	   lda_mailbox_autocreate is enabled. */
+	if (*error_r != MAIL_ERROR_NOTFOUND || !ctx->lda_mailbox_autocreate)
+		return -1;
+
+	if (mailbox_create(box, NULL, FALSE) < 0) {
+		enum mail_error error;
+
+		*error_str_r = mailbox_get_last_internal_error(box, &error);
+		if (error != MAIL_ERROR_EXISTS) {
+			*error_r = error;
+			return -1;
+		}
+		/* Someone else just created it; fall through and open it. */
+	} else if (ctx->lda_mailbox_autosubscribe) {
+		(void)mailbox_set_subscribed(box, TRUE);
+	}
+
+	if (mailbox_open(box) < 0) {
+		*error_str_r = mailbox_get_last_internal_error(box, error_r);
+		return -1;
+	}
+	return 0;
 }
 
 static bool mail_deliver_check_duplicate(struct mail_deliver_session *session,
