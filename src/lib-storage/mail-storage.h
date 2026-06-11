@@ -74,10 +74,6 @@ enum mailbox_flags {
 	   quota updates (possibly resulting in broken quota). and This is
 	   useful for example when deleting entire user accounts. */
 	MAILBOX_FLAG_DELETE_UNSAFE	= 0x400,
-	/* Mailbox is created implicitly if it does not exist. */
-	MAILBOX_FLAG_AUTO_CREATE	= 0x1000,
-	/* Mailbox is subscribed to implicitly when it is created automatically */
-	MAILBOX_FLAG_AUTO_SUBSCRIBE	= 0x2000,
 	/* Run fsck for mailbox index before doing anything else. This may be
 	   useful in fixing index corruption errors that aren't otherwise
 	   detected and that are causing the full mailbox opening to fail. */
