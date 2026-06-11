@@ -1493,6 +1493,54 @@ static void test_sign_verify_x962(void)
 	test_end();
 }
 
+static void test_sign_verify_x962_fixed_width(void)
+{
+	const char *error = NULL;
+	bool valid;
+	struct dcrypt_private_key *priv_key = NULL;
+	struct dcrypt_public_key *pub_key = NULL;
+	const char *data = "signed data";
+	/* P-256 order is 256 bits, so the x9.62 signature is 2*32 bytes */
+	const size_t expected_len = 2 * 32;
+
+	test_begin("sign and verify (x9.62) fixed width");
+	const char *key =
+"-----BEGIN PRIVATE KEY-----\n"
+"MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgZ4AMMyJ9XDl5lKM2\n"
+"vusbT1OQ6VzBWBkB3/4syovaKtyhRANCAAQHTR+6L2qMh5fdcMZF+Y1rctBsq8Oy\n"
+"7jZ4uV+MiuaoGNQ5sTxlcv6ETX/XrEDq4S/DUhFKzQ6u9VXYZImvRCT1\n"
+"-----END PRIVATE KEY-----";
+
+	test_assert(dcrypt_key_load_private(&priv_key, key, NULL, NULL, &error));
+	if (priv_key == NULL)
+		i_fatal("%s", error);
+	dcrypt_key_convert_private_to_public(priv_key, &pub_key);
+
+	/* ECDSA signing uses a random nonce, so r and s vary in length each
+	   time. The x9.62 format must always be a fixed width regardless, and
+	   the signature must round-trip back through verification. Loop enough
+	   times to hit the cases where r or s has leading zero bytes. */
+	for (unsigned int i = 0; i < 1000; i++) T_BEGIN {
+		buffer_t *signature =
+			buffer_create_dynamic(pool_datastack_create(), 128);
+		bool ok = dcrypt_sign(priv_key, "sha256",
+				      DCRYPT_SIGNATURE_FORMAT_X962,
+				      data, strlen(data), signature, 0, &error);
+		test_assert_idx(ok, i);
+		test_assert_idx(signature->used == expected_len, i);
+		test_assert_idx(dcrypt_verify(pub_key, "sha256",
+					      DCRYPT_SIGNATURE_FORMAT_X962,
+					      data, strlen(data),
+					      signature->data, signature->used,
+					      &valid, 0, &error) && valid, i);
+	} T_END;
+
+	dcrypt_key_unref_public(&pub_key);
+	dcrypt_key_unref_private(&priv_key);
+
+	test_end();
+}
+
 static void test_static_verify_ecdsa(void)
 {
 	test_begin("static verify (ecdsa)");
@@ -2045,6 +2093,7 @@ int main(void)
 		test_sign_verify_rsa,
 		test_sign_verify_ecdsa,
 		test_sign_verify_x962,
+		test_sign_verify_x962_fixed_width,
 		test_static_verify_ecdsa,
 		test_static_verify_rsa,
 		test_static_verify_ecdsa_x962,
