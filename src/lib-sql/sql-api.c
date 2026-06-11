@@ -660,31 +660,37 @@ void sql_statement_query(struct sql_statement **_stmt,
 	struct sql_statement *stmt = *_stmt;
 	*_stmt = NULL;
 
-	if (stmt->db->v.statement_query != NULL)
-		stmt->db->v.statement_query(stmt, callback, context);
-	else if (stmt->db->v.statement_query_s != NULL) {
-		struct sql_db *db = stmt->db;
-		struct sql_query_result_delayed *cb =
-			i_new(struct sql_query_result_delayed, 1);
-		cb->db = db;
-		cb->callback = callback;
-		cb->context = context;
-		cb->result = sql_statement_query_s(&stmt);
-		cb->to = timeout_add_short(0, sql_query_delayed_callback, cb);
-		DLLIST_PREPEND(&db->query_delayed_list, cb);
-	} else
-		default_sql_statement_query(stmt, callback, context);
+	T_BEGIN {
+		if (stmt->db->v.statement_query != NULL)
+			stmt->db->v.statement_query(stmt, callback, context);
+		else if (stmt->db->v.statement_query_s != NULL) {
+			struct sql_db *db = stmt->db;
+			struct sql_query_result_delayed *cb =
+				i_new(struct sql_query_result_delayed, 1);
+			cb->db = db;
+			cb->callback = callback;
+			cb->context = context;
+			cb->result = sql_statement_query_s(&stmt);
+			cb->to = timeout_add_short(0, sql_query_delayed_callback, cb);
+			DLLIST_PREPEND(&db->query_delayed_list, cb);
+		} else
+			default_sql_statement_query(stmt, callback, context);
+	} T_END;
 }
 
 struct sql_result *sql_statement_query_s(struct sql_statement **_stmt)
 {
 	struct sql_statement *stmt = *_stmt;
+	struct sql_result *result;
 
 	*_stmt = NULL;
-	if (stmt->db->v.statement_query_s != NULL)
-		return stmt->db->v.statement_query_s(stmt);
-	else
-		return default_sql_statement_query_s(stmt);
+	T_BEGIN {
+		if (stmt->db->v.statement_query_s != NULL)
+			result = stmt->db->v.statement_query_s(stmt);
+		else
+			result = default_sql_statement_query_s(stmt);
+	} T_END;
+	return result;
 }
 
 void sql_result_ref(struct sql_result *result)
@@ -1014,10 +1020,12 @@ void sql_update_stmt(struct sql_transaction_context *ctx,
 	struct sql_statement *stmt = *_stmt;
 
 	*_stmt = NULL;
-	if (ctx->db->v.update_stmt != NULL)
-		ctx->db->v.update_stmt(ctx, stmt, NULL);
-	else
-		default_sql_update_stmt(ctx, stmt, NULL);
+	T_BEGIN {
+		if (ctx->db->v.update_stmt != NULL)
+			ctx->db->v.update_stmt(ctx, stmt, NULL);
+		else
+			default_sql_update_stmt(ctx, stmt, NULL);
+	} T_END;
 }
 
 void sql_update_get_rows(struct sql_transaction_context *ctx, const char *query,
@@ -1033,10 +1041,12 @@ void sql_update_stmt_get_rows(struct sql_transaction_context *ctx,
 	struct sql_statement *stmt = *_stmt;
 
 	*_stmt = NULL;
-	if (ctx->db->v.update_stmt != NULL)
-		ctx->db->v.update_stmt(ctx, stmt, affected_rows);
-	else
-		default_sql_update_stmt(ctx, stmt, affected_rows);
+	T_BEGIN {
+		if (ctx->db->v.update_stmt != NULL)
+			ctx->db->v.update_stmt(ctx, stmt, affected_rows);
+		else
+			default_sql_update_stmt(ctx, stmt, affected_rows);
+	} T_END;
 }
 
 void sql_db_set_state(struct sql_db *db, enum sql_db_state state)
