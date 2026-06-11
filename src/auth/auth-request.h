@@ -202,6 +202,11 @@ struct auth_request {
 	bool domain_is_realm:1;
 
 	bool request_auth_token:1;
+	/* A trusted (unrestricted) master connection vouches that session_pid
+	   is correct, even though the connecting peer's pid doesn't match it.
+	   Used by auth proxies (e.g. cluster) that connect to auth on behalf
+	   of the actual session process. */
+	bool session_pid_trusted:1;
 
 	/* success/failure states: */
 	bool failed:1; /* overrides any other success */

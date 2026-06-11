@@ -981,8 +981,14 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 		(void)auth_request_import_master(request, name, param);
 	}
 
-	/* verify session pid if specified and possible */
-	if (request->session_pid != (pid_t)-1 &&
+	/* verify session pid if specified and possible. Skip the check if a
+	   trusted (unrestricted) master connection vouches for it - an auth
+	   proxy (e.g. cluster) connects to auth on behalf of the session
+	   process, so the peer pid won't match session_pid. */
+	bool session_pid_vouched = request->session_pid_trusted &&
+		master->userdb_restricted_uid == 0;
+	if (!session_pid_vouched &&
+	    request->session_pid != (pid_t)-1 &&
 	    net_getunixcred(master->conn.fd_in, &cred) == 0 &&
 	    cred.pid != (pid_t)-1 && request->session_pid != cred.pid) {
 		e_error(master->conn.event,

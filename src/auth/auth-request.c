@@ -395,6 +395,8 @@ bool auth_request_import_master(struct auth_request *request,
 			request->session_pid = pid;
 	} else if (strcmp(key, "request_auth_token") == 0)
 		request->request_auth_token = TRUE;
+	else if (strcmp(key, "session_pid_trusted") == 0)
+		request->session_pid_trusted = TRUE;
 	else
 		return FALSE;
 	return TRUE;
