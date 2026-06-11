@@ -3663,26 +3663,42 @@ dcrypt_openssl_private_key_id(struct dcrypt_private_key *key,
 	return dcrypt_openssl_public_key_id_evp(priv, md, result, error_r);
 }
 
-static void dcrypt_x962_remove_der(buffer_t *signature_r)
+static void
+dcrypt_x962_append_fixed(buffer_t *dst, const unsigned char *bn, size_t len,
+			 size_t rs_len)
+{
+	/* strip DER leading zero sign byte(s) */
+	while (len > 0 && bn[0] == 0) {
+		bn++;
+		len--;
+	}
+	i_assert(len <= rs_len);
+	/* left-pad with zeros to fixed width */
+	for (size_t i = len; i < rs_len; i++)
+		buffer_append_c(dst, 0x0);
+	buffer_append(dst, bn, len);
+}
+
+static void dcrypt_x962_remove_der(buffer_t *signature_r, size_t rs_len)
 {
 	const unsigned char *data = signature_r->data;
 	size_t sig_len = signature_r->used;
-	buffer_t *new_sig = t_buffer_create(sig_len);
+	buffer_t *new_sig = t_buffer_create(rs_len * 2);
 
 	i_assert(data[0] == 0x30 && data[1] < sig_len);
 	i_assert(data[2] == 0x2);
-	size_t offset_r = 2;
-	size_t len_r = data[offset_r + 1];
-	offset_r += 2;
-	size_t offset_s = 3 + len_r + 1;
-	size_t len_s = data[offset_s + 1];
-	offset_s += 2;
-	if (len_r < len_s)
-		buffer_append_c(new_sig, 0x0);
-	buffer_append(new_sig, data + offset_r, len_r);
-	if (len_s < len_r)
-		buffer_append_c(new_sig, 0x0);
-	buffer_append(new_sig, data + offset_s, len_s);
+	size_t len_r = data[3];
+	size_t offset_r = 4;
+	i_assert(data[offset_r + len_r] == 0x2);
+	size_t len_s = data[offset_r + len_r + 1];
+	size_t offset_s = offset_r + len_r + 2;
+
+	/* x9.62 / IEEE P1363 uses fixed-width r||s, each padded to the curve
+	   order octet length. DER uses minimal-length signed integers, so
+	   strip the sign byte and left-pad each value back to rs_len. */
+	dcrypt_x962_append_fixed(new_sig, data + offset_r, len_r, rs_len);
+	dcrypt_x962_append_fixed(new_sig, data + offset_s, len_s, rs_len);
+
 	buffer_clear_safe(signature_r);
 	buffer_append_buf(signature_r, new_sig, 0, new_sig->used);
 }
@@ -3776,7 +3792,9 @@ dcrypt_openssl_sign(struct dcrypt_private_key *key, const char *algorithm,
 			ret = TRUE;
 			if (format == DCRYPT_SIGNATURE_FORMAT_X962) {
 				/* remove der container */
-				dcrypt_x962_remove_der(signature_r);
+				size_t rs_len =
+					(EVP_PKEY_bits(key->key) + 7) / 8;
+				dcrypt_x962_remove_der(signature_r, rs_len);
 			}
 		}
 	}
