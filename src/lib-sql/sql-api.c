@@ -402,7 +402,7 @@ const char *sql_statement_get_log_query(struct sql_statement *stmt)
 int sql_statement_get_query(struct sql_statement *stmt,
 			    const char **query_r, const char **error_r)
 {
-	string_t *query = t_str_new(128);
+	string_t *query = str_new(default_pool, 128);
 	const char *const *args;
 	const bool *need_escaping_flags;
 	unsigned int args_count, need_escaping_count, arg_pos = 0;
@@ -421,12 +421,25 @@ int sql_statement_get_query(struct sql_statement *stmt,
 		}
 		if (arg_pos < need_escaping_count && need_escaping_flags[arg_pos]) {
 			const char *escaped;
-			if (sql_escape_string(stmt->db, args[arg_pos],
-					      &escaped, error_r) < 0)
+
+			/* Escape in a nested data stack frame so the
+			   driver's temporary escape buffer is freed
+			   immediately. The escaped value is appended to the
+			   heap-allocated query before the frame is popped. */
+			T_BEGIN {
+				if (sql_escape_string(stmt->db, args[arg_pos],
+						      &escaped, error_r) < 0)
+					escaped = NULL;
+				else {
+					str_append_c(query, '\'');
+					str_append(query, escaped);
+					str_append_c(query, '\'');
+				}
+			} T_END_PASS_STR_IF(escaped == NULL, error_r);
+			if (escaped == NULL) {
+				str_free(&query);
 				return -1;
-			str_append_c(query, '\'');
-			str_append(query, escaped);
-			str_append_c(query, '\'');
+			}
 		} else {
 			str_append(query, args[arg_pos]);
 		}
@@ -439,7 +452,8 @@ int sql_statement_get_query(struct sql_statement *stmt,
 		i_panic("lib-sql: Too many bind args (%u) for statement: %s",
 			args_count, stmt->query_template);
 	}
-	*query_r = str_c(query);
+	*query_r = t_strdup(str_c(query));
+	str_free(&query);
 	return 0;
 }
 
