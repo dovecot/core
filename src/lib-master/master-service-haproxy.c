@@ -352,7 +352,7 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 	} else if ((size_t)ret >= sizeof(buf->v2.hdr) &&
 		   memcmp(buf->v2.hdr.sig, haproxy_v2sig, sizeof(haproxy_v2sig)) == 0) {
 		want = ntohs(buf->v2.hdr.len) + sizeof(buf->v2.hdr);
-		if (want > sizeof(rbuf_full)) {
+		if (want > HAPROXY_READ_SIZE) {
 			e_error(hpconn->event,
 				"Client disconnected: Too long header (rip=%s)",
 				net_ip2addr(real_remote_ip));
