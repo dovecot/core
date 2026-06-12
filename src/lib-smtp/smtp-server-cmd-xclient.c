@@ -167,9 +167,12 @@ void smtp_server_cmd_xclient(struct smtp_server_cmd_ctx *cmd,
 			if (strcasecmp(param.value, "[UNAVAILABLE]") == 0)
 				continue;
 			if (smtp_helo_domain_parse
-				(param.value, TRUE, &helo_domain) >= 0)
-				proxy_data->helo =
-					p_strdup(cmd->pool, helo_domain);
+				(param.value, TRUE, &helo_domain) < 0) {
+				smtp_server_reply(cmd, 501, "5.5.4",
+					"Invalid HELO parameter");
+				return;
+			}
+			proxy_data->helo = p_strdup(cmd->pool, helo_domain);
 		} else if (strcmp(param.keyword, "LOGIN") == 0) {
 			if (strcasecmp(param.value, "[UNAVAILABLE]") == 0)
 				continue;
