@@ -103,6 +103,13 @@ mech_oauth2_verify_token_continue(struct oauth2_token_lookup *lookup,
 		auth_request->passdb_success = TRUE;
 		auth_request_set_password_verified(auth_request);
 		auth_request_set_fields(auth_request, args + 3, NULL);
+		/* The worker already set the fields above. Snapshot them so the
+		   upcoming credential lookup doesn't lose them if it reaches a
+		   passdb that returns SCHEME_NOT_AVAILABLE and rolls back (the
+		   in-process path is handled in db_oauth2_add_extra_fields). */
+		auth_fields_snapshot(auth_request->fields.extra_fields);
+		if (auth_request->fields.userdb_reply != NULL)
+			auth_fields_snapshot(auth_request->fields.userdb_reply);
 		auth_request_lookup_credentials(auth_request, "",
 						oauth2_verify_callback);
 		auth_request_unref(&auth_request);
