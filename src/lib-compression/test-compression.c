@@ -156,6 +156,46 @@ test_compression_handler_empty(const struct compression_handler *handler,
 }
 
 static void
+test_compression_handler_zero_frame(const struct compression_handler *handler,
+				    bool autodetect)
+{
+	test_begin(t_strdup_printf("compression handler %s (zero-len frame, autodetect=%s)",
+				   handler->name, autodetect ? "yes" : "no"));
+
+	/* Produce successive empty frames. Each frame needs its own ostream
+	   because o_stream_finish() propagates to the parent; compress each
+	   into a separate buffer then concatenate.
+	   lz4 uses a custom single-stream format and does not support
+	   concatenated frames, so limit it to one. */
+	unsigned int n_frames = strcmp(handler->name, "lz4") == 0 ? 1 : 3;
+	buffer_t *compressed = buffer_create_dynamic(pool_datastack_create(), 256);
+	for (unsigned int i = 0; i < n_frames; i++) {
+		buffer_t *frame_buf = buffer_create_dynamic(pool_datastack_create(), 64);
+		struct ostream *os = test_ostream_create(frame_buf);
+		struct ostream *output = handler->create_ostream_auto(os, set.event);
+		o_stream_unref(&os);
+		test_assert_idx(o_stream_finish(output) == 1, i);
+		o_stream_unref(&output);
+		test_assert_idx(frame_buf->used > 0, i);
+		buffer_append(compressed, frame_buf->data, frame_buf->used);
+	}
+
+	/* Decompress: must yield clean EOF with no error and no loop. */
+	struct istream *is = test_istream_create_data(compressed->data, compressed->used);
+	is->blocking = TRUE;
+	struct istream *input = !autodetect ? handler->create_istream(is) :
+		i_stream_create_decompress(is, 0);
+	i_stream_unref(&is);
+
+	test_assert(i_stream_read(input) == -1);
+	test_assert(input->eof);
+	test_assert(input->stream_errno == 0);
+	i_stream_unref(&input);
+
+	test_end();
+}
+
+static void
 test_compression_handler_seek(const struct compression_handler *handler,
 			      bool autodetect)
 {
@@ -790,6 +830,7 @@ static void test_compression_int(bool autodetect)
 				test_compression_handler_detect(&compression_handlers[i]);
 			test_compression_handler_short(&compression_handlers[i], autodetect);
 			test_compression_handler_empty(&compression_handlers[i], autodetect);
+			test_compression_handler_zero_frame(&compression_handlers[i], autodetect);
 			test_compression_handler(&compression_handlers[i], autodetect);
 			test_compression_handler_seek(&compression_handlers[i], autodetect);
 			test_compression_handler_reset(&compression_handlers[i], autodetect);
