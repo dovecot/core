@@ -419,6 +419,14 @@ db_oauth2_add_extra_fields(struct db_oauth2_request *req, const char **error_r)
 
 		for (unsigned int i = 0; i < n; i += 2)
 			auth_request_set_field(request, fields[i], fields[i + 1], NULL);
+
+		/* Snapshot userdb_reply so any subsequent passdb rollback (e.g.
+		   SCHEME_NOT_AVAILABLE from this same passdb on the SASL
+		   OAUTHBEARER path's credential-lookup leg) doesn't wipe the
+		   userdb_* fields we just set. extra_fields snapshot is taken
+		   by the caller (db_oauth2_process_fields). */
+		if (request->fields.userdb_reply != NULL)
+			auth_fields_snapshot(request->fields.userdb_reply);
 	}
 	settings_free(set);
 	event_unref(&event);
