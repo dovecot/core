@@ -175,10 +175,18 @@ static ssize_t i_stream_zstd_read(struct istream_private *stream)
 		zstream->output.pos = 0;
 		zstream->output.size = ZSTD_DStreamOutSize();
 
+		size_t old_input_pos = zstream->input.pos;
 		size_t zret = ZSTD_decompressStream(zstream->dstream, &zstream->output,
 						    &zstream->input);
 		if (ZSTD_isError(zret) != 0) {
 			i_stream_zstd_read_error(zstream, zret);
+			return -1;
+		}
+		if (zstream->input.pos == old_input_pos && zstream->output.pos == 0) {
+			io_stream_set_error(&zstream->istream.iostream,
+				"zstd.read(%s): decompressor made no progress",
+				i_stream_get_name(&zstream->istream.istream));
+			zstream->istream.istream.stream_errno = EIO;
 			return -1;
 		}
 		/* ZSTD magic number is 4 bytes, but it's only defined after v0.8 */
