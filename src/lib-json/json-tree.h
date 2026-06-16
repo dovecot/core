@@ -37,6 +37,9 @@ json_tree_node_add_string(struct json_tree_node *parent, const char *name,
 struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add_data(struct json_tree_node *parent, const char *name,
 			const unsigned char *data, size_t size);
+/* `input' must be seekable: the tree keeps its own reference and may
+   serialize it more than once, rewinding it to offset 0 before each read.
+   json_tree_node_add_value() asserts this at add time. */
 struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add_string_stream(struct json_tree_node *parent,
 				 const char *name, struct istream *input);
@@ -119,18 +122,41 @@ struct json_tree_node *
 json_tree_node_get_child_with(const struct json_tree_node *jtnode,
 			      const char *key, const char *value);
 
+/* Panics if the node's content type is STREAM rather than STRING - which a
+   string node can be if it came from json_istream_read_tree_lazy_strings()
+   and was at or above the lazy-string threshold. Use
+   json_tree_node_get_str_istream() (or check the content type) for trees
+   that may have been built that way. */
 static inline const char *
 json_tree_node_get_str(const struct json_tree_node *jtnode)
 {
 	return json_node_get_str(json_tree_node_get(jtnode));
 }
 
+/* Return a new istream yielding the decoded string bytes for this node via
+   *stream_r.  Works for STRING, DATA and STREAM content types; the returned
+   stream is independent of the source tree and safe to retain even after
+   the tree is unreffed and across reads of any other node's stream (for
+   STRING/DATA content the tree's pool is kept alive for as long as the
+   stream is; for STREAM content the bytes are copied out up front).  The
+   caller must unref the returned stream when done.  Returns 0 on success.
+   Returns -1 if the node's content type is not STRING, DATA or STREAM (e.g.
+   number/bool/null/object/array), or if it holds a STREAM-typed value whose
+   underlying stream isn't seekable - its provenance can't be verified in
+   advance (e.g. an arbitrary caller-supplied stream, as opposed to one this
+   library built internally, which is always seekable). */
+int
+json_tree_node_get_str_istream(const struct json_tree_node *jtnode,
+			       struct istream **stream_r);
+
+/* Panics on STREAM content - see json_tree_node_get_str() above. */
 static inline const unsigned char *
 json_tree_node_get_data(const struct json_tree_node *jtnode, size_t *size_r)
 {
 	return json_node_get_data(json_tree_node_get(jtnode), size_r);
 }
 
+/* Panics on STREAM content - see json_tree_node_get_str() above. */
 static inline const char *
 json_tree_node_as_str(const struct json_tree_node *jtnode)
 {

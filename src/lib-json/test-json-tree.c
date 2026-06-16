@@ -7,6 +7,8 @@
 #include "test-common.h"
 
 #include "json-tree.h"
+#include "json-tree-io.h"
+#include "json-istream.h"
 
 #include <unistd.h>
 
@@ -483,12 +485,123 @@ static void test_json_tree_walker(void)
 	test_end();
 }
 
+static void fatal_json_tree_unref(struct json_tree *jtree)
+{
+	json_tree_unref(&jtree);
+}
+
+/* Regression guard: the panic json_tree_node_get_str() raises on
+   STREAM content is intentional and documented (json-tree.h); the escape
+   hatch for that case is json_tree_node_get_str_istream(). Pin the panic
+   down so a future refactor cannot silently start swallowing it and hand
+   back a bogus string instead. */
+static enum fatal_test_state
+test_json_tree_node_get_str_stream_fatal(unsigned int stage)
+{
+	static const char *text = "{\"a\":\"AAAAAAAA\"}";
+	struct istream *input;
+	struct json_istream *jinput;
+	struct json_tree *jtree = NULL;
+	struct json_tree_node *root, *jtnode;
+	const char *error = NULL;
+	int ret;
+
+	switch (stage) {
+	case 0:
+		test_begin(
+			"json tree node get_str still panics on STREAM content");
+		input = i_stream_create_from_data(text, strlen(text));
+		jinput = json_istream_create(input, 0, NULL, 0);
+		i_stream_unref(&input);
+
+		/* threshold=1: even this short value is stored as STREAM
+		   content. */
+		while ((ret = json_istream_read_tree_lazy_strings(
+					jinput, 1, 65536, &jtree)) == 0)
+			;
+		test_assert(ret > 0);
+		ret = json_istream_finish(&jinput, &error);
+		test_assert(ret > 0);
+
+		root = json_tree_get_root(jtree);
+		jtnode = json_tree_node_get_member(root, "a");
+		test_assert(jtnode != NULL);
+		test_assert(json_tree_node_get(jtnode)->value.content_type ==
+			    JSON_CONTENT_TYPE_STREAM);
+
+		test_expect_fatal_string(
+			"(json_value_get_str): assertion failed: "
+			"(jvalue->content_type == JSON_CONTENT_TYPE_STRING)");
+		/* json_tree_node_get_str() panics before returning, so the
+		   tree is never reached by the json_tree_unref() below it -
+		   free it via the fatal callback instead, or valgrind sees
+		   it as leaked (the panic longjmps back into this same
+		   process, it doesn't fork). */
+		test_fatal_set_callback(fatal_json_tree_unref, jtree);
+		(void)json_tree_node_get_str(jtnode);
+		return FATAL_TEST_FAILURE;
+	}
+
+	test_end();
+	return FATAL_TEST_FINISHED;
+}
+
+struct fatal_json_tree_add_stream_ctx {
+	struct json_tree *jtree;
+	struct istream *input;
+};
+
+static void
+fatal_json_tree_add_stream_cleanup(struct fatal_json_tree_add_stream_ctx *ctx)
+{
+	json_tree_unref(&ctx->jtree);
+	i_stream_unref(&ctx->input);
+}
+
+/* Regression guard: json_tree_node_add_value() must reject a non-seekable
+   STREAM value at add time rather than let it reach the tree, where it
+   would panic three layers down in json_generate_stream_rewind() the first
+   time the tree is serialized. */
+static enum fatal_test_state
+test_json_tree_node_add_string_stream_nonseekable_fatal(unsigned int stage)
+{
+	static struct fatal_json_tree_add_stream_ctx ctx;
+	struct json_tree_node *root;
+
+	switch (stage) {
+	case 0:
+		test_begin(
+			"json tree node add string stream panics on "
+			"non-seekable stream");
+		ctx.input = test_istream_create_data("x", 1);
+		ctx.input->seekable = FALSE;
+		ctx.jtree = json_tree_create();
+		root = json_tree_get_root(ctx.jtree);
+
+		test_expect_fatal_string(
+			"(json_tree_node_add_value): assertion failed: "
+			"(jvalue->content.stream->seekable)");
+		test_fatal_set_callback(
+			fatal_json_tree_add_stream_cleanup, &ctx);
+		(void)json_tree_node_add_string_stream(root, "k", ctx.input);
+		return FATAL_TEST_FAILURE;
+	}
+
+	test_end();
+	return FATAL_TEST_FINISHED;
+}
+
 int main(int argc, char *argv[])
 {
 	int c;
 
 	static void (*test_functions[])(void) = {
 		test_json_tree_walker,
+		NULL
+	};
+	static enum fatal_test_state (*fatal_functions[])(unsigned int) = {
+		test_json_tree_node_get_str_stream_fatal,
+		test_json_tree_node_add_string_stream_nonseekable_fatal,
 		NULL
 	};
 
@@ -502,5 +615,5 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	return test_run(test_functions);
+	return test_run_with_fatals(test_functions, fatal_functions);
 }

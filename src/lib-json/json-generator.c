@@ -1259,6 +1259,26 @@ void json_generate_space_close(struct json_generator *generator)
  * value
  */
 
+/* A stream stored in a json_tree node (JSON_CONTENT_TYPE_STREAM) is a
+   shared resource: json_tree_node_get_str_istream() wrappers seek it as a
+   side effect of tracking their own progress, and the tree may be
+   serialized more than once.  Rewind before reading so this generator
+   never depends on where some other consumer last left the stream.
+
+   A STREAM value that isn't tree-owned (e.g. a JSON parser's one-shot
+   string stream, or a stream handed directly to
+   json_ostream_write_string_stream()) is read exactly once as it is
+   produced and must be passed through untouched: it may not be seekable,
+   and rewinding it would lose data already consumed by an earlier partial
+   write. */
+static void json_generate_stream_rewind(const struct json_value *value)
+{
+	if (!value->stream_is_tree_resource)
+		return;
+	i_assert(value->content.stream->seekable);
+	i_stream_seek(value->content.stream, 0);
+}
+
 int json_generate_value(struct json_generator *generator,
 			enum json_type type, const struct json_value *value)
 {
@@ -1274,6 +1294,7 @@ int json_generate_value(struct json_generator *generator,
 				generator, value->content.data->data,
 				value->content.data->size);
 		case JSON_CONTENT_TYPE_STREAM:
+			json_generate_stream_rewind(value);
 			return json_generate_string_stream(
 				generator, value->content.stream);
 		default:
@@ -1313,6 +1334,7 @@ int json_generate_value(struct json_generator *generator,
 				generator, value->content.data->data,
 				value->content.data->size);
 		case JSON_CONTENT_TYPE_STREAM:
+			json_generate_stream_rewind(value);
 			return json_generate_text_stream(
 				generator, value->content.stream);
 		default:

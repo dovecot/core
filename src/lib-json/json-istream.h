@@ -183,6 +183,25 @@ int json_istream_walk_stream(struct json_istream *stream,
 int json_istream_read_tree(struct json_istream *stream,
 			   struct json_tree **tree_r);
 
+/* Like json_istream_read_tree(), but for string values >= `threshold' bytes
+   the decoded string is stored as an istream in the tree node instead of
+   being copied to pool memory.  `stream->input' must be seekable (asserted):
+   a range stream (i_stream_create_range()) pointing into the original input
+   is used, avoiding the tree-pool copy (escaped strings are decoded lazily
+   on read via the istream-json-string filter instead).  A string exceeding
+   `max_buffer_size' bytes in this range-delivery mode is a hard parse
+   error, since by the time the size is known the input has already been
+   consumed past recovery for any fallback.
+   Use json_tree_node_get_str_istream() to read string values from the
+   returned tree.
+
+   For test purposes only: not yet called from any in-tree code outside
+   lib-json's own tests and fuzzers. */
+int json_istream_read_tree_lazy_strings(struct json_istream *stream,
+					size_t threshold,
+					size_t max_buffer_size,
+					struct json_tree **tree_r);
+
 /* Same as json_istream_read_tree(), but read current node from stream and all
    its children into the provided existing tree node as a new child. */
 int json_istream_read_into_tree_node(struct json_istream *stream,

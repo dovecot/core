@@ -109,6 +109,21 @@ void json_parser_get_location(struct json_parser *parser,
    stream will buffer at most `max_buffer_size' bytes. */
 void json_parser_enable_string_stream(struct json_parser *parser,
 				      size_t threshold, size_t max_buffer_size);
+
+/* Like json_parser_enable_string_stream(), but for seekable input streams
+   exposes large string values as an i_stream_create_range() view into the
+   original input rather than buffering the decoded bytes.  Parsing is not
+   interrupted for these strings, so callers must not rely on the
+   JSON_PARSE_INTERRUPTED / json_parse_more() == 0 interlock; use
+   json_istream_read_tree_lazy_strings() which handles this correctly.
+   The delivered stream aliases the parser's own input stream: it must not
+   be read until the current json_parse_more() call has returned - reading
+   it any earlier (e.g. from inside the parse_value callback) corrupts the
+   parser's buffered position. */
+void json_parser_enable_lazy_string_stream(struct json_parser *parser,
+					   size_t threshold,
+					   size_t max_buffer_size);
+
 /* Disable parsing strings as a stream. */
 void json_parser_disable_string_stream(struct json_parser *parser);
 

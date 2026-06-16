@@ -68,6 +68,15 @@ struct json_data {
 
 struct json_value {
 	enum json_content_type content_type;
+	/* JSON_CONTENT_TYPE_STREAM only: the value is the entire (seekable)
+	   stream, owned by the json_tree node that stores it, and every read
+	   of it starts at offset 0 - a shared, re-readable resource that
+	   json_tree hands out (e.g. through json_tree_node_get_str_istream())
+	   and that a tree may serialize more than once. Set (and seekability
+	   asserted) only by the json_tree code that stores a stream into a
+	   node; a hand-built json_value must be i_zero()ed so this defaults
+	   to FALSE. */
+	bool stream_is_tree_resource:1;
 	union {
 		/* JSON_CONTENT_TYPE_LIST */
 		struct json_tree_node_list *list; /* only used by trees */

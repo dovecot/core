@@ -174,7 +174,8 @@ void json_ostream_nwritef_string(struct json_ostream *stream,
 				 const char *name,
 				 const char *format, ...) ATTR_FORMAT(3, 4);
 /* Try to write the stream to the output stream as a string. Returns 1
-   if buffered, 0 if not, -1 if error. */
+   if buffered, 0 if not, -1 if error. `input' is read from its current
+   offset onward and is not rewound; position it as needed before calling. */
 int json_ostream_write_string_stream(struct json_ostream *stream,
 				     const char *name, struct istream *input);
 void json_ostream_nwrite_string_stream(struct json_ostream *stream,

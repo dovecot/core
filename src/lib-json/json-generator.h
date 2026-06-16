@@ -46,6 +46,8 @@ int json_generate_string_data(struct json_generator *generator,
 			      const void *data, size_t size);
 int json_generate_string(struct json_generator *generator, const char *str);
 
+/* Generates a string from the input stream, reading from its current
+   position onward (no seeking is performed). */
 int json_generate_string_stream(struct json_generator *generator,
 				struct istream *input);
 
@@ -84,6 +86,8 @@ int json_generate_text_data(struct json_generator *generator,
 			    const void *data, size_t size);
 int json_generate_text(struct json_generator *generator, const char *str);
 
+/* Generates a JSON-text value from the input stream, reading from its
+   current position onward (no seeking is performed). */
 int json_generate_text_stream(struct json_generator *generator,
 			      struct istream *input);
 
@@ -94,6 +98,23 @@ void json_generate_space_close(struct json_generator *generator);
 
 /* value */
 
+/* For a JSON_CONTENT_TYPE_STREAM value whose stream is stored in a
+   json_tree node, the value is the whole stream and offset 0 is always
+   its first byte, never a caller-chosen position or the start of some
+   larger document - but how that holds differs by producer. A parser-
+   built lazy string is an i_stream_create_range() view over the parser's
+   own input, so offset 0 is structurally the value's first byte. A
+   stream added via json_tree_node_add_string_stream() is stored exactly
+   as handed in; there the tree's contract requires that the stream's
+   offset 0 already be the value's first byte, which is why
+   json_tree_node_add_value() asserts it seekable at add time. Either way
+   the generator rewinds the stream to offset 0 before reading it, because
+   other consumers may have left it at a non-zero position and the tree
+   may be serialized more than once. Any other STREAM value (e.g. one
+   built directly for this call, or read from a JSON parser) is read from
+   its current position without rewinding, same as
+   json_generate_string_stream()/json_generate_text_stream() called
+   directly. */
 int json_generate_value(struct json_generator *generator,
 			enum json_type type, const struct json_value *value);
 

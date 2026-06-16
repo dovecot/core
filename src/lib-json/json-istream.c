@@ -1050,3 +1050,19 @@ int json_istream_read_into_tree(struct json_istream *stream,
 	return json_istream_read_into_tree_node(
 		stream, json_tree_get_root(tree));
 }
+
+int json_istream_read_tree_lazy_strings(struct json_istream *stream,
+					size_t threshold,
+					size_t max_buffer_size,
+					struct json_tree **tree_r)
+{
+	int ret;
+
+	i_assert(stream->input->seekable);
+
+	json_parser_enable_lazy_string_stream(stream->parser, threshold,
+					       max_buffer_size);
+	ret = json_istream_read_tree(stream, tree_r);
+	json_parser_disable_string_stream(stream->parser);
+	return ret;
+}
