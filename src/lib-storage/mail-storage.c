@@ -3756,12 +3756,10 @@ int mailbox_mkdir(struct mailbox *box, const char *path,
 		  enum mailbox_list_path_type type)
 {
 	const struct mailbox_permissions *perm = mailbox_get_permissions(box);
-	const char *root_dir;
 
 	if (!perm->gid_origin_is_mailbox_path) {
 		/* mailbox root directory doesn't exist, create it */
-		root_dir = mailbox_list_get_root_forced(box->list, type);
-		if (mailbox_list_mkdir_root(box->list, root_dir, type) < 0) {
+		if (mailbox_list_mkdir_root(box->list, NULL, type) < 0) {
 			mail_storage_copy_list_error(box->storage, box->list);
 			return -1;
 		}
