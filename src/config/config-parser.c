@@ -1074,6 +1074,28 @@ config_apply_exact_line(struct config_parser_context *ctx,
 			break;
 		}
 		default:
+			if (ctx->change_counter == CONFIG_PARSER_CHANGE_DEFAULTS &&
+			    prefixed_value[0] == CONFIG_VALUE_PREFIX_EXPANDED &&
+			    prefixed_value[1] == '\0') {
+				/* An empty built-in default for a setting that
+				   can't be empty (e.g. a number or time) means
+				   "no default": leave the value to be inherited
+				   from a less specific filter instead of failing.
+				   This lets a named filter keep a default-settings
+				   entry - so settings-history can override the
+				   value for old config versions - without forcing
+				   that value for current versions. */
+				const char *prev_error = ctx->error;
+				if (settings_value_check(ctx, l->info,
+					&l->info->defines[config_key->define_idx],
+					prefixed_value) < 0) {
+					/* Restore any pending error;
+					   settings_value_check() only sets
+					   ctx->error when it fails. */
+					ctx->error = prev_error;
+					continue;
+				}
+			}
 			l->settings[config_key->define_idx].prefixed_str =
 				p_strdup(ctx->pool, prefixed_value);
 			break;
