@@ -1117,6 +1117,10 @@ int mailbox_list_mkdir_root(struct mailbox_list *list, const char *path,
 {
 	const char *error;
 
+	if (path == NULL &&
+	    !mailbox_list_get_root_path(list, type, &path))
+		return 0;
+
 	if (mailbox_list_try_mkdir_root(list, path, type, &error) < 0) {
 		mailbox_list_set_critical(list, "%s", error);
 		return -1;
