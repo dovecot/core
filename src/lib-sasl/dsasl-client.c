@@ -173,8 +173,8 @@ dsasl_client_session_create(struct dsasl_client *client,
 	session->mech = msession;
 
 	if (params != NULL) {
-		msession->params.protocol = p_strdup(pool, params->protocol);
-		msession->params.host = p_strdup(pool, params->host);
+		msession->params.protocol = p_strdup_empty(pool, params->protocol);
+		msession->params.host = p_strdup_empty(pool, params->host);
 		msession->params.port = params->port;
 		msession->params.server_mechanisms =
 			(params->server_mechanisms == NULL ? NULL :

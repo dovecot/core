@@ -130,7 +130,7 @@ mech_oauthbearer_auth_output(struct dsasl_client_mech_session *msession,
 	str = str_new(msession->pool, 64);
 	auth_gs2_header_encode(&gs2_header, str);
 	str_append_c(str, '\x01');
-	if (msession->params.host != NULL && *msession->params.host != '\0')
+	if (msession->params.host != NULL)
 		str_printfa(str, "host=%s\x01", msession->params.host);
 	if (msession->params.port > 0)
 		str_printfa(str, "port=%u\x01", msession->params.port);
