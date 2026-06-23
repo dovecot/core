@@ -177,7 +177,9 @@ void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
 void mailbox_list_get_root_permissions(struct mailbox_list *list,
 				       struct mailbox_permissions *permissions_r);
 /* mkdir() a root directory of given type with proper permissions. The path can
-   be either the root itself or point to a directory under the root. */
+   be either the root itself or point to a directory under the root. If path is
+   NULL, the root path of the given type is looked up automatically; if there is
+   no such path, nothing is done. */
 int mailbox_list_mkdir_root(struct mailbox_list *list, const char *path,
 			    enum mailbox_list_path_type type);
 /* Like mailbox_list_mkdir_root(), but don't log an error if it fails. */
