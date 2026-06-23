@@ -85,6 +85,7 @@ bool old_settings_default(const char *dovecot_config_version,
 {
 	struct settings_history *history = settings_history_get();
 	const struct setting_history_default *def;
+	const char *generic_value = NULL;
 
 	if (!has_config_version(dovecot_config_version))
 		return FALSE;
@@ -92,11 +93,18 @@ bool old_settings_default(const char *dovecot_config_version,
 	array_foreach(&history->defaults, def) {
 		if (version_cmp(def->version, dovecot_config_version) <= 0)
 			break;
-		if (strcmp(def->key, key) == 0 ||
-		    strcmp(def->key, key_with_path) == 0) {
+		if (strcmp(def->key, key_with_path) == 0) {
+			/* Exact filter path match is the most specific and
+			   always wins over a match on just the setting name. */
 			*old_default_r = def->old_value;
 			return TRUE;
 		}
+		if (generic_value == NULL && strcmp(def->key, key) == 0)
+			generic_value = def->old_value;
+	}
+	if (generic_value != NULL) {
+		*old_default_r = generic_value;
+		return TRUE;
 	}
 	return FALSE;
 }
