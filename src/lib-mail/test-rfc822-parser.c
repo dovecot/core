@@ -210,6 +210,7 @@ static void test_rfc822_decode_punycode(void)
 		{ .in = "org.xn--gr-zia", "org.gr\xc3\xa5" },
 		{ .in = "org.xn--gr-zia.org", "org.gr\xc3\xa5.org" },
 		{ .in = "org.xn--zz-zzzz.org", "org.xn--zz-zzzz.org" },
+		{ .in = "example.com", "example.com" },
 	};
 	string_t *res = t_str_new(64);
 
@@ -219,6 +220,9 @@ static void test_rfc822_decode_punycode(void)
 		rfc822_decode_punycode(cases[i].in, strlen(cases[i].in), res);
 		test_assert_strcmp_idx(str_c(res),
 				       cases[i].out, i);
+		/* a label not followed by '.' must not append a trailing
+		   byte past the label (str_c() would hide it via the NUL) */
+		test_assert_idx(str_len(res) == strlen(cases[i].out), i);
 	}
 	test_end();
 }

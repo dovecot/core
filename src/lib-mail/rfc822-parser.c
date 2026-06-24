@@ -428,13 +428,13 @@ void rfc822_decode_punycode(const char *input, size_t len, string_t *result)
 			str_truncate(decoded, 0);
 			if (punycode_decode((const unsigned char *)value, delim - value, result) < 0)
 				/* Consider it as data */
-				str_append_data(result, pos, delim - pos + 1);
-			else if (*delim == '.')
-				str_append_c(result, *delim);
+				str_append_data(result, pos, delim - pos);
 		} else {
 			/* No punycode prefix */
-			str_append_data(result, pos, delim - pos + 1);
+			str_append_data(result, pos, delim - pos);
 		}
+		if (delim < end)
+			str_append_c(result, '.');
 		pos = delim + 1;
 	}
 	if (pos < end)
