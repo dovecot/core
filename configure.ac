@@ -363,7 +363,7 @@ DOVECOT_TYPEOF
 DOVECOT_IOLOOP
 DOVECOT_NOTIFY
 AS_CASE(
-   ["$notify"],
+   ["$have_notify"],
    [none],   [BUILD_IMAP_HIBERNATE=0],
    [kqueue], [BUILD_IMAP_HIBERNATE=0],
    [BUILD_IMAP_HIBERNATE=1])
