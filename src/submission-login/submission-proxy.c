@@ -651,9 +651,15 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 			return 0;
 		}
 
-		i_assert(subm_client->proxy_reply == NULL);
-		subm_client->proxy_reply = smtp_server_reply_create(
-			command, status, enh_code);
+		/* The backend may answer the proxied AUTH with a multi-line
+		   reply, in which case this callback is invoked once per line
+		   with the reply still pending (!last_line). Create the reply
+		   on the first line and append the text of each subsequent
+		   line. */
+		if (subm_client->proxy_reply == NULL) {
+			subm_client->proxy_reply = smtp_server_reply_create(
+				command, status, enh_code);
+		}
 		smtp_server_reply_add_text(subm_client->proxy_reply, text);
 
 		if (!last_line)
