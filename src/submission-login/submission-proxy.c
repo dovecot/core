@@ -514,12 +514,15 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 	const char *suffix, *text = NULL, *enh_code = NULL;
 	unsigned int status = 0;
 
-	if ((line[3] != ' ' && line[3] != '-') ||
-	    str_parse_uint(line, &status, &text) < 0 ||
-	    status < 200 || status >= 560) {
+	const char *sep = NULL;
+	if (str_parse_uint(line, &status, &text) < 0 ||
+	    status < 200 || status >= 560 ||
+	    (*text != ' ' && *text != '-')) {
 		invalid_line = TRUE;
 	} else {
-		text++;
+		/* text points at the ' '/'-' separator following the status
+		   code; remember it before stepping past it */
+		sep = text++;
 
 		if ((subm_client->proxy_capability &
 		    SMTP_CAPABILITY_ENHANCEDSTATUSCODES) != 0)
@@ -536,7 +539,7 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 				   LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
 		return -1;
 	}
-	if (line[3] == ' ') {
+	if (sep != NULL && *sep == ' ') {
 		last_line = TRUE;
 		subm_client->proxy_reply_status = 0;
 	} else {
