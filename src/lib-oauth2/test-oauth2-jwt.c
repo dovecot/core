@@ -332,6 +332,10 @@ static void test_jwt_token_escape(void)
 			"http:%2f%2ftest.unit%2flocal%25key"
 		},
 		{ "../", "hs256", "../", "..%2f", "..%2f" },
+		/* a bare "." or ".." must be percent-encoded so it cannot act
+		   as a relative path component in the dict key */
+		{ "..", "hs256", "..", "%2e%2e", "%2e%2e" },
+		{ ".", "hs256", ".", "%2e", "%2e" },
 	};
 
 	test_begin("JWT token escaping");

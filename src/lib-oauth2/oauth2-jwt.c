@@ -115,9 +115,17 @@ get_time_field(const struct json_tree *tree, const char *key,
 	return -1;
 }
 
-/* Escapes '/' and '%' in identifier to %hex */
+/* Escapes '/' and '%' in identifier to %hex, and a whole-segment "." or
+   ".." to %2e[%2e] */
 static const char *escape_identifier(const char *identifier)
 {
+	/* A bare "." or ".." identifier would form a relative path component
+	   in the shared/<azp>/<alg>/<kid> dict key. */
+	if (strcmp(identifier, ".") == 0)
+		return "%2e";
+	if (strcmp(identifier, "..") == 0)
+		return "%2e%2e";
+
 	size_t pos = strcspn(identifier, "/%");
 
 	/* nothing to escape */
