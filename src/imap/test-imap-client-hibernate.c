@@ -15,9 +15,11 @@
 #include "smtp-submit.h"
 #include "mail-storage-service.h"
 #include "mail-storage-private.h"
+#include "buffer.h"
 #include "imap-common.h"
 #include "imap-settings.h"
 #include "imap-client.h"
+#include "imap-state.h"
 
 #include <sys/stat.h>
 
@@ -238,6 +240,51 @@ static void test_imap_client_hibernate(void)
 	test_assert(!imap_client_hibernate(&client, &error));
 	test_expect_no_more_errors();
 	test_assert(strstr(error, "notgood") != NULL);
+	test_end();
+
+	/* Regression test for swallowed mailbox-open errors during state
+	   import. import_state_mailbox() used to check the result of
+	   import_state_mailbox_open() with "< 0", but that function returns
+	   enum imap_state_result where errors are positive values, so the
+	   errors were ignored and import wrongly reported success. That could
+	   leave the client with a mailbox but no keywords array and crash in
+	   the following sync. Verify that importing a state whose mailbox no
+	   longer matches is rejected. */
+	test_begin("imap client state import: inconsistent mailbox rejected");
+	struct mailbox *import_box =
+		mailbox_alloc(client->user->namespaces->list, "importbox", 0);
+	struct mailbox_update import_update = {
+		.uid_validity = 11111111,
+	};
+	memset(import_update.mailbox_guid, 0x34,
+	       sizeof(import_update.mailbox_guid));
+	test_assert(mailbox_create(import_box, &import_update, FALSE) == 0);
+	test_assert(mailbox_open(import_box) == 0);
+	test_assert(mailbox_sync(import_box, 0) == 0);
+	client->mailbox = import_box;
+
+	buffer_t *state = t_buffer_create(256);
+	test_assert(imap_state_export_internal(client, state, &error) == 1);
+
+	/* close the exported mailbox and recreate it with a different GUID,
+	   so the exported state no longer matches the stored mailbox */
+	mailbox_free(&client->mailbox);
+	client->keywords.names = NULL;
+	import_box = mailbox_alloc(client->user->namespaces->list,
+				   "importbox", 0);
+	test_assert(mailbox_delete(import_box) == 0);
+	mailbox_free(&import_box);
+	import_box = mailbox_alloc(client->user->namespaces->list,
+				   "importbox", 0);
+	memset(import_update.mailbox_guid, 0x56,
+	       sizeof(import_update.mailbox_guid));
+	test_assert(mailbox_create(import_box, &import_update, FALSE) == 0);
+	mailbox_free(&import_box);
+
+	const char *import_error = NULL;
+	test_assert(imap_state_import_internal(client, state->data,
+		state->used, &import_error) != IMAP_STATE_OK);
+	test_assert(client->mailbox == NULL);
 	test_end();
 
 	/* create and open evil mailbox */
