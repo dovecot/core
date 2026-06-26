@@ -645,6 +645,10 @@ int oauth2_try_parse_jwt(const struct oauth2_settings *set,
 	struct json_tree *body_tree;
 	buffer_t *body =
 		t_base64url_decode_str(BASE64_DECODE_FLAG_NO_PADDING, blobs[1]);
+	if (body->used == 0) {
+		*error_r = "Not a JWT token";
+		return -1;
+	}
 	if (oauth2_json_tree_build(body, &body_tree, error_r) == -1)
 		return -1;
 	ret = oauth2_jwt_body_process(set, alg, kid, fields, body_tree, blobs,
