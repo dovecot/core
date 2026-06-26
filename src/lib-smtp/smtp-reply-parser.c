@@ -104,7 +104,11 @@ bool smtp_reply_parse_enhanced_code(const char *text,
 	   detail      ::= 1*3digit
 	*/
 
-	/* class */
+	/* class - the shortest valid code is "C.S.D" (5 chars). Check the
+	   length first so the p[0]/p[1] reads below stay in bounds even for a
+	   short or empty input string. */
+	if (p[0] == '\0' || p[1] == '\0')
+		return FALSE;
 	if (p[1] != '.' || (p[0] != '2' && p[0] != '4' && p[0] != '5'))
 		return FALSE;
 	x = p[0] - '0';

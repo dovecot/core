@@ -268,11 +268,36 @@ static void test_smtp_reply_parse_invalid(void)
 	} T_END;
 }
 
+static void test_smtp_reply_parse_enhanced_code(void)
+{
+	struct smtp_reply_enhanced_code enh_code;
+	const char *pos;
+
+	test_begin("smtp reply parse enhanced code");
+
+	/* short/empty input must be rejected without reading past the end of
+	   the string (the p[0]/p[1] reads used to happen before any length
+	   check) */
+	test_assert(!smtp_reply_parse_enhanced_code("", &enh_code, &pos));
+	test_assert(!smtp_reply_parse_enhanced_code("2", &enh_code, &pos));
+	test_assert(!smtp_reply_parse_enhanced_code("2.", &enh_code, &pos));
+	test_assert(!smtp_reply_parse_enhanced_code("x.y.z", &enh_code, &pos));
+
+	/* a valid code is still parsed correctly */
+	test_assert(smtp_reply_parse_enhanced_code("5.7.1 text",
+						   &enh_code, &pos));
+	test_assert(enh_code.x == 5 && enh_code.y == 7 && enh_code.z == 1);
+	test_assert_strcmp(pos, " text");
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
 		test_smtp_reply_parse_valid,
 		test_smtp_reply_parse_invalid,
+		test_smtp_reply_parse_enhanced_code,
 		NULL
 	};
 	return test_run(test_functions);
