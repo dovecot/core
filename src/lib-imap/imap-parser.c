@@ -761,16 +761,17 @@ static bool imap_parser_read_arg(struct imap_parser *parser)
 
 static void list_add_ghost_eol(struct imap_arg *list_arg)
 {
-	struct imap_arg *arg;
+	/* Walk the parent chain iteratively rather than recursing once per
+	   nesting level, so a deeply nested list cannot grow the C stack. */
+	for (; list_arg != NULL; list_arg = list_arg->parent) {
+		struct imap_arg *arg;
 
-	i_assert(list_arg->type == IMAP_ARG_LIST);
+		i_assert(list_arg->type == IMAP_ARG_LIST);
 
-	arg = array_append_space(&list_arg->_data.list);
-	arg->type = IMAP_ARG_EOL;
-	array_pop_back(&list_arg->_data.list);
-
-	if (list_arg->parent != NULL)
-		list_add_ghost_eol(list_arg->parent);
+		arg = array_append_space(&list_arg->_data.list);
+		arg->type = IMAP_ARG_EOL;
+		array_pop_back(&list_arg->_data.list);
+	}
 }
 
 /* ARG_PARSE_NONE checks that last argument isn't only partially parsed. */
