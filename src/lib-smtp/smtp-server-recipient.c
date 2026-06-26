@@ -204,6 +204,8 @@ void smtp_server_recipient_data_replied(struct smtp_server_recipient *rcpt)
 struct smtp_server_reply *
 smtp_server_recipient_get_reply(struct smtp_server_recipient *rcpt)
 {
+	i_assert(rcpt->cmd != NULL);
+
 	if (!HAS_ALL_BITS(rcpt->trans->flags,
 			 SMTP_SERVER_TRANSACTION_FLAG_REPLY_PER_RCPT))
 		return smtp_server_command_get_reply(rcpt->cmd->cmd, 0);
