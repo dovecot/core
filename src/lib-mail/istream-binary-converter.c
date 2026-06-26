@@ -174,7 +174,9 @@ static void stream_add_hdr(struct binary_converter_istream *bstream,
 		stream_add_data(bstream, "\r\n", 2);
 }
 
-static ssize_t i_stream_binary_converter_read(struct istream_private *stream)
+static bool
+i_stream_binary_converter_read_block(struct istream_private *stream,
+				     ssize_t *ret_r)
 {
 	/* @UNSAFE */
 	struct binary_converter_istream *bstream =
@@ -182,8 +184,10 @@ static ssize_t i_stream_binary_converter_read(struct istream_private *stream)
 	struct message_block block;
 	size_t old_size, new_size;
 
-	if (stream->pos - stream->skip >= i_stream_get_max_buffer_size(&stream->istream))
-		return -2;
+	if (stream->pos - stream->skip >= i_stream_get_max_buffer_size(&stream->istream)) {
+		*ret_r = -2;
+		return TRUE;
+	}
 	old_size = stream->pos - stream->skip;
 
 	switch (message_parser_parse_next_block(bstream->parser, &block)) {
@@ -195,14 +199,17 @@ static ssize_t i_stream_binary_converter_read(struct istream_private *stream)
 			stream_encode_base64(bstream, "", 0);
 			new_size = stream->pos - stream->skip;
 			i_assert(old_size != new_size);
-			return new_size - old_size;
+			*ret_r = new_size - old_size;
+			return TRUE;
 		}
 		stream->istream.eof = TRUE;
 		stream->istream.stream_errno = stream->parent->stream_errno;
-		return -1;
+		*ret_r = -1;
+		return TRUE;
 	case 0:
 		/* need more data */
-		return 0;
+		*ret_r = 0;
+		return TRUE;
 	default:
 		break;
 	}
@@ -268,9 +275,24 @@ static ssize_t i_stream_binary_converter_read(struct istream_private *stream)
 		stream_add_data(bstream, block.data, block.size);
 	}
 	new_size = stream->pos - stream->skip;
-	if (new_size == old_size)
-		return i_stream_binary_converter_read(stream);
-	return new_size - old_size;
+	if (new_size == old_size) {
+		/* This block produced no output (e.g. a buffered header line).
+		   Tell the caller to read the next block instead of recursing,
+		   which would grow the C stack unboundedly on input with many
+		   such blocks. */
+		return FALSE;
+	}
+	*ret_r = new_size - old_size;
+	return TRUE;
+}
+
+static ssize_t i_stream_binary_converter_read(struct istream_private *stream)
+{
+	ssize_t ret;
+
+	while (!i_stream_binary_converter_read_block(stream, &ret))
+		;
+	return ret;
 }
 
 static void i_stream_binary_converter_close(struct iostream_private *stream,
