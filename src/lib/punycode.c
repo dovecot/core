@@ -143,6 +143,15 @@ int punycode_decode(const unsigned char *input, size_t len, string_t *output)
 		if (n < initialN)
 			return -1;
 
+		/* The decoded code point must be a valid Unicode scalar
+		   value. Reject surrogates and values above U+10FFFF here,
+		   otherwise the uni_ucs4_to_utf8() sink below would
+		   i_assert() (i_panic) on attacker-supplied input. Callers
+		   treat a negative return as "consider it as data", so this
+		   fails safe. */
+		if (!uni_is_valid_ucs4(n))
+			return -1;
+
 		/* Insert n at position i of the output: */
 		if (i <= out) {
 			out++;

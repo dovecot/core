@@ -60,8 +60,32 @@ static void test_punycode_decode_len_boundary(void)
 	test_end();
 }
 
+static void test_punycode_decode_invalid_codepoint(void)
+{
+	/* A punycoded label can reconstruct a code point that is not a valid
+	   Unicode scalar value (a surrogate 0xD800..0xDFFF or a value above
+	   U+10FFFF). Such input must be rejected with -1 rather than reaching
+	   the uni_ucs4_to_utf8() sink, which would i_assert(uni_is_valid_ucs4())
+	   and i_panic(). These inputs decode (with no basic code points, so
+	   out=0) to n = 0x80 + delta:
+	     "ib9b"  -> delta 55168  -> n = 0xD800 (high surrogate)
+	     "un32g" -> delta 1114000 -> n = 0x110010 (> U+10FFFF) */
+	const char *const inputs[] = { "ib9b", "un32g" };
+	string_t *r = t_str_new(42);
+
+	test_begin("punycode decoding invalid codepoint");
+	for (unsigned int i = 0; i < N_ELEMENTS(inputs); i++) {
+		str_truncate(r, 0);
+		int ret = punycode_decode((const unsigned char *)inputs[i],
+					  strlen(inputs[i]), r);
+		test_assert_idx(ret == -1, i);
+	}
+	test_end();
+}
+
 void test_punycode(void)
 {
 	test_punycode_decode();
 	test_punycode_decode_len_boundary();
+	test_punycode_decode_invalid_codepoint();
 }
