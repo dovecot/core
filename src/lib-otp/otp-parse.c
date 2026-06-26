@@ -69,6 +69,7 @@ int otp_read_hex(const char *data, const char **endptr, unsigned char *hash)
 }
 
 #define add_word() do { \
+	i_assert(count < OTP_WORDS_NUMBER); \
 	tmp = otp_lookup_word(str_c(word)); \
 	buffer_append(&buf, &tmp, sizeof(tmp)); \
 	count++; \
