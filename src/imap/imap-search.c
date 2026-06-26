@@ -3,6 +3,7 @@
 #include "imap-common.h"
 #include "ostream.h"
 #include "str.h"
+#include "strnum.h"
 #include "seq-range-array.h"
 #include "time-util.h"
 #include "imap-resp-code.h"
@@ -21,15 +22,15 @@ static int imap_search_deinit(struct imap_search_context *ctx);
 static int
 imap_partial_range_parse(struct imap_search_context *ctx, const char *str)
 {
-	ctx->partial1 = 0;
-	ctx->partial2 = 0;
-	for (; *str >= '0' && *str <= '9'; str++)
-		ctx->partial1 = ctx->partial1 * 10 + *str-'0';
-	if (*str != ':' || ctx->partial1 == 0)
+	const char *p;
+
+	/* Parse with overflow detection: accumulating into uint32_t by hand
+	   would silently wrap for values like 99999999999. */
+	if (str_parse_uint32(str, &ctx->partial1, &p) < 0 ||
+	    *p != ':' || ctx->partial1 == 0)
 		return -1;
-	for (str++; *str >= '0' && *str <= '9'; str++)
-		ctx->partial2 = ctx->partial2 * 10 + *str-'0';
-	if (*str != '\0' || ctx->partial2 == 0)
+	if (str_parse_uint32(p + 1, &ctx->partial2, &p) < 0 ||
+	    *p != '\0' || ctx->partial2 == 0)
 		return -1;
 
 	if (ctx->partial1 > ctx->partial2) {
