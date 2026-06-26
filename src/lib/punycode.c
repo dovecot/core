@@ -80,7 +80,7 @@ int punycode_decode(const unsigned char *input, size_t len, string_t *output)
 		if (*ptr >= 0x80)
 			/* Has non-ascii input, this cannot be punycoded. */
 			return -1;
-		i_assert(out < sizeof(label));
+		i_assert(array_count(&label) < len);
 		/* Add basic code points to label */
 		unichar_t ch = *ptr;
 		array_push_back(&label, &ch);
