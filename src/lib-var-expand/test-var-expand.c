@@ -1448,6 +1448,8 @@ static void test_var_expand_timestamp(void)
 		{ .key = "epoch", .value = "0" },
 		{ .key = "bigsec", .value = "10000000000" },
 		{ .key = "tslong", .value = "1749379200.1234567891" },
+		{ .key = "ms", .value = "1700000000500" },
+		{ .key = "ns", .value = "1749379200123456789" },
 		{ .key = "word", .value = "hello" },
 		VAR_EXPAND_TABLE_END
 	};
@@ -1481,6 +1483,27 @@ static void test_var_expand_timestamp(void)
 		  .out = "Invalid timestamp 'hello'", .ret = -1 },
 		{ .in = "%{ts2 | epoch('s')}", .out = "Unknown variable 'ts2'",
 		  .ret = -1 },
+		/* from_epoch: integer in a unit -> canonical sec.frac */
+		{ .in = "%{ts | from_epoch}", .out = "1749379200.000000000",
+		  .ret = 0 },
+		{ .in = "%{ts | from_epoch('s')}", .out = "1749379200.000000000",
+		  .ret = 0 },
+		{ .in = "%{ms | from_epoch('ms')}", .out = "1700000000.500000000",
+		  .ret = 0 },
+		{ .in = "%{ns | from_epoch('ns')}", .out = "1749379200.123456789",
+		  .ret = 0 },
+		{ .in = "%{ms | from_epoch(unit='ms')}",
+		  .out = "1700000000.500000000", .ret = 0 },
+		/* from_epoch round-trips with epoch */
+		{ .in = "%{ns | from_epoch('ns') | epoch('ns')}",
+		  .out = "1749379200123456789", .ret = 0 },
+		/* from_epoch errors */
+		{ .in = "%{ms | from_epoch('bogus')}",
+		  .out = "Unsupported unit 'bogus' for 'from_epoch'", .ret = -1 },
+		{ .in = "%{word | from_epoch('ms')}",
+		  .out = "Invalid timestamp 'hello'", .ret = -1 },
+		{ .in = "%{from_epoch('ms')}",
+		  .out = "from_epoch: No value to convert from epoch", .ret = -1 },
 	};
 
 	const struct var_expand_params params = {

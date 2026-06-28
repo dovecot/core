@@ -1270,6 +1270,64 @@ static int fn_epoch(const struct var_expand_statement *stmt,
 	return 0;
 }
 
+/* Inverse of 'epoch': convert an integer UNIX timestamp given in s/ms/us/ns
+   into the canonical "<seconds>.<nanoseconds>" form. */
+static int fn_from_epoch(const struct var_expand_statement *stmt,
+			 struct var_expand_state *state, const char **error_r)
+{
+	const char *unit = "s";
+
+	struct var_expand_parameter_iter_context *ctx =
+		var_expand_parameter_iter_init(stmt);
+	while (var_expand_parameter_iter_more(ctx)) {
+		const struct var_expand_parameter *par =
+			var_expand_parameter_iter_next(ctx);
+		const char *key = var_expand_parameter_key(par);
+		if (null_strcmp(key, "unit") == 0 ||
+		    (key == NULL && var_expand_parameter_idx(par) == 0)) {
+			if (var_expand_parameter_string_or_var(state, par,
+							       &unit, error_r) < 0)
+				return -1;
+		} else if (key != NULL)
+			ERROR_UNSUPPORTED_KEY(key);
+		else
+			ERROR_TOO_MANY_UNNAMED_PARAMETERS;
+	}
+
+	ERROR_IF_NO_TRANSFER_TO("convert from epoch");
+
+	intmax_t value;
+	if (str_to_intmax(str_c(state->transfer), &value) < 0) {
+		*error_r = t_strdup_printf("Invalid timestamp '%s'",
+					   str_c(state->transfer));
+		return -1;
+	}
+
+	uintmax_t divisor;
+	if (strcmp(unit, "s") == 0)
+		divisor = 1;
+	else if (strcmp(unit, "ms") == 0)
+		divisor = 1000;
+	else if (strcmp(unit, "us") == 0)
+		divisor = 1000000;
+	else if (strcmp(unit, "ns") == 0)
+		divisor = 1000000000;
+	else {
+		*error_r = t_strdup_printf(
+			"Unsupported unit '%s' for 'from_epoch'", unit);
+		return -1;
+	}
+
+	bool neg = value < 0;
+	uintmax_t v = neg ? -(uintmax_t)value : (uintmax_t)value;
+	uintmax_t sec = v / divisor;
+	uintmax_t nsec = (v % divisor) * (1000000000 / divisor);
+
+	var_expand_state_set_transfer(state,
+		t_strdup_printf("%s%ju.%09ju", neg ? "-" : "", sec, nsec));
+	return 0;
+}
+
 static const struct var_expand_filter var_expand_builtin_filters[] = {
 	{ .name = "lookup", .filter = fn_lookup },
 	{ .name = "literal", .filter = fn_literal },
@@ -1311,6 +1369,7 @@ static const struct var_expand_filter var_expand_builtin_filters[] = {
 	{ .name = "escape", .filter = fn_escape },
 	{ .name = "safe", .filter = fn_safe },
 	{ .name = "epoch", .filter = fn_epoch },
+	{ .name = "from_epoch", .filter = fn_from_epoch },
 	{ .name = NULL }
 };
 
