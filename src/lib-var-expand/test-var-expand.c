@@ -1504,6 +1504,32 @@ static void test_var_expand_timestamp(void)
 		  .out = "Invalid timestamp 'hello'", .ret = -1 },
 		{ .in = "%{from_epoch('ms')}",
 		  .out = "from_epoch: No value to convert from epoch", .ret = -1 },
+		/* date formatting, default timezone is UTC */
+		{ .in = "%{ts | date('%Y-%m-%d %H:%M:%S')}",
+		  .out = "2025-06-08 10:40:00", .ret = 0 },
+		{ .in = "%{ts | date('%Y-%m-%d %H:%M:%S', 'utc')}",
+		  .out = "2025-06-08 10:40:00", .ret = 0 },
+		{ .in = "%{ts | date('%Y-%m-%d %H:%M:%S', 'gmt')}",
+		  .out = "2025-06-08 10:40:00", .ret = 0 },
+		{ .in = "%{ts | date(format='%H:%M', tz='utc')}",
+		  .out = "10:40", .ret = 0 },
+		{ .in = "%{epoch | date('%Y-%m-%d %H:%M:%S')}",
+		  .out = "1970-01-01 00:00:00", .ret = 0 },
+		/* fractional seconds are ignored by date */
+		{ .in = "%{tsms | date('%Y-%m-%d %H:%M:%S')}",
+		  .out = "2023-11-14 22:13:20", .ret = 0 },
+		/* from_epoch feeds date */
+		{ .in = "%{ms | from_epoch('ms') | date('%Y-%m-%d %H:%M:%S')}",
+		  .out = "2023-11-14 22:13:20", .ret = 0 },
+		/* date errors */
+		{ .in = "%{ts | date}", .out = "date: Missing date format",
+		  .ret = -1 },
+		{ .in = "%{ts | date('%H', 'mars')}",
+		  .out = "Unsupported timezone 'mars' for 'date'", .ret = -1 },
+		{ .in = "%{date('%H')}", .out = "date: No value to format as date",
+		  .ret = -1 },
+		/* chaining with other filters */
+		{ .in = "%{ts | date('%Y') | upper}", .out = "2025", .ret = 0 },
 	};
 
 	const struct var_expand_params params = {

@@ -9,10 +9,12 @@
 #include "strescape.h"
 #include "str-sanitize.h"
 #include "dregex.h"
+#include "time-util.h"
 #include "var-expand-private.h"
 #include "expansion.h"
 
 #include <ctype.h>
+#include <time.h>
 
 #define MAX_PADDING 256
 
@@ -1328,6 +1330,78 @@ static int fn_from_epoch(const struct var_expand_statement *stmt,
 	return 0;
 }
 
+/* Pass the configured strftime format through, trusting it for
+   -Wformat-nonliteral (the format comes from the configuration). The
+   format_arg attribute only silences the warning when its checked argument
+   is a literal, so pass a literal as the checked argument and return the
+   real runtime format separately. */
+static const char *date_strftime_format(const char *dummy, const char *format)
+	ATTR_FORMAT_ARG(1);
+static const char *date_strftime_format(const char *dummy ATTR_UNUSED,
+					const char *format)
+{
+	return format;
+}
+
+static int fn_date(const struct var_expand_statement *stmt,
+		   struct var_expand_state *state, const char **error_r)
+{
+	const char *format = NULL;
+	const char *tz = "utc";
+
+	struct var_expand_parameter_iter_context *ctx =
+		var_expand_parameter_iter_init(stmt);
+	while (var_expand_parameter_iter_more(ctx)) {
+		const struct var_expand_parameter *par =
+			var_expand_parameter_iter_next(ctx);
+		const char *key = var_expand_parameter_key(par);
+		if (null_strcmp(key, "format") == 0 ||
+		    (key == NULL && var_expand_parameter_idx(par) == 0)) {
+			if (var_expand_parameter_string_or_var(state, par,
+							       &format, error_r) < 0)
+				return -1;
+		} else if (null_strcmp(key, "tz") == 0 ||
+			   (key == NULL && var_expand_parameter_idx(par) == 1)) {
+			if (var_expand_parameter_string_or_var(state, par,
+							       &tz, error_r) < 0)
+				return -1;
+		} else if (key != NULL)
+			ERROR_UNSUPPORTED_KEY(key);
+		else
+			ERROR_TOO_MANY_UNNAMED_PARAMETERS;
+	}
+
+	if (format == NULL) {
+		*error_r = "Missing date format";
+		return -1;
+	}
+
+	ERROR_IF_NO_TRANSFER_TO("format as date");
+
+	intmax_t sec;
+	unsigned int nsec;
+	if (parse_unixtime(str_c(state->transfer), &sec, &nsec, error_r) < 0)
+		return -1;
+
+	time_t t = (time_t)sec;
+	struct tm tm;
+	if (strcmp(tz, "local") == 0) {
+		if (localtime_r(&t, &tm) == NULL)
+			i_panic("localtime_r() failed: %m");
+	} else if (strcmp(tz, "utc") == 0 || strcmp(tz, "gmt") == 0) {
+		if (gmtime_r(&t, &tm) == NULL)
+			i_panic("gmtime_r() failed: %m");
+	} else {
+		*error_r = t_strdup_printf("Unsupported timezone '%s' for 'date'",
+					   tz);
+		return -1;
+	}
+
+	var_expand_state_set_transfer(state,
+				      t_strftime(date_strftime_format("unused", format), &tm));
+	return 0;
+}
+
 static const struct var_expand_filter var_expand_builtin_filters[] = {
 	{ .name = "lookup", .filter = fn_lookup },
 	{ .name = "literal", .filter = fn_literal },
@@ -1370,6 +1444,7 @@ static const struct var_expand_filter var_expand_builtin_filters[] = {
 	{ .name = "safe", .filter = fn_safe },
 	{ .name = "epoch", .filter = fn_epoch },
 	{ .name = "from_epoch", .filter = fn_from_epoch },
+	{ .name = "date", .filter = fn_date },
 	{ .name = NULL }
 };
 

@@ -84,6 +84,7 @@ static const char *const filter_var_names[] = {
 	"calculate",
 	"epoch",
 	"from_epoch",
+	"date",
 	NULL
 };
 
