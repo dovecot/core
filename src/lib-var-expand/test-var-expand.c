@@ -1437,6 +1437,35 @@ static void test_var_expand_split(void)
 	test_end();
 }
 
+static void test_var_expand_timestamp(void)
+{
+	test_begin("var_expand(timestamp)");
+
+	const struct var_expand_params params = { 0 };
+
+	/* %{time:unix} returns the current time as <seconds>.<nanoseconds>;
+	   only the format can be checked deterministically. */
+	string_t *dest = t_str_new(64);
+	const char *error;
+	test_assert(var_expand(dest, "%{time:unix}", &params, &error) == 0);
+
+	const char *str = str_c(dest);
+	const char *dot = strchr(str, '.');
+	test_assert(dot != NULL);
+	if (dot != NULL) {
+		/* 9-digit nanosecond part */
+		test_assert(strlen(dot + 1) == 9);
+		intmax_t sec;
+		test_assert(str_to_intmax(t_strdup_until(str, dot), &sec) == 0);
+		/* sanity: after 2020-01-01 */
+		test_assert(sec > 1577836800);
+	}
+
+	str_free(&dest);
+
+	test_end();
+}
+
 static void test_var_expand_to_string(void)
 {
 	const char *const test_cases[] = {
@@ -1488,6 +1517,7 @@ int main(int argc, char *const argv[])
 		test_var_expand_perc,
 		test_var_expand_set_copy,
 		test_var_expand_generate,
+		test_var_expand_timestamp,
 		test_var_expand_export_import,
 		test_var_expand_split,
 		test_var_expand_to_string,

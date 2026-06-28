@@ -196,6 +196,16 @@ static int var_expand_date(const char *key, const char **value_r,
 static int var_expand_time(const char *key, const char **value_r,
 			   void *context ATTR_UNUSED, const char **error_r)
 {
+	if (strcmp(key, "unix") == 0) {
+		/* Current time as a "<seconds>.<nanoseconds>" UNIX timestamp.
+		   Use the epoch and date filters to convert it. */
+		uint64_t ns = i_nanoseconds();
+		*value_r = t_strdup_printf("%ju.%09ju",
+					   (uintmax_t)(ns / 1000000000),
+					   (uintmax_t)(ns % 1000000000));
+		return 0;
+	}
+
 	struct tm tm;
 	struct timeval tv;
 	i_gettimeofday(&tv);
