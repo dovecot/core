@@ -1441,7 +1441,53 @@ static void test_var_expand_timestamp(void)
 {
 	test_begin("var_expand(timestamp)");
 
-	const struct var_expand_params params = { 0 };
+	const struct var_expand_table table[] = {
+		{ .key = "ts", .value = "1749379200" },
+		{ .key = "tsfrac", .value = "1749379200.123456789" },
+		{ .key = "tsms", .value = "1700000000.5" },
+		{ .key = "epoch", .value = "0" },
+		{ .key = "bigsec", .value = "10000000000" },
+		{ .key = "tslong", .value = "1749379200.1234567891" },
+		{ .key = "word", .value = "hello" },
+		VAR_EXPAND_TABLE_END
+	};
+
+	const struct var_expand_test tests[] = {
+		/* epoch unit conversion */
+		{ .in = "%{ts | epoch}", .out = "1749379200", .ret = 0 },
+		{ .in = "%{ts | epoch('s')}", .out = "1749379200", .ret = 0 },
+		{ .in = "%{tsfrac | epoch}", .out = "1749379200", .ret = 0 },
+		{ .in = "%{tsfrac | epoch('s')}", .out = "1749379200", .ret = 0 },
+		{ .in = "%{tsfrac | epoch('ms')}", .out = "1749379200123", .ret = 0 },
+		{ .in = "%{tsfrac | epoch('us')}", .out = "1749379200123456", .ret = 0 },
+		{ .in = "%{tsfrac | epoch('ns')}", .out = "1749379200123456789", .ret = 0 },
+		/* fraction longer than ns precision is truncated */
+		{ .in = "%{tslong | epoch('ns')}", .out = "1749379200123456789", .ret = 0 },
+		/* fraction shorter than ns precision is zero-padded */
+		{ .in = "%{tsms | epoch('ms')}", .out = "1700000000500", .ret = 0 },
+		{ .in = "%{tsms | epoch('ns')}", .out = "1700000000500000000", .ret = 0 },
+		/* named unit parameter */
+		{ .in = "%{tsfrac | epoch(unit='ms')}", .out = "1749379200123", .ret = 0 },
+		/* epoch zero */
+		{ .in = "%{epoch | epoch('ns')}", .out = "0", .ret = 0 },
+		/* large seconds value: 's' is fine, but scaling overflows */
+		{ .in = "%{bigsec | epoch('s')}", .out = "10000000000", .ret = 0 },
+		{ .in = "%{bigsec | epoch('ns')}",
+		  .out = "out of range for unit 'ns'", .ret = -1 },
+		/* epoch errors */
+		{ .in = "%{ts | epoch('bogus')}",
+		  .out = "Unsupported unit 'bogus' for 'epoch'", .ret = -1 },
+		{ .in = "%{word | epoch('s')}",
+		  .out = "Invalid timestamp 'hello'", .ret = -1 },
+		{ .in = "%{ts2 | epoch('s')}", .out = "Unknown variable 'ts2'",
+		  .ret = -1 },
+	};
+
+	const struct var_expand_params params = {
+		.table = table,
+	};
+
+	run_var_expand_tests(&params, tests, N_ELEMENTS(tests));
 
 	/* %{time:unix} returns the current time as <seconds>.<nanoseconds>;
 	   only the format can be checked deterministically. */
@@ -1460,6 +1506,13 @@ static void test_var_expand_timestamp(void)
 		/* sanity: after 2020-01-01 */
 		test_assert(sec > 1577836800);
 	}
+
+	/* %{time:unix} must round-trip through the epoch filter */
+	str_truncate(dest, 0);
+	test_assert(var_expand(dest, "%{time:unix | epoch('ms')}", &params,
+			       &error) == 0);
+	intmax_t msec;
+	test_assert(str_to_intmax(str_c(dest), &msec) == 0);
 
 	str_free(&dest);
 

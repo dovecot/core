@@ -1156,6 +1156,120 @@ static int fn_safe(const struct var_expand_statement *stmt,
 	return 0;
 }
 
+/* Parse a UNIX timestamp string into whole seconds and nanoseconds. The input
+   may be a plain integer ("1749379200") or have a fractional part
+   ("1749379200.123456789"). The fraction is padded or truncated to nanosecond
+   precision. */
+static int parse_unixtime(const char *str, intmax_t *sec_r,
+			  unsigned int *nsec_r, const char **error_r)
+{
+	const char *p;
+
+	if (str_parse_intmax(str, sec_r, &p) < 0) {
+		*error_r = t_strdup_printf("Invalid timestamp '%s'", str);
+		return -1;
+	}
+
+	unsigned int nsec = 0;
+	if (*p == '.') {
+		/* Fractional seconds: pad or truncate to nanosecond
+		   precision. scale drops to 0 after 9 digits, which bounds
+		   nsec below 1e9 (so it cannot overflow); any further digits
+		   are only validated and then ignored (truncated). */
+		unsigned int scale = 100000000;
+
+		for (p++; *p != '\0'; p++) {
+			if (*p < '0' || *p > '9') {
+				*error_r = t_strdup_printf(
+					"Invalid timestamp '%s'", str);
+				return -1;
+			}
+			if (scale > 0) {
+				nsec += (unsigned int)(*p - '0') * scale;
+				scale /= 10;
+			}
+		}
+	} else if (*p != '\0') {
+		*error_r = t_strdup_printf("Invalid timestamp '%s'", str);
+		return -1;
+	}
+	*nsec_r = nsec;
+	return 0;
+}
+
+/* Compute sec*mul + add with overflow detection. mul must be > 0 and add must
+   be in the range [0, mul). Returns FALSE if the result does not fit intmax_t. */
+static bool epoch_scale(intmax_t sec, intmax_t mul, intmax_t add,
+			intmax_t *result_r)
+{
+	if (sec > INTMAX_MAX / mul || sec < INTMAX_MIN / mul)
+		return FALSE;
+	intmax_t scaled = sec * mul;
+	if (scaled > INTMAX_MAX - add)
+		return FALSE;
+	*result_r = scaled + add;
+	return TRUE;
+}
+
+static int fn_epoch(const struct var_expand_statement *stmt,
+		    struct var_expand_state *state, const char **error_r)
+{
+	const char *unit = "s";
+
+	struct var_expand_parameter_iter_context *ctx =
+		var_expand_parameter_iter_init(stmt);
+	while (var_expand_parameter_iter_more(ctx)) {
+		const struct var_expand_parameter *par =
+			var_expand_parameter_iter_next(ctx);
+		const char *key = var_expand_parameter_key(par);
+		if (null_strcmp(key, "unit") == 0 ||
+		    (key == NULL && var_expand_parameter_idx(par) == 0)) {
+			if (var_expand_parameter_string_or_var(state, par,
+							       &unit, error_r) < 0)
+				return -1;
+		} else if (key != NULL)
+			ERROR_UNSUPPORTED_KEY(key);
+		else
+			ERROR_TOO_MANY_UNNAMED_PARAMETERS;
+	}
+
+	ERROR_IF_NO_TRANSFER_TO("convert to epoch");
+
+	intmax_t sec;
+	unsigned int nsec;
+	if (parse_unixtime(str_c(state->transfer), &sec, &nsec, error_r) < 0)
+		return -1;
+
+	intmax_t result, mul, add;
+	if (strcmp(unit, "s") == 0) {
+		result = sec;
+	} else {
+		if (strcmp(unit, "ms") == 0) {
+			mul = 1000;
+			add = nsec / 1000000;
+		} else if (strcmp(unit, "us") == 0) {
+			mul = 1000000;
+			add = nsec / 1000;
+		} else if (strcmp(unit, "ns") == 0) {
+			mul = 1000000000;
+			add = nsec;
+		} else {
+			*error_r = t_strdup_printf(
+				"Unsupported unit '%s' for 'epoch'", unit);
+			return -1;
+		}
+		if (!epoch_scale(sec, mul, add, &result)) {
+			*error_r = t_strdup_printf(
+				"Timestamp '%s' out of range for unit '%s'",
+				str_c(state->transfer), unit);
+			return -1;
+		}
+	}
+
+	var_expand_state_set_transfer(state, t_strdup_printf("%jd", result));
+	return 0;
+}
+
 static const struct var_expand_filter var_expand_builtin_filters[] = {
 	{ .name = "lookup", .filter = fn_lookup },
 	{ .name = "literal", .filter = fn_literal },
@@ -1196,6 +1310,7 @@ static const struct var_expand_filter var_expand_builtin_filters[] = {
 	{ .name = "switch", .filter = expansion_filter_switch },
 	{ .name = "escape", .filter = fn_escape },
 	{ .name = "safe", .filter = fn_safe },
+	{ .name = "epoch", .filter = fn_epoch },
 	{ .name = NULL }
 };
 

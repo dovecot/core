@@ -82,6 +82,7 @@ static const char *const filter_var_names[] = {
 	"lookup",
 	"if",
 	"calculate",
+	"epoch",
 	NULL
 };
 
