@@ -85,6 +85,7 @@ static const char *const filter_var_names[] = {
 	"epoch",
 	"from_epoch",
 	"date",
+	"iso8601",
 	NULL
 };
 

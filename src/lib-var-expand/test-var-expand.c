@@ -1530,6 +1530,22 @@ static void test_var_expand_timestamp(void)
 		  .ret = -1 },
 		/* chaining with other filters */
 		{ .in = "%{ts | date('%Y') | upper}", .out = "2025", .ret = 0 },
+		/* ISO 8601 / RFC 3339 formatting (UTC -> 'Z') */
+		{ .in = "%{ts | iso8601}", .out = "2025-06-08T10:40:00Z", .ret = 0 },
+		{ .in = "%{ts | iso8601('utc')}", .out = "2025-06-08T10:40:00Z",
+		  .ret = 0 },
+		{ .in = "%{ts | iso8601(tz='gmt')}", .out = "2025-06-08T10:40:00Z",
+		  .ret = 0 },
+		{ .in = "%{epoch | iso8601}", .out = "1970-01-01T00:00:00Z",
+		  .ret = 0 },
+		/* fractional seconds are ignored */
+		{ .in = "%{tsms | iso8601}", .out = "2023-11-14T22:13:20Z",
+		  .ret = 0 },
+		/* iso8601 errors */
+		{ .in = "%{ts | iso8601('mars')}",
+		  .out = "Unsupported timezone 'mars' for 'iso8601'", .ret = -1 },
+		{ .in = "%{iso8601}",
+		  .out = "iso8601: No value to format as ISO 8601", .ret = -1 },
 	};
 
 	const struct var_expand_params params = {

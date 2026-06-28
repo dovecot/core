@@ -10,11 +10,14 @@
 #include "str-sanitize.h"
 #include "dregex.h"
 #include "time-util.h"
+#include "iso8601-date.h"
+#include "utc-offset.h"
 #include "var-expand-private.h"
 #include "expansion.h"
 
 #include <ctype.h>
 #include <time.h>
+#include <limits.h>
 
 #define MAX_PADDING 256
 
@@ -1402,6 +1405,58 @@ static int fn_date(const struct var_expand_statement *stmt,
 	return 0;
 }
 
+static int fn_iso8601(const struct var_expand_statement *stmt,
+		      struct var_expand_state *state, const char **error_r)
+{
+	const char *tz = "utc";
+
+	struct var_expand_parameter_iter_context *ctx =
+		var_expand_parameter_iter_init(stmt);
+	while (var_expand_parameter_iter_more(ctx)) {
+		const struct var_expand_parameter *par =
+			var_expand_parameter_iter_next(ctx);
+		const char *key = var_expand_parameter_key(par);
+		if (null_strcmp(key, "tz") == 0 ||
+		    (key == NULL && var_expand_parameter_idx(par) == 0)) {
+			if (var_expand_parameter_string_or_var(state, par,
+							       &tz, error_r) < 0)
+				return -1;
+		} else if (key != NULL)
+			ERROR_UNSUPPORTED_KEY(key);
+		else
+			ERROR_TOO_MANY_UNNAMED_PARAMETERS;
+	}
+
+	ERROR_IF_NO_TRANSFER_TO("format as ISO 8601");
+
+	intmax_t sec;
+	unsigned int nsec;
+	if (parse_unixtime(str_c(state->transfer), &sec, &nsec, error_r) < 0)
+		return -1;
+
+	time_t t = (time_t)sec;
+	struct tm tm;
+	int zone_offset;
+	if (strcmp(tz, "local") == 0) {
+		if (localtime_r(&t, &tm) == NULL)
+			i_panic("localtime_r() failed: %m");
+		zone_offset = utc_offset(&tm, t);
+	} else if (strcmp(tz, "utc") == 0 || strcmp(tz, "gmt") == 0) {
+		if (gmtime_r(&t, &tm) == NULL)
+			i_panic("gmtime_r() failed: %m");
+		/* INT_MAX makes iso8601_date_create_tm() use the 'Z' suffix */
+		zone_offset = INT_MAX;
+	} else {
+		*error_r = t_strdup_printf(
+			"Unsupported timezone '%s' for 'iso8601'", tz);
+		return -1;
+	}
+
+	var_expand_state_set_transfer(state,
+				      iso8601_date_create_tm(&tm, zone_offset));
+	return 0;
+}
+
 static const struct var_expand_filter var_expand_builtin_filters[] = {
 	{ .name = "lookup", .filter = fn_lookup },
 	{ .name = "literal", .filter = fn_literal },
@@ -1445,6 +1500,7 @@ static const struct var_expand_filter var_expand_builtin_filters[] = {
 	{ .name = "epoch", .filter = fn_epoch },
 	{ .name = "from_epoch", .filter = fn_from_epoch },
 	{ .name = "date", .filter = fn_date },
+	{ .name = "iso8601", .filter = fn_iso8601 },
 	{ .name = NULL }
 };
 
