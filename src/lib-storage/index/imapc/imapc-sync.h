@@ -31,6 +31,7 @@ struct imapc_sync_context {
 	bool failed:1;
 };
 
+int imapc_mailbox_flush_local_flag_changes(struct imapc_mailbox *mbox);
 struct mailbox_sync_context *
 imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
 int imapc_mailbox_sync_deinit(struct mailbox_sync_context *ctx,

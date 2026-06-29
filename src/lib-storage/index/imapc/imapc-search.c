@@ -10,6 +10,7 @@
 #include "imapc-msgmap.h"
 #include "imapc-storage.h"
 #include "imapc-search.h"
+#include "imapc-sync.h"
 #include "index-sort.h"
 
 #define IMAPC_SEARCHCTX(obj) \
@@ -328,6 +329,14 @@ imapc_search_init(struct mailbox_transaction_context *t,
 	i_array_init(&ictx->rseqs, 64);
 	i_array_init(&ictx->sorted_uids, 64);
 	MODULE_CONTEXT_SET(ctx, imapc_storage_module, ictx);
+
+	/* flush locally cached flag changes to the remote so that the
+	   passed-through SEARCH/SORT evaluates the up-to-date flags. If this
+	   fails, leave ictx->success=FALSE so that imapc_search_deinit()
+	   returns the error to the client instead of returning stale
+	   results. */
+	if (imapc_mailbox_flush_local_flag_changes(mbox) < 0)
+		return ctx;
 
 	cmd = imapc_client_mailbox_cmd(mbox->client_box,
 				       imapc_search_callback, ctx);
