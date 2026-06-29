@@ -413,23 +413,25 @@ rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 	return -1;
 }
 
-void rfc822_decode_punycode(const char *input, size_t len, string_t *result)
+void rfc822_decode_punycode(const unsigned char *input, size_t len,
+			    string_t *result)
 {
-	const char *pos = input;
-	const char *end = CONST_PTR_OFFSET(input, len);
+	const unsigned char *pos = input;
+	const unsigned char *end = CONST_PTR_OFFSET(input, len);
 
 	while (pos < end) {
-		const char *value;
-		const char *delim = memchr(pos, '.', end - pos);
+		const unsigned char *delim = memchr(pos, '.', end - pos);
 		if (delim == NULL)
 			delim = end;
-		if (!str_begins(pos, "xn--", &value) ||
-		    punycode_decode((const unsigned char *)value,
-				    delim - value, result) < 0) {
+		/* input is not NUL-terminated, so bound the "xn--" prefix
+		   check by the label length rather than relying on str_begins()
+		   scanning up to a NUL. */
+		if (delim - pos < 4 || memcmp(pos, "xn--", 4) != 0 ||
+		    punycode_decode(pos + 4, delim - pos - 4, result) < 0) {
 			/* Not a punycode label, or it could not be decoded -
 			   keep the label as-is. Copy only up to the delimiter:
-			   the trailing '.' (or the buffer's NUL terminator when
-			   this is the last label) must not be copied here. */
+			   the trailing '.' (when this is not the last label)
+			   must not be copied here. */
 			str_append_data(result, pos, delim - pos);
 		}
 		if (delim < end) {
@@ -462,9 +464,8 @@ int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str)
 		if (ret == 0) {
 			size_t start_pos = str_len(str);
 			string_t *u = t_str_new(64);
-			const char *data = t_strndup(str_data(str) + start_pos,
-						     str_len(str) - start_pos);
-			rfc822_decode_punycode(data, strlen(data), u);
+			rfc822_decode_punycode(str_data(str) + start_pos,
+					       str_len(str) - start_pos, u);
 			str_truncate(str, start_pos);
 			str_append_str(str, u);
 		}

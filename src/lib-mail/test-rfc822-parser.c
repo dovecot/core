@@ -221,7 +221,8 @@ static void test_rfc822_decode_punycode(void)
 	test_begin("rfc822 decode punycode");
 	for (size_t i = 0; i < N_ELEMENTS(cases); i++) {
 		str_truncate(res, 0);
-		rfc822_decode_punycode(cases[i].in, strlen(cases[i].in), res);
+		rfc822_decode_punycode((const unsigned char *)cases[i].in,
+				       strlen(cases[i].in), res);
 		test_assert_strcmp_idx(str_c(res),
 				       cases[i].out, i);
 		/* the decoded result must not contain a stray trailing NUL */
