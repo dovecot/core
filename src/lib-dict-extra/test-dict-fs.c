@@ -1,3 +1,5 @@
+/* Copyright (c) Dovecot authors, see top-level COPYING file */
+
 #include <errno.h>
 #include <sys/stat.h>
 #include "lib.h"

@@ -1,3 +1,5 @@
+/* Copyright (c) Dovecot authors, see top-level COPYING file */
+
 #include "lib.h"
 
 #ifndef HAVE___GSS_USEROK

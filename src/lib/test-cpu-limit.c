@@ -1,3 +1,5 @@
+/* Copyright (c) Dovecot authors, see top-level COPYING file */
+
 #include "test-lib.h"
 #include "lib-signals.h"
 #include "guid.h"
