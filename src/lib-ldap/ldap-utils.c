@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ldap-utils.h"
 #include "ssl-settings.h"
+#include "iostream-ssl.h"
 #include "settings-parser.h"
 
 #ifdef LDAP_OPT_X_TLS
@@ -84,6 +85,24 @@ int ldap_set_tls_options(LDAP *ld ATTR_UNUSED, bool starttls ATTR_UNUSED,
 	return 0;
 }
 #else
+static bool ldap_tls_opt_is_set(LDAP *ld, int opt)
+{
+	char *value;
+	if (ldap_get_option(ld, opt, &value) != LDAP_SUCCESS || value == NULL)
+		return FALSE;
+	bool is_set = value[0] != '\0';
+	free(value);
+	return is_set;
+}
+
+/* Returns TRUE if the handle already has a CA file or dir configured, either
+   from Dovecot settings or inherited from ldap.conf. */
+static bool ldap_tls_has_ca(LDAP *ld)
+{
+	return ldap_tls_opt_is_set(ld, LDAP_OPT_X_TLS_CACERTFILE) ||
+	       ldap_tls_opt_is_set(ld, LDAP_OPT_X_TLS_CACERTDIR);
+}
+
 int ldap_set_tls_options(LDAP *ld, bool starttls, const char *uris,
 			 const struct ssl_settings *ssl_set,
 			 const char **error_r)
@@ -116,6 +135,28 @@ int ldap_set_tls_options(LDAP *ld, bool starttls, const char *uris,
 		if (ldap_set_opt_str(ld, LDAP_OPT_X_TLS_CACERTDIR,
 				     ssl_set->ssl_client_ca_dir,
 				     "ssl_client_ca_dir", error_r) < 0)
+			return -1;
+	}
+	/* If neither Dovecot nor ldap.conf provides a CA, fall back to the
+	   OpenSSL system default CA paths. OpenLDAP built against GnuTLS does
+	   not load the system trust store on its own (unlike its OpenSSL
+	   backend), so without this the handshake has no trust anchors. This
+	   mirrors lib-ssl-iostream's SSL_CTX_set_default_verify_paths(). */
+	if (!have_ca_settings && !ldap_tls_has_ca(ld)) {
+		const char *default_ca_file, *default_ca_dir;
+		if (ssl_iostream_get_default_ca_paths(&default_ca_file,
+						      &default_ca_dir,
+						      error_r) < 0)
+			return -1;
+		if (default_ca_file != NULL &&
+		    ldap_set_opt_str(ld, LDAP_OPT_X_TLS_CACERTFILE,
+				     default_ca_file, "ssl_client_ca_file",
+				     error_r) < 0)
+			return -1;
+		if (default_ca_dir != NULL &&
+		    ldap_set_opt_str(ld, LDAP_OPT_X_TLS_CACERTDIR,
+				     default_ca_dir, "ssl_client_ca_dir",
+				     error_r) < 0)
 			return -1;
 	}
 	if (ldap_set_opt_str(ld, LDAP_OPT_X_TLS_CERTFILE, cert_file.path,
