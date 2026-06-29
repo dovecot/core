@@ -415,7 +415,6 @@ rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 
 void rfc822_decode_punycode(const char *input, size_t len, string_t *result)
 {
-	string_t *decoded = t_str_new(64);
 	const char *pos = input;
 	const char *end = CONST_PTR_OFFSET(input, len);
 
@@ -425,7 +424,6 @@ void rfc822_decode_punycode(const char *input, size_t len, string_t *result)
 		if (delim == NULL)
 			delim = end;
 		if (str_begins(pos, "xn--", &value)) {
-			str_truncate(decoded, 0);
 			if (punycode_decode((const unsigned char *)value, delim - value, result) < 0)
 				/* Consider it as data */
 				str_append_data(result, pos, delim - pos + 1);
