@@ -420,18 +420,21 @@ void rfc822_decode_punycode(const char *input, size_t len, string_t *result)
 
 	while (pos < end) {
 		const char *value;
-		const char *delim = strchr(pos, '.');
+		const char *delim = memchr(pos, '.', end - pos);
 		if (delim == NULL)
 			delim = end;
-		if (str_begins(pos, "xn--", &value)) {
-			if (punycode_decode((const unsigned char *)value, delim - value, result) < 0)
-				/* Consider it as data */
-				str_append_data(result, pos, delim - pos + 1);
-			else if (*delim == '.')
-				str_append_c(result, *delim);
-		} else {
-			/* No punycode prefix */
-			str_append_data(result, pos, delim - pos + 1);
+		if (!str_begins(pos, "xn--", &value) ||
+		    punycode_decode((const unsigned char *)value,
+				    delim - value, result) < 0) {
+			/* Not a punycode label, or it could not be decoded -
+			   keep the label as-is. Copy only up to the delimiter:
+			   the trailing '.' (or the buffer's NUL terminator when
+			   this is the last label) must not be copied here. */
+			str_append_data(result, pos, delim - pos);
+		}
+		if (delim < end) {
+			/* re-add the '.' label separator */
+			str_append_c(result, '.');
 		}
 		pos = delim + 1;
 	}

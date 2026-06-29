@@ -210,6 +210,11 @@ static void test_rfc822_decode_punycode(void)
 		{ .in = "org.xn--gr-zia", "org.gr\xc3\xa5" },
 		{ .in = "org.xn--gr-zia.org", "org.gr\xc3\xa5.org" },
 		{ .in = "org.xn--zz-zzzz.org", "org.xn--zz-zzzz.org" },
+		/* labels with no trailing '.' must not get an extra byte
+		   (the buffer NUL terminator) copied into the result */
+		{ .in = "example", "example" },
+		{ .in = "a.b.c", "a.b.c" },
+		{ .in = "xn--zz-zzzz", "xn--zz-zzzz" },
 	};
 	string_t *res = t_str_new(64);
 
@@ -219,6 +224,8 @@ static void test_rfc822_decode_punycode(void)
 		rfc822_decode_punycode(cases[i].in, strlen(cases[i].in), res);
 		test_assert_strcmp_idx(str_c(res),
 				       cases[i].out, i);
+		/* the decoded result must not contain a stray trailing NUL */
+		test_assert_idx(str_len(res) == strlen(cases[i].out), i);
 	}
 	test_end();
 }
