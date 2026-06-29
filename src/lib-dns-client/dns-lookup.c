@@ -188,11 +188,21 @@ static void dns_client_disconnect(struct dns_client *client, const char *error)
 static void dns_client_destroy(struct connection *conn)
 {
 	struct dns_client *client = container_of(conn, struct dns_client, conn);
+	bool deinit_client_at_free = client->deinit_client_at_free;
 
+	/* Temporarily clear deinit_client_at_free so that aborting the pending
+	   lookups below doesn't free the client (and this connection) from
+	   under us via dns_lookup_free() -> dns_client_deinit(). */
+	client->deinit_client_at_free = FALSE;
 	dns_client_disconnect(client, connection_disconnect_reason(&client->conn));
 	client->connected = FALSE;
 	timeout_remove(&client->to_idle);
 	connection_deinit(conn);
+
+	if (deinit_client_at_free) {
+		client->deinit_client_at_free = TRUE;
+		dns_client_deinit(&client);
+	}
 }
 
 static int dns_lookup_input_args(struct dns_lookup *lookup, const char *const *args)
