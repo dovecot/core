@@ -67,6 +67,8 @@ struct iostream_ssl_vfuncs {
 					 const char **cert_fp_r,
 					 const char **pubkey_fp_r,
 					 const char **error_r);
+
+	void (*get_default_ca_paths)(const char **file_r, const char **dir_r);
 };
 
 void iostream_ssl_module_init(const struct iostream_ssl_vfuncs *vfuncs);

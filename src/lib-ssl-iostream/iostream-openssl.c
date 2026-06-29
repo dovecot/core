@@ -9,6 +9,7 @@
 
 #include <openssl/rand.h>
 #include <openssl/err.h>
+#include <openssl/x509.h>
 
 static struct event_category event_category_ssl = {
 	.name = "ssl",
@@ -1084,6 +1085,21 @@ openssl_iostream_get_peer_cert_fingerprint(struct ssl_iostream *ssl_io,
 	return 1;
 }
 
+static void
+openssl_iostream_get_default_ca_paths(const char **file_r, const char **dir_r)
+{
+	*file_r = getenv(X509_get_default_cert_file_env());
+	if (*file_r == NULL)
+		*file_r = X509_get_default_cert_file();
+	if (*file_r != NULL && **file_r == '\0')
+		*file_r = NULL;
+
+	*dir_r = getenv(X509_get_default_cert_dir_env());
+	if (*dir_r == NULL)
+		*dir_r = X509_get_default_cert_dir();
+	if (*dir_r != NULL && **dir_r == '\0')
+		*dir_r = NULL;
+}
 
 static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.global_init = openssl_iostream_global_init,
@@ -1122,6 +1138,7 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 
 	.get_channel_binding = openssl_iostream_get_channel_binding,
 	.get_peer_cert_fingerprint = openssl_iostream_get_peer_cert_fingerprint,
+	.get_default_ca_paths = openssl_iostream_get_default_ca_paths,
 };
 
 void ssl_iostream_openssl_init(void)

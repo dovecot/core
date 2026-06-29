@@ -55,6 +55,17 @@ int io_stream_ssl_global_init(const struct ssl_iostream_settings *set,
 	return ssl_vfuncs->global_init(set, error_r);
 }
 
+int ssl_iostream_get_default_ca_paths(const char **file_r, const char **dir_r,
+				      const char **error_r)
+{
+	*file_r = NULL;
+	*dir_r = NULL;
+	if (!ssl_module_loaded && ssl_module_load(error_r) < 0)
+		return -1;
+	ssl_vfuncs->get_default_ca_paths(file_r, dir_r);
+	return 0;
+}
+
 int ssl_iostream_context_init_client(const struct ssl_iostream_settings *set,
 				     struct ssl_iostream_context **ctx_r,
 				     const char **error_r)

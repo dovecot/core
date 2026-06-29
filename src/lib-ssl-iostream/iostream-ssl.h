@@ -113,6 +113,14 @@ struct ssl_iostream_settings {
 /* Load SSL module */
 int ssl_module_load(const char **error_r);
 
+/* Returns the system default CA file and directory paths, honoring the same
+   SSL_CERT_FILE / SSL_CERT_DIR environment overrides as
+   SSL_CTX_set_default_verify_paths(). Either may be set to NULL if not
+   available. Useful for TLS backends (e.g. OpenLDAP/GnuTLS) that don't load the
+   system trust store on their own. */
+int ssl_iostream_get_default_ca_paths(const char **file_r, const char **dir_r,
+				      const char **error_r);
+
 /* If returned state is not SSL_IOSTREAM_STATE_OK, error_r is also returned.
    The returned error string becomes available via
    ssl_iostream_get_last_error(). The callback most likely should be calling
