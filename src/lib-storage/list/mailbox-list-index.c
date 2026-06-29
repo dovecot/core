@@ -1108,6 +1108,7 @@ static void mailbox_list_index_deinit(struct mailbox_list *list)
 	if (ilist->index != NULL) {
 		hash_table_destroy(&ilist->mailbox_hash);
 		hash_table_destroy(&ilist->mailbox_names);
+		hash_table_destroy(&ilist->mailbox_storage_name_hash);
 		pool_unref(&ilist->mailbox_pool);
 		if (ilist->opened)
 			mail_index_close(ilist->index);
