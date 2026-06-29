@@ -435,8 +435,6 @@ void rfc822_decode_punycode(const char *input, size_t len, string_t *result)
 		}
 		pos = delim + 1;
 	}
-	if (pos < end)
-		str_append_data(result, pos, end - pos);
 }
 
 int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str)
