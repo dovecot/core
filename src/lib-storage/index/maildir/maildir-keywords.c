@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
+/* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 /* note that everything here depends on uidlist file being locked the whole
    time. that's why we don't have any locking of our own, or that we do things

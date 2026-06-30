@@ -2,7 +2,7 @@
  * SCRAM-SHA-1 SASL authentication, see RFC-5802
  *
  * Copyright (c) 2011-2016 Florian Zeitz <florob@babelmonkeys.de>
- * Copyright (c) 2022-2023 Dovecot Oy
+ * Copyright (c) Dovecot authors, see top-level COPYING file
  *
  * This software is released under the MIT license.
  */

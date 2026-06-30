@@ -1,4 +1,4 @@
--- Copyright (c) 2025 Dovecot authors, see the included COPYING files
+-- Copyright (c) Dovecot authors, see top-level COPYING file
 
 function test_write_ostream(os)
   os:write("hello, world")

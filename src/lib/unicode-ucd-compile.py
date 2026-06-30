@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2025 Dovecot authors, see the included COPYING file
+# Copyright (c) Dovecot authors, see top-level COPYING file
 
 import argparse
 import bisect

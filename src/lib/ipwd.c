@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
+/* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #define _POSIX_PTHREAD_SEMANTICS /* for Solaris */
 #include "lib.h"

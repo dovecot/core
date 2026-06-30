@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2020 Dovecot authors, see the included COPYING file */
+/* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #define AUTH_REQUEST_FIELDS_CONST
 

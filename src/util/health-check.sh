@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (c) 2019 Dovecot authors, see the included COPYING file */
+# Copyright (c) Dovecot authors, see top-level COPYING file
 #
 # This script is intended to be called by the script service and to be
 # connected to a socket using a service configuration like this:

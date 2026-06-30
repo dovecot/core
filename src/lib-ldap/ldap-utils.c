@@ -1,4 +1,4 @@
-/* Copyright (c) 2024 Dovecot authors */
+/* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
 #include "ldap-utils.h"

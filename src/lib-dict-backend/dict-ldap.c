@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018 Dovecot authors */
+/* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
 

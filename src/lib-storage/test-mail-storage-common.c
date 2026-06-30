@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2020 Dovecot authors, see the included COPYING file */
+/* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
 #include "test-dir.h"

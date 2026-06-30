@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
+/* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #ifndef PUSH_NOTIFICATION_PLUGIN_H
 #define PUSH_NOTIFICATION_PLUGIN_H

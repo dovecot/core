@@ -1,4 +1,4 @@
-/* Copyright (c) 2022 Dovecot authors, see the included COPYING file */
+/* Copyright (c) Dovecot authors, see top-level COPYING file */
 #ifndef STR_PARSE_H
 #define STR_PARSE_H
 

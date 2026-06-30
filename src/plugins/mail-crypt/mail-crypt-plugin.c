@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
+/* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 /* FIXME: cache handling could be useful to move to Dovecot core, so that if
    we're using this plugin together with compress plugin there would be just

@@ -1,3 +1,5 @@
+(c) 2002-2026 Dovecot authors (See Git history for full timeline).
+
 See AUTHORS file for list of copyright holders.
 
 Everything in src/lib/, src/auth/, and src/lib-sql/ is under MIT license
