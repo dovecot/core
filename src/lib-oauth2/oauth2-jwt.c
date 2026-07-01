@@ -387,6 +387,9 @@ oauth2_jwt_copy_fields(ARRAY_TYPE(oauth2_field) *fields,
 
 			if (!json_node_is_singular(jnode)) {
 				root = array_append_space(&nodes);
+				/* array_append_space() may have reallocated the
+				   buffer, so refresh subroot to the new location. */
+				subroot = array_front(&nodes);
 				root->root = json_tree_node_get_child(tnode);
 				root->array = json_node_is_array(jnode);
 				if (jnode->name == NULL)
