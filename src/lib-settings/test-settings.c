@@ -443,6 +443,86 @@ static void test_strlist_key_no_override_expand(void)
 	test_end();
 }
 
+struct test_empty_default_settings {
+	pool_t pool;
+
+	unsigned int num;
+	unsigned int interval;
+	const char *str;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("test_empty_default_"#name, name, \
+				     struct test_empty_default_settings)
+
+static const struct setting_define test_empty_default_setting_defines[] = {
+	DEF(UINT, num),
+	DEF(TIME, interval),
+	DEF(STR, str),
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct test_empty_default_settings
+test_empty_default_default_settings = {
+	.num = 42,
+	.interval = 30,
+	.str = "default",
+};
+
+/* An empty built-in default for a setting that can't be empty (num, interval)
+   must be treated as "no default" and inherited from the struct default,
+   rather than failing to parse. An empty default for an emptyable setting
+   (str) is applied normally. */
+static const struct setting_keyvalue
+test_empty_default_default_settings_keyvalue[] = {
+	{ "test_empty_default_num", "" },
+	{ "test_empty_default_interval", "" },
+	{ "test_empty_default_str", "" },
+	{ NULL, NULL }
+};
+
+static const struct setting_parser_info test_empty_default_setting_parser_info = {
+	.name = "test_empty_default",
+
+	.defines = test_empty_default_setting_defines,
+	.defaults = &test_empty_default_default_settings,
+	.default_settings = test_empty_default_default_settings_keyvalue,
+
+	.struct_size = sizeof(struct test_empty_default_settings),
+	.pool_offset1 = 1 + offsetof(struct test_empty_default_settings, pool),
+};
+
+static void test_settings_empty_default(void)
+{
+	test_begin("settings_get - empty built-in default means no default");
+
+	struct settings_root *set_root = settings_root_init();
+	struct event *event = event_create(NULL);
+	event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
+
+	struct test_empty_default_settings *set;
+	const char *error = NULL;
+	int ret = settings_get(event, &test_empty_default_setting_parser_info,
+			       0, &set, &error);
+	test_assert(ret == 0);
+	test_assert(error == NULL);
+	if (error != NULL)
+		i_error("%s", error);
+	if (ret == 0) {
+		/* non-emptyable settings inherit their struct defaults */
+		test_assert(set->num == 42);
+		test_assert(set->interval == 30);
+		/* emptyable setting keeps the empty default */
+		test_assert_strcmp(set->str, "");
+		settings_free(set);
+	}
+
+	event_unref(&event);
+	settings_root_deinit(&set_root);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -450,6 +530,7 @@ int main(void)
 		test_var_expand_hierarchy,
 		test_var_expand_strlist_key,
 		test_strlist_key_no_override_expand,
+		test_settings_empty_default,
 		NULL
 	};
 	return test_run(test_functions);

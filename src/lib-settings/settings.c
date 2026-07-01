@@ -2502,9 +2502,22 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			else if (ctx->instance->pool != NULL)
 				pool_add_external_ref(&ctx->mpool->pool, ctx->instance->pool);
 		}
+		/* An empty built-in default for a setting that can't be empty
+		   (e.g. a number or time) means "no default": leave the value
+		   to be inherited from a less specific filter instead of
+		   failing. This lets a named filter keep a default-settings
+		   entry - so settings-history can override the value for old
+		   config versions - without forcing that value for current
+		   versions. The config process handles this equivalently in
+		   config_apply_exact_line(). */
+		bool empty_default =
+			set->type == SETTINGS_OVERRIDE_TYPE_DEFAULT &&
+			value[0] == '\0';
 		if (ctx->info->setting_apply != NULL &&
 		    !ctx->info->setting_apply(ctx->event, ctx->set_struct, key,
 					      &value, apply_flags, error_r)) {
+			if (empty_default)
+				continue;
 			*error_r = t_strdup_printf(
 				"Failed to override configuration from %s: "
 				"Invalid %s=%s: %s",
@@ -2514,6 +2527,8 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		}
 		if (settings_parse_keyidx_value_nodup(ctx->parser, key_idx, key,
 						      value) < 0) {
+			if (empty_default)
+				continue;
 			*error_r = t_strdup_printf(
 				"Failed to override configuration from %s: "
 				"Invalid %s=%s: %s",
