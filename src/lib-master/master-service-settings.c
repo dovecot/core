@@ -168,6 +168,7 @@ static const char *const dovecot_config_supported_versions[] = {
 	"3.1.3",
 	"3.1.4",
 	"3.1.5",
+	"3.1.6",
 	"3.2.0",
 #else
 	"2.4.0",
