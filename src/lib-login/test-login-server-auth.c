@@ -22,6 +22,8 @@
 #include "login-interface.h"
 #include "login-server-auth.h"
 
+#include <signal.h>
+
 #define TEST_SOCKET "./login-server-auth-test"
 #define SERVER_KILL_TIMEOUT_SECS    20
 
@@ -91,6 +93,7 @@ test_run_client_server(test_client_init_t *client_test,
 static void test_server_connection_refused(void)
 {
 	i_close_fd(&fd_listen);
+	test_subprocess_notify_signal_send_parent(SIGUSR1);
 	i_sleep_intr_secs(500);
 }
 
@@ -856,6 +859,9 @@ static void test_server_run(void)
 	server_conn_list = connection_list_init(&server_connection_set,
 						&server_connection_vfuncs);
 
+	/* notify client that the server is ready */
+	test_subprocess_notify_signal_send_parent(SIGUSR1);
+
 	io_loop_run(ioloop);
 
 	/* close server socket */
@@ -908,8 +914,6 @@ static void test_run_client(test_client_init_t *client_test)
 	if (debug)
 		i_debug("PID=%s", my_pid);
 
-	i_sleep_intr_msecs(100); /* wait a little for server setup */
-
 	ioloop = io_loop_create();
 	if (client_test())
 		io_loop_run(ioloop);
@@ -926,9 +930,14 @@ test_run_client_server(test_client_init_t *client_test,
 {
 	if (server_test != NULL) {
 		/* Fork server */
+		test_subprocess_notify_signal_reset(SIGUSR1);
 		fd_listen = test_open_server_fd();
 		test_subprocess_fork(test_run_server, server_test, FALSE);
 		i_close_fd(&fd_listen);
+
+		/* wait until the server is ready before connecting */
+		test_subprocess_notify_signal_wait(
+			SIGUSR1, TEST_SIGNALS_DEFAULT_TIMEOUT_MS);
 	}
 
 	/* Run client */
