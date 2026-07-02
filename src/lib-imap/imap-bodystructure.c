@@ -647,6 +647,13 @@ imap_bodystructure_parse_args_int(
 				 part->children->next == NULL);
 		}
 
+		/* envelope (args[0]) is read below, but args[1] is dereferenced
+		   first. Make sure args[0] exists before indexing args[1] so a
+		   truncated list doesn't read past its IMAP_ARG_EOL terminator. */
+		if (IMAP_ARG_IS_EOL(&args[0])) {
+			*error_r = "Envelope list expected";
+			return -1;
+		}
 		if (!imap_arg_get_list(&args[1], &list_args)) {
 			*error_r = "Child bodystructure list expected";
 			return -1;
