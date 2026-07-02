@@ -20,9 +20,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-/* retry time if db is busy (in ms) */
-static const int sqlite_busy_timeout = 1000;
-
 struct sqlite_db {
 	struct sql_db api;
 
@@ -71,6 +68,7 @@ struct sqlite_settings {
 	const char *path;
 	const char *journal_mode;
 	const char *synchronous;
+	unsigned int busy_timeout_msecs;
 	bool readonly;
 
 	/* generated: */
@@ -81,10 +79,14 @@ struct sqlite_settings {
 #undef DEF
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type("sqlite_"#name, name, struct sqlite_settings)
+#undef DEF_MSECS
+#define DEF_MSECS(type, name) \
+	SETTING_DEFINE_STRUCT_##type("sqlite_"#name, name##_msecs, struct sqlite_settings)
 static const struct setting_define sqlite_setting_defines[] = {
 	DEF(STR, path),
 	DEF(ENUM, journal_mode),
 	DEF(ENUM, synchronous),
+	DEF_MSECS(TIME_MSECS, busy_timeout),
 	DEF(BOOL, readonly),
 
 	SETTING_DEFINE_LIST_END
@@ -93,6 +95,7 @@ static const struct sqlite_settings sqlite_default_settings = {
 	.path = "",
 	.journal_mode = "wal:delete",
 	.synchronous = "default:off:normal:full:extra",
+	.busy_timeout_msecs = 1000,
 	.readonly = FALSE,
 };
 static bool
@@ -363,7 +366,7 @@ static int driver_sqlite_connect(struct sql_db *_db)
 	switch (db->connect_rc) {
 	case SQLITE_OK:
 		db->connected = TRUE;
-		sqlite3_busy_timeout(db->sqlite, sqlite_busy_timeout);
+		sqlite3_busy_timeout(db->sqlite, db->set->busy_timeout_msecs);
 		if ((flags & SQLITE_OPEN_READONLY) == 0) {
 			driver_sqlite_set_pragma_journal_mode(db, db->set->journal_mode);
 			driver_sqlite_set_pragma_synchronous(db, db->set->synchronous);
