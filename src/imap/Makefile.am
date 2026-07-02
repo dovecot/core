@@ -133,6 +133,7 @@ endif
 
 test_programs = \
 	test-imap-progress \
+	test-imap-state \
 	$(TEST_IMAP_CLIENT_HIBERNATE)
 
 test_imap_progress_SOURCES = \
@@ -140,6 +141,11 @@ test_imap_progress_SOURCES = \
 	imap-progress.c
 test_imap_progress_LDADD = $(imap_LDADD)
 test_imap_progress_DEPENDENCIES = $(imap_DEPENDENCIES)
+
+test_imap_state_SOURCES = \
+	test-imap-state.c $(common_sources)
+test_imap_state_LDADD = $(imap_LDADD)
+test_imap_state_DEPENDENCIES = $(imap_DEPENDENCIES)
 
 test_imap_client_hibernate_SOURCES = \
 	test-imap-client-hibernate.c $(common_sources)
