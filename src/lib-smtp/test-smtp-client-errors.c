@@ -214,6 +214,9 @@ static void test_host_lookup_failed(void)
 static void test_server_connection_refused(unsigned int index ATTR_UNUSED)
 {
 	i_close_fd(&fd_listen);
+
+	/* notify client that the listen socket is closed */
+	test_subprocess_notify_signal_send_parent(SIGHUP);
 }
 
 /* client */
@@ -243,6 +246,11 @@ test_client_connection_refused(const struct smtp_client_settings *client_set)
 	struct smtp_client_connection *sconn;
 	struct smtp_client_command *scmd;
 	struct _connection_refused *ctx;
+
+	/* wait until the server closed the listen socket, so that connecting
+	   fails with ECONNREFUSED instead of ending up in the listen backlog */
+	test_subprocess_notify_signal_wait(SIGHUP,
+					   TEST_SIGNALS_DEFAULT_TIMEOUT_MS);
 
 	test_expect_errors(2);
 
@@ -283,6 +291,7 @@ static void test_connection_refused(void)
 	test_client_defaults(&smtp_client_set, NULL);
 
 	test_begin("connection refused");
+	test_subprocess_notify_signal_reset(SIGHUP);
 	test_run_client_server(&smtp_client_set,
 			       test_client_connection_refused,
 			       test_server_connection_refused, 1, NULL);
