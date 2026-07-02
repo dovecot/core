@@ -353,11 +353,12 @@ static
 void ldap_connection_abort_request(struct ldap_op_queue_entry *req)
 {
 	struct ldap_result res;
+	struct ldap_connection *conn = req->conn;
 
 	/* too bad */
 	timeout_remove(&req->to_abort);
 	if (req->msgid > -1)
-		ldap_abandon_ext(req->conn->conn, req->msgid, NULL, NULL);
+		ldap_abandon_ext(conn->conn, req->msgid, NULL, NULL);
 
 	i_zero(&res);
 	res.openldap_ret = LDAP_TIMEOUT;
@@ -365,13 +366,13 @@ void ldap_connection_abort_request(struct ldap_op_queue_entry *req)
 	if (req->result_callback != NULL)
 		req->result_callback(&res, req->result_callback_ctx);
 
-	unsigned int n = aqueue_count(req->conn->request_queue);
+	unsigned int n = aqueue_count(conn->request_queue);
 	for (unsigned int i = 0; i < n; i++) {
 		struct ldap_op_queue_entry *arr_req =
-			array_idx_elem(&req->conn->request_array,
-				       aqueue_idx(req->conn->request_queue, i));
+			array_idx_elem(&conn->request_array,
+				       aqueue_idx(conn->request_queue, i));
 		if (req == arr_req) {
-			aqueue_delete(req->conn->request_queue, i);
+			aqueue_delete(conn->request_queue, i);
 			ldap_connection_request_destroy(&req);
 			return;
 		}
