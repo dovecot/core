@@ -1255,7 +1255,7 @@ get_var_expand_params(struct client *client)
 	var_expand_table_set_value(tab, "real_local_ip",
 			net_ip2addr(&client->real_local_ip));
 	var_expand_table_set_value(tab, "real_remote_ip",
-			net_ip2addr(&client->real_local_ip));
+			net_ip2addr(&client->real_remote_ip));
 	var_expand_table_set_value(tab, "real_local_port",
 			dec2str(client->real_local_port));
 	var_expand_table_set_value(tab, "real_remote_port",
