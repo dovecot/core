@@ -119,6 +119,7 @@ headers = \
 	imap-settings.h \
 	imap-status.h \
 	imap-state.h \
+	imap-state-private.h \
 	imap-sync.h \
 	imap-sync-private.h \
 	imap-storage-callbacks.h

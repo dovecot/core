@@ -17,6 +17,7 @@
 #include "imap-fetch.h"
 #include "imap-search-args.h"
 #include "imap-state.h"
+#include "imap-state-private.h"
 
 enum imap_state_type_public {
 	IMAP_STATE_TYPE_MAILBOX			= 'B',
@@ -40,8 +41,8 @@ struct mailbox_import_state {
 	ARRAY_TYPE(seq_range) recent_uids;
 };
 
-static void
-export_seq_range(buffer_t *dest, const ARRAY_TYPE(seq_range) *range)
+void imap_state_export_seq_range(buffer_t *dest,
+				 const ARRAY_TYPE(seq_range) *range)
 {
 	const struct seq_range *uids;
 	unsigned int i, count;
@@ -62,9 +63,9 @@ export_seq_range(buffer_t *dest, const ARRAY_TYPE(seq_range) *range)
 	}
 }
 
-static int
-import_seq_range(const unsigned char **data, const unsigned char *end,
-		 ARRAY_TYPE(seq_range) *range)
+int imap_state_import_seq_range(const unsigned char **data,
+				const unsigned char *end,
+				ARRAY_TYPE(seq_range) *range)
 {
 	uint32_t i, count, next_uid, num, uid1, uid2;
 
@@ -191,7 +192,7 @@ imap_state_export_mailbox_mails(buffer_t *dest, struct mailbox *box,
 	(void)mailbox_transaction_commit(&trans);
 
 	numpack_encode(dest, crc);
-	export_seq_range(dest, &recent_uids);
+	imap_state_export_seq_range(dest, &recent_uids);
 	return ret;
 }
 
@@ -306,7 +307,7 @@ int imap_state_export_base(struct client *client, bool internal,
 	if (array_is_created(&client->search_saved_uidset) &&
 	    array_count(&client->search_saved_uidset) > 0) {
 		buffer_append_c(dest, IMAP_STATE_TYPE_SEARCHRES);
-		export_seq_range(dest, &client->search_saved_uidset);
+		imap_state_export_seq_range(dest, &client->search_saved_uidset);
 	}
 	/* COMPRESS extension */
 	if (client->compress_handler != NULL) {
@@ -317,9 +318,8 @@ int imap_state_export_base(struct client *client, bool internal,
 	return 1;
 }
 
-static int
-import_string(const unsigned char **data, const unsigned char *end,
-	      const char **str_r)
+int imap_state_import_string(const unsigned char **data,
+			     const unsigned char *end, const char **str_r)
 {
 	const unsigned char *p;
 
@@ -514,7 +514,7 @@ import_state_mailbox_struct(const unsigned char *data, size_t size,
 	t_array_init(&state_r->recent_uids, 8);
 
 	/* vname */
-	if (import_string(&p, end, &state_r->vname) < 0) {
+	if (imap_state_import_string(&p, end, &state_r->vname) < 0) {
 		*error_r = "Mailbox state truncated at name";
 		return 0;
 	}
@@ -548,7 +548,7 @@ import_state_mailbox_struct(const unsigned char *data, size_t size,
 	    numpack_decode32(&p, end, &state_r->keywords_count) < 0 ||
 	    numpack_decode32(&p, end, &state_r->keywords_crc32) < 0 ||
 	    numpack_decode32(&p, end, &state_r->uids_crc32) < 0 ||
-	    import_seq_range(&p, end, &state_r->recent_uids) < 0) {
+	    imap_state_import_seq_range(&p, end, &state_r->recent_uids) < 0) {
 		*error_r = "Mailbox state truncated";
 		return 0;
 	}
@@ -734,14 +734,14 @@ import_state_mailbox(struct client *client, const unsigned char *data,
 	return IMAP_STATE_OK;
 }
 
-static enum imap_state_result
-import_state_compress(struct client *client, const unsigned char *data,
-		      size_t size, size_t *skip_r, const char **error_r)
+enum imap_state_result
+imap_state_import_compress(struct client *client, const unsigned char *data,
+			   size_t size, size_t *skip_r, const char **error_r)
 {
 	const unsigned char *p = data, *end = data + size;
 	const char *name;
 
-	if (import_string(&p, end, &name) < 0) {
+	if (imap_state_import_string(&p, end, &name) < 0) {
 		*error_r = "COMPRESS name truncated";
 		return IMAP_STATE_CORRUPTED;
 	}
@@ -753,16 +753,16 @@ import_state_compress(struct client *client, const unsigned char *data,
 	return IMAP_STATE_OK;
 }
 
-static enum imap_state_result
-import_state_enabled_feature(struct client *client, const unsigned char *data,
-			     size_t size, size_t *skip_r,
-			     const char **error_r)
+enum imap_state_result
+imap_state_import_enabled_feature(struct client *client,
+				  const unsigned char *data, size_t size,
+				  size_t *skip_r, const char **error_r)
 {
 	const unsigned char *p = data, *end = data + size;
 	const char *name;
 	unsigned int feature_idx;
 
-	if (import_string(&p, end, &name) < 0) {
+	if (imap_state_import_string(&p, end, &name) < 0) {
 		*error_r = "Mailbox state truncated at name";
 		return IMAP_STATE_CORRUPTED;
 	}
@@ -779,9 +779,9 @@ import_state_enabled_feature(struct client *client, const unsigned char *data,
 	return IMAP_STATE_OK;
 }
 
-static enum imap_state_result
-import_state_searchres(struct client *client, const unsigned char *data,
-		       size_t size, size_t *skip_r, const char **error_r)
+enum imap_state_result
+imap_state_import_searchres(struct client *client, const unsigned char *data,
+			    size_t size, size_t *skip_r, const char **error_r)
 {
 	const unsigned char *p = data;
 
@@ -790,7 +790,7 @@ import_state_searchres(struct client *client, const unsigned char *data,
 		return IMAP_STATE_CORRUPTED;
 	}
 	i_array_init(&client->search_saved_uidset, 128);
-	if (import_seq_range(&p, data+size, &client->search_saved_uidset) < 0) {
+	if (imap_state_import_seq_range(&p, data+size, &client->search_saved_uidset) < 0) {
 		*error_r = "Invalid SEARCHRES seq-range";
 		return IMAP_STATE_CORRUPTED;
 	}
@@ -863,9 +863,9 @@ static struct {
 			  size_t size, size_t *skip_r, const char **error_r);
 } imap_states_public[] = {
 	{ IMAP_STATE_TYPE_MAILBOX, import_state_mailbox },
-	{ IMAP_STATE_TYPE_COMPRESS, import_state_compress },
-	{ IMAP_STATE_TYPE_ENABLED_FEATURE, import_state_enabled_feature },
-	{ IMAP_STATE_TYPE_SEARCHRES, import_state_searchres }
+	{ IMAP_STATE_TYPE_COMPRESS, imap_state_import_compress },
+	{ IMAP_STATE_TYPE_ENABLED_FEATURE, imap_state_import_enabled_feature },
+	{ IMAP_STATE_TYPE_SEARCHRES, imap_state_import_searchres }
 };
 
 static struct {
