@@ -362,7 +362,26 @@ void ldap_connection_abort_request(struct ldap_op_queue_entry *req)
 
 	i_zero(&res);
 	res.openldap_ret = LDAP_TIMEOUT;
-	res.error_string = "Aborting LDAP request after timeout";
+	/* If the connection never reached a usable (bound) state, the request
+	   timed out while still connecting rather than while waiting for a
+	   server reply. Point at that, and if TLS is in use mention the
+	   certificate: some libldap TLS backends (e.g. GnuTLS) do not report a
+	   handshake or certificate verification failure back to us at all, so
+	   such a failure only ever surfaces as this timeout. */
+	if (conn->state == LDAP_STATE_CONNECT)
+		res.error_string = "Aborting LDAP request after timeout";
+	else if (conn->set->starttls ||
+		 strstr(conn->set->uris, "ldaps://") != NULL) {
+		res.error_string = t_strdup_printf(
+			"Aborting LDAP request: timeout while connecting (uris=%s) - "
+			"check that the LDAP server is reachable and its TLS certificate is trusted",
+			conn->set->uris);
+	} else {
+		res.error_string = t_strdup_printf(
+			"Aborting LDAP request: timeout while connecting (uris=%s) - "
+			"check that the LDAP server is reachable",
+			conn->set->uris);
+	}
 	if (req->result_callback != NULL)
 		req->result_callback(&res, req->result_callback_ctx);
 
