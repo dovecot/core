@@ -719,6 +719,38 @@ static void test_imap_bodystructure_truncation(void)
 	test_end();
 }
 
+static void test_imap_bodystructure_parse_full_invalid(void)
+{
+	static const struct {
+		const char *bodystructure;
+		const char *error;
+	} tests[] = {
+		/* message/rfc822 truncated right after the size field: the
+		   envelope, child bodystructure and line count are all missing.
+		   The parser must reject this without reading past the end of
+		   the argument list. */
+		{ "\"message\" \"rfc822\" NIL NIL NIL \"7bit\" 0",
+		  "Envelope list expected" },
+		{ "\"message\" \"rfc822\" NIL NIL NIL \"7bit\" 0 (NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL)",
+		  "Child bodystructure list expected" },
+	};
+	const char *error;
+
+	test_begin("imap bodystructure parser full invalid");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) T_BEGIN {
+		struct message_part *parts = NULL;
+		pool_t pool = pool_alloconly_create(
+			"imap bodystructure parse full invalid", 1024);
+
+		test_assert_idx(imap_bodystructure_parse_full(
+			tests[i].bodystructure, pool, &parts, &error) == -1, i);
+		test_assert_strcmp_idx(error, tests[i].error, i);
+
+		pool_unref(&pool);
+	} T_END;
+	test_end();
+}
+
 static void test_imap_bodystructure_nesting(void)
 {
 	test_begin("imap bodystructure nesting");
@@ -752,6 +784,7 @@ int main(void)
 		test_imap_bodystructure_parse_invalid,
 		test_imap_bodystructure_normalize,
 		test_imap_bodystructure_parse_full,
+		test_imap_bodystructure_parse_full_invalid,
 		test_imap_bodystructure_truncation,
 		test_imap_bodystructure_nesting,
 		NULL
