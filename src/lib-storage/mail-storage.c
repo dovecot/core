@@ -2065,6 +2065,12 @@ static bool mailbox_try_undelete(struct mailbox *box)
 		   mdbox storage rebuild. */
 		return FALSE;
 	}
+	if (box->index == NULL) {
+		/* mailbox_open() failed before the index was opened (e.g. the
+		   backend's delete failed and we're reverting the deletion).
+		   There's nothing to undelete. */
+		return FALSE;
+	}
 	if (mail_index_get_modification_time(box->index, &mtime) < 0)
 		return FALSE;
 	if (mtime + MAILBOX_DELETE_RETRY_SECS > time(NULL))
