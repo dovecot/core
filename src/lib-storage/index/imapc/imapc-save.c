@@ -791,7 +791,8 @@ int imapc_copy(struct mail_save_context *_ctx, struct mail *mail)
 		   different source mailboxes within the same transaction. */
 		i_assert(ctx->src_mbox == NULL || &ctx->src_mbox->box == mail->box);
 		ctx->src_mbox = IMAPC_MAILBOX(mail->box);
-		if (!mail->expunged && imapc_is_mail_expunged(ctx->mbox, mail->uid))
+		if (!mail->expunged &&
+		    imapc_is_mail_expunged(ctx->src_mbox, mail->uid))
 			mail_set_expunged(mail);
 		/* same server, we can use COPY for the mail */
 		src_msgmap =
