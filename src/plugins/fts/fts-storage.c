@@ -727,8 +727,7 @@ static int fts_sync_deinit(struct mailbox_sync_context *ctx,
 	bool optimize;
 	int ret = 0;
 
-	optimize = (ctx->flags & (MAILBOX_SYNC_FLAG_FORCE_RESYNC |
-				  MAILBOX_SYNC_FLAG_OPTIMIZE)) != 0;
+	optimize = (ctx->flags & MAILBOX_SYNC_FLAG_OPTIMIZE) != 0;
 	if (fbox->module_ctx.super.sync_deinit(ctx, status_r) < 0)
 		return -1;
 	ctx = NULL;
