@@ -1084,6 +1084,30 @@ doveadm_http_server_handle_request(void *context,
 
 	conn->request = req;
 
+	/* Only origin-form ("/path") and absolute-form
+	   ("http://host/path") request targets carry a path for the local
+	   resources served here. Origin-form is what direct clients send;
+	   absolute-form is what clients send through a proxy, and an origin
+	   server must accept it (RFC 7230, Section 5.3.2). The other forms
+	   leave url->path NULL and would crash the mount comparison below. */
+	if (http_req->target.format != HTTP_REQUEST_TARGET_FORMAT_ORIGIN &&
+	    http_req->target.format != HTTP_REQUEST_TARGET_FORMAT_ABSOLUTE) {
+		if (http_req->target.format ==
+			HTTP_REQUEST_TARGET_FORMAT_ASTERISK &&
+		    strcmp(http_req->method, "OPTIONS") == 0) {
+			/* "OPTIONS *" queries the capabilities of the server
+			   in general (RFC 7231, Section 4.3.7). */
+			doveadm_http_server_options_handler(req);
+			return;
+		}
+		/* Asterisk-form is usable only for OPTIONS and authority-form
+		   only for CONNECT (RFC 7230, Section 5.3), and CONNECT
+		   requests never reach this handler. */
+		http_server_request_fail(http_sreq, 400, "Bad Request");
+		return;
+	}
+	i_assert(http_req->target.url->path != NULL);
+
 	for (i = 0; i < N_ELEMENTS(doveadm_http_server_mounts); i++) {
 		if (doveadm_http_server_mounts[i].verb == NULL ||
 		    strcmp(http_req->method,
