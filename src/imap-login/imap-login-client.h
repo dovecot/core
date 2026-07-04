@@ -53,6 +53,10 @@ struct imap_client_cmd_id {
 	struct event *params_event;
 	struct imap_id_params *params;
 	string_t *log_reply;
+	/* Number of external (non internal x-*) key/value pairs accounted so
+	   far. Used to bound the pre-login accounting (logging, event fields,
+	   client_id) done per external pair. */
+	unsigned int processed_pairs_count;
 	/* ID contained internal x-* keys containing IPs/session/etc */
 	bool seen_internal_keys;
 	/* ID contained non-internal keys, i.e. the end user client had sent
