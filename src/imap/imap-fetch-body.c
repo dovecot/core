@@ -700,7 +700,7 @@ static bool fetch_preview_init(struct imap_fetch_init_context *ctx,
 			}
 		}
 
-		ctx->args += list_count;
+		ctx->args++;
 	}
 
 	ctx->fetch_ctx->fetch_data |= MAIL_FETCH_BODY_SNIPPET;
