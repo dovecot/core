@@ -10,6 +10,12 @@
 #include "imap-login-settings.h"
 #include "imap-login-client.h"
 
+/* RFC 2971 says a client SHOULD NOT send more than 30 field-value pairs.
+   Allow that many to be accounted for (logged / kept in client_id); pairs
+   beyond this are still parsed and internal x-* handlers still run, but they
+   are not added to the logging/client_id accounting that grows per pair. */
+#define IMAP_ID_MAX_ACCOUNTED_PAIRS 30
+
 struct imap_id_params_forward {
 	const char *key;
 	const char *value;
@@ -199,6 +205,16 @@ static bool cmd_id_handle_keyvalue(struct imap_client *client,
 	else
 		client->cmd_id->seen_external_keys = TRUE;
 
+	/* Only external pairs are logged / kept in client_id, and only those
+	   grow per-pair with count, so only they need bounding to avoid a
+	   pre-login CPU/memory DoS. Internal x-* handlers must keep running
+	   regardless (e.g. a proxy may legitimately forward more than 30
+	   fields) and are not counted against the limit. */
+	bool account_pair = !is_login_id_param &&
+		client->cmd_id->processed_pairs_count < IMAP_ID_MAX_ACCOUNTED_PAIRS;
+	if (account_pair)
+		client->cmd_id->processed_pairs_count++;
+
 	if (!is_login_id_param) {
 		/* not an internal key */
 	} else if (client->id_logged) {
@@ -215,7 +231,7 @@ static bool cmd_id_handle_keyvalue(struct imap_client *client,
 			client->cmd_id->reload_settings = TRUE;
 	}
 
-	if (client->set->imap_id_retain && !is_login_id_param &&
+	if (account_pair && client->set->imap_id_retain &&
 	    (client->common.client_id == NULL ||
 	     str_len(client->common.client_id) + kvlen < LOGIN_MAX_CLIENT_ID_LEN)) {
 		if (client->common.client_id == NULL) {
@@ -231,7 +247,7 @@ static bool cmd_id_handle_keyvalue(struct imap_client *client,
 			imap_append_quoted(client->common.client_id, value, 0);
 	}
 
-	if (!is_login_id_param)
+	if (account_pair)
 		imap_id_add_log_entry(log_entry, key, value);
 	return TRUE;
 }
