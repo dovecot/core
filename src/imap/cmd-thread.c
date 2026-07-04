@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "imap-common.h"
+#include "array.h"
 #include "str.h"
 #include "ostream.h"
 #include "imap-base-subject.h"
@@ -8,52 +9,96 @@
 #include "imap-search-args.h"
 #include "mail-thread.h"
 
-static int imap_thread_write(struct mail_thread_iterate_context *iter,
-			     string_t *str, bool root)
+struct imap_thread_frame {
+	struct mail_thread_iterate_context *iter;
+
+	/* iter must be deinitialized when the frame is popped. The root
+	   iterator is owned by the caller, so it isn't. */
+	bool own_iter:1;
+	/* ')' must be written when the frame is popped */
+	bool close_paren:1;
+	/* this is the root frame */
+	bool root:1;
+	/* the iterator has only a single child, which is written without the
+	   surrounding parenthesis */
+	bool single:1;
+	/* the frame has already been initialized */
+	bool started:1;
+};
+
+/* Write the thread tree using an explicit stack of iterators. The tree depth
+   is derived from client-controlled References/In-Reply-To chains, so it's
+   unbounded and recursing here could exhaust the C stack. */
+static int imap_thread_write(struct mail_thread_iterate_context *root_iter,
+			     string_t *str)
 {
+	ARRAY(struct imap_thread_frame) frames;
+	struct imap_thread_frame *frame;
 	const struct mail_thread_child_node *node;
 	struct mail_thread_iterate_context *child_iter;
-	unsigned int count;
+	bool close_paren;
 	int ret = 0;
 
-	count = mail_thread_iterate_count(iter);
-	if (count == 0)
-		return 0;
+	i_array_init(&frames, 16);
+	frame = array_append_space(&frames);
+	frame->iter = root_iter;
+	frame->root = TRUE;
 
-	if (count == 1 && !root) {
-		/* only one child - special case to avoid extra parenthesis */
-		node = mail_thread_iterate_next(iter, &child_iter);
-		str_printfa(str, "%u", node->uid);
-		if (child_iter != NULL) {
-			str_append_c(str, ' ');
-			T_BEGIN {
-				ret = imap_thread_write(child_iter, str, FALSE);
-			} T_END;
-			if (mail_thread_iterate_deinit(&child_iter) < 0)
-				return -1;
+	while (array_count(&frames) > 0) {
+		frame = array_back_modifiable(&frames);
+		if (!frame->started) {
+			frame->started = TRUE;
+			frame->single = !frame->root &&
+				mail_thread_iterate_count(frame->iter) == 1;
 		}
-		return ret;
-	}
 
-	while ((node = mail_thread_iterate_next(iter, &child_iter)) != NULL) {
-		if (child_iter == NULL) {
+		node = mail_thread_iterate_next(frame->iter, &child_iter);
+		if (node == NULL) {
+			/* this level is finished */
+			if (frame->own_iter &&
+			    mail_thread_iterate_deinit(&frame->iter) < 0)
+				ret = -1;
+			if (frame->close_paren)
+				str_append_c(str, ')');
+			array_pop_back(&frames);
+			if (ret < 0)
+				break;
+			continue;
+		}
+
+		if (frame->single) {
+			/* only one child - special case to avoid extra
+			   parenthesis */
+			str_printfa(str, "%u", node->uid);
+			if (child_iter == NULL)
+				continue;
+			str_append_c(str, ' ');
+			close_paren = FALSE;
+		} else if (child_iter == NULL) {
 			/* no children */
 			str_printfa(str, "(%u)", node->uid);
+			continue;
 		} else {
 			/* node with children */
 			str_append_c(str, '(');
 			if (node->uid != 0)
 				str_printfa(str, "%u ", node->uid);
-			T_BEGIN {
-				ret = imap_thread_write(child_iter, str, FALSE);
-			} T_END;
-			if (mail_thread_iterate_deinit(&child_iter) < 0 ||
-			    ret < 0)
-				return -1;
-			str_append_c(str, ')');
+			close_paren = TRUE;
 		}
+
+		frame = array_append_space(&frames);
+		frame->iter = child_iter;
+		frame->own_iter = TRUE;
+		frame->close_paren = close_paren;
 	}
-	return 0;
+
+	/* on failure the frames below the failed one are still open */
+	array_foreach_modifiable(&frames, frame) {
+		if (frame->own_iter)
+			(void)mail_thread_iterate_deinit(&frame->iter);
+	}
+	array_free(&frames);
+	return ret;
 }
 
 static int
@@ -66,7 +111,7 @@ imap_thread_write_reply(struct mail_thread_context *ctx, string_t *str,
 	iter = mail_thread_iterate_init(ctx, thread_type, write_seqs);
 	str_append(str, "* THREAD ");
 	T_BEGIN {
-		ret = imap_thread_write(iter, str, TRUE);
+		ret = imap_thread_write(iter, str);
 	} T_END;
 	if (mail_thread_iterate_deinit(&iter) < 0)
 		ret = -1;
