@@ -375,6 +375,74 @@ static void test_jwt_token_escape(void)
 	test_end();
 }
 
+static void test_jwt_cache_key_collision(void)
+{
+	test_begin("JWT validation key cache key collision");
+
+	/* Two distinct HMAC keys stored at two distinct dict paths whose
+	   (azp, alg, kid) fields differ only in where a literal '.' falls:
+	     azp="a",         kid="b.HS256.c" -> shared/a/HS256/b.HS256.c
+	     azp="a.HS256.b", kid="c"         -> shared/a.HS256.b/HS256/c
+	   A dot-joined cache key ("a.HS256.b.HS256.c") is identical for both,
+	   so caching the first namespace's key would let a forged token for the
+	   second namespace validate against the wrong (first) key. */
+	buffer_t *key1 = t_buffer_create(32);
+	random_fill(buffer_append_space_unsafe(key1, 32), 32);
+	buffer_t *key2 = t_buffer_create(32);
+	random_fill(buffer_append_space_unsafe(key2, 32), 32);
+	buffer_t *b64_key1 =
+		t_base64_encode(0, SIZE_MAX, key1->data, key1->used);
+	buffer_t *b64_key2 =
+		t_base64_encode(0, SIZE_MAX, key2->data, key2->used);
+
+	save_key_azp_to("HS256", "a", "b.HS256.c", str_c(b64_key1));
+	save_key_azp_to("HS256", "a.HS256.b", "c", str_c(b64_key2));
+
+	time_t now = time(NULL);
+	ARRAY_TYPE(oauth2_field) fields;
+	t_array_init(&fields, 8);
+	struct oauth2_field *field;
+
+	/* Token 1: azp="a", kid="b.HS256.c", correctly signed with key1.
+	   Validating it populates the validation-key cache. */
+	array_clear(&fields);
+	field = array_append_space(&fields);
+	field->name = "sub";
+	field->value = "testuser";
+	field = array_append_space(&fields);
+	field->name = "azp";
+	field->value = "a";
+	buffer_t *token1 = create_jwt_token_fields_kid("HS256", "b.HS256.c",
+						       now+500, now-500, 0,
+						       &fields);
+	sign_jwt_token_hs256(token1, key1);
+	test_jwt_token(str_c(token1));
+
+	/* Token 2: azp="a.HS256.b", kid="c", signed with key1 (the attacker's
+	   key) although the real key for this namespace is key2. It must be
+	   rejected; a colliding cache key would accept it. */
+	array_clear(&fields);
+	field = array_append_space(&fields);
+	field->name = "sub";
+	field->value = "testuser";
+	field = array_append_space(&fields);
+	field->name = "azp";
+	field->value = "a.HS256.b";
+	buffer_t *token2 = create_jwt_token_fields_kid("HS256", "c",
+						       now+500, now-500, 0,
+						       &fields);
+	sign_jwt_token_hs256(token2, key1);
+
+	struct oauth2_request req;
+	const char *error = NULL;
+	bool is_jwt;
+	test_assert(parse_jwt_token(&req, str_c(token2), &is_jwt, &error) != 0);
+	test_assert(is_jwt == TRUE);
+	test_assert(error != NULL);
+
+	test_end();
+}
+
 static void test_jwt_broken_token(void)
 {
 	struct test_cases {
@@ -1036,6 +1104,7 @@ int main(void)
 		test_do_init,
 		test_jwt_hs_token,
 		test_jwt_token_escape,
+		test_jwt_cache_key_collision,
 		test_jwt_valid_token,
 		test_jwt_bad_valid_token,
 		test_jwt_broken_token,

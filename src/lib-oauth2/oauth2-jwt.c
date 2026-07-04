@@ -159,18 +159,21 @@ oauth2_lookup_hmac_key(const struct oauth2_settings *set, const char *azp,
 		       const buffer_t **hmac_key_r, const char **error_r)
 {
 	const char *base64_key;
-	const char *cache_key_id, *lookup_key;
+	const char *lookup_key;
 	int ret;
 
-	cache_key_id = t_strconcat(azp, ".", alg, ".", key_id, NULL);
-	if (oauth2_validation_key_cache_lookup_hmac_key(
-		set->key_cache, cache_key_id, hmac_key_r) == 0)
-		return 0;
-
-
-	/* do a synchronous dict lookup */
+	/* Use the same key for the cache and the dict lookup. It must be
+	   injective in (azp, alg, key_id): escape_identifier() escapes '/'
+	   within each segment, so the slash-joined path cannot collide across
+	   different field values. A dot-joined key could collide, since '.' is
+	   a valid unescaped character inside the attacker-controlled azp/kid. */
 	lookup_key = t_strconcat(DICT_PATH_SHARED, azp, "/", alg, "/", key_id,
 				 NULL);
+	if (oauth2_validation_key_cache_lookup_hmac_key(
+		set->key_cache, lookup_key, hmac_key_r) == 0)
+		return 0;
+
+	/* do a synchronous dict lookup */
 	struct dict_op_settings dict_set = {
 		.username = NULL,
 	};
@@ -190,7 +193,7 @@ oauth2_lookup_hmac_key(const struct oauth2_settings *set, const char *azp,
 		return -1;
 	}
 	oauth2_validation_key_cache_insert_hmac_key(set->key_cache,
-						    cache_key_id, key);
+						    lookup_key, key);
 	*hmac_key_r = key;
 	return 0;
 }
@@ -244,17 +247,18 @@ oauth2_lookup_pubkey(const struct oauth2_settings *set, const char *azp,
 		     struct dcrypt_public_key **key_r, const char **error_r)
 {
 	const char *key_str;
-	const char *cache_key_id, *lookup_key;
+	const char *lookup_key;
 	int ret;
 
-	cache_key_id = t_strconcat(azp, ".", alg, ".", key_id, NULL);
+	/* Use the same key for the cache and the dict lookup; see the comment
+	   in oauth2_lookup_hmac_key() about why it must be slash-joined. */
+	lookup_key = t_strconcat(DICT_PATH_SHARED, azp, "/", alg, "/", key_id,
+				 NULL);
 	if (oauth2_validation_key_cache_lookup_pubkey(
-		set->key_cache, cache_key_id, key_r) == 0)
+		set->key_cache, lookup_key, key_r) == 0)
 		return 0;
 
 	/* do a synchronous dict lookup */
-	lookup_key = t_strconcat(DICT_PATH_SHARED, azp, "/", alg, "/", key_id,
-				 NULL);
 	struct dict_op_settings dict_set = {
 		.username = NULL,
 	};
@@ -277,7 +281,7 @@ oauth2_lookup_pubkey(const struct oauth2_settings *set, const char *azp,
 	}
 
 	/* cache key */
-	oauth2_validation_key_cache_insert_pubkey(set->key_cache, cache_key_id,
+	oauth2_validation_key_cache_insert_pubkey(set->key_cache, lookup_key,
 						  pubkey);
 	*key_r = pubkey;
 	return 0;
