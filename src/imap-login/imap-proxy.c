@@ -647,13 +647,14 @@ proxy_side_cmd_compress(struct client *client, const char *const *args,
 		login_proxy_get_client_ostream(client->login_proxy);
 	const struct compression_handler *handler;
 	int ret = compression_lookup_handler(t_str_lcase(args[0]), &handler);
-	if (ret <= 0) {
-		/* IMAP backend normally checks this already. If we get here,
-		   there is a mismatch between what algorithms proxy and
-		   backend supports. */
+	/* Only DEFLATE is permitted. The IMAP backend restricts this already;
+	   enforce it here too, since imap-login handles COMPRESS for proxied
+	   connections and non-DEFLATE algorithms can be far more memory-heavy
+	   to decompress. */
+	if (ret <= 0 || strcmp(handler->name, "deflate") != 0) {
 		o_stream_nsend_str(client_output, t_strdup_printf(
 			"%s NO %s compression mechanism\r\n", args[1],
-			ret == 0 ? "Unsupported" : "Unknown"));
+			ret < 0 ? "Unknown" : "Unsupported"));
 		return 0;
 	}
 

@@ -66,10 +66,14 @@ bool cmd_compress(struct client_command_context *cmd)
 		return TRUE;
 	}
 	int ret = compression_lookup_handler(t_str_lcase(mechanism), &handler);
-	if (ret <= 0) {
+	/* Only DEFLATE is advertised (RFC 4978) and accepted here. Other
+	   algorithms (e.g. zstd) can require far more memory to decompress,
+	   which especially matters now that imap-login can handle COMPRESS for
+	   proxied connections and an attacker could open many of them. */
+	if (ret <= 0 || strcmp(handler->name, "deflate") != 0) {
 		const char * tagline =
 			t_strdup_printf("NO %s compression mechanism",
-					ret == 0 ? "Unsupported" : "Unknown");
+					ret < 0 ? "Unknown" : "Unsupported");
 		client_send_tagline(cmd, tagline);
 		return TRUE;
 	}
