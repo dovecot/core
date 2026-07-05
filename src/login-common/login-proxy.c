@@ -793,6 +793,11 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
 		i_assert(log_msg != NULL || proxy->client->destroyed);
 		login_proxy_detached_unlink(proxy);
 
+		if (master_service_get_client_limit(master_service) == 1) {
+			/* matching set in login_proxy_detach() */
+			master_service_set_current_user(master_service, NULL);
+		}
+
 		if ((flags & LOGIN_PROXY_FREE_FLAG_DELAYED) != 0)
 			delay_ms = login_proxy_delay_disconnect(proxy);
 
@@ -1297,6 +1302,17 @@ void login_proxy_detach(struct login_proxy *proxy)
 
 	DLLIST_REMOVE(&login_proxies_pending, proxy);
 	login_proxy_detached_link(proxy);
+
+	if (master_service_get_client_limit(master_service) == 1) {
+		/* High-security mode (one connection per process): doveadm kick
+		   reaches us as SIGTERM + KICK-USER-SIGNAL, which the master
+		   service signal handler matches against current_user. Set it so
+		   the kick is recognized and terminates this proxied connection.
+		   With client_limit>1 the kick uses the admin socket instead and
+		   current_user must stay unset. */
+		master_service_set_current_user(master_service,
+						client->virtual_user);
+	}
 
 	client->login_proxy = NULL;
 }
