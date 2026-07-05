@@ -1514,13 +1514,23 @@ void login_proxy_init(const char *proxy_notify_pipe_path)
 void login_proxy_deinit(void)
 {
 	struct login_proxy *proxy;
+	const char *log_msg, *reason;
+
+	if (master_service_is_user_kicked(master_service)) {
+		/* The process is exiting because a proxied connection was
+		   kicked via SIGTERM (high-security mode), not because of a
+		   normal shutdown. Log it as such. */
+		log_msg = LOGIN_PROXY_KILL_PREFIX KILLED_BY_ADMIN_REASON;
+		reason = KILLED_BY_ADMIN_REASON;
+	} else {
+		log_msg = LOGIN_PROXY_KILL_PREFIX KILLED_BY_SHUTDOWN_REASON;
+		reason = KILLED_BY_SHUTDOWN_REASON;
+	}
 
 	while (login_proxies != NULL) {
 		proxy = login_proxies;
-		login_proxy_free_full(&proxy,
-			LOGIN_PROXY_KILL_PREFIX KILLED_BY_SHUTDOWN_REASON,
-			KILLED_BY_SHUTDOWN_REASON,
-			LOGIN_PROXY_SIDE_SELF, 0);
+		login_proxy_free_full(&proxy, log_msg, reason,
+				      LOGIN_PROXY_SIDE_SELF, 0);
 	}
 	i_assert(detached_login_proxies_count == 0);
 
