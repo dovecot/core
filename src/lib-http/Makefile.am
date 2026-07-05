@@ -223,4 +223,12 @@ fuzz_http_request_parser_CPPFLAGS = $(FUZZER_CPPFLAGS)
 fuzz_http_request_parser_LDFLAGS = $(FUZZER_LDFLAGS)
 fuzz_http_request_parser_LDADD = libhttp.la $(test_libs)
 fuzz_http_request_parser_DEPENDENCIES = libhttp.la $(test_deps)
+
+noinst_PROGRAMS += fuzz-http-response-parser
+nodist_EXTRA_fuzz_http_response_parser_SOURCES = force-cxx-linking.cxx
+fuzz_http_response_parser_SOURCES = fuzz-http-response-parser.c
+fuzz_http_response_parser_CPPFLAGS = $(FUZZER_CPPFLAGS)
+fuzz_http_response_parser_LDFLAGS = $(FUZZER_LDFLAGS)
+fuzz_http_response_parser_LDADD = libhttp.la $(test_libs)
+fuzz_http_response_parser_DEPENDENCIES = libhttp.la $(test_deps)
 endif
