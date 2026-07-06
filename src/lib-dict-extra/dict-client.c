@@ -20,8 +20,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-/* Abort dict lookup after this many milliseconds. */
-#define DICT_CLIENT_REQUEST_TIMEOUT_MSECS 30000
+/* Abort dict lookup after this many milliseconds. This must be higher than
+   the backend (e.g. Cassandra/SQL) request timeout, so those queries are
+   aborted with a proper error before this dict timeout is reached. */
+#define DICT_CLIENT_REQUEST_TIMEOUT_MSECS 65000
 /* When dict lookup timeout is reached, wait a bit longer if the last dict
    ioloop wait was shorter than this. */
 #define DICT_CLIENT_REQUEST_TIMEOUT_MIN_LAST_IOLOOP_WAIT_MSECS 1000
