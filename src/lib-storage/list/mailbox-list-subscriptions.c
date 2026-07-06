@@ -215,12 +215,21 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 		bool change_to_nfc = FALSE;
 
 		if (nfc) {
-			int nfc_ret = uni_utf8_to_nfc(name, strlen(name),
-						      &nfc_name);
-			if (nfc_ret >= 0 && strcmp(name, nfc_name) != 0)
+			/* The subscription file stores storage names (e.g.
+			   mUTF7), where non-NFC characters are hidden inside
+			   the encoding and look like plain ASCII. Normalize the
+			   decoded vname instead and convert back, so the same
+			   NFC form is used as in mailbox listing. */
+			const char *vname =
+				mailbox_list_get_vname(src_list, name);
+			const char *nfc_vname;
+			int nfc_ret = uni_utf8_to_nfc(vname, strlen(vname),
+						      &nfc_vname);
+			if (nfc_ret >= 0 && strcmp(vname, nfc_vname) != 0) {
+				nfc_name = mailbox_list_get_storage_name(
+					src_list, nfc_vname);
 				change_to_nfc = TRUE;
-			else
-				nfc_name = name;
+			}
 		}
 		if (mailbox_list_subscription_fill_one(dest_list, src_list,
 						       nfc_name) < 0) {
