@@ -20,6 +20,7 @@ enum server_input_line_type {
 	SERVER_INPUT_LINE_TYPE_DEFAULT,
 	SERVER_INPUT_LINE_TYPE_STARTTLS,
 	SERVER_INPUT_LINE_TYPE_COMPRESS,
+	SERVER_INPUT_LINE_TYPE_COMPRESS_FAILED,
 };
 
 struct client {
@@ -32,6 +33,7 @@ struct client {
 	struct ssl_iostream *ssl_iostream;
 	const struct compression_handler *handler;
 	char *algorithm;
+	char *compress_tag;
 	bool tls;
 	bool compressed;
 	bool compress_waiting;
@@ -111,17 +113,23 @@ cmd_dump_imap_compress(struct doveadm_cmd_context *cctx,
 static bool
 client_input_get_compress_algorithm(struct client *client, const char *line)
 {
-	const char *algorithm;
+	const char *algorithm, *tag = line;
+	size_t tag_len;
 
 	/* skip tag */
 	while (*line != ' ' && *line != '\0')
 		line++;
+	tag_len = line - tag;
 	if (!str_begins_icase(line, " COMPRESS ", &algorithm))
 		return FALSE;
 
 	if (compression_lookup_handler(t_str_lcase(algorithm),
 				       &client->handler) <= 0)
 		i_fatal("Unsupported compression mechanism: %s", algorithm);
+	/* Remember the tag so we can tell whether the server accepted or
+	   rejected this COMPRESS command. */
+	i_free(client->compress_tag);
+	client->compress_tag = i_strndup(tag, tag_len);
 	return TRUE;
 }
 
@@ -190,6 +198,13 @@ static bool server_input_is_compress_reply(const char *line)
 	return str_begins_with(line, " OK Begin compression");
 }
 
+static bool server_input_is_reply_to_tag(const char *line, const char *tag)
+{
+	size_t tag_len = strlen(tag);
+
+	return strncmp(line, tag, tag_len) == 0 && line[tag_len] == ' ';
+}
+
 static enum server_input_line_type
 server_input_line_type(struct client *client, const char *line)
 {
@@ -197,6 +212,13 @@ server_input_line_type(struct client *client, const char *line)
 		return SERVER_INPUT_LINE_TYPE_STARTTLS;
 	if (!client->compressed && server_input_is_compress_reply(line))
 		return SERVER_INPUT_LINE_TYPE_COMPRESS;
+	/* The server can reject COMPRESS (e.g. an unsupported mechanism). If we
+	   are waiting for its reply, a tagged reply that isn't the "OK Begin
+	   compression" above means the command failed - resume sending the
+	   pipelined input instead of waiting forever. */
+	if (client->compress_waiting && client->compress_tag != NULL &&
+	    server_input_is_reply_to_tag(line, client->compress_tag))
+		return SERVER_INPUT_LINE_TYPE_COMPRESS_FAILED;
 	return SERVER_INPUT_LINE_TYPE_DEFAULT;
 }
 
@@ -267,9 +289,18 @@ static void server_input(struct client *client)
 			client->output = output;
 			client->compressed = TRUE;
 			client->compress_waiting = FALSE;
+			i_free_and_null(client->compress_tag);
 			i_stream_set_input_pending(client->stdin_input, TRUE);
 			break;
 		}
+		case SERVER_INPUT_LINE_TYPE_COMPRESS_FAILED:
+			/* Server rejected COMPRESS. Resume sending input. */
+			e_info(client->event, "<Compression rejected>");
+			client->handler = NULL;
+			client->compress_waiting = FALSE;
+			i_free_and_null(client->compress_tag);
+			i_stream_set_input_pending(client->stdin_input, TRUE);
+			break;
 		case SERVER_INPUT_LINE_TYPE_DEFAULT:
 			break;
 		}
@@ -343,6 +374,7 @@ static void cmd_compress_connect(struct doveadm_cmd_context *cctx)
 	i_stream_unref(&client.input);
 	o_stream_unref(&client.output);
 	o_stream_unref(&client.stdout_output);
+	i_free(client.compress_tag);
 	event_unref(&client.event);
 	if (close(fd) < 0)
 		i_fatal("close() failed: %m");
