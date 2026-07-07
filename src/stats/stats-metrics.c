@@ -202,6 +202,24 @@ stats_metrics_group_by_exponential_check(const struct stats_metric_group_by_meth
 		*error_r = "metric_group_by_method_exponential_base must be 2 or 10";
 		return FALSE;
 	}
+	if (set->exponential_min_magnitude >= set->exponential_max_magnitude) {
+		*error_r = t_strdup_printf(
+			"metric_group_by_method_exponential_min_magnitude (%u) must be "
+			"smaller than metric_group_by_method_exponential_max_magnitude (%u)",
+			set->exponential_min_magnitude,
+			set->exponential_max_magnitude);
+		return FALSE;
+	}
+	unsigned int max_magnitude =
+		metrics_group_by_exponential_max_magnitude(set->exponential_base);
+	if (set->exponential_max_magnitude > max_magnitude) {
+		*error_r = t_strdup_printf(
+			"metric_group_by_method_exponential_max_magnitude (%u) is too "
+			"large for base %u (maximum %u)",
+			set->exponential_max_magnitude, set->exponential_base,
+			max_magnitude);
+		return FALSE;
+	}
 	return TRUE;
 }
 

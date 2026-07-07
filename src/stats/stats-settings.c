@@ -316,6 +316,7 @@ static bool stats_exporter_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 }
 
 #ifdef CONFIG_BINARY
+unsigned int metrics_group_by_exponential_max_magnitude(unsigned int base);
 void metrics_group_by_exponential_init(struct stats_metric_settings_group_by *group_by,
 				       pool_t pool, unsigned int base,
 				       unsigned int min, unsigned int max);
@@ -324,10 +325,25 @@ void metrics_group_by_linear_init(struct stats_metric_settings_group_by *group_b
 				  uint64_t step);
 #endif
 
+unsigned int metrics_group_by_exponential_max_magnitude(unsigned int base)
+{
+	/* Largest magnitude where base^magnitude still fits into intmax_t. */
+	switch (base) {
+	case 2:
+		return 62;
+	case 10:
+		return 18;
+	}
+	i_unreached();
+}
+
 void metrics_group_by_exponential_init(struct stats_metric_settings_group_by *group_by,
 				       pool_t pool, unsigned int base,
 				       unsigned int min, unsigned int max)
 {
+	i_assert(min < max);
+	i_assert(max <= metrics_group_by_exponential_max_magnitude(base));
+
 	group_by->func = STATS_METRIC_GROUPBY_QUANTIZED;
 	/*
 	 * Allocate the bucket range array and fill it in
@@ -446,6 +462,13 @@ static bool parse_metric_group_by_exp(pool_t pool, struct stats_metric_settings_
 		*error_r = t_strdup_printf("group_by 'exponential' aggregate function "
 					   "base must be one of: 2, 10 (base=%ju)",
 					   base);
+		return FALSE;
+	}
+	if (max > metrics_group_by_exponential_max_magnitude(base)) {
+		*error_r = t_strdup_printf("group_by 'exponential' aggregate function "
+					   "max magnitude is too large for base %ju "
+					   "(%ju > %u)", base, max,
+					   metrics_group_by_exponential_max_magnitude(base));
 		return FALSE;
 	}
 

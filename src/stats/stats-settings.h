@@ -158,6 +158,7 @@ extern const struct stats_metric_settings stats_metric_default_settings;
 bool parse_legacy_metric_group_by(pool_t pool, const char *group_by_str,
 				  ARRAY_TYPE(stats_metric_settings_group_by) *group_by_r,
 				  const char **error_r);
+unsigned int metrics_group_by_exponential_max_magnitude(unsigned int base);
 void metrics_group_by_exponential_init(struct stats_metric_settings_group_by *group_by,
 				       pool_t pool, unsigned int base,
 				       unsigned int min, unsigned int max);

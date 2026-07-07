@@ -579,12 +579,85 @@ static void test_stats_metrics_group_by_quantized(void)
 		test_stats_metrics_group_by_quantized_real(&quantized_tests[i], i);
 }
 
+static void test_stats_metrics_group_by_exponential_bounds(void)
+{
+	static const struct {
+		const char *min, *max, *base;
+		bool success;
+	} tests[] = {
+		{ "0", "62", "2", TRUE },
+		{ "0", "63", "2", FALSE },
+		{ "0", "18", "10", TRUE },
+		{ "0", "19", "10", FALSE },
+		{ "0", "62", "10", FALSE },
+		{ "5", "5", "10", FALSE },
+		{ "6", "5", "10", FALSE },
+	};
+	const char *error;
+
+	test_begin("stats metrics (exponential group by bounds)");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		const char *const settings[] = {
+			"metric=test",
+			"metric/test/metric_name=test",
+			"metric/test/filter=event=test",
+			"metric/test/group_by=foobar",
+			"metric/test/group_by/foobar/field=foobar",
+			"metric/test/group_by/foobar/method=exponential",
+			"metric/test/group_by/foobar/method/exponential/method=exponential",
+			t_strconcat("metric/test/group_by/foobar/method/exponential/min_magnitude=",
+				    tests[i].min, NULL),
+			t_strconcat("metric/test/group_by/foobar/method/exponential/max_magnitude=",
+				    tests[i].max, NULL),
+			t_strconcat("metric/test/group_by/foobar/method/exponential/base=",
+				    tests[i].base, NULL),
+			NULL
+		};
+		int ret = test_stats_try_init(settings, &error);
+		test_assert_idx((ret == 0) == tests[i].success, i);
+		if (ret == 0)
+			test_stats_deinit();
+	}
+	test_end();
+}
+
+static void test_stats_metrics_group_by_legacy_exponential_bounds(void)
+{
+	static const struct {
+		const char *str;
+		bool success;
+	} tests[] = {
+		{ "x:exponential:0:62:2", TRUE },
+		{ "x:exponential:0:63:2", FALSE },
+		{ "x:exponential:0:18:10", TRUE },
+		{ "x:exponential:0:19:10", FALSE },
+		{ "x:exponential:0:4000000000:10", FALSE },
+		{ "x:exponential:0:4294967298:2", FALSE },
+		{ "x:exponential:5:5:10", FALSE },
+	};
+	ARRAY_TYPE(stats_metric_settings_group_by) group_by;
+	const char *error;
+
+	test_begin("stats metrics (legacy exponential group by bounds)");
+	pool_t pool = pool_alloconly_create("legacy group_by", 1024);
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		p_clear(pool);
+		bool success = parse_legacy_metric_group_by(pool, tests[i].str,
+							    &group_by, &error);
+		test_assert_idx(success == tests[i].success, i);
+	}
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void) {
 	void (*const test_functions[])(void) = {
 		test_stats_metrics,
 		test_stats_metrics_filter,
 		test_stats_metrics_group_by_discrete,
 		test_stats_metrics_group_by_quantized,
+		test_stats_metrics_group_by_exponential_bounds,
+		test_stats_metrics_group_by_legacy_exponential_bounds,
 		NULL
 	};
 
