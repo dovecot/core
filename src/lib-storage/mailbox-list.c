@@ -544,6 +544,24 @@ void mailbox_list_name_escape(const char *name, const char *escape_chars,
 }
 
 static const char *
+mailbox_list_vname_handle_invalid_utf8(struct mailbox_list *list,
+				       const char *vname)
+{
+	if (uni_utf8_str_is_valid(vname))
+		return vname;
+
+	string_t *str = t_str_new(strlen(vname));
+	bool ATTR_UNUSED valid =
+		uni_utf8_get_valid_data((const unsigned char *)vname,
+					strlen(vname), str);
+	e_error(list->event,
+		"Mailbox name is not valid UTF-8, cannot be accessed: %s "
+		"(set mailbox_list_visible_escape_char to access it)",
+		mailbox_name_sanitize(vname));
+	return str_c(str);
+}
+
+static const char *
 mailbox_list_default_get_vname_part(struct mailbox_list *list,
 				    const char *storage_name_part)
 {
@@ -569,14 +587,18 @@ mailbox_list_default_get_vname_part(struct mailbox_list *list,
 		} else if (imap_utf7_to_utf8(vname, str) == 0)
 			vname = str_c(str);
 		else {
-			/* Invalid mUTF7, but no escape character. This mailbox
-			   can't be accessible, so just return it as the
-			   original mUTF7 name. */
+			/* Invalid mUTF7 and no escape character to encode it.
+			   Fall back to a valid UTF-8 vname. */
+			vname = mailbox_list_vname_handle_invalid_utf8(list, vname);
 		}
 	} else if (list->mail_set->mailbox_list_visible_escape_char[0] != '\0') {
 		string_t *str = t_str_new(strlen(vname));
 		mailbox_list_name_escape(vname, escape_chars, str);
 		vname = str_c(str);
+	} else {
+		/* Raw storage name and no escape character to encode
+		   invalid UTF-8 bytes. Fall back to a valid UTF-8 vname. */
+		vname = mailbox_list_vname_handle_invalid_utf8(list, vname);
 	}
 	return vname;
 }
