@@ -97,7 +97,7 @@ const char *passdb_result_to_string(enum passdb_result result);
 bool passdb_get_credentials(struct auth_request *auth_request,
 			    const char *input, const char *input_scheme,
 			    const unsigned char **credentials_r,
-			    size_t *size_r);
+			    size_t *size_r, const char **scheme_r);
 
 void passdb_handle_credentials(enum passdb_result result,
 			       const char *password, const char *scheme,

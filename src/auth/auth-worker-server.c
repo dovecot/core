@@ -374,8 +374,7 @@ auth_worker_handle_passw(struct auth_worker_command *cmd,
 static void
 lookup_credentials_callback(enum passdb_result result,
 			    const unsigned char *credentials, size_t size,
-			    const char *scheme ATTR_UNUSED,
-			    struct auth_request *request)
+			    const char *scheme, struct auth_request *request)
 {
 	struct auth_worker_command *cmd = request->context;
 	struct auth_worker_server *server = cmd->server;
@@ -397,8 +396,8 @@ lookup_credentials_callback(enum passdb_result result,
 		if (request->user_returned_by_lookup)
 			str_append_tabescaped(str, request->fields.user);
 		str_append_c(str, '\t');
-		if (request->wanted_credentials_scheme[0] != '\0') {
-			str_printfa(str, "{%s.b64}", request->wanted_credentials_scheme);
+		if (scheme != NULL) {
+			str_printfa(str, "{%s.b64}", scheme);
 			base64_encode(credentials, size, str);
 		} else {
 			i_assert(size == 0);

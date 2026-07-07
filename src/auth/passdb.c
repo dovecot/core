@@ -51,7 +51,8 @@ void passdb_unregister_module(struct passdb_module_interface *iface)
 
 bool passdb_get_credentials(struct auth_request *auth_request,
 			    const char *input, const char *input_scheme,
-			    const unsigned char **credentials_r, size_t *size_r)
+			    const unsigned char **credentials_r, size_t *size_r,
+			    const char **scheme_r)
 {
 	const char *wanted_scheme = auth_request->wanted_credentials_scheme;
 	const char *plaintext, *error;
@@ -80,10 +81,10 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 	}
 
 	if (*wanted_scheme == '\0') {
-		/* anything goes. change the wanted_credentials_scheme to what
-		   we actually got, so blocking passdbs work. */
-		auth_request->wanted_credentials_scheme =
-			p_strdup(auth_request->pool, t_strcut(input_scheme, '.'));
+		/* anything goes. report the scheme we actually got, so blocking
+		   passdbs can tag the credentials they return. */
+		*scheme_r = p_strdup(auth_request->pool,
+				     t_strcut(input_scheme, '.'));
 		return TRUE;
 	}
 
@@ -124,6 +125,7 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 		}
 	}
 
+	*scheme_r = wanted_scheme;
 	return TRUE;
 }
 
@@ -133,6 +135,7 @@ void passdb_handle_credentials(enum passdb_result result,
                                struct auth_request *auth_request)
 {
 	const unsigned char *credentials = NULL;
+	const char *ret_scheme = NULL;
 	size_t size = 0;
 
 	if (result != PASSDB_RESULT_OK) {
@@ -146,7 +149,7 @@ void passdb_handle_credentials(enum passdb_result result,
 
 	if (password != NULL) {
 		if (!passdb_get_credentials(auth_request, password, scheme,
-					    &credentials, &size))
+					    &credentials, &size, &ret_scheme))
 			result = PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
 	} else if (*auth_request->wanted_credentials_scheme == '\0') {
 		/* We're doing a passdb lookup (not authenticating).
@@ -162,7 +165,7 @@ void passdb_handle_credentials(enum passdb_result result,
 		result = PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
 	}
 
-	callback(result, credentials, size, NULL, auth_request);
+	callback(result, credentials, size, ret_scheme, auth_request);
 }
 
 int passdb_set_cache_key(struct passdb_module *module,
