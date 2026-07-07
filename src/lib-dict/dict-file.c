@@ -355,8 +355,9 @@ file_dict_transaction_init(struct dict *_dict)
 	return &ctx->ctx;
 }
 
-static void file_dict_apply_changes(struct dict_transaction_memory_context *ctx,
-				    bool *atomic_inc_not_found_r)
+static int file_dict_apply_changes(struct dict_transaction_memory_context *ctx,
+				   bool *atomic_inc_not_found_r,
+				   const char **error_r)
 {
 	struct file_dict *dict = (struct file_dict *)ctx->ctx.dict;
 	const char *tmp;
@@ -383,8 +384,13 @@ static void file_dict_apply_changes(struct dict_transaction_memory_context *ctx,
 				*atomic_inc_not_found_r = TRUE;
 				break;
 			}
-			if (str_to_llong(old_value, &diff) < 0)
-				i_unreached();
+			if (str_to_llong(old_value, &diff) < 0) {
+				*error_r = t_strdup_printf(
+					"dict-file: Existing value '%s' for key "
+					"'%s' is not numeric", old_value,
+					change->key);
+				return -1;
+			}
 			diff +=	change->value.diff;
 			tmp = t_strdup_printf("%lld", diff);
 			new_len = strlen(tmp);
@@ -410,6 +416,7 @@ static void file_dict_apply_changes(struct dict_transaction_memory_context *ctx,
 			break;
 		}
 	}
+	return 0;
 }
 
 static int
@@ -636,7 +643,18 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 		if (fd_copy_parent_dir_permissions(dict->path, fd, temp_path, &error) < 0)
 			e_error(ctx->ctx.event, "%s", error);
 	}
-	file_dict_apply_changes(ctx, atomic_inc_not_found_r);
+	if (file_dict_apply_changes(ctx, atomic_inc_not_found_r, error_r) < 0) {
+		/* Some of the changes may have already been applied to
+		   dict->hash. Make sure they get dropped. */
+		dict->refreshed = FALSE;
+		if (dotlock != NULL)
+			file_dotlock_delete(&dotlock);
+		else {
+			i_close_fd(&fd);
+			file_unlock(&lock);
+		}
+		return -1;
+	}
 
 	output = o_stream_create_fd(fd, 0);
 	o_stream_cork(output);

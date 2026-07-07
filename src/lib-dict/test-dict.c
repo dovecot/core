@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
+#include "settings.h"
 #include "dict-private.h"
 #include "test-common.h"
 
@@ -88,12 +89,94 @@ static void test_dict_async_lookup(void)
 	test_end();
 }
 
+static void test_dict_file_set(struct dict *dict, const char *key,
+			       const char *value)
+{
+	const struct dict_op_settings set = { };
+	struct dict_transaction_context *t;
+	const char *error;
+
+	t = dict_transaction_begin(dict, &set);
+	dict_set(t, key, value);
+	if (dict_transaction_commit(&t, &error) < 0)
+		i_fatal("dict_transaction_commit() failed: %s", error);
+}
+
+static void test_dict_file_lookup(struct dict *dict, const char *key,
+				  const char *expected_value)
+{
+	const struct dict_op_settings set = { };
+	const char *value, *error;
+
+	test_assert(dict_lookup(dict, &set, pool_datastack_create(), key,
+				&value, &error) == 1);
+	test_assert_strcmp(value, expected_value);
+}
+
+static void test_dict_file_atomic_inc_non_numeric(void)
+{
+	const struct dict_op_settings set = { };
+	struct dict_transaction_context *t;
+	struct settings_simple test_set;
+	struct dict *dict;
+	const char *error;
+
+	test_begin("dict-file atomic_inc non-numeric");
+	i_unlink_if_exists(".test-dict-file");
+	settings_simple_init(&test_set, (const char *const []) {
+		"dict", "file",
+		"dict/file/path", ".test-dict-file",
+		NULL,
+	});
+	if (dict_init_auto(test_set.event, &dict, &error) <= 0)
+		i_fatal("dict_init_auto() failed: %s", error);
+
+	test_dict_file_set(dict, DICT_PATH_SHARED"num", "1");
+	test_dict_file_set(dict, DICT_PATH_SHARED"str", "foo");
+
+	/* The failing atomic_inc must not leave the earlier changes
+	   applied in memory. */
+	t = dict_transaction_begin(dict, &set);
+	dict_set(t, DICT_PATH_SHARED"new", "bar");
+	dict_atomic_inc(t, DICT_PATH_SHARED"num", 10);
+	dict_atomic_inc(t, DICT_PATH_SHARED"str", 1);
+	test_assert(dict_transaction_commit(&t, &error) < 0);
+
+	test_dict_file_lookup(dict, DICT_PATH_SHARED"num", "1");
+	test_dict_file_lookup(dict, DICT_PATH_SHARED"str", "foo");
+	const char *value;
+	test_assert(dict_lookup(dict, &set, pool_datastack_create(),
+				DICT_PATH_SHARED"new", &value, &error) == 0);
+
+	/* The next successful commit must not write the failed changes
+	   either. */
+	test_dict_file_set(dict, DICT_PATH_SHARED"other", "baz");
+	dict_deinit(&dict);
+	if (dict_init_auto(test_set.event, &dict, &error) <= 0)
+		i_fatal("dict_init_auto() failed: %s", error);
+	test_dict_file_lookup(dict, DICT_PATH_SHARED"num", "1");
+	test_dict_file_lookup(dict, DICT_PATH_SHARED"other", "baz");
+	test_assert(dict_lookup(dict, &set, pool_datastack_create(),
+				DICT_PATH_SHARED"new", &value, &error) == 0);
+	dict_deinit(&dict);
+
+	settings_simple_deinit(&test_set);
+	i_unlink(".test-dict-file");
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_dict_escape,
 		test_dict_async_lookup,
+		test_dict_file_atomic_inc_non_numeric,
 		NULL
 	};
-	return test_run(test_functions);
+	int ret;
+
+	dict_driver_register(&dict_driver_file);
+	ret = test_run(test_functions);
+	dict_driver_unregister(&dict_driver_file);
+	return ret;
 }
