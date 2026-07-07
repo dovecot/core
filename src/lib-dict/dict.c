@@ -861,6 +861,12 @@ void dict_atomic_inc(struct dict_transaction_context *ctx,
 
 	e_debug(e->event(), "Incrementing '%s' with %lld", key, diff);
 
+	if (ctx->dict->v.atomic_inc == NULL) {
+		if (ctx->error == NULL)
+			ctx->error = "atomic_inc not supported by dict driver";
+		return;
+	}
+
 	if (diff != 0) T_BEGIN {
 		ctx->dict->v.atomic_inc(ctx, key, diff);
 		ctx->changed = TRUE;
