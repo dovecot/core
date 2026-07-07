@@ -303,7 +303,7 @@ var_expand_merge_tables(pool_t pool, const struct var_expand_table *a,
 			array_lsearch_modifiable(&table, b[i].key,
 						 var_expand_table_key_cmp);
 		if (entry != NULL) {
-			entry->value = b->value;
+			entry->value = p_strdup(pool, b[i].value);
 			continue;
 		}
 

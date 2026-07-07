@@ -1009,6 +1009,34 @@ static void test_var_expand_merge_tables(void)
 			break;
 		}
 	}
+
+	/* key collision: b's value must override a's value, and it must
+	   be taken from the colliding entry (b[i]) - not always b[0]. */
+	const struct var_expand_table coll_a[] = {
+		{ .key = "alpha", .value = "1" },
+		{ .key = "beta", .value = "2" },
+		VAR_EXPAND_TABLE_END
+	},
+	coll_b[] = {
+		{ .key = "gamma", .value = "3" },
+		{ .key = "beta", .value = "99" },
+		VAR_EXPAND_TABLE_END
+	};
+	struct var_expand_table *coll_merged =
+		var_expand_merge_tables(pool_datastack_create(),
+					coll_a, coll_b);
+	test_assert(var_expand_table_size(coll_merged) == 3);
+	for (unsigned int i = 0; i < var_expand_table_size(coll_merged); i++) {
+		if (strcmp(coll_merged[i].key, "alpha") == 0)
+			test_assert_strcmp(coll_merged[i].value, "1");
+		else if (strcmp(coll_merged[i].key, "beta") == 0)
+			test_assert_strcmp(coll_merged[i].value, "99");
+		else if (strcmp(coll_merged[i].key, "gamma") == 0)
+			test_assert_strcmp(coll_merged[i].value, "3");
+		else
+			test_assert(FALSE);
+	}
+
 	test_end();
 }
 
