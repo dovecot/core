@@ -37,8 +37,8 @@ static inline unsigned int decode_digit(unsigned char cp)
 }
 
 /* Bias adaptation function */
-
-static unsigned int adapt(unsigned int delta, unsigned int numpoints, bool firsttime)
+static unsigned int
+adapt(unsigned int delta, unsigned int numpoints, bool firsttime)
 {
 	unsigned int k;
 
@@ -77,9 +77,10 @@ int punycode_decode(const unsigned char *input, size_t len, string_t *output)
 	i_assert(delim <= end);
 
 	for (ptr = input; ptr < delim; ptr++) {
-		if (*ptr >= 0x80)
+		if (*ptr >= 0x80) {
 			/* Has non-ascii input, this cannot be punycoded. */
 			return -1;
+		}
 		i_assert(array_count(&label) < len);
 		/* Add basic code points to label */
 		unichar_t ch = *ptr;
@@ -107,7 +108,7 @@ int punycode_decode(const unsigned char *input, size_t len, string_t *output)
 		oldi = i;
 		w = 1;
 
-		/* Iterate over digits of the variable-length integer.  If we
+		/* Iterate over digits of the variable-length integer. If we
 		   exhaust the input before the terminating digit (digit < t),
 		   the input is malformed. */
 		for (k = base; ; k += base) {
