@@ -146,6 +146,7 @@ liblib_la_SOURCES = \
 	home-expand.c \
 	hook-build.c \
 	hostpid.c \
+	idna.c \
 	idna-punycode.c \
 	imem.c \
 	ipwd.c \
@@ -480,6 +481,7 @@ test_lib_SOURCES = \
 	test-hash-method.c \
 	test-hmac.c \
 	test-hex-binary.c \
+	test-idna.c \
 	test-idna-punycode.c \
 	test-imem.c \
 	test-ioloop.c \
