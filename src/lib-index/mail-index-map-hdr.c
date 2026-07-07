@@ -89,6 +89,17 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 	i_assert(ext->hdr_offset < map->hdr.header_size);
 	kw_hdr = MAIL_INDEX_MAP_HDR_OFFSET(map, ext->hdr_offset);
 	kw_rec = (const void *)(kw_hdr + 1);
+
+	/* Validate keywords_count before using it in pointer arithmetic,
+	   which could otherwise wrap. */
+	if ((uint64_t)sizeof(*kw_hdr) +
+	    (uint64_t)kw_hdr->keywords_count * sizeof(*kw_rec) >
+	    ext->hdr_size) {
+		mail_index_set_error(index, "Corrupted index file %s: "
+				     "keywords_count larger than header size",
+				     index->filepath);
+		return -1;
+	}
 	name = (const char *)(kw_rec + kw_hdr->keywords_count);
 
 	old_count = !array_is_created(&map->keyword_idx_map) ? 0 :
@@ -98,13 +109,6 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 	if (kw_hdr->keywords_count < old_count) {
 		mail_index_set_error(index, "Corrupted index file %s: "
 				     "Keywords removed unexpectedly",
-				     index->filepath);
-		return -1;
-	}
-
-	if ((size_t)(name - (const char *)kw_hdr) > ext->hdr_size) {
-		mail_index_set_error(index, "Corrupted index file %s: "
-				     "keywords_count larger than header size",
 				     index->filepath);
 		return -1;
 	}
