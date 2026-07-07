@@ -97,6 +97,7 @@ const char *invalid_uri_tests[] = {
 	"frop://friep\"",
 	"http://example.com/settings/%00/",
 	"http://[]/index.html",
+	"http://[2001:db8::7",
 	"http://example.com:65536/index.html"
 };
 

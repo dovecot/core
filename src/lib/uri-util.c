@@ -502,9 +502,9 @@ uri_do_parse_host_name(struct uri_parser *parser, string_t *host_name)
 
 		/* alphanum */
 		offset = parser->cur;
-		ch = pch = *parser->cur;
 		if (parser->cur >= parser->end)
 			break;
+		ch = pch = *parser->cur;
 		ret = uri_parse_pct_encoded(parser, &ch);
 		if (ret < 0) {
 			return -1;
