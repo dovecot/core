@@ -216,6 +216,8 @@ static int dns_lookup_input_args(struct dns_lookup *lookup, const char *const *a
 
 	if (str_to_int(args[0], &result->ret) < 0)
 		return -1;
+	if (args[1] == NULL)
+		return -1;
 	if (result->ret != 0) {
 		result->error = args[1];
 		return 0;

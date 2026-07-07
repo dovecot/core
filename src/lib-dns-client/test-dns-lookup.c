@@ -32,6 +32,8 @@ static const struct {
 	{ "localhost", "0\t127.0.0.1\t::1\n" },
 	{ "127.0.0.1", "0\tlocalhost\n" },
 	{ "once-host", "0\t127.0.0.2\n" },
+	/* Malformed reply: return code without the mandatory second field. */
+	{ "badreply", "-1\n" },
 };
 
 static struct test_server {
@@ -314,6 +316,28 @@ static void test_dns_lookup_abort(void)
 	test_end();
 }
 
+static void test_dns_lookup_malformed(void)
+{
+	test_begin("dns lookup (malformed reply)");
+	create_dns_server(&test_server);
+
+	struct dns_lookup *lookup;
+	struct test_expect_result ctx = {
+		.ret = EAI_FAIL,
+		.result = NULL,
+	};
+
+	/* Server replies with only a return code and no second field, so
+	   args[1] is NULL. This must be treated as a protocol error rather
+	   than dereferencing the missing argument. */
+	dns_lookup("badreply", NULL, test_set.event,
+		   test_callback_ips, &ctx, &lookup);
+	io_loop_run(test_server.loop);
+
+	destroy_dns_server(&test_server);
+	test_end();
+}
+
 static void test_dns_lookup_cached(void)
 {
 	struct test_expect_result ctx;
@@ -432,6 +456,7 @@ int main(void)
 		test_dns_lookup_ip,
 		test_dns_lookup_timeout,
 		test_dns_lookup_abort,
+		test_dns_lookup_malformed,
 		test_dns_lookup_cached,
 		NULL
 	};
