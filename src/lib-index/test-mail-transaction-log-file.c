@@ -241,6 +241,36 @@ static void test_mail_transaction_update_modseq(void)
 	test_end();
 }
 
+static void test_mail_transaction_update_modseq_partial_record(void)
+{
+	struct mail_transaction_header hdr;
+	struct mail_transaction_modseq_update recs[2];
+	uint64_t cur_modseq = INITIAL_MODSEQ;
+
+	test_begin("mail_transaction_update_modseq() partial record");
+
+	i_zero(&recs);
+	recs[0].uid = 1;
+	recs[0].modseq_low32 = 500;
+	/* A trailing partial (non-multiple) record must not be read. Poison
+	   the second record slot with a higher modseq so that an
+	   out-of-bounds read would be detectable via cur_modseq. */
+	recs[1].uid = 1;
+	recs[1].modseq_low32 = 999;
+
+	hdr.type = MAIL_TRANSACTION_MODSEQ_UPDATE;
+	/* one full record plus a partial (4-byte) trailing record; the size
+	   stays 4-byte aligned (a valid log offset) but is not a multiple of
+	   the 12-byte record size */
+	hdr.size = mail_index_uint32_to_offset(
+		sizeof(hdr) + sizeof(recs[0]) + sizeof(uint32_t));
+	mail_transaction_update_modseq(&hdr, recs, &cur_modseq,
+				       TEST_LOG_VERSION);
+	test_assert(cur_modseq == 500);
+
+	test_end();
+}
+
 static struct mail_index *test_mail_index_open(void)
 {
 	struct mail_index *index = mail_index_alloc(NULL, NULL, "test.dovecot.index");
@@ -409,6 +439,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mail_transaction_update_modseq,
+		test_mail_transaction_update_modseq_partial_record,
 		test_mail_transaction_log_file_modseq_offsets,
 		test_mail_transaction_log_file_get_modseq_next_offset_inconsistency,
 		NULL
