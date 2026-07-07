@@ -471,7 +471,7 @@ static int ssl_clienthello_callback(SSL *ssl, int *al,
 	str_printfa(ja3, "%d,", ver);
 	nciphers = SSL_client_hello_get0_ciphers(ssl, &ciphers);
 
-	for (size_t i = 0; i < nciphers; i += 2) {
+	for (size_t i = 0; i + 1 < nciphers; i += 2) {
 		if (i > 0)
 			str_append_c(ja3, '-');
 		uint16_t cipher = be16_to_cpu_unaligned(&ciphers[i]);
@@ -502,11 +502,11 @@ static int ssl_clienthello_callback(SSL *ssl, int *al,
 	/* Process extension 10 - groups */
 	if (SSL_client_hello_get0_ext(ssl, TLSEXT_TYPE_supported_groups,
 				      &ext, &extlen) == 1 &&
-	    extlen > 0) {
+	    extlen >= 2 && extlen % 2 == 0) {
 		bool first = TRUE;
 		unsigned short veclen = be16_to_cpu_unaligned(ext);
 		if (veclen+2U == extlen) {
-			for (size_t i = 2; i < extlen; i+=2) {
+			for (size_t i = 2; i + 2 <= extlen; i+=2) {
 				uint16_t group = be16_to_cpu_unaligned(&ext[i]);
 				if (ssl_ja3_is_ext_greased(group))
 					continue;
