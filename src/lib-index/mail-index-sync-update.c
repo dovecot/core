@@ -347,6 +347,12 @@ sync_modseq_update(struct mail_index_sync_map_ctx *ctx,
 	uint64_t min_modseq;
 	int ret;
 
+	if (size == 0 || size % sizeof(*u) != 0) {
+		mail_index_sync_set_corrupted(ctx,
+			"modseq update: invalid record size");
+		return -1;
+	}
+
 	end = CONST_PTR_OFFSET(u, size);
 	for (; u < end; u++) {
 		if (u->uid == 0)
@@ -749,6 +755,13 @@ mail_index_sync_record_real(struct mail_index_sync_map_ctx *ctx,
 
 		if (ctx->cur_ext_ignore) {
 			ret = 1;
+			break;
+		}
+
+		if (hdr->size == 0 || hdr->size % sizeof(*rec) != 0) {
+			mail_index_sync_set_corrupted(ctx,
+				"ext atomic inc: invalid record size");
+			ret = -1;
 			break;
 		}
 
