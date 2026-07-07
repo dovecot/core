@@ -50,14 +50,13 @@ int pkcs5_pbkdf2(const struct hash_method *hash,
 	if (length < 1 || iter < 1) return -1;
 
 	size_t l = (length + hash->digest_size - 1)/hash->digest_size; /* same as ceil(length/hash->digest_size) */
-	unsigned char dk[l * hash->digest_size];
-	unsigned char *block;
+	unsigned char block[hash->digest_size];
 	struct hmac_context hctx;
 	unsigned int c,i,t;
 	unsigned char U_c[hash->digest_size];
+	size_t left = length;
 
 	for(t = 0; t < l; t++) {
-		block = &(dk[t*hash->digest_size]);
 		/* U_1 = PRF(Password, Salt|| INT_BE32(Block_Number)) */
 		c = htonl(t+1);
 		hmac_init(&hctx, password, password_len, hash);
@@ -74,9 +73,11 @@ int pkcs5_pbkdf2(const struct hash_method *hash,
 			for(i = 0; i < hash->digest_size; i++)
 				block[i] ^= U_c[i];
 		}
+		size_t block_len = I_MIN(left, hash->digest_size);
+		buffer_append(result, block, block_len);
+		left -= block_len;
 	}
-
-	buffer_append(result, dk, length);
+	i_assert(left == 0);
 
 	return 0;
 }
