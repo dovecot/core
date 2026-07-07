@@ -1092,8 +1092,12 @@ bool client_forward_decode_base64(struct client *client, const char *value)
 					       str_c(str));
 	const char *const *fields = (const char *const *)_fields;
 	unsigned int fields_count = str_array_length(fields);
-	p_array_init(&client->forward_fields,
-		     client->preproxy_pool, fields_count);
+	if (!array_is_created(&client->forward_fields)) {
+		p_array_init(&client->forward_fields,
+			     client->preproxy_pool, fields_count);
+	} else {
+		array_clear(&client->forward_fields);
+	}
 	array_append(&client->forward_fields, fields, fields_count);
 	return TRUE;
 }
