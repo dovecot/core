@@ -395,6 +395,37 @@ static void test_imapc_banner_hangs(void)
 }
 
 /*
+ * imapc short invalid banner
+ */
+
+static void test_imapc_banner_short_invalid_client(void)
+{
+	imapc_client_set_login_callback(imapc_client,
+					imapc_login_callback, NULL);
+	imapc_client_login(imapc_client);
+	test_expect_error_string("Banner doesn't begin with OK");
+	imapc_client_run(imapc_client);
+	test_expect_no_more_errors();
+	test_assert(imapc_login_last_reply == IMAPC_COMMAND_STATE_DISCONNECTED);
+}
+
+static void test_imapc_banner_short_invalid_server(void)
+{
+	test_server_wait_connection(&server, FALSE);
+	o_stream_nsend_str(server.output, "* \r\n");
+	test_assert(i_stream_read_next_line(server.input) == NULL);
+}
+
+static void test_imapc_banner_short_invalid(void)
+{
+	test_begin("imapc short invalid banner");
+	test_run_client_server(test_imapc_banner_short_invalid_client,
+			       test_imapc_banner_short_invalid_server,
+			       FALSE);
+	test_end();
+}
+
+/*
  * imapc login hangs
  */
 
@@ -1075,6 +1106,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	static void (*const test_functions[])(void) = {
 		test_imapc_connect_failed,
 		test_imapc_banner_hangs,
+		test_imapc_banner_short_invalid,
 		test_imapc_login_hangs,
 		test_imapc_login_fails,
 		test_imapc_short_reply,

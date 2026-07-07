@@ -1275,7 +1275,7 @@ static int imapc_connection_input_untagged(struct imapc_connection *conn)
 		data = i_stream_get_data(conn->input, &size);
 		if (size < 3 && memchr(data, '\n', size) == NULL)
 			return 0;
-		if (i_memcasecmp(data, "OK ", 3) != 0) {
+		if (size < 3 || i_memcasecmp(data, "OK ", 3) != 0) {
 			imapc_connection_input_error(conn,
 				"Banner doesn't begin with OK: %s",
 				t_strcut(t_strndup(data, size), '\n'));
