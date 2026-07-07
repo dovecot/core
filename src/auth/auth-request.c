@@ -778,7 +778,7 @@ static void auth_request_passdb_internal_failure(struct auth_request *request)
 	request->passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 	if (request->wanted_credentials_scheme != NULL) {
 		request->private_callback.lookup_credentials(
-			request->passdb_result, &uchar_nul, 0, request);
+			request->passdb_result, &uchar_nul, 0, NULL, request);
 	} else {
 		request->private_callback.verify_plain(request->passdb_result,
 						       request);
@@ -1310,7 +1310,7 @@ void auth_request_default_verify_plain_continue(
 static void
 auth_request_lookup_credentials_finish(enum passdb_result result,
 				       const unsigned char *credentials,
-				       size_t size,
+				       size_t size, const char *scheme,
 				       struct auth_request *request)
 {
 	int ret;
@@ -1350,13 +1350,14 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 		}
 		request->passdb_result = result;
 		request->private_callback.
-			lookup_credentials(result, credentials, size, request);
+			lookup_credentials(result, credentials, size, scheme,
+					   request);
 	}
 }
 
 void auth_request_lookup_credentials_callback(enum passdb_result result,
 					      const unsigned char *credentials,
-					      size_t size,
+					      size_t size, const char *scheme,
 					      struct auth_request *request)
 {
 	struct auth_passdb *passdb = request->passdb;
@@ -1392,7 +1393,7 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 	}
 
 	auth_request_lookup_credentials_finish(result, credentials, size,
-					       request);
+					       scheme, request);
 }
 
 void auth_request_lookup_credentials(struct auth_request *request,
@@ -1432,7 +1433,7 @@ auth_request_lookup_credentials_policy_continue(
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 	if (auth_request_is_disabled_master_user(request)) {
-		callback(PASSDB_RESULT_USER_UNKNOWN, NULL, 0, request);
+		callback(PASSDB_RESULT_USER_UNKNOWN, NULL, 0, NULL, request);
 		return;
 	}
 	passdb = request->passdb;
@@ -1446,11 +1447,11 @@ auth_request_lookup_credentials_policy_continue(
 			   credentials, so we can just continue as success. */
 			result = PASSDB_RESULT_OK;
 			request->passdb_result = result;
-			callback(result, NULL, 0, request);
+			callback(result, NULL, 0, NULL, request);
 			return;
 		}
 		e_error(request->event, "All password databases were skipped");
-		callback(PASSDB_RESULT_INTERNAL_FAILURE, NULL, 0, request);
+		callback(PASSDB_RESULT_INTERNAL_FAILURE, NULL, 0, NULL, request);
 		return;
 	}
 
@@ -1481,7 +1482,7 @@ auth_request_lookup_credentials_policy_continue(
 			"passdb doesn't support credential lookups");
 		auth_request_lookup_credentials_callback(
 					PASSDB_RESULT_SCHEME_NOT_AVAILABLE,
-					uchar_empty_ptr, 0, request);
+					uchar_empty_ptr, 0, NULL, request);
 	} else if (passdb->passdb->blocking) {
 		passdb_blocking_lookup_credentials(request);
 	} else {

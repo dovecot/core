@@ -29,7 +29,7 @@ typedef void verify_plain_continue_callback_t(struct auth_request *request,
 					      verify_plain_callback_t *callback);
 typedef void lookup_credentials_callback_t(enum passdb_result result,
 					   const unsigned char *credentials,
-					   size_t size,
+					   size_t size, const char *scheme,
 					   struct auth_request *request);
 typedef void set_credentials_callback_t(bool success,
 					struct auth_request *request);

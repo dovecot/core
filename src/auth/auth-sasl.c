@@ -216,6 +216,7 @@ auth_sasl_request_verify_plain(struct sasl_server_req_ctx *rctx,
 static void
 lookup_credentials_callback(enum passdb_result status,
 			    const unsigned char *credentials, size_t size,
+			    const char *scheme ATTR_UNUSED,
 			    struct auth_request *request)
 {
 	const struct sasl_passdb_result result = {

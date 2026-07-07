@@ -63,6 +63,7 @@ static void
 oauth2_verify_callback(enum passdb_result result,
 		       const unsigned char *credentials ATTR_UNUSED,
 		       size_t size ATTR_UNUSED,
+		       const char *scheme ATTR_UNUSED,
 		       struct auth_request *auth_request)
 {
 	if (result == PASSDB_RESULT_USER_UNKNOWN)

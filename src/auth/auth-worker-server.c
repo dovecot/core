@@ -374,6 +374,7 @@ auth_worker_handle_passw(struct auth_worker_command *cmd,
 static void
 lookup_credentials_callback(enum passdb_result result,
 			    const unsigned char *credentials, size_t size,
+			    const char *scheme ATTR_UNUSED,
 			    struct auth_request *request)
 {
 	struct auth_worker_command *cmd = request->context;

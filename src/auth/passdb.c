@@ -136,11 +136,11 @@ void passdb_handle_credentials(enum passdb_result result,
 	size_t size = 0;
 
 	if (result != PASSDB_RESULT_OK) {
-		callback(result, NULL, 0, auth_request);
+		callback(result, NULL, 0, NULL, auth_request);
 		return;
 	} else if (auth_fields_exists(auth_request->fields.extra_fields,
 				      "noauthenticate")) {
-		callback(PASSDB_RESULT_NEXT, NULL, 0, auth_request);
+		callback(PASSDB_RESULT_NEXT, NULL, 0, NULL, auth_request);
 		return;
 	}
 
@@ -162,7 +162,7 @@ void passdb_handle_credentials(enum passdb_result result,
 		result = PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
 	}
 
-	callback(result, credentials, size, auth_request);
+	callback(result, credentials, size, NULL, auth_request);
 }
 
 int passdb_set_cache_key(struct passdb_module *module,

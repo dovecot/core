@@ -447,6 +447,7 @@ static void auth_master_pass_proxy_finish(bool success,
 static void pass_callback(enum passdb_result result,
 			  const unsigned char *credentials ATTR_UNUSED,
 			  size_t size ATTR_UNUSED,
+			  const char *scheme ATTR_UNUSED,
 			  struct auth_request *auth_request)
 {
 	int ret;
@@ -493,7 +494,7 @@ static int master_input_pass(struct auth_master_connection *conn,
 			return -1;
 		e_info(auth_request->event, "passdb: %s", error);
 		pass_callback(PASSDB_RESULT_USER_UNKNOWN, uchar_empty_ptr, 0,
-			      auth_request);
+			      NULL, auth_request);
 	} else if (conn->userdb_restricted_uid != 0) {
 		/* no permissions to do this lookup */
 		e_error(auth_request->event,
@@ -502,7 +503,7 @@ static int master_input_pass(struct auth_master_connection *conn,
 			"a PASS lookup: %s",
 			auth_restricted_reason(conn));
 		pass_callback(PASSDB_RESULT_INTERNAL_FAILURE, uchar_empty_ptr,
-			      0, auth_request);
+			      0, NULL, auth_request);
 	} else {
 		auth_request_set_state(auth_request,
 				       AUTH_REQUEST_STATE_MECH_CONTINUE);

@@ -207,7 +207,7 @@ static void passdb_ldap_request_fail(struct passdb_ldap_request *request,
 
 	if (auth_request->wanted_credentials_scheme != NULL) {
 		request->callback.lookup_credentials(passdb_result, NULL, 0,
-						     auth_request);
+						     NULL, auth_request);
 	} else {
 		request->callback.verify_plain(passdb_result, auth_request);
 	}

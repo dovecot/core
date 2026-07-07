@@ -417,7 +417,7 @@ void auth_request_verify_plain_passdb_callback(enum passdb_result result,
 					struct auth_request *request);
 void auth_request_lookup_credentials_callback(enum passdb_result result,
 					      const unsigned char *credentials,
-					      size_t size,
+					      size_t size, const char *scheme,
 					      struct auth_request *request);
 void auth_request_set_credentials(struct auth_request *request,
 				  const char *scheme, const char *data,
