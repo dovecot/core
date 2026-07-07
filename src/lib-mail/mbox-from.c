@@ -180,7 +180,7 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 		msg += 2;
 
 		if (!alt_stamp) {
-			if (msg[0] == ' ')
+			if (msg < msg_end && msg[0] == ' ')
 				msg++;
 			else
 				return -1;

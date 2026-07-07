@@ -32,6 +32,7 @@ static void test_mbox_from_parse(void)
 		"user  Fri Jan  2 10: 1970 +0000",
 		"user  Fri Jan  2 10:xx 1970 +0000",
 		"user  Fri Jan  2 10:xx +0000",
+		"user Fri Nov  9 22:33:52 5",
 	};
 	static struct test_mbox_from_parse_output output[] = {
 		{ 123456789, 2*60, "user@domain", 0 },
@@ -41,6 +42,7 @@ static void test_mbox_from_parse(void)
 		{ 123240, 0, "user", 0 },
 		{ 123240, 0, "user", 0 },
 		{ 123240, 0, "", 0 },
+		{ 0, 0, NULL, -1 },
 		{ 0, 0, NULL, -1 },
 		{ 0, 0, NULL, -1 },
 		{ 0, 0, NULL, -1 },
