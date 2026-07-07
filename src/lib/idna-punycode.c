@@ -97,7 +97,7 @@ ssize_t idna_punycode_decode(const uint32_t *in, size_t in_len,
 			     uint32_t *out, size_t out_max)
 {
 	buffer_t out_buf;
-	ARRAY(uint32_t) label;
+	ARRAY(uint32_t) output;
 	size_t out_pos;
 	size_t i = 0, k;
 	uint32_t n = initialN, bias = initialBias;
@@ -107,7 +107,7 @@ ssize_t idna_punycode_decode(const uint32_t *in, size_t in_len,
 
 	buffer_create_from_data(&out_buf, out,
 				MALLOC_MULTIPLY(sizeof(uint32_t), out_max));
-	array_create_from_buffer(&label, &out_buf, sizeof(uint32_t));
+	array_create_from_buffer(&output, &out_buf, sizeof(uint32_t));
 
 	/* find the rightmost delimiter, if present in string */
 	for (k = in_len; k > 0; k--) {
@@ -128,14 +128,14 @@ ssize_t idna_punycode_decode(const uint32_t *in, size_t in_len,
 			/* Has non-ascii input, this cannot be punycoded. */
 			return -1;
 		}
-		i_assert(array_count(&label) < in_len);
+		i_assert(array_count(&output) < in_len);
 		/* Add basic code points to label */
-		if (array_count(&label) == out_max)
+		if (array_count(&output) == out_max)
 			return -1;
-		array_push_back(&label, ptr);
+		array_push_back(&output, ptr);
 	}
 
-	out_pos = array_count(&label);
+	out_pos = array_count(&output);
 
 	/* Main decoding loop: start from after delimiter */
 	if (delim != in)
@@ -204,13 +204,13 @@ ssize_t idna_punycode_decode(const uint32_t *in, size_t in_len,
 		/* Insert n at position i of the output: */
 		if (i <= out_pos) {
 			out_pos++;
-			if (array_count(&label) == out_max)
+			if (array_count(&output) == out_max)
 				return -1;
-			array_insert(&label, i, &n, 1);
+			array_insert(&output, i, &n, 1);
 		} else
 			return -1;
 
 		i++;
 	}
-	return (ssize_t)array_count(&label);
+	return (ssize_t)array_count(&output);
 }
