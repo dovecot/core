@@ -6,6 +6,13 @@
 #include "unichar.h"
 #include "punycode.h"
 
+/* Based on punycode.c from RFC 3492
+
+   http://www.nicemice.net/idn/
+   Adam M. Costello
+   http://www.nicemice.net/amc/
+*/
+
 /* Boot string parameters for Punycode */
 
 static const unsigned int base = 36; /* maximum basic code point */
