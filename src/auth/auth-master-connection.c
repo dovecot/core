@@ -331,8 +331,10 @@ static void user_callback(enum userdb_result result,
 		if (auth_request->userdb_lookup_tempfailed) {
 			value = auth_fields_find(
 				auth_request->fields.userdb_reply, "reason");
-			if (value != NULL)
-				str_printfa(str, "\treason=%s", value);
+			if (value != NULL) {
+				str_append(str, "\treason=");
+				str_append_tabescaped(str, value);
+			}
 		}
 		break;
 	case USERDB_RESULT_USER_UNKNOWN:
