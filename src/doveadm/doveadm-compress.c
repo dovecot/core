@@ -123,9 +123,14 @@ client_input_get_compress_algorithm(struct client *client, const char *line)
 	if (!str_begins_icase(line, " COMPRESS ", &algorithm))
 		return FALSE;
 
+	/* Look up the local handler needed to (de)compress the stream once the
+	   server accepts. Don't fail here if the mechanism is unknown or not
+	   compiled in: the server may reject it, and this client must still send
+	   the command to let the server do so. If the server unexpectedly
+	   accepts a mechanism we can't handle, we fail then (see server_input()). */
 	if (compression_lookup_handler(t_str_lcase(algorithm),
 				       &client->handler) <= 0)
-		i_fatal("Unsupported compression mechanism: %s", algorithm);
+		client->handler = NULL;
 	/* Remember the tag so we can tell whether the server accepted or
 	   rejected this COMPRESS command. */
 	i_free(client->compress_tag);
@@ -279,6 +284,8 @@ static void server_input(struct client *client)
 			struct istream *input;
 			struct ostream *output;
 
+			if (client->handler == NULL)
+				i_fatal("Server accepted unsupported compression mechanism");
 			e_info(client->event, "<Compression started>");
 			input = client->handler->create_istream(client->input);
 			output = client->handler->
