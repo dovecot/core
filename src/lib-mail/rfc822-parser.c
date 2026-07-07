@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "strescape.h"
+#include "idna.h"
 #include "idna-punycode.h"
 #include "rfc822-parser.h"
 
@@ -465,12 +466,16 @@ int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str)
 #endif
 		int ret = rfc822_parse_dot_atom(ctx, str);
 #ifdef EXPERIMENTAL_MAIL_UTF8
-		if (ret == 0) {
-			string_t *u = t_str_new(64);
-			rfc822_decode_punycode(str_data(str) + start_pos,
-					       str_len(str) - start_pos, u);
+		if (ret < 0)
+			return -1;
+
+		const char *domain = str_c(str) + start_pos, *domain_unicode;
+		const char *error;
+
+		if (idna_process_domain_name(domain, 0, &domain_unicode, NULL,
+					     &error) == 0) {
 			str_truncate(str, start_pos);
-			str_append_str(str, u);
+			str_append(str, domain_unicode);
 		}
 #endif
 		return ret;
