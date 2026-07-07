@@ -1,8 +1,12 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "test-lib.h"
-#include "str.h"
+#include "array.h"
+#include "unichar.h"
+#include "idna.h"
 #include "idna-punycode.h"
+
+#define LABEL_BUF_SIZE (IDNA_DNS_MAX_NAME_LENGTH + 1)
 
 static void test_idna_punycode_decode(void)
 {
@@ -30,17 +34,35 @@ static void test_idna_punycode_decode(void)
 		{ .in = "", .out = "", .ret = -1 },
 	};
 
+	ARRAY_TYPE(unichars) in_ucs4, out_ucs4;
+	uint32_t r[LABEL_BUF_SIZE];
 	unsigned int i;
-	string_t *r = t_str_new(42);
+	int ret;
 
-	test_begin("punycode decoding");
+	t_array_init(&in_ucs4, LABEL_BUF_SIZE);
+	t_array_init(&out_ucs4, LABEL_BUF_SIZE);
+
+	test_begin("idna - punycode decoding");
 	for (i = 0; i < N_ELEMENTS(cases); i ++) {
-		str_truncate(r, 0);
-		int ret = idna_punycode_decode_utf8(
-			(const unsigned char *)cases[i].in, strlen(cases[i].in),
-			r);
-		test_assert_idx(ret == cases[i].ret, i);
-		test_assert_strcmp_idx(str_c(r), cases[i].out, i);
+		const uint32_t *in, *out;
+		unsigned int in_count, out_count;
+
+		array_clear(&in_ucs4);
+		array_clear(&out_ucs4);
+		ret = uni_utf8_to_ucs4(cases[i].in, &in_ucs4);
+		i_assert(ret == 0);
+		ret = uni_utf8_to_ucs4(cases[i].out, &out_ucs4);
+		i_assert(ret == 0);
+
+		in = array_get(&in_ucs4, &in_count);
+		out = array_get(&out_ucs4, &out_count);
+		int ret = idna_punycode_decode(in, in_count, r, N_ELEMENTS(r));
+		test_assert_idx((ret >= 0) == (cases[i].ret >= 0), i);
+		if (ret >= 0) {
+			test_assert_memcmp_idx(
+				r, ret * sizeof(uint32_t),
+				out, out_count * sizeof(uint32_t), i);
+		}
 	}
 	test_end();
 }
@@ -53,12 +75,18 @@ static void test_idna_punycode_decode_len_boundary(void)
 	   length, so a '-' in a later label lies past the len boundary. Decoding
 	   the "a" label of "a.b-c" (len=1) must not read the '-' at offset 3 nor
 	   abort. */
-	string_t *r = t_str_new(42);
-	const char *buf = "a.b-c"; /* NUL-terminated; '-' is at offset 3 */
+	uint32_t r[LABEL_BUF_SIZE];
+	const char *str = "a.b-c"; /* NUL-terminated; '-' is at offset 3 */
+	ARRAY_TYPE(unichars) buf;
+	int ret;
 
-	test_begin("punycode decoding len boundary");
-	int ret = idna_punycode_decode_utf8((const unsigned char *)buf, 1, r);
-	test_assert(ret == -1 || ret == 0);
+	t_array_init(&buf, 32);
+	ret = uni_utf8_to_ucs4(str, &buf);
+	i_assert(ret == 0);
+
+	test_begin("idna - punycode decoding len boundary");
+	ret = idna_punycode_decode(array_idx(&buf, 0), 1, r, N_ELEMENTS(r));
+	test_assert(ret == 1);
 	test_end();
 }
 
@@ -72,14 +100,22 @@ static void test_idna_punycode_decode_invalid_codepoint(void)
 	   out=0) to n = 0x80 + delta:
 	     "ib9b"  -> delta 55168  -> n = 0xD800 (high surrogate)
 	     "un32g" -> delta 1114000 -> n = 0x110010 (> U+10FFFF) */
+	uint32_t r[LABEL_BUF_SIZE];
 	const char *const inputs[] = { "ib9b", "un32g" };
-	string_t *r = t_str_new(42);
+	ARRAY_TYPE(unichars) buf;
+	int ret;
 
-	test_begin("punycode decoding invalid codepoint");
+	t_array_init(&buf, 32);
+
+	test_begin("idna - punycode decoding invalid codepoint");
 	for (unsigned int i = 0; i < N_ELEMENTS(inputs); i++) {
-		str_truncate(r, 0);
-		int ret = idna_punycode_decode_utf8(
-			(const unsigned char *)inputs[i], strlen(inputs[i]), r);
+		array_clear(&buf);
+		ret = uni_utf8_to_ucs4(inputs[i], &buf);
+		i_assert(ret == 0);
+
+		int ret = idna_punycode_decode(
+			array_idx(&buf, 0), array_count(&buf),
+			r, N_ELEMENTS(r));
 		test_assert_idx(ret == -1, i);
 	}
 	test_end();
