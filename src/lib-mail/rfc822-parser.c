@@ -414,36 +414,6 @@ rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 	return -1;
 }
 
-void rfc822_decode_punycode(const unsigned char *input, size_t len,
-			    string_t *result)
-{
-	const unsigned char *pos = input;
-	const unsigned char *end = CONST_PTR_OFFSET(input, len);
-
-	while (pos < end) {
-		const unsigned char *delim = memchr(pos, '.', end - pos);
-		if (delim == NULL)
-			delim = end;
-		/* input is not NUL-terminated, so bound the "xn--" prefix
-		   check by the label length rather than relying on str_begins()
-		   scanning up to a NUL. */
-		if (delim - pos < 4 || memcmp(pos, "xn--", 4) != 0 ||
-		    idna_punycode_decode_utf8(pos + 4, delim - pos - 4,
-					      result) < 0) {
-			/* Not a punycode label, or it could not be decoded -
-			   keep the label as-is. Copy only up to the delimiter:
-			   the trailing '.' (when this is not the last label)
-			   must not be copied here. */
-			str_append_data(result, pos, delim - pos);
-		}
-		if (delim < end) {
-			/* re-add the '.' label separator */
-			str_append_c(result, '.');
-		}
-		pos = delim + 1;
-	}
-}
-
 int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str)
 {
 	/*

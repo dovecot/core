@@ -73,9 +73,4 @@ int rfc822_parse_content_type(struct rfc822_parser_context *ctx, string_t *str);
 int rfc822_parse_content_param(struct rfc822_parser_context *ctx,
 			       const char **key_r, string_t *value);
 
-/* Decode a punycode-encoded domain name and return the UTF8 form in result.
-   input is not required to be NUL-terminated; only len bytes are read. */
-void rfc822_decode_punycode(const unsigned char *input, size_t len,
-			    string_t *result);
-
 #endif
