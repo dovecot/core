@@ -427,6 +427,18 @@ static void test_mailbox_list_get_names(void)
 		  .storage_name = "A/B.C%D",
 		  .ns_sep = '/', .list_sep = '.',
 		  .vname_escape_char = '%' },
+		/* invalid UTF-8 bytes escaped in mailbox_list_utf8=yes mode */
+		{ .vname = "broken%ffbox",
+		  .storage_name = "broken\xff""box",
+		  .flags = TEST_FLAG_NO_MUTF7,
+		  .ns_sep = '/', .list_sep = '.',
+		  .vname_escape_char = '%' },
+		/* valid multibyte UTF-8 kept, invalid byte escaped */
+		{ .vname = "\xC3\xA4%ff",
+		  .storage_name = "\xC3\xA4\xff",
+		  .flags = TEST_FLAG_NO_MUTF7,
+		  .ns_sep = '/', .list_sep = '.',
+		  .vname_escape_char = '%' },
 
 		/* INBOX: */
 		{ .vname = "inBox",

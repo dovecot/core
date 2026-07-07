@@ -529,11 +529,17 @@ mailbox_list_storage_name_prepare(struct mailbox_list *list,
 void mailbox_list_name_escape(const char *name, const char *escape_chars,
 			      string_t *dest)
 {
-	for (unsigned int i = 0; name[i] != '\0'; i++) {
-		if (strchr(escape_chars, name[i]) != NULL)
-			str_printfa(dest, "%c%02x", escape_chars[0], name[i]);
-		else
-			str_append_c(dest, name[i]);
+	for (const char *src = name; *src != '\0'; ) {
+		unichar_t ATTR_UNUSED unused;
+		int len = uni_utf8_get_char(src, &unused);
+		if (len > 0 && strchr(escape_chars, *src) == NULL) {
+			str_append_data(dest, src, len);
+			src += len;
+		} else {
+			str_printfa(dest, "%c%02x", escape_chars[0],
+				    (unsigned char)*src);
+			src++;
+		}
 	}
 }
 
