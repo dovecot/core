@@ -102,6 +102,7 @@ endif
 noinst_PROGRAMS += $(fuzz_programs) $(test_nocheck_programs)
 
 EXTRA_DIST = \
+	fuzz-smtp-server.dict \
 	test-bin/sendmail-exit-1.sh \
 	test-bin/sendmail-success.sh
 

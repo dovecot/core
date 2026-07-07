@@ -127,3 +127,7 @@ fuzz_imap_bodystructure_DEPENDENCIES = libimap.la $(test_deps) ../lib-mail/libma
 
 
 endif
+
+EXTRA_DIST = \
+	fuzz-imap-utf7.dict \
+	fuzz-imap-bodystructure.dict

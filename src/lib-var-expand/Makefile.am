@@ -90,6 +90,10 @@ noinst_PROGRAMS += $(fuzz_programs)
 
 endif
 
+EXTRA_DIST = \
+	fuzz-var-expand.dict \
+	fuzz-var-expand-import.dict
+
 check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \

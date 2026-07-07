@@ -93,6 +93,9 @@ endif
 
 noinst_PROGRAMS += ntlm_dummy $(fuzz_programs)
 
+EXTRA_DIST = \
+	fuzz-sasl-authentication.dict
+
 test_libs = \
 	libsasl.la \
 	../lib-auth/libauth-crypt.la \

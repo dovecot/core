@@ -165,6 +165,11 @@ endif
 
 noinst_PROGRAMS += $(fuzz_programs)
 
+EXTRA_DIST = \
+	fuzz-message-date.dict \
+	fuzz-message-decoder.dict \
+	fuzz-message-parser.dict \
+	fuzz-qp-decoder.dict
 
 test_istream_dot_SOURCES = test-istream-dot.c
 test_istream_dot_LDADD = $(test_libs)
