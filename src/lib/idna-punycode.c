@@ -158,39 +158,6 @@ ssize_t idna_punycode_encode(const uint32_t *in, size_t in_len,
 }
 
 /* Decodes a punycoded string into output, or returns -1 on error. */
-int idna_punycode_decode_utf8(const unsigned char *in, size_t in_len,
-			      string_t *output)
-{
-	uint32_t *in32 = NULL;
-	uint32_t out32[IDNA_DNS_MAX_NAME_LENGTH + 1];
-	ssize_t sret;
-
-	T_BEGIN {
-		size_t i;
-
-		if (in_len > 0) {
-			in32 = t_malloc_no0(
-				MALLOC_MULTIPLY(sizeof(uint32_t), in_len));
-		}
-		sret = 0;
-		for (i = 0; i < in_len; i++) {
-			if ((in[i] & 0x80) != 0x00) {
-				sret = -1;
-				break;
-			}
-			in32[i] = in[i];
-		}
-		if (sret == 0) {
-			sret = idna_punycode_decode(in32, in_len,
-						    out32, N_ELEMENTS(out32));
-		}
-	} T_END;
-	if (sret < 0)
-		return -1;
-
-	uni_ucs4_to_utf8(out32, sret, output);
-	return 0;
-}
 ssize_t idna_punycode_decode(const uint32_t *in, size_t in_len,
 			     uint32_t *out, size_t out_max)
 {
