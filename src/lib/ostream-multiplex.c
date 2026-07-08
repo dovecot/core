@@ -286,7 +286,26 @@ o_stream_multiplex_sendv(struct multiplex_ostream *mstream)
 	while((channel = get_next_channel(mstream)) != NULL) {
 		if (channel->buf->used == 0)
 			continue;
-		if (o_stream_get_buffer_avail_size(mstream->parent) < 6) {
+		/* Only the PACKET format needs this gate: it writes a whole
+		   header and its data in a single sendv and can't do a
+		   partial parent write, so it must wait until the parent has
+		   room for a full header. The STREAM format sends
+		   incrementally via pending_buf and handles partial parent
+		   writes, so it must attempt the send instead. It also must
+		   not be gated on get_buffer_avail_size() here: a parent with
+		   max_buffer_size==0 (as imap-fetch sets while streaming a
+		   body straight to the socket) always reports 0, which would
+		   wrongly block STREAM from writing to it. */
+		if (mstream->format == OSTREAM_MULTIPLEX_FORMAT_PACKET &&
+		    o_stream_get_buffer_avail_size(mstream->parent) < 6) {
+			/* A small avail here is normal backpressure: the
+			   parent buffer is temporarily full and will drain.
+			   But a parent whose max_buffer_size can't even hold
+			   a header can never drain enough for send_packet(),
+			   so it would just deadlock. Catch that (a
+			   max_buffer_size==0 streaming parent is unsupported
+			   for PACKET) loudly instead. */
+			i_assert(o_stream_get_max_buffer_size(mstream->parent) >= 6);
 			all_sent = 0;
 			break;
 		}
