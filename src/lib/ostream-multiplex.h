@@ -2,6 +2,14 @@
 #define OSTREAM_MULTIPLEX 1
 
 enum ostream_multiplex_format {
+	/* DEPRECATED: The original packet-based framing
+	   (<channel-id><32bit length><data>). It can't stream to a parent
+	   with max_buffer_size==0 and requires the parent to buffer a whole
+	   packet, so it doesn't work with senders that stream directly to the
+	   socket (e.g. imap-fetch). New code should use
+	   OSTREAM_MULTIPLEX_FORMAT_STREAM. Kept only for backwards
+	   compatibility with peers that don't yet understand the stream
+	   format, and is being phased out. */
 	OSTREAM_MULTIPLEX_FORMAT_PACKET,
 	/* Start a new multiplex ostream */
 	OSTREAM_MULTIPLEX_FORMAT_STREAM,
