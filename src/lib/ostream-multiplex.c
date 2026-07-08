@@ -411,9 +411,16 @@ o_stream_multiplex_ochannel_sendv(struct ostream_private *stream,
 	for (unsigned int i = 0; i < iov_count; i++)
 		total += iov[i].iov_len;
 
-	if (avail < total && channel->buf->used < IO_BLOCK_SIZE) {
+	if (avail < total && channel->buf->used < IO_BLOCK_SIZE &&
+	    o_stream_get_buffer_used_size(channel->mstream->parent) == 0) {
 		/* ostream buffer size is too small for us - keep it always at
-		   least at IO_BLOCK_SIZE. */
+		   least at IO_BLOCK_SIZE. Only do this while the parent has no
+		   un-flushed data, i.e. the socket is keeping up. If the parent
+		   already has a backlog the socket is congested, and buffering
+		   more here would defeat backpressure: a max_buffer_size==0
+		   parent always reports avail==0, so without this the STREAM
+		   format would keep accepting data and busy-loop writing to a
+		   full socket instead of returning 0 to let the caller wait. */
 		avail = IO_BLOCK_SIZE - channel->buf->used;
 	}
 	if (avail < total) {
