@@ -167,7 +167,7 @@ anvil_client_start_multiplex_output(struct anvil_client *client)
 {
 	struct ostream *orig_output = client->conn.output;
 	client->conn.output = o_stream_create_multiplex(orig_output, SIZE_MAX,
-		OSTREAM_MULTIPLEX_FORMAT_PACKET);
+		OSTREAM_MULTIPLEX_FORMAT_STREAM);
 	o_stream_set_no_error_handling(client->conn.output, TRUE);
 	o_stream_unref(&orig_output);
 
