@@ -18,3 +18,7 @@
 "p=tls-unique,"
 "gs2-"
 "PLAIN\x0atestuser\x0a\x0asecret\x0a"
+"charset"
+"GSS-SPNEGO"
+"algorithm"
+"digest"
