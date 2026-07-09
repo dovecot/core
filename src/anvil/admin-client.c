@@ -69,6 +69,12 @@ static void admin_client_destroy(struct connection *conn)
 	struct admin_client *client =
 		container_of(conn, struct admin_client, conn);
 
+	/* Remove the io and mark the connection disconnected. Otherwise the
+	   destroy callback keeps getting called for the dead fd, since the
+	   pool/target still holds a reference and connection_deinit() (which
+	   does the actual disconnect) isn't reached until refcount drops to
+	   0 in admin_client_unref(). */
+	connection_disconnect(&client->conn);
 	admin_client_fail_commands(client, connection_disconnect_reason(conn));
 }
 
