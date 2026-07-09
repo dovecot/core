@@ -1,5 +1,6 @@
 # default <setting-path> <old-default> <ce-version> <pro-version>
 # rename <old-setting-key> <new-setting-key> <ce-version> <pro-version>
+default	imap_compress_on_proxy	no	2.4.5	3.2.0
 default	service/lmtp/service_extra_groups		2.4.4	-
 default	push_notification_ox/http_client_request_max_attempts	1	2.4.4	3.2.0
 default	push_notification_ox/http_client_request_timeout	1min	2.4.4	3.2.0
