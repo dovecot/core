@@ -231,4 +231,8 @@ fuzz_http_response_parser_CPPFLAGS = $(FUZZER_CPPFLAGS)
 fuzz_http_response_parser_LDFLAGS = $(FUZZER_LDFLAGS)
 fuzz_http_response_parser_LDADD = libhttp.la $(test_libs)
 fuzz_http_response_parser_DEPENDENCIES = libhttp.la $(test_deps)
+
+EXTRA_DIST = \
+	fuzz-http-request-parser.dict \
+	fuzz-http-response-parser.dict
 endif
