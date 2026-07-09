@@ -122,6 +122,8 @@ void admin_client_send_cmd(struct admin_client *client, const char *cmdline,
 	cmd->callback = callback;
 	cmd->context = context;
 
+	e_debug(client->conn.event, "Sending admin command: %s", cmdline);
+
 	if (client->conn.disconnected) {
 		if (connection_client_connect_async(&client->conn) < 0)
 			return;
