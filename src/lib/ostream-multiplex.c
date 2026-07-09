@@ -407,6 +407,7 @@ o_stream_multiplex_ochannel_sendv(struct ostream_private *stream,
 		container_of(stream, struct multiplex_ochannel, ostream);
 	size_t total = 0, avail = o_stream_get_buffer_avail_size(&stream->ostream);
 	size_t optimal_size = I_MIN(IO_BLOCK_SIZE, avail);
+	bool grown = FALSE;
 
 	for (unsigned int i = 0; i < iov_count; i++)
 		total += iov[i].iov_len;
@@ -422,14 +423,22 @@ o_stream_multiplex_ochannel_sendv(struct ostream_private *stream,
 		   format would keep accepting data and busy-loop writing to a
 		   full socket instead of returning 0 to let the caller wait. */
 		avail = IO_BLOCK_SIZE - channel->buf->used;
+		grown = TRUE;
 	}
-	if (avail < total) {
+	if (avail < total && !grown) {
 		if (o_stream_multiplex_sendv(channel->mstream) < 0)
 			return -1;
 		avail = o_stream_get_buffer_avail_size(&stream->ostream);
 		if (avail == 0)
 			return 0;
 	}
+	/* If we grew the buffer above but a single sendv is still larger than
+	   IO_BLOCK_SIZE, don't refuse it entirely: buffer up to avail bytes so
+	   the caller makes forward progress. Otherwise a >IO_BLOCK_SIZE send
+	   (e.g. o_stream_send_istream() of an in-memory istream that returns all
+	   its data at once) would repeatedly buffer nothing and busy-loop. The
+	   remainder applies backpressure on the next call, when buf->used has
+	   reached IO_BLOCK_SIZE and the grow no longer triggers. */
 
 	total = 0;
 
