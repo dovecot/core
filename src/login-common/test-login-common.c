@@ -214,6 +214,34 @@ static void test_client_is_secured(void)
 	test_end();
 }
 
+static void test_real_remote_ip_expansion(void)
+{
+	/* Regression test for 4d6e5744bb5:
+	 * get_var_expand_params() used client->real_local_ip for
+	 * "real_remote_ip" variable expansion instead of client->real_remote_ip.
+	 *
+	 * This test differentiates real_local_ip/port from real_remote_ip/port
+	 * and asserts the log output shows the correct values.
+	 */
+	test_begin("real_remote_ip_expansion");
+
+	/* Set the elements so real_remote_ip/port and real_local_ip/port are logged */
+	test_setting_override("login_log_format_elements",
+		"real_local_ip=%{real_local_ip} real_remote_ip=%{real_remote_ip} "
+		"real_local_port=%{real_local_port} real_remote_port=%{real_remote_port}");
+
+	struct master_service_connection *conn = test_connection_create();
+	test_set_real_endpoints(conn, "10.0.0.1:143", "10.0.0.2:1932");
+
+	struct client *client = test_client_create(conn);
+	test_expect_error_string(
+		"real_ip_test: real_local_ip=10.0.0.1, real_remote_ip=10.0.0.2, "
+		"real_local_port=143, real_remote_port=1932");
+	e_error(client->event, "real_ip_test");
+	client_unref(&client);
+
+	test_end();
+}
 
 static void test_settings_init(void)
 {
@@ -239,6 +267,7 @@ int main(int argc, char **argv)
 		test_login_log_format,
 		test_client_is_trusted,
 		test_client_is_secured,
+		test_real_remote_ip_expansion,
 		NULL
 	};
 	login_binary = &test_login_binary;
