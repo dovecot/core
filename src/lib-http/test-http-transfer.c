@@ -170,6 +170,11 @@ invalid_transfer_chunked_input_tests[] = {
 	"\r\n"
 	"0\r\n"
 	"Checksum adgfef3fdaf3daf3dfaf3ff3fdag\r\n"
+	"\r\n",
+	// chunk size overflow
+	"FFFFFFFFFFFFFFFFF\r\n"
+	"\r\n"
+	"0\r\n"
 	"\r\n"
 };
 
