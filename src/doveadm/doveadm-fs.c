@@ -285,6 +285,7 @@ struct fs_delete_ctx {
 static int cmd_fs_delete_ctx_run(struct fs_delete_ctx *ctx)
 {
 	unsigned int i;
+	bool pending = FALSE;
 	int ret = 0;
 
 	for (i = 0; i < ctx->files_count; i++) {
@@ -293,13 +294,19 @@ static int cmd_fs_delete_ctx_run(struct fs_delete_ctx *ctx)
 		else if (fs_delete(ctx->files[i]) == 0)
 			fs_file_deinit(&ctx->files[i]);
 		else if (errno == EAGAIN) {
-			if (ret == 0)
-				ret = 1;
+			/* still pending. keep track of this separately from
+			   ret, so it doesn't get masked by another file's
+			   error. otherwise the pending file's async lookup
+			   could still be running when it's deinitialized. */
+			pending = TRUE;
 		} else if (errno == ENOENT) {
 			e_error(ctx->cctx->event,
 				"%s doesn't exist: %s", fs_file_path(ctx->files[i]),
 				fs_file_last_error(ctx->files[i]));
 			doveadm_exit_code = DOVEADM_EX_NOTFOUND;
+			/* deinit so it's not retried. the failed delete's async
+			   lookup has finished, so it's safe. */
+			fs_file_deinit(&ctx->files[i]);
 			ret = -1;
 		} else {
 			e_error(ctx->cctx->event,
@@ -307,10 +314,13 @@ static int cmd_fs_delete_ctx_run(struct fs_delete_ctx *ctx)
 				fs_file_path(ctx->files[i]),
 				fs_file_last_error(ctx->files[i]));
 			doveadm_exit_code = EX_TEMPFAIL;
+			/* deinit so it's not retried. the failed delete's async
+			   lookup has finished, so it's safe. */
+			fs_file_deinit(&ctx->files[i]);
 			ret = -1;
 		}
 	}
-	return ret;
+	return pending ? 1 : ret;
 }
 
 static int doveadm_fs_delete_async_fname(struct fs_delete_ctx *ctx,
@@ -344,7 +354,10 @@ static void doveadm_fs_delete_async_finish(struct fs_delete_ctx *ctx)
 {
 	unsigned int i;
 
-	while (doveadm_exit_code == 0 && cmd_fs_delete_ctx_run(ctx) > 0) {
+	/* drain all still-pending async operations before deinit, even if a
+	   file already failed. a file with a running async lookup must not be
+	   deinitialized. */
+	while (cmd_fs_delete_ctx_run(ctx) > 0) {
 		fs_wait_async(ctx->fs);
 	}
 	for (i = 0; i < ctx->files_count; i++) {
