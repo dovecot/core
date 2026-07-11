@@ -511,7 +511,7 @@ static int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 		   return -1 for poll/epoll infinity. */
 		tv_r->tv_sec = INT_MAX / 1000;
 		tv_r->tv_usec = 0;
-		ioloop->next_max_time.tv_sec = (1ULL << (TIME_T_MAX_BITS-1)) - 1;
+		ioloop->next_max_time.tv_sec = time_max_safe_value();
 		ioloop->next_max_time.tv_usec = 0;
 		return -1;
 	}
