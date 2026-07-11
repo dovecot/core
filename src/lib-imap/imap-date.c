@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "utc-offset.h"
 #include "utc-mktime.h"
+#include "time-util.h"
 #include "imap-date.h"
 
 #include <ctype.h>
@@ -81,18 +82,13 @@ static const char *imap_parse_date_internal(const char *str, struct tm *tm)
 
 static bool tm_is_too_large(const struct tm *tm, time_t *max_time_r)
 {
-	static time_t max_time = 0;
 	static struct tm max_tm = { 0, };
+	static bool have_max_tm = FALSE;
+	time_t max_time = time_max_safe_value();
 
-	if (max_time == 0) {
-#if TIME_T_MAX_BITS == 32
-		max_time = 0xffffffffUL;
-#elif TIME_T_MAX_BITS == 64
-		max_time = 0xffffffffffffffffULL;
-#else
-		max_time = ((time_t)1 << TIME_T_MAX_BITS) - 1;
-#endif
+	if (!have_max_tm) {
 		max_tm = *gmtime(&max_time);
+		have_max_tm = TRUE;
 	}
 	*max_time_r = max_time;
 
@@ -189,8 +185,11 @@ bool imap_parse_datetime(const char *str, time_t *timestamp_r,
 	*timezone_offset_r = parse_timezone(str);
 
 	tm.tm_isdst = -1;
-	if ((ret = imap_mktime(&tm, timestamp_r)) > 0)
-		*timestamp_r -= *timezone_offset_r * 60;
+	if ((ret = imap_mktime(&tm, timestamp_r)) > 0) {
+		if (time_sub_secs(*timestamp_r, (int64_t)*timezone_offset_r * 60,
+				   timestamp_r) < 0)
+			return FALSE;
+	}
 	return ret >= 0;
 }
 
@@ -263,7 +262,14 @@ const char *imap_to_datetime(time_t timestamp)
 const char *imap_to_datetime_tz(time_t timestamp, int timezone_offset)
 {
 	const struct tm *tm;
-	time_t adjusted = timestamp + timezone_offset*60;
+	time_t adjusted;
+
+	if (time_add_secs(timestamp, (int64_t)timezone_offset * 60,
+			   &adjusted) < 0) {
+		/* doesn't fit in time_t; saturate since this function has
+		   no error-return path */
+		adjusted = timezone_offset >= 0 ? time_max_safe_value() : 0;
+	}
 
 	tm = gmtime(&adjusted);
 	return imap_to_datetime_tm(tm, timezone_offset);
