@@ -7,6 +7,7 @@
 #include "http-date.h"
 #include "http-message-parser.h"
 #include "http-response-parser.h"
+#include "time-util.h"
 
 #include <ctype.h>
 
@@ -279,7 +280,7 @@ static int
 http_response_parse_retry_after(const char *hdrval, time_t resp_time,
 	time_t *retry_after_r)
 {
-	time_t delta;
+	int64_t delta;
 
 	/* RFC 7231, Section 7.1.3: Retry-After
 
@@ -293,12 +294,12 @@ http_response_parse_retry_after(const char *hdrval, time_t resp_time,
 
        delta-seconds  = 1*DIGIT
 	 */
-	if (str_to_time(hdrval, &delta) >= 0) {
-		if (resp_time == (time_t)-1) {
+	if (str_to_int64(hdrval, &delta) >= 0) {
+		if (resp_time == (time_t)-1)
 			return -1;
-		}
-		*retry_after_r = resp_time + delta;
-		return 0;
+		if (delta < 0)
+			return -1;
+		return time_add_secs(resp_time, delta, retry_after_r);
 	}
 
 	return (http_date_parse
