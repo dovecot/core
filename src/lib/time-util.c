@@ -157,3 +157,47 @@ int str_to_timeval(const char *str, struct timeval *tv_r)
 	tv_r->tv_usec = usec;
 	return 0;
 }
+
+time_t time_max_safe_value(void)
+{
+	/* signed time_t is enforced by configure */
+#if TIME_T_MAX_BITS >= 63
+	return (time_t)INT64_MAX;
+#else
+	/* compute in uint64_t: with a 32-bit signed time_t
+	   TIME_T_MAX_BITS is 31 and (time_t)1 << 31 would overflow */
+	return (time_t)(((uint64_t)1 << TIME_T_MAX_BITS) - 1);
+#endif
+}
+
+int time_add_secs(time_t base, int64_t secs, time_t *result_r)
+{
+	int64_t max = (int64_t)time_max_safe_value();
+	int64_t min = -max;
+	int64_t b = (int64_t)base;
+
+	/* Reject an out-of-range base first: once b is known to be within
+	   [min, max], "max - b" and "min - b" below can't overflow either,
+	   since both min and max are small in magnitude. */
+	if (b < min || b > max)
+		return -1;
+	if (secs > max - b || secs < min - b)
+		return -1;
+	*result_r = (time_t)(b + secs);
+	return 0;
+}
+
+int time_sub_secs(time_t base, int64_t secs, time_t *result_r)
+{
+	int64_t max = (int64_t)time_max_safe_value();
+	int64_t min = -max;
+	int64_t b = (int64_t)base;
+
+	/* see time_add_secs() for why the base is checked first */
+	if (b < min || b > max)
+		return -1;
+	if (secs < b - max || secs > b - min)
+		return -1;
+	*result_r = (time_t)(b - secs);
+	return 0;
+}

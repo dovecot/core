@@ -116,4 +116,17 @@ const char *t_strfgmtime(const char *fmt, time_t t) ATTR_STRFTIME(1);
 int str_to_timeval(const char *str, struct timeval *tv_r)
 	ATTR_WARN_UNUSED_RESULT;
 
+/* Largest time_t value this platform's time functions (gmtime(), etc.) can
+   reliably handle, as determined at configure time. */
+time_t time_max_safe_value(void);
+
+/* Add secs (may be negative) to base, returned via result_r.
+   Returns 0 on success, -1 (result_r untouched) if out of time_t range. */
+int time_add_secs(time_t base, int64_t secs, time_t *result_r)
+	ATTR_WARN_UNUSED_RESULT;
+/* Subtract secs (may be negative) from base, returned via result_r.
+   Returns 0 on success, -1 (result_r untouched) if out of time_t range. */
+int time_sub_secs(time_t base, int64_t secs, time_t *result_r)
+	ATTR_WARN_UNUSED_RESULT;
+
 #endif

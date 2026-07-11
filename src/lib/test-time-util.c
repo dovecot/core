@@ -424,6 +424,60 @@ static void test_timeval_from_usecs(void)
 	test_end();
 }
 
+static void test_time_add_secs(void)
+{
+	time_t result;
+	time_t max_time = time_max_safe_value();
+
+	test_begin("time_add_secs()");
+	test_assert(time_add_secs(0, 0, &result) == 0 && result == 0);
+	test_assert(time_add_secs(1000, 500, &result) == 0 && result == 1500);
+	test_assert(time_add_secs(1000, -500, &result) == 0 && result == 500);
+	test_assert(time_add_secs(0, INT64_MIN, &result) < 0);
+	test_assert(time_add_secs(0, INT64_MAX, &result) < 0);
+	test_assert(time_add_secs(0, (int64_t)max_time, &result) == 0 &&
+		    result == max_time);
+	test_assert(time_add_secs(0, (int64_t)max_time + 1, &result) < 0);
+	test_assert(time_add_secs(max_time, 1, &result) < 0);
+	test_assert(time_add_secs(0, -(int64_t)max_time, &result) == 0 &&
+		    result == -max_time);
+	test_assert(time_add_secs(0, -(int64_t)max_time - 1, &result) < 0);
+	test_assert(time_add_secs(-max_time, -1, &result) < 0);
+#if TIME_T_MAX_BITS > 32
+	/* base itself far outside the safe range must not make the
+	   internal "max - b" / "min - b" bound computation overflow.
+	   Only testable with a 64-bit time_t; with a 32-bit time_t the
+	   casts truncate to in-range values. */
+	test_assert(time_add_secs((time_t)INT64_MAX, 1, &result) < 0);
+	test_assert(time_add_secs((time_t)INT64_MIN, -1, &result) < 0);
+#endif
+	test_end();
+}
+
+static void test_time_sub_secs(void)
+{
+	time_t result;
+	time_t max_time = time_max_safe_value();
+
+	test_begin("time_sub_secs()");
+	test_assert(time_sub_secs(1000, 500, &result) == 0 && result == 500);
+	test_assert(time_sub_secs(1000, -500, &result) == 0 && result == 1500);
+	test_assert(time_sub_secs(max_time, 0, &result) == 0 && result == max_time);
+	test_assert(time_sub_secs(max_time, -1, &result) < 0);
+	test_assert(time_sub_secs(0, INT64_MAX, &result) < 0);
+	test_assert(time_sub_secs(0, INT64_MIN, &result) < 0);
+	test_assert(time_sub_secs(0, (int64_t)max_time, &result) == 0 &&
+		    result == -max_time);
+	test_assert(time_sub_secs(0, (int64_t)max_time + 1, &result) < 0);
+	test_assert(time_sub_secs(-max_time, 1, &result) < 0);
+#if TIME_T_MAX_BITS > 32
+	/* see test_time_add_secs() */
+	test_assert(time_sub_secs((time_t)INT64_MAX, -1, &result) < 0);
+	test_assert(time_sub_secs((time_t)INT64_MIN, 1, &result) < 0);
+#endif
+	test_end();
+}
+
 void test_time_util(void)
 {
 	test_timeval_cmp();
@@ -435,4 +489,6 @@ void test_time_util(void)
 	test_micro_nanoseconds();
 	test_str_to_timeval();
 	test_timeval_from_usecs();
+	test_time_add_secs();
+	test_time_sub_secs();
 }
