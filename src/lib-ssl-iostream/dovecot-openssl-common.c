@@ -84,7 +84,7 @@ void dovecot_openssl_common_global_ref(void)
 	   which is after Dovecot has dlclose()d plugins that may have
 	   registered OpenSSL callbacks (e.g. libcassandra).  Accessing those
 	   unmapped code pages from OPENSSL_cleanup() crashes the process.
-	   Dovecot calls OPENSSL_cleanup() explicitly via
+	   Dovecot calls OPENSSL_cleanup() (for OPENSSL < 4.0) explicitly via
 	   dovecot_openssl_common_global_unref() while the relevant modules
 	   are still loaded. */
 	OPENSSL_init_ssl(OPENSSL_INIT_NO_ATEXIT, NULL);
@@ -105,7 +105,20 @@ bool dovecot_openssl_common_global_unref(void)
 #endif
 		dovecot_openssl_engine = NULL;
 	}
+	/* On OpenSSL < 4.0 OPENSSL_cleanup() runs synchronously here, while this
+	   module (and the custom memory functions it installed with
+	   CRYPTO_set_mem_functions()) is still mapped, so it is safe and frees
+	   OpenSSL's global state.
+
+	   On OpenSSL >= 4.0 OPENSSL_cleanup() no longer cleans up synchronously;
+	   it only arms a global destructor that runs at process exit - after
+	   Dovecot has dlclose()d this module - which would then call the
+	   now-unmapped free() function and crash (e.g. lib-dcrypt's test-crypto
+	   and test-stream). There it must not be called; OPENSSL_INIT_NO_ATEXIT
+	   already prevents any exit-time cleanup. */
+#if OPENSSL_VERSION_NUMBER < 0x40000000L
 	OPENSSL_cleanup();
+#endif
 	return FALSE;
 }
 
