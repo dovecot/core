@@ -172,9 +172,9 @@ static struct mail_user *quota_mailbox_get_user(struct mailbox *box)
 	return ns->owner != NULL ? ns->owner : ns->user;
 }
 
-static void quota_clone_changed(struct mailbox *box)
+static void
+quota_clone_changed_user(struct mail_user *user)
 {
-	struct mail_user *user = quota_mailbox_get_user(box);
 	struct quota_clone_user *quser =
 		QUOTA_CLONE_USER_CONTEXT_REQUIRE(user);
 
@@ -183,6 +183,12 @@ static void quota_clone_changed(struct mailbox *box)
 		quser->to_quota_flush = timeout_add(QUOTA_CLONE_FLUSH_DELAY_MSECS,
 						    quota_clone_flush, user);
 	}
+}
+
+static void quota_clone_changed(struct mailbox *box)
+{
+	struct mail_user *user = quota_mailbox_get_user(box);
+	quota_clone_changed_user(user);
 }
 
 static int quota_clone_save_finish(struct mail_save_context *ctx)
