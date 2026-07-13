@@ -1381,6 +1381,13 @@ static void http_client_connection_ready(struct http_client_connection *conn)
 		.max_field_size = set->response_hdr_max_field_size,
 		.max_fields = set->response_hdr_max_fields,
 	};
+	/* Intentionally lenient (not STRICT): the client parses responses
+	   from arbitrary/untrusted upstream servers, many of which send
+	   legitimately non-compliant framing (e.g. obs-fold). Unlike the
+	   server-side request parser, the response is consumed internally by
+	   this connection rather than re-emitted downstream, so there is no
+	   response-splitting precondition here to justify the interop risk
+	   of rejecting it. */
 	conn->http_parser = http_response_parser_init(
 		conn->conn.input, &limits, 0);
 	o_stream_set_finish_via_child(conn->conn.output, FALSE);
