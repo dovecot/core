@@ -40,6 +40,53 @@ static void test_uri_valid(void)
 	test_end();
 }
 
+/* Regression tests for out-of-bounds reads that are masked when parsing a
+   '\0'-terminated string (the extra byte lands on the terminator). These
+   use uri_check_data() with an exact-size, non-terminated heap buffer so
+   that valgrind can catch a read past the end. */
+const char *bounded_buffer_uri_tests[] = {
+	/* unterminated IP-literal: memchr() must not scan past the buffer
+	   looking for ']' */
+	"http://[",
+	/* '%' as the very last byte: the first bounds check must catch this
+	   before dereferencing the byte after it */
+	"http://x/%",
+	/* '%' followed by a single hex digit as the last byte: the second
+	   bounds check must catch this before dereferencing the byte after
+	   the hex digit */
+	"http://x/%4",
+};
+
+unsigned int bounded_buffer_uri_test_count =
+	N_ELEMENTS(bounded_buffer_uri_tests);
+
+static void test_uri_bounded_buffer(void)
+{
+	unsigned int i;
+
+	test_begin("uri bounded buffer");
+	for (i = 0; i < bounded_buffer_uri_test_count; i++) T_BEGIN {
+		const char *uri_in, *error = NULL;
+		unsigned char *data;
+		size_t len;
+		int ret;
+
+		uri_in = bounded_buffer_uri_tests[i];
+		len = strlen(uri_in);
+		data = i_malloc(len);
+		memcpy(data, uri_in, len);
+
+		ret = uri_check_data(data, len, 0, &error);
+		test_out_quiet(
+			t_strdup_printf("parse [%u] <%s>", i,
+					str_sanitize(uri_in, 64)),
+			ret < 0);
+
+		i_free(data);
+	} T_END;
+	test_end();
+}
+
 /* Invalid uri tests */
 const char *invalid_uri_tests[] = {
 	"http",
@@ -857,6 +904,7 @@ static void test_uri_iax(void)
 void test_uri(void)
 {
 	test_uri_valid();
+	test_uri_bounded_buffer();
 	test_uri_invalid();
 	test_uri_rfc();
 	test_uri_escape();

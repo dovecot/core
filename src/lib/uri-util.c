@@ -141,7 +141,8 @@ uri_parse_pct_encoded_data(struct uri_parser *parser,
 		return 0;
 	*p += 1;
 
-	if (**p == 0 || *(*p+1) == 0 || (pend != NULL && *p+1 >= pend)) {
+	if ((pend != NULL && *p >= pend) || **p == 0 ||
+	    (pend != NULL && *p + 1 >= pend) || *(*p + 1) == 0) {
 		parser->error = "Unexpected URI boundary after '%'";
 		return -1;
 	}
@@ -621,7 +622,9 @@ uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 	/* "[" already verified */
 
 	/* Scan for end of address */
-	if ((p = memchr(parser->cur+1, ']', parser->end - parser->cur)) == NULL) {
+	if (parser->cur + 1 >= parser->end ||
+	    (p = memchr(parser->cur + 1, ']',
+			parser->end - (parser->cur + 1))) == NULL) {
 		parser->error = "Expecting ']' at end of IP-literal";
 		return -1;
 	}
