@@ -74,6 +74,12 @@ struct quota_overrun {
 	} resource;
 };
 
+typedef void quota_recalc_callback_t(struct mail_user *user);
+struct quota_recalc_callback {
+	struct mail_user *user;
+	quota_recalc_callback_t *callback;
+};
+
 const char *quota_alloc_result_errstr(enum quota_alloc_result res,
 		struct quota_transaction_context *qt);
 
@@ -136,6 +142,12 @@ void quota_free_bytes(struct quota_transaction_context *ctx,
 /* Mark the quota to be recalculated */
 void quota_recalculate(struct quota_transaction_context *ctx,
 		       enum quota_recalculate recalculate);
+
+/* Register a callback, that is called, whenever the quota is recalculated. */
+void quota_recalc_register_callback(struct mail_user *user,
+				    quota_recalc_callback_t *callback);
+/* Run all registered recalc-callbacks on the given quota. */
+void quota_recalc_call_callbacks(struct quota *quota);
 
 /* Execute quota_over_scripts if needed. */
 void quota_over_status_check_startup(struct quota *quota);

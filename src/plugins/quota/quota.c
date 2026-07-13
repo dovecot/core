@@ -12,6 +12,7 @@
 #include "settings.h"
 #include "mailbox-list-private.h"
 #include "quota-private.h"
+#include "quota-plugin.h"
 #include "quota-fs.h"
 #include "llist.h"
 #include "program-client.h"
@@ -286,6 +287,7 @@ int quota_init(struct mail_user *user, struct quota **quota_r,
 
 	i_array_init(&quota->global_private_roots, 8);
 	i_array_init(&quota->all_roots, 8);
+	i_array_init(&quota->recalc_callbacks, 1);
 
 	if (array_is_created(&set->quota_roots)) {
 		array_foreach_elem(&set->quota_roots, root_name) {
@@ -320,6 +322,7 @@ void quota_deinit(struct quota **_quota)
 
 	array_free(&quota->global_private_roots);
 	array_free(&quota->all_roots);
+	array_free(&quota->recalc_callbacks);
 	settings_free(quota->set);
 	event_unref(&quota->event);
 	i_free(quota);
@@ -1354,4 +1357,28 @@ void quota_recalculate(struct quota_transaction_context *ctx,
 		       enum quota_recalculate recalculate)
 {
 	ctx->recalculate = recalculate;
+}
+
+void
+quota_recalc_register_callback(struct mail_user *user,
+			       quota_recalc_callback_t *callback)
+{
+	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
+	struct quota_recalc_callback *cb;
+
+	if (quser == NULL)
+		return;
+
+	cb = array_append_space(&quser->quota->recalc_callbacks);
+	cb->user = user;
+	cb->callback = callback;
+}
+
+void
+quota_recalc_call_callbacks(struct quota *quota)
+{
+	const struct quota_recalc_callback *cb;
+	array_foreach(&quota->recalc_callbacks, cb) {
+		cb->callback(cb->user);
+	}
 }

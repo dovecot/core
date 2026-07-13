@@ -23,6 +23,7 @@ struct quota {
 	   namespace. It's assumed that the relevant quota backend settings
 	   don't change for the same quota_name. */
 	ARRAY(struct quota_root *) all_roots;
+	ARRAY(struct quota_recalc_callback) recalc_callbacks;
 
 	enum quota_alloc_result (*test_alloc)(
 		struct quota_transaction_context *ctx, uoff_t size,
