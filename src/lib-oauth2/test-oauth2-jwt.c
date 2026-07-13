@@ -814,6 +814,56 @@ static void test_jwt_nested_fields(void)
 	test_end();
 }
 
+/* Regression test for oauth2_jwt_copy_fields(): many non-singular
+   (array/object) siblings in a row force repeated array_append_space()
+   calls on the "nodes" array while a pointer to its front element
+   ("subroot") is still held by the caller. Each such call may relocate
+   the array, so this exercises the code path where subroot needs to be
+   refreshed after the append. */
+static void test_jwt_many_siblings(void)
+{
+	test_begin("JWT many non-singular siblings");
+
+	string_t *body = t_str_new(4096);
+	str_append(body, "{\"sub\":\"testuser\"");
+	for (int i = 0; i < 64; i++) {
+		str_printfa(body, ",\"arr%d\":[\"v%d_a\",\"v%d_b\"]", i, i, i);
+	}
+	str_append(body, ",\"exp\":9999999999,\"trailing\":\"tail-value\"}");
+
+	buffer_t *tokenbuf = t_str_new(128);
+	base64url_encode_str("{\"alg\":\"HS256\",\"typ\":\"JWT\"}", tokenbuf);
+	str_append_c(tokenbuf, '.');
+	base64url_encode_str(str_c(body), tokenbuf);
+	sign_jwt_token_hs256(tokenbuf, hs_sign_key);
+
+	struct oauth2_request req;
+	const char *error = NULL;
+	bool is_jwt;
+	test_assert(parse_jwt_token(&req, str_c(tokenbuf), &is_jwt, &error) == 0);
+	test_assert(is_jwt == TRUE);
+
+	bool found_trailing = FALSE;
+	unsigned int arr_count = 0;
+	const struct oauth2_field *field;
+	array_foreach(&req.fields, field) {
+		if (strcmp(field->name, "trailing") == 0) {
+			test_assert_strcmp(field->value, "tail-value");
+			found_trailing = TRUE;
+		} else if (str_begins_with(field->name, "arr")) {
+			const char *num = field->name + 3;
+			test_assert_strcmp(
+				field->value,
+				t_strdup_printf("v%s_a\tv%s_b", num, num));
+			arr_count++;
+		}
+	}
+	test_assert(found_trailing == TRUE);
+	test_assert_ucmp(arr_count, ==, 64);
+
+	test_end();
+}
+
 static void test_jwt_rs_token(void)
 {
 	const char *error;
@@ -993,6 +1043,7 @@ int main(void)
 		test_jwt_key_files,
 		test_jwt_kid_escape,
 		test_jwt_nested_fields,
+		test_jwt_many_siblings,
 		test_jwt_rs_token,
 		test_jwt_ps_token,
 		test_jwt_ec_token,
