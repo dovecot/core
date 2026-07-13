@@ -309,6 +309,8 @@ static void quota_clone_mail_user_created(struct mail_user *user)
 	quser->dict = dict;
 	quser->set = set;
 	MODULE_CONTEXT_SET(user, quota_clone_user_module, quser);
+
+	quota_recalc_register_callback(user, quota_clone_changed_user);
 }
 
 static struct mail_storage_hooks quota_clone_mail_storage_hooks = {
