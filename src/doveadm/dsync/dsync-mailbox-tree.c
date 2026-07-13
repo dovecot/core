@@ -5,6 +5,7 @@
 #include "hash.h"
 #include "str.h"
 #include "sort.h"
+#include "hex-dec.h"
 #include "mailbox-list-private.h"
 #include "dsync-mailbox-tree-private.h"
 
@@ -555,6 +556,37 @@ dsync_mailbox_delete_type_to_string(enum dsync_mailbox_delete_type type)
 	i_unreached();
 }
 
+static void
+dsync_mailbox_name_part_unescape(const char **_part, char escape_char)
+{
+	const char *p, *part = *_part;
+	uintmax_t chr;
+
+	if ((p = strchr(part, escape_char)) == NULL)
+		return;
+
+	string_t *str = t_str_new(strlen(part)*2);
+	str_append_data(str, part, p - part);
+	while (*p != '\0') {
+		if (*p == escape_char &&
+		    hex2dec_case((const unsigned char *)(p+1), 2,
+				 HEX_ALLOWED_CASE_LOWER, &chr) == 0 &&
+		    chr < 0x80) {
+			/* Decode only escapes of valid-UTF-8 (ASCII) bytes.
+			   Escapes of invalid UTF-8 bytes (>= 0x80) are kept
+			   intact so that dsync mailbox names stay valid UTF-8
+			   and don't panic mailbox_alloc(); they are decoded
+			   back to the raw byte only at the storage-name layer,
+			   where the escape char is applied. */
+			str_append_c(str, (unsigned char)chr);
+			p += 3;
+		} else {
+			str_append_c(str, *p++);
+		}
+	}
+	*_part = str_c(str);
+}
+
 const char *const *
 dsync_mailbox_name_to_parts(const char *name, char hierarchy_sep,
 			    char escape_char)
@@ -563,8 +595,8 @@ dsync_mailbox_name_to_parts(const char *name, char hierarchy_sep,
 	char **parts = p_strsplit(unsafe_data_stack_pool, name, sep);
 	if (escape_char != '\0') {
 		for (unsigned int i = 0; parts[i] != NULL; i++) {
-			mailbox_list_name_unescape((const char **)&parts[i],
-						   escape_char);
+			dsync_mailbox_name_part_unescape(
+				(const char **)&parts[i], escape_char);
 		}
 	}
 	return (const char *const *)parts;
