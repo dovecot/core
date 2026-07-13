@@ -548,8 +548,12 @@ static void o_stream_multiplex_try_destroy(struct multiplex_ostream *mstream)
 	/* Channel 0 was corked at destroy: transfer that cork back to
 	   the parent, mirroring the create-time transfer in the other
 	   direction so the caller's cork balance is preserved across
-	   the multiplex's lifetime. */
-	if (mstream->recork_parent_on_destroy) {
+	   the multiplex's lifetime. Skip the transfer if the parent
+	   failed or was closed: there is nothing left to preserve, and
+	   the parent may still be corked by us, because o_stream_uncork()
+	   is a no-op on a failed/closed stream. */
+	if (mstream->recork_parent_on_destroy &&
+	    !mstream->parent->closed && mstream->parent->stream_errno == 0) {
 		i_assert(!mstream->parent_corked);
 		multiplex_transfer_parent_cork(mstream->parent, TRUE);
 	}

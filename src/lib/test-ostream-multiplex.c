@@ -2,6 +2,7 @@
 
 #include "test-lib.h"
 #include "ioloop.h"
+#include "lib-signals.h"
 #include "str.h"
 #include "istream.h"
 #include "ostream-private.h"
@@ -259,6 +260,43 @@ static void test_ostream_multiplex_packet_cork_transfer_buffered_parent(void)
 	o_stream_unref(&chan0);
 	o_stream_unref(&os);
 	io_loop_destroy(&ioloop);
+
+	test_end();
+}
+
+static void test_ostream_multiplex_stream_corked_failed_parent(void)
+{
+	int fds[2];
+
+	test_begin("ostream multiplex stream (corked channel, failed parent)");
+	lib_signals_ignore(SIGPIPE, TRUE);
+	if (pipe(fds) < 0)
+		i_panic("pipe() failed: %m");
+	/* no reader - writes to the parent fail with EPIPE */
+	i_close_fd(&fds[0]);
+
+	struct ostream *os = o_stream_create_fd(fds[1], 1024);
+	o_stream_set_no_error_handling(os, TRUE);
+	struct ostream *chan0 = o_stream_create_multiplex(os, SIZE_MAX,
+		OSTREAM_MULTIPLEX_FORMAT_STREAM_CONTINUE);
+
+	/* Send more than the parent's buffer size through the corked
+	   channel 0: the multiplex corks the parent and writes to it,
+	   which fails with EPIPE. The multiplex's uncork afterwards is
+	   a no-op on the failed parent, so the parent stays corked. */
+	o_stream_cork(chan0);
+	char buf[4096];
+	memset(buf, 'a', sizeof(buf));
+	test_assert(o_stream_send(chan0, buf, sizeof(buf)) < 0);
+	test_assert(chan0->stream_errno == EPIPE);
+	test_assert(o_stream_is_corked(os));
+
+	/* Destroying the still-corked channel 0 must not attempt to
+	   transfer the cork back to the failed parent. */
+	o_stream_unref(&chan0);
+	test_assert(os->stream_errno == EPIPE);
+	o_stream_unref(&os);
+	i_close_fd(&fds[1]);
 
 	test_end();
 }
@@ -578,6 +616,7 @@ void test_ostream_multiplex(void)
 	test_ostream_multiplex_packet_cork();
 	test_ostream_multiplex_packet_cork_transfer();
 	test_ostream_multiplex_packet_cork_transfer_buffered_parent();
+	test_ostream_multiplex_stream_corked_failed_parent();
 	test_ostream_multiplex_packet_hang();
 	test_ostream_multiplex_packet_flush_callback();
 	test_ostream_multiplex_stream();
