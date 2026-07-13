@@ -49,6 +49,7 @@ struct http_transfer_chunked_istream {
 	struct http_header_parser *header_parser;
 
 	bool finished:1;
+	bool strict:1;
 };
 
 /* Chunk parser */
@@ -274,6 +275,11 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 				tcstream->cur++;
 				if (tcstream->cur >= tcstream->end)
 					return 0;
+			} else if (tcstream->strict) {
+				io_stream_set_error(
+					&tcstream->istream.iostream,
+					"Missing CR after chunk size");
+				return -1;
 			}
 			/* fall through */
 		case HTTP_CHUNKED_PARSE_STATE_LF:
@@ -299,6 +305,11 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 				tcstream->cur++;
 				if (tcstream->cur >= tcstream->end)
 					return 0;
+			} else if (tcstream->strict) {
+				io_stream_set_error(
+					&tcstream->istream.iostream,
+					"Missing CR after chunk data");
+				return -1;
 			}
 			/* fall through */
 		case HTTP_CHUNKED_PARSE_STATE_DATA_LF:
@@ -454,11 +465,15 @@ http_transfer_chunked_parse_trailer(
 	int ret;
 
 	if (tcstream->header_parser == NULL) {
+		enum http_header_parse_flags hdr_flags = 0;
+
+		if (tcstream->strict)
+			hdr_flags |= HTTP_HEADER_PARSE_FLAG_STRICT;
 		/* NOTE: trailer is currently ignored */
 		tcstream->header_parser =
 			http_header_parser_init(tcstream->istream.parent,
 						&tcstream->hdr_limits,
-						0);
+						hdr_flags);
 	}
 
 	while ((ret = http_header_parse_next_field(tcstream->header_parser,
@@ -532,12 +547,13 @@ http_transfer_chunked_istream_destroy(struct iostream_private *stream)
 
 struct istream *
 http_transfer_chunked_istream_create(struct istream *input, uoff_t max_size,
-	const struct http_header_limits *hdr_limits)
+	const struct http_header_limits *hdr_limits, bool strict)
 {
 	struct http_transfer_chunked_istream *tcstream;
 
 	tcstream = i_new(struct http_transfer_chunked_istream, 1);
 	tcstream->max_size = max_size;
+	tcstream->strict = strict;
 	if (hdr_limits != NULL)
 		tcstream->hdr_limits = *hdr_limits;
 

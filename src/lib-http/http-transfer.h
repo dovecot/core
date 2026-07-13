@@ -36,7 +36,7 @@ ARRAY_DEFINE_TYPE(http_transfer_coding, struct http_transfer_coding);
 
 struct istream *
 http_transfer_chunked_istream_create(struct istream *input, uoff_t max_size,
-	const struct http_header_limits *hdr_limits);
+	const struct http_header_limits *hdr_limits, bool strict);
 struct ostream *
 	http_transfer_chunked_ostream_create(struct ostream *output);
 

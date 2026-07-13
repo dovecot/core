@@ -190,6 +190,12 @@ static int http_header_parse(struct http_header_parser *parser)
 				break;
 			} else if (*parser->cur == '\n') {
 				/* last LF */
+				if (HAS_ALL_BITS(parser->flags,
+						 HTTP_HEADER_PARSE_FLAG_STRICT)) {
+					parser->error =
+						"Missing CR before LF terminating header fields";
+					return -1;
+				}
 				parser->state = HTTP_HEADER_PARSE_STATE_EOH;
 				break;
 			}
@@ -234,10 +240,19 @@ static int http_header_parse(struct http_header_parser *parser)
 			if (*parser->cur == '\r') {
 				parser->cur++;
 			} else if (*parser->cur != '\n') {
-				parser->error = t_strdup_printf
-					("Invalid character %s in content of header field '%s'",
-						_chr_sanitize(*parser->cur),
-						str_sanitize(str_c(parser->name),64));
+				parser->error = t_strdup_printf(
+					"Invalid character %s in content of header field '%s'",
+					_chr_sanitize(*parser->cur),
+					str_sanitize(str_c(parser->name),64));
+				return -1;
+			} else if (HAS_ALL_BITS(parser->flags,
+						HTTP_HEADER_PARSE_FLAG_STRICT)) {
+				/* strict mode requires CRLF; a bare LF is a
+				   request-smuggling-relevant desync risk with
+				   an upstream that requires full CRLF */
+				parser->error = t_strdup_printf(
+					"Missing CR before LF at end of header field '%s'",
+					str_sanitize(str_c(parser->name),64));
 				return -1;
 			}
 			parser->state = HTTP_HEADER_PARSE_STATE_LF;
@@ -246,10 +261,10 @@ static int http_header_parse(struct http_header_parser *parser)
 			/* fall through */
 		case HTTP_HEADER_PARSE_STATE_LF:
 			if (*parser->cur != '\n') {
-				parser->error = t_strdup_printf
-					("Expected LF after CR at end of header field '%s', but found %s",
-						str_sanitize(str_c(parser->name),64),
-						_chr_sanitize(*parser->cur));
+				parser->error = t_strdup_printf(
+					"Expected LF after CR at end of header field '%s', but found %s",
+					str_sanitize(str_c(parser->name),64),
+					_chr_sanitize(*parser->cur));
 				return -1;
 			}
 			parser->cur++;
@@ -279,9 +294,9 @@ static int http_header_parse(struct http_header_parser *parser)
 			return 1;
 		case HTTP_HEADER_PARSE_STATE_EOH:
 			if (*parser->cur != '\n') {
-				parser->error = t_strdup_printf
-					("Encountered stray CR at beginning of header line, followed by %s",
-						_chr_sanitize(*parser->cur));
+				parser->error = t_strdup_printf(
+					"Encountered stray CR at beginning of header line, followed by %s",
+					_chr_sanitize(*parser->cur));
 				return -1;
 			}
 			/* header fully parsed */

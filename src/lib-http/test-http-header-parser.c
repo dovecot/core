@@ -282,6 +282,21 @@ static const struct http_header_parse_test invalid_header_parse_tests[] = {
 			"\r\n",
 		.flags = HTTP_HEADER_PARSE_FLAG_STRICT
 	},{
+		/* bare LF terminating a header field must be rejected in
+		   strict mode */
+		.header =
+			"Host: www.example.com\r\n"
+			"X-Frop: value\n"
+			"\r\n",
+		.flags = HTTP_HEADER_PARSE_FLAG_STRICT
+	},{
+		/* bare LF terminating the header block must be rejected in
+		   strict mode */
+		.header =
+			"Host: www.example.com\r\n"
+			"\n",
+		.flags = HTTP_HEADER_PARSE_FLAG_STRICT
+	},{
 		.header =
 			"Date: Sat, 06 Oct 2012 17:12:37 GMT\r\n"
 			"Server: Apache/2.2.16 (Debian) PHP/5.3.3-7+squeeze14 with\r\n"

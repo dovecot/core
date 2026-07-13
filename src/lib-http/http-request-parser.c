@@ -267,8 +267,17 @@ static int http_request_parse(struct http_request_parser *parser,
 				return 0;
 			/* fall through */
 		case HTTP_REQUEST_PARSE_STATE_CR:
-			if (*_parser->cur == '\r')
+			if (*_parser->cur == '\r') {
 				_parser->cur++;
+			} else if (HAS_ALL_BITS(parser->parser.flags,
+						 HTTP_MESSAGE_PARSE_FLAG_STRICT)) {
+				/* strict mode requires CRLF; a bare LF is a
+				   request-smuggling-relevant desync risk with
+				   an upstream that requires full CRLF */
+				parser->error_code = HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST;
+				_parser->error = "Missing CR at end of request line";
+				return -1;
+			}
 			parser->state = HTTP_REQUEST_PARSE_STATE_LF;
 			if (_parser->cur == _parser->end)
 				return 0;

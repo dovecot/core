@@ -562,6 +562,16 @@ invalid_request_parse_tests[] = {
 			"\r\n",
 		.flags = HTTP_REQUEST_PARSE_FLAG_STRICT,
 		.error_code = HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST
+	},
+	{
+		/* bare LF terminating the request line must be rejected in
+		   strict mode */
+		.request =
+			"GET / HTTP/1.1\n"
+			"Host: example.com\r\n"
+			"\r\n",
+		.flags = HTTP_REQUEST_PARSE_FLAG_STRICT,
+		.error_code = HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST
 	}
 	// FIXME: test request limits
 };

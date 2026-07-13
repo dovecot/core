@@ -99,7 +99,7 @@ static void test_http_transfer_chunked_input_valid(void)
 		test_begin(t_strdup_printf("http transfer_chunked input valid [%d]", i));
 
 		input = i_stream_create_from_data(in, strlen(in));
-		chunked = http_transfer_chunked_istream_create(input, 0, NULL);
+		chunked = http_transfer_chunked_istream_create(input, 0, NULL, FALSE);
 		i_stream_unref(&input);
 
 		buffer_set_used_size(payload_buffer, 0);
@@ -198,7 +198,60 @@ static void test_http_transfer_chunked_input_invalid(void)
 		test_begin(t_strdup_printf("http transfer_chunked input invalid [%d]", i));
 
 		input = i_stream_create_from_data(in, strlen(in));
-		chunked = http_transfer_chunked_istream_create(input, 0, NULL);
+		chunked = http_transfer_chunked_istream_create(input, 0, NULL, FALSE);
+		i_stream_unref(&input);
+
+		buffer_set_used_size(payload_buffer, 0);
+		output = o_stream_create_buffer(payload_buffer);
+		o_stream_nsend_istream(output, chunked);
+		test_assert(chunked->stream_errno != 0);
+		i_stream_unref(&chunked);
+		o_stream_destroy(&output);
+
+		test_end();
+	} T_END;
+
+	buffer_free(&payload_buffer);
+}
+
+/* Strict-mode transfer_chunked input tests: bare LF must be rejected */
+static const char *strict_transfer_chunked_input_tests[] = {
+	/* bare LF after chunk size */
+	"1E\n"
+	"This is a simple test payload."
+	"\r\n"
+	"0\r\n"
+	"\r\n",
+	/* bare LF after chunk data */
+	"1E\r\n"
+	"This is a simple test payload."
+	"\n"
+	"0\r\n"
+	"\r\n",
+};
+
+static unsigned int strict_transfer_chunked_input_test_count =
+	N_ELEMENTS(strict_transfer_chunked_input_tests);
+
+static void test_http_transfer_chunked_input_strict(void)
+{
+	struct istream *input, *chunked;
+	struct ostream *output;
+	buffer_t *payload_buffer;
+	unsigned int i;
+
+	payload_buffer = buffer_create_dynamic(default_pool, 1024);
+
+	for (i = 0; i < strict_transfer_chunked_input_test_count; i++) T_BEGIN {
+		const char *in;
+
+		in = strict_transfer_chunked_input_tests[i];
+
+		test_begin(t_strdup_printf(
+			"http transfer_chunked input strict [%d]", i));
+
+		input = i_stream_create_from_data(in, strlen(in));
+		chunked = http_transfer_chunked_istream_create(input, 0, NULL, TRUE);
 		i_stream_unref(&input);
 
 		buffer_set_used_size(payload_buffer, 0);
@@ -314,7 +367,7 @@ static void test_http_transfer_chunked_output_valid(void)
 		/* create chunked input stream */
 		input = i_stream_create_from_data
 			(chunked_buffer->data, chunked_buffer->used);
-		ichunked = http_transfer_chunked_istream_create(input, 0, NULL);
+		ichunked = http_transfer_chunked_istream_create(input, 0, NULL, FALSE);
 
 		/* read back chunk */
 		buffer_set_used_size(plain_buffer, 0);
@@ -372,7 +425,7 @@ static void test_http_transfer_chunked_input_trailer_limit(void)
 	buffer_append(payload_buffer, footer, strlen(footer));
 
 	input = i_stream_create_from_data(payload_buffer->data, payload_buffer->used);
-	chunked = http_transfer_chunked_istream_create(input, 0, NULL);
+	chunked = http_transfer_chunked_istream_create(input, 0, NULL, FALSE);
 	i_stream_unref(&input);
 
 	output = o_stream_create_buffer(payload_buffer);
@@ -389,7 +442,7 @@ static void test_http_transfer_chunked_input_trailer_limit(void)
 	limits.max_size = 30;
 
 	input = i_stream_create_from_data(in, strlen(in));
-	chunked = http_transfer_chunked_istream_create(input, 0, &limits);
+	chunked = http_transfer_chunked_istream_create(input, 0, &limits, FALSE);
 	i_stream_unref(&input);
 
 	buffer_set_used_size(payload_buffer, 0);
@@ -408,7 +461,7 @@ static void test_http_transfer_chunked_input_trailer_limit(void)
 	limits.max_size = 100;
 
 	input = i_stream_create_from_data(in, strlen(in));
-	chunked = http_transfer_chunked_istream_create(input, 0, &limits);
+	chunked = http_transfer_chunked_istream_create(input, 0, &limits, FALSE);
 	i_stream_unref(&input);
 
 	buffer_set_used_size(payload_buffer, 0);
@@ -433,6 +486,7 @@ int main(void)
 	static void (*const test_functions[])(void) = {
 		test_http_transfer_chunked_input_valid,
 		test_http_transfer_chunked_input_invalid,
+		test_http_transfer_chunked_input_strict,
 		test_http_transfer_chunked_output_valid,
 		test_http_transfer_chunked_input_trailer_limit,
 		NULL
