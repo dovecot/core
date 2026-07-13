@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "hex-dec.h"
 #include "unichar.h"
 #include "imap-utf7.h"
 
@@ -69,23 +70,14 @@ imap_utf8_first_encode_char(const char *str, char escape_char)
 
 int imap_escaped_utf8_hex_to_char(const char *str, unsigned char *chr_r)
 {
-	unsigned int i = 0;
-	unsigned char c = 0;
+	uintmax_t value;
 
 	/* NOTE: Only lowercase hex characters are allowed so the output is
 	   reversible. */
-	for (;;) {
-		if (str[i] >= '0' && str[i] <= '9')
-			c += str[i] - '0';
-		else if (str[i] >= 'a' && str[i] <= 'f')
-			c += str[i] - 'a' + 10;
-		else
-			return -1;
-		if (++i == 2)
-			break;
-		c *= 0x10;
-	}
-	*chr_r = c;
+	if (hex2dec_case((const unsigned char *)str, 2,
+			 HEX_ALLOWED_CASE_LOWER, &value) < 0)
+		return -1;
+	*chr_r = (unsigned char)value;
 	return 0;
 }
 

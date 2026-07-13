@@ -17,22 +17,25 @@ void dec2hex(unsigned char *hexstr, uintmax_t dec, unsigned int hexstr_size)
 	}
 }
 
-uintmax_t hex2dec(const unsigned char *data, unsigned int len)
+int hex2dec_case(const unsigned char *data, unsigned int len,
+		 enum hex_allowed_case allowed_case, uintmax_t *value_r)
 {
-	unsigned int i;
 	uintmax_t value = 0;
 
-	for (i = 0; i < len; i++) {
-		value = value*0x10;
+	for (unsigned int i = 0; i < len; i++) {
+		value *= 0x10;
 		if (data[i] >= '0' && data[i] <= '9')
 			value += data[i]-'0';
-		else if (data[i] >= 'A' && data[i] <= 'F')
+		else if (HAS_ANY_BITS(allowed_case, HEX_ALLOWED_CASE_UPPER) &&
+			 data[i] >= 'A' && data[i] <= 'F')
 			value += data[i]-'A' + 10;
-		else if (data[i] >= 'a' && data[i] <= 'f')
+		else if (HAS_ANY_BITS(allowed_case, HEX_ALLOWED_CASE_LOWER) &&
+			 data[i] >= 'a' && data[i] <= 'f')
 			value += data[i]-'a' + 10;
 		else
-			return 0;
+			return -1;
 	}
-	return value;
+	*value_r = value;
+	return 0;
 }
 
