@@ -1205,9 +1205,17 @@ int main(int argc, char *argv[])
 	settings_set_config_binary(SETTINGS_BINARY_DOVECONF);
 	config_parse_load_modules(dump_config_import);
 	if (dump_config_import) {
-		module_dir_unload(&modules);
+		/* Run modules' deinit() while lib is still alive, but
+		   delay the actual dlclose() until after
+		   master_service_deinit() (i.e. lib_deinit()) has run.
+		   Otherwise event categories registered from within a
+		   module (e.g. libdovecot-sieve.so via the managesieve
+		   settings plugin) get unmapped before lib_event_deinit()
+		   tries to access them. */
+		module_dir_deinit(modules);
 		config_parser_deinit();
 		master_service_deinit(&master_service);
+		module_dir_unload(&modules);
 		return 0;
 	}
 
@@ -1319,8 +1327,13 @@ int main(int argc, char *argv[])
 		i_fatal("Errors in configuration");
 
 	config_parsed_free(&config);
-	module_dir_unload(&modules);
+	/* See comment on the module_dir_deinit() call above: run modules'
+	   deinit() now, but delay dlclose() until after
+	   master_service_deinit() has torn down lib (incl. event
+	   categories) so that teardown doesn't touch unmapped memory. */
+	module_dir_deinit(modules);
 	config_parser_deinit();
 	master_service_deinit(&master_service);
+	module_dir_unload(&modules);
         return 0;
 }

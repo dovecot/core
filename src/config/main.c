@@ -42,8 +42,14 @@ int main(int argc, char *argv[])
 	master_service_run(master_service, client_connected);
 	config_connections_destroy_all();
 
-	module_dir_unload(&modules);
+	/* Run modules' deinit() while lib is still alive, but delay the
+	   actual dlclose() until after master_service_deinit() (i.e.
+	   lib_deinit()) has run. Otherwise event categories registered
+	   from within a module get unmapped before lib_event_deinit()
+	   tries to access them. */
+	module_dir_deinit(modules);
 	config_parser_deinit();
 	master_service_deinit(&master_service);
+	module_dir_unload(&modules);
         return 0;
 }
