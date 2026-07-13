@@ -125,6 +125,7 @@ cmd_quota_recalc_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 		if ((*root)->backend.v.flush != NULL)
 			(*root)->backend.v.flush(*root);
 	}
+	quota_recalc_call_callbacks(quser->quota);
 	return 0;
 }
 
