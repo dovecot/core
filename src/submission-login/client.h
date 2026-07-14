@@ -33,6 +33,7 @@ struct submission_client {
 	enum smtp_capability proxy_capability;
 	char *proxy_sasl_ir;
 	unsigned int proxy_reply_status;
+	unsigned int proxy_reply_lines;
 	struct smtp_server_reply *proxy_reply;
 	const char **proxy_xclient;
 	unsigned int proxy_xclient_replies_expected;

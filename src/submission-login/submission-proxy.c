@@ -17,6 +17,11 @@
 
 #include <ctype.h>
 
+/* Maximum number of lines the backend may send in a single proxied AUTH
+   reply. Legitimate replies are one line (occasionally a few); this only
+   bounds a malicious backend from growing proxy_reply without limit. */
+#define SUBMISSION_PROXY_MAX_REPLY_LINES 128
+
 static const char *submission_proxy_state_names[] = {
 	"banner", "ehlo", "starttls", "tls-ehlo", "xclient", "xclient-ehlo", "authenticate"
 };
@@ -655,7 +660,18 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 		   reply, in which case this callback is invoked once per line
 		   with the reply still pending (!last_line). Create the reply
 		   on the first line and append the text of each subsequent
-		   line. */
+		   line. Cap the number of continuation lines so a malicious
+		   backend can't grow proxy_reply without bound. */
+		if (++subm_client->proxy_reply_lines >
+		    SUBMISSION_PROXY_MAX_REPLY_LINES) {
+			const char *reason = t_strdup_printf(
+				"Backend sent too many AUTH reply lines (>%u)",
+				SUBMISSION_PROXY_MAX_REPLY_LINES);
+			login_proxy_failed(client->login_proxy,
+				login_proxy_get_event(client->login_proxy),
+				LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
+			return -1;
+		}
 		if (subm_client->proxy_reply == NULL) {
 			subm_client->proxy_reply = smtp_server_reply_create(
 				command, status, enh_code);
@@ -727,6 +743,7 @@ void submission_proxy_reset(struct client *client)
 	i_free_and_null(subm_client->proxy_xclient);
 	i_free(subm_client->proxy_sasl_ir);
 	subm_client->proxy_reply_status = 0;
+	subm_client->proxy_reply_lines = 0;
 	subm_client->proxy_reply = NULL;
 }
 
