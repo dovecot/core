@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "istream-sized.h"
 #include "ostream.h"
+#include "unichar.h"
 #include "mailbox-list-iter.h"
 #include "imap-utf7.h"
 #include "imap-quote.h"
@@ -562,9 +563,21 @@ bool cmd_getmetadata(struct client_command_context *cmd)
 	} else {
 		/* wildcards in mailbox name. this isn't supported by RFC 5464,
 		   but it was in the earlier drafts and is already used by
-		   some software (Horde). */
+		   some software (Horde).
+		   vnames are always valid UTF-8. Avoid potential panics later
+		   by dropping invalid patterns that would never match anyway. */
+
 		const char *patterns[2];
-		patterns[0] = mailbox; patterns[1] = NULL;
+		patterns[0] = NULL;
+		patterns[1] = NULL;
+		if (cmd->utf8) {
+			if (uni_utf8_str_is_valid(mailbox))
+				patterns[0] = mailbox;
+		} else {
+			string_t *utf8_pattern = t_str_new(64);
+			if (imap_utf7_to_utf8(mailbox, utf8_pattern) == 0)
+				patterns[0] = str_c(utf8_pattern);
+		}
 
 		ctx->iterating_boxes = TRUE;
 		ctx->list_iter =
