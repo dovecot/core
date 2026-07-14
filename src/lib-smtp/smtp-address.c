@@ -141,6 +141,10 @@ smtp_parse_mailbox(struct smtp_address_parser *aparser,
 			return -1;
 		/* use the right-most '@' as separator */
 		dp = aparser->address_end - 1;
+		/* an empty address leaves address_end at cur, so clamp to
+		   avoid dp < cur underflowing into p_strdup_until() below */
+		if (dp < parser->cur)
+			dp = parser->cur;
 		while (dp > parser->cur && *dp != '@')
 			dp--;
 		if (dp == parser->cur)

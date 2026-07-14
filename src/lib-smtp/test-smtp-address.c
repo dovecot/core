@@ -1388,6 +1388,35 @@ static void test_smtp_parse_any_address(void)
 	} T_END;
 }
 
+static void test_smtp_path_parse_broken_localpart(void)
+{
+	/* An empty broken localpart (e.g. a leading space) parsed via
+	   smtp_address_parse_path_full() with an end pointer used to underflow
+	   the separator search in the ALLOW_BAD_LOCALPART path and abort with
+	   an assertion. It must now parse without crashing. */
+	static const char *const inputs[] = {
+		" ", " user@domain.tld", " @domain.tld"
+	};
+	enum smtp_address_parse_flags flags =
+		SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL |
+		SMTP_ADDRESS_PARSE_FLAG_ALLOW_BAD_LOCALPART |
+		SMTP_ADDRESS_PARSE_FLAG_IGNORE_BROKEN;
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(inputs); i++) T_BEGIN {
+		struct smtp_address *address;
+		const char *error = NULL, *endp = NULL;
+
+		test_begin(t_strdup_printf(
+			"smtp path broken localpart [%d]", i));
+		(void)smtp_address_parse_path_full(pool_datastack_create(),
+						   inputs[i], flags, &address,
+						   &error, &endp);
+		test_out("parsed without crashing", TRUE);
+		test_end();
+	} T_END;
+}
+
 /*
  * Tests
  */
@@ -1403,6 +1432,7 @@ int main(void)
 		test_smtp_username_parse_invalid,
 		test_smtp_address_detail_parse,
 		test_smtp_parse_any_address,
+		test_smtp_path_parse_broken_localpart,
 		NULL
 	};
 	return test_run(test_functions);
