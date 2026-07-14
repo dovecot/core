@@ -1565,6 +1565,47 @@ static const char input_msg[] =
 	test_end();
 }
 
+static void test_message_parser_preparsed_empty_preamble_lf(void)
+{
+static const char input_msg[] =
+"Content-Type: multipart/mixed; boundary=\"bb\"\n"
+"\n"
+"--bb\n"
+"Content-Type: text/plain\n"
+"\n"
+"hello\n"
+"--bb--\n";
+	const struct message_parser_settings preparsed_set = {
+		.flags = MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS,
+	};
+	struct message_parser_ctx *parser;
+	struct istream *input;
+	struct message_part *parts, *parts2;
+	struct message_block block;
+	const char *error;
+	pool_t pool;
+
+	test_begin("message parser preparsed empty preamble lf");
+	pool = pool_alloconly_create("message parser", 10240);
+	input = test_istream_create(input_msg);
+	test_istream_set_allow_eof(input, TRUE);
+
+	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
+
+	/* Same as test_message_parser_preparsed_empty_preamble(), but with
+	   LF-only newlines so the boundary line has no CR before its LF. */
+	i_stream_seek(input, 0);
+	parser = message_parser_init_from_parts(parts, input, &preparsed_set);
+	while (message_parser_parse_next_block(parser, &block) > 0)
+		test_assert(block.size <= sizeof(input_msg));
+	test_assert(message_parser_deinit_from_parts(&parser, &parts2, &error) == 0);
+	test_assert(message_part_is_equal(parts, parts2));
+
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -1591,6 +1632,7 @@ int main(void)
 		test_message_parser_too_many_header_bytes_default,
 		test_message_parser_too_many_header_bytes_100,
 		test_message_parser_preparsed_empty_preamble,
+		test_message_parser_preparsed_empty_preamble_lf,
 		NULL
 	};
 	return test_run(test_functions);
