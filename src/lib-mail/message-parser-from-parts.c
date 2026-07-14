@@ -121,15 +121,26 @@ static int preparsed_parse_prologue_more(struct message_parser_ctx *ctx,
 			if (*cur == '\n') break;
 		}
 
-		if (cur[0] != '\n' || cur[1] != '-' || cur[2] != '-') {
-			ctx->broken_reason = "Prologue boundary beginning not at expected position";
-			return -1;
+		if (cur < block_r->data) {
+			/* boundary is at the very start of the prologue, i.e.
+			   there is no preamble before it (no preceding newline
+			   to find). Don't read before block_r->data. */
+			if (block_r->data[0] != '-' || block_r->data[1] != '-') {
+				ctx->broken_reason = "Prologue boundary beginning not at expected position";
+				return -1;
+			}
+			block_r->size = 0;
+		} else {
+			if (cur[0] != '\n' || cur[1] != '-' || cur[2] != '-') {
+				ctx->broken_reason = "Prologue boundary beginning not at expected position";
+				return -1;
+			}
+
+			if (cur != block_r->data && cur[-1] == '\r') cur--;
+
+			/* clip boundary */
+			block_r->size = cur - block_r->data;
 		}
-
-		if (cur != block_r->data && cur[-1] == '\r') cur--;
-
-		/* clip boundary */
-		block_r->size = cur - block_r->data;
 
 		ctx->parse_next_block = preparsed_parse_prologue_finish;
 		ctx->skip = block_r->size;
