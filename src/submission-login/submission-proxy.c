@@ -646,8 +646,17 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 		subm_client->proxy_state = SUBMISSION_PROXY_XCLIENT_EHLO;
 		return 0;
 	case SUBMISSION_PROXY_AUTHENTICATE:
-		if (invalid_line)
-			break;
+		if (invalid_line) {
+			/* A malformed reply line here would fall through to the
+			   shared failure block below, which assumes proxy_reply
+			   was already created. Fail cleanly instead. */
+			const char *reason = t_strdup_printf(
+				"Invalid AUTH reply: %s", str_sanitize(line, 160));
+			login_proxy_failed(client->login_proxy,
+				login_proxy_get_event(client->login_proxy),
+				LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
+			return -1;
+		}
 		if (status == 334 && client->proxy_sasl_client != NULL) {
 			/* continue SASL authentication */
 			if (submission_proxy_continue_sasl_auth(
