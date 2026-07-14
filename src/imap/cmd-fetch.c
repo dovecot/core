@@ -227,9 +227,19 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 			return cmd->cancel;
 		}
 
-		if (ctx->error == MAIL_ERROR_NONE)
+		if (ctx->error == MAIL_ERROR_NONE) {
+			if (cmd->client->output->stream_errno != 0) {
+				/* Output stream failed without going through
+				   fetch_stream_continue(). */
+				client_disconnect(cmd->client, t_strconcat(
+					"FETCH failed: ",
+					o_stream_get_error(cmd->client->output),
+					NULL));
+				imap_fetch_free(&ctx);
+				return TRUE;
+			}
 			client_error = mailbox_get_last_error(cmd->client->mailbox, &error);
-		else {
+		} else {
 			client_error = ctx->errstr;
 			error = ctx->error;
 		}
