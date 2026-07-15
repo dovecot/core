@@ -74,6 +74,26 @@ static void test_uri_invalid(void)
 	test_end();
 }
 
+static void test_uri_ip_literal_overread(void)
+{
+	/* An IP-literal host "[" with no closing "]". Use an exact-size,
+	   non-NUL-terminated buffer via the size-based API so the scan for
+	   "]" can't hide behind a terminator - a read past the end is caught
+	   under valgrind/ASAN. */
+	static const char data[] = "imap://[";
+	size_t size = strlen(data);
+	unsigned char *buf = i_malloc(size);
+	const char *error = NULL;
+	int ret;
+
+	test_begin("uri ip-literal overread");
+	memcpy(buf, data, size);
+	ret = uri_check_data(buf, size, 0, &error);
+	test_out_quiet("unterminated IP-literal rejected", ret < 0);
+	i_free(buf);
+	test_end();
+}
+
 /* RFC uri tests */
 const char *rfc_uri_tests[] = {
 	/* from RFC 1738 */
@@ -858,6 +878,7 @@ void test_uri(void)
 {
 	test_uri_valid();
 	test_uri_invalid();
+	test_uri_ip_literal_overread();
 	test_uri_rfc();
 	test_uri_escape();
 	test_uri_aaa();
