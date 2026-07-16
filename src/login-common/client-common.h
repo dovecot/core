@@ -269,7 +269,7 @@ struct client {
 	const char **alt_usernames;
 
 	/* Last host we tried to connect to */
-	const char *proxy_last_host;
+	char *proxy_last_host;
 
 	bool create_finished:1;
 	bool disconnected:1;
