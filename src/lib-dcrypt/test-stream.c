@@ -742,10 +742,23 @@ static void test_free_keys()
 	dcrypt_key_unref_public(&test_v2_kp.pub);
 }
 
+/* test which module dir to use */
+static const char *get_module_dir(void)
+{
+	struct stat st;
+
+	if (stat("libdcrypt_openssl.so", &st) == 0)
+		return ".";
+	else if (stat(".libs/libdcrypt_openssl.so", &st) == 0)
+		return ".libs";
+	else
+		i_fatal("Cannot find local libdcrypt_openssl.so");
+}
+
 int main(void)
 {
 	struct dcrypt_settings set = {
-		.module_dir = ".libs"
+		.module_dir = get_module_dir(),
 	};
 	const char *error;
 

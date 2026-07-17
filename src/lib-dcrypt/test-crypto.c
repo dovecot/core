@@ -2297,10 +2297,23 @@ static void test_kem_keypair(void)
 	} T_END;
 }
 
+/* test which module dir to use */
+static const char *get_module_dir(void)
+{
+	struct stat st;
+
+	if (stat("libdcrypt_openssl.so", &st) == 0)
+		return ".";
+	else if (stat(".libs/libdcrypt_openssl.so", &st) == 0)
+		return ".libs";
+	else
+		i_fatal("Cannot find local libdcrypt_openssl.so");
+}
+
 int main(void)
 {
 	struct dcrypt_settings set = {
-		.module_dir = ".libs"
+		.module_dir = get_module_dir(),
 	};
 	const char *error;
 
