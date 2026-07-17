@@ -106,7 +106,10 @@ static void test_files_read_dir(const char *path)
 		if (str_ends_with(dp->d_name, ".tmp") ||
 		    str_ends_with(dp->d_name, ".log") ||
 		    str_ends_with(dp->d_name, ".trs") ||
-		    str_begins_with(dp->d_name, "test.out"))
+		    str_begins_with(dp->d_name, "test.out") ||
+		    /* meson log files */
+		    str_ends_with(dp->d_name, "log.txt") ||
+		    str_ends_with(dp->d_name, "log.json"))
 			continue;
 
 		file = t_abspath_to(dp->d_name, path);
