@@ -1,18 +1,20 @@
 #!/bin/sh
 
-# serial 3
+set -eu
 
-if test "${VERSION}" != ""; then
+# serial 4
+
+if test "${VERSION:-}" != ""; then
   VN="${VERSION}"
 elif test -s version.txt; then
-  VN=`cat version.txt`
+  VN=$(cat version.txt)
 elif test -e .git; then
- VN="0.0.0-`git rev-list --count HEAD`+`git describe --always`"
- git update-index -q --refresh >/dev/null 2>&1
- test x = x"`git diff-index --name-only HEAD --`" || VN="${VN}-dirty"
+  VN="0.0.0-$(git rev-list --count HEAD)+$(git describe --always)"
+  git update-index -q --refresh >/dev/null 2>&1 || true
+  test ! "$(git diff-index --name-only HEAD --)" || VN="${VN}-dirty"
 else
   echo "Cannot determine version number">&2
   exit 1
 fi
 
-echo $VN
+echo "$VN"
