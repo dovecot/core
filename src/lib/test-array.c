@@ -461,7 +461,11 @@ enum fatal_test_state fatal_array(unsigned int stage)
 
 		t_array_init(&arr, 2);
 		array_push_back(&arr, value);
+#if SIZEOF_SIZE_T > 4 /* MALLOC_MULTIPLY will fail before buffer_check_limits with 32bit */
 		test_expect_fatal_string("Buffer write out of range");
+#else
+		test_expect_fatal_string("memory allocation overflow");
+#endif
 		/* this is supposed to assert-crash before it even attempts to
 		   access value */
 		array_append(&arr, value, UINT_MAX);
