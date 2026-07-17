@@ -111,6 +111,7 @@ meson.add_dist_script(
   dovecot_version,
   meson.project_source_root(),
 )
+subdir('meson' / 'version')
 
 dovecot_moduledir = get_option('moduledir')
 if dovecot_moduledir == ''
