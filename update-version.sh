@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -eu
+
 SRCDIR="${1:-`pwd`}"
 BUILDDIR="${2:-`pwd`}"
 VERSION_H="dovecot-version.h"
@@ -25,8 +27,7 @@ abspath "${BUILDDIR}" 2
 # when using a different BUILDDIR just copy from SRCDIR, if there is no .git
 if [ "${BUILDDIR}" != "${SRCDIR}" ]; then
 	if [ ! -d "${SRCDIR}/.git" ]  && [ -f "${SRCDIR}/${VERSION_H}" ]; then
-		cmp -s "${SRCDIR}/${VERSION_H}" "${BUILDDIR}/${VERSION_H}"
-		if [ $? -ne 0 ]; then
+		if ! cmp -s "${SRCDIR}/${VERSION_H}" "${BUILDDIR}/${VERSION_H}"; then
 			cp "${SRCDIR}/${VERSION_H}" "${BUILDDIR}/${VERSION_H}"
 			exit 0
 		fi
