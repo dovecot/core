@@ -9,7 +9,7 @@ insert_final_newline = true
 charset = utf-8
 trim_trailing_whitespace = true
 
-[{*.pl,**/*.pl}]
+[{*.pl,**/*.pl,meson.build}]
 indent_style = space
 indent_size = 2
 
