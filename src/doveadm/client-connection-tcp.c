@@ -290,6 +290,11 @@ static bool client_handle_command_ctx(struct client_connection_tcp *conn,
 			doveadm_verbose = TRUE;
 			break;
 		case DOVEADM_PROTOCOL_CMD_FLAG_EXTRA_FIELDS:
+			if (argc == 0) {
+				e_error(cctx->event, "doveadm client: "
+					"Missing extra fields argument");
+				return FALSE;
+			}
 			cctx->extra_fields = t_strsplit_tabescaped(args[0]);
 			args++; argc--;
 			break;
@@ -298,6 +303,10 @@ static bool client_handle_command_ctx(struct client_connection_tcp *conn,
 				"doveadm client: Unknown flag: %c", *flags);
 			return FALSE;
 		}
+	}
+	if (argc < 2) {
+		e_error(cctx->event, "doveadm client: No command given");
+		return FALSE;
 	}
 	cctx->username = args[0]; args++; argc--;
 	cmd_name = args[0];
