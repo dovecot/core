@@ -191,19 +191,28 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 	return "";
 }
 
-static bool need_escape_dirstart(const char *vname, const char *maildir_name)
+/* A hierarchy part ends at the namespace separator, at the end of the name, or
+   at '/' - which is always escaped and so can never itself become a path
+   separator in the result. */
+static bool dirpart_ends(char c, char ns_sep)
+{
+	return c == '\0' || c == ns_sep || c == '/';
+}
+
+static bool need_escape_dirstart(const char *vname, const char *maildir_name,
+				 char ns_sep)
 {
 	const char *suffix;
 
 	if (vname[0] == '.') {
-		if (vname[1] == '\0' || vname[1] == '/')
+		if (dirpart_ends(vname[1], ns_sep))
 			return TRUE; /* "." */
-		if (vname[1] == '.' && (vname[2] == '\0' || vname[2] == '/'))
+		if (vname[1] == '.' && dirpart_ends(vname[2], ns_sep))
 			return TRUE; /* ".." */
 	}
 	if (*maildir_name != '\0') {
 		if (str_begins(vname, maildir_name, &suffix) &&
-		    (suffix[0] == '\0' || suffix[0] == '/'))
+		    dirpart_ends(suffix[0], ns_sep))
 			return TRUE; /* e.g. dbox-Mails */
 	}
 	return FALSE;
@@ -236,13 +245,13 @@ mailbox_list_escape_name_params_to_str(string_t *escaped_name, const char *vname
 			 *vname == escape_char ||
 			 *vname == '/' ||
 			 (dirstart &&
-			  need_escape_dirstart(vname, maildir_name))) {
+			  need_escape_dirstart(vname, maildir_name, ns_sep))) {
 			str_printfa(escaped_name, "%c%02x",
 				    escape_char, *vname);
 		} else {
 			str_append_c(escaped_name, *vname);
 		}
-		dirstart = *vname == '/';
+		dirstart = *vname == ns_sep || *vname == '/';
 	}
 }
 
