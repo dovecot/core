@@ -10,3 +10,4 @@ option('hardening-sls', type: 'combo', choices: ['none', 'all', 'return', 'indir
 option('hardening-stack-protector', type: 'combo', choices: ['off', 'auto', 'normal', 'strong'], value: 'auto', description: 'Add stack guards for buffer overflows')
 option('libbsd', type: 'feature', value: 'disabled', description: 'Use libbsd for arc4random() and setproctitle()')
 option('mem-align', type: 'integer', value: 8, min: 1, description: 'Set the memory alignment')
+option('random-source', type: 'string', value : '/dev/urandom', description: 'Device file to use as random source')
