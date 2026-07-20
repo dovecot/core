@@ -9,3 +9,4 @@ option('hardening-fcf-protection', type: 'combo', choices: ['none', 'branch', 'r
 option('hardening-sls', type: 'combo', choices: ['none', 'all', 'return', 'indirect-jmp'], value: 'none', description: 'Straight-Line Speculation (SLS) mitigation choice')
 option('hardening-stack-protector', type: 'combo', choices: ['off', 'auto', 'normal', 'strong'], value: 'auto', description: 'Add stack guards for buffer overflows')
 option('libbsd', type: 'feature', value: 'disabled', description: 'Use libbsd for arc4random() and setproctitle()')
+option('mem-align', type: 'integer', value: 8, min: 1, description: 'Set the memory alignment')
