@@ -123,6 +123,7 @@ subdir('meson' / 'libbsd')
 subdir('meson' / 'libc')
 subdir('meson' / 'random')
 subdir('meson' / 'ioloop')
+subdir('meson' / 'fd')
 
 dovecot_moduledir = get_option('moduledir')
 if dovecot_moduledir == ''
