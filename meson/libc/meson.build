@@ -7,3 +7,4 @@ libc_prefix = ''
 
 subdir('typeof')
 subdir('va-copy')
+subdir('size-checks')
