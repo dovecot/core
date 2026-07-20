@@ -9,8 +9,6 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-#define NOTIFY_DELAY_MSECS 500
-
 struct mailbox_notify_file {
 	struct mailbox_notify_file *next;
 
@@ -19,9 +17,10 @@ struct mailbox_notify_file {
 	struct io *io_notify;
 };
 
-static void notify_delay_callback(struct mailbox *box)
+static void notify_callback(struct mailbox *box)
 {
-	timeout_remove(&box->to_notify_delay);
+	timeout_reset(box->to_notify);
+
 	box->notify_callback(box, box->notify_context);
 }
 
@@ -40,18 +39,7 @@ static void notify_timeout(struct mailbox *box)
 	}
 
 	if (notify)
-		notify_delay_callback(box);
-}
-
-static void notify_callback(struct mailbox *box)
-{
-	timeout_reset(box->to_notify);
-
-	if (box->to_notify_delay == NULL) {
-		box->to_notify_delay =
-			timeout_add_short(NOTIFY_DELAY_MSECS,
-					  notify_delay_callback, box);
-	}
+		notify_callback(box);
 }
 
 void mailbox_watch_add(struct mailbox *box, const char *path)
@@ -97,7 +85,6 @@ void mailbox_watch_remove_all(struct mailbox *box)
 		i_free(file);
 	}
 
-	timeout_remove(&box->to_notify_delay);
 	timeout_remove(&box->to_notify);
 }
 
