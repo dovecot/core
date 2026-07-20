@@ -120,6 +120,7 @@ subdir('meson' / 'security')
 subdir('meson' / 'defines')
 subdir('meson' / 'endian')
 subdir('meson' / 'libbsd')
+subdir('meson' / 'libc')
 
 dovecot_moduledir = get_option('moduledir')
 if dovecot_moduledir == ''
