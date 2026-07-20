@@ -1,0 +1,58 @@
+try_libc_headers = [
+  'crypt.h',
+  'dirent.h',
+  'execinfo.h',
+  'poll.h',
+  'fcntl.h',
+  'glob.h',
+  'jfs/quota.h',
+  'linux/dqblk_xfs.h',
+  'linux/falloc.h',
+  'malloc.h',
+  'malloc_np.h',
+  'mntent.h',
+  'quota.h',
+  'time.h',
+  'sched.h',
+  'sys/cpuset.h',
+  'stddef.h',
+  'stdint.h',
+  'stdlib.h',
+  'string.h',
+  'strings.h',
+  'sys/event.h',
+  'sys/epoll.h',
+  'sys/file.h',
+  'sys/fs/quota_common.h',
+  'sys/fs/ufs_quota.h',
+  'sys/inotify.h',
+  'sys/mkdev.h',
+  'sys/mman.h',
+  'sys/mnttab.h',
+  'sys/prctl.h',
+  'sys/quota.h',
+  'sys/random.h',
+  'sys/resource.h',
+  'sys/select.h',
+  'sys/sendfile.h',
+  'sys/sysmacros.h',
+  'sys/time.h',
+  'sys/ucred.h',
+  'sys/uio.h',
+  'sys/utsname.h',
+  'sys/vmount.h',
+  'ucontext.h',
+  'ucred.h',
+  'valgrind/valgrind.h',
+  'ufs/ufs/quota.h',
+  'unistd.h',
+  'xfs/xqm.h',
+]
+
+foreach header : try_libc_headers
+  if cc.has_header(header)
+    symbol = header.to_upper().underscorify()
+    conf.set10(f'HAVE_@symbol@', true, description: f'have @header@ file')
+    libc_prefix += f'#include <@header@>\n'
+  endif
+endforeach
