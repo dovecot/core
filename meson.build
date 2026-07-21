@@ -125,6 +125,7 @@ subdir('meson' / 'random')
 subdir('meson' / 'ioloop')
 subdir('meson' / 'fd')
 subdir('meson' / 'quota')
+subdir('meson' / 'sendfile')
 
 dovecot_moduledir = get_option('moduledir')
 if dovecot_moduledir == ''
