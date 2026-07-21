@@ -220,7 +220,7 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 
 	if (!alt_stamp) {
 		/* year */
-		if (mbox_parse_year(msg, &tm) < 0)
+		if (msg + 4 > msg_end || mbox_parse_year(msg, &tm) < 0)
 			return -1;
 		msg += 4;
 	}
