@@ -132,6 +132,7 @@ subdir('meson' / 'zlib')
 subdir('meson' / 'sodium')
 subdir('meson' / 'pcre')
 subdir('meson' / 'gssapi')
+subdir('meson' / 'crypt')
 
 dovecot_moduledir = get_option('moduledir')
 if dovecot_moduledir == ''
