@@ -180,6 +180,8 @@ install_data(
 # at Makefile.am:73-91 for pkglibdir), and most of its LIBDOVECOT_* variables name
 # libraries that are not ported yet so it can only be written once those exist.
 
+subdir('src')
+
 configure_file(
   output: 'config.h',
   configuration: conf,
