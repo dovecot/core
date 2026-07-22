@@ -13,3 +13,4 @@ option('mem-align', type: 'integer', value: 8, min: 1, description: 'Set the mem
 option('random-source', type: 'string', value : '/dev/urandom', description: 'Device file to use as random source')
 option('ioloop', type: 'combo', choices: ['best', 'epoll', 'kqueue', 'poll', 'select'], value: 'best', description: 'I/O loop method to use (best for the fastest available)')
 option('notify', type: 'combo', choices: ['best', 'inotify', 'kqueue', 'none'], value: 'best', description: 'File system notification method to use (best for the fastest available)')
+option('sodium', type: 'feature', value: 'auto', description: 'Build with libsodium support (enables argon2)')
