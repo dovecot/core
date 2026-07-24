@@ -371,8 +371,12 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_AUTH_CONTINUE;
 
 		str = t_str_new(128);
-		if (line[1] != ' ' ||
-		    base64_decode(line+2, strlen(line+2), str) < 0) {
+		/* RFC 3501/9051 require a space after '+', but some servers omit it.
+		   Accept the continuation either way. */
+		const char *sasl_value = line + 1;
+		if (*sasl_value == ' ')
+			sasl_value++;
+		if (base64_decode(sasl_value, strlen(sasl_value), str) < 0) {
 			const char *reason = t_strdup_printf(
 				"Invalid base64 data in AUTHENTICATE response");
 			login_proxy_failed(client->login_proxy,

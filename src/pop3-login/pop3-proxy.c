@@ -274,9 +274,14 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		pop3_client->proxy_state = POP3_PROXY_LOGIN2;
 		return 0;
 	case POP3_PROXY_LOGIN2:
-		if (str_begins(line, "+ ", &sasl_value) &&
+		if (line[0] == '+' && (line[1] == '\0' || line[1] == ' ') &&
 		    client->proxy_sasl_client != NULL) {
-			/* continue SASL authentication */
+			/* continue SASL authentication. RFC-compliant servers
+			   send "+ <base64>"; but some implementations  omit the
+			   space. */
+			sasl_value = line + 1;
+			if (*sasl_value == ' ')
+				sasl_value++;
 			if (pop3_proxy_continue_sasl_auth(client, output,
 							  sasl_value) < 0)
 				return -1;
