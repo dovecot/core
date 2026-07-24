@@ -14,11 +14,9 @@ struct test_message_date {
 static void test_message_date_parse(void)
 {
 	static const struct test_message_date tests[] = {
-#ifdef TIME_T_SIGNED
 		{ "Thu, 01 Jan 1970 01:59:59 +0200", -1, 2*60, TRUE },
 		{ "Fri, 13 Dec 1901 20:45:53 +0000", -2147483647, 0, TRUE },
-#endif
-#if (TIME_T_MAX_BITS > 32 || !defined(TIME_T_SIGNED))
+#if TIME_T_MAX_BITS > 32
 		{ "Sun, 07 Feb 2106 06:28:15 +0000", 4294967295U, 0, TRUE },
 #endif
 		{ "Wed, 07 Nov 2007 01:07:20 +0200", 1194390440, 2*60, TRUE },

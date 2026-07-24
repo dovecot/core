@@ -119,11 +119,7 @@ static int imap_mktime(struct tm *tm, time_t *time_r)
 	if (tm->tm_year <= 100) {
 		/* too old. time_t can be signed or unsigned, handle
 		   both cases. */
-#ifdef TIME_T_SIGNED
 		*time_r = INT_MIN;
-#else
-		*time_r = 0;
-#endif
 		return 0;
 	} else if (tm_is_too_large(tm, time_r)) {
 		/* too high. return the highest allowed value.

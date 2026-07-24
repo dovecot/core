@@ -11,20 +11,16 @@ struct test_utc_mktime {
 void test_utc_mktime(void)
 {
 	static const struct test_utc_mktime tests[] = {
-#ifdef TIME_T_SIGNED
 		{ 1969, 12, 31, 23, 59, 59, -1 },
 		{ 1901, 12, 13, 20, 45, 53, -2147483647 },
-#endif
-#if (TIME_T_MAX_BITS > 32 || !defined(TIME_T_SIGNED))
-		{ 2106, 2, 7, 6, 28, 15, 4294967295 },
-		{ 2038, 1, 19, 3, 14, 8, 2147483648 },
-#endif
 		{ 2007, 11, 7, 1, 7, 20, 1194397640 },
 		{ 1970, 1, 1, 0, 0, 0, 0 },
 		{ 2038, 1, 19, 3, 14, 7, 2147483647 },
 		{ INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, -1 },
 #if TIME_T_MAX_BITS > 32
+		{ 2106, 2, 7, 6, 28, 15, 4294967295 },
 		{ 2106, 2, 7, 6, 28, 16, 4294967296 },
+		{ 2038, 1, 19, 3, 14, 8, 2147483648 },
 #endif
 		/* June leap second */
 		{ 2015, 6, 30, 23, 59, 59, 1435708799 },

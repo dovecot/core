@@ -55,11 +55,7 @@ time_t utc_mktime(const struct tm *tm)
 	   when gmtime()'s output matches the tm parameter, we've found the
 	   correct time_t value. this also means that if tm contains invalid
 	   values, -1 is returned. */
-#ifdef TIME_T_SIGNED
 	t = 0;
-#else
-	t = (time_t)1 << (TIME_T_MAX_BITS - 1);
-#endif
 	for (bits = TIME_T_MAX_BITS - 2;; bits--) {
 		try_tm = gmtime(&t);
 		dir = tm_cmp(&leap_adj_tm, try_tm);

@@ -20,7 +20,6 @@ AC_DEFUN([DOVECOT_TIME_T], [
       AC_MSG_ERROR([Unsupported time_t type])
       ;;
   esac
-  AC_DEFINE(TIME_T_SIGNED,, [Define if your time_t is signed])
   timet_d_fmt="$timet_len"d
   timet_x_fmt="$timet_len"x
 
