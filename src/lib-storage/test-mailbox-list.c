@@ -555,6 +555,13 @@ static void test_mailbox_list_escape_name_params(void)
 		{ "a+b", '/', '.', '+', "", TRUE, "a+2bb" },
 		/* literal '/' escaped when not the ns_sep */
 		{ "a/b", ':', '.', '+', "", TRUE, "a+2fb" },
+		/* dirstart follows ns_sep, not a hardcoded '/': "." and ".."
+		   after a non-'/' separator must still be escaped */
+		{ "a:.:b", ':', '/', '+', "", TRUE, "a/+2e/b" },
+		{ "a:..:b", ':', '/', '+', "", TRUE, "a/+2e./b" },
+		{ "a:dbox-Mails:b", ':', '/', '+', "dbox-Mails", TRUE,
+		  "a/+64box-Mails/b" },
+		{ "a/..:b", ':', '/', '+', "", TRUE, "a+2f+2e./b" },
 	};
 	const char *result;
 
