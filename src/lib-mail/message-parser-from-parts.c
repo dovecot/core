@@ -342,7 +342,13 @@ static int preparsed_parse_next_header_init(struct message_parser_ctx *ctx,
 
 	i_assert(ctx->hdr_parser_ctx == NULL);
 
-	i_assert(ctx->part->physical_pos >= ctx->input->v_offset);
+	if (ctx->part->physical_pos < ctx->input->v_offset) {
+		/* The cached message_part tree is internally inconsistent:
+		   the previous part's size overlaps into this part's
+		   position. */
+		ctx->broken_reason = "Part starts before its cached position";
+		return -1;
+	}
 	i_stream_skip(ctx->input, ctx->part->physical_pos -
 		      ctx->input->v_offset);
 

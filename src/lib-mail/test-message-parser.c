@@ -1606,9 +1606,290 @@ static const char input_msg[] =
 	test_end();
 }
 
+static bool part_offsets_consistent(const struct message_part *part)
+{
+	/* Verify the from-parts invariant on a cached message_part tree:
+	   Within each container siblings must not overlap, and children must
+	   start at/after the container's header end. A violation is exactly
+	   what makes preparsed_parse_*_init() see v_offset past physical_pos. */
+	for (; part != NULL; part = part->next) {
+		uoff_t part_end = part->physical_pos +
+			part->header_size.physical_size +
+			part->body_size.physical_size;
+
+		if (part->children != NULL) {
+			uoff_t body_start = part->physical_pos +
+				part->header_size.physical_size;
+			if (part->children->physical_pos < body_start)
+				return FALSE;
+			if (!part_offsets_consistent(part->children))
+				return FALSE;
+		}
+		if (part->next != NULL &&
+		    part->next->physical_pos < part_end)
+			return FALSE;
+	}
+	return TRUE;
+}
+
+static bool
+test_message_parser_preparsed_buffer_size_msg(const char *msg, size_t bufsize)
+{
+	const struct message_parser_settings preparsed_set = {
+		.flags = MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK,
+	};
+	struct message_block block;
+	const char *error;
+
+	pool_t pool = pool_alloconly_create("preparsed", 10240);
+	struct istream *input = test_istream_create(msg);
+	struct message_part *parts, *parts2;
+	struct message_parser_ctx *parser;
+
+	test_istream_set_max_buffer_size(input, bufsize);
+	test_istream_set_allow_eof(input, TRUE);
+
+	/* forward parse (variable buffer fills) -> cached tree,
+	   which must never have overlapping part offsets */
+	parser = message_parser_init(pool, input, &set_empty);
+	while (message_parser_parse_next_block(parser, &block) > 0) ;
+	message_parser_deinit(&parser, &parts);
+	test_assert(part_offsets_consistent(parts));
+
+	/* re-parsing from the cached tree must not break */
+	i_stream_seek(input, 0);
+	parser = message_parser_init_from_parts(parts, input, &preparsed_set);
+	while (message_parser_parse_next_block(parser, &block) > 0) ;
+	test_assert(message_parser_deinit_from_parts(&parser, &parts2, &error) == 0);
+
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	return !test_has_failed();
+}
+
+static void test_message_parser_preparsed_buffer_sizes(void)
+{
+	static const char *const msgs[] = {
+		/* transport padding + close delimiter padding */
+		"Content-Type: multipart/mixed; boundary=\"b\"\r\n"
+		"\r\n"
+		"preamble\r\n"
+		"--b  \r\n"
+		"Content-Type: text/plain\r\n"
+		"\r\n"
+		"body one\r\n"
+		"--b\t\r\n"
+		"Content-Type: text/plain\r\n"
+		"\r\n"
+		"body two\r\n"
+		"--b--  \r\n"
+		"epilogue\r\n",
+		/* long body lines (no LF within buffer) -> forces the
+		   full-buffer (-2) path in body/boundary scanning */
+		"Content-Type: multipart/mixed; boundary=\"b\"\r\n"
+		"\r\n"
+		"--b\r\n"
+		"Content-Type: text/plain\r\n"
+		"\r\n"
+		"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+		"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+		"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+		"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n"
+		"--b\r\n"
+		"Content-Type: text/plain\r\n"
+		"\r\n"
+		"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+		"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\r\n"
+		"--b--\r\n",
+		/* nested multipart */
+		"Content-Type: multipart/mixed; boundary=\"o\"\r\n"
+		"\r\n"
+		"--o\r\n"
+		"Content-Type: multipart/alternative; boundary=\"i\"\r\n"
+		"\r\n"
+		"--i\r\n"
+		"Content-Type: text/plain\r\n"
+		"\r\n"
+		"inner a\r\n"
+		"--i\r\n"
+		"Content-Type: text/html\r\n"
+		"\r\n"
+		"inner b\r\n"
+		"--i--\r\n"
+		"--o\r\n"
+		"Content-Type: text/plain\r\n"
+		"\r\n"
+		"outer tail\r\n"
+		"--o--\r\n",
+		/* embedded message/rfc822 */
+		"Content-Type: multipart/mixed; boundary=\"b\"\r\n"
+		"\r\n"
+		"--b\r\n"
+		"Content-Type: message/rfc822\r\n"
+		"\r\n"
+		"Subject: inner\r\n"
+		"Content-Type: text/plain\r\n"
+		"\r\n"
+		"embedded body\r\n"
+		"--b--\r\n",
+		/* body without trailing CRLF before boundary line */
+		"Content-Type: multipart/mixed; boundary=\"bnd\"\r\n"
+		"\r\n"
+		"--bnd\r\n"
+		"Content-Type: text/plain\r\n"
+		"\r\n"
+		"no-newline-body"
+		"\r\n--bnd--\r\n",
+		/* empty preamble, empty part body */
+		"Content-Type: multipart/mixed; boundary=\"x\"\r\n"
+		"\r\n"
+		"--x\r\n"
+		"Content-Type: text/plain\r\n"
+		"\r\n"
+		"--x--\r\n",
+		/* boundary that is a prefix of a longer used boundary */
+		"Content-Type: multipart/mixed; boundary=\"a\"\r\n"
+		"\r\n"
+		"--a\r\n"
+		"Content-Type: multipart/mixed; boundary=\"ab\"\r\n"
+		"\r\n"
+		"--ab\r\n"
+		"Content-Type: text/plain\r\n"
+		"\r\n"
+		"deep\r\n"
+		"--ab--\r\n"
+		"--a\r\n"
+		"Content-Type: text/plain\r\n"
+		"\r\n"
+		"tail\r\n"
+		"--a--\r\n",
+		/* multipart/digest (implicit message/rfc822 children) */
+		"Content-Type: multipart/digest; boundary=\"d\"\r\n"
+		"\r\n"
+		"--d\r\n"
+		"\r\n"
+		"Subject: one\r\n"
+		"\r\n"
+		"first digest body\r\n"
+		"--d\r\n"
+		"\r\n"
+		"Subject: two\r\n"
+		"\r\n"
+		"second digest body\r\n"
+		"--d--\r\n",
+		/* missing final close delimiter (truncated) */
+		"Content-Type: multipart/mixed; boundary=\"m\"\r\n"
+		"\r\n"
+		"--m\r\n"
+		"Content-Type: text/plain\r\n"
+		"\r\n"
+		"unterminated body with no closing boundary\r\n",
+		/* header with no blank line before boundary (empty part) +
+		   trailing-dashes-inside-body */
+		"Content-Type: multipart/mixed; boundary=\"z\"\r\n"
+		"\r\n"
+		"--z\r\n"
+		"Content-Type: text/plain\r\n"
+		"\r\n"
+		"line ending with dashes--\r\n"
+		"--zzz not a boundary\r\n"
+		"still body\r\n"
+		"--z--\r\n",
+		/* LF-only (no CR) variant of the padded case */
+		"Content-Type: multipart/mixed; boundary=\"b\"\n"
+		"\n"
+		"preamble\n"
+		"--b  \n"
+		"Content-Type: text/plain\n"
+		"\n"
+		"body one\n"
+		"--b\n"
+		"Content-Type: text/plain\n"
+		"\n"
+		"body two\n"
+		"--b--\n",
+		NULL
+	};
+	/* match the production from-parts callers (index-mail-headers,
+	   message-search): body is skipped, parts walked by cached offsets */
+	test_begin("message parser preparsed buffer sizes");
+	for (unsigned int m = 0; msgs[m] != NULL; m++) {
+		size_t len = strlen(msgs[m]);
+		/* start above the longest lookahead the parser may want
+		   (header line / BOUNDARY_END_MAX_LEN); smaller buffers can't
+		   occur with real streams and would livelock the lookahead. */
+		for (size_t bufsize = 96; bufsize <= len; bufsize++)
+			test_assert_idx(test_message_parser_preparsed_buffer_size_msg(msgs[m], bufsize), bufsize);
+	}
+	test_end();
+}
+
+static void test_message_parser_preparsed_sibling_overlap(void)
+{
+	/* Last line of defence for the imap panic in
+	   preparsed_parse_next_header_init(): if a cached message_part tree
+	   whose sibling leaf parts overlap ever reaches the SKIP_BODY_BLOCK
+	   from-parts walk, it must fail gracefully (broken_reason) rather than
+	   i_assert-panic. (message_part_serialize() now asserts such trees
+	   can't be produced, and message_part_deserialize() rejects them if
+	   read from disk.) */
+	static const char input_msg[] =
+"Content-Type: multipart/mixed; boundary=\"b\"\r\n"
+"\r\n"
+"--b\r\n"
+"Content-Type: text/plain\r\n"
+"\r\n"
+"first body\r\n"
+"--b\r\n"
+"Content-Type: text/plain\r\n"
+"\r\n"
+"second body\r\n"
+"--b--\r\n";
+	const struct message_parser_settings preparsed_set = {
+		.flags = MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK,
+	};
+	struct message_parser_ctx *parser;
+	struct istream *input;
+	struct message_part *parts, *parts2;
+	struct message_block block;
+	const char *error;
+	pool_t pool;
+
+	test_begin("message parser preparsed sibling overlap");
+	pool = pool_alloconly_create("overlap", 10240);
+	input = test_istream_create(input_msg);
+	test_istream_set_allow_eof(input, TRUE);
+
+	/* forward parse -> consistent two-leaf tree */
+	test_assert(message_parse_stream(pool, input, &set_empty,
+					 FALSE, &parts) < 0);
+	test_assert(parts->children != NULL &&
+		    parts->children->next != NULL);
+	test_assert(part_offsets_consistent(parts));
+
+	/* Simulate a cache that recorded the 2nd child as starting before the
+	   1st child's body ends (here at the same position) -- the in-cache
+	   footprint of a boundary-size miscount. Feed it straight to the
+	   from-parts walk (bypassing serialize, which would assert). */
+	parts->children->next->physical_pos = parts->children->physical_pos;
+	test_assert(!part_offsets_consistent(parts));
+
+	i_stream_seek(input, 0);
+	parser = message_parser_init_from_parts(parts, input, &preparsed_set);
+	while (message_parser_parse_next_block(parser, &block) > 0) ;
+	test_assert(message_parser_deinit_from_parts(
+		&parser, &parts2, &error) != 0);
+
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
+		test_message_parser_preparsed_buffer_sizes,
+		test_message_parser_preparsed_sibling_overlap,
 		test_message_parser_small_blocks,
 		test_message_parser_stop_early,
 		test_message_parser_truncated_mime_headers,
