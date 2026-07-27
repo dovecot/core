@@ -213,6 +213,46 @@ static void test_message_deserialize_errors(void)
 		TEST_CASE(dest->data, i, "Not enough data");
 	buffer_append_c(dest, '\x00');
 	TEST_CASE(dest->data, dest->used, "Too much data");
+	buffer_set_used_size(dest, 0);
+
+	/* overlapping sibling leaf parts. Serialize a consistent multipart
+	   with two text children, then patch the 2nd child's physical_pos to
+	   point back inside the 1st child's body. This is the in-cache
+	   footprint that used to reach (and crash) the from-parts walk; the
+	   deserializer must reject it rather than pass it through. */
+	i_zero(&part);
+	i_zero(&child1);
+	i_zero(&child2);
+	part.flags = MESSAGE_PART_FLAG_MULTIPART|MESSAGE_PART_FLAG_IS_MIME;
+	part.children_count = 2;
+	part.header_size.physical_size = part.header_size.virtual_size = 10;
+	part.body_size.physical_size = part.body_size.virtual_size = 100;
+	child1.flags = MESSAGE_PART_FLAG_TEXT;
+	child1.parent = &part;
+	child1.physical_pos = 10;
+	child1.header_size.physical_size = child1.header_size.virtual_size = 5;
+	child1.body_size.physical_size = child1.body_size.virtual_size = 10;
+	/* child1 occupies [10, 25) */
+	child2.flags = MESSAGE_PART_FLAG_TEXT;
+	child2.parent = &part;
+	child2.physical_pos = 87; /* unique sentinel, still within body */
+	child2.header_size.physical_size = child2.header_size.virtual_size = 5;
+	child2.body_size.physical_size = child2.body_size.virtual_size = 10;
+	part.children = &child1;
+	child1.next = &child2;
+	message_part_serialize(&part, dest);
+	/* rewrite the sentinel physical_pos to 15, which is inside child1 */
+	for (size_t i = 0; i + sizeof(uoff_t) <= dest->used; i++) {
+		uoff_t v = 87;
+		if (memcmp(CONST_PTR_OFFSET(dest->data, i), &v,
+			   sizeof(v)) == 0) {
+			v = 15;
+			buffer_write(dest, i, &v, sizeof(v));
+			break;
+		}
+	}
+	TEST_CASE(dest->data, dest->used, "physical_pos less than expected");
+	buffer_set_used_size(dest, 0);
 
 	test_end();
 }
@@ -243,6 +283,39 @@ static enum fatal_test_state test_message_deserialize_fatals(unsigned int stage)
 
 		message_part_serialize(&part, dest);
 		TEST_CASE(dest->data, dest->used, "message/rfc822 part has multiple children");
+		buffer_set_used_size(dest, 0);
+		return FATAL_TEST_FAILURE;
+	case 1:
+		/* overlapping sibling leaf parts must not be serialized: the
+		   producer is a bug, not corrupted input. */
+		test_expect_fatal_string("part_pos >= *pos");
+		i_zero(&part);
+		i_zero(&child1);
+		i_zero(&child2);
+		part.flags = MESSAGE_PART_FLAG_MULTIPART|MESSAGE_PART_FLAG_IS_MIME;
+		part.children_count = 2;
+		part.header_size.physical_size =
+			part.header_size.virtual_size = 10;
+		part.body_size.physical_size =
+			part.body_size.virtual_size = 100;
+		child1.flags = MESSAGE_PART_FLAG_TEXT;
+		child1.parent = &part;
+		child1.physical_pos = 10;
+		child1.header_size.physical_size =
+			child1.header_size.virtual_size = 5;
+		child1.body_size.physical_size =
+			child1.body_size.virtual_size = 10;
+		/* child1 occupies [10, 25) */
+		child2.flags = MESSAGE_PART_FLAG_TEXT;
+		child2.parent = &part;
+		child2.physical_pos = 20; /* < child1 end -> overlap */
+		child2.header_size.physical_size =
+			child2.header_size.virtual_size = 5;
+		child2.body_size.physical_size =
+			child2.body_size.virtual_size = 10;
+		part.children = &child1;
+		child1.next = &child2;
+		message_part_serialize(&part, dest);
 		buffer_set_used_size(dest, 0);
 		return FATAL_TEST_FAILURE;
 	};

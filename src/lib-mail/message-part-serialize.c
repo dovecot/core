@@ -37,14 +37,25 @@ struct deserialize_context {
 };
 
 static void part_serialize(struct message_part *part, buffer_t *dest,
-			   unsigned int *children_count_r)
+			   uoff_t *pos, unsigned int *children_count_r)
 {
 	unsigned int count, children_count;
 	size_t children_offset;
+	uoff_t part_pos, child_pos;
 	bool root = part->parent == NULL;
 
 	count = 0;
 	while (part != NULL) {
+		/* The tree must be internally consistent so its serialized
+		   form always passes message_part_deserialize(). The input is
+		   freshly parsed in-memory data, not read from disk, so an
+		   inconsistency is a parser/programming bug: assert instead of
+		   writing a tree that would later fail to deserialize or crash
+		   the from-parts walk. The root's physical_pos isn't
+		   serialized, so it's treated as 0. */
+		part_pos = root ? 0 : part->physical_pos;
+		i_assert(part_pos >= *pos);
+
 		/* create serialized part */
 		buffer_append(dest, &part->flags, sizeof(part->flags));
 		if (root)
@@ -76,16 +87,25 @@ static void part_serialize(struct message_part *part, buffer_t *dest,
 				      sizeof(children_count));
 
 			if (part->children != NULL) {
+				child_pos = part_pos +
+					part->header_size.physical_size;
 				part_serialize(part->children, dest,
-					       &children_count);
+					       &child_pos, &children_count);
 
 				buffer_write(dest, children_offset,
 					     &children_count,
 					     sizeof(children_count));
+				/* children must fit within our body */
+				i_assert(child_pos <= part_pos +
+					 part->header_size.physical_size +
+					 part->body_size.physical_size);
 			}
 		} else {
 			i_assert(part->children == NULL);
 		}
+
+		*pos = part_pos + part->header_size.physical_size +
+			part->body_size.physical_size;
 
 		count++;
 		part = part->next;
@@ -97,8 +117,9 @@ static void part_serialize(struct message_part *part, buffer_t *dest,
 void message_part_serialize(struct message_part *part, buffer_t *dest)
 {
 	unsigned int children_count;
+	uoff_t pos = 0;
 
-	part_serialize(part, dest, &children_count);
+	part_serialize(part, dest, &pos, &children_count);
 }
 
 static bool read_next(struct deserialize_context *ctx,
@@ -227,6 +248,14 @@ message_part_deserialize_part(struct deserialize_context *ctx,
 				return FALSE;
 			}
 			ctx->pos = pos; /* save it for above check for parent */
+		} else {
+			/* leaf part: advance past its body so the next sibling
+			   can't be recorded overlapping it. Without this a
+			   cached tree with overlapping leaf siblings would be
+			   accepted and later crash the from-parts walk. */
+			ctx->pos = part->physical_pos +
+				part->header_size.physical_size +
+				part->body_size.physical_size;
 		}
 
 		if (first_part == NULL)
