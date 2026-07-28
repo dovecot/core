@@ -138,10 +138,6 @@ void sasl_server_request_verify_plain(
 void sasl_server_request_lookup_credentials(
 	struct sasl_server_mech_request *mreq, const char *scheme,
 	sasl_server_mech_passdb_callback_t *callback);
-void sasl_server_request_set_credentials(
-	struct sasl_server_mech_request *mreq,
-	const char *scheme, const char *data,
-	sasl_server_mech_passdb_callback_t *callback);
 
 /* Obtains the mechanism request struct (protected) from the request context
    struct (public). This function meant for providing the means to have

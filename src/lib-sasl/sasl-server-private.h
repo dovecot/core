@@ -8,7 +8,6 @@ extern struct event_category event_category_sasl_server;
 enum sasl_server_passdb_type {
 	SASL_SERVER_PASSDB_TYPE_VERIFY_PLAIN,
 	SASL_SERVER_PASSDB_TYPE_LOOKUP_CREDENTIALS,
-	SASL_SERVER_PASSDB_TYPE_SET_CREDENTIALS,
 };
 
 struct sasl_server_request {

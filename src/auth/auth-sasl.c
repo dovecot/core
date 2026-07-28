@@ -643,7 +643,6 @@ auth_sasl_mech_verify_passdb(const struct auth *auth,
 		break;
 	case SASL_MECH_PASSDB_NEED_VERIFY_RESPONSE:
 	case SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS:
-	case SASL_MECH_PASSDB_NEED_SET_CREDENTIALS:
 		if (!auth_passdb_list_have_lookup_credentials(auth))
 			return FALSE;
 		break;

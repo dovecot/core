@@ -627,51 +627,6 @@ void sasl_server_request_lookup_credentials(
 					  lookup_credentials_callback);
 }
 
-static void
-set_credentials_callback(struct sasl_server_req_ctx *rctx,
-			 const struct sasl_passdb_result *result)
-{
-	struct sasl_server_request *req = rctx->request;
-
-	i_assert(req->state == SASL_SERVER_REQUEST_STATE_PASSDB);
-	req->state = SASL_SERVER_REQUEST_STATE_SERVER;
-	if (result->status == SASL_PASSDB_RESULT_INTERNAL_FAILURE)
-		req->failed = TRUE;
-
-	e_debug(req->event, "Finished updating passdb credentials (status=%s)",
-		sasl_passdb_result_to_string(result->status));
-
-	i_assert(req->passdb_type == SASL_SERVER_PASSDB_TYPE_SET_CREDENTIALS);
-	req->passdb_callback(req->mech, result);
-}
-
-void sasl_server_request_set_credentials(
-	struct sasl_server_mech_request *mreq,
-	const char *scheme, const char *data,
-	sasl_server_mech_passdb_callback_t *callback)
-{
-	struct sasl_server_request *req = mreq->req;
-	struct sasl_server *server = req->sinst->server;
-	const struct sasl_server_request_funcs *funcs = server->funcs;
-
-	i_assert(req->rctx != NULL);
-
-	i_assert(!req->failed);
-	i_assert(req->state == SASL_SERVER_REQUEST_STATE_NEW ||
-		 req->state == SASL_SERVER_REQUEST_STATE_SERVER);
-	req->state = SASL_SERVER_REQUEST_STATE_PASSDB;
-
-	e_debug(req->event, "Updating passdb credentials (scheme=%s)",
-		scheme);
-
-	req->passdb_type = SASL_SERVER_PASSDB_TYPE_SET_CREDENTIALS;
-	req->passdb_callback = callback;
-
-	i_assert(funcs->request_set_credentials != NULL);
-	funcs->request_set_credentials(req->rctx, scheme, data,
-				       set_credentials_callback);
-}
-
 struct sasl_server_mech_request *
 sasl_server_request_get_mech_request(struct sasl_server_req_ctx *rctx)
 {

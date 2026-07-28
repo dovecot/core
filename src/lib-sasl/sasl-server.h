@@ -33,8 +33,6 @@ enum sasl_mech_passdb_need {
 	SASL_MECH_PASSDB_NEED_VERIFY_RESPONSE,
 	/* Mechanism needs to look up credentials with appropriate scheme */
 	SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
-	/* Mechanism needs to look up credentials and also modify them */
-	SASL_MECH_PASSDB_NEED_SET_CREDENTIALS,
 };
 
 enum sasl_server_output_status {
@@ -140,10 +138,6 @@ struct sasl_server_request_funcs {
 		sasl_server_passdb_callback_t *callback);
 	void (*request_lookup_credentials)(
 		struct sasl_server_req_ctx *rctx, const char *scheme,
-		sasl_server_passdb_callback_t *callback);
-	void (*request_set_credentials)(
-		struct sasl_server_req_ctx *rctx,
-		const char *scheme, const char *data,
 		sasl_server_passdb_callback_t *callback);
 
 	void (*request_free)(struct sasl_server_req_ctx *rctx);

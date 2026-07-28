@@ -33,17 +33,8 @@ struct test_sasl {
 	bool failure:1;
 };
 
-struct test_sasl_passdb {
-	pool_t pool;
-
-	const char *credentials_stored;
-	const char *credentials_scheme;
-};
-
 struct test_sasl_context {
 	pool_t pool;
-
-	struct test_sasl_passdb *passdb;
 
 	struct sasl_server_req_ctx ssrctx;
 	const struct test_sasl *test;
@@ -202,7 +193,6 @@ test_server_request_lookup_credentials(
 	struct test_sasl_context *tctx =
 		container_of(rctx, struct test_sasl_context, ssrctx);
 	const struct test_sasl *test = tctx->test;
-	struct test_sasl_passdb *passdb = tctx->passdb;
 	struct sasl_passdb_result result;
 
 	i_zero(&result);
@@ -225,16 +215,6 @@ test_server_request_lookup_credentials(
 		return;
 	}
 
-	if (passdb->credentials_stored != NULL) {
-		i_assert(strcasecmp(scheme, passdb->credentials_scheme) == 0);
-		result.status = SASL_PASSDB_RESULT_OK;
-		result.credentials.data =
-			(const unsigned char *)passdb->credentials_stored;
-		result.credentials.size = strlen(passdb->credentials_stored);
-		callback(&tctx->ssrctx, &result);
-		return;
-	}
-
 	const struct password_generate_params params = {
 		.user = (test->server.realm == NULL ? test->server.authid :
 			 t_strconcat(test->server.authid, "@",
@@ -248,23 +228,6 @@ test_server_request_lookup_credentials(
 		callback(&tctx->ssrctx, &result);
 		return;
 	}
-
-	result.status = SASL_PASSDB_RESULT_OK;
-	callback(&tctx->ssrctx, &result);
-}
-
-static void
-test_server_request_set_credentials(
-	struct sasl_server_req_ctx *rctx, const char *scheme, const char *data,
-	sasl_server_passdb_callback_t *callback)
-{
-	struct test_sasl_context *tctx =
-		container_of(rctx, struct test_sasl_context, ssrctx);
-	struct test_sasl_passdb *passdb = tctx->passdb;
-	struct sasl_passdb_result result;
-
-	passdb->credentials_stored = p_strdup(passdb->pool, data);
-	passdb->credentials_scheme = p_strdup(passdb->pool, scheme);
 
 	result.status = SASL_PASSDB_RESULT_OK;
 	callback(&tctx->ssrctx, &result);
@@ -363,7 +326,6 @@ struct sasl_server_request_funcs server_funcs = {
 
 	.request_verify_plain = test_server_request_verify_plain,
 	.request_lookup_credentials = test_server_request_lookup_credentials,
-	.request_set_credentials = test_server_request_set_credentials,
 
 	.request_output = test_server_request_output,
 };
@@ -421,7 +383,6 @@ static void test_sasl_interact(struct test_sasl_context *tctx)
 
 static void
 test_sasl_run_once(const struct test_sasl *test,
-		   struct test_sasl_passdb *passdb,
 		   const struct sasl_server_mech *server_mech,
 		   bool auth_initial)
 {
@@ -430,7 +391,6 @@ test_sasl_run_once(const struct test_sasl *test,
 
 	i_zero(&tctx);
 	tctx.pool = pool_alloconly_create(MEMPOOL_GROWING"test_sasl", 2048);
-	tctx.passdb = passdb;
 	tctx.test = test;
 	tctx.auth_initial = auth_initial;
 
@@ -544,16 +504,10 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 	}
 #endif
 
-	struct test_sasl_passdb passdb;
 	unsigned int repeat = (test->repeat > 0 ? test->repeat : 1);
 
-	i_zero(&passdb);
-	passdb.pool = pool_alloconly_create(MEMPOOL_GROWING"test passdb", 2048);
-
 	for (i = 0; i < repeat && !test_has_failed(); i++)
-		test_sasl_run_once(test, &passdb, server_mech, auth_initial);
-
-	pool_unref(&passdb.pool);
+		test_sasl_run_once(test, server_mech, auth_initial);
 
 	sasl_server_instance_unref(&server_inst);
 	sasl_server_deinit(&server);
