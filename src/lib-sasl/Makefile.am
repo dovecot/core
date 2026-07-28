@@ -13,7 +13,6 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-json \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
-	-I$(top_srcdir)/src/lib-otp \
 	-I$(top_srcdir)/src/lib-auth \
 	-DTEST_WINBIND_HELPER_PATH=\""$(abs_builddir)/ntlm_dummy"\"
 
@@ -24,7 +23,6 @@ client_mechanisms = \
 	dsasl-client-mech-external.c \
 	dsasl-client-mech-login.c \
 	dsasl-client-mech-oauthbearer.c \
-	dsasl-client-mech-otp.c \
 	dsasl-client-mech-plain.c \
 	dsasl-client-mech-scram.c
 
@@ -35,7 +33,6 @@ server_mechanisms = \
 	sasl-server-mech-external.c \
 	sasl-server-mech-login.c \
 	sasl-server-mech-oauth2.c \
-	sasl-server-mech-otp.c \
 	sasl-server-mech-plain.c \
 	sasl-server-mech-scram.c \
 	sasl-server-mech-winbind.c
@@ -106,7 +103,6 @@ test_libs = \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-dns-client/libdns-client.la \
 	../lib-dns/libdns.la \
-	../lib-otp/libotp.la \
 	../lib-dict/libdict.la \
 	../lib-json/libjson.la \
 	../lib-settings/libsettings.la \

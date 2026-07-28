@@ -193,8 +193,6 @@ void sasl_server_mech_register_scram_sha256(
 void sasl_server_mech_register_scram_sha256_plus(
 	struct sasl_server_instance *sinst);
 
-void sasl_server_mech_register_otp(struct sasl_server_instance *sinst);
-
 /* Winbind */
 
 struct sasl_server_winbind_settings {

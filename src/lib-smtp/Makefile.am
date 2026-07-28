@@ -123,7 +123,6 @@ test_libs = \
 	../lib-dcrypt/libdcrypt.la \
 	../lib-dict/libdict.la \
 	../lib-auth/libauth.la \
-	../lib-otp/libotp.la \
 	../lib-json/libjson.la \
 	../lib-var-expand/libvar_expand.la \
 	../lib-regex/libdregex.la \

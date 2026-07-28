@@ -505,7 +505,6 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 	sasl_server_mech_register_digest_md5(server_inst);
 	sasl_server_mech_register_external(server_inst);
 	sasl_server_mech_register_login(server_inst);
-	sasl_server_mech_register_otp(server_inst);
 	sasl_server_mech_register_plain(server_inst);
 	sasl_server_mech_register_scram_sha1(server_inst);
 	sasl_server_mech_register_scram_sha1_plus(server_inst);
@@ -719,16 +718,6 @@ static const struct test_sasl success_tests[] = {
 			.authid = "user",
 			.password = "tokentokentoken",
 		},
-	},
-	/* OTP */
-	{
-		.mech = "OTP",
-		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
-		.server = {
-			.authid = "user",
-			.password = "pass",
-		},
-		.repeat = 1050,
 	},
 	/* EXTERNAL */
 	{
@@ -1452,31 +1441,6 @@ static const struct test_sasl bad_creds_tests[] = {
 		},
 		.client = {
 			.password = "noketnoketnoket",
-		},
-		.failure = TRUE,
-	},
-	/* OTP */
-	{
-		.mech = "OTP",
-		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
-		.server = {
-			.authid = "user",
-			.password = "pass",
-		},
-		.client = {
-			.authid = "userb",
-		},
-		.failure = TRUE,
-	},
-	{
-		.mech = "OTP",
-		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
-		.server = {
-			.authid = "user",
-			.password = "pass",
-		},
-		.client = {
-			.password = "florp",
 		},
 		.failure = TRUE,
 	},
