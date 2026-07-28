@@ -92,7 +92,6 @@ extern bool shutting_down;
 
 bool auth_passdb_list_have_verify_plain(const struct auth *auth);
 bool auth_passdb_list_have_lookup_credentials(const struct auth *auth);
-bool auth_passdb_list_have_set_credentials(const struct auth *auth);
 
 struct auth *auth_find_protocol(const char *name);
 struct auth *auth_default_protocol(void);

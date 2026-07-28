@@ -459,60 +459,6 @@ auth_worker_handle_passl(struct auth_worker_command *cmd,
 }
 
 static void
-set_credentials_callback(bool success, struct auth_request *request)
-{
-	struct auth_worker_command *cmd = request->context;
-	struct auth_worker_server *server = cmd->server;
-
-	string_t *str;
-
-	str = t_str_new(64);
-	str_printfa(str, "%u\t%s\n", request->id, success ? "OK" : "FAIL");
-	auth_worker_send_reply(server, request, str);
-
-	auth_worker_request_finished(cmd, success ? NULL :
-				     "Failed to set credentials");
-	auth_request_unref(&request);
-}
-
-static bool
-auth_worker_handle_setcred(struct auth_worker_command *cmd,
-			   unsigned int id, const char *const *args,
-			   const char **error_r)
-{
-	struct auth_request *auth_request;
-	unsigned int passdb_id;
-	const char *creds;
-
-	/* <passdb id> <credentials> [<args>] */
-	if (str_to_uint(args[0], &passdb_id) < 0 || args[1] == NULL) {
-		*error_r = "BUG: Auth worker server sent us invalid SETCRED";
-		return FALSE;
-	}
-	creds = args[1];
-
-	if (!auth_worker_auth_request_new(cmd, id, args + 2, &auth_request)) {
-		*error_r = "BUG: SETCRED had missing parameters";
-		return FALSE;
-	}
-
-	while (auth_request->passdb->passdb->id != passdb_id) {
-		auth_request->passdb = auth_request->passdb->next;
-		if (auth_request->passdb == NULL) {
-			*error_r = "BUG: SETCRED had invalid passdb ID";
-			auth_request_unref(&auth_request);
-			return FALSE;
-		}
-	}
-
-	auth_request_passdb_event_begin(auth_request);
-	auth_request->passdb->passdb->iface.
-		set_credentials(auth_request, creds, set_credentials_callback);
-	auth_request_passdb_event_end(auth_request);
-	return TRUE;
-}
-
-static void
 lookup_user_callback(enum userdb_result result,
 		     struct auth_request *auth_request)
 {
@@ -914,8 +860,6 @@ auth_worker_server_input_args(struct connection *conn, const char *const *args)
 		ret = auth_worker_handle_passl(cmd, id, args + 2, &error);
 	else if (strcmp(args[1], "PASSW") == 0)
 		ret = auth_worker_handle_passw(cmd, id, args + 2, &error);
-	else if (strcmp(args[1], "SETCRED") == 0)
-		ret = auth_worker_handle_setcred(cmd, id, args + 2, &error);
 	else if (strcmp(args[1], "USER") == 0)
 		ret = auth_worker_handle_user(cmd, id, args + 2, &error);
 	else if (strcmp(args[1], "LIST") == 0)

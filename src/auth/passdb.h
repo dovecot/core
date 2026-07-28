@@ -31,8 +31,6 @@ typedef void lookup_credentials_callback_t(enum passdb_result result,
 					   const unsigned char *credentials,
 					   size_t size, const char *scheme,
 					   struct auth_request *request);
-typedef void set_credentials_callback_t(bool success,
-					struct auth_request *request);
 
 struct passdb_parameters {
 	/* Enable cache for the passdb */
@@ -58,11 +56,6 @@ struct passdb_module_interface {
 	   auth_request->credentials. */
 	void (*lookup_credentials)(struct auth_request *request,
 				   lookup_credentials_callback_t *callback);
-
-	/* Update credentials */
-	void (*set_credentials)(struct auth_request *request,
-				const char *new_credentials,
-				set_credentials_callback_t *callback);
 };
 
 struct passdb_module {

@@ -228,21 +228,6 @@ bool auth_passdb_list_have_lookup_credentials(const struct auth *auth)
 	return FALSE;
 }
 
-bool auth_passdb_list_have_set_credentials(const struct auth *auth)
-{
-	const struct auth_passdb *passdb;
-
-	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next) {
-		if (passdb->passdb->iface.set_credentials != NULL)
-			return TRUE;
-	}
-	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next) {
-		if (passdb->passdb->iface.set_credentials != NULL)
-			return TRUE;
-	}
-	return FALSE;
-}
-
 static struct auth * ATTR_NULL(2)
 auth_preinit(const struct auth_settings *set, const char *protocol)
 {

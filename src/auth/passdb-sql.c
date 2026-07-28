@@ -24,28 +24,24 @@ struct passdb_sql_request {
 	union {
 		verify_plain_callback_t *verify_plain;
                 lookup_credentials_callback_t *lookup_credentials;
-		set_credentials_callback_t *set_credentials;
 	} callback;
 };
 
 struct passdb_sql_settings {
 	pool_t pool;
 	const char *query;
-	const char *update_query;
 };
 #undef DEF
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type("passdb_sql_"#name, name, struct passdb_sql_settings)
 static const struct setting_define passdb_sql_setting_defines[] = {
 	DEF(STR, query),
-	DEF(STR, update_query),
 
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct passdb_sql_settings passdb_sql_default_settings = {
 	.query = "",
-	.update_query = "",
 };
 const struct setting_parser_info passdb_sql_setting_parser_info = {
 	.name = "passdb_sql",
@@ -228,64 +224,6 @@ static void sql_lookup_credentials(struct auth_request *request,
         sql_lookup_pass(sql_request);
 }
 
-static void sql_set_credentials_callback(const struct sql_commit_result *sql_result,
-					 struct passdb_sql_request *sql_request)
-{
-	struct auth_request *auth_request = sql_request->auth_request;
-
-	if (sql_result->error != NULL) {
-		e_error(authdb_event(auth_request),
-			"Set credentials query failed: %s", sql_result->error);
-	}
-
-	sql_request->callback.
-		set_credentials(sql_result->error == NULL, sql_request->auth_request);
-	i_free(sql_request);
-}
-
-static void sql_set_credentials(struct auth_request *request,
-				const char *new_credentials,
-				set_credentials_callback_t *callback)
-{
-	struct sql_passdb_module *module =
-		container_of(request->passdb->passdb,
-			     struct sql_passdb_module, module);
-	struct sql_transaction_context *transaction;
-	struct passdb_sql_request *sql_request;
-	const struct passdb_sql_settings *set;
-	const char *error;
-
-	request->mech_password = p_strdup(request->pool, new_credentials);
-
-	const struct settings_get_params params = {
-		.escape_func = passdb_sql_escape,
-		.escape_context = module->db,
-	};
-	if (settings_get_params(authdb_event(request),
-				&passdb_sql_setting_parser_info, &params,
-				&set, &error) < 0) {
-		e_error(authdb_event(request), "%s", error);
-		callback(FALSE, request);
-		return;
-	}
-
-	if (*set->update_query == '\0') {
-		e_error(authdb_event(request), "passdb_sql_update_query is empty");
-		callback(FALSE, request);
-		return;
-	}
-
-	sql_request = i_new(struct passdb_sql_request, 1);
-	sql_request->auth_request = request;
-	sql_request->callback.set_credentials = callback;
-
-	transaction = sql_transaction_begin(module->db);
-	sql_update(transaction, set->update_query);
-	sql_transaction_commit(&transaction,
-			       sql_set_credentials_callback, sql_request);
-	settings_free(set);
-}
-
 static int
 passdb_sql_preinit(pool_t pool, struct event *event,
 		   const struct passdb_parameters *passdb_params,
@@ -358,8 +296,7 @@ struct passdb_module_interface passdb_sql = {
 	.deinit = passdb_sql_deinit,
 
 	.verify_plain = sql_verify_plain,
-	.lookup_credentials = sql_lookup_credentials,
-	.set_credentials = sql_set_credentials
+	.lookup_credentials = sql_lookup_credentials
 };
 #else
 struct passdb_module_interface passdb_sql = {

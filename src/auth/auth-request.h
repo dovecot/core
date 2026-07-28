@@ -172,7 +172,6 @@ struct auth_request {
 	union {
 		verify_plain_callback_t *verify_plain;
 		lookup_credentials_callback_t *lookup_credentials;
-		set_credentials_callback_t *set_credentials;
                 userdb_callback_t *userdb;
 	} private_callback;
 	/* Used by passdb's credentials lookup to determine which scheme is
@@ -419,9 +418,6 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 					      const unsigned char *credentials,
 					      size_t size, const char *scheme,
 					      struct auth_request *request);
-void auth_request_set_credentials(struct auth_request *request,
-				  const char *scheme, const char *data,
-				  set_credentials_callback_t *callback);
 void auth_request_userdb_callback(enum userdb_result result,
 				  struct auth_request *request);
 void auth_request_default_verify_plain_continue(

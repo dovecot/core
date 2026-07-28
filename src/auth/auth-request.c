@@ -1491,35 +1491,6 @@ auth_request_lookup_credentials_policy_continue(
 	}
 }
 
-void auth_request_set_credentials(struct auth_request *request,
-				  const char *scheme, const char *data,
-				  set_credentials_callback_t *callback)
-{
-	struct auth_passdb *passdb = request->passdb;
-	const char *cache_key, *new_credentials;
-
-	auth_request_passdb_event_begin(request);
-
-	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
-	if (cache_key != NULL)
-		auth_cache_remove(passdb_cache, request, cache_key);
-
-	request->private_callback.set_credentials = callback;
-
-	new_credentials = t_strdup_printf("{%s}%s", scheme, data);
-	if (passdb->passdb->blocking)
-		passdb_blocking_set_credentials(request, new_credentials);
-	else if (passdb->passdb->iface.set_credentials != NULL) {
-		passdb->passdb->iface.set_credentials(request, new_credentials,
-						      callback);
-	} else {
-		/* this passdb doesn't support credentials update */
-		callback(FALSE, request);
-	}
-
-	auth_request_passdb_event_end(request);
-}
-
 static void
 auth_request_userdb_save_cache(struct auth_request *request,
 			       enum userdb_result result)

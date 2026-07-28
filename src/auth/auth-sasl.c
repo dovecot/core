@@ -242,30 +242,6 @@ auth_sasl_request_lookup_credentials(struct sasl_server_req_ctx *rctx,
 					lookup_credentials_callback);
 }
 
-static void
-set_credentials_callback(bool success, struct auth_request *request)
-{
-	const struct sasl_passdb_result result = {
-		.status = (success ?
-			   SASL_PASSDB_RESULT_OK :
-			   SASL_PASSDB_RESULT_INTERNAL_FAILURE),
-	};
-	request->sasl.passdb_callback(&request->sasl.req, &result);
-}
-
-static void
-auth_sasl_request_set_credentials(struct sasl_server_req_ctx *rctx,
-				  const char *scheme, const char *data,
-				  sasl_server_passdb_callback_t *callback)
-{
-	struct auth_request *request =
-		container_of(rctx, struct auth_request, sasl.req);
-
-	request->sasl.passdb_callback = callback;
-	auth_request_set_credentials(request, scheme, data,
-				     set_credentials_callback);
-}
-
 static const struct sasl_server_request_funcs auth_sasl_request_funcs = {
 	.request_set_authid = auth_sasl_request_set_authid,
 	.request_set_authzid = auth_sasl_request_set_authzid,
@@ -282,7 +258,6 @@ static const struct sasl_server_request_funcs auth_sasl_request_funcs = {
 
 	.request_verify_plain = auth_sasl_request_verify_plain,
 	.request_lookup_credentials = auth_sasl_request_lookup_credentials,
-	.request_set_credentials = auth_sasl_request_set_credentials,
 };
 
 static const char *
@@ -668,13 +643,8 @@ auth_sasl_mech_verify_passdb(const struct auth *auth,
 		break;
 	case SASL_MECH_PASSDB_NEED_VERIFY_RESPONSE:
 	case SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS:
-		if (!auth_passdb_list_have_lookup_credentials(auth))
-			return FALSE;
-		break;
 	case SASL_MECH_PASSDB_NEED_SET_CREDENTIALS:
 		if (!auth_passdb_list_have_lookup_credentials(auth))
-			return FALSE;
-		if (!auth_passdb_list_have_set_credentials(auth))
 			return FALSE;
 		break;
 	}

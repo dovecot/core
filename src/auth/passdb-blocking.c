@@ -140,32 +140,3 @@ void passdb_blocking_lookup_credentials(struct auth_request *request)
 	auth_worker_call(request->pool, request->fields.user, str_c(str),
 			 lookup_credentials_callback, request);
 }
-
-static bool
-set_credentials_callback(struct auth_worker_connection *conn ATTR_UNUSED,
-			 const char *const *args, void *context)
-{
-	struct auth_request *request = context;
-	bool success;
-
-	success = strcmp(args[0], "OK") == 0;
-	request->private_callback.set_credentials(success, request);
-	auth_request_unref(&request);
-	return TRUE;
-}
-
-void passdb_blocking_set_credentials(struct auth_request *request,
-				     const char *new_credentials)
-{
-	string_t *str;
-
-	str = t_str_new(128);
-	str_printfa(str, "SETCRED\t%u\t", request->passdb->passdb->id);
-	str_append_tabescaped(str, new_credentials);
-	str_append_c(str, '\t');
-	auth_request_export(request, str);
-
-	auth_request_ref(request);
-	auth_worker_call(request->pool, request->fields.user, str_c(str),
-			 set_credentials_callback, request);
-}
