@@ -8,6 +8,12 @@
 #include <unistd.h>
 #include <sys/types.h>
 
+/* Timeout for waiting for a signal handler that is expected to be called.
+   Reaching this timeout means the test failed, so it just needs to be long
+   enough that a heavily loaded or stalled machine doesn't reach it before the
+   ioloop has had the chance to call the handler. */
+#define SIGNAL_HANDLED_TIMEOUT_MSECS (30*1000)
+
 struct test_context_delayed {
 	bool timed_out:1;
 	bool signal_handled:1;
@@ -55,7 +61,7 @@ test_lib_signals_delayed(void)
 
 	ioloop = io_loop_create();
 	to_kill = timeout_add_short(200, kill_timeout, &tctx);
-	to_test = timeout_add_short(400, test_timeout, &tctx);
+	to_test = timeout_add(SIGNAL_HANDLED_TIMEOUT_MSECS, test_timeout, &tctx);
 	io_loop_run(ioloop);
 
 	timeout_remove(&to_kill);
@@ -81,7 +87,7 @@ test_lib_signals_delayed(void)
 		signal_handler_delayed, &tctx);
 
 	to_kill = timeout_add_short(200, kill_timeout, &tctx);
-	to_test = timeout_add_short(400, test_timeout, &tctx);
+	to_test = timeout_add(SIGNAL_HANDLED_TIMEOUT_MSECS, test_timeout, &tctx);
 	io_loop_run(ioloop);
 
 	timeout_remove(&to_kill);
@@ -126,7 +132,7 @@ test_lib_signals_delayed_nested_ioloop(void)
 	/* run inner ioloop, which triggers the signal */
 	ioloop2 = io_loop_create();
 	to_kill = timeout_add_short(200, kill_timeout, &tctx);
-	to_test = timeout_add_short(400, test_timeout, &tctx);
+	to_test = timeout_add(SIGNAL_HANDLED_TIMEOUT_MSECS, test_timeout, &tctx);
 	io_loop_run(ioloop2);
 
 	timeout_remove(&to_kill);
@@ -183,7 +189,7 @@ test_lib_signals_delayed_no_ioloop_automove(void)
 	io_loop_destroy(&ioloop2);
 
 	/* run outer ioloop once more */
-	to_test = timeout_add_short(100, test_timeout, &tctx);
+	to_test = timeout_add(SIGNAL_HANDLED_TIMEOUT_MSECS, test_timeout, &tctx);
 	io_loop_run(ioloop1);
 	timeout_remove(&to_test);
 
@@ -220,7 +226,7 @@ test_lib_signals_delayed_no_ioloop_automove(void)
 		signal_handler_delayed, &tctx);
 
 	to_kill = timeout_add_short(200, kill_timeout, &tctx);
-	to_test = timeout_add_short(400, test_timeout, &tctx);
+	to_test = timeout_add(SIGNAL_HANDLED_TIMEOUT_MSECS, test_timeout, &tctx);
 	io_loop_run(ioloop2);
 
 	test_assert(!tctx.timed_out);
