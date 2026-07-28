@@ -218,7 +218,7 @@ test_iostream_pump_failure_end_read(bool in_block, bool out_block)
 	struct ostream *out;
 	buffer_t *buffer;
 
-	test_begin(t_strdup_printf("iostream_pump failure mid-read "
+	test_begin(t_strdup_printf("iostream_pump failure end-read "
 				   "(in=%sblocking, out=%sblocking)",
 				   (in_block ? "" : "non-"),
 				   (out_block ? "" : "non-")));
