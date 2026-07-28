@@ -46,12 +46,6 @@ request_handler_reply_mock_callback(struct auth_request *request,
 
 	if (request->passdb_result == PASSDB_RESULT_OK)
 		request->failed = FALSE;
-	else if (strcmp(request->fields.mech_name, SASL_MECH_NAME_OTP) == 0) {
-		if (null_strcmp(request->fields.user, "otp_phase_2") == 0)
-			request->failed = FALSE;
-	} else if (strcmp(request->fields.mech_name,
-			  SASL_MECH_NAME_OAUTHBEARER) == 0) {
-	}
 };
 
 static void
@@ -190,10 +184,6 @@ static void test_mechs(void)
 		{"PLAIN", UCHAR_LEN("\0testuser\0testpass"), "testuser", TRUE, FALSE, FALSE},
 		{"PLAIN", UCHAR_LEN("normaluser\0masteruser\0masterpass"), "masteruser", TRUE, FALSE, FALSE},
 		{"PLAIN", UCHAR_LEN("normaluser\0normaluser\0masterpass"), "normaluser", TRUE, FALSE, FALSE},
-		{"OTP", UCHAR_LEN("hex:5Bf0 75d9 959d 036f"), "otp_phase_2", TRUE, TRUE, FALSE},
-		{"OTP", UCHAR_LEN("word:BOND FOGY DRAB NE RISE MART"), "otp_phase_2", TRUE, TRUE, FALSE},
-		{"OTP", UCHAR_LEN("init-hex:f6bd 6b33 89b8 7203:md5 499 ke6118:23d1 b253 5ae0 2b7e"), "otp_phase_2", TRUE, TRUE, FALSE},
-		{"OTP", UCHAR_LEN("init-word:END KERN BALM NICK EROS WAVY:md5 499 ke1235:BABY FAIN OILY NIL TIDY DADE"), "otp_phase_2", TRUE, TRUE, FALSE},
 		{"OAUTHBEARER", UCHAR_LEN("n,a=testuser,p=cHJvb2Y=,f=nonstandart\x01host=server\x01port=143\x01""auth=Bearer vF9dft4qmTc2Nvb3RlckBhbHRhdmlzdGEuY29tCg==\x01\x01"), "testuser", FALSE, TRUE, FALSE},
 		{"SCRAM-SHA-1", UCHAR_LEN("n,,n=testuser,r=rOprNGfwEbeRWgbNEkqO"), "testuser", TRUE, FALSE, FALSE},
 		{"SCRAM-SHA-256", UCHAR_LEN("n,,n=testuser,r=rOprNGfwEbeRWgbNEkqO"), "testuser",  TRUE, FALSE, FALSE},
@@ -208,8 +198,6 @@ static void test_mechs(void)
 		{"EXTERNAL", UCHAR_LEN(""), "testuser", FALSE, TRUE, FALSE},
 		{"EXTERNAL", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE},
 		{"LOGIN", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE},
-		{"OTP", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE},
-		{"OTP", UCHAR_LEN(""), "testuser", FALSE, FALSE, FALSE},
 		{"PLAIN", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE},
 		{"OAUTHBEARER", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE},
 		{"XOAUTH2", UCHAR_LEN(""), NULL,  FALSE, FALSE, FALSE},
@@ -221,7 +209,6 @@ static void test_mechs(void)
 		{"APOP", UCHAR_LEN("1.1.1\0testuser\0tooshort"), NULL, FALSE, FALSE, FALSE},
 		{"APOP", UCHAR_LEN("1.1.1\0testuser\0responseoflen16-"), NULL, FALSE, FALSE, FALSE},
 		{"APOP", UCHAR_LEN("1.1.1"), NULL, FALSE, FALSE, FALSE},
-		{"OTP", UCHAR_LEN("somebody\0testuser"), "testuser", FALSE, TRUE, FALSE},
 		{"CRAM-MD5", UCHAR_LEN("testuser\0response"), "testuser",  FALSE, FALSE, FALSE},
 		{"PLAIN", UCHAR_LEN("testuser\0"), "testuser", FALSE, FALSE, FALSE},
 
@@ -264,9 +251,6 @@ static void test_mechs(void)
 		{"PLAIN", UCHAR_LEN("\0fa\0il\0ing\0withthis"), NULL, FALSE, FALSE, FALSE},
 		{"PLAIN", UCHAR_LEN("failingwiththis"), NULL, FALSE, FALSE, FALSE},
 		{"PLAIN", UCHAR_LEN("failing\0withthis"), NULL, FALSE, FALSE, FALSE},
-		{"OTP", UCHAR_LEN("someb\0ody\0testuser"), NULL, FALSE, FALSE, FALSE},
-		/* phase 2 */
-		{"OTP", UCHAR_LEN("someb\0ody\0testuser"), "testuser", FALSE, TRUE, FALSE},
 		{"SCRAM-SHA-1", UCHAR_LEN("c=biws,r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j,p=v0X8v3Bz2T0CJGbJQyF0X+HI4Ts="), NULL, FALSE, FALSE, FALSE},
 		{"SCRAM-SHA-1", UCHAR_LEN("iws0X8v3Bz2T0CJGbJQyF0X+HI4Ts=,,,,"), NULL, FALSE, FALSE, FALSE},
 		{"SCRAM-SHA-1", UCHAR_LEN("n,a=masteruser,,"), NULL, FALSE, FALSE, FALSE},

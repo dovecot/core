@@ -473,7 +473,6 @@ MECH_SIMPLE_REGISTER__TEMPLATE(cram_md5)
 MECH_SIMPLE_REGISTER__TEMPLATE(digest_md5)
 MECH_SIMPLE_REGISTER__TEMPLATE(external)
 MECH_SIMPLE_REGISTER__TEMPLATE(login)
-MECH_SIMPLE_REGISTER__TEMPLATE(otp)
 MECH_SIMPLE_REGISTER__TEMPLATE(plain)
 MECH_SIMPLE_REGISTER__TEMPLATE(scram_sha1)
 MECH_SIMPLE_REGISTER__TEMPLATE(scram_sha1_plus)
@@ -538,12 +537,6 @@ static const struct auth_sasl_mech_module mech_login = {
 	.mech_name = SASL_MECH_NAME_LOGIN,
 
 	.mech_register = mech_login_register,
-};
-
-static const struct auth_sasl_mech_module mech_otp = {
-	.mech_name = SASL_MECH_NAME_OTP,
-
-	.mech_register = mech_otp_register,
 };
 
 static const struct auth_sasl_mech_module mech_plain = {
@@ -613,7 +606,6 @@ static void auth_sasl_mechs_init(const struct auth_settings *set)
 	if (set->use_winbind)
 		auth_sasl_mech_register_module(&mech_winbind_ntlm);
 	auth_sasl_mech_oauth2_register();
-	auth_sasl_mech_register_module(&mech_otp);
 	auth_sasl_mech_register_module(&mech_plain);
 	auth_sasl_mech_register_module(&mech_scram_sha1);
 	auth_sasl_mech_register_module(&mech_scram_sha1_plus);
