@@ -14,6 +14,12 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+/* Timeout for waiting for the pump to finish. Reaching this timeout means the
+   test failed, so it just needs to be long enough that a heavily loaded or
+   stalled machine doesn't reach it before the pump has had the chance to
+   finish. */
+#define PUMP_TIMEOUT_MSECS (30*1000)
+
 struct nonblock_ctx {
 	struct istream *in;
 	struct ostream *out;
@@ -95,8 +101,8 @@ run_pump(struct istream *in, struct ostream *out, int *counter,
 	iostream_pump_set_completion_callback(pump, completed, counter);
 	iostream_pump_start(pump);
 
-	alarm(5);
-	struct timeout *to = timeout_add(3000, failed, counter);
+	alarm(PUMP_TIMEOUT_MSECS/1000 + 5);
+	struct timeout *to = timeout_add(PUMP_TIMEOUT_MSECS, failed, counter);
 
 	io_loop_run(current_ioloop);
 
