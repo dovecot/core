@@ -594,7 +594,6 @@ LIBDOVECOT_LA_LIBS='\
 	$(top_builddir)/src/lib-mail/libmail.la \
 	$(top_builddir)/src/lib-sasl/libsasl.la \
 	$(top_builddir)/src/lib-auth/libauth.la \
-	$(top_builddir)/src/lib-otp/libotp.la \
 	$(top_builddir)/src/lib-auth-client/libauth-client.la \
 	$(top_builddir)/src/lib-charset/libcharset.la \
 	$(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la \
@@ -871,7 +870,6 @@ src/lib-mail/Makefile
 src/lib-master/Makefile
 src/lib-login/Makefile
 src/lib-program-client/Makefile
-src/lib-otp/Makefile
 src/lib-dovecot/Makefile
 src/lib-dovecot-gssapi/Makefile
 src/lib-dovecot-storage/Makefile

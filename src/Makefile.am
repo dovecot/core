@@ -19,7 +19,6 @@ LIBDOVECOT_SUBDIRS = \
 	lib-var-expand \
 	lib-dns \
 	lib-settings \
-	lib-otp \
 	lib-auth \
 	lib-dns-client \
 	lib-ssl-iostream \
