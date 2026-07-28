@@ -13,7 +13,6 @@
 #include "randgen.h"
 #include "sha1.h"
 #include "sha2.h"
-#include "otp.h"
 #include "str.h"
 #include "auth-digest.h"
 #include "password-scheme.h"
@@ -704,33 +703,6 @@ plain_md5_generate(const char *plaintext, const struct password_generate_params 
 	*size_r = MD5_RESULTLEN;
 }
 
-static int otp_verify(const char *plaintext, const struct password_generate_params *params ATTR_UNUSED,
-		      const unsigned char *raw_password, size_t size,
-		      const char **error_r)
-{
-	const char *password, *generated;
-
-	password = t_strndup(raw_password, size);
-	if (password_generate_otp(plaintext, password, UINT_MAX, &generated) < 0) {
-		*error_r = "Invalid OTP data in passdb";
-		return -1;
-	}
-
-	return strcasecmp(password, generated) == 0 ? 1 : 0;
-}
-
-static void
-otp_generate(const char *plaintext, const struct password_generate_params *params ATTR_UNUSED,
-	     const unsigned char **raw_password_r, size_t *size_r)
-{
-	const char *password;
-
-	if (password_generate_otp(plaintext, NULL, OTP_HASH_SHA1, &password) < 0)
-		i_unreached();
-	*raw_password_r = (const unsigned char *)password;
-	*size_r = strlen(password);
-}
-
 static const struct password_scheme builtin_schemes[] = {
 	{
 		.name = "MD5",
@@ -892,13 +864,6 @@ static const struct password_scheme builtin_schemes[] = {
 		.weak = TRUE,
 		.password_verify = NULL,
 		.password_generate = plain_md5_generate,
-	},
-	{
-		.name = "OTP",
-		.default_encoding = PW_ENCODING_NONE,
-		.raw_password_len = 0,
-		.password_verify = otp_verify,
-		.password_generate = otp_generate,
 	},
 	{
 		.name = "PBKDF2",

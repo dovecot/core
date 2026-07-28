@@ -98,9 +98,6 @@ void password_set_encryption_rounds(unsigned int rounds);
 /* INTERNAL: */
 const char *password_generate_salt(size_t len);
 const char *password_generate_md5_crypt(const char *pw, const char *salt);
-int password_generate_otp(const char *pw, const char *state_data,
-			  unsigned int algo, const char **result_r)
-	ATTR_NULL(2);
 
 int scram_verify(const struct hash_method *hmethod, const char *scheme_name,
 		 const char *plaintext, const unsigned char *raw_password,
