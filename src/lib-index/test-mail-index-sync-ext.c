@@ -76,10 +76,56 @@ static void test_mail_index_sync_ext_atomic_inc(void)
 	test_end();
 }
 
+static void test_mail_index_sync_ext_hdr_update(void)
+{
+	struct mail_index_sync_map_ctx ctx;
+	struct mail_index_ext *ext;
+	unsigned char data[8] = { 1, 2, 3, 4, 5, 6, 7, 8 };
+
+	test_begin("mail index sync ext hdr update");
+
+	i_zero(&ctx);
+	ctx.view = t_new(struct mail_index_view, 1);
+	ctx.view->log_view = t_new(struct mail_transaction_log_view, 1);
+	ctx.view->index = t_new(struct mail_index, 1);
+	ctx.view->index->fsck_log_head_file_seq = 10; /* silence errors */
+	ctx.view->map = t_new(struct mail_index_map, 1);
+	ctx.view->map->hdr.header_size = 64;
+	ctx.view->map->hdr_copy_buf = buffer_create_dynamic(default_pool, 64);
+	buffer_append_zero(ctx.view->map->hdr_copy_buf, 64);
+
+	t_array_init(&ctx.view->map->extensions, 4);
+	ext = array_append_space(&ctx.view->map->extensions);
+	ext->index_idx = 5; /* != modseq_ext_id (0), skip modseq handling */
+	ext->hdr_offset = 16;
+	ext->hdr_size = 8;
+
+	ctx.cur_ext_map_idx = 0;
+
+	/* valid updates within the extension header */
+	test_assert(mail_index_sync_ext_hdr_update(&ctx, 0, 8, data) == 1);
+	test_assert(mail_index_sync_ext_hdr_update(&ctx, 4, 4, data) == 1);
+
+	/* ordinary out-of-range update is rejected */
+	test_assert(mail_index_sync_ext_hdr_update(&ctx, 4, 8, data) == -1);
+
+	/* offset+size wraps around 2^32 and must not pass the bounds check:
+	   0xfffffff8 + 8 == 0, which is <= hdr_size */
+	test_assert(mail_index_sync_ext_hdr_update(&ctx, 0xfffffff8, 8,
+						   data) == -1);
+	test_assert(mail_index_sync_ext_hdr_update(&ctx, 0xffffffff, 1,
+						   data) == -1);
+
+	buffer_free(&ctx.view->map->hdr_copy_buf);
+	i_free(ctx.view->index->need_recreate);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mail_index_sync_ext_atomic_inc,
+		test_mail_index_sync_ext_hdr_update,
 		NULL
 	};
 	return test_run(test_functions);
