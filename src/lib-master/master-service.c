@@ -156,7 +156,7 @@ static bool sig_term_buf_get_kick_user(char *buf, const char **user_r)
 		return FALSE;
 	buf += 30;
 	/* skip over minor version */
-	while (*buf >= '0' && *buf <= '0') buf++;
+	while (*buf >= '0' && *buf <= '9') buf++;
 	if (*buf != '\n')
 		return FALSE;
 	buf++;
