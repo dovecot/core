@@ -214,10 +214,18 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 			   supported. */
 			arg2.value.date_type = MAIL_SEARCH_DATE_TYPE_RECEIVED;
 		}
+		return mail_search_arg_to_imap(str, arg, FALSE, &error);
+	case SEARCH_FLAGS:
+		if ((arg->value.flags &
+		     mailbox_get_private_flags_mask(&mbox->box)) != 0) {
+			/* The flag is stored in the private index, which the
+			   remote server doesn't know about. Evaluate it
+			   locally. */
+			return FALSE;
+		}
 		/* fall through */
 	case SEARCH_ALL:
 	case SEARCH_UIDSET:
-	case SEARCH_FLAGS:
 	case SEARCH_KEYWORDS:
 	case SEARCH_SMALLER:
 	case SEARCH_LARGER:
