@@ -35,6 +35,12 @@ imapc_build_sort_query(struct imapc_mailbox *mbox,
 		/* SORT command passthrough not possible */
 		return FALSE;
 	}
+	if (args->args != NULL &&
+	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_SEARCH)) {
+		/* Evaluating search criteria on the remote server isn't
+		   allowed. Sorting without any criteria is still fine. */
+		return FALSE;
+	}
 
 	str_append(str, "UID SORT ");
 	if ((mbox->capabilities & IMAPC_CAPABILITY_ESORT) != 0)
