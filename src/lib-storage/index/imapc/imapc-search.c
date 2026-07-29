@@ -106,7 +106,7 @@ imapc_build_sort_query(struct imapc_mailbox *mbox,
 struct imapc_search_context {
 	union mail_search_module_context module_ctx;
 
-	ARRAY_TYPE(seq_range) rseqs;
+	ARRAY_TYPE(seq_range) uids;
 	ARRAY_TYPE(uint32_t) sorted_uids;
 	struct seq_range_iter iter;
 	unsigned int n;
@@ -272,10 +272,9 @@ static bool imapc_build_search_query(struct imapc_mailbox *mbox,
 	if (imapc_search_is_fast_local(args->args))
 		return FALSE;
 
+	str_append(str, "UID SEARCH ");
 	if ((mbox->capabilities & IMAPC_CAPABILITY_ESEARCH) != 0)
-		str_append(str, "SEARCH RETURN (ALL) ");
-	else
-		str_append(str, "UID SEARCH ");
+		str_append(str, "RETURN (ALL) ");
 	if (!imapc_build_search_query_args(mbox, args->args, FALSE, str))
 		return FALSE;
 	*query_r = str_c(str);
@@ -292,7 +291,7 @@ static void imapc_search_callback(const struct imapc_command_reply *reply,
 
 	ictx->finished = TRUE;
 	if (reply->state == IMAPC_COMMAND_STATE_OK) {
-		seq_range_array_iter_init(&ictx->iter, &ictx->rseqs);
+		seq_range_array_iter_init(&ictx->iter, &ictx->uids);
 		ictx->success = TRUE;
 	} else if (reply->state == IMAPC_COMMAND_STATE_NO) {
 		imapc_copy_error_from_reply(mbox->storage, MAIL_ERROR_PARAMS,
@@ -334,7 +333,7 @@ imapc_search_init(struct mailbox_transaction_context *t,
 		}
 		ictx = i_new(struct imapc_search_context, 1);
 	}
-	i_array_init(&ictx->rseqs, 64);
+	i_array_init(&ictx->uids, 64);
 	i_array_init(&ictx->sorted_uids, 64);
 	MODULE_CONTEXT_SET(ctx, imapc_storage_module, ictx);
 
@@ -390,6 +389,7 @@ bool imapc_search_next_update_seq(struct mail_search_context *ctx)
 {
 	struct imapc_search_context *ictx = IMAPC_SEARCHCTX(ctx);
 	const uint32_t *uidp;
+	uint32_t uid;
 
 	if (ictx == NULL || !ictx->success)
 		return index_storage_search_next_update_seq(ctx);
@@ -403,12 +403,11 @@ bool imapc_search_next_update_seq(struct mail_search_context *ctx)
 		return FALSE;
 	}
 
-	if (!seq_range_array_iter_nth(&ictx->iter, ictx->n++, &ctx->seq))
-		return FALSE;
-	ctx->progress_cur = ctx->seq;
-
-	imapc_search_set_matches(ctx->args->args);
-	return TRUE;
+	while (seq_range_array_iter_nth(&ictx->iter, ictx->n++, &uid)) {
+		if (imapc_search_next_uid(ctx, uid))
+			return TRUE;
+	}
+	return FALSE;
 }
 
 int imapc_search_deinit(struct mail_search_context *ctx)
@@ -419,7 +418,7 @@ int imapc_search_deinit(struct mail_search_context *ctx)
 	if (ictx != NULL) {
 		if (!ictx->success)
 			ret = -1;
-		array_free(&ictx->rseqs);
+		array_free(&ictx->uids);
 		array_free(&ictx->sorted_uids);
 		i_free(ictx);
 	}
@@ -432,25 +431,25 @@ void imapc_search_reply_search(const struct imap_arg *args,
 			       struct imapc_mailbox *mbox)
 {
 	struct event *event = mbox->box.event;
-	struct imapc_msgmap *msgmap =
-		imapc_client_mailbox_get_msgmap(mbox->client_box);
 	const char *atom;
-	uint32_t uid, rseq;
+	uint32_t uid;
 
 	if (mbox->search_ctx == NULL || mbox->search_ctx->sorted) {
 		e_error(event, "Unexpected SEARCH reply");
 		return;
 	}
 
-	/* we're doing UID SEARCH, so need to convert UIDs to sequences */
+	/* we're doing UID SEARCH, so the reply contains UIDs. They're mapped
+	   to the local sequences only while returning the results, because
+	   the remote sequences may change while the results are being
+	   handled. */
 	for (unsigned int i = 0; args[i].type != IMAP_ARG_EOL; i++) {
 		if (!imap_arg_get_atom(&args[i], &atom) ||
 		    str_to_uint32(atom, &uid) < 0 || uid == 0) {
 			e_error(event, "Invalid SEARCH reply");
 			break;
 		}
-		if (imapc_msgmap_uid_to_rseq(msgmap, uid, &rseq))
-			seq_range_array_add(&mbox->search_ctx->rseqs, rseq);
+		seq_range_array_add(&mbox->search_ctx->uids, uid);
 	}
 }
 
@@ -484,11 +483,12 @@ void imapc_search_reply_esearch(const struct imap_arg *args,
 		return;
 	}
 
-	/* It should contain ALL <seqset> or nonexistent if nothing matched */
-	if (args[0].type != IMAP_ARG_EOL &&
-	    (!imap_arg_atom_equals(&args[0], "ALL") ||
-	     !imap_arg_get_atom(&args[1], &atom) ||
-	     imap_seq_set_nostar_parse(atom, &mbox->search_ctx->rseqs) < 0))
+	/* It should contain UID ALL <uidset> or just UID if nothing matched */
+	if (!imap_arg_atom_equals(&args[0], "UID") ||
+	    (args[1].type != IMAP_ARG_EOL &&
+	     (!imap_arg_atom_equals(&args[1], "ALL") ||
+	      !imap_arg_get_atom(&args[2], &atom) ||
+	      imap_seq_set_nostar_parse(atom, &mbox->search_ctx->uids) < 0)))
 		e_error(event, "Invalid ESEARCH reply");
 }
 
