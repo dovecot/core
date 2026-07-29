@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "connection.h"
 #include "ostream.h"
 #include "str.h"
@@ -17,9 +18,11 @@ struct master_admin_client {
 
 	struct ioloop *wait_ioloop;
 	bool reply_pending;
+	bool command_received;
 };
 
 static struct connection_list *master_admin_clients = NULL;
+static struct ioloop *master_admin_clients_wait_ioloop = NULL;
 static struct master_admin_client_callback master_admin_client_callbacks;
 
 static void master_admin_client_ref(struct master_admin_client *client)
@@ -82,6 +85,24 @@ cmd_kick_user_signal(struct master_admin_client *client,
 	master_admin_client_unref(&client);
 }
 
+static bool master_admin_clients_have_pending_commands(void)
+{
+	struct connection *conn;
+
+	if (master_admin_clients == NULL)
+		return FALSE;
+
+	for (conn = master_admin_clients->connections; conn != NULL;
+	     conn = conn->next) {
+		struct master_admin_client *client =
+			container_of(conn, struct master_admin_client, conn);
+
+		if (!client->command_received)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static int
 master_admin_client_input_args(struct connection *conn, const char *const *args)
 {
@@ -97,11 +118,32 @@ master_admin_client_input_args(struct connection *conn, const char *const *args)
 	const char *cmd = args[0];
 	args++;
 
+	client->command_received = TRUE;
 	if (client->wait_ioloop != NULL) {
 		/* A command was received while waiting in
 		   master_admin_client_initial_read(). Now that we've seen it,
 		   stop the wait ioloop after the command is finished. */
 		io_loop_stop(client->wait_ioloop);
+	}
+	if (master_admin_clients_wait_ioloop != NULL) {
+		/* The process is already shutting down and we're only waiting
+		   for KICK-USER-SIGNAL commands in
+		   master_admin_clients_wait_commands(). Don't run any other
+		   commands, because their handlers aren't expecting to be
+		   called in the middle of the shutdown. Such a command is
+		   simply left unhandled, just like it would have been without
+		   the wait. */
+		bool handle_cmd = strcmp(cmd, "KICK-USER-SIGNAL") == 0;
+
+		if (!handle_cmd)
+			connection_input_halt(conn);
+		if (!master_admin_clients_have_pending_commands()) {
+			/* All the commands were received while waiting in
+			   master_admin_clients_wait_commands(). */
+			io_loop_stop(master_admin_clients_wait_ioloop);
+		}
+		if (!handle_cmd)
+			return 0;
 	}
 
 	/* Delay freeing the client until reply is sent */
@@ -207,6 +249,34 @@ void master_admin_client_create(struct master_service_connection *master_conn)
 		master_admin_client_initial_read(client);
 		master_admin_client_unref(&client);
 	}
+}
+
+void master_admin_clients_wait_commands(void)
+{
+	struct connection *conn, *next;
+
+	if (!master_admin_clients_have_pending_commands())
+		return;
+
+	struct ioloop *prev_ioloop = current_ioloop;
+	struct ioloop *ioloop = io_loop_create();
+	for (conn = master_admin_clients->connections; conn != NULL;
+	     conn = conn->next)
+		connection_switch_ioloop(conn);
+	struct timeout *to = timeout_add_short(MASTER_ADMIN_CLIENT_WAIT_MSECS,
+					       io_loop_stop, ioloop);
+
+	master_admin_clients_wait_ioloop = ioloop;
+	io_loop_run(ioloop);
+	master_admin_clients_wait_ioloop = NULL;
+
+	timeout_remove(&to);
+	for (conn = master_admin_clients->connections; conn != NULL;
+	     conn = next) {
+		next = conn->next;
+		connection_switch_ioloop_to(conn, prev_ioloop);
+	}
+	io_loop_destroy(&ioloop);
 }
 
 bool master_admin_client_can_accept(const char *name)

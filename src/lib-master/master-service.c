@@ -119,6 +119,17 @@ static void sig_delayed_die(const siginfo_t *si, void *context)
 {
 	struct master_service *service = context;
 
+	if (si->si_signo == SIGTERM && service->callback != NULL &&
+	    service->last_kick_signal_user_matched == 0) {
+		/* The SIGTERM handler didn't see a KICK-USER-SIGNAL command.
+		   It may still be on its way in a master-admin connection that
+		   was already accepted by the ioloop, in which case the signal
+		   handler couldn't have accept()ed it. Wait a while for the
+		   command, so the user gets disconnected with the "kicked"
+		   reason instead of the generic "shutting down" reason. */
+		master_admin_clients_wait_commands();
+	}
+
 	/* SIGINT comes either from master process or from keyboard. we don't
 	   want to log it in either case.*/
 	if (si->si_signo != SIGINT) {
@@ -2192,6 +2203,15 @@ void master_service_set_last_kick_signal_user(struct master_service *service,
 	i_free(service->last_kick_signal_user);
 	service->last_kick_signal_user = i_strdup(user);
 	service->last_kick_signal_user_accessed = 0;
+	if (service->killed_signal == SIGTERM &&
+	    service->current_user != NULL &&
+	    strcmp(user, service->current_user) == 0) {
+		/* The SIGTERM was already handled before this command was
+		   received, so the signal handler won't be doing the match
+		   anymore. */
+		service->last_kick_signal_user_accessed = 1;
+		service->last_kick_signal_user_matched = 1;
+	}
 
 	if (sigterm_blocked && sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0) {
 		e_error(service->event,

@@ -136,5 +136,8 @@ void master_service_haproxy_new(struct master_service *service,
 void master_service_haproxy_abort(struct master_service *service);
 
 void master_admin_clients_deinit(void);
+/* Wait for a while for master-admin connections that haven't sent their
+   command yet. */
+void master_admin_clients_wait_commands(void);
 
 #endif
