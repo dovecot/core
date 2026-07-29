@@ -641,19 +641,18 @@ mail_thread_iterate_next(struct mail_thread_iterate_context *iter,
 	unsigned int count;
 
 	children = array_get(&iter->children, &count);
-	if (iter->next_idx >= count)
-		return NULL;
-
-	child = &children[iter->next_idx++];
-	shadow = array_idx(&iter->ctx->shadow_nodes, child->idx);
-	*child_iter_r = shadow->first_child_idx == 0 ? NULL :
-		mail_thread_iterate_children(iter, child->idx);
-	if (child->uid == 0 && *child_iter_r == NULL) {
-		/* this is a dummy node without children,
-		   there's no point in returning it */
-		return mail_thread_iterate_next(iter, child_iter_r);
+	while (iter->next_idx < count) {
+		child = &children[iter->next_idx++];
+		shadow = array_idx(&iter->ctx->shadow_nodes, child->idx);
+		*child_iter_r = shadow->first_child_idx == 0 ? NULL :
+			mail_thread_iterate_children(iter, child->idx);
+		if (child->uid != 0 || *child_iter_r != NULL)
+			return child;
+		/* this is a dummy node without children, there's no point in
+		   returning it. skip to the next one - the number of them is
+		   client-controlled, so this must not recurse. */
 	}
-	return child;
+	return NULL;
 }
 
 unsigned int mail_thread_iterate_count(struct mail_thread_iterate_context *iter)
