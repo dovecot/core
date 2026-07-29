@@ -467,8 +467,8 @@ enum {
 	HDR_FIELD_STATE_SEEN
 };
 
-static void header_lines_save(struct header_lookup_context *ctx,
-			      const struct mail_cache_iterate_field *field)
+static int header_lines_save(struct header_lookup_context *ctx,
+			     const struct mail_cache_iterate_field *field)
 {
 	const uint32_t *lines = field->data;
 	uint32_t data_size = field->size;
@@ -476,15 +476,32 @@ static void header_lines_save(struct header_lookup_context *ctx,
         struct header_lookup_data *hdr_data;
 	void *data_dup;
 	unsigned int i, lines_count, pos;
+	bool terminated = FALSE;
+
+	if (field->size == 0) {
+		/* the header doesn't exist in the mail */
+		return 0;
+	}
 
 	/* data = { line_nums[], 0, "headers" } */
 	for (i = 0; data_size >= sizeof(uint32_t); i++) {
 		data_size -= sizeof(uint32_t);
-		if (lines[i] == 0)
+		if (lines[i] == 0) {
+			terminated = TRUE;
 			break;
+		}
+	}
+	if (!terminated) {
+		/* The line numbers must always be terminated by a 0. Without
+		   it the remaining data_size bytes are before pos, not after
+		   it, so they would be read past the end of the field. */
+		mail_cache_set_corrupted(ctx->view->cache,
+			"header field has no line number terminator");
+		return -1;
 	}
 	lines_count = i;
 	pos = (lines_count+1) * sizeof(uint32_t);
+	i_assert(pos + data_size == field->size);
 
 	hdr_data = p_new(ctx->pool, struct header_lookup_data, 1);
 	hdr_data->data_size = data_size;
@@ -499,6 +516,7 @@ static void header_lines_save(struct header_lookup_context *ctx,
 		hdr_line.data = hdr_data;
 		array_push_back(&ctx->lines, &hdr_line);
 	}
+	return 0;
 }
 
 static int header_lookup_line_cmp(const struct header_lookup_line *l1,
@@ -557,7 +575,8 @@ mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
 			/* a) don't want it, b) duplicate */
 		} else {
 			field_state[field.field_idx] = HDR_FIELD_STATE_SEEN;
-			header_lines_save(&ctx, &field);
+			if (header_lines_save(&ctx, &field) < 0)
+				return -1;
 		}
 
 	}

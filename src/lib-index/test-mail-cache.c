@@ -717,6 +717,54 @@ static void test_mail_cache_in_memory(void)
 	test_end();
 }
 
+static void test_mail_cache_header_corruption(void)
+{
+	struct mail_cache_field header_field = {
+		.name = "header1",
+		.type = MAIL_CACHE_FIELD_HEADER,
+		.decision = MAIL_CACHE_DECISION_YES,
+	};
+	struct test_mail_cache_ctx ctx;
+	struct mail_index_transaction *trans;
+	struct mail_cache_view *cache_view;
+	struct mail_cache_transaction_ctx *cache_trans;
+	string_t *str = t_str_new(16);
+	unsigned char header_data[sizeof(uint32_t) + 3];
+	uint32_t line_num = 1;
+
+	test_begin("mail cache header corruption");
+
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
+	mail_cache_register_fields(ctx.cache, &header_field, 1,
+				   unsafe_data_stack_pool);
+	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
+
+	/* { line_num, "abc" } - the line numbers are missing the terminating
+	   0 and the field size isn't 32bit aligned, so the headers would be
+	   read from past the end of the field. */
+	memcpy(header_data, &line_num, sizeof(line_num));
+	memcpy(header_data + sizeof(line_num), "abc", 3);
+
+	cache_view = mail_cache_view_open(ctx.cache, ctx.view);
+	trans = mail_index_transaction_begin(ctx.view, 0);
+	cache_trans = mail_cache_get_transaction(cache_view, trans);
+	mail_cache_add(cache_trans, 1, header_field.idx,
+		       header_data, sizeof(header_data));
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+
+	const unsigned int lookup_fields[] = { header_field.idx };
+	test_expect_error_string("header field has no line number terminator");
+	test_assert(mail_cache_lookup_headers(cache_view, str, 1,
+					      lookup_fields,
+					      N_ELEMENTS(lookup_fields)) == -1);
+	test_expect_no_more_errors();
+
+	mail_cache_view_close(&cache_view);
+	test_mail_cache_deinit(&ctx);
+	test_mail_index_delete();
+	test_end();
+}
+
 static void test_mail_cache_size_corruption(void)
 {
 	struct test_mail_cache_ctx ctx;
@@ -818,6 +866,7 @@ int main(void)
 		test_mail_cache_lookup_decisions,
 		test_mail_cache_lookup_decisions2,
 		test_mail_cache_in_memory,
+		test_mail_cache_header_corruption,
 		test_mail_cache_size_corruption,
 		test_mail_cache_duplicate_fields,
 		NULL
