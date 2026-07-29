@@ -1606,6 +1606,159 @@ static const char input_msg[] =
 	test_end();
 }
 
+static void test_message_parser_preparsed_epilogue_no_newline(void)
+{
+static const char input_msg[] =
+"Content-Type: multipart/mixed; boundary=\"b\"\r\n"
+"\r\n"
+"--b\r\n"
+"Content-Type: text/plain\r\n"
+"\r\n"
+"hello\r\n"
+"--b--";
+	const struct message_parser_settings preparsed_set = {
+		.flags = MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS,
+	};
+	const size_t msg_len = sizeof(input_msg)-1;
+	struct message_parser_ctx *parser;
+	struct istream *input;
+	struct message_part *parts, *parts2;
+	struct message_block block;
+	const char *error;
+	pool_t pool;
+
+	test_begin("message parser preparsed epilogue without newline");
+	pool = pool_alloconly_create("message parser", 10240);
+	input = test_istream_create(input_msg);
+	test_istream_set_allow_eof(input, TRUE);
+
+	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
+
+	/* The close delimiter line has no trailing newline and ends exactly at
+	   the multipart's end, so preparsed_parse_epilogue_boundary() finds no
+	   LF and cannot ask for more data either. It must skip the boundary
+	   line it has, not compute a skip from the NULL memchr() result. */
+	i_stream_seek(input, 0);
+	parser = message_parser_init_from_parts(parts, input, &preparsed_set);
+	while (message_parser_parse_next_block(parser, &block) > 0)
+		test_assert(block.size <= msg_len);
+	test_assert(message_parser_deinit_from_parts(&parser, &parts2, &error) == 0);
+	test_assert(message_part_is_equal(parts, parts2));
+	test_assert(input->v_offset == msg_len);
+
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
+static void test_message_parser_preparsed_epilogue_truncated(void)
+{
+static const char input_msg[] =
+"Content-Type: multipart/mixed; boundary=\"b\"\r\n"
+"\r\n"
+"--b\r\n"
+"Content-Type: text/plain\r\n"
+"\r\n"
+"hello\r\n"
+"--b--\r\n"
+"epilogue\r\n";
+	const struct message_parser_settings preparsed_set = {
+		.flags = MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS,
+	};
+	/* cut off "\r\nepilogue\r\n", leaving the boundary line without its
+	   newline as the last bytes of the stream */
+	const size_t trunc_len = sizeof(input_msg)-1 - 12;
+	struct message_parser_ctx *parser;
+	struct istream *input;
+	struct message_part *parts, *parts2;
+	struct message_block block;
+	const char *error;
+	pool_t pool;
+
+	test_begin("message parser preparsed epilogue truncated");
+	pool = pool_alloconly_create("message parser", 10240);
+	input = test_istream_create(input_msg);
+	test_istream_set_allow_eof(input, TRUE);
+
+	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
+	i_stream_unref(&input);
+
+	/* Replay against a stream that ends before the cached sizes say it
+	   should. preparsed_parse_epilogue_boundary() again finds no LF, and
+	   must not turn that into a huge skip. */
+	input = test_istream_create_data(input_msg, trunc_len);
+	test_istream_set_allow_eof(input, TRUE);
+	parser = message_parser_init_from_parts(parts, input, &preparsed_set);
+	while (message_parser_parse_next_block(parser, &block) > 0)
+		test_assert(block.size <= trunc_len);
+	test_assert(message_parser_deinit_from_parts(&parser, &parts2, &error) == 0);
+	test_assert_ucmp(input->v_offset, ==, trunc_len);
+
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
+static void test_message_parser_preparsed_epilogue_boundary_long_line(void)
+{
+static const char input_msg[] =
+"Content-Type: multipart/mixed; boundary=\"b\"\r\n"
+"\r\n"
+"--b\r\n"
+"Content-Type: text/plain\r\n"
+"\r\n"
+"hello\r\n"
+/* close delimiter followed by 100 bytes of transport padding, so its
+   newline is further away than BOUNDARY_END_MAX_LEN */
+"--b--"
+"                                                  "
+"                                                  "
+"\r\n"
+"epilogue\r\n";
+	const struct message_parser_settings preparsed_set = {
+		.flags = MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS,
+	};
+	struct message_parser_ctx *parser;
+	struct istream *input;
+	struct message_part *parts, *parts2;
+	struct message_block block;
+	string_t *forward, *replayed;
+	const char *error;
+	pool_t pool;
+
+	test_begin("message parser preparsed epilogue boundary long line");
+	pool = pool_alloconly_create("message parser", 10240);
+	forward = str_new(pool, 256);
+	replayed = str_new(pool, 256);
+
+	/* forward parse, collecting the blocks it returns */
+	input = test_istream_create(input_msg);
+	test_istream_set_allow_eof(input, TRUE);
+	parser = message_parser_init(pool, input, &preparsed_set);
+	while (message_parser_parse_next_block(parser, &block) > 0)
+		str_append_data(forward, block.data, block.size);
+	message_parser_deinit(&parser, &parts);
+	i_stream_unref(&input);
+
+	/* Replay the cached tree with a buffer too small to ever hold the
+	   whole boundary line, so its newline stays out of reach and the
+	   parser has to keep skipping until it finds the end of the line.
+	   The result must match the forward parse of the same input. */
+	input = test_istream_create(input_msg);
+	test_istream_set_allow_eof(input, TRUE);
+	test_istream_set_max_buffer_size(input, 96);
+	parser = message_parser_init_from_parts(parts, input, &preparsed_set);
+	while (message_parser_parse_next_block(parser, &block) > 0)
+		str_append_data(replayed, block.data, block.size);
+	test_assert(message_parser_deinit_from_parts(&parser, &parts2, &error) == 0);
+	test_assert(message_part_is_equal(parts, parts2));
+	test_assert_strcmp(str_c(replayed), str_c(forward));
+
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
 static bool part_offsets_consistent(const struct message_part *part)
 {
 	/* Verify the from-parts invariant on a cached message_part tree:
@@ -1914,6 +2067,9 @@ int main(void)
 		test_message_parser_too_many_header_bytes_100,
 		test_message_parser_preparsed_empty_preamble,
 		test_message_parser_preparsed_empty_preamble_lf,
+		test_message_parser_preparsed_epilogue_no_newline,
+		test_message_parser_preparsed_epilogue_truncated,
+		test_message_parser_preparsed_epilogue_boundary_long_line,
 		NULL
 	};
 	return test_run(test_functions);

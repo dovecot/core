@@ -182,6 +182,38 @@ static int preparsed_parse_epilogue_more(struct message_parser_ctx *ctx,
 	return 1;
 }
 
+static int
+preparsed_parse_epilogue_skip_boundary_line(struct message_parser_ctx *ctx,
+					    struct message_block *block_r)
+{
+	uoff_t end_offset = ctx->part->physical_pos +
+		ctx->part->header_size.physical_size +
+		ctx->part->body_size.physical_size;
+	const unsigned char *ptr;
+	bool full;
+	int ret;
+
+	if ((ret = message_parser_read_more(ctx, block_r, &full)) <= 0)
+		return ret;
+
+	/* The boundary line is longer than the buffer could hold at once.
+	   Keep skipping until its end, the same way the forward parser's
+	   parse_next_body_skip_boundary_line() does. */
+	ptr = memchr(block_r->data, '\n', block_r->size);
+	ctx->skip = ptr != NULL ?
+		(size_t)(ptr - block_r->data) + 1 : block_r->size;
+
+	if (end_offset < ctx->input->v_offset + ctx->skip) {
+		ctx->broken_reason = "Epilogue boundary end not at expected position";
+		return -1;
+	}
+
+	if (ptr != NULL)
+		ctx->parse_next_block = preparsed_parse_epilogue_more;
+	block_r->size = 0;
+	return 0;
+}
+
 static int preparsed_parse_epilogue_boundary(struct message_parser_ctx *ctx,
 					     struct message_block *block_r)
 {
@@ -230,6 +262,14 @@ static int preparsed_parse_epilogue_boundary(struct message_parser_ctx *ctx,
 			ctx->want_count = BOUNDARY_END_MAX_LEN;
 			return 0;
 		}
+		/* The line's end isn't in the data we have and buffering more
+		   of it won't help. Skip what we have and keep looking for the
+		   end of the line. */
+		block_r->size = 0;
+		ctx->parse_next_block =
+			preparsed_parse_epilogue_skip_boundary_line;
+		ctx->skip = size;
+		return 0;
 	}
 
 	block_r->size = 0;
