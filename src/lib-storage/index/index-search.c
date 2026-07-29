@@ -1885,6 +1885,23 @@ bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	return TRUE;
 }
 
+bool index_storage_search_match_index_args(struct mail_search_context *_ctx)
+{
+	struct index_search_context *ctx =
+		container_of(_ctx, struct index_search_context, mail_ctx);
+	int ret;
+
+	/* Match the args that can be looked up from the index for the
+	   already set _ctx->seq. Args that need the mail itself are left
+	   with an unknown result for the caller to handle. */
+	ret = mail_search_args_foreach(_ctx->args->args, search_seqset_arg, ctx);
+	if (ret != 0) {
+		ret = mail_search_args_foreach(_ctx->args->args,
+					       search_index_arg, ctx);
+	}
+	return ret != 0;
+}
+
 bool index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 {
         struct index_search_context *ctx = (struct index_search_context *)_ctx;

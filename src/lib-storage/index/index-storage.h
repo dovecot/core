@@ -143,6 +143,11 @@ int index_storage_search_deinit(struct mail_search_context *ctx);
 bool index_storage_search_next_nonblock(struct mail_search_context *ctx,
 					struct mail **mail_r, bool *tryagain_r);
 bool index_storage_search_next_update_seq(struct mail_search_context *ctx);
+/* Match the search args that can be looked up from the index for the mail in
+   ctx->seq. Returns FALSE if the mail doesn't match, TRUE if it matches or if
+   the result isn't yet known. Used by storage backends that replace
+   index_storage_search_next_update_seq(). */
+bool index_storage_search_match_index_args(struct mail_search_context *ctx);
 int index_storage_search_next_match_mail(struct mail_search_context *ctx,
 					 struct mail *mail);
 
