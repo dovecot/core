@@ -1699,6 +1699,61 @@ static const char input_msg[] =
 	test_end();
 }
 
+static void test_message_parser_preparsed_epilogue_boundary_dashes(void)
+{
+static const char input_msg[] =
+"Content-Type: multipart/mixed; boundary=\"b\"\r\n"
+"\r\n"
+"--b\r\n"
+"Content-Type: text/plain\r\n"
+"\r\n"
+"hello\r\n"
+"--b--\r\n";
+/* Identical to input_msg, except the epilogue boundary line's second
+   dash is replaced: "--b--" -> "-xb--". Same length, so the cached part
+   offsets still point at the same places. */
+static const char bad_msg[] =
+"Content-Type: multipart/mixed; boundary=\"b\"\r\n"
+"\r\n"
+"--b\r\n"
+"Content-Type: text/plain\r\n"
+"\r\n"
+"hello\r\n"
+"-xb--\r\n";
+	const struct message_parser_settings preparsed_set = {
+		.flags = MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS,
+	};
+	struct message_parser_ctx *parser;
+	struct istream *input;
+	struct message_part *parts, *parts2;
+	struct message_block block;
+	const char *error;
+	pool_t pool;
+
+	test_begin("message parser preparsed epilogue boundary dashes");
+	test_assert(sizeof(input_msg) == sizeof(bad_msg));
+	pool = pool_alloconly_create("message parser", 10240);
+	input = test_istream_create(input_msg);
+	test_istream_set_allow_eof(input, TRUE);
+
+	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
+	i_stream_unref(&input);
+
+	/* The cached tree says a close delimiter starts here, but the stream
+	   has "\r\n-x" instead of "\r\n--". Both dashes must be checked. */
+	input = test_istream_create(bad_msg);
+	test_istream_set_allow_eof(input, TRUE);
+	parser = message_parser_init_from_parts(parts, input, &preparsed_set);
+	while (message_parser_parse_next_block(parser, &block) > 0) ;
+	test_assert(message_parser_deinit_from_parts(&parser, &parts2, &error) < 0);
+	test_assert_strcmp(error,
+		"Epilogue boundary start not at expected position");
+
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
 static void test_message_parser_preparsed_epilogue_boundary_long_line(void)
 {
 static const char input_msg[] =
@@ -2069,6 +2124,7 @@ int main(void)
 		test_message_parser_preparsed_empty_preamble_lf,
 		test_message_parser_preparsed_epilogue_no_newline,
 		test_message_parser_preparsed_epilogue_truncated,
+		test_message_parser_preparsed_epilogue_boundary_dashes,
 		test_message_parser_preparsed_epilogue_boundary_long_line,
 		NULL
 	};

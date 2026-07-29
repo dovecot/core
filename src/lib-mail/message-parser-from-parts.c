@@ -245,7 +245,7 @@ static int preparsed_parse_epilogue_boundary(struct message_parser_ctx *ctx,
 
 	if (*cur == '\r') cur++;
 
-	if (cur[0] != '\n' || cur[1] != '-' || data[2] != '-') {
+	if (cur[0] != '\n' || cur[1] != '-' || cur[2] != '-') {
 		ctx->broken_reason = "Epilogue boundary start not at expected position";
 		return -1;
 	}
