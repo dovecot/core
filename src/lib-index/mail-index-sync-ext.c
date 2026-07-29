@@ -585,7 +585,7 @@ int mail_index_sync_ext_hdr_update(struct mail_index_sync_map_ctx *ctx,
 		return 1;
 
 	ext = array_idx(&map->extensions, ctx->cur_ext_map_idx);
-	if (offset + size > ext->hdr_size) {
+	if (offset > ext->hdr_size || size > ext->hdr_size - offset) {
 		mail_index_sync_set_corrupted(ctx,
 			"Extension header update points outside header size");
 		return -1;
