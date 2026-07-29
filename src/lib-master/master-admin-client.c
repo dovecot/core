@@ -7,6 +7,10 @@
 #include "master-service-private.h"
 #include "master-admin-client.h"
 
+/* How long to wait for a command to be received from a master-admin
+   connection. */
+#define MASTER_ADMIN_CLIENT_WAIT_MSECS 100
+
 struct master_admin_client {
 	struct connection conn;
 	int refcount;
@@ -169,7 +173,8 @@ static void master_admin_client_initial_read(struct master_admin_client *client)
 	client->wait_ioloop = io_loop_create();
 	connection_switch_ioloop(&client->conn);
 	struct timeout *to =
-		timeout_add_short(100, io_loop_stop, client->wait_ioloop);
+		timeout_add_short(MASTER_ADMIN_CLIENT_WAIT_MSECS,
+				  io_loop_stop, client->wait_ioloop);
 
 	io_loop_run(client->wait_ioloop);
 
