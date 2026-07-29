@@ -162,11 +162,13 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 
 	switch (arg->type) {
 	case SEARCH_OR:
-		imapc_build_search_query_args(mbox, arg->value.subargs, TRUE, str);
-		return TRUE;
+		return imapc_build_search_query_args(mbox, arg->value.subargs,
+						    TRUE, str);
 	case SEARCH_SUB:
 		str_append_c(str, '(');
-		imapc_build_search_query_args(mbox, arg->value.subargs, FALSE, str);
+		if (!imapc_build_search_query_args(mbox, arg->value.subargs,
+						   FALSE, str))
+			return FALSE;
 		str_append_c(str, ')');
 		return TRUE;
 	case SEARCH_SEQSET:
