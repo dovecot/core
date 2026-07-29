@@ -16,15 +16,24 @@
 #define IMAPC_SEARCHCTX(obj) \
 	MODULE_CONTEXT(obj, imapc_storage_module)
 
+ARRAY_DEFINE_TYPE(imapc_search_arg, struct mail_search_arg *);
+
 static bool
 imapc_build_search_query_args(struct imapc_mailbox *mbox,
 			      const struct mail_search_arg *args,
 			      bool parent_or, string_t *str);
+static bool
+imapc_build_search_query_toplevel(struct imapc_mailbox *mbox,
+				  struct mail_search_args *args,
+				  ARRAY_TYPE(imapc_search_arg) *sent_args,
+				  string_t *str);
+static void imapc_search_set_matches(struct mail_search_arg *arg);
 
 static bool
 imapc_build_sort_query(struct imapc_mailbox *mbox,
-		       const struct mail_search_args *args,
+		       struct mail_search_args *args,
 		       const enum mail_sort_type *sort_program,
+		       ARRAY_TYPE(imapc_search_arg) *sent_args,
 		       const char **query_r)
 {
 	string_t *str = t_str_new(128);
@@ -94,10 +103,12 @@ imapc_build_sort_query(struct imapc_mailbox *mbox,
 	str_append(str, charset);
 	str_append_c(str, ' ');
 
-	if (args->args == NULL)
+	if (args->args == NULL ||
+	    !imapc_build_search_query_toplevel(mbox, args, sent_args, str)) {
+		/* No search criteria could be sent to the remote server, but
+		   the sorting itself still can be. */
 		str_append(str, "ALL");
-	else if (!imapc_build_search_query_args(mbox, args->args, FALSE, str))
-		return FALSE;
+	}
 	*query_r = str_c(str);
 	return TRUE;
 }
@@ -259,8 +270,42 @@ imapc_build_search_query_args(struct imapc_mailbox *mbox,
 	return TRUE;
 }
 
+static bool
+imapc_build_search_query_toplevel(struct imapc_mailbox *mbox,
+				  struct mail_search_args *args,
+				  ARRAY_TYPE(imapc_search_arg) *sent_args,
+				  string_t *str)
+{
+	struct mail_search_arg *arg;
+	size_t pos;
+
+	/* The top-level args are ANDed together, so leaving out some of them
+	   only makes the remote return a superset of the wanted mails. The
+	   left out args are evaluated locally. This can't be done for args
+	   deeper in the tree, where dropping an arg could lose mails.
+
+	   The args are already simplified by mailbox_search_init(), which
+	   flattens non-negated sub-searches into this list and lifts args
+	   that are common to all OR branches up to here, so most args end up
+	   being handled individually. */
+	for (arg = args->args; arg != NULL; arg = arg->next) {
+		pos = str_len(str);
+		if (!imapc_build_search_query_arg(mbox, arg, str)) {
+			str_truncate(str, pos);
+			continue;
+		}
+		str_append_c(str, ' ');
+		array_push_back(sent_args, &arg);
+	}
+	if (array_count(sent_args) == 0)
+		return FALSE;
+	str_truncate(str, str_len(str)-1);
+	return TRUE;
+}
+
 static bool imapc_build_search_query(struct imapc_mailbox *mbox,
-				     const struct mail_search_args *args,
+				     struct mail_search_args *args,
+				     ARRAY_TYPE(imapc_search_arg) *sent_args,
 				     const char **query_r)
 {
 	string_t *str = t_str_new(128);
@@ -275,7 +320,7 @@ static bool imapc_build_search_query(struct imapc_mailbox *mbox,
 	str_append(str, "UID SEARCH ");
 	if ((mbox->capabilities & IMAPC_CAPABILITY_ESEARCH) != 0)
 		str_append(str, "RETURN (ALL) ");
-	if (!imapc_build_search_query_args(mbox, args->args, FALSE, str))
+	if (!imapc_build_search_query_toplevel(mbox, args, sent_args, str))
 		return FALSE;
 	*query_r = str_c(str);
 	return TRUE;
@@ -316,18 +361,24 @@ imapc_search_init(struct mailbox_transaction_context *t,
 	struct mail_search_context *ctx;
 	struct imapc_search_context *ictx;
 	struct imapc_command *cmd;
+	struct mail_search_arg *arg;
+	ARRAY_TYPE(imapc_search_arg) sent_args;
 	const char *search_query;
 
+	t_array_init(&sent_args, 8);
 	if (sort_program != NULL &&
-	    imapc_build_sort_query(mbox, args, sort_program, &search_query)) {
+	    imapc_build_sort_query(mbox, args, sort_program, &sent_args,
+				   &search_query)) {
 		ctx = index_storage_search_init(t, args, NULL,
 						wanted_fields, wanted_headers);
 		ictx = i_new(struct imapc_search_context, 1);
 		ictx->sorted = TRUE;
 	} else {
+		array_clear(&sent_args);
 		ctx = index_storage_search_init(t, args, sort_program,
 						wanted_fields, wanted_headers);
-		if (!imapc_build_search_query(mbox, args, &search_query)) {
+		if (!imapc_build_search_query(mbox, args, &sent_args,
+					      &search_query)) {
 			/* can't optimize this with SEARCH */
 			return ctx;
 		}
@@ -345,6 +396,11 @@ imapc_search_init(struct mailbox_transaction_context *t,
 	if (imapc_mailbox_flush_local_flag_changes(mbox) < 0)
 		return ctx;
 
+	/* the remote server evaluates these args - the rest are evaluated
+	   locally while returning the results */
+	array_foreach_elem(&sent_args, arg)
+		imapc_search_set_matches(arg);
+
 	cmd = imapc_client_mailbox_cmd(mbox->client_box,
 				       imapc_search_callback, ctx);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
@@ -358,15 +414,17 @@ imapc_search_init(struct mailbox_transaction_context *t,
 	return ctx;
 }
 
-static void imapc_search_set_matches(struct mail_search_arg *args)
+static void imapc_search_set_matches(struct mail_search_arg *arg)
 {
-	for (; args != NULL; args = args->next) {
-		if (args->type == SEARCH_OR ||
-		    args->type == SEARCH_SUB)
-			imapc_search_set_matches(args->value.subargs);
-		args->match_always = TRUE;
-		args->result = 1;
+	struct mail_search_arg *subarg;
+
+	if (arg->type == SEARCH_OR || arg->type == SEARCH_SUB) {
+		for (subarg = arg->value.subargs; subarg != NULL;
+		     subarg = subarg->next)
+			imapc_search_set_matches(subarg);
 	}
+	arg->match_always = TRUE;
+	arg->result = 1;
 }
 
 static bool
@@ -379,9 +437,17 @@ imapc_search_next_uid(struct mail_search_context *ctx, uint32_t uid)
 	if (!mail_index_lookup_seq(ctx->transaction->view, uid, &ctx->seq))
 		return FALSE;
 	ctx->progress_cur = ctx->seq;
-	/* the remote already evaluated all the search args - don't
-	   re-evaluate them locally. */
-	imapc_search_set_matches(ctx->args->args);
+	/* The args that were sent to the remote server are already marked as
+	   matched. Evaluate the rest of the args that can be looked up from
+	   the index. */
+	if (!index_storage_search_match_index_args(ctx)) {
+		/* This mail didn't match. Clear the arg results that were
+		   just set, so the next mail is evaluated from a clean state.
+		   The failed lookup above doesn't need this, because then no
+		   args were evaluated yet. */
+		mail_search_args_reset(ctx->args->args, FALSE);
+		return FALSE;
+	}
 	return TRUE;
 }
 
