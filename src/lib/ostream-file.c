@@ -589,6 +589,12 @@ static size_t o_stream_add(struct file_ostream *fstream,
 	unused = get_unused_space(fstream);
 	if (unused < size)
 		o_stream_grow_buffer(fstream, size-unused);
+	if (fstream->buffer_size == 0) {
+		/* max_buffer_size=0 with nothing buffered so far:
+		   o_stream_grow_buffer() allocated no buffer at all.
+		   Nothing can be added. */
+		return 0;
+	}
 
 	sent = 0;
 	for (i = 0; i < 2 && sent < size && !fstream->full; i++) {

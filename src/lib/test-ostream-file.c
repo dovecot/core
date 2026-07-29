@@ -1,6 +1,8 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "test-lib.h"
+#include "fd-util.h"
+#include "ioloop.h"
 #include "net.h"
 #include "str.h"
 #include "randgen.h"
@@ -214,12 +216,75 @@ static void test_ostream_file_send_over_iov_max(void)
 	test_end();
 }
 
+static void test_ostream_file_max_buffer_size_zero(void)
+{
+	int fd[2];
+	char buf[4096];
+
+	test_begin("ostream file (max_buffer_size=0)");
+	struct ioloop *ioloop = io_loop_create();
+	test_assert(pipe(fd) == 0);
+	fd_set_nonblock(fd[0], TRUE);
+	fd_set_nonblock(fd[1], TRUE);
+
+	/* Fill the pipe so the next write would block. */
+	memset(buf, 'x', sizeof(buf));
+	while (write(fd[1], buf, sizeof(buf)) > 0)
+		;
+	test_assert(errno == EAGAIN);
+
+	/* o_stream_create_fd() replaces a creation-time buffer size of 0
+	   with optimal_block_size, so max_buffer_size=0 is only reachable
+	   via o_stream_set_max_buffer_size(). A stream that has never
+	   buffered anything has no buffer allocated at all, because
+	   o_stream_grow_buffer() caps the allocation to max_buffer_size.
+	   Writing to the blocked fd must return 0 (would block) instead
+	   of trying to buffer into the NULL buffer. */
+	struct ostream *output = o_stream_create_fd(fd[1], 1024);
+	o_stream_set_max_buffer_size(output, 0);
+	o_stream_set_no_error_handling(output, TRUE);
+	test_assert(o_stream_send(output, "x", 1) == 0);
+	test_assert(output->stream_errno == 0);
+	test_assert(o_stream_get_buffer_used_size(output) == 0);
+
+	/* Draining the pipe makes the write go through again. */
+	while (read(fd[0], buf, sizeof(buf)) > 0)
+		;
+	test_assert(o_stream_send(output, "y", 1) == 1);
+
+	/* Buffer the next write, so the buffer gets allocated. Uncorking
+	   flushes it out again, but keeps the buffer allocated. */
+	o_stream_set_max_buffer_size(output, sizeof(buf));
+	o_stream_cork(output);
+	test_assert(o_stream_send(output, "z", 1) == 1);
+	o_stream_uncork(output);
+	test_assert(o_stream_get_buffer_used_size(output) == 0);
+
+	/* Once the buffer is allocated, max_buffer_size=0 no longer
+	   prevents buffering, since o_stream_add() is limited by the
+	   already allocated buffer_size. This is what the current
+	   max_buffer_size=0 callers end up doing. */
+	while (write(fd[1], buf, sizeof(buf)) > 0)
+		;
+	test_assert(errno == EAGAIN);
+	o_stream_set_max_buffer_size(output, 0);
+	test_assert(o_stream_send(output, "q", 1) == 1);
+	test_assert(o_stream_get_buffer_used_size(output) == 1);
+
+	o_stream_unref(&output);
+	i_close_fd(&fd[0]);
+	i_close_fd(&fd[1]);
+	io_loop_destroy(&ioloop);
+	test_end();
+}
+
 void test_ostream_file(void)
 {
 	test_ostream_file_random();
 	test_ostream_file_send_istream_file();
 	test_ostream_file_send_istream_sendfile();
 	test_ostream_file_send_over_iov_max();
+	test_ostream_file_max_buffer_size_zero();
 }
 
 enum fatal_test_state fatal_ostream_file(unsigned int stage)
