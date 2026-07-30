@@ -44,6 +44,17 @@ struct istream_private {
 	size_t high_pos;
 
 	struct istream *parent; /* for filter streams */
+	/* Streams that read from another istream without exposing it as
+	   their istream-parent (e.g. istream-multiplex channels) must point
+	   this to that istream. It is used only for finding the istream that
+	   owns the ioloop IO: without it i_stream_set_input_pending() called
+	   on the underlying stream (e.g. an SSL istream that still has
+	   buffered input) would be silently lost, because the IO is
+	   registered on this stream instead.
+
+	   Not referenced, so the istream declaring the link must make sure
+	   the pointer doesn't outlive the istream it points to. */
+	struct istream *io_parent;
 	uoff_t parent_start_offset;
 	/* Initially UOFF_T_MAX. Otherwise it's the exact known stream size,
 	   which can be used by stat() / get_size(). */

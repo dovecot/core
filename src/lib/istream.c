@@ -281,10 +281,23 @@ i_stream_noop_snapshot(struct istream_private *stream ATTR_UNUSED,
 	return prev_snapshot;
 }
 
+static struct istream_private *
+i_stream_get_io_parent(struct istream_private *_stream)
+{
+	if (_stream->parent != NULL)
+		return _stream->parent->real_stream;
+	if (_stream->io_parent != NULL)
+		return _stream->io_parent->real_stream;
+	return NULL;
+}
+
 static bool i_stream_is_io_pending_until_read(struct istream_private *_stream)
 {
-	while (_stream->parent != NULL && !_stream->io_pending_until_read)
-		_stream = _stream->parent->real_stream;
+	struct istream_private *parent;
+
+	while (!_stream->io_pending_until_read &&
+	       (parent = i_stream_get_io_parent(_stream)) != NULL)
+		_stream = parent;
 	return _stream->io_pending_until_read;
 }
 
@@ -1016,9 +1029,11 @@ bool i_stream_add_data(struct istream *_stream, const unsigned char *data,
 
 struct istream *i_stream_get_root_io(struct istream *stream)
 {
-	while (stream->real_stream->parent != NULL) {
+	struct istream_private *parent;
+
+	while ((parent = i_stream_get_io_parent(stream->real_stream)) != NULL) {
 		i_assert(stream->real_stream->io == NULL);
-		stream = stream->real_stream->parent;
+		stream = &parent->istream;
 	}
 	return stream;
 }
