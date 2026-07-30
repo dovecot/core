@@ -394,6 +394,19 @@ static ssize_t i_stream_multiplex_ichannel_read(struct istream_private *stream)
 		container_of(stream, struct multiplex_ichannel, istream);
 	struct multiplex_istream *mstream = channel->mstream;
 
+	if (channel->cid != 0 && i_stream_io_ever_added(&stream->istream)) {
+		/* Only channel 0's IO is owned by the parent istream, so only
+		   it can notice input that is already buffered in the parent
+		   (e.g. an SSL istream) instead of in the socket. Without an
+		   IO for channel 0 this channel would hang. Note that the IOs
+		   can be temporarily removed, so only check that they have
+		   existed. */
+		struct multiplex_ichannel *channel0 = get_channel(mstream, 0);
+
+		i_assert(channel0 != NULL);
+		i_assert(i_stream_io_ever_added(&channel0->istream.istream));
+	}
+
 	/* if previous multiplex read dumped data for us
 	   actually serve it here. */
 	if (channel->pending_count > 0) {
