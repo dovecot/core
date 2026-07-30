@@ -493,7 +493,6 @@ i_stream_add_channel_real(struct multiplex_istream *mstream, uint8_t cid)
 	channel->cid = cid;
 	channel->mstream = mstream;
 	channel->istream.read = i_stream_multiplex_ichannel_read;
-	channel->istream.switch_ioloop_to = i_stream_multiplex_ichannel_switch_ioloop_to;
 	channel->istream.iostream.close = i_stream_multiplex_ichannel_close;
 	channel->istream.iostream.destroy = i_stream_multiplex_ichannel_destroy;
 	channel->istream.max_buffer_size = mstream->bufsize;
@@ -511,6 +510,10 @@ i_stream_add_channel_real(struct multiplex_istream *mstream, uint8_t cid)
 		channel->istream.io_parent = mstream->parent;
 	} else {
 		channel->istream.fd = -1;
+		/* io_parent isn't set, so the parent's ioloop items must be
+		   switched here. */
+		channel->istream.switch_ioloop_to =
+			i_stream_multiplex_ichannel_switch_ioloop_to;
 	}
 	array_push_back(&channel->mstream->channels, &channel);
 
