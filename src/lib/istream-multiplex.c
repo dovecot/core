@@ -485,10 +485,20 @@ i_stream_add_channel_real(struct multiplex_istream *mstream, uint8_t cid)
 	channel->istream.iostream.destroy = i_stream_multiplex_ichannel_destroy;
 	channel->istream.max_buffer_size = mstream->bufsize;
 	channel->istream.istream.blocking = mstream->blocking;
-	if (cid == 0)
+	if (cid == 0) {
 		channel->istream.fd = i_stream_get_fd(mstream->parent);
-	else
+		/* The parent isn't our istream-parent, but the ioloop IO for
+		   this channel must still be owned by the parent's root
+		   istream. Otherwise i_stream_set_input_pending() calls done
+		   by the parent (e.g. an SSL istream that still has buffered
+		   input which the fd won't notify about) are lost and the
+		   stream hangs. Only channel 0 does this: the other channels
+		   have no fd and get their IO triggered explicitly by
+		   i_stream_multiplex_add(). */
+		channel->istream.io_parent = mstream->parent;
+	} else {
 		channel->istream.fd = -1;
+	}
 	array_push_back(&channel->mstream->channels, &channel);
 
 	return i_stream_create(&channel->istream, NULL, channel->istream.fd, 0);
