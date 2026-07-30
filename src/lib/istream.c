@@ -1061,6 +1061,12 @@ void i_stream_switch_ioloop_to(struct istream *stream, struct ioloop *ioloop)
 			stream->real_stream->switch_ioloop_to(
 				stream->real_stream, ioloop);
 		}
+		if (stream->real_stream->io_parent != NULL) {
+			/* Switch also the hidden input istream, which isn't
+			   reached by walking the istream-parents. */
+			i_stream_switch_ioloop_to(
+				stream->real_stream->io_parent, ioloop);
+		}
 		stream = stream->real_stream->parent;
 	} while (stream != NULL);
 }
