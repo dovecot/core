@@ -2024,6 +2024,22 @@ static bool query_error_want_fallback(CassError error)
 	}
 }
 
+static CassErrorSource driver_cassandra_error_source(CassError error)
+{
+	/* The public CASS_ERROR() macro defines the encoding as
+	   (source << 24) | code, but the driver exposes no accessor to get the
+	   source back out, so undo it here. */
+	return (CassErrorSource)((unsigned int)error >> 24);
+}
+
+/* Returns TRUE if the mutation may already have been applied despite the error.
+
+   Unrecognized server errors intentionally end up here as uncertain. The two
+   ways of being wrong are not symmetric: a wrong TRUE at worst makes the caller
+   keep data that turns out to be unreferenced, while a wrong FALSE lets the
+   caller undo or clean up after a write that did commit. So an error code
+   whose meaning we don't know, including any added by a future cpp-driver or
+   Cassandra release, has to be treated as uncertain. */
 static bool
 driver_cassandra_error_is_uncertain(CassError error)
 {
@@ -2045,10 +2061,50 @@ driver_cassandra_error_is_uncertain(CassError error)
 		 * error. The mutation may already have been applied before the
 		 * error, so this is ambiguous rather than a definite failure.
 		 * Callers must not treat it as "the write did not happen". */
+	case CASS_ERROR_LIB_UNEXPECTED_RESPONSE:
+	case CASS_ERROR_LIB_INVALID_DATA:
+	case CASS_ERROR_LIB_NOT_ENOUGH_DATA:
+	case CASS_ERROR_LIB_INVALID_ERROR_RESULT_TYPE:
+		/* The server replied, but the driver couldn't decode the
+		 * reply. The request reached the coordinator, so the
+		 * mutation may have been applied. */
 		return TRUE;
-	default:
+
+	/* Server errors that the coordinator answered with before it could have
+	 * applied anything: rejected while parsing, authenticating or routing the
+	 * request, or refused outright. Also the read-side failures, which can't
+	 * be the result of a mutation at all. */
+	case CASS_ERROR_SERVER_PROTOCOL_ERROR:
+	case CASS_ERROR_SERVER_BAD_CREDENTIALS:
+	case CASS_ERROR_SERVER_OVERLOADED:
+	case CASS_ERROR_SERVER_IS_BOOTSTRAPPING:
+	case CASS_ERROR_SERVER_TRUNCATE_ERROR:
+	case CASS_ERROR_SERVER_READ_TIMEOUT:
+	case CASS_ERROR_SERVER_READ_FAILURE:
+	case CASS_ERROR_SERVER_FUNCTION_FAILURE:
+	case CASS_ERROR_SERVER_SYNTAX_ERROR:
+	case CASS_ERROR_SERVER_UNAUTHORIZED:
+	case CASS_ERROR_SERVER_INVALID_QUERY:
+	case CASS_ERROR_SERVER_CONFIG_ERROR:
+	case CASS_ERROR_SERVER_ALREADY_EXISTS:
+	case CASS_ERROR_SERVER_UNPREPARED:
 		return FALSE;
+	default:
+		break;
 	}
+
+	/* Anything else that isn't a server error comes from the client library
+	   or the TLS layer. These are certain only because the client-library
+	   errors that mean the request was already in flight, or that the
+	   server's reply couldn't be decoded, are listed above. The rest mean
+	   the request was never built or never left the driver. Enumerating them
+	   would tie this to one cpp-driver version's error list. */
+	if (driver_cassandra_error_source(error) != CASS_ERROR_SOURCE_SERVER)
+		return FALSE;
+
+	/* An unrecognized server error: the coordinator saw the request, so we
+	   can't rule out that the mutation was applied. */
+	return TRUE;
 }
 
 static const char *
