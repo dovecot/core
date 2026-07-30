@@ -2040,6 +2040,11 @@ driver_cassandra_error_is_uncertain(CassError error)
 		/* A request sent from the driver has timed out. */
 	case CASS_ERROR_LIB_WRITE_ERROR:
 		/* A write error occurred. */
+	case CASS_ERROR_SERVER_SERVER_ERROR:
+		/* The coordinator accepted the request and then hit an internal
+		 * error. The mutation may already have been applied before the
+		 * error, so this is ambiguous rather than a definite failure.
+		 * Callers must not treat it as "the write did not happen". */
 		return TRUE;
 	default:
 		return FALSE;
