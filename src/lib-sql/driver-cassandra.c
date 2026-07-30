@@ -2177,6 +2177,7 @@ static void query_callback(CassFuture *future, void *context)
 		const char *errmsg;
 		size_t errsize;
 		long long msecs;
+		bool is_write;
 
 		cass_future_error_message(future, &errmsg, &errsize);
 		i_free(result->error);
@@ -2194,9 +2195,19 @@ static void query_callback(CassFuture *future, void *context)
 		result->api.error_type = result->any_uncertain ?
 			SQL_RESULT_ERROR_TYPE_WRITE_UNCERTAIN :
 			SQL_RESULT_ERROR_TYPE_UNKNOWN;
+		/* Include the error code: several distinct errors share the
+		   same message text (e.g. LIB_NO_HOSTS_AVAILABLE and
+		   SERVER_UNAVAILABLE are both "All hosts in current policy
+		   attempted and were either unavailable or failed"), although
+		   they mean different things. Without the code a log can't tell
+		   afterwards which one happened. */
+		is_write = result->query_type == CASSANDRA_QUERY_TYPE_WRITE ||
+			result->query_type == CASSANDRA_QUERY_TYPE_DELETE;
 		result->error = i_strdup_printf(
-			"Query '%s' failed: %.*s (in %lld.%03lld secs%s%s)",
+			"Query '%s' failed: %.*s (in %lld.%03lld secs, code 0x%08x (%s)%s%s%s)",
 			result->log_query, (int)errsize, errmsg, msecs/1000, msecs%1000,
+			(unsigned int)error, cass_error_desc(error),
+			result->any_uncertain && is_write ? ", write uncertain" : "",
 			result->page_num == 0 ?
 				"" :
 				t_strdup_printf(", page %u", result->page_num),
