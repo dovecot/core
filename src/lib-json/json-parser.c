@@ -1595,10 +1595,13 @@ json_parser_do_parse_string(struct json_parser *parser,
 					"but encountered end of input");
 				return JSON_PARSE_UNEXPECTED_EOF;
 			case _STR_CHAR:
+				json_parser_error(parser,
+					"Encountered end of input inside string");
+				return JSON_PARSE_UNEXPECTED_EOF;
 			case _STR_ESCAPE:
 			case _STR_ESCAPE_U:
 				json_parser_error(parser,
-					"Encountered end of input inside string");
+					"Encountered end of input inside string escape sequence");
 				return JSON_PARSE_UNEXPECTED_EOF;
 			default:
 				break;
