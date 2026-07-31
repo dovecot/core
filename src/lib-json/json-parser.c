@@ -1640,8 +1640,7 @@ json_parser_do_parse_string_value(struct json_parser *parser,
 static int
 json_parser_parse_string_value(struct json_parser *parser, string_t *buf)
 {
-	return json_parser_call(parser, json_parser_do_parse_string_value,
-				(void *)buf);
+	return json_parser_call(parser, json_parser_do_parse_string_value, buf);
 }
 
 static int
@@ -1655,8 +1654,7 @@ json_parser_do_parse_object_member(struct json_parser *parser,
 static int
 json_parser_parse_object_member(struct json_parser *parser, string_t *buf)
 {
-	return json_parser_call(parser, json_parser_do_parse_object_member,
-				(void *)buf);
+	return json_parser_call(parser, json_parser_do_parse_object_member, buf);
 }
 
 /* value */
