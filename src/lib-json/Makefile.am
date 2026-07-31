@@ -15,7 +15,8 @@ libjson_la_SOURCES = \
 	json-generator.c \
 	json-istream.c \
 	json-ostream.c \
-	json-text.c
+	json-text.c \
+	istream-json-string.c
 libjson_la_LIBADD = -lm
 
 headers = \
@@ -27,13 +28,15 @@ headers = \
 	json-generator.h \
 	json-istream.h \
 	json-ostream.h \
-	json-text.h
+	json-text.h \
+	istream-json-string.h
 
 test_programs = \
 	test-json-parser \
 	test-json-generator \
 	test-json-io \
 	test-json-istream \
+	test-istream-json-string \
 	test-json-ostream \
 	test-json-tree \
 	test-json-tree-io
@@ -42,7 +45,8 @@ fuzz_programs =
 
 if USE_FUZZER
 fuzz_programs += \
-        fuzz-json-istream
+	fuzz-json-istream \
+	fuzz-istream-json-string
 endif
 
 noinst_PROGRAMS += json-format $(fuzz_programs)
@@ -119,8 +123,27 @@ test_json_tree_io_LDADD = \
 test_json_tree_io_DEPENDENCIES = \
 	$(test_deps)
 
+test_istream_json_string_SOURCES = \
+	test-istream-json-string.c
+test_istream_json_string_LDADD = \
+	$(test_libs)
+test_istream_json_string_DEPENDENCIES = \
+	$(test_deps)
+
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
+
+nodist_EXTRA_fuzz_istream_json_string_SOURCES = force-cxx-linking.cxx
+fuzz_istream_json_string_CPPFLAGS = \
+	$(FUZZER_CPPFLAGS)
+fuzz_istream_json_string_LDFLAGS = \
+	$(FUZZER_LDFLAGS)
+fuzz_istream_json_string_SOURCES = \
+	fuzz-istream-json-string.c
+fuzz_istream_json_string_LDADD = \
+	$(test_libs)
+fuzz_istream_json_string_DEPENDENCIES = \
+	$(test_deps)
 
 nodist_EXTRA_fuzz_json_istream_SOURCES = force-cxx-linking.cxx
 fuzz_json_istream_CPPFLAGS = \
