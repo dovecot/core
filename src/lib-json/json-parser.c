@@ -2163,7 +2163,12 @@ static int json_parser_continue(struct json_parser *parser)
 
 	if (parser->error != NULL)
 		return JSON_PARSE_ERROR;
-	if (parser->started &&
+	/* json_parse_more() asserts end_of_input whenever this returns OK.
+	   started && !busy is not on its own sufficient to guarantee that:
+	   close the loophole defensively rather than relying on every
+	   current and future parse_func/completion path to keep the two in
+	   sync on its own. */
+	if (parser->started && parser->end_of_input &&
 		!json_parser_is_busy(parser)) {
 		return JSON_PARSE_OK;
 	}
@@ -2238,25 +2243,33 @@ static int json_parser_continue(struct json_parser *parser)
 	return JSON_PARSE_NO_DATA;
 }
 
-int json_parse_more(struct json_parser *parser, const char **error_r)
+int json_parse_more(struct json_parser *parser, bool *at_end_r,
+		    const char **error_r)
 {
 	int ret;
 
 	i_assert(parser->str_stream == NULL);
 
+	if (at_end_r != NULL)
+		*at_end_r = FALSE;
 	*error_r = NULL;
 
 	ret = json_parser_continue(parser);
 	switch (ret) {
 	case JSON_PARSE_ERROR:
+		*error_r = parser->error;
+		return -1;
 	case JSON_PARSE_UNEXPECTED_EOF:
+		if (at_end_r != NULL)
+			*at_end_r = TRUE;
 		*error_r = parser->error;
 		return -1;
 	case JSON_PARSE_OK:
+		i_assert(parser->end_of_input);
 		break;
 	case JSON_PARSE_INTERRUPTED:
 		if (parser->end_of_input)
-			return 1;
+			break;
 		return 0;
 	case JSON_PARSE_OVERFLOW:
 	case JSON_PARSE_NO_DATA:
@@ -2265,6 +2278,8 @@ int json_parse_more(struct json_parser *parser, const char **error_r)
 		i_unreached();
 	}
 
+	if (at_end_r != NULL)
+		*at_end_r = TRUE;
 	return 1;
 }
 

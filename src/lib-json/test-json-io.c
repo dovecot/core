@@ -951,7 +951,7 @@ static void test_json_io(void)
 					(pos > margin ? pos - margin : 0));
 				if (wret > 0 && pret == 0) {
 					pret = json_parse_more(tproc.parser,
-							       &error);
+							       NULL, &error);
 					if (pret < 0)
 						break;
 				}
@@ -962,8 +962,10 @@ static void test_json_io(void)
 					break;
 			}
 
-			if (pret == 0)
-				pret = json_parse_more(tproc.parser, &error);
+			if (pret == 0) {
+				pret = json_parse_more(tproc.parser, NULL,
+						       &error);
+			}
 
 			o_stream_set_max_buffer_size(output, SIZE_MAX);
 			wret = json_generator_flush(tproc.generator);
@@ -1002,7 +1004,7 @@ static void test_json_async_io_input_callback(struct test_io_processor *tproc)
 	const char *error;
 	int ret;
 
-	ret = json_parse_more(tproc->parser, &error);
+	ret = json_parse_more(tproc->parser, NULL, &error);
 	if (ret == 0) {
 		ret = test_write(tproc);
 		if (ret == 0) {

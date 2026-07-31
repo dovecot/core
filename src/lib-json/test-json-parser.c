@@ -807,7 +807,7 @@ static void test_json_parse_valid(void)
 
 		for (pos = 0; pos <= text_len && ret == 0; pos++) {
 			test_istream_set_size(input, pos);
-			ret = json_parse_more(parser, &error);
+			ret = json_parse_more(parser, NULL, &error);
 			if (ret < 0) {
 				if (debug)
 					i_debug("DATA: `%s'", text);
@@ -824,7 +824,7 @@ static void test_json_parse_valid(void)
 			&test->limits, test->flags, NULL, NULL);
 
 		test_istream_set_size(input, text_len);
-		ret = json_parse_more(parser, &error);
+		ret = json_parse_more(parser, NULL, &error);
 		if (ret < 0) {
 			if (debug)
 				i_debug("DATA: `%s'", text);
@@ -2357,7 +2357,7 @@ static void test_json_parse_invalid(void)
 
 		for (pos = 0; pos <= text_len && ret == 0; pos++) {
 			test_istream_set_size(input, pos);
-			ret = json_parse_more(parser, &error);
+			ret = json_parse_more(parser, NULL, &error);
 			if (ret < 0)
 				break;
 			if (ret > 0) {
@@ -2375,7 +2375,7 @@ static void test_json_parse_invalid(void)
 			&test->limits, test->flags, NULL, NULL);
 
 		test_istream_set_size(input, text_len);
-		ret = json_parse_more(parser, &error);
+		ret = json_parse_more(parser, NULL, &error);
 		if (ret > 0) {
 			if (debug)
 				i_debug("DATA: `%s'", text);
@@ -2545,7 +2545,7 @@ static void test_json_parse_stream(void)
 			for (pos = 0; pos <= text_len+1000 && ret == 0; pos += trickle_step) {
 				test_istream_set_size(input, pos);
 				if (str_input == NULL) {
-					ret = json_parse_more(parser, &error);
+					ret = json_parse_more(parser, NULL, &error);
 					if (ret < 0)
 						break;
 				}
@@ -2586,7 +2586,7 @@ static void test_json_parse_stream(void)
 		json_parser_enable_string_stream(parser, 0, 10);
 
 		test_istream_set_size(input, text_len);
-		ret = json_parse_more(parser, &error);
+		ret = json_parse_more(parser, NULL, &error);
 		test_out_reason_quiet("parse success (buffered) #1",
 				      ret == 0, error);
 		if (ret == 0 && str_input != NULL) {
@@ -2607,7 +2607,7 @@ static void test_json_parse_stream(void)
 			}
 		}
 		if (ret == 0) {
-			ret = json_parse_more(parser, &error);
+			ret = json_parse_more(parser, NULL, &error);
 			test_out_reason_quiet("parse success (buffered) #2",
 					      ret > 0, error);
 		}
@@ -2754,7 +2754,7 @@ static void test_json_parse_stream_error(void)
 			for (pos = 0; pos <= text_len+1000 && ret == 0; pos += trickle_step) {
 				test_istream_set_size(input, pos);
 				if (str_input == NULL) {
-					ret = json_parse_more(parser, &error);
+					ret = json_parse_more(parser, NULL, &error);
 					if (ret < 0)
 						break;
 				}
@@ -2794,7 +2794,7 @@ static void test_json_parse_stream_error(void)
 		json_parser_enable_string_stream(parser, 0, 10);
 
 		test_istream_set_size(input, text_len);
-		ret = json_parse_more(parser, &error);
+		ret = json_parse_more(parser, NULL, &error);
 		test_out_reason_quiet("parse failure (buffered) #1",
 				      ret <= 0, error);
 		if (ret == 0 && str_input != NULL) {
@@ -2817,7 +2817,7 @@ static void test_json_parse_stream_error(void)
 			}
 		}
 		if (ret == 0) {
-			ret = json_parse_more(parser, &error);
+			ret = json_parse_more(parser, NULL, &error);
 			test_out_reason_quiet("parse failure (buffered) #2",
 					      ret < 0, error);
 		}

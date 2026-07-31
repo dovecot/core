@@ -494,7 +494,7 @@ int json_istream_read(struct json_istream *stream, struct json_node *node_r)
 		ret = json_istream_consume_value_stream(stream);
 		if (ret <= 0)
 			return ret;
-		ret = json_parse_more(stream->parser, &error);
+		ret = json_parse_more(stream->parser, NULL, &error);
 		if (ret < 0) {
 			json_istream_set_error(stream, error);
 			return ret;
@@ -590,7 +590,7 @@ int json_istream_read_object_member(struct json_istream *stream,
 		if (ret <= 0)
 			return ret;
 		stream->read_member = TRUE;
-		ret = json_parse_more(stream->parser, &error);
+		ret = json_parse_more(stream->parser, NULL, &error);
 		stream->read_member = FALSE;
 		if (ret < 0) {
 			json_istream_set_error(stream, error);
@@ -899,7 +899,7 @@ static int json_istream_read_tree_common(struct json_istream *stream)
 	ret = json_istream_consume_value_stream(stream);
 	if (ret <= 0)
 		return ret;
-	ret = json_parse_more(stream->parser, &error);
+	ret = json_parse_more(stream->parser, NULL, &error);
 	if (ret < 0) {
 		json_istream_set_error(stream, error);
 		return ret;

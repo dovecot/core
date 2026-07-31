@@ -93,8 +93,10 @@ json_parser_error(struct json_parser *parser, const char *format, ...);
 void json_parser_interrupt(struct json_parser *parser);
 
 /* Returns -1 on error, 0 if parser is interrupted or needs more data,
-   or 1 if the complete JSON text is parsed. */
-int json_parse_more(struct json_parser *parser, const char **error_r);
+   or 1 if the complete JSON text is parsed. If at_end_r is not NULL, it will
+   be set to indicate whether the parser stopped at end of input. */
+int json_parse_more(struct json_parser *parser, bool *at_end_r,
+		    const char **error_r);
 
 /* Get the current location of the parser */
 void json_parser_get_location(struct json_parser *parser,
