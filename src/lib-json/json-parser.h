@@ -25,7 +25,9 @@ enum json_parser_flags {
 	 */
 	JSON_PARSER_FLAG_NUMBERS_AS_STRING = BIT(3),
 	/* Allow Byte Order Mark at beginning of input */
-	JSON_PARSER_FLAG_ALLOW_BOM = BIT(4)
+	JSON_PARSER_FLAG_ALLOW_BOM = BIT(4),
+	/* Input is JSON string content rather than JSON text */
+	JSON_PARSER_FLAG_INPUT_IS_STRING_CONTENT = BIT(5),
 };
 
 struct json_parser_callbacks {

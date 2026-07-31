@@ -301,6 +301,9 @@ json_parser_callback_parse_list_open(struct json_parser *parser,
 {
 	const char *name;
 
+	i_assert(HAS_NO_BITS(parser->flags,
+			     JSON_PARSER_FLAG_INPUT_IS_STRING_CONTENT));
+
 	if (parser->callbacks == NULL ||
 	    parser->callbacks->parse_list_open == NULL)
 		return JSON_PARSE_OK;
@@ -318,6 +321,9 @@ static int
 json_parser_callback_parse_list_close(struct json_parser *parser,
 				      void *list_context, bool object)
 {
+	i_assert(HAS_NO_BITS(parser->flags,
+			     JSON_PARSER_FLAG_INPUT_IS_STRING_CONTENT));
+
 	if (parser->callbacks == NULL ||
 	    parser->callbacks->parse_list_close == NULL)
 		return JSON_PARSE_OK;
@@ -334,6 +340,8 @@ json_parser_callback_parse_object_member(struct json_parser *parser,
 {
 	const char *name;
 
+	i_assert(HAS_NO_BITS(parser->flags,
+			     JSON_PARSER_FLAG_INPUT_IS_STRING_CONTENT));
 	i_assert(parser->have_object_member);
 
 	if (parser->callbacks == NULL ||
@@ -354,6 +362,10 @@ json_parser_callback_parse_value(struct json_parser *parser,
 				 const struct json_value *value)
 {
 	const char *name;
+
+	i_assert(HAS_NO_BITS(parser->flags,
+			     JSON_PARSER_FLAG_INPUT_IS_STRING_CONTENT) ||
+		 type == JSON_TYPE_STRING);
 
 	if (parser->callbacks == NULL ||
 	    parser->callbacks->parse_value == NULL)
@@ -1461,6 +1473,14 @@ json_parser_do_parse_string(struct json_parser *parser,
 		switch (state->state) {
 		/* quotation-mark */
 		case _STR_START:
+			parser->parsed_nul_char = FALSE;
+			parser->parsed_control_char = FALSE;
+			if (HAS_ANY_BITS(parser->flags,
+				JSON_PARSER_FLAG_INPUT_IS_STRING_CONTENT)) {
+				offset = parser->cur;
+				state->state = _STR_CHAR;
+				continue;
+			}
 			if (ch != '"') {
 				json_parser_error(parser,
 					"Expected string, but encountered %s",
@@ -1469,8 +1489,6 @@ json_parser_do_parse_string(struct json_parser *parser,
 			}
 			json_parser_shift(parser);
 			offset = parser->cur;
-			parser->parsed_nul_char = FALSE;
-			parser->parsed_control_char = FALSE;
 			state->state = _STR_CHAR;
 			continue;
 		/* char */
@@ -1490,6 +1508,12 @@ json_parser_do_parse_string(struct json_parser *parser,
 			if (ret < JSON_PARSE_OK)
 				return ret;
 			if (ch == '"') {
+				if (HAS_ANY_BITS(parser->flags,
+					JSON_PARSER_FLAG_INPUT_IS_STRING_CONTENT)) {
+					json_parser_error(parser,
+						"String ends before end of input");
+					return JSON_PARSE_ERROR;
+				}
 				i_assert((str_len(buf) +
 					  json_parser_shifted_size(parser, offset))
 					 <= max_size);
@@ -1590,6 +1614,27 @@ json_parser_do_parse_string(struct json_parser *parser,
 	}
 	if (ret == JSON_PARSE_NO_DATA) {
 		if (parser->end_of_input) {
+			if (state->state == _STR_CHAR &&
+			    HAS_ANY_BITS(parser->flags,
+					 JSON_PARSER_FLAG_INPUT_IS_STRING_CONTENT)) {
+				/* A lone high surrogate parsed by a preceding
+				   \uXXXX escape is parked in state->context,
+				   not yet written to buf - validate it here
+				   instead of silently dropping it, so this
+				   EOF short-circuit can't produce a truncated
+				   string where the equivalent non-EOF case
+				   (something follows the escape) would fail. */
+				ret = json_parser_parse_unicode_escape_close(
+					parser, state);
+				if (ret < JSON_PARSE_OK)
+					return ret;
+				i_assert((str_len(buf) +
+					  json_parser_shifted_size(parser, offset))
+					 <= max_size);
+				json_parser_append_buffer(parser, buf, offset);
+				state->state = _STR_END;
+				return JSON_PARSE_OK;
+			}
 			switch (state->state) {
 			case _STR_START:
 				json_parser_error(parser,
@@ -1711,6 +1756,12 @@ json_parser_do_parse_value(struct json_parser *parser,
 	while ((ret = json_parser_curchar(parser, &ch)) == JSON_PARSE_OK) {
 		switch (state->state) {
 		case _VALUE_START:
+			if (HAS_ANY_BITS(parser->flags,
+				JSON_PARSER_FLAG_INPUT_IS_STRING_CONTENT)) {
+				json_parser_reset_buffer(parser);
+				state->state = _VALUE_STRING;
+				continue;
+			}
 			switch (ch) {
 			/* array */
 			case '[':
@@ -2037,6 +2088,13 @@ json_parser_do_parse_value(struct json_parser *parser,
 		}
 	}
 	if (ret == JSON_PARSE_NO_DATA && parser->end_of_input) {
+		if (HAS_ANY_BITS(parser->flags,
+				 JSON_PARSER_FLAG_INPUT_IS_STRING_CONTENT)) {
+			if (parser->buffer == NULL)
+				json_parser_reset_buffer(parser);
+			state->state = _VALUE_END;
+			return json_parser_callback_string_value(parser, NULL);
+		}
 		switch (state->state) {
 		case _VALUE_START:
 			json_parser_error(parser,
@@ -2178,11 +2236,17 @@ static int json_parser_continue(struct json_parser *parser)
 		return JSON_PARSE_OK;
 	}
 
+	json_parser_func_t parse_func;
+
+	if (HAS_ANY_BITS(parser->flags,
+			 JSON_PARSER_FLAG_INPUT_IS_STRING_CONTENT))
+		parse_func = json_parser_do_parse_value;
+	else
+		parse_func = json_parser_parse_text;
 	do {
 		if (!json_parser_have_data(parser))
 			continue;
-		status = json_parser_run(parser,
-			json_parser_parse_text);
+		status = json_parser_run(parser, parse_func);
 		parser->started = TRUE;
 
 		switch (status) {
@@ -2229,7 +2293,7 @@ static int json_parser_continue(struct json_parser *parser)
 
 		parser->end_of_input = TRUE;
 
-		status = json_parser_run(parser, json_parser_parse_text);
+		status = json_parser_run(parser, parse_func);
 		switch (status) {
 		case JSON_PARSE_ERROR:
 		case JSON_PARSE_UNEXPECTED_EOF:
