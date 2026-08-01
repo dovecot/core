@@ -111,6 +111,11 @@ struct json_tree_node *
 json_tree_node_get_parent(const struct json_tree_node *jtnode) ATTR_PURE;
 struct json_tree_node *
 json_tree_node_get_child(const struct json_tree_node *jtnode) ATTR_PURE;
+/* O(n) per call (walks from the first child) - iterating all of a node's
+   children by increasing index with this is accidentally quadratic; use
+   json_tree_node_get_child()/get_next() instead for that. */
+struct json_tree_node *
+json_tree_node_get_nth_child(const struct json_tree_node *jtnode, unsigned int n);
 unsigned int
 json_tree_node_get_child_count(const struct json_tree_node *jtnode) ATTR_PURE;
 

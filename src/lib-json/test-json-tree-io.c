@@ -1083,6 +1083,68 @@ static void test_json_tree_stream_sibling_no_corruption(void)
 	test_end();
 }
 
+/* Regression test: json_tree_node_is_string() only checks the node's JSON
+   type, not its content_type, so json_tree_node_get_child_with() used to
+   call the panic-on-STREAM json_tree_node_get_str() on any string-typed
+   member - including one made STREAM-content by
+   json_istream_read_tree_lazy_strings(). Build a tree where the first
+   candidate's matched-key member is long enough to be lazy (STREAM) and the
+   second's is short (plain STRING): looking it up by the second's value
+   must not panic on the first and must still find the second. */
+static void test_json_tree_get_child_with_lazy_string(void)
+{
+	unsigned char abuf[300];
+	string_t *text = t_str_new(350);
+	struct istream *input;
+	struct json_istream *jinput;
+	struct json_tree *jtree = NULL;
+	struct json_tree_node *root, *first, *second, *found;
+	const char *error = NULL;
+	int ret;
+
+	test_begin("json tree get_child_with skips lazy-string members");
+
+	memset(abuf, 'A', sizeof(abuf));
+	str_append(text, "[{\"type\":\"");
+	str_append_data(text, abuf, sizeof(abuf));
+	str_append(text, "\"},{\"type\":\"ok\"}]");
+
+	input = i_stream_create_from_data(str_data(text), str_len(text));
+	/* Whole-array-in-one-tree read (not json_istream_create_array(),
+	   which would yield each element as its own top-level tree) so both
+	   objects end up as sibling children of the same root. */
+	jinput = json_istream_create(input, 0, NULL, 0);
+	i_stream_unref(&input);
+
+	/* threshold=8: the 300-byte value goes STREAM, "ok" (len 2) stays
+	   STRING. */
+	while ((ret = json_istream_read_tree_lazy_strings(
+				jinput, 8, 65536, &jtree)) == 0)
+		;
+	test_assert(ret > 0);
+	ret = json_istream_finish(&jinput, &error);
+	test_assert(ret > 0);
+
+	root = json_tree_get_root(jtree);
+	first = json_tree_node_get_child(root);
+	test_assert(first != NULL);
+	second = first == NULL ? NULL : json_tree_node_get_next(first);
+	test_assert(second != NULL);
+	if (first != NULL && second != NULL) {
+		test_assert(json_tree_node_get_member(first, "type") != NULL &&
+			    json_tree_node_get(
+				json_tree_node_get_member(
+					first, "type"))->value.content_type ==
+			    JSON_CONTENT_TYPE_STREAM);
+
+		found = json_tree_node_get_child_with(root, "type", "ok");
+		test_assert(found == second);
+	}
+
+	json_tree_unref(&jtree);
+	test_end();
+}
+
 /* Regression test: the json_parser_continue() reconcile block (which
    re-seeks parser->input after a lazy range stream moved it backward) used
    to merely inspect whatever was already buffered instead of performing an
@@ -1556,6 +1618,7 @@ int main(int argc, char *argv[])
 		test_json_tree_stream_limit_interleaved,
 		test_json_tree_stream_limit_interleaved_file,
 		test_json_tree_stream_sibling_no_corruption,
+		test_json_tree_get_child_with_lazy_string,
 		test_json_tree_stream_limit_interleaved_number,
 		test_json_tree_stream_limit_range_overflow,
 		test_json_tree_stream_limit_empty,

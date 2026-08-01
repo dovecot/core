@@ -557,6 +557,22 @@ json_tree_node_get_child(const struct json_tree_node *jtnode)
 	return jtnode->node.value.content.list->head;
 }
 
+struct json_tree_node *
+json_tree_node_get_nth_child(const struct json_tree_node *jtnode, unsigned int n)
+{
+	struct json_tree_node *node;
+
+	i_assert(jtnode->node.value.content_type == JSON_CONTENT_TYPE_LIST);
+	if (jtnode->node.value.content.list == NULL)
+		return NULL;
+	if (jtnode->node.value.content.list->count <= n)
+		return NULL;
+	node = jtnode->node.value.content.list->head;
+	for (unsigned int i = 0; i < n; i++)
+		node = node->next;
+	return node;
+}
+
 unsigned int
 json_tree_node_get_child_count(const struct json_tree_node *jtnode)
 {
@@ -598,7 +614,7 @@ json_tree_node_get_child_with(const struct json_tree_node *jtnode,
 		return NULL;
 
 	child = jtnode->node.value.content.list->head;
-	while (child != NULL) {
+	for (; child != NULL; child = child->next) {
 		struct json_tree_node *member;
 
 		if (!json_node_is_object(&child->node))
@@ -608,10 +624,25 @@ json_tree_node_get_child_with(const struct json_tree_node *jtnode,
 			continue;
 		if (!json_tree_node_is_string(member))
 			continue;
-		if (strcmp(json_tree_node_get_str(member), value) == 0)
-			break;
+		/* json_tree_node_is_string() only checks the node's JSON
+		   type, not its content_type: a string value at or above the
+		   json_istream_read_tree_lazy_strings() threshold is stored
+		   as JSON_CONTENT_TYPE_STREAM, which json_tree_node_get_str()
+		   panics on. Such a member can't be compared here without
+		   draining it, so skip only that case rather than crash.
+		   STRING and DATA content are both fully materialized and
+		   directly comparable via json_node_get_data(). */
+		if (json_tree_node_get(member)->value.content_type ==
+		    JSON_CONTENT_TYPE_STREAM)
+			continue;
+		size_t size;
+		const unsigned char *data =
+			json_node_get_data(json_tree_node_get(member),
+					   &size);
 
-		child = child->next;
+		if (size == strlen(value) &&
+		    memcmp(data, value, size) == 0)
+			break;
 	}
 
 	return child;
