@@ -801,6 +801,13 @@ json_tree_walk_next(struct json_tree_walker *twalker, bool *is_end_r)
 		return tnode;
 	}
 
+	if (tnode == twalker->root) {
+		/* Finished the node the walk started from; don't continue to
+		   its siblings or parent. */
+		twalker->node_level = 0;
+		return NULL;
+	}
+
 	tnode_next = json_tree_node_get_next(tnode);
 	if (tnode_next != NULL || twalker->node_level == 0)
 		return tnode_next;
