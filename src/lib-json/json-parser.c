@@ -141,6 +141,11 @@ struct json_parser_level {
 	bool finished:1;
 };
 
+struct json_parser_location_state {
+	uoff_t line_number, value_line_number;
+	uoff_t column;
+};
+
 struct json_parser {
 	enum json_parser_flags flags;
 
@@ -162,10 +167,7 @@ struct json_parser {
 	unichar_t current_char;
 	int current_char_len;
 
-	struct {
-		uoff_t line_number, value_line_number;
-		uoff_t column;
-	} loc;
+	struct json_parser_location_state loc;
 
 	string_t *buffer;
 	string_t *object_member;
