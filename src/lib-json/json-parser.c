@@ -2314,7 +2314,7 @@ struct json_string_istream {
 static ssize_t json_string_istream_read(struct istream_private *stream)
 {
 	struct json_string_istream *jstream =
-		(struct json_string_istream *)stream;
+		container_of(stream, struct json_string_istream, istream);
 	struct json_parser *parser = jstream->parser;
 	bool stop_loop;
 	size_t old_pos, read_size, read_total;
@@ -2391,7 +2391,8 @@ json_string_istream_set_max_buffer_size(struct iostream_private *stream,
 					size_t max_size)
 {
 	struct json_string_istream *jstream =
-		(struct json_string_istream *)stream;
+		container_of(stream, struct json_string_istream,
+			     istream.iostream);
 
 	i_assert(max_size > 0);
 	jstream->parser->str_stream_max_buffer_size = max_size;
@@ -2402,7 +2403,8 @@ json_string_istream_close(struct iostream_private *stream,
 			  bool close_parent ATTR_UNUSED)
 {
 	struct json_string_istream *jstream =
-		(struct json_string_istream *)stream;
+		container_of(stream, struct json_string_istream,
+			     istream.iostream);
 
 	if (jstream->parser != NULL)
 		jstream->parser->str_stream = NULL;
