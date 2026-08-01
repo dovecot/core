@@ -92,6 +92,7 @@ const char *json_content_type_get_name(enum json_content_type ctype);
 static inline int
 json_value_get_uintmax(const struct json_value *jvalue, uintmax_t *num_r)
 {
+	i_assert(jvalue != NULL);
 	i_assert(jvalue->content_type == JSON_CONTENT_TYPE_INTEGER);
 	if (jvalue->content.intnum < 0)
 		return -1;
@@ -102,6 +103,7 @@ json_value_get_uintmax(const struct json_value *jvalue, uintmax_t *num_r)
 static inline int
 json_value_get_intmax(const struct json_value *jvalue, intmax_t *num_r)
 {
+	i_assert(jvalue != NULL);
 	i_assert(jvalue->content_type == JSON_CONTENT_TYPE_INTEGER);
 	*num_r = jvalue->content.intnum;
 	return 0;
@@ -112,6 +114,7 @@ static inline int                                                       \
 name(const struct json_value *jvalue, type *num_r)                      \
 {                                                                       \
 	intmax_t l;                                                     \
+	i_assert(jvalue != NULL);					\
 	i_assert(jvalue->content_type == JSON_CONTENT_TYPE_INTEGER);    \
 	l = jvalue->content.intnum;                                     \
 	if (l < 0 || (uintmax_t)l > uint_max)                           \
@@ -136,6 +139,7 @@ static inline int                                                       \
 name(const struct json_value *jvalue, type *num_r)                      \
 {                                                                       \
 	intmax_t l;                                                     \
+	i_assert(jvalue != NULL);					\
 	i_assert(jvalue->content_type == JSON_CONTENT_TYPE_INTEGER);    \
 	l = jvalue->content.intnum;                                     \
 	if (l < int_min || l > int_max)                                 \
@@ -157,15 +161,17 @@ JSON_VALUE_GET_S__TEMPLATE(json_value_get_int64,
 
 /* string */
 
-static inline ATTR_PURE const char *
+static inline const char *
 json_value_get_str(const struct json_value *jvalue)
 {
+	i_assert(jvalue != NULL);
 	i_assert(jvalue->content_type == JSON_CONTENT_TYPE_STRING);
 	return jvalue->content.str;
 }
-static inline ATTR_PURE const char *
+static inline const char *
 json_value_as_str(const struct json_value *jvalue)
 {
+	i_assert(jvalue != NULL);
 	switch (jvalue->content_type) {
 	case JSON_CONTENT_TYPE_STRING:
 		break;
@@ -179,6 +185,7 @@ json_value_as_str(const struct json_value *jvalue)
 static inline const unsigned char *
 json_value_get_data(const struct json_value *jvalue, size_t *size_r)
 {
+	i_assert(jvalue != NULL);
 	switch (jvalue->content_type) {
 	case JSON_CONTENT_TYPE_STRING:
 		*size_r = strlen(jvalue->content.str);
@@ -196,6 +203,7 @@ static inline int
 json_value_get_stream(const struct json_value *jvalue,
 		       struct istream **stream_r)
 {
+	i_assert(jvalue != NULL);
 	if (jvalue->content_type != JSON_CONTENT_TYPE_STREAM)
 		return -1;
 	*stream_r = jvalue->content.stream;
@@ -216,9 +224,10 @@ struct json_node {
 	struct json_value value;
 };
 
-static inline ATTR_PURE bool
+static inline bool
 json_node_is_none(const struct json_node *jnode)
 {
+	i_assert(jnode != NULL);
 	return (jnode->type == JSON_TYPE_NONE);
 }
 
@@ -226,37 +235,42 @@ const char *json_node_get_label(const struct json_node *jnode);
 
 /* object, array */
 
-static inline ATTR_PURE bool
+static inline bool
 json_node_is_object(const struct json_node *jnode)
 {
+	i_assert(jnode != NULL);
 	return (jnode->type == JSON_TYPE_OBJECT &&
 		jnode->value.content_type != JSON_CONTENT_TYPE_NONE);
 }
 
-static inline ATTR_PURE bool
+static inline bool
 json_node_is_array(const struct json_node *jnode)
 {
+	i_assert(jnode != NULL);
 	return (jnode->type == JSON_TYPE_ARRAY &&
 		jnode->value.content_type != JSON_CONTENT_TYPE_NONE);
 }
 
-static inline ATTR_PURE bool
+static inline bool
 json_node_is_object_end(const struct json_node *jnode)
 {
+	i_assert(jnode != NULL);
 	return (jnode->type == JSON_TYPE_OBJECT &&
 		jnode->value.content_type == JSON_CONTENT_TYPE_NONE);
 }
 
-static inline ATTR_PURE bool
+static inline bool
 json_node_is_array_end(const struct json_node *jnode)
 {
+	i_assert(jnode != NULL);
 	return (jnode->type == JSON_TYPE_ARRAY &&
 		jnode->value.content_type == JSON_CONTENT_TYPE_NONE);
 }
 
-static inline ATTR_PURE bool
+static inline bool
 json_node_is_end(const struct json_node *jnode)
 {
+	i_assert(jnode != NULL);
 	switch (jnode->type) {
 	case JSON_TYPE_OBJECT:
 	case JSON_TYPE_ARRAY:
@@ -269,15 +283,17 @@ json_node_is_end(const struct json_node *jnode)
 
 /* string */
 
-static inline ATTR_PURE bool
+static inline bool
 json_node_is_string(const struct json_node *jnode)
 {
+	i_assert(jnode != NULL);
 	return (jnode->type == JSON_TYPE_STRING);
 }
 
-static inline ATTR_PURE const char *
+static inline const char *
 json_node_get_str(const struct json_node *jnode)
 {
+	i_assert(jnode != NULL);
 	switch (jnode->type) {
 	case JSON_TYPE_STRING:
 	case JSON_TYPE_NUMBER:
@@ -294,9 +310,10 @@ json_node_get_str(const struct json_node *jnode)
 	}
 	return json_value_get_str(&jnode->value);
 }
-static inline ATTR_PURE const char *
+static inline const char *
 json_node_as_str(const struct json_node *jnode)
 {
+	i_assert(jnode != NULL);
 	switch (jnode->type) {
 	case JSON_TYPE_STRING:
 	case JSON_TYPE_NUMBER:
@@ -319,6 +336,7 @@ json_node_get_data(const struct json_node *jnode, size_t *size_r)
 {
 	const char *literal;
 
+	i_assert(jnode != NULL);
 	switch (jnode->type) {
 	case JSON_TYPE_STRING:
 	case JSON_TYPE_NUMBER:
@@ -346,6 +364,7 @@ static inline int
 json_node_get_stream(const struct json_node *jnode,
 		      struct istream **stream_r)
 {
+	i_assert(jnode != NULL);
 	if (jnode->type != JSON_TYPE_STRING)
 		return -1;
 
@@ -354,15 +373,17 @@ json_node_get_stream(const struct json_node *jnode,
 
 /* number */
 
-static inline ATTR_PURE bool
+static inline bool
 json_node_is_number(const struct json_node *jnode)
 {
+	i_assert(jnode != NULL);
 	return (jnode->type == JSON_TYPE_NUMBER);
 }
 
 static inline int
 json_node_get_intmax(const struct json_node *jnode, intmax_t *num_r)
 {
+	i_assert(jnode != NULL);
 	if (jnode->type != JSON_TYPE_NUMBER)
 		return -1;
 	if (jnode->value.content_type != JSON_CONTENT_TYPE_INTEGER)
@@ -372,6 +393,7 @@ json_node_get_intmax(const struct json_node *jnode, intmax_t *num_r)
 static inline int
 json_node_get_int(const struct json_node *jnode, int *num_r)
 {
+	i_assert(jnode != NULL);
 	if (jnode->type != JSON_TYPE_NUMBER)
 		return -1;
 	if (jnode->value.content_type != JSON_CONTENT_TYPE_INTEGER)
@@ -381,6 +403,7 @@ json_node_get_int(const struct json_node *jnode, int *num_r)
 static inline int
 json_node_get_long(const struct json_node *jnode, long *num_r)
 {
+	i_assert(jnode != NULL);
 	if (jnode->type != JSON_TYPE_NUMBER)
 		return -1;
 	if (jnode->value.content_type != JSON_CONTENT_TYPE_INTEGER)
@@ -390,6 +413,7 @@ json_node_get_long(const struct json_node *jnode, long *num_r)
 static inline int
 json_node_get_llong(const struct json_node *jnode, long long *num_r)
 {
+	i_assert(jnode != NULL);
 	if (jnode->type != JSON_TYPE_NUMBER)
 		return -1;
 	if (jnode->value.content_type != JSON_CONTENT_TYPE_INTEGER)
@@ -399,6 +423,7 @@ json_node_get_llong(const struct json_node *jnode, long long *num_r)
 static inline int
 json_node_get_int32(const struct json_node *jnode, int32_t *num_r)
 {
+	i_assert(jnode != NULL);
 	if (jnode->type != JSON_TYPE_NUMBER)
 		return -1;
 	if (jnode->value.content_type != JSON_CONTENT_TYPE_INTEGER)
@@ -408,6 +433,7 @@ json_node_get_int32(const struct json_node *jnode, int32_t *num_r)
 static inline int
 json_node_get_int64(const struct json_node *jnode, int64_t *num_r)
 {
+	i_assert(jnode != NULL);
 	if (jnode->type != JSON_TYPE_NUMBER)
 		return -1;
 	if (jnode->value.content_type != JSON_CONTENT_TYPE_INTEGER)
@@ -418,6 +444,7 @@ json_node_get_int64(const struct json_node *jnode, int64_t *num_r)
 static inline int
 json_node_get_uintmax(const struct json_node *jnode, uintmax_t *num_r)
 {
+	i_assert(jnode != NULL);
 	if (jnode->type != JSON_TYPE_NUMBER)
 		return -1;
 	if (jnode->value.content_type != JSON_CONTENT_TYPE_INTEGER)
@@ -427,6 +454,7 @@ json_node_get_uintmax(const struct json_node *jnode, uintmax_t *num_r)
 static inline int
 json_node_get_uint(const struct json_node *jnode, unsigned int *num_r)
 {
+	i_assert(jnode != NULL);
 	if (jnode->type != JSON_TYPE_NUMBER)
 		return -1;
 	if (jnode->value.content_type != JSON_CONTENT_TYPE_INTEGER)
@@ -436,6 +464,7 @@ json_node_get_uint(const struct json_node *jnode, unsigned int *num_r)
 static inline int
 json_node_get_ulong(const struct json_node *jnode, unsigned long *num_r)
 {
+	i_assert(jnode != NULL);
 	if (jnode->type != JSON_TYPE_NUMBER)
 		return -1;
 	if (jnode->value.content_type != JSON_CONTENT_TYPE_INTEGER)
@@ -445,6 +474,7 @@ json_node_get_ulong(const struct json_node *jnode, unsigned long *num_r)
 static inline int
 json_node_get_ullong(const struct json_node *jnode, unsigned long long *num_r)
 {
+	i_assert(jnode != NULL);
 	if (jnode->type != JSON_TYPE_NUMBER)
 		return -1;
 	if (jnode->value.content_type != JSON_CONTENT_TYPE_INTEGER)
@@ -454,6 +484,7 @@ json_node_get_ullong(const struct json_node *jnode, unsigned long long *num_r)
 static inline int
 json_node_get_uint32(const struct json_node *jnode, uint32_t *num_r)
 {
+	i_assert(jnode != NULL);
 	if (jnode->type != JSON_TYPE_NUMBER)
 		return -1;
 	if (jnode->value.content_type != JSON_CONTENT_TYPE_INTEGER)
@@ -463,6 +494,7 @@ json_node_get_uint32(const struct json_node *jnode, uint32_t *num_r)
 static inline int
 json_node_get_uint64(const struct json_node *jnode, uint64_t *num_r)
 {
+	i_assert(jnode != NULL);
 	if (jnode->type != JSON_TYPE_NUMBER)
 		return -1;
 	if (jnode->value.content_type != JSON_CONTENT_TYPE_INTEGER)
@@ -472,21 +504,24 @@ json_node_get_uint64(const struct json_node *jnode, uint64_t *num_r)
 
 /* true, false */
 
-static inline ATTR_PURE bool
+static inline bool
 json_node_is_true(const struct json_node *jnode)
 {
+	i_assert(jnode != NULL);
 	return (jnode->type == JSON_TYPE_TRUE);
 }
 
-static inline ATTR_PURE bool
+static inline bool
 json_node_is_false(const struct json_node *jnode)
 {
+	i_assert(jnode != NULL);
 	return (jnode->type == JSON_TYPE_FALSE);
 }
 
-static inline ATTR_PURE bool
+static inline bool
 json_node_is_boolean(const struct json_node *jnode)
 {
+	i_assert(jnode != NULL);
 	switch (jnode->type) {
 	case JSON_TYPE_TRUE:
 	case JSON_TYPE_FALSE:
@@ -500,6 +535,7 @@ json_node_is_boolean(const struct json_node *jnode)
 static inline int
 json_node_get_boolean(const struct json_node *jnode, bool *bool_r)
 {
+	i_assert(jnode != NULL);
 	switch (jnode->type) {
 	case JSON_TYPE_TRUE:
 		*bool_r = TRUE;
@@ -515,17 +551,19 @@ json_node_get_boolean(const struct json_node *jnode, bool *bool_r)
 
 /* null */
 
-static inline ATTR_PURE bool
+static inline bool
 json_node_is_null(const struct json_node *jnode)
 {
+	i_assert(jnode != NULL);
 	return (jnode->type == JSON_TYPE_NULL);
 }
 
 /* utility */
 
-static inline ATTR_PURE bool
+static inline bool
 json_node_is_singular(const struct json_node *jnode)
 {
+	i_assert(jnode != NULL);
 	switch (jnode->type) {
 	case JSON_TYPE_OBJECT:
 	case JSON_TYPE_ARRAY:
