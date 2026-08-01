@@ -177,6 +177,12 @@ struct json_parser {
 	size_t str_stream_threshold;
 	size_t str_stream_max_buffer_size;
 
+	/* Positional state of parser at beginning of string value */
+	struct {
+		uoff_t input_offset;
+		struct json_parser_location_state loc;
+	} string_start;
+
 	char *error;
 
 	bool parsed_nul_char:1;
@@ -813,6 +819,33 @@ json_parser_parsed_size(struct json_parser *parser,
  * Parser core
  */
 
+static inline void
+json_parser_reset_state(struct json_parser *parser,
+			json_parser_func_t parse_func)
+{
+	struct json_parser_level *level;
+
+	if (parser->level_stack_pos < array_count(&parser->level_stack)) {
+		level = array_idx_get_space(&parser->level_stack,
+					    parser->level_stack_pos);
+		i_zero(level);
+	}
+	while (parser->level_stack_pos > 0) {
+		level = array_idx_get_space(&parser->level_stack,
+					    parser->level_stack_pos - 1);
+
+		if (level->func == parse_func) {
+			i_zero(&level->state);
+			return;
+		}
+
+		i_zero(level);
+		parser->level_stack_pos--;
+	}
+
+	i_unreached();
+}
+
 static inline int
 json_parser_call(struct json_parser *parser,
 		 json_parser_func_t parse_func, void *param)
@@ -1025,6 +1058,10 @@ json_parser_append_buffer(struct json_parser *parser,
 /*
  * JSON syntax
  */
+
+static int
+json_parser_do_parse_value(struct json_parser *parser,
+			   struct json_parser_state *state);
 
 /* ws */
 
@@ -1438,6 +1475,71 @@ json_parser_parse_unicode_escape_close(struct json_parser *parser,
 	return JSON_PARSE_OK;
 }
 
+static void json_parser_record_string_start(struct json_parser *parser)
+{
+	i_zero(&parser->string_start);
+	parser->string_start.input_offset =
+		parser->input->v_offset + (uoff_t)(parser->cur - parser->begin);
+	parser->string_start.loc = parser->loc;
+	/* By this point json_parser_curchar() has already decoded (but not
+	   shifted) the character at `cur' and counted it into parser->loc.
+	   input_offset above points at that same not-yet-shifted character,
+	   so undo the count here to match - otherwise a restart, which
+	   re-seeks to input_offset and restores this loc before re-decoding
+	   that same character, would count it a second time. */
+	i_assert(parser->current_char_len > 0);
+	if (parser->current_char == '\n')
+		parser->string_start.loc.line_number--;
+	else
+		parser->string_start.loc.column--;
+}
+
+/* Mutation-free lookup mirroring json_parser_reset_state()'s own search: is
+   `parse_func' anywhere on the level stack?  Used by
+   json_parser_restart_string() to check up front, before it mutates
+   anything, whether the json_parser_reset_state() call it is about to make
+   would find its target - reset_state() itself is void and runs after the
+   seek/buffer reset, so it can't fail gracefully if the level isn't there.
+   Uses array_idx_get_space() rather than array_idx() to match
+   reset_state()'s own access pattern (see its level_stack_pos <
+   array_count() guard). */
+static bool
+json_parser_level_stack_has(struct json_parser *parser,
+			    json_parser_func_t parse_func)
+{
+	unsigned int pos = parser->level_stack_pos;
+
+	while (pos > 0) {
+		const struct json_parser_level *level =
+			array_idx_get_space(&parser->level_stack, pos - 1);
+
+		if (level->func == parse_func)
+			return TRUE;
+		pos--;
+	}
+	return FALSE;
+}
+
+static bool json_parser_restart_string(struct json_parser *parser)
+{
+	if (parser->input->v_offset == parser->string_start.input_offset)
+		return FALSE;
+	if (!json_parser_level_stack_has(parser, json_parser_do_parse_value))
+		return FALSE;
+	json_parser_reset_buffer(parser);
+	i_stream_seek(parser->input, parser->string_start.input_offset);
+	parser->current_char_len = 0;
+	parser->end_of_input = FALSE;
+	parser->loc = parser->string_start.loc;
+	/* Discard the pre-seek buffer span rather than leaving it for
+	   json_parser_read() to size its read threshold from - it has no
+	   bearing on how much the stream can supply at the new position. */
+	parser->begin = parser->cur = parser->end = NULL;
+	json_parser_read(parser);
+	json_parser_reset_state(parser, json_parser_do_parse_value);
+	return TRUE;
+}
+
 static int
 json_parser_do_parse_string(struct json_parser *parser,
 			    struct json_parser_state *state, size_t max_size)
@@ -1475,6 +1577,7 @@ json_parser_do_parse_string(struct json_parser *parser,
 		case _STR_START:
 			parser->parsed_nul_char = FALSE;
 			parser->parsed_control_char = FALSE;
+			json_parser_record_string_start(parser);
 			if (HAS_ANY_BITS(parser->flags,
 				JSON_PARSER_FLAG_INPUT_IS_STRING_CONTENT)) {
 				offset = parser->cur;
@@ -2452,6 +2555,49 @@ static ssize_t json_string_istream_read(struct istream_private *stream)
 	return (ssize_t)read_total;
 }
 
+static bool
+json_string_istream_restart(struct json_string_istream *jstream)
+{
+	struct istream_private *stream = &jstream->istream;
+
+	if (!json_parser_restart_string(jstream->parser))
+		return FALSE;
+	jstream->buffer_overflowed = FALSE;
+	jstream->ended = FALSE;
+
+	stream->skip = stream->pos = 0;
+	stream->istream.v_offset = 0;
+	return TRUE;
+}
+
+static void
+json_string_istream_seek(struct istream_private *stream, uoff_t v_offset,
+			 bool mark)
+{
+	struct json_string_istream *jstream =
+		container_of(stream, struct json_string_istream, istream);
+
+	/* stream->pos mirrors str_len(parser->buffer) exactly (asserted at
+	   the top of json_string_istream_read()): the buffer isn't owned by
+	   this stream, it's a live view into the parser's shared decode
+	   buffer. So unlike a typical nonseekable stream, we can't rewind
+	   stream->pos to expose already-buffered bytes again - only
+	   restart-from-scratch (backward) or read-and-discard (forward) are
+	   safe here. */
+	if (v_offset == stream->istream.v_offset)
+		return;
+	if (v_offset < stream->istream.v_offset) {
+		if (!json_string_istream_restart(jstream)) {
+			io_stream_set_error(
+				&stream->iostream,
+				"Can't seek backwards: string decoder restart failed");
+			stream->istream.stream_errno = ESPIPE;
+			return;
+		}
+	}
+	i_stream_default_seek_nonseekable(stream, v_offset, mark);
+}
+
 static void
 json_string_istream_set_max_buffer_size(struct iostream_private *stream,
 					size_t max_size)
@@ -2502,10 +2648,14 @@ json_string_stream_create(struct json_parser *parser, bool complete)
 	jstream->istream.iostream.close =
 		json_string_istream_close;
 	jstream->istream.read = json_string_istream_read;
+	jstream->istream.seek = json_string_istream_seek;
 
 	jstream->istream.istream.readable_fd = FALSE;
 	jstream->istream.istream.blocking = parser->input->blocking;
-	jstream->istream.istream.seekable = FALSE;
+	jstream->istream.istream.seekable =
+		(parser->input->seekable &&
+		 HAS_ANY_BITS(parser->flags,
+			      JSON_PARSER_FLAG_INPUT_IS_STRING_CONTENT));
 
 	parser->str_stream = jstream;
 

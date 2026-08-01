@@ -3856,6 +3856,76 @@ static void test_json_istream_error(void)
 	i_stream_unref(&input);
 }
 
+/* Regression test: json_parser_record_string_start() saves parser->loc
+   after readchar() already counted the not-yet-shifted character at
+   `cur' into it, but saves input_offset pointing at that same character.
+   A restart (triggered by seeking a streamed string value backward)
+   re-decodes that character, double-counting it into the column if the
+   saved loc wasn't adjusted to match.  Verified by comparing the reported
+   error column for the same malformed input parsed with vs. without a
+   triggering backward seek - they must match. */
+static void test_json_istream_restart_string_location(void)
+{
+	/* 31 'A's then an invalid UTF-8 sequence, as a bare top-level
+	   string value. */
+	const char *text =
+		"\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\xed\xa2\xab\"";
+	size_t text_len = strlen(text);
+	struct istream *input;
+	struct json_istream *jinput;
+	struct json_node jnode;
+	struct json_parser_location loc_norestart, loc_restart;
+	const unsigned char *data;
+	size_t size;
+	int ret;
+
+	test_begin("json parser restart preserves error location");
+
+	/* Baseline: parse straight through, no seek, small buffer so the
+	   value streams (matches the restart run's setup exactly). */
+	input = i_stream_create_from_data(text, text_len);
+	jinput = json_istream_create(input, 0, NULL, 0);
+	i_stream_unref(&input);
+
+	ret = json_istream_read_stream(jinput, 0, 8, NULL, &jnode);
+	test_assert(ret > 0);
+	if (ret > 0) {
+		struct istream *strm = jnode.value.content.stream;
+
+		while (i_stream_read_more(strm, &data, &size) > 0)
+			i_stream_skip(strm, size);
+		test_assert(strm->stream_errno != 0);
+	}
+	json_istream_get_location(jinput, &loc_norestart);
+	json_istream_unref(&jinput);
+
+	/* Same input, but read a little, then seek back to 0 (triggering a
+	   parser restart) before reading through to the same error. */
+	input = i_stream_create_from_data(text, text_len);
+	jinput = json_istream_create(input, 0, NULL, 0);
+	i_stream_unref(&input);
+
+	ret = json_istream_read_stream(jinput, 0, 8, NULL, &jnode);
+	test_assert(ret > 0);
+	if (ret > 0) {
+		struct istream *strm = jnode.value.content.stream;
+
+		test_assert(i_stream_read_more(strm, &data, &size) > 0);
+		i_stream_skip(strm, size);
+		i_stream_seek(strm, 0);
+
+		while (i_stream_read_more(strm, &data, &size) > 0)
+			i_stream_skip(strm, size);
+		test_assert(strm->stream_errno != 0);
+	}
+	json_istream_get_location(jinput, &loc_restart);
+	json_istream_unref(&jinput);
+
+	test_assert_cmp(loc_restart.column, ==, loc_norestart.column);
+
+	test_end();
+}
+
 /*
  * Main
  */
@@ -3878,6 +3948,7 @@ int main(int argc, char *argv[])
 		test_json_istream_skip_array,
 		test_json_istream_skip_object_fields,
 		test_json_istream_error,
+		test_json_istream_restart_string_location,
 		NULL
 	};
 
