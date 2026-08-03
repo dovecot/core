@@ -127,6 +127,7 @@ subdir('meson' / 'fd')
 subdir('meson' / 'quota')
 subdir('meson' / 'sendfile')
 subdir('meson' / 'ssl')
+subdir('meson' / 'iconv')
 
 dovecot_moduledir = get_option('moduledir')
 if dovecot_moduledir == ''
