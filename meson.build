@@ -130,6 +130,7 @@ subdir('meson' / 'ssl')
 subdir('meson' / 'iconv')
 subdir('meson' / 'zlib')
 subdir('meson' / 'sodium')
+subdir('meson' / 'pcre')
 
 dovecot_moduledir = get_option('moduledir')
 if dovecot_moduledir == ''
