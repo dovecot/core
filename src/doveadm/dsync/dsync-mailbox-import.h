@@ -12,6 +12,9 @@ enum dsync_mailbox_import_flags {
 	DSYNC_MAILBOX_IMPORT_FLAG_NO_NOTIFY		= 0x40,
 	DSYNC_MAILBOX_IMPORT_FLAG_EMPTY_HDR_WORKAROUND	= 0x100,
 	DSYNC_MAILBOX_IMPORT_FLAG_NO_HEADER_HASHES	= 0x200,
+	/* The remote sends all of its mailbox attributes, so the local
+	   attributes that it didn't send can be deleted. */
+	DSYNC_MAILBOX_IMPORT_FLAG_DELETE_UNKNOWN_ATTRS	= 0x400,
 };
 
 struct mailbox;
@@ -46,6 +49,8 @@ dsync_mailbox_import_init(struct mailbox *box,
 			  const struct dsync_mailbox_import_settings *set);
 int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
 				   const struct dsync_mailbox_attribute *attr);
+/* All the remote attributes have been received. */
+int dsync_mailbox_import_attributes_finish(struct dsync_mailbox_importer *importer);
 int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
 				const struct dsync_mail_change *change);
 int dsync_mailbox_import_changes_finish(struct dsync_mailbox_importer *importer);

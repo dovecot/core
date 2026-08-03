@@ -498,6 +498,7 @@ static bool dsync_brain_master_recv_handshake(struct dsync_brain *brain)
 		}
 	}
 	dsync_brain_set_hdr_hash_version(brain, ibc_set);
+	brain->remote_backup_full_attrs = ibc_set->backup_full_attrs;
 
 	brain->state = brain->sync_type == DSYNC_BRAIN_SYNC_TYPE_STATE ?
 		DSYNC_STATE_MASTER_SEND_LAST_COMMON :
@@ -516,6 +517,7 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 	if (dsync_ibc_recv_handshake(brain->ibc, &ibc_set) == 0)
 		return FALSE;
 	dsync_brain_set_hdr_hash_version(brain, ibc_set);
+	brain->remote_backup_full_attrs = ibc_set->backup_full_attrs;
 
 	if (ibc_set->lock_timeout > 0) {
 		brain->lock_timeout = ibc_set->lock_timeout;

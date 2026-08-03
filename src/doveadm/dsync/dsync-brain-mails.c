@@ -94,6 +94,9 @@ static bool dsync_brain_recv_mailbox_attribute(struct dsync_brain *brain)
 	if ((ret = dsync_ibc_recv_mailbox_attribute(brain->ibc, &attr)) == 0)
 		return FALSE;
 	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
+		if (dsync_mailbox_import_attributes_finish(
+					brain->box_importer) < 0)
+			brain->failed = TRUE;
 		brain->box_recv_state = DSYNC_BOX_STATE_CHANGES;
 		return TRUE;
 	}

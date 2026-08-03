@@ -25,14 +25,15 @@
 #define DSYNC_IBC_STREAM_OUTBUF_THROTTLE_SIZE (1024*128)
 
 #define DSYNC_PROTOCOL_VERSION_MAJOR 3
-#define DSYNC_PROTOCOL_VERSION_MINOR 5
-#define DSYNC_HANDSHAKE_VERSION "VERSION\tdsync\t3\t5\n"
+#define DSYNC_PROTOCOL_VERSION_MINOR 6
+#define DSYNC_HANDSHAKE_VERSION "VERSION\tdsync\t3\t6\n"
 
 #define DSYNC_PROTOCOL_MINOR_HAVE_ATTRIBUTES 1
 #define DSYNC_PROTOCOL_MINOR_HAVE_SAVE_GUID 2
 #define DSYNC_PROTOCOL_MINOR_HAVE_FINISH 3
 #define DSYNC_PROTOCOL_MINOR_HAVE_HDR_HASH_V2 4
 #define DSYNC_PROTOCOL_MINOR_HAVE_HDR_HASH_V3 5
+#define DSYNC_PROTOCOL_MINOR_HAVE_BACKUP_FULL_ATTRS 6
 
 enum item_type {
 	ITEM_NONE,
@@ -886,6 +887,8 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 		set->hashed_headers = (const char*const*)p_strsplit_tabescaped(pool, value);
 	set->hdr_hash_v2 = ibc->minor_version >= DSYNC_PROTOCOL_MINOR_HAVE_HDR_HASH_V2;
 	set->hdr_hash_v3 = ibc->minor_version >= DSYNC_PROTOCOL_MINOR_HAVE_HDR_HASH_V3;
+	set->backup_full_attrs =
+		ibc->minor_version >= DSYNC_PROTOCOL_MINOR_HAVE_BACKUP_FULL_ATTRS;
 
 	*set_r = set;
 	return DSYNC_IBC_RECV_RET_OK;

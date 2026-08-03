@@ -113,6 +113,8 @@ struct dsync_brain {
 	bool mail_requests:1;
 	bool backup_send:1;
 	bool backup_recv:1;
+	/* Remote sends all of its mailbox attributes in backup mode */
+	bool remote_backup_full_attrs:1;
 	bool purge:1;
 	bool debug:1;
 	bool sync_visible_namespaces:1;

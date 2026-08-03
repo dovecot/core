@@ -194,6 +194,8 @@ dsync_ibc_pipe_recv_handshake(struct dsync_ibc *ibc,
 	if (item == NULL)
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 
+	/* both sides are running the same version */
+	item->u.set.backup_full_attrs = TRUE;
 	*set_r = &item->u.set;
 	return DSYNC_IBC_RECV_RET_OK;
 }

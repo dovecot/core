@@ -72,6 +72,10 @@ struct dsync_ibc_settings {
 	enum dsync_brain_flags brain_flags;
 	bool hdr_hash_v2;
 	bool hdr_hash_v3;
+	/* The remote exports all of its mailbox attributes when it is the
+	   backup source, so attributes that don't exist in it can be deleted
+	   from the backup destination. */
+	bool backup_full_attrs;
 	unsigned int lock_timeout;
 };
 
