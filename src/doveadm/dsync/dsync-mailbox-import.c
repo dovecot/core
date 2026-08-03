@@ -418,9 +418,15 @@ dsync_attributes_cmp_values(const struct dsync_mailbox_attribute *attr1,
 		i_stream_create_from_data(attr1->value, strlen(attr1->value));
 	input2 = attr2->value_stream != NULL ? attr2->value_stream :
 		i_stream_create_from_data(attr2->value, strlen(attr2->value));
+	i_assert(input1->seekable);
+	i_assert(input2->seekable);
 	i_stream_seek(input1, 0);
 	i_stream_seek(input2, 0);
 	ret = dsync_istreams_cmp(input1, input2, cmp_r, error_r);
+	/* The caller may still save the value from the stream, so rewind it
+	   back to the beginning. */
+	i_stream_seek(input1, 0);
+	i_stream_seek(input2, 0);
 	if (attr1->value_stream == NULL)
 		i_stream_unref(&input1);
 	if (attr2->value_stream == NULL)
