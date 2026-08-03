@@ -531,8 +531,8 @@ void client_destroy(struct client *client, const char *reason)
 	} else if (client->auth_request != NULL ||
 		   client->anvil_query != NULL) {
 		i_assert(client->authenticating);
-		sasl_server_auth_abort(client,
-				       reason != NULL ? reason : "Aborted");
+		sasl_proxy_auth_abort(client,
+				      reason != NULL ? reason : "Aborted");
 	}
 	i_assert(!client->authenticating);
 	i_assert(client->auth_request == NULL);

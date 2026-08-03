@@ -41,8 +41,8 @@ static void cmd_helo_reply(struct submission_client *subm_client,
 			unsigned int count, i;
 			string_t *param = t_str_new(128);
 
-			mechs = sasl_server_get_advertised_mechs(client,
-								 &count);
+			mechs = sasl_proxy_get_advertised_mechs(client,
+								&count);
 			for (i = 0; i < count; i++) {
 				if (i > 0)
 					str_append_c(param, ' ');
@@ -388,7 +388,7 @@ void cmd_mail(struct smtp_server_cmd_ctx *cmd, const char *params)
 
 	if (HAS_NO_BITS(workarounds,
 			SUBMISSION_LOGIN_WORKAROUND_IMPLICIT_AUTH_EXTERNAL) ||
-	    sasl_server_find_available_mech(
+	    sasl_proxy_find_available_mech(
 			client, SASL_MECH_NAME_EXTERNAL) == NULL) {
 		smtp_server_command_fail(cmd->cmd, 530, "5.7.0",
 					 "Authentication required.");

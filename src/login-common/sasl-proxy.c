@@ -3,7 +3,7 @@
 #include "login-common.h"
 #include "array.h"
 #include "md5.h"
-#include "sasl-server.h"
+#include "sasl-proxy.h"
 #include "str.h"
 #include "buffer.h"
 #include "hex-binary.h"
@@ -32,8 +32,8 @@ struct anvil_request {
 };
 
 static bool
-sasl_server_filter_mech(struct client *client, struct auth_mech_desc *mech,
-			bool advertize)
+sasl_proxy_filter_mech(struct client *client, struct auth_mech_desc *mech,
+		       bool advertize)
 {
 	/* Allow plugins to filter and amend available mechanisms. */
 	if (client->v.sasl_filter_mech != NULL &&
@@ -70,7 +70,7 @@ sasl_server_filter_mech(struct client *client, struct auth_mech_desc *mech,
 }
 
 const struct auth_mech_desc *
-sasl_server_get_advertised_mechs(struct client *client, unsigned int *count_r)
+sasl_proxy_get_advertised_mechs(struct client *client, unsigned int *count_r)
 {
 	const struct auth_mech_desc *mech;
 	struct auth_mech_desc *ret_mech;
@@ -87,7 +87,7 @@ sasl_server_get_advertised_mechs(struct client *client, unsigned int *count_r)
 	for (i = j = 0; i < count; i++) {
 		struct auth_mech_desc fmech = mech[i];
 
-		if (!sasl_server_filter_mech(client, &fmech, TRUE))
+		if (!sasl_proxy_filter_mech(client, &fmech, TRUE))
 			continue;
 
 		ret_mech[j++] = fmech;
@@ -97,7 +97,7 @@ sasl_server_get_advertised_mechs(struct client *client, unsigned int *count_r)
 }
 
 const struct auth_mech_desc *
-sasl_server_find_available_mech(struct client *client, const char *name)
+sasl_proxy_find_available_mech(struct client *client, const char *name)
 {
 	const struct auth_mech_desc *mech;
 	struct auth_mech_desc fmech;
@@ -107,7 +107,7 @@ sasl_server_find_available_mech(struct client *client, const char *name)
 		return NULL;
 
 	fmech = *mech;
-	if (!sasl_server_filter_mech(client, &fmech, FALSE))
+	if (!sasl_proxy_filter_mech(client, &fmech, FALSE))
 		return NULL;
 	if (memcmp(&fmech, mech, sizeof(fmech)) != 0) {
 		struct auth_mech_desc *nmech = t_new(struct auth_mech_desc, 1);
@@ -137,12 +137,12 @@ client_get_auth_flags(struct client *client)
 }
 
 static void ATTR_NULL(3, 4)
-call_client_callback(struct client *client, enum sasl_server_reply reply,
+call_client_callback(struct client *client, enum sasl_proxy_reply reply,
 		     const char *data, const char *const *args)
 {
-	sasl_server_callback_t *sasl_callback;
+	sasl_proxy_callback_t *sasl_callback;
 
-	i_assert(reply != SASL_SERVER_REPLY_CONTINUE);
+	i_assert(reply != SASL_PROXY_REPLY_CONTINUE);
 
 	sasl_callback = client->sasl_callback;
 	client->sasl_callback = NULL;
@@ -155,7 +155,7 @@ static void
 login_callback(const struct login_reply *reply, void *context)
 {
 	struct client *client = context;
-	enum sasl_server_reply sasl_reply = SASL_SERVER_REPLY_MASTER_FAILED;
+	enum sasl_proxy_reply sasl_reply = SASL_PROXY_REPLY_MASTER_FAILED;
 	const char *data = NULL;
 
 	client->master_tag = 0;
@@ -163,11 +163,11 @@ login_callback(const struct login_reply *reply, void *context)
 	if (reply != NULL) {
 		switch (reply->status) {
 		case LOGIN_REPLY_STATUS_OK:
-			sasl_reply = SASL_SERVER_REPLY_SUCCESS;
+			sasl_reply = SASL_PROXY_REPLY_SUCCESS;
 			data = client->auth_success_data;
 			break;
 		case LOGIN_REPLY_STATUS_INTERNAL_ERROR:
-			sasl_reply = SASL_SERVER_REPLY_MASTER_FAILED;
+			sasl_reply = SASL_PROXY_REPLY_MASTER_FAILED;
 			break;
 		}
 		client->mail_pid = reply->mail_pid;
@@ -207,7 +207,7 @@ static int master_send_request(struct anvil_request *anvil_request)
 		req.flags |= LOGIN_REQUEST_FLAG_TLS_COMPRESSION;
 	if (client->end_client_tls_secured)
 		req.flags |= LOGIN_REQUEST_FLAG_END_CLIENT_SECURED_TLS;
-	if (HAS_ALL_BITS(client->auth_flags, SASL_SERVER_AUTH_FLAG_IMPLICIT))
+	if (HAS_ALL_BITS(client->auth_flags, SASL_PROXY_AUTH_FLAG_IMPLICIT))
 		req.flags |= LOGIN_REQUEST_FLAG_IMPLICIT;
 	memcpy(req.cookie, anvil_request->cookie, sizeof(req.cookie));
 
@@ -245,7 +245,7 @@ anvil_lookup_callback(const struct anvil_reply *reply,
 	const struct login_settings *set = client->set;
 	const char *errmsg;
 	unsigned int conn_count;
-	enum sasl_server_reply sasl_reply = SASL_SERVER_REPLY_SUCCESS;
+	enum sasl_proxy_reply sasl_reply = SASL_PROXY_REPLY_SUCCESS;
 
 	client->anvil_query = NULL;
 	client->anvil_request = NULL;
@@ -265,14 +265,14 @@ anvil_lookup_callback(const struct anvil_reply *reply,
 	if (reply == NULL || reply->error != NULL ||
 	    conn_count < set->mail_max_userip_connections) {
 		if (master_send_request(req) < 0)
-			sasl_reply = SASL_SERVER_REPLY_MASTER_FAILED;
+			sasl_reply = SASL_PROXY_REPLY_MASTER_FAILED;
 		errmsg = NULL; /* client will see internal error */
 	} else {
-		sasl_reply = SASL_SERVER_REPLY_MASTER_FAILED_LIMIT;
+		sasl_reply = SASL_PROXY_REPLY_MASTER_FAILED_LIMIT;
 		errmsg = t_strdup_printf(ERR_TOO_MANY_USERIP_CONNECTIONS,
 					 set->mail_max_userip_connections);
 	}
-	if (sasl_reply != SASL_SERVER_REPLY_SUCCESS) {
+	if (sasl_reply != SASL_PROXY_REPLY_SUCCESS) {
 		client->authenticating = FALSE;
 		auth_client_send_cancel(auth_client, client->master_auth_id);
 		call_client_callback(client, sasl_reply, errmsg, NULL);
@@ -313,14 +313,14 @@ anvil_check_too_many_connections(struct client *client)
 }
 
 static bool
-sasl_server_check_login(struct client *client)
+sasl_proxy_check_login(struct client *client)
 {
 	if (client->v.sasl_check_login != NULL &&
 	    !client->v.sasl_check_login(client))
 		return FALSE;
 	if (client->auth_anonymous &&
 	    !login_binary->anonymous_login_acceptable) {
-		sasl_server_auth_failed(client,
+		sasl_proxy_auth_failed(client,
 			"Anonymous login denied",
 			AUTH_CLIENT_FAIL_CODE_ANONYMOUS_DENIED);
 		return FALSE;
@@ -350,8 +350,8 @@ args_parse_user(struct client *client, const char *key, const char *value)
 }
 
 static int
-sasl_server_channel_binding(const char *type, void *context,
-			    const buffer_t **data_r, const char **error_r)
+sasl_proxy_channel_binding(const char *type, void *context,
+			   const buffer_t **data_r, const char **error_r)
 {
 	struct client *client = context;
 
@@ -360,14 +360,14 @@ sasl_server_channel_binding(const char *type, void *context,
 }
 
 static void
-sasl_server_auth_success_finish(struct client *client, bool nologin,
-				const char *data, const char *const *args)
+sasl_proxy_auth_success_finish(struct client *client, bool nologin,
+			       const char *data, const char *const *args)
 {
 	if (nologin) {
 		client->authenticating = FALSE;
-		call_client_callback(client, SASL_SERVER_REPLY_SUCCESS,
+		call_client_callback(client, SASL_PROXY_REPLY_SUCCESS,
 				     data, args);
-	} else if (!sasl_server_check_login(client)) {
+	} else if (!sasl_proxy_check_login(client)) {
 		i_assert(!client->authenticating);
 	} else {
 		client->auth_success_data =
@@ -398,7 +398,7 @@ authenticate_callback(struct auth_client_request *request,
 	switch (status) {
 	case AUTH_REQUEST_STATUS_CONTINUE:
 		/* continue */
-		client->sasl_callback(client, SASL_SERVER_REPLY_CONTINUE,
+		client->sasl_callback(client, SASL_PROXY_REPLY_CONTINUE,
 				      data_base64, NULL);
 		break;
 	case AUTH_REQUEST_STATUS_OK:
@@ -436,8 +436,8 @@ authenticate_callback(struct auth_client_request *request,
 			}
 		}
 
-		sasl_server_auth_success_finish(client, nologin,
-						data_base64, args);
+		sasl_proxy_auth_success_finish(client, nologin,
+					       data_base64, args);
 		break;
 	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
 		client->auth_process_comm_fail = TRUE;
@@ -457,7 +457,7 @@ authenticate_callback(struct auth_client_request *request,
 		}
 
 		client->authenticating = FALSE;
-		call_client_callback(client, SASL_SERVER_REPLY_AUTH_FAILED,
+		call_client_callback(client, SASL_PROXY_REPLY_AUTH_FAILED,
 				     NULL, args);
 		break;
 	}
@@ -501,9 +501,9 @@ get_cert_username(struct client *client, const char **username_r,
 	return TRUE;
 }
 
-int sasl_server_auth_request_info_fill(struct client *client,
-				       struct auth_request_info *info_r,
-				       const char **client_error_r)
+int sasl_proxy_auth_request_info_fill(struct client *client,
+				      struct auth_request_info *info_r,
+				      const char **client_error_r)
 {
 	const char *error;
 
@@ -567,14 +567,14 @@ int sasl_server_auth_request_info_fill(struct client *client,
 	return 0;
 }
 
-void sasl_server_auth_begin(struct client *client, const char *mech_name,
-			    enum sasl_server_auth_flags flags,
-			    const char *initial_resp_base64,
-			    sasl_server_callback_t *callback)
+void sasl_proxy_auth_begin(struct client *client, const char *mech_name,
+			   enum sasl_proxy_auth_flags flags,
+			   const char *initial_resp_base64,
+			   sasl_proxy_callback_t *callback)
 {
 	struct auth_request_info info;
 	const struct auth_mech_desc *mech;
-	bool private = HAS_ALL_BITS(flags, SASL_SERVER_AUTH_FLAG_PRIVATE);
+	bool private = HAS_ALL_BITS(flags, SASL_PROXY_AUTH_FLAG_PRIVATE);
 	const char *client_error;
 
 	i_assert(auth_client_is_connected(auth_client));
@@ -592,10 +592,10 @@ void sasl_server_auth_begin(struct client *client, const char *mech_name,
 	client->auth_flags = flags;
 	client->sasl_callback = callback;
 
-	mech = sasl_server_find_available_mech(client, mech_name);
+	mech = sasl_proxy_find_available_mech(client, mech_name);
 	if (mech == NULL ||
 	    ((mech->flags & SASL_MECH_SEC_PRIVATE) != 0 && !private)) {
-		sasl_server_auth_failed(client,
+		sasl_proxy_auth_failed(client,
 			"Unsupported authentication mechanism.",
 			AUTH_CLIENT_FAIL_CODE_MECH_INVALID);
 		return;
@@ -609,15 +609,15 @@ void sasl_server_auth_begin(struct client *client, const char *mech_name,
 			 "cleartext authentication not allowed "
 			 "without SSL/TLS, but your client did it anyway. "
 			 "If anyone was listening, the password was exposed.");
-		sasl_server_auth_failed(client,
+		sasl_proxy_auth_failed(client,
 			 AUTH_CLEARTEXT_DISABLED_MSG,
 			 AUTH_CLIENT_FAIL_CODE_MECH_SSL_REQUIRED);
 		return;
 	}
 
-	if (sasl_server_auth_request_info_fill(client, &info, &client_error) < 0) {
-		sasl_server_auth_failed(client, client_error,
-					AUTH_CLIENT_FAIL_CODE_AUTHZFAILED);
+	if (sasl_proxy_auth_request_info_fill(client, &info, &client_error) < 0) {
+		sasl_proxy_auth_failed(client, client_error,
+				       AUTH_CLIENT_FAIL_CODE_AUTHZFAILED);
 		return;
 	}
 	info.mech = mech->name;
@@ -626,13 +626,13 @@ void sasl_server_auth_begin(struct client *client, const char *mech_name,
 		auth_client_request_new(auth_client, &info,
 					authenticate_callback, client);
 	auth_client_request_enable_channel_binding(client->auth_request,
-						   sasl_server_channel_binding,
+						   sasl_proxy_channel_binding,
 						   client);
 }
 
 static void ATTR_NULL(2, 3)
-sasl_server_auth_cancel(struct client *client, const char *reason,
-			const char *code, enum sasl_server_reply reply)
+sasl_proxy_auth_cancel(struct client *client, const char *reason,
+		       const char *code, enum sasl_proxy_reply reply)
 {
 	i_assert(client->authenticating);
 
@@ -661,25 +661,25 @@ sasl_server_auth_cancel(struct client *client, const char *reason,
 	call_client_callback(client, reply, reason, NULL);
 }
 
-void sasl_server_auth_continue(struct client *client, const char *response)
+void sasl_proxy_auth_continue(struct client *client, const char *response)
 {
 	auth_client_request_continue(client->auth_request, response);
 }
 
-void sasl_server_auth_failed(struct client *client, const char *reason,
-			     const char *code)
+void sasl_proxy_auth_failed(struct client *client, const char *reason,
+			    const char *code)
 {
-	sasl_server_auth_cancel(client, reason, code,
-				SASL_SERVER_REPLY_AUTH_FAILED);
+	sasl_proxy_auth_cancel(client, reason, code,
+			       SASL_PROXY_REPLY_AUTH_FAILED);
 }
 
-void sasl_server_auth_abort(struct client *client, const char *reason)
+void sasl_proxy_auth_abort(struct client *client, const char *reason)
 {
 	client->auth_aborted_by_client = TRUE;
 	if (client->anvil_query != NULL) {
 		anvil_client_query_abort(anvil, &client->anvil_query);
 		i_free(client->anvil_request);
 	}
-	sasl_server_auth_cancel(client, reason, NULL,
-				SASL_SERVER_REPLY_AUTH_ABORTED);
+	sasl_proxy_auth_cancel(client, reason, NULL,
+			       SASL_PROXY_REPLY_AUTH_ABORTED);
 }

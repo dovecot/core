@@ -5,7 +5,7 @@ struct module;
 
 #include "net.h"
 #include "login-proxy.h"
-#include "sasl-server.h"
+#include "sasl-proxy.h"
 #include "login-client.h"
 
 #define LOGIN_MAX_SESSION_ID_LEN 64
@@ -230,7 +230,7 @@ struct client {
 	unsigned int proxy_ttl;
 
 	char *auth_mech_name;
-	enum sasl_server_auth_flags auth_flags;
+	enum sasl_proxy_auth_flags auth_flags;
 	/* Auth request set while the client is authenticating.
 	   During this time authenticating=TRUE also. */
 	struct auth_client_request *auth_request;
@@ -249,7 +249,7 @@ struct client {
 	   sending client fd to mail process. authenticating is always TRUE
 	   while this is non-zero. */
 	unsigned int master_tag;
-	sasl_server_callback_t *sasl_callback;
+	sasl_proxy_callback_t *sasl_callback;
 
 	unsigned int bad_counter;
 	unsigned int auth_attempts, auth_successes;

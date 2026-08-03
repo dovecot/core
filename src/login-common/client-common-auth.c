@@ -198,11 +198,11 @@ static bool client_auth_parse_args(const struct client *client, bool success,
 				reply_r->fail_code = client_auth_fail_code_lookup(value);
 			}
 		} else if (strcmp(key, "user") == 0) {
-			/* Usually this is already handled in sasl-server.c,
+			/* Usually this is already handled in sasl-proxy.c,
 			   but this needs to be saved when handling reauth. */
 			*username_r = value;
 		} else if (strcmp(key, "postlogin_socket") == 0) {
-			/* already handled in sasl-server.c */
+			/* already handled in sasl-proxy.c */
 		} else if (str_begins_with(key, "user_")) {
 			if (success) {
 				alt_username_set(&reply_r->alt_usernames,
@@ -472,7 +472,7 @@ proxy_redirect_reauth(struct client *client, const char *destuser,
 
 	e_debug(client->event, "Reauthenticating user %s (redirect to %s:%u)",
 		destuser, host, port);
-	if (sasl_server_auth_request_info_fill(client, &info, &client_error) < 0) {
+	if (sasl_proxy_auth_request_info_fill(client, &info, &client_error) < 0) {
 		const char *error = t_strdup_printf(
 			"Unexpected failure on reauth: %s", client_error);
 		login_proxy_failed(client->login_proxy,
@@ -904,7 +904,7 @@ void client_auth_respond(struct client *client, const char *response)
 		io_remove(&client->io);
 
 	if (strcmp(response, "*") == 0) {
-		sasl_server_auth_abort(client, "Aborted by client");
+		sasl_proxy_auth_abort(client, "Aborted by client");
 		return;
 	}
 
@@ -918,12 +918,12 @@ void client_auth_respond(struct client *client, const char *response)
 
 	client->auth_client_continue_pending = FALSE;
 	client_set_auth_waiting(client);
-	sasl_server_auth_continue(client, response);
+	sasl_proxy_auth_continue(client, response);
 }
 
 void client_auth_fail(struct client *client, const char *text)
 {
-	sasl_server_auth_failed(client, text, NULL);
+	sasl_proxy_auth_failed(client, text, NULL);
 }
 
 int client_auth_read_line(struct client *client)
@@ -992,11 +992,11 @@ void client_auth_send_challenge(struct client *client, const char *data)
 }
 
 static bool
-client_auth_reply_args(struct client *client, enum sasl_server_reply sasl_reply,
+client_auth_reply_args(struct client *client, enum sasl_proxy_reply sasl_reply,
 		       const char *data, const char *const *args,
 		       struct client_auth_reply *reply_r)
 {
-	bool success = sasl_reply == SASL_SERVER_REPLY_SUCCESS;
+	bool success = sasl_reply == SASL_PROXY_REPLY_SUCCESS;
 	const char *username;
 
 	timeout_remove(&client->to_auth_waiting);
@@ -1023,20 +1023,20 @@ client_auth_reply_args(struct client *client, enum sasl_server_reply sasl_reply,
 }
 
 static void
-sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
+sasl_callback(struct client *client, enum sasl_proxy_reply sasl_reply,
 	      const char *data, const char *const *args)
 {
 	struct client_auth_reply reply;
 
 	i_assert(!client->destroyed ||
-		 sasl_reply == SASL_SERVER_REPLY_AUTH_ABORTED ||
-		 sasl_reply == SASL_SERVER_REPLY_MASTER_FAILED ||
-		 sasl_reply == SASL_SERVER_REPLY_MASTER_FAILED_LIMIT);
+		 sasl_reply == SASL_PROXY_REPLY_AUTH_ABORTED ||
+		 sasl_reply == SASL_PROXY_REPLY_MASTER_FAILED ||
+		 sasl_reply == SASL_PROXY_REPLY_MASTER_FAILED_LIMIT);
 
 	client->last_auth_fail = CLIENT_AUTH_FAIL_CODE_NONE;
 	i_zero(&reply);
 	switch (sasl_reply) {
-	case SASL_SERVER_REPLY_SUCCESS:
+	case SASL_PROXY_REPLY_SUCCESS:
 		if (!client_auth_reply_args(client, sasl_reply,
 					    data, args, &reply))
 			break;
@@ -1046,13 +1046,13 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 				   &reply, NULL);
 		client_destroy_success(client, "Logged in");
 		break;
-	case SASL_SERVER_REPLY_AUTH_FAILED:
-	case SASL_SERVER_REPLY_AUTH_ABORTED:
+	case SASL_PROXY_REPLY_AUTH_FAILED:
+	case SASL_PROXY_REPLY_AUTH_ABORTED:
 		if (!client_auth_reply_args(client, sasl_reply,
 					    data, args, &reply))
 			break;
 
-		if (sasl_reply == SASL_SERVER_REPLY_AUTH_ABORTED) {
+		if (sasl_reply == SASL_PROXY_REPLY_AUTH_ABORTED) {
 			client_auth_result(client, CLIENT_AUTH_RESULT_ABORTED,
 				&reply, "Authentication aborted by client.");
 		} else if (data == NULL) {
@@ -1068,11 +1068,11 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		if (!client->destroyed)
 			client_auth_failed(client);
 		break;
-	case SASL_SERVER_REPLY_MASTER_FAILED:
-	case SASL_SERVER_REPLY_MASTER_FAILED_LIMIT:
+	case SASL_PROXY_REPLY_MASTER_FAILED:
+	case SASL_PROXY_REPLY_MASTER_FAILED_LIMIT:
 		if (data == NULL)
 			;
-		else if (sasl_reply == SASL_SERVER_REPLY_MASTER_FAILED) {
+		else if (sasl_reply == SASL_PROXY_REPLY_MASTER_FAILED) {
 			/* authentication itself succeeded, we just hit some
 			   internal failure. */
 			client_auth_result(client, CLIENT_AUTH_RESULT_TEMPFAIL,
@@ -1101,7 +1101,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		}
 		client_destroy(client, data);
 		break;
-	case SASL_SERVER_REPLY_CONTINUE:
+	case SASL_PROXY_REPLY_CONTINUE:
 		i_assert(client->v.auth_send_challenge != NULL);
 		client->v.auth_send_challenge(client, data);
 
@@ -1125,7 +1125,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 
 static int
 client_auth_begin_common(struct client *client, const char *mech_name,
-			 enum sasl_server_auth_flags auth_flags,
+			 enum sasl_proxy_auth_flags auth_flags,
 			 const char *init_resp)
 {
 	i_assert(!client->authenticating);
@@ -1143,8 +1143,8 @@ client_auth_begin_common(struct client *client, const char *mech_name,
 
 	client_ref(client);
 	client->auth_initializing = TRUE;
-	sasl_server_auth_begin(client, mech_name, auth_flags,
-			       init_resp, sasl_callback);
+	sasl_proxy_auth_begin(client, mech_name, auth_flags,
+			      init_resp, sasl_callback);
 	client->auth_initializing = FALSE;
 	if (!client->authenticating)
 		return 1;
@@ -1165,7 +1165,7 @@ int client_auth_begin_private(struct client *client, const char *mech_name,
 			      const char *init_resp)
 {
 	return client_auth_begin_common(client, mech_name,
-					SASL_SERVER_AUTH_FLAG_PRIVATE,
+					SASL_PROXY_AUTH_FLAG_PRIVATE,
 					init_resp);
 }
 
@@ -1173,7 +1173,7 @@ int client_auth_begin_implicit(struct client *client, const char *mech_name,
 			       const char *init_resp)
 {
 	return client_auth_begin_common(client, mech_name,
-					SASL_SERVER_AUTH_FLAG_IMPLICIT,
+					SASL_PROXY_AUTH_FLAG_IMPLICIT,
 					init_resp);
 }
 

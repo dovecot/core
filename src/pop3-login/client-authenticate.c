@@ -40,7 +40,7 @@ bool cmd_capa(struct pop3_client *client, const char *args ATTR_UNUSED)
 		str_append(str, "USER\r\n");
 
 	str_append(str, "SASL");
-	mech = sasl_server_get_advertised_mechs(&client->common, &count);
+	mech = sasl_proxy_get_advertised_mechs(&client->common, &count);
 	for (i = 0; i < count; i++) {
 		str_append_c(str, ' ');
 		str_append(str, mech[i].name);
@@ -134,7 +134,7 @@ int cmd_auth(struct pop3_client *pop3_client)
 			const struct auth_mech_desc *mech;
 
 			client_send_raw(client, "+OK\r\n");
-			mech = sasl_server_get_advertised_mechs(client, &count);
+			mech = sasl_proxy_get_advertised_mechs(client, &count);
 			for (i = 0; i < count; i++) {
 				client_send_raw(client, mech[i].name);
 				client_send_raw(client, "\r\n");

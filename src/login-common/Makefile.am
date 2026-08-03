@@ -23,7 +23,7 @@ liblogin_la_SOURCES = \
 	login-proxy-state.c \
 	login-settings.c \
 	main.c \
-	sasl-server.c
+	sasl-proxy.c
 
 headers = \
 	client-common.h \
@@ -32,7 +32,7 @@ headers = \
 	login-proxy-state.h \
 	login-settings.h \
 	login-log.h \
-	sasl-server.h
+	sasl-proxy.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
