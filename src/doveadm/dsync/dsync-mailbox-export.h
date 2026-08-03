@@ -8,6 +8,8 @@ enum dsync_mailbox_exporter_flags {
 	DSYNC_MAILBOX_EXPORTER_FLAG_TIMESTAMPS		= 0x08,
 	DSYNC_MAILBOX_EXPORTER_FLAG_NO_HDR_HASHES	= 0x20,
 	DSYNC_MAILBOX_EXPORTER_FLAG_VSIZES		= 0x40,
+	/* Export all mailbox attributes, not only the changed ones. */
+	DSYNC_MAILBOX_EXPORTER_FLAG_ALL_ATTRS		= 0x80,
 };
 
 struct dsync_mailbox_export_settings {

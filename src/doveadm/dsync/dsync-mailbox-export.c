@@ -70,6 +70,7 @@ struct dsync_mailbox_exporter {
 	bool mails_have_guids:1;
 	bool minimal_dmail_fill:1;
 	bool return_all_mails:1;
+	bool return_all_attrs:1;
 	bool export_received_timestamps:1;
 	bool export_virtual_sizes:1;
 	bool no_hdr_hashes:1;
@@ -550,6 +551,8 @@ dsync_mailbox_export_init(struct mailbox *box,
 		(set->flags & DSYNC_MAILBOX_EXPORTER_FLAG_TIMESTAMPS) != 0;
 	exporter->export_virtual_sizes =
 		(set->flags & DSYNC_MAILBOX_EXPORTER_FLAG_VSIZES) != 0;
+	exporter->return_all_attrs =
+		(set->flags & DSYNC_MAILBOX_EXPORTER_FLAG_ALL_ATTRS) != 0;
 	exporter->hdr_hash_version = set->hdr_hash_version;
 	exporter->no_hdr_hashes =
 		(set->flags & DSYNC_MAILBOX_EXPORTER_FLAG_NO_HDR_HASHES) != 0;
@@ -641,6 +644,7 @@ dsync_mailbox_export_iter_next_attr(struct dsync_mailbox_exporter *exporter)
 	bool export_all_attrs;
 
 	export_all_attrs = exporter->return_all_mails ||
+		exporter->return_all_attrs ||
 		exporter->last_common_uid == 0;
 	attr_changes = dsync_transaction_log_scan_get_attr_hash(exporter->log_scan);
 	lookup_attr.type = exporter->attr_type;

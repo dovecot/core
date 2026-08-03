@@ -343,6 +343,11 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_TIMESTAMPS;
 	if (brain->sync_max_size > 0)
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_VSIZES;
+	if (brain->backup_send && !brain->no_backup_overwrite) {
+		/* The destination reverts its local changes, so it needs to
+		   see also the attributes that we haven't changed. */
+		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_ALL_ATTRS;
+	}
 	if (remote_dsync_box->messages_count == 0 ||
 	    brain->no_header_hashes) {
 		/* remote mailbox is empty - we don't really need to export
