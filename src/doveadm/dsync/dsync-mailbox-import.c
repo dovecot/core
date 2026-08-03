@@ -489,7 +489,20 @@ dsync_mailbox_import_attribute_real(struct dsync_mailbox_importer *importer,
 		*result_r = "Nonexistent in both sides";
 		return 0;
 	}
-	if (local_attr == NULL) {
+	if (importer->revert_local_changes) {
+		/* backup: the local attribute must always become identical to
+		   the remote one, regardless of which one is newer */
+		if (local_attr != NULL) {
+			if (dsync_mailbox_import_attr_cmp(importer, attr,
+							  local_attr, &cmp) < 0)
+				return -1;
+			if (cmp == 0) {
+				*result_r = "Unchanged value";
+				return 0;
+			}
+		}
+		*result_r = "Reverting local change";
+	} else if (local_attr == NULL) {
 		/* we haven't seen this locally -> use whatever remote has */
 		*result_r = "Nonexistent locally";
 	} else if (local_attr->modseq <= importer->last_common_modseq &&
