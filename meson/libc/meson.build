@@ -4,3 +4,5 @@
 conf.set('FLEXIBLE_ARRAY_MEMBER', '')
 
 libc_prefix = ''
+
+subdir('typeof')
