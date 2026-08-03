@@ -455,6 +455,23 @@ dsync_attributes_cmp(const struct dsync_mailbox_attribute *attr,
 }
 
 static int
+dsync_mailbox_import_attr_cmp(struct dsync_mailbox_importer *importer,
+			      const struct dsync_mailbox_attribute *attr,
+			      const struct dsync_mailbox_attribute *local_attr,
+			      int *cmp_r)
+{
+	const char *error;
+
+	if (dsync_attributes_cmp(attr, local_attr, cmp_r, &error) < 0) {
+		e_error(importer->event, "%s", error);
+		importer->mail_error = MAIL_ERROR_TEMP;
+		importer->failed = TRUE;
+		return -1;
+	}
+	return 0;
+}
+
+static int
 dsync_mailbox_import_attribute_real(struct dsync_mailbox_importer *importer,
 				    const struct dsync_mailbox_attribute *attr,
 				    const struct dsync_mailbox_attribute *local_attr,
@@ -501,13 +518,9 @@ dsync_mailbox_import_attribute_real(struct dsync_mailbox_importer *importer,
 		   so check that first. next try to use modseqs, but if even
 		   they are the same, fallback to just picking one based on the
 		   value. */
-		const char *error;
-		if (dsync_attributes_cmp(attr, local_attr, &cmp, &error) < 0) {
-			e_error(importer->event, "%s", error);
-			importer->mail_error = MAIL_ERROR_TEMP;
-			importer->failed = TRUE;
+		if (dsync_mailbox_import_attr_cmp(importer, attr,
+						  local_attr, &cmp) < 0)
 			return -1;
-		}
 		if (cmp == 0) {
 			/* identical scripts */
 			*result_r = "Unchanged value";
