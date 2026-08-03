@@ -779,13 +779,15 @@ static void io_loop_call_pending(struct ioloop *ioloop)
 {
 	struct io_file *io;
 
-	while (ioloop->io_pending_count > 0) {
+	/* Don't call any more IOs after the ioloop was stopped. They stay
+	   pending and are called if the ioloop is run again. */
+	while (ioloop->io_pending_count > 0 && ioloop->running) {
 		io = ioloop->io_files;
 		do {
 			ioloop->next_io_file = io->next;
 			if (io->io.pending)
 				io_loop_call_io(&io->io);
-			if (ioloop->io_pending_count == 0)
+			if (ioloop->io_pending_count == 0 || !ioloop->running)
 				break;
 			io = ioloop->next_io_file;
 		} while (io != NULL);
