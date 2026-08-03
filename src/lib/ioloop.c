@@ -604,6 +604,12 @@ static void io_loop_timeouts_update(struct ioloop *ioloop, long long diff_usecs)
 	for (i = 0; i < count; i++) {
 		struct timeout *to = (struct timeout *)items[i];
 
+		if (to->msecs == 0 && !to->one_shot) {
+			/* 0 msec timeout wants to run as soon as possible.
+			   Moving its next_run forwards would delay it and
+			   break io_loop_get_wait_time()'s assert. */
+			continue;
+		}
 		if (diff_usecs > 0)
 			timeval_add_usecs(&to->next_run, diff_usecs);
 		else
