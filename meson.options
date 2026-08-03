@@ -15,3 +15,4 @@ option('ioloop', type: 'combo', choices: ['best', 'epoll', 'kqueue', 'poll', 'se
 option('notify', type: 'combo', choices: ['best', 'inotify', 'kqueue', 'none'], value: 'best', description: 'File system notification method to use (best for the fastest available)')
 option('sodium', type: 'feature', value: 'auto', description: 'Build with libsodium support (enables argon2)')
 option('pcre', type: 'feature', value: 'auto', description: 'Build with libpcre2 support (enables regular expressions)')
+option('gssapi', type: 'combo', choices: ['disabled', 'enabled', 'auto', 'plugin'], value: 'disabled', description: 'Build with GSSAPI authentication support')
