@@ -125,6 +125,10 @@ struct istream *openssl_i_stream_create_ssl(struct ssl_iostream *ssl_io)
 	sstream->istream.read = i_stream_ssl_read;
 
 	sstream->istream.istream.readable_fd = FALSE;
+	/* We read plain_input without it being our istream-parent. It's the
+	   fd istream below us, so it's the one that owns the ioloop IO. */
+	sstream->istream.io_parent = ssl_io->plain_input;
+
 	return i_stream_create(&sstream->istream, NULL,
 			       i_stream_get_fd(ssl_io->plain_input), 0);
 }
