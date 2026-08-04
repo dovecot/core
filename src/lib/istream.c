@@ -354,6 +354,66 @@ ssize_t i_stream_read(struct istream *stream)
 	return ret;
 }
 
+/* The istreams whose read() is currently running, innermost first. Used for
+   verifying that istreams declare the istreams they read. */
+struct istream_reader {
+	const struct istream_reader *prev;
+	struct istream *stream;
+	/* The ioloop that was running when read() was called. A nested
+	   io_loop_run() (e.g. dict_wait()) runs unrelated istreams, which
+	   this istream isn't reading. */
+	struct ioloop *ioloop;
+};
+static const struct istream_reader *istream_cur_reader = NULL;
+
+static void i_stream_verify_reader(struct istream *stream)
+{
+	struct istream_private *reader;
+
+	if (istream_cur_reader == NULL || istream_cur_reader->stream == stream)
+		return;
+	if (istream_cur_reader->ioloop != current_ioloop) {
+		/* Running in a nested ioloop, so this istream is unrelated to
+		   the istream whose read() is running. */
+		return;
+	}
+	if (stream->blocking) {
+		/* Blocking istreams are read until they're finished, so their
+		   ioloop IO doesn't matter. read() implementations may create
+		   and drain such istreams internally (e.g. a temp file). */
+		return;
+	}
+	if (istream_cur_reader->stream->blocking) {
+		/* A blocking istream is also read until it's finished, so it
+		   never depends on an ioloop IO to wake it up, and it doesn't
+		   matter which istreams it reads. */
+		return;
+	}
+
+	reader = istream_cur_reader->stream->real_stream;
+	if (stream == reader->parent)
+		return;
+	if (reader->io_parent != NULL &&
+	    i_stream_get_root_io(stream) ==
+	    i_stream_get_root_io(reader->io_parent)) {
+		/* The declared istream, or another istream reading from the
+		   same one (e.g. istream-decompress reads both its input and
+		   the decompressing istream created on top of it). */
+		return;
+	}
+	if (reader->hidden_inputs == ISTREAM_HIDDEN_INPUTS_UNCHECKED ||
+	    reader->hidden_inputs == ISTREAM_HIDDEN_INPUTS_PANIC) {
+		/* Reads istreams it doesn't declare, so there's nothing to
+		   compare against. */
+		return;
+	}
+
+	i_panic("istream %s reads undeclared istream %s "
+		"(missing istream_private.io_parent?)",
+		i_stream_get_name(&reader->istream),
+		i_stream_get_name(stream));
+}
+
 ssize_t i_stream_read_memarea(struct istream *stream)
 {
 	struct istream_private *_stream = stream->real_stream;
@@ -366,6 +426,7 @@ ssize_t i_stream_read_memarea(struct istream *stream)
 		return -1;
 	}
 
+	i_stream_verify_reader(stream);
 	stream->eof = FALSE;
 
 	if (_stream->parent != NULL)
@@ -378,9 +439,17 @@ ssize_t i_stream_read_memarea(struct istream *stream)
 		_stream->pos = _stream->high_pos;
 		_stream->high_pos = 0;
 	} else {
+		struct istream_reader reader = {
+			.prev = istream_cur_reader,
+			.stream = stream,
+			.ioloop = current_ioloop,
+		};
+
 		_stream->high_pos = 0;
 		_stream->io_pending_until_read = FALSE;
+		istream_cur_reader = &reader;
 		ret = _stream->read(_stream);
+		istream_cur_reader = reader.prev;
 	}
 	i_assert(_stream->skip <= _stream->pos);
 	i_assert(old_size <= _stream->pos - _stream->skip);
