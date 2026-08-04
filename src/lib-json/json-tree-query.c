@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
+#include "array.h"
 
 #include "json-pointer.h"
 #include "json-tree-query.h"
@@ -94,4 +95,89 @@ json_tree_resolve_pointer(const struct json_tree *jtree, const char *pointer)
 {
 	const struct json_tree_node *node = json_tree_get_root_const(jtree);
 	return json_tree_node_resolve_pointer(node, pointer);
+}
+
+/* --- RFC 8620 sect 3.7 multi-result query --- */
+
+void json_tree_node_pointer_query_all(const struct json_pointer *pointer,
+				      const struct json_tree_node *node,
+				      ARRAY_TYPE(json_tree_node_const) *results_r)
+{
+	ARRAY_TYPE(json_tree_node_const) set_a, set_b;
+	ARRAY_TYPE(json_tree_node_const) *cur, *nxt, *tmp;
+	bool used_splat = FALSE;
+
+	i_assert(pointer != NULL);
+	i_assert(node != NULL);
+	i_assert(results_r != NULL);
+
+	t_array_init(&set_a, 8);
+	t_array_init(&set_b, 8);
+	cur = &set_a;
+	nxt = &set_b;
+
+	if (json_tree_node_get_type(node) != JSON_TYPE_NONE)
+		array_push_back(cur, &node);
+
+	for (const struct json_pointer_step *step = pointer->first;
+	     step != NULL; step = step->next) {
+		array_clear(nxt);
+
+		const struct json_tree_node *c;
+		array_foreach_elem(cur, c) {
+			/* RFC 8620 sect 3.7 "*" is only a splat wildcard
+			   against arrays; against an object it is looked up
+			   like any other member name (so a literal "*"
+			   member stays reachable). */
+			if (json_tree_node_is_array(c) &&
+			    step->token_len == 1 && step->token[0] == '*') {
+				used_splat = TRUE;
+				const struct json_tree_node *child;
+				for (child = json_tree_node_get_child(c);
+				     child != NULL;
+				     child = json_tree_node_get_next(child))
+					array_push_back(nxt, &child);
+			} else {
+				const struct json_tree_node *m =
+					json_tree_node_pointer_step(c, step);
+				if (m != NULL)
+					array_push_back(nxt, &m);
+			}
+			/* scalar: produces no output */
+		}
+
+		/* nxt becomes the frontier for the next step; cur is now
+		   stale and gets reused as next round's nxt buffer. */
+		tmp = cur; cur = nxt; nxt = tmp;
+	}
+
+	/* RFC 8620 sect 3.7: if the per-item result of applying the rest of
+	   the pointer tokens is itself an array, its contents are added to
+	   the output rather than the array itself.  Flatten exactly one
+	   level here, once, on the final frontier - not inside the step
+	   loop - so "/a/[*]/b" (written with [*] to avoid closing this
+	   comment) where "b" is an array of arrays is flattened only at
+	   the outermost level, not recursively.  Only applies once a "*"
+	   has actually been used; splat-free pointers keep appending the
+	   resolved node as-is (0 or 1 results, per the doc comment). */
+	const struct json_tree_node *resp;
+	array_foreach_elem(cur, resp) {
+		if (used_splat && json_tree_node_is_array(resp)) {
+			const struct json_tree_node *child;
+			for (child = json_tree_node_get_child(resp);
+			     child != NULL;
+			     child = json_tree_node_get_next(child))
+				array_push_back(results_r, &child);
+		} else {
+			array_push_back(results_r, &resp);
+		}
+	}
+}
+
+void json_tree_pointer_query_all(const struct json_pointer *pointer,
+				 const struct json_tree *jtree,
+				 ARRAY_TYPE(json_tree_node_const) *results_r)
+{
+	const struct json_tree_node *node = json_tree_get_root_const(jtree);
+	json_tree_node_pointer_query_all(pointer, node, results_r);
 }

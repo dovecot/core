@@ -830,6 +830,336 @@ static void test_import_errors(void)
 	test_end();
 }
 
+static void test_rfc8620_array_splat(void)
+{
+	struct json_tree *jtree;
+	struct json_tree_node *root, *arr, *item;
+	const struct json_tree_node *const *nodep;
+	struct json_pointer *path;
+	ARRAY_TYPE(json_tree_node_const) results;
+	const char *error;
+
+	/* Build { "arr": [ {name:"alice"}, {name:"bob"}, {name:"carol"} ] } */
+	jtree = json_tree_create_object(&root);
+	arr = json_tree_node_add_array(root, "arr");
+	item = json_tree_node_add_object(arr, NULL);
+	json_tree_node_add_string(item, "name", "alice");
+	item = json_tree_node_add_object(arr, NULL);
+	json_tree_node_add_string(item, "name", "bob");
+	item = json_tree_node_add_object(arr, NULL);
+	json_tree_node_add_string(item, "name", "carol");
+
+	test_begin("rfc8620 array splat");
+
+	/* splat /arr/star -> all 3 elements (objects) */
+	test_assert(json_pointer_create("/arr/*", &path, &error) == 0);
+	t_array_init(&results, 4);
+	json_tree_node_pointer_query_all(path, root, &results);
+	test_assert(array_count(&results) == 3);
+	array_foreach(&results, nodep)
+		test_assert(json_tree_node_is_object(*nodep));
+	json_pointer_free(&path);
+
+	/* splat /arr/star/name -> "alice", "bob", "carol" */
+	test_assert(json_pointer_create("/arr/*/name", &path, &error) == 0);
+	t_array_init(&results, 4);
+	json_tree_node_pointer_query_all(path, root, &results);
+	test_assert(array_count(&results) == 3);
+	nodep = array_idx(&results, 0);
+	test_assert_strcmp(json_tree_node_get_str(*nodep), "alice");
+	nodep = array_idx(&results, 1);
+	test_assert_strcmp(json_tree_node_get_str(*nodep), "bob");
+	nodep = array_idx(&results, 2);
+	test_assert_strcmp(json_tree_node_get_str(*nodep), "carol");
+	json_pointer_free(&path);
+
+	/* Splat on empty array -> 0 results */
+	struct json_tree *t2;
+	struct json_tree_node *r2;
+	t2 = json_tree_create_object(&r2);
+	json_tree_node_add_array(r2, "empty");
+	test_assert(json_pointer_create("/empty/*", &path, &error) == 0);
+	t_array_init(&results, 4);
+	json_tree_node_pointer_query_all(path, r2, &results);
+	test_assert(array_count(&results) == 0);
+	json_pointer_free(&path);
+	json_tree_unref(&t2);
+
+	/* Splat on object -> 0 results (not an array) */
+	test_assert(json_pointer_create("/*", &path, &error) == 0);
+	t_array_init(&results, 4);
+	json_tree_node_pointer_query_all(path, root, &results);
+	test_assert(array_count(&results) == 0);
+	json_pointer_free(&path);
+
+	/* A literal "*" member on an object stays reachable via "*": this
+	   is ordinary RFC 6901 member-name lookup, not a splat, since RFC
+	   8620's splat clause only applies to arrays. Covers both the
+	   query_all() and the singular query() API, since the singular API
+	   always treats "*" as a literal token (never a splat). */
+
+	struct json_tree *t3;
+	struct json_tree_node *r3;
+	const struct json_tree_node *node;
+
+	t3 = json_tree_create_object(&r3);
+	json_tree_node_add_number_int(r3, "*", 42);
+
+	test_assert(json_pointer_create("/*", &path, &error) == 0);
+
+	t_array_init(&results, 4);
+	json_tree_node_pointer_query_all(path, r3, &results);
+	test_assert(array_count(&results) == 1);
+	nodep = array_idx(&results, 0);
+	test_assert_int_value(*nodep, 42);
+
+	node = json_tree_node_pointer_query(path, r3);
+	test_assert_int_value(node, 42);
+
+	json_pointer_free(&path);
+	json_tree_unref(&t3);
+
+	/* Splat-free path via query_all -> singular result */
+	test_assert(json_pointer_create("/arr/1/name", &path, &error) == 0);
+	t_array_init(&results, 4);
+	json_tree_node_pointer_query_all(path, root, &results);
+	test_assert(array_count(&results) == 1);
+	nodep = array_idx(&results, 0);
+	test_assert_strcmp(json_tree_node_get_str(*nodep), "bob");
+	json_pointer_free(&path);
+
+	/* Splat-free missing path via query_all -> 0 results */
+	test_assert(json_pointer_create("/arr/99/name", &path, &error) == 0);
+	t_array_init(&results, 4);
+	json_tree_node_pointer_query_all(path, root, &results);
+	test_assert(array_count(&results) == 0);
+	json_pointer_free(&path);
+
+	test_end();
+	json_tree_unref(&jtree);
+}
+
+static void test_rfc8620_splat_flatten_array_result(void)
+{
+	struct json_tree *jtree;
+	struct json_tree_node *root, *a, *inner;
+	const struct json_tree_node *const *nodep;
+	struct json_pointer *path;
+	ARRAY_TYPE(json_tree_node_const) results;
+	const char *error;
+
+	/* Build { "a": [ [1,2], [3] ] } */
+	jtree = json_tree_create_object(&root);
+	a = json_tree_node_add_array(root, "a");
+	inner = json_tree_node_add_array(a, NULL);
+	json_tree_node_add_number_int(inner, NULL, 1);
+	json_tree_node_add_number_int(inner, NULL, 2);
+	inner = json_tree_node_add_array(a, NULL);
+	json_tree_node_add_number_int(inner, NULL, 3);
+
+	test_begin("rfc8620 splat flattens per-item array result");
+
+	/* RFC 8620 sect 3.7: since each "*" item's (empty) remainder is
+	   itself an array, its contents are flattened into the output -
+	   3 scalars, not 2 array nodes. */
+	test_assert(json_pointer_create("/a/*", &path, &error) == 0);
+	t_array_init(&results, 4);
+	json_tree_node_pointer_query_all(path, root, &results);
+	test_assert(array_count(&results) == 3);
+	nodep = array_idx(&results, 0);
+	test_assert_int_value(*nodep, 1);
+	nodep = array_idx(&results, 1);
+	test_assert_int_value(*nodep, 2);
+	nodep = array_idx(&results, 2);
+	test_assert_int_value(*nodep, 3);
+	json_pointer_free(&path);
+
+	/* Splat-free access to the same array must NOT flatten (0 or 1
+	   results contract for non-splat pointers). */
+	test_assert(json_pointer_create("/a", &path, &error) == 0);
+	t_array_init(&results, 4);
+	json_tree_node_pointer_query_all(path, root, &results);
+	test_assert(array_count(&results) == 1);
+	nodep = array_idx(&results, 0);
+	test_assert(json_tree_node_is_array(*nodep));
+	json_pointer_free(&path);
+
+	json_tree_unref(&jtree);
+
+	/* "*" as a non-final token: per-item remainder ("/tags") can also
+	   yield an array, which must flatten just the same as the
+	   splat-is-last case above. Build
+	   { "arr": [ {"tags":["a","b"]}, {"tags":["c"]} ] }. */
+	struct json_tree_node *arr, *item;
+
+	jtree = json_tree_create_object(&root);
+	arr = json_tree_node_add_array(root, "arr");
+	item = json_tree_node_add_object(arr, NULL);
+	inner = json_tree_node_add_array(item, "tags");
+	json_tree_node_add_string(inner, NULL, "a");
+	json_tree_node_add_string(inner, NULL, "b");
+	item = json_tree_node_add_object(arr, NULL);
+	inner = json_tree_node_add_array(item, "tags");
+	json_tree_node_add_string(inner, NULL, "c");
+
+	test_assert(json_pointer_create("/arr/*/tags",
+				     &path, &error) == 0);
+	t_array_init(&results, 4);
+	json_tree_node_pointer_query_all(path, root, &results);
+	test_assert(array_count(&results) == 3);
+	nodep = array_idx(&results, 0);
+	test_assert_strcmp(json_tree_node_get_str(*nodep), "a");
+	nodep = array_idx(&results, 1);
+	test_assert_strcmp(json_tree_node_get_str(*nodep), "b");
+	nodep = array_idx(&results, 2);
+	test_assert_strcmp(json_tree_node_get_str(*nodep), "c");
+	json_pointer_free(&path);
+
+	json_tree_unref(&jtree);
+
+	/* Flatten is one level only, not recursive. Build
+	   { "a": [ [[1]] ] }: the sole "*" item is itself an array
+	   ([[1]]), so its *contents* (one element: the array [1]) are
+	   flattened into the output - 1 result that is still an array
+	   node, not the scalar 1. */
+	struct json_tree_node *outer_item;
+
+	jtree = json_tree_create_object(&root);
+	a = json_tree_node_add_array(root, "a");
+	outer_item = json_tree_node_add_array(a, NULL);
+	inner = json_tree_node_add_array(outer_item, NULL);
+	json_tree_node_add_number_int(inner, NULL, 1);
+
+	test_assert(json_pointer_create("/a/*", &path, &error) == 0);
+	t_array_init(&results, 4);
+	json_tree_node_pointer_query_all(path, root, &results);
+	test_assert(array_count(&results) == 1);
+	nodep = array_idx(&results, 0);
+	test_assert(json_tree_node_is_array(*nodep));
+	test_assert(json_tree_node_get_child_count(*nodep) == 1);
+	test_assert_int_value(json_tree_node_get_child(*nodep), 1);
+	json_pointer_free(&path);
+
+	json_tree_unref(&jtree);
+
+	test_end();
+}
+
+static void test_rfc8620_splat_bookstore(void)
+{
+	struct json_tree *jtree;
+	struct json_tree_node *root;
+	const struct json_tree_node *const *nodep;
+	struct json_pointer *path;
+	ARRAY_TYPE(json_tree_node_const) results;
+	const char *error;
+	static const char *expected_authors[] = {
+		"Nigel Rees", "Evelyn Waugh", "Herman Melville",
+		"J. R. R. Tolkien",
+	};
+
+	jtree = make_rfc9535_bookstore(&root);
+
+	test_begin("rfc8620 splat against bookstore tree");
+
+	/* splat book/star/author -> 4 author strings */
+	test_assert(json_pointer_create("/store/book/*/author",
+				     &path, &error) == 0);
+	t_array_init(&results, 8);
+	json_tree_node_pointer_query_all(path, root, &results);
+	test_assert(array_count(&results) == 4);
+	for (unsigned int i = 0; i < 4 && i < array_count(&results); i++) {
+		nodep = array_idx(&results, i);
+		test_assert_strcmp(json_tree_node_get_str(*nodep),
+				   expected_authors[i]);
+	}
+	json_pointer_free(&path);
+
+	/* splat book/star -> 4 book objects */
+	test_assert(json_pointer_create("/store/book/*", &path, &error) == 0);
+	t_array_init(&results, 8);
+	json_tree_node_pointer_query_all(path, root, &results);
+	test_assert(array_count(&results) == 4);
+	array_foreach(&results, nodep)
+		test_assert(json_tree_node_is_object(*nodep));
+	json_pointer_free(&path);
+
+	/* splat book/star/isbn -> only 2 (books 0 and 1 lack isbn) */
+	test_assert(json_pointer_create("/store/book/*/isbn",
+				     &path, &error) == 0);
+	t_array_init(&results, 8);
+	json_tree_node_pointer_query_all(path, root, &results);
+	test_assert(array_count(&results) == 2);
+	json_pointer_free(&path);
+
+	test_end();
+	json_tree_unref(&jtree);
+}
+
+static void test_rfc8620_splat_roundtrip(void)
+{
+	struct json_pointer *path, *back;
+	const char *error;
+	buffer_t *buf;
+	const struct json_pointer_step *step;
+
+	test_begin("rfc8620 splat export/import round-trip");
+
+	test_assert(json_pointer_create("/arr/*/name", &path, &error) == 0);
+
+	step = path->first;
+	test_assert(step != NULL); /* "arr" */
+	test_assert_strcmp(step->token, "arr");
+	step = step->next;
+	test_assert(step != NULL);  /* "*" */
+	test_assert_strcmp(step->token, "*");
+	step = step->next;
+	test_assert(step != NULL); /* "name" */
+	test_assert_strcmp(step->token, "name");
+	test_assert(step->next == NULL);
+
+	/* Round-trip. */
+	buf = t_buffer_create(64);
+	test_assert(json_pointer_export(buf, path, &error) == 0);
+	test_assert(json_pointer_import(buf->data, buf->used, &back, &error) == 0);
+
+	step = back->first;
+	test_assert(step != NULL);
+	test_assert_strcmp(step->token, "arr");
+	step = step->next;
+	test_assert(step != NULL);
+	test_assert_strcmp(step->token, "*");
+	step = step->next;
+	test_assert(step != NULL);
+	test_assert_strcmp(step->token, "name");
+	test_assert(step->next == NULL);
+
+	json_pointer_free(&back);
+	json_pointer_free(&path);
+
+	test_end();
+}
+
+static void test_rfc8620_splat_empty_tree(void)
+{
+	struct json_tree *jtree;
+	struct json_pointer *path;
+	ARRAY_TYPE(json_tree_node_const) results;
+	const char *error;
+
+	test_begin("rfc8620 splat on empty tree");
+
+	jtree = json_tree_create();
+	test_assert(json_pointer_create("/arr/*", &path, &error) == 0);
+	t_array_init(&results, 4);
+	json_tree_pointer_query_all(path, jtree, &results);
+	test_assert(array_count(&results) == 0);
+	json_pointer_free(&path);
+	json_tree_unref(&jtree);
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
@@ -850,6 +1180,11 @@ int main(void)
 		test_import_query,
 		test_export_step_count_cap,
 		test_import_errors,
+		test_rfc8620_array_splat,
+		test_rfc8620_splat_flatten_array_result,
+		test_rfc8620_splat_bookstore,
+		test_rfc8620_splat_roundtrip,
+		test_rfc8620_splat_empty_tree,
 		NULL
 	};
 
