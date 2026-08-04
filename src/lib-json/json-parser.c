@@ -2390,6 +2390,10 @@ json_string_istream_close(struct iostream_private *stream,
 
 	if (jstream->parser != NULL)
 		jstream->parser->str_stream = NULL;
+	/* The parser's input istream doesn't survive json_parser_deinit(),
+	   but a closed string istream may. Drop the io_parent pointer before
+	   it becomes dangling. */
+	jstream->istream.io_parent = NULL;
 }
 
 static struct istream *
@@ -2420,6 +2424,10 @@ json_string_stream_create(struct json_parser *parser, bool complete)
 	jstream->istream.istream.seekable = FALSE;
 
 	parser->str_stream = jstream;
+
+	/* We read the parser's input, which isn't our istream-parent. It also
+	   owns the ioloop IO, since it's the istream the caller is reading. */
+	jstream->istream.io_parent = parser->input;
 
 	stream = i_stream_create(&jstream->istream, NULL,
 				 i_stream_get_fd(parser->input), 0);
