@@ -47,7 +47,7 @@
 
 /* If die callback hasn't managed to stop the service for this many seconds,
    force it. */
-#define MASTER_SERVICE_DIE_TIMEOUT_MSECS (30*1000)
+#define MASTER_SERVICE_DEFAULT_DIE_TIMEOUT_MSECS (30*1000)
 
 /* How often master_service_ioloop_run_interruptible() polls whether the
    process has been killed. */
@@ -562,6 +562,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 		i_strconcat(getopt_str, master_service_getopt_string(), NULL);
 	service->flags = flags;
 	service->ioloop = io_loop_create();
+	service->die_timeout_msecs = MASTER_SERVICE_DEFAULT_DIE_TIMEOUT_MSECS;
 	service->restart_request_count_left = UINT_MAX;
 	service->datastack_frame_id = datastack_frame_id;
 
@@ -868,6 +869,12 @@ void master_service_set_die_callback(struct master_service *service,
 	service->die_callback = callback;
 }
 
+void master_service_set_die_timeout_msecs(struct master_service *service,
+					  unsigned int msecs)
+{
+	service->die_timeout_msecs = msecs;
+}
+
 void master_service_set_idle_die_callback(struct master_service *service,
 					  bool (*callback)(void))
 {
@@ -947,7 +954,7 @@ static void master_service_error(struct master_service *service)
 			master_service_stop(service);
 		else {
 			service->to_die =
-				timeout_add(MASTER_SERVICE_DIE_TIMEOUT_MSECS,
+				timeout_add(service->die_timeout_msecs,
 					    master_service_stop,
 					    service);
 			service->die_callback();

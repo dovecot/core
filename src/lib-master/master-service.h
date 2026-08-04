@@ -183,6 +183,13 @@ void master_service_set_die_with_master(struct master_service *service,
    done forcibly. If NULL, the service is stopped immediately. */
 void master_service_set_die_callback(struct master_service *service,
 				     void (*callback)(void));
+/* Set how long after the die callback is invoked the service is stopped
+   forcibly. Defaults to MASTER_SERVICE_DEFAULT_DIE_TIMEOUT_MSECS. Must be
+   called before the die callback fires (e.g. at startup). Keep this smaller
+   than master's SERVICE_DIE_TIMEOUT_MSECS, after which master kills the
+   process anyway. */
+void master_service_set_die_timeout_msecs(struct master_service *service,
+					  unsigned int msecs);
 /* "idle callback" is called when master thinks we're idling and asks us to
    die. We'll do it only if the idle callback returns TRUE. This callback isn't
    even called if the master service code knows that we're handling clients. */

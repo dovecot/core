@@ -19,7 +19,9 @@
 #include <signal.h>
 
 /* How long to wait after config reload before killing processes that aren't
-   dying by themself. Keep this higher than MASTER_SERVICE_DIE_TIMEOUT_MSECS. */
+   dying by themself. Keep this higher than
+   MASTER_SERVICE_DEFAULT_DIE_TIMEOUT_MSECS, and higher than any die timeout
+   set with master_service_set_die_timeout_msecs(). */
 #define SERVICE_DIE_TIMEOUT_MSECS (1000*35)
 #define SERVICE_LOGIN_NOTIFY_MIN_INTERVAL_SECS 2
 

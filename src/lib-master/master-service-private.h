@@ -68,6 +68,7 @@ struct master_service {
 	void *killed_context;
 
 	struct timeout *to_die;
+	unsigned int die_timeout_msecs;
 
 	master_service_avail_overflow_callback_t *avail_overflow_callback;
 	struct timeout *to_overflow_state, *to_overflow_call;
