@@ -1,8 +1,13 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "test-lib.h"
+#include "ioloop.h"
 #include "istream-private.h"
 #include "istream-chain.h"
+
+static void test_istream_chain_io_noop(void *context ATTR_UNUSED)
+{
+}
 
 static void test_istream_chain_basic(void)
 {
@@ -189,6 +194,34 @@ static void test_istream_chain_accumulate(void)
 
 	i_stream_unref(&input);
 	test_end();
+}
+
+enum fatal_test_state fatal_istream_chain(unsigned int stage)
+{
+	struct istream *input, *test_input;
+	struct istream_chain *chain;
+	struct ioloop *ioloop;
+
+	switch (stage) {
+	case 0:
+		test_begin("istream chain fatals");
+		/* The chain istream owns the ioloop IO, but the appended
+		   istream's i_stream_set_input_pending() can't reach it. */
+		ioloop = io_loop_create();
+		input = i_stream_create_chain(&chain, IO_BLOCK_SIZE);
+		(void)io_add_istream(input, test_istream_chain_io_noop, NULL);
+
+		test_input = test_istream_create("stream1");
+		test_istream_set_input_pending(test_input, TRUE);
+		i_stream_chain_append(chain, test_input);
+
+		test_expect_fatal_string("is lost");
+		i_error("This shouldn't return: %zd", i_stream_read(input));
+		io_loop_destroy(&ioloop);
+		return FATAL_TEST_FAILURE;
+	}
+	test_end();
+	return FATAL_TEST_FINISHED;
 }
 
 void test_istream_chain(void)

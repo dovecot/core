@@ -1107,6 +1107,33 @@ struct istream *i_stream_get_root_io(struct istream *stream)
 	return stream;
 }
 
+static void i_stream_verify_pending_reachable(struct istream *owner)
+{
+	const struct istream_reader *reader;
+
+	/* The IO may still be added to owner later on. But if an istream that
+	   is currently reading it already owns one, and it can't share it with
+	   owner, this pending is lost. */
+	for (reader = istream_cur_reader; reader != NULL; reader = reader->prev) {
+		struct istream *root;
+
+		if (reader->ioloop != current_ioloop) {
+			/* Nested ioloop - the outer istreams aren't reading
+			   this one. */
+			break;
+		}
+		if (reader->stream->real_stream->hidden_inputs !=
+		    ISTREAM_HIDDEN_INPUTS_PANIC)
+			continue;
+		root = i_stream_get_root_io(reader->stream);
+		if (root == owner || root->real_stream->io == NULL)
+			continue;
+		i_panic("i_stream_set_input_pending(%s) is lost: "
+			"istream %s reads it and owns the ioloop IO",
+			i_stream_get_name(owner), i_stream_get_name(root));
+	}
+}
+
 void i_stream_set_input_pending(struct istream *stream, bool pending)
 {
 	if (!pending)
@@ -1117,8 +1144,10 @@ void i_stream_set_input_pending(struct istream *stream, bool pending)
 	stream = i_stream_get_root_io(stream);
 	if (stream->real_stream->io != NULL)
 		io_set_pending(stream->real_stream->io);
-	else
+	else {
+		i_stream_verify_pending_reachable(stream);
 		stream->real_stream->io_pending = TRUE;
+	}
 }
 
 void i_stream_switch_ioloop_to(struct istream *stream, struct ioloop *ioloop)
