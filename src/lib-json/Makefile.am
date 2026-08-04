@@ -50,7 +50,7 @@ noinst_PROGRAMS += json-format $(fuzz_programs)
 EXTRA_DIST = \
 	fuzz-json-istream.dict
 
-json_format_SOURCE = \
+json_format_SOURCES = \
 	json-format.c
 json_format_LDADD = \
 	libjson.la \
@@ -70,49 +70,49 @@ test_deps = \
 	../lib-charset/libcharset.la \
 	../lib/liblib.la
 
-test_json_parser_SOURCE = \
+test_json_parser_SOURCES = \
 	test-json-parser.c
 test_json_parser_LDADD = \
 	$(test_libs)
 test_json_parser_DEPENDENCIES = \
 	$(test_deps)
 
-test_json_generator_SOURCE = \
+test_json_generator_SOURCES = \
 	test-json-generator.c
 test_json_generator_LDADD = \
 	$(test_libs)
 test_json_generator_DEPENDENCIES = \
 	$(test_deps)
 
-test_json_io_SOURCE = \
+test_json_io_SOURCES = \
 	test-json-io.c
 test_json_io_LDADD = \
 	$(test_libs)
 test_json_io_DEPENDENCIES = \
 	$(test_deps)
 
-test_json_istream_SOURCE = \
+test_json_istream_SOURCES = \
 	test-json-istream.c
 test_json_istream_LDADD = \
 	$(test_libs)
 test_json_istream_DEPENDENCIES = \
 	$(test_deps)
 
-test_json_ostream_SOURCE = \
+test_json_ostream_SOURCES = \
 	test-json-ostream.c
 test_json_ostream_LDADD = \
 	$(test_libs)
 test_json_ostream_DEPENDENCIES = \
 	$(test_deps)
 
-test_json_tree_SOURCE = \
+test_json_tree_SOURCES = \
 	test-json-tree.c
 test_json_tree_LDADD = \
 	$(test_libs)
 test_json_tree_DEPENDENCIES = \
 	$(test_deps)
 
-test_json_tree_io_SOURCE = \
+test_json_tree_io_SOURCES = \
 	test-json-tree-io.c
 test_json_tree_io_LDADD = \
 	$(test_libs)
