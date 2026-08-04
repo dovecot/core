@@ -85,4 +85,33 @@ bool
 json_pointer_token_parse_array_index(const char *token, size_t token_len,
 				     unsigned int *idx_r);
 
+/*
+ * Binary export / import.
+ *
+ * json_pointer_export() appends a self-contained binary representation of the
+ * compiled pointer to `dest`.  json_pointer_import() reconstructs an equivalent
+ * compiled pointer from such a byte sequence.
+ *
+ * The serialized form is intended to be persisted (e.g. on disk) and read
+ * back later.  Import treats input as untrusted: it validates a magic and
+ * version header, caps the step count and per-token length, and never
+ * dereferences past the supplied buffer.  An empty pointer round-trips to
+ * an empty pointer.
+ *
+ * json_pointer_export() enforces the same step-count and per-token-length
+ * caps that json_pointer_import() does, so a successful export is always
+ * importable: a pointer built via json_pointer_create() (which applies no
+ * such caps) can in principle exceed them.  Returns 0 on success (nothing
+ * appended to `dest` on failure).  Returns -1 if `pointer` exceeds a cap
+ * (*error_r is set).
+ *
+ * json_pointer_import() returns 0 on success (*pointer_r is set; free with
+ * json_pointer_free()).  Returns -1 on malformed input (*error_r is set;
+ * *pointer_r is not set).
+ */
+int json_pointer_export(buffer_t *dest, const struct json_pointer *pointer,
+			const char **error_r);
+int json_pointer_import(const void *data, size_t size,
+			struct json_pointer **pointer_r, const char **error_r);
+
 #endif

@@ -28,10 +28,29 @@
  */
 
 #include "lib.h"
+#include "buffer.h"
+#include "numpack.h"
 #include "uri-util.h"
 #include "str.h"
 
 #include "json-pointer.h"
+
+/* On-disk binary format:
+       magic      = "JPTR"	   4 bytes
+       version    = 0x01	     1 byte
+       step_count = numpack uint     1..N bytes
+       step       = numpack token_len + token_len bytes  (repeated step_count times)
+   Lengths use numpack (src/lib/numpack.h) so embedded NULs in tokens
+   round-trip safely.  Import treats the buffer as untrusted; the caps
+   below bound stack/heap usage from a malicious blob. */
+static const char json_pointer_magic[4] = { 'J', 'P', 'T', 'R' };
+#define JSON_POINTER_FORMAT_VERSION 0x01
+
+/* Bounds to clamp untrusted input.  Both well above any realistic JSON
+   Pointer; the limits exist purely to refuse pathological blobs without
+   any allocation attempt. */
+#define JSON_POINTER_IMPORT_MAX_STEPS  4096
+#define JSON_POINTER_IMPORT_MAX_TOKEN  (64 * 1024)
 
 /* Parse a NUL-terminated JSON Pointer string into compiled form.
 
@@ -164,6 +183,152 @@ void json_pointer_free(struct json_pointer **_pointer)
 		return;
 	*_pointer = NULL;
 	pool_unref(&pointer->pool);
+}
+
+/* --- Binary export / import --- */
+
+int json_pointer_export(buffer_t *dest, const struct json_pointer *pointer,
+			const char **error_r)
+{
+	unsigned int step_count = 0;
+
+	i_assert(dest != NULL);
+	i_assert(pointer != NULL);
+	i_assert(error_r != NULL);
+
+	for (const struct json_pointer_step *s = pointer->first; s != NULL;
+	     s = s->next) {
+		step_count++;
+		if (s->token_len > JSON_POINTER_IMPORT_MAX_TOKEN) {
+			*error_r = "JSON pointer token length exceeds cap";
+			return -1;
+		}
+	}
+	if (step_count > JSON_POINTER_IMPORT_MAX_STEPS) {
+		*error_r = "JSON pointer step count exceeds cap";
+		return -1;
+	}
+
+	buffer_append(dest, json_pointer_magic, sizeof(json_pointer_magic));
+	buffer_append_c(dest, JSON_POINTER_FORMAT_VERSION);
+	numpack_encode(dest, step_count);
+
+	for (const struct json_pointer_step *s = pointer->first; s != NULL;
+	     s = s->next) {
+		numpack_encode(dest, s->token_len);
+		buffer_append(dest, s->token, s->token_len);
+	}
+	return 0;
+}
+
+int json_pointer_import(const void *data, size_t size,
+			struct json_pointer **pointer_r, const char **error_r)
+{
+	const unsigned char *p = data;
+	/* data == NULL, size == 0 is a valid input (asserted below), but
+	   NULL + 0 is UB - only form the pointer when there's anything to
+	   point past. */
+	const unsigned char *end = (size == 0 ? p : p + size);
+	uint64_t step_count, i;
+	pool_t pool;
+	struct json_pointer *jpointer;
+	struct json_pointer_step **tail;
+
+	i_assert(data != NULL || size == 0);
+	i_assert(pointer_r != NULL);
+	i_assert(error_r != NULL);
+
+	if ((size_t)(end - p) < sizeof(json_pointer_magic) + 1) {
+		*error_r = "Truncated JSON pointer header";
+		return -1;
+	}
+	if (memcmp(p, json_pointer_magic, sizeof(json_pointer_magic)) != 0) {
+		*error_r = "Bad JSON pointer magic";
+		return -1;
+	}
+	p += sizeof(json_pointer_magic);
+	if (*p != JSON_POINTER_FORMAT_VERSION) {
+		*error_r = "Unsupported JSON pointer format version";
+		return -1;
+	}
+	p++;
+
+	if (numpack_decode(&p, end, &step_count) < 0) {
+		*error_r = "Truncated JSON pointer step count";
+		return -1;
+	}
+	if (step_count > JSON_POINTER_IMPORT_MAX_STEPS) {
+		*error_r = "JSON pointer step count exceeds cap";
+		return -1;
+	}
+	/* Each step is at least 1 byte (numpack length of 0). */
+	if (step_count > (uint64_t)(end - p)) {
+		*error_r = "Truncated JSON pointer step list";
+		return -1;
+	}
+
+	/* Size the initial block from the validated step_count and the caps,
+	   not directly from `size`: `size` is the attacker-controlled length
+	   of the blob being imported, and a crafted blob (tiny header,
+	   step_count=0, gigabytes of padding) would otherwise allocate the
+	   full blob size here before the trailing-data check below rejects
+	   it. I_MIN keeps single-block allocation for legitimate blobs. */
+	pool = pool_alloconly_create(
+		"json pointer",
+		256 + I_MIN(size, (size_t)step_count *
+				  (JSON_POINTER_IMPORT_MAX_TOKEN +
+				   sizeof(struct json_pointer_step))));
+	jpointer = p_new(pool, struct json_pointer, 1);
+	jpointer->pool = pool;
+	tail = &jpointer->first;
+
+	for (i = 0; i < step_count; i++) {
+		uint64_t token_len;
+		struct json_pointer_step *step;
+
+		if (numpack_decode(&p, end, &token_len) < 0) {
+			*error_r = "Truncated JSON pointer token length";
+			pool_unref(&pool);
+			return -1;
+		}
+		if (token_len > JSON_POINTER_IMPORT_MAX_TOKEN) {
+			*error_r = "JSON pointer token length exceeds cap";
+			pool_unref(&pool);
+			return -1;
+		}
+		if (token_len > (uint64_t)(end - p)) {
+			*error_r = "Truncated JSON pointer token";
+			pool_unref(&pool);
+			return -1;
+		}
+
+		step = p_new(pool, struct json_pointer_step, 1);
+		step->token_len = token_len;
+		if (token_len == 0) {
+			/* Empty token - keep `token` pointing to a stable
+			   NUL byte so callers comparing against C strings
+			   still see a valid pointer. */
+			step->token = "";
+		} else {
+			char *token = p_malloc(pool, token_len + 1);
+			memcpy(token, p, token_len);
+			token[token_len] = '\0';
+			step->token = token;
+		}
+		p += token_len;
+
+		*tail = step;
+		tail = &step->next;
+	}
+
+	if (p != end) {
+		*error_r = "Trailing data after JSON pointer";
+		pool_unref(&pool);
+		return -1;
+	}
+
+	*pointer_r = jpointer;
+	return 0;
 }
 
 bool

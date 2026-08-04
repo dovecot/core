@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "buffer.h"
+#include "str.h"
 #include "test-common.h"
 
 #include "json-pointer.h"
@@ -586,6 +587,249 @@ static void test_rfc9535_bookstore(void)
 	json_tree_unref(&jtree);
 }
 
+/* Verify that the compiled steps of two paths match step-for-step,
+   including byte-exact token equality (which is what import preserves). */
+static void
+assert_paths_equal(const struct json_pointer *a, const struct json_pointer *b)
+{
+	const struct json_pointer_step *as = a->first;
+	const struct json_pointer_step *bs = b->first;
+
+	while (as != NULL && bs != NULL) {
+		test_assert(as->token_len == bs->token_len);
+		test_assert(memcmp(as->token, bs->token, as->token_len) == 0);
+		as = as->next;
+		bs = bs->next;
+	}
+	test_assert(as == NULL && bs == NULL);
+}
+
+static void
+roundtrip_path(const struct json_pointer *orig, const char *desc)
+{
+	buffer_t *buf = t_buffer_create(64);
+	struct json_pointer *back;
+	const char *error;
+
+	test_assert(json_pointer_export(buf, orig, &error) == 0);
+	if (json_pointer_import(buf->data, buf->used, &back, &error) < 0) {
+		test_failed(t_strdup_printf("import of %s failed: %s",
+					    desc, error));
+		return;
+	}
+	assert_paths_equal(orig, back);
+	json_pointer_free(&back);
+}
+
+static void test_export_import_roundtrip(void)
+{
+	struct json_pointer *path;
+	const char *error;
+
+	test_begin("rfc6901 export/import round-trip");
+
+	/* Empty pointer. */
+	test_assert(json_pointer_create("", &path, &error) == 0);
+	roundtrip_path(path, "empty pointer");
+	json_pointer_free(&path);
+
+	/* Multi-segment with ~0 and ~1 escapes. */
+	test_assert(json_pointer_create("/a~1b/c~0d/e", &path, &error) == 0);
+	roundtrip_path(path, "escaped segments");
+	json_pointer_free(&path);
+
+	/* Numeric index segments. */
+	test_assert(json_pointer_create("/items/0/name/12", &path, &error) == 0);
+	roundtrip_path(path, "numeric indices");
+	json_pointer_free(&path);
+
+	/* Empty reference token segments ("//x"). */
+	test_assert(json_pointer_create("//x//", &path, &error) == 0);
+	roundtrip_path(path, "empty tokens");
+	json_pointer_free(&path);
+
+	test_end();
+}
+
+static void test_export_import_embedded_nul(void)
+{
+	/* RFC 6901 sect 3 reference tokens may contain embedded NULs.  These cannot
+	   be produced through json_pointer_create() from a C-string source, so we
+	   construct the wire blob by hand and verify import preserves the NUL
+	   bytes byte-exactly. */
+	static const unsigned char wire[] = {
+		'J', 'P', 'T', 'R',
+		0x01,                   /* version */
+		0x01,                   /* numpack: step_count = 1 */
+		0x03,                   /* numpack: token_len = 3 */
+		'a', 0x00, 'b',         /* "a\0b" */
+	};
+	struct json_pointer *path = NULL;
+	const char *error;
+
+	test_begin("rfc6901 import preserves embedded NUL in token");
+
+	test_assert(json_pointer_import(wire, sizeof(wire), &path, &error) == 0);
+	if (path != NULL) {
+		test_assert(path->first != NULL);
+		test_assert(path->first->token_len == 3);
+		test_assert(memcmp(path->first->token, "a\0b", 3) == 0);
+		test_assert(path->first->next == NULL);
+
+		/* Round-trip preserves the NUL. */
+		buffer_t *buf = t_buffer_create(32);
+		test_assert(json_pointer_export(buf, path, &error) == 0);
+		test_assert(buf->used == sizeof(wire));
+		test_assert(memcmp(buf->data, wire, sizeof(wire)) == 0);
+
+		json_pointer_free(&path);
+	}
+
+	test_end();
+}
+
+static void test_import_query(void)
+{
+	/* Imported tokens must be usable directly against a tree - this
+	   exercises json_tree_node_pointer_step()'s strlen() check on a
+	   token that came from json_pointer_import() rather than from the
+	   NUL-terminated str_c() path used by json_pointer_create().
+
+	   The first token is exactly 8 bytes (MEM_ALIGN_SIZE) so that a
+	   correctly-terminated allocation needs a *new* alignment slot for
+	   its NUL byte, while an unterminated one does not - the following
+	   step's pool allocation (a non-NULL 'next' pointer, since it isn't
+	   the last step) lands immediately after it.  This makes a missing
+	   NUL terminator produce a deterministic, non-matching strlen()
+	   rather than one that happens to still work due to alignment
+	   padding happening to contain a zero byte. */
+	static const unsigned char wire[] = {
+		'J', 'P', 'T', 'R', 0x01,
+		0x03, /* step_count = 3 */
+		0x08, 'f', 'o', 'o', 'f', 'o', 'o', 'f', 'o', /* "foofoofo" */
+		0x03, 'b', 'a', 'r',
+		0x03, 'b', 'a', 'z',
+	};
+	struct json_tree *jtree;
+	struct json_tree_node *root, *node;
+	struct json_pointer *imported = NULL;
+	const char *error;
+
+	test_begin("rfc6901 query using imported pointer");
+
+	jtree = json_tree_create_object(&root);
+	node = json_tree_node_add_object(root, "foofoofo");
+	node = json_tree_node_add_object(node, "bar");
+	json_tree_node_add_number_int(node, "baz", 99);
+
+	test_assert(json_pointer_import(wire, sizeof(wire), &imported,
+					&error) == 0);
+	if (imported != NULL) {
+		test_assert(strlen(imported->first->token) ==
+			    imported->first->token_len);
+
+		test_assert_int_value(
+			json_tree_node_pointer_query(imported, root), 99);
+
+		json_pointer_free(&imported);
+	}
+	json_tree_unref(&jtree);
+
+	test_end();
+}
+
+/* Regression test: json_pointer_create() (the string parser) applies no
+   step-count cap, unlike json_pointer_import().  Before this fix,
+   json_pointer_export() would happily serialize such a pointer even
+   though json_pointer_import() would then reject it - breaking the
+   otherwise-implied round-trip guarantee.  Export must now refuse instead. */
+static void test_export_step_count_cap(void)
+{
+	struct json_pointer *path;
+	const char *error;
+	string_t *pointer_str;
+	buffer_t *buf;
+	unsigned int i;
+
+	test_begin("rfc6901 export refuses to exceed import's step cap");
+
+	/* JSON_POINTER_IMPORT_MAX_STEPS is 4096; build one more. */
+	pointer_str = t_str_new(4097 * 2);
+	for (i = 0; i < 4097; i++)
+		str_append(pointer_str, "/a");
+
+	test_assert(json_pointer_create(str_c(pointer_str), &path, &error) == 0);
+
+	buf = t_buffer_create(64);
+	test_assert(json_pointer_export(buf, path, &error) == -1);
+	test_assert_strcmp(error, "JSON pointer step count exceeds cap");
+	test_assert(buf->used == 0);
+
+	json_pointer_free(&path);
+	test_end();
+}
+
+static void test_import_errors(void)
+{
+	struct json_pointer *path;
+	const char *error;
+	static const unsigned char hdr_ok[] = { 'J', 'P', 'T', 'R', 0x01 };
+	unsigned char buf[sizeof(hdr_ok) + 1];
+
+	test_begin("rfc6901 import rejects malformed input");
+
+	/* Empty input. */
+	test_assert(json_pointer_import("", 0, &path, &error) == -1);
+
+	/* NULL/0 - an explicitly accepted spelling of "no input" distinct
+	   from the empty-buffer case above (forming end = NULL + 0 is UB if
+	   not special-cased). */
+	test_assert(json_pointer_import(NULL, 0, &path, &error) == -1);
+
+	/* Bad magic. */
+	memcpy(buf, hdr_ok, sizeof(hdr_ok));
+	buf[0] = 'X';
+	buf[sizeof(hdr_ok)] = 0; /* step_count = 0 placeholder */
+	test_assert(json_pointer_import(buf, sizeof(buf), &path, &error) == -1);
+
+	/* Bad version. */
+	memcpy(buf, hdr_ok, sizeof(hdr_ok));
+	buf[4] = 0x02;
+	buf[sizeof(hdr_ok)] = 0;
+	test_assert(json_pointer_import(buf, sizeof(buf), &path, &error) == -1);
+
+	/* Step count overflows remaining input. */
+	{
+		unsigned char b[6];
+		memcpy(b, hdr_ok, sizeof(hdr_ok));
+		b[5] = 0x04; /* claim 4 steps but no bytes follow */
+		test_assert(json_pointer_import(b, sizeof(b), &path, &error) == -1);
+	}
+
+	/* Truncated token. */
+	{
+		unsigned char b[] = {
+			'J', 'P', 'T', 'R', 0x01,
+			0x01, /* step_count = 1 */
+			0x04, /* token_len = 4 */
+			'a', 'b', /* only 2 bytes of token */
+		};
+		test_assert(json_pointer_import(b, sizeof(b), &path, &error) == -1);
+	}
+
+	/* Trailing data. */
+	{
+		unsigned char b[] = {
+			'J', 'P', 'T', 'R', 0x01,
+			0x00, /* step_count = 0 */
+			'X',  /* extra byte */
+		};
+		test_assert(json_pointer_import(b, sizeof(b), &path, &error) == -1);
+	}
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
@@ -601,6 +845,11 @@ int main(void)
 		test_compile_and_reuse,
 		test_uri_fragment_errors,
 		test_rfc9535_bookstore,
+		test_export_import_roundtrip,
+		test_export_import_embedded_nul,
+		test_import_query,
+		test_export_step_count_cap,
+		test_import_errors,
 		NULL
 	};
 
