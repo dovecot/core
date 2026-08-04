@@ -9,8 +9,10 @@ AM_CPPFLAGS = \
 libjson_la_SOURCES = \
 	json-syntax.c \
 	json-types.c \
+	json-pointer.c \
 	json-tree.c \
 	json-tree-io.c \
+	json-tree-query.c \
 	json-parser.c \
 	json-generator.c \
 	json-istream.c \
@@ -22,8 +24,10 @@ libjson_la_LIBADD = -lm
 headers = \
 	json-syntax.h \
 	json-types.h \
+	json-pointer.h \
 	json-tree.h \
 	json-tree-io.h \
+	json-tree-query.h \
 	json-parser.h \
 	json-generator.h \
 	json-istream.h \
@@ -39,14 +43,16 @@ test_programs = \
 	test-istream-json-string \
 	test-json-ostream \
 	test-json-tree \
-	test-json-tree-io
+	test-json-tree-io \
+	test-json-tree-query
 
 fuzz_programs =
 
 if USE_FUZZER
 fuzz_programs += \
 	fuzz-json-istream \
-	fuzz-istream-json-string
+	fuzz-istream-json-string \
+	fuzz-json-pointer
 endif
 
 noinst_PROGRAMS += json-format $(fuzz_programs)
@@ -130,6 +136,13 @@ test_istream_json_string_LDADD = \
 test_istream_json_string_DEPENDENCIES = \
 	$(test_deps)
 
+test_json_tree_query_SOURCES = \
+	test-json-tree-query.c
+test_json_tree_query_LDADD = \
+	$(test_libs)
+test_json_tree_query_DEPENDENCIES = \
+	$(test_deps)
+
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
@@ -155,4 +168,16 @@ fuzz_json_istream_SOURCES = \
 fuzz_json_istream_LDADD = \
 	$(test_libs)
 fuzz_json_istream_DEPENDENCIES = \
+	$(test_deps)
+
+nodist_EXTRA_fuzz_json_pointer_SOURCES = force-cxx-linking.cxx
+fuzz_json_pointer_CPPFLAGS = \
+	$(FUZZER_CPPFLAGS)
+fuzz_json_pointer_LDFLAGS = \
+	$(FUZZER_LDFLAGS)
+fuzz_json_pointer_SOURCES = \
+	fuzz-json-pointer.c
+fuzz_json_pointer_LDADD = \
+	$(test_libs)
+fuzz_json_pointer_DEPENDENCIES = \
 	$(test_deps)
