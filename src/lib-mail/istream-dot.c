@@ -264,5 +264,6 @@ i_stream_create_dot(struct istream *input, enum istream_dot_flags flags)
 	dstream->state_no_cr = TRUE;
 	dstream->state_no_lf = TRUE;
 	return i_stream_create(&dstream->istream, input,
-			       i_stream_get_fd(input), 0);
+			       i_stream_get_fd(input),
+			       ISTREAM_HIDDEN_INPUTS_NONE, 0);
 }

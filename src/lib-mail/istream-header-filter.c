@@ -772,7 +772,8 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->istream.istream.blocking = input->blocking;
 	mstream->istream.istream.seekable = input->seekable;
 
-	return i_stream_create(&mstream->istream, input, -1, 0);
+	return i_stream_create(&mstream->istream, input, -1,
+			       ISTREAM_HIDDEN_INPUTS_NONE, 0);
 }
 
 void i_stream_header_filter_add(struct header_filter_istream *input,

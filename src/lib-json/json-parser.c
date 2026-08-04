@@ -2430,7 +2430,8 @@ json_string_stream_create(struct json_parser *parser, bool complete)
 	jstream->istream.io_parent = parser->input;
 
 	stream = i_stream_create(&jstream->istream, NULL,
-				 i_stream_get_fd(parser->input), 0);
+				 i_stream_get_fd(parser->input),
+				 ISTREAM_HIDDEN_INPUTS_DECLARED, 0);
 
 	name = i_stream_get_name(parser->input);
 	if (name == NULL || *name == '\0') {

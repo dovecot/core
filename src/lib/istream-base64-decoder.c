@@ -155,7 +155,8 @@ i_stream_create_base64_decoder_common(const struct base64_scheme *b64,
 	base64_decode_init(&bstream->decoder, b64, 0);
 
 	return i_stream_create(&bstream->istream, input,
-			       i_stream_get_fd(input), 0);
+			       i_stream_get_fd(input),
+			       ISTREAM_HIDDEN_INPUTS_NONE, 0);
 }
 
 struct istream *

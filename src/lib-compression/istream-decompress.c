@@ -270,7 +270,8 @@ i_stream_create_decompress(struct istream *input,
 	zstream->istream.io_parent = input;
 
 	struct istream *ret = i_stream_create(&zstream->istream, NULL,
-					      i_stream_get_fd(input), 0);
+					      i_stream_get_fd(input),
+					      ISTREAM_HIDDEN_INPUTS_DECLARED, 0);
 	/* input isn't used as our parent istream, so need to copy the stream
 	   name to preserve it. */
 	i_stream_set_name(ret, i_stream_get_name(input));

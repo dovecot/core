@@ -240,7 +240,8 @@ program_client_istream_create(struct program_client *program_client,
 	i_stream_seek(input, 0);
 
 	return i_stream_create(&scstream->istream, input,
-			       i_stream_get_fd(input), 0);
+			       i_stream_get_fd(input),
+			       ISTREAM_HIDDEN_INPUTS_NONE, 0);
 }
 
 /*

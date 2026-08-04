@@ -84,7 +84,8 @@ i_stream_create_failure_at(struct istream *input, uoff_t failure_offset,
 	fstream->error_string = i_strdup(error_string);
 	fstream->failure_offset = failure_offset;
 	return i_stream_create(&fstream->istream, input,
-			       i_stream_get_fd(input), 0);
+			       i_stream_get_fd(input),
+			       ISTREAM_HIDDEN_INPUTS_NONE, 0);
 }
 
 struct istream *

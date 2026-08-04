@@ -410,5 +410,7 @@ struct istream *i_stream_create_concat(struct istream *input[])
 	cstream->istream.istream.readable_fd = FALSE;
 	cstream->istream.istream.blocking = blocking;
 	cstream->istream.istream.seekable = seekable;
-	return i_stream_create(&cstream->istream, NULL, -1, 0);
+
+	return i_stream_create(&cstream->istream, NULL, -1,
+			       ISTREAM_HIDDEN_INPUTS_PANIC, 0);
 }

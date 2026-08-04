@@ -751,7 +751,8 @@ i_stream_create_attachment_extractor(struct istream *input,
 	astream->pool = pool_alloconly_create("istream attachment", 1024);
 	astream->parser = message_parser_init(astream->pool, input, &parser_set);
 	return i_stream_create(&astream->istream, input,
-			       i_stream_get_fd(input), 0);
+			       i_stream_get_fd(input),
+			       ISTREAM_HIDDEN_INPUTS_NONE, 0);
 }
 
 bool i_stream_attachment_extractor_can_retry(struct istream *input)

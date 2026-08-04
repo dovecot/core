@@ -8,6 +8,33 @@
 
 struct io;
 
+/* How the istream reads from istreams that aren't its istream-parent. The
+   ioloop IO is found by walking the istream-parents, so such a hidden istream
+   must be declared for i_stream_set_input_pending() to be able to find it. */
+enum istream_hidden_inputs {
+	/* The istream reads only from its istream-parent, if it has one. */
+	ISTREAM_HIDDEN_INPUTS_NONE = 0,
+	/* The istream reads from an istream that isn't its istream-parent,
+	   and declares it with istream_private.io_parent. This is verified
+	   while the istream is reading. */
+	ISTREAM_HIDDEN_INPUTS_DECLARED,
+	/* The istream reads from istreams that aren't its istream-parent, but
+	   can't declare them with istream_private.io_parent. Nothing can be
+	   verified while such an istream is reading, and an
+	   i_stream_set_input_pending() for one of the istreams it is reading
+	   may not reach the ioloop IO. That doesn't necessarily lose it:
+	   istream-multiplex channels legitimately own separate ioloop IOs for
+	   the same istream, so the pending can still be handled via another
+	   channel's IO. */
+	ISTREAM_HIDDEN_INPUTS_UNCHECKED,
+	/* Like ISTREAM_HIDDEN_INPUTS_UNCHECKED, except there is no such other
+	   IO to fall back to, because a single io_parent can't declare more
+	   than one istream (e.g. istream-concat). If such an istream owns the
+	   ioloop IO, an i_stream_set_input_pending() for one of the istreams
+	   it is reading is lost, so panic instead of hanging silently. */
+	ISTREAM_HIDDEN_INPUTS_PANIC,
+};
+
 struct istream_private {
 /* inheritance: */
 	struct iostream_private iostream;
@@ -70,6 +97,9 @@ struct istream_private {
 	   this way streams can check if their parent streams have been
 	   accessed behind them. */
 	unsigned int access_counter;
+	/* How this istream reads istreams that aren't its istream-parent,
+	   as given to i_stream_create(). */
+	enum istream_hidden_inputs hidden_inputs;
 	/* Timestamp when read() last returned >0 */
 	struct timeval last_read_timeval;
 
@@ -111,6 +141,7 @@ enum istream_create_flag {
 
 struct istream * ATTR_NOWARN_UNUSED_RESULT
 i_stream_create(struct istream_private *stream, struct istream *parent, int fd,
+		enum istream_hidden_inputs hidden_inputs,
 		enum istream_create_flag flags) ATTR_NULL(2);
 /* Initialize parent lazily after i_stream_create() has already been called. */
 void i_stream_init_parent(struct istream_private *_stream,

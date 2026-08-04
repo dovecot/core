@@ -331,5 +331,6 @@ struct istream *i_stream_create_binary_converter(struct istream *input)
 	bstream->pool = pool_alloconly_create("istream binary converter", 128);
 	bstream->parser = message_parser_init(bstream->pool, input, &parser_set);
 	return i_stream_create(&bstream->istream, input,
-			       i_stream_get_fd(input), 0);
+			       i_stream_get_fd(input),
+			       ISTREAM_HIDDEN_INPUTS_NONE, 0);
 }

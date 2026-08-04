@@ -1287,9 +1287,16 @@ void i_stream_init_parent(struct istream_private *_stream,
 
 struct istream *
 i_stream_create(struct istream_private *_stream, struct istream *parent, int fd,
+		enum istream_hidden_inputs hidden_inputs,
 		enum istream_create_flag flags)
 {
 	bool noop_snapshot = (flags & ISTREAM_CREATE_FLAG_NOOP_SNAPSHOT) != 0;
+
+	/* io_parent is what ISTREAM_HIDDEN_INPUTS_DECLARED declares, so one
+	   without the other is a mistake in either direction. */
+	i_assert((_stream->io_parent != NULL) ==
+		 (hidden_inputs == ISTREAM_HIDDEN_INPUTS_DECLARED));
+	_stream->hidden_inputs = hidden_inputs;
 
 	_stream->fd = fd;
 	if (parent != NULL)
@@ -1356,7 +1363,8 @@ struct istream *i_stream_create_error(int stream_errno)
 	   reasonable max_buffer_size anyway since some filter istreams don't
 	   behave properly otherwise. */
 	stream->max_buffer_size = IO_BLOCK_SIZE;
-	i_stream_create(stream, NULL, -1, 0);
+	i_stream_create(stream, NULL, -1,
+			ISTREAM_HIDDEN_INPUTS_NONE, 0);
 	i_stream_set_name(&stream->istream, "(error)");
 	return &stream->istream;
 }

@@ -1114,7 +1114,8 @@ i_stream_create_decrypt_common(struct istream *input)
 	dstream->buf = buffer_create_dynamic(default_pool, 512);
 
 	(void)i_stream_create(&dstream->istream, input,
-			      i_stream_get_fd(input), 0);
+			      i_stream_get_fd(input),
+			      ISTREAM_HIDDEN_INPUTS_NONE, 0);
 	return dstream;
 }
 

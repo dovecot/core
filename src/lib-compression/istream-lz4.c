@@ -287,6 +287,7 @@ struct istream *i_stream_create_lz4(struct istream *input)
 	zstream->chunk_buf = buffer_create_dynamic(default_pool, 1024);
 
 	return i_stream_create(&zstream->istream, input,
-			       i_stream_get_fd(input), 0);
+			       i_stream_get_fd(input),
+			       ISTREAM_HIDDEN_INPUTS_NONE, 0);
 }
 #endif

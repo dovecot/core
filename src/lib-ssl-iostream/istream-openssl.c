@@ -130,5 +130,6 @@ struct istream *openssl_i_stream_create_ssl(struct ssl_iostream *ssl_io)
 	sstream->istream.io_parent = ssl_io->plain_input;
 
 	return i_stream_create(&sstream->istream, NULL,
-			       i_stream_get_fd(ssl_io->plain_input), 0);
+			       i_stream_get_fd(ssl_io->plain_input),
+			       ISTREAM_HIDDEN_INPUTS_DECLARED, 0);
 }

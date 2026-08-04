@@ -517,7 +517,13 @@ i_stream_add_channel_real(struct multiplex_istream *mstream, uint8_t cid)
 	}
 	array_push_back(&channel->mstream->channels, &channel);
 
-	return i_stream_create(&channel->istream, NULL, channel->istream.fd, 0);
+	/* Only channel 0 declares the parent it reads. The other channels
+	   own their own IO, which is triggered explicitly. */
+	enum istream_hidden_inputs hidden_inputs = cid == 0 ?
+		ISTREAM_HIDDEN_INPUTS_DECLARED :
+		ISTREAM_HIDDEN_INPUTS_UNCHECKED;
+	return i_stream_create(&channel->istream, NULL, channel->istream.fd,
+			       hidden_inputs, 0);
 }
 
 struct istream *i_stream_multiplex_add_channel(struct istream *stream, uint8_t cid)
