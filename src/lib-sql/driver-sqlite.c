@@ -1026,22 +1026,26 @@ driver_sqlite_prepared_statement_reopen(struct sqlite_db *db,
 	/* Maybe it works this time round */
 	i_free(prep_stmt->error);
 	prep_stmt->api.db = &db->api;
-	 /* driver_sqlite_result_str() ignores rc for connect failures */
-	int rc = SQLITE_OK;
-	struct sqlite_error err;
 	if (*prep_stmt->api.query_template == '\0') {
 		prep_stmt->error = i_strdup("Empty query");
-	} else if (driver_sqlite_connect(&db->api) < 0 ||
-	    (rc = sqlite3_prepare_v2(db->sqlite, prep_stmt->api.query_template,
-				     -1, &prep_stmt->handle, NULL)) != SQLITE_OK) {
-		err.rc = rc;
+		return 0;
+	}
+	if (driver_sqlite_connect(&db->api) < 0) {
+		prep_stmt->error = i_strdup(
+			driver_sqlite_result_str(&db->api, &db->connect_err));
+		return -1;
+	}
+
+	struct sqlite_error err;
+	err.rc = sqlite3_prepare_v2(db->sqlite, prep_stmt->api.query_template,
+				    -1, &prep_stmt->handle, NULL);
+	if (err.rc != SQLITE_OK) {
 		prep_stmt->error =
 			i_strdup(driver_sqlite_result_str(&db->api, &err));
 		return -1;
-	} else {
-		e_debug(db->api.event, "Prepared query '%s'",
-			prep_stmt->api.query_template);
 	}
+	e_debug(db->api.event, "Prepared query '%s'",
+		prep_stmt->api.query_template);
 	return 0;
 }
 
