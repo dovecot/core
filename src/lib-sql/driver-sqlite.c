@@ -20,11 +20,17 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+/* Max length of a captured sqlite3_errmsg(). The messages embed table and
+   column names, so they have no fixed upper bound - anything longer than this
+   is truncated. */
+#define SQLITE_MAX_ERRMSG_LEN 256
+
 /* Error state of a single failed SQLite call. */
 struct sqlite_error {
 	int rc;
 	int ext_rc;
 	int system_errno;
+	char errmsg[SQLITE_MAX_ERRMSG_LEN];
 };
 
 struct sqlite_db {
@@ -165,16 +171,28 @@ static void sqlite_error_set(struct sqlite_error *err_r,
 	} else {
 		err_r->ext_rc = sqlite3_extended_errcode(db->sqlite);
 		err_r->system_errno = sqlite3_system_errno(db->sqlite);
+		/* Copy it: the string is owned by the connection and is
+		   replaced by the next failing call. */
+		(void)i_strocpy(err_r->errmsg, sqlite3_errmsg(db->sqlite),
+				sizeof(err_r->errmsg));
 	}
 }
 
 /* Set an error that driver-sqlite generated itself without calling SQLite.
-   There is no extended code or errno for these. */
+   There is no extended code, errno or message for these. */
 static void sqlite_error_set_internal(struct sqlite_error *err_r, int rc)
 {
 	i_zero(err_r);
 	err_r->rc = rc;
 	err_r->ext_rc = rc;
+}
+
+/* Returns what SQLite said about the error ("no such table: x"), or the
+   generic text for the result code ("SQL logic error") if SQLite wasn't the
+   one that failed. */
+static const char *sqlite_error_msg(const struct sqlite_error *err)
+{
+	return err->errmsg[0] != '\0' ? err->errmsg : sqlite3_errstr(err->rc);
 }
 
 static void driver_sqlite_finalize_handle(struct sql_db *_db,
@@ -311,7 +329,7 @@ static const char *driver_sqlite_connect_error(struct sqlite_db *db)
 			       sqlite3_errstr(db->connect_err.rc));
 	default:
 		errstr = t_strdup_printf("open(%s) failed: %s", db->set->path,
-					 sqlite3_errstr(db->connect_err.rc));
+					 sqlite_error_msg(&db->connect_err));
 		break;
 	}
 	return errstr;
@@ -578,7 +596,7 @@ driver_sqlite_result_str(struct sql_db *_db, const struct sqlite_error *err)
 							err->system_errno);
 	} else if (!SQLITE_IS_OK(err->rc)) {
 		errstr = t_strdup_printf("%s (rc=%d, extended_rc=%d, errno=%d)",
-					 sqlite3_errstr(err->rc), err->rc,
+					 sqlite_error_msg(err), err->rc,
 					 err->ext_rc, err->system_errno);
 	}
 	return errstr;
