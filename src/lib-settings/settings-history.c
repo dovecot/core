@@ -9,18 +9,20 @@
 
 static struct settings_history history;
 
+/* Sort the newest versions first. The users of the history stop looking as
+   soon as they see a version that is not newer than the config version. */
 static int
 settings_history_default_cmp(const struct setting_history_default *d1,
 			     const struct setting_history_default *d2)
 {
-	return version_cmp(d1->version, d2->version);
+	return version_cmp(d2->version, d1->version);
 }
 
 static int
 settings_history_rename_cmp(const struct setting_history_rename *r1,
 			    const struct setting_history_rename *r2)
 {
-	return version_cmp(r1->version, r2->version);
+	return version_cmp(r2->version, r1->version);
 }
 
 static void settings_history_free(void)
