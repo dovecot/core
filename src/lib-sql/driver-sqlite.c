@@ -245,13 +245,19 @@ static void driver_sqlite_disconnect(struct sql_db *_db)
 	driver_sqlite_finalize_prepared_statements(db);
 	/* sqlite3_close() fails only if the connection still has unfinalized
 	   statements or unfinished backups, i.e. only because of a bug in
-	   driver-sqlite. */
+	   driver-sqlite. sqlite3_close_v2() would accept that silently, so use
+	   it just as the fallback that keeps the failure from leaking the
+	   connection. */
 	int rc = sqlite3_close(db->sqlite);
 	if (rc != SQLITE_OK) {
 		/* The connection isn't closed on failure, so its error message
 		   is still readable. */
 		e_error(db->api.event, "sqlite3_close() failed: %s (rc=%d)",
 			sqlite3_errmsg(db->sqlite), rc);
+		/* The connection is still open, so clearing the pointer below
+		   would leak it. sqlite3_close_v2() turns it into a zombie
+		   that is freed once the leftover statements are finalized. */
+		(void)sqlite3_close_v2(db->sqlite);
 	}
 	db->sqlite = NULL;
 	db->connected = FALSE;
