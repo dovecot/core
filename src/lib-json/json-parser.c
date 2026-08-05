@@ -2582,9 +2582,32 @@ struct json_string_istream {
 
 	struct json_parser *parser;
 
-	bool buffer_overflowed:1;
 	bool ended:1;
 };
+
+/* Move the string data decoded so far from the parser buffer into the buffer
+   of this stream. The parser buffer is reallocated as it grows, so its data
+   can't be exposed directly to the stream's users: it would be left dangling
+   once more of the string is decoded. Returns the number of bytes moved. */
+static size_t json_string_istream_copy(struct json_string_istream *jstream)
+{
+	struct istream_private *stream = &jstream->istream;
+	struct json_parser *parser = jstream->parser;
+	size_t avail, size;
+
+	i_assert(parser != NULL);
+
+	if (str_len(parser->buffer) == 0)
+		return 0;
+	if (!i_stream_try_alloc(stream, str_len(parser->buffer), &avail))
+		return 0;
+
+	size = I_MIN(avail, str_len(parser->buffer));
+	memcpy(stream->w_buffer + stream->pos, str_data(parser->buffer), size);
+	stream->pos += size;
+	str_delete(parser->buffer, 0, size);
+	return size;
+}
 
 static ssize_t json_string_istream_read(struct istream_private *stream)
 {
@@ -2592,47 +2615,43 @@ static ssize_t json_string_istream_read(struct istream_private *stream)
 		container_of(stream, struct json_string_istream, istream);
 	struct json_parser *parser = jstream->parser;
 	bool stop_loop;
-	size_t old_pos, read_size, read_total;
+	size_t read_total;
 	int ret;
 
-	if (jstream->ended) {
-		stream->istream.eof = TRUE;
-		return -1;
-	}
 	i_assert(jstream->parser != NULL);
-
-	i_assert(stream->pos == str_len(parser->buffer));
 	i_assert(stream->skip <= stream->pos);
 
-	read_total = 0;
+	/* Return the data that was decoded earlier, but didn't fit into this
+	   stream's buffer yet. */
+	read_total = json_string_istream_copy(jstream);
+
+	if (jstream->ended) {
+		if (read_total == 0) {
+			stream->istream.eof = TRUE;
+			return -1;
+		}
+		return (ssize_t)read_total;
+	}
+
 	do {
-		if (jstream->buffer_overflowed) {
-			if (stream->skip == str_len(parser->buffer))
-				str_truncate(parser->buffer, 0);
-			else if (stream->skip > 0)
-				str_delete(parser->buffer, 0, stream->skip);
-			else
+		if (str_len(parser->buffer) > 0) {
+			/* This stream's buffer is full */
+			if (read_total == 0)
 				return -2;
-			stream->pos = str_len(parser->buffer);
-			stream->skip = 0;
-			jstream->buffer_overflowed = FALSE;
+			break;
 		}
 
-		old_pos = str_len(parser->buffer);
 		ret = json_parser_continue(parser);
-		i_assert(str_len(parser->buffer) >= old_pos);
-		read_size = str_len(parser->buffer) - old_pos;
-		stop_loop = (read_size > 0);
-		read_total += read_size;
+		read_total += json_string_istream_copy(jstream);
+		stop_loop = (read_total > 0);
 		switch (ret) {
 		case JSON_PARSE_INTERRUPTED:
-			i_assert(stream->skip == 0 ||
-				 !jstream->buffer_overflowed);
-			jstream->buffer_overflowed = TRUE;
+			/* The parser buffer became full. It was just emptied
+			   above, so parsing can continue. */
 			break;
 		case JSON_PARSE_BOUNDARY:
 			jstream->ended = TRUE;
-			if (str_len(parser->buffer) == old_pos) {
+			if (read_total == 0) {
 				stream->istream.eof = TRUE;
 				return -1;
 			}
@@ -2654,10 +2673,8 @@ static ssize_t json_string_istream_read(struct istream_private *stream)
 		default:
 			i_unreached();
 		}
-	} while (jstream->buffer_overflowed && !stop_loop);
+	} while (!stop_loop);
 
-	stream->pos = str_len(parser->buffer);
-	stream->buffer = str_data(parser->buffer);
 	return (ssize_t)read_total;
 }
 
@@ -2668,7 +2685,6 @@ json_string_istream_restart(struct json_string_istream *jstream)
 
 	if (!json_parser_restart_string(jstream->parser))
 		return FALSE;
-	jstream->buffer_overflowed = FALSE;
 	jstream->ended = FALSE;
 
 	stream->skip = stream->pos = 0;
@@ -2683,13 +2699,11 @@ json_string_istream_seek(struct istream_private *stream, uoff_t v_offset,
 	struct json_string_istream *jstream =
 		container_of(stream, struct json_string_istream, istream);
 
-	/* stream->pos mirrors str_len(parser->buffer) exactly (asserted at
-	   the top of json_string_istream_read()): the buffer isn't owned by
-	   this stream, it's a live view into the parser's shared decode
-	   buffer. So unlike a typical nonseekable stream, we can't rewind
-	   stream->pos to expose already-buffered bytes again - only
-	   restart-from-scratch (backward) or read-and-discard (forward) are
-	   safe here. */
+	/* The string is decoded on the fly and the already consumed part of
+	   it is dropped from this stream's buffer, so seeking backwards is
+	   only possible by decoding the string again from its beginning.
+	   Forward seeking is read-and-discard, as usual for a nonseekable
+	   stream. */
 	if (v_offset == stream->istream.v_offset)
 		return;
 	if (v_offset < stream->istream.v_offset) {
@@ -2713,6 +2727,7 @@ json_string_istream_set_max_buffer_size(struct iostream_private *stream,
 			     istream.iostream);
 
 	i_assert(max_size > 0);
+	jstream->istream.max_buffer_size = max_size;
 	if (jstream->parser != NULL)
 		jstream->parser->str_stream_max_buffer_size = max_size;
 }
@@ -2749,8 +2764,6 @@ json_string_stream_create(struct json_parser *parser, bool complete)
 	jstream->parser = parser;
 
 	jstream->ended = complete;
-	jstream->istream.pos = str_len(parser->buffer);
-	jstream->istream.buffer = str_data(parser->buffer);
 
 	jstream->istream.max_buffer_size = parser->str_stream_max_buffer_size;
 	jstream->istream.iostream.set_max_buffer_size =
@@ -2784,6 +2797,12 @@ json_string_stream_create(struct json_parser *parser, bool complete)
 		i_stream_set_name(stream, t_strdup_printf(
 			"(JSON string parsed from %s)", name));
 	}
+
+	/* Move the part of the string that is already decoded into the buffer
+	   of this stream. This can only be done once the stream is created,
+	   since the buffer allocation needs the stream to be fully
+	   initialized. */
+	(void)json_string_istream_copy(jstream);
 	return stream;
 }
 

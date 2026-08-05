@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "istream.h"
+#include "istream-private.h"
 #include "ostream.h"
 #include "istream-base64.h"
 #include "test-common.h"
@@ -2624,6 +2625,68 @@ static void test_json_parse_stream(void)
 }
 
 /*
+ * Test: stream buffer snapshot
+ */
+
+static void test_json_parse_stream_snapshot(void)
+{
+	struct istream *input, *str_input = NULL;
+	struct istream_snapshot *snapshot;
+	struct json_parser *parser;
+	const unsigned char *data;
+	const char *error = NULL;
+	string_t *text;
+	size_t size, snapshot_size;
+	unsigned int i;
+	int ret;
+
+	test_begin("json parse stream snapshot");
+
+	/* Use a long string, so that the stream buffer needs to grow while
+	   the string is being read. */
+	text = t_str_new(1024);
+	str_append_c(text, '"');
+	for (i = 0; i < 500; i++)
+		str_append_c(text, 'a' + (i % 26));
+	str_append_c(text, '"');
+
+	input = test_istream_create_data(str_data(text), str_len(text));
+	test_istream_set_size(input, 10);
+
+	parser = json_parser_init(input, NULL, 0,
+				  &parse_stream_callbacks, &str_input);
+	json_parser_enable_string_stream(parser, 0, 1024);
+
+	ret = json_parse_more(parser, NULL, &error);
+	test_out_reason_quiet("parse success", ret == 0, error);
+	test_assert(str_input != NULL);
+
+	/* Read the beginning of the string and hold on to it. */
+	ret = i_stream_read_more(str_input, &data, &size);
+	test_assert(ret > 0 && size > 0);
+	snapshot_size = size;
+	snapshot = i_stream_default_snapshot(str_input->real_stream, NULL);
+
+	/* Decode the remainder of the string without consuming anything,
+	   which reallocates the stream buffer. */
+	for (i = 20; i <= str_len(text); i += 10) {
+		test_istream_set_size(input, i);
+		(void)i_stream_read(str_input);
+	}
+	i_stream_unref(&str_input);
+
+	/* The snapshotted data must still be intact. */
+	test_assert_memcmp(data, snapshot_size,
+			   str_data(text) + 1, snapshot_size);
+
+	i_stream_snapshot_free(&snapshot);
+	json_parser_deinit(&parser);
+	i_stream_unref(&input);
+
+	test_end();
+}
+
+/*
  * Test: stream parse error tests
  */
 
@@ -2839,6 +2902,7 @@ int main(int argc, char *argv[])
 		test_json_parse_valid,
 		test_json_parse_invalid,
 		test_json_parse_stream,
+		test_json_parse_stream_snapshot,
 		test_json_parse_stream_error,
 		NULL
 	};
