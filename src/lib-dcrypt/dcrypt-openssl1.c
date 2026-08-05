@@ -2787,8 +2787,8 @@ dcrypt_openssl_encrypt_private_key_dovecot(buffer_t *key, int enctype,
 				return FALSE;
 			}
 		} else {
-			/* Loading the key should have failed */
-			i_unreached();
+			*error_r = "Unsupported key type";
+			return FALSE;
 		}
 		/* add encryption key id, reuse peer_key buffer */
 	} else if (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_PASSWORD) {
@@ -3601,7 +3601,8 @@ dcrypt_openssl_private_key_type(struct dcrypt_private_key *key)
 		return DCRYPT_KEY_RSA;
 	else if (nid == EVP_PKEY_EC || IS_XD_CURVE(nid))
 		return DCRYPT_KEY_EC;
-	else i_unreached();
+	else
+		return DCRYPT_KEY_UNKNOWN;
 }
 
 static enum dcrypt_key_type
@@ -3614,7 +3615,8 @@ dcrypt_openssl_public_key_type(struct dcrypt_public_key *key)
 		return DCRYPT_KEY_RSA;
 	else if (nid == EVP_PKEY_EC || IS_XD_CURVE(nid))
 		return DCRYPT_KEY_EC;
-	else i_unreached();
+	else
+		return DCRYPT_KEY_UNKNOWN;
 }
 
 /** this is the v1 old legacy way of doing key id's **/

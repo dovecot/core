@@ -20,6 +20,8 @@ enum dcrypt_sym_mode {
 };
 
 enum dcrypt_key_type {
+	/* Key algorithm is not supported by the backend. */
+	DCRYPT_KEY_UNKNOWN = 0x0,
 	DCRYPT_KEY_RSA = 0x1,
 	DCRYPT_KEY_EC  = 0x2,
 	DCRYPT_KEY_KEM = 0x4,
@@ -310,6 +312,8 @@ void dcrypt_key_ref_private(struct dcrypt_private_key *key);
 void dcrypt_key_unref_public(struct dcrypt_public_key **key);
 void dcrypt_key_unref_private(struct dcrypt_private_key **key);
 
+/* Return the key algorithm type, or DCRYPT_KEY_UNKNOWN if the key uses an
+   algorithm that this backend does not support. */
 enum dcrypt_key_type dcrypt_key_type_private(struct dcrypt_private_key *key);
 enum dcrypt_key_type dcrypt_key_type_public(struct dcrypt_public_key *key);
 /* return digest of key */
