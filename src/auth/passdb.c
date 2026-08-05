@@ -145,6 +145,23 @@ void passdb_handle_credentials(enum passdb_result result,
 				      "noauthenticate")) {
 		callback(PASSDB_RESULT_NEXT, NULL, 0, NULL, auth_request);
 		return;
+	} else if (password != NULL && *password == '\0' &&
+		   *auth_request->wanted_credentials_scheme != '\0' &&
+		   !auth_fields_exists(auth_request->fields.extra_fields,
+				       "nopassword") &&
+		   !auth_request->passdb->set->deny) {
+		/* Authenticating (a "" wanted_credentials_scheme would mean a
+		   bare passdb lookup, where an empty password is fine) against a
+		   non-deny passdb, and the passdb returned an empty password.
+		   With nopassword the empty password must fall through instead,
+		   so the credentials get generated from it - returning OK with
+		   zero-length credentials would make the mechanism fail with an
+		   "invalid credentials length" error. auth_request_password_empty()
+		   still handles the skip_password_check case (delayed credentials
+		   from an earlier passdb are used then). */
+		callback(auth_request_password_empty(auth_request),
+			 NULL, 0, NULL, auth_request);
+		return;
 	}
 
 	if (password != NULL) {
