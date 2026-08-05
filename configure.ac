@@ -364,8 +364,7 @@ DOVECOT_IOLOOP
 DOVECOT_NOTIFY
 AS_CASE(
    ["$have_notify"],
-   [none],   [BUILD_IMAP_HIBERNATE=0],
-   [kqueue], [BUILD_IMAP_HIBERNATE=0],
+   [none], [BUILD_IMAP_HIBERNATE=0],
    [BUILD_IMAP_HIBERNATE=1])
 AS_IF([test "$BUILD_IMAP_HIBERNATE" = 1],
       AC_DEFINE(BUILD_IMAP_HIBERNATE,, [Build with imap hibernate]))
