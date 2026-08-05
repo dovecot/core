@@ -64,6 +64,7 @@ struct sqlite_result {
 	unsigned int cols;
 	struct sqlite_error err;
 	char *error;
+	char *log_query;
 	const char **row;
 };
 
@@ -149,6 +150,9 @@ static struct event_category event_category_sqlite = {
 };
 
 #define SQLITE_IS_OK(rc) ((rc) == SQLITE_OK || (rc) == SQLITE_DONE)
+/* SQLITE_ROW isn't an error either. It's the state a result is left in when
+   the caller stops reading rows before the last one. */
+#define SQLITE_IS_ERROR(rc) (!SQLITE_IS_OK(rc) && (rc) != SQLITE_ROW)
 
 static const char*
 driver_sqlite_result_str(struct sql_db *_db, const struct sqlite_error *err);
@@ -594,7 +598,7 @@ driver_sqlite_result_str(struct sql_db *_db, const struct sqlite_error *err)
 	} else if (err->rc == SQLITE_CANTOPEN || err->rc == SQLITE_PERM) {
 		errstr = driver_sqlite_get_eacces_error(db, "write",
 							err->system_errno);
-	} else if (!SQLITE_IS_OK(err->rc)) {
+	} else if (SQLITE_IS_ERROR(err->rc)) {
 		errstr = t_strdup_printf("%s (rc=%d, extended_rc=%d, errno=%d)",
 					 sqlite_error_msg(err), err->rc,
 					 err->ext_rc, err->system_errno);
@@ -606,7 +610,7 @@ static const char *
 driver_sqlite_result_log(const struct sqlite_result *result, const char *query)
 {
 	struct sqlite_db *db = container_of(result->api.db, struct sqlite_db, api);
-	bool success = db->connected && SQLITE_IS_OK(result->err.rc);
+	bool success = db->connected && !SQLITE_IS_ERROR(result->err.rc);
 	int duration;
 	/* result->err is ignored by driver_sqlite_result_str() when
 	   handling connection error. */
@@ -625,7 +629,7 @@ driver_sqlite_result_log(const struct sqlite_result *result, const char *query)
 	} else if (result->err.rc == SQLITE_NOMEM) {
 		i_fatal_status(FATAL_OUTOFMEM, SQL_QUERY_FINISHED_FMT"%s", query,
 			       duration, error);
-	} else if (!SQLITE_IS_OK(result->err.rc)) {
+	} else if (SQLITE_IS_ERROR(result->err.rc)) {
 		e->add_str("error", error);
 		e->add_int("error_code", result->err.rc);
 		e->add_int("error_code_extended", result->err.ext_rc);
@@ -816,7 +820,7 @@ driver_sqlite_query_s(struct sql_db *_db, const char *query)
 		container_of(_stmt, struct sqlite_statement, api);
 	struct sqlite_result *result =
 		driver_sqlite_statement_result_prepare(stmt);
-	driver_sqlite_result_log(result, query);
+	result->log_query = i_strdup(query);
 
 	return &result->api;
 }
@@ -829,10 +833,17 @@ static void driver_sqlite_result_free(struct sql_result *_result)
 	if (_result->callback)
 		return;
 
+	/* The query is finished only now. sqlite3_step() is run by
+	   driver_sqlite_result_next_row(), i.e. after the caller has already
+	   been given this result, so logging any earlier would report the
+	   query as successful however it ends up failing. */
+	driver_sqlite_result_log(result, result->log_query);
+
 	driver_sqlite_statement_abort(&result->stmt->api);
 	result->stmt = NULL;
 
 	event_unref(&result->api.event);
+	i_free(result->log_query);
 	i_free(result->row);
 	i_free(result->error);
 	i_free(result);
@@ -1089,7 +1100,7 @@ driver_sqlite_statement_query_s(struct sql_statement *_stmt)
 	struct sqlite_result *result =
 		driver_sqlite_statement_result_prepare(stmt);
 
-	driver_sqlite_result_log(result, sql_statement_get_log_query(_stmt));
+	result->log_query = i_strdup(sql_statement_get_log_query(_stmt));
 	return &result->api;
 }
 
