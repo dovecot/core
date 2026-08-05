@@ -24,6 +24,7 @@
 struct sqlite_error {
 	int rc;
 	int ext_rc;
+	int system_errno;
 };
 
 struct sqlite_db {
@@ -32,7 +33,6 @@ struct sqlite_db {
 	sqlite3 *sqlite;
 	const struct sqlite_settings *set;
 	struct sqlite_error connect_err;
-	int connect_errno;
 	bool connected:1;
 };
 
@@ -151,8 +151,8 @@ driver_sqlite_prepared_statement_reopen(struct sqlite_db *db,
 					struct sqlite_prepared_statement *stmt);
 
 /* Capture the error state of a SQLite call. Must be called before any further
-   call is made on the same connection, or the extended code may already
-   describe a different call. */
+   call is made on the same connection, or the extended code and errno may
+   already describe a different call. */
 static void sqlite_error_set(struct sqlite_error *err_r,
 			     struct sqlite_db *db, int rc)
 {
@@ -164,11 +164,12 @@ static void sqlite_error_set(struct sqlite_error *err_r,
 		err_r->ext_rc = rc;
 	} else {
 		err_r->ext_rc = sqlite3_extended_errcode(db->sqlite);
+		err_r->system_errno = sqlite3_system_errno(db->sqlite);
 	}
 }
 
 /* Set an error that driver-sqlite generated itself without calling SQLite.
-   There is no extended code for these. */
+   There is no extended code or errno for these. */
 static void sqlite_error_set_internal(struct sqlite_error *err_r, int rc)
 {
 	i_zero(err_r);
@@ -252,15 +253,11 @@ static void driver_sqlite_disconnect(struct sql_db *_db)
 }
 
 static const char *
-driver_sqlite_get_eacces_error(struct sqlite_db *db, const char *func)
+driver_sqlite_get_eacces_error(struct sqlite_db *db, const char *func,
+			       int system_errno)
 {
 	const char *path = db->set->path;
 	struct stat st ATTR_UNUSED;
-	int system_errno;
-	if (db->connected)
-		system_errno = sqlite3_system_errno(db->sqlite);
-	else
-		system_errno = db->connect_errno;
 
 	/* Something must've failed */
 	i_assert(system_errno != 0);
@@ -294,7 +291,8 @@ static const char *driver_sqlite_connect_error(struct sqlite_db *db)
 		i_unreached();
 	case SQLITE_CANTOPEN:
 	case SQLITE_PERM:
-		errstr = driver_sqlite_get_eacces_error(db, "open");
+		errstr = driver_sqlite_get_eacces_error(db, "open",
+							db->connect_err.system_errno);
 		break;
 	case SQLITE_NOMEM:
 		i_fatal_status(FATAL_OUTOFMEM, "open(%s) failed: %s",
@@ -403,7 +401,6 @@ static int driver_sqlite_connect(struct sql_db *_db)
 	sqlite_error_set(&db->connect_err, db,
 			 sqlite3_open_v2(db->set->path, &db->sqlite, flags,
 					 NULL));
-	db->connect_errno = sqlite3_system_errno(db->sqlite);
 
 	switch (db->connect_err.rc) {
 	case SQLITE_OK:
@@ -511,7 +508,8 @@ driver_sqlite_escape_string(struct sql_db *_db ATTR_UNUSED,
 	return escaped;
 }
 
-static const char *driver_sqlite_readonly_error(struct sqlite_db *db)
+static const char *driver_sqlite_readonly_error(struct sqlite_db *db,
+						int system_errno)
 {
 	int ret = i_faccessat2(AT_FDCWD, db->set->path, W_OK, AT_EACCESS);
 	if (ret < 0 && errno == EACCES)
@@ -542,7 +540,7 @@ static const char *driver_sqlite_readonly_error(struct sqlite_db *db)
 	}
 
 	return t_strdup_printf("%s (errno=%d)", sqlite3_errstr(SQLITE_READONLY),
-			       sqlite3_system_errno(db->sqlite));
+			       system_errno);
 }
 
 static const char*
@@ -561,15 +559,16 @@ driver_sqlite_result_str(struct sql_db *_db, const struct sqlite_error *err)
 						 sqlite3_errstr(err->rc));
 		} else {
 			/* Check why the database is read only */
-			errstr = driver_sqlite_readonly_error(db);
+			errstr = driver_sqlite_readonly_error(db,
+							      err->system_errno);
 		}
 	} else if (err->rc == SQLITE_CANTOPEN || err->rc == SQLITE_PERM) {
-		errstr = driver_sqlite_get_eacces_error(db, "write");
+		errstr = driver_sqlite_get_eacces_error(db, "write",
+							err->system_errno);
 	} else if (!SQLITE_IS_OK(err->rc)) {
 		errstr = t_strdup_printf("%s (rc=%d, extended_rc=%d, errno=%d)",
 					 sqlite3_errstr(err->rc), err->rc,
-					 err->ext_rc,
-					 sqlite3_system_errno(db->sqlite));
+					 err->ext_rc, err->system_errno);
 	}
 	return errstr;
 }
