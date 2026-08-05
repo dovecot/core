@@ -109,12 +109,6 @@ AC_DEFUN([DOVECOT_SSL], [
   dnl LibreSSL
   DOVECOT_CHECK_SSL_FUNC([EVP_PKEY_check])
 
-  dnl ML-KEM (FIPS 203) requires OpenSSL >= 3.3
-  AC_CHECK_DECL([SN_ML_KEM_512],
-    [AC_DEFINE([HAVE_OPENSSL_KEM],, [Define if OpenSSL supports ML-KEM (FIPS 203)])],, [
-#include <openssl/evp.h>
-#include <openssl/objects.h>
-])
   DOVECOT_CHECK_SSL_FUNC([OPENSSL_buf2hexstr])
   DOVECOT_CHECK_SSL_FUNC([SSL_get1_peer_certificate])
   DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_client_hello_cb])

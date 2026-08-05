@@ -4,6 +4,13 @@
 
 #define DCRYPT_AEAD_TAG_LEN 16
 
+/* ML-KEM (FIPS 203) algorithm names, as understood by OpenSSL. Support for
+   these is detected at runtime, since the OpenSSL that dcrypt is built
+   against isn't necessarily the one it ends up running against. */
+#define DCRYPT_ML_KEM_512 "ML-KEM-512"
+#define DCRYPT_ML_KEM_768 "ML-KEM-768"
+#define DCRYPT_ML_KEM_1024 "ML-KEM-1024"
+
 struct dcrypt_context_symmetric;
 struct dcrypt_context_hmac;
 struct dcrypt_public_key;

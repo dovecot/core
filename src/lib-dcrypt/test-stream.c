@@ -474,7 +474,25 @@ static void test_write_read_v2_x448(void)
 }
 #endif
 
-#ifdef HAVE_OPENSSL_KEM
+/* Whether the OpenSSL we're running against supports ML-KEM. This can't be
+   decided at build time. */
+static bool have_kem = FALSE;
+
+static void test_kem_detect(void)
+{
+	struct dcrypt_keypair pair;
+	const char *error;
+
+	have_kem = dcrypt_keypair_generate(&pair, DCRYPT_KEY_KEM, 0,
+					   DCRYPT_ML_KEM_512, &error);
+	if (!have_kem) {
+		i_info("ML-KEM not supported by OpenSSL, "
+		       "skipping ML-KEM tests: %s", error);
+		return;
+	}
+	dcrypt_keypair_unref(&pair);
+}
+
 static void test_write_read_v2_kem_curve(const char *curve)
 {
 	struct dcrypt_keypair pair;
@@ -491,13 +509,15 @@ static void test_write_read_v2_kem_curve(const char *curve)
 static void test_write_read_v2_kem(void)
 {
 	static const char *const curves[] = {
-		LN_ML_KEM_512, LN_ML_KEM_768, LN_ML_KEM_1024
+		DCRYPT_ML_KEM_512, DCRYPT_ML_KEM_768, DCRYPT_ML_KEM_1024
 	};
+	if (!have_kem)
+		return;
+
 	for (size_t i = 0; i < N_ELEMENTS(curves); i++) T_BEGIN {
 		test_write_read_v2_kem_curve(curves[i]);
 	} T_END;
 }
-#endif
 
 static void test_write_read_v2_short(const char *curve, const char *algo,
 				     const struct dcrypt_keypair *kp)
@@ -755,15 +775,15 @@ int main(void)
 		test_write_read_v2_x448,
 		test_write_read_v2_x25519,
 #endif
-#ifdef HAVE_OPENSSL_KEM
 		test_write_read_v2_kem,
-#endif
 		test_free_keys,
 		test_read_0_to_400_byte_garbage,
 		test_read_large_header,
 		test_read_garbage,
 		NULL
 	};
+
+	test_kem_detect();
 
 	return test_run(test_functions);
 }

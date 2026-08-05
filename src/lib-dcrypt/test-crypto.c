@@ -2109,7 +2109,25 @@ static void test_xd448_keypair(void)
 }
 #endif
 
-#ifdef HAVE_OPENSSL_KEM
+/* Whether the OpenSSL we're running against supports ML-KEM. This can't be
+   decided at build time. */
+static bool have_kem = FALSE;
+
+static void test_kem_detect(void)
+{
+	struct dcrypt_keypair pair;
+	const char *error;
+
+	have_kem = dcrypt_keypair_generate(&pair, DCRYPT_KEY_KEM, 0,
+					   DCRYPT_ML_KEM_512, &error);
+	if (!have_kem) {
+		i_info("ML-KEM not supported by OpenSSL, "
+		       "skipping ML-KEM tests: %s", error);
+		return;
+	}
+	dcrypt_keypair_unref(&pair);
+}
+
 static const char *static_dovecot_kem_key_private =
 "2:2.16.840.1.101.3.4.4.1:2:aes-256-ctr:af989fcbc4978b476211f5ecbe5b4b29:sha256"
 ":2048:d305523dd57270fcf583f55fdc3d6f72d65c34078a6ec4fd210a67fcf2a7ea519c2d1e51"
@@ -2182,6 +2200,9 @@ static const char *static_dovecot_kem_key_public =
 
 static void test_kem_key_load(void)
 {
+	if (!have_kem)
+		return;
+
 	test_begin("KEM key static load");
 	struct dcrypt_keypair pair;
 	const char *error;
@@ -2266,13 +2287,15 @@ static void test_kem_keypair_curve(const char *curve)
 static void test_kem_keypair(void)
 {
 	static const char *const curves[] = {
-		LN_ML_KEM_512, LN_ML_KEM_768, LN_ML_KEM_1024
+		DCRYPT_ML_KEM_512, DCRYPT_ML_KEM_768, DCRYPT_ML_KEM_1024
 	};
+	if (!have_kem)
+		return;
+
 	for (size_t i = 0; i < N_ELEMENTS(curves); i++) T_BEGIN {
 		test_kem_keypair_curve(curves[i]);
 	} T_END;
 }
-#endif
 
 int main(void)
 {
@@ -2322,12 +2345,12 @@ int main(void)
 		test_xd25519_keypair,
 		test_xd448_keypair,
 #endif
-#ifdef HAVE_OPENSSL_KEM
 		test_kem_key_load,
 		test_kem_keypair,
-#endif
 		NULL
 	};
+
+	test_kem_detect();
 
 	int ret = test_run(test_functions);
 

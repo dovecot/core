@@ -100,13 +100,6 @@
 	((nid) == NID_X25519 || (nid) == NID_X448)
 #define IS_ED_CURVE(nid) \
 	((nid) == NID_ED25519 || (nid) == NID_ED448)
-#ifdef HAVE_OPENSSL_KEM
-#define IS_KEM(nid) \
-	((nid) == NID_ML_KEM_512 || (nid) == NID_ML_KEM_768 || \
-	 (nid) == NID_ML_KEM_1024)
-#else
-#define IS_KEM(nid) FALSE
-#endif
 
 #if !defined(OBJ_chacha20_poly1305) && defined(LN_chacha20_poly1305)
 #  define OBJ_CHACHA20_POLY1305_MISSING
@@ -230,6 +223,30 @@ static bool dcrypt_openssl_error(const char **error_r)
 	}
 
 	return FALSE;
+}
+
+/* ML-KEM support is detected at runtime by algorithm name. The NID macros
+   can't be used for this: a libcrypto may well support ML-KEM without the
+   headers it was built with declaring the NIDs, since adding NIDs renumbers
+   the object table and breaks ABI. */
+static bool dcrypt_name_is_kem(const char *name)
+{
+	return name != NULL &&
+		(strcasecmp(name, DCRYPT_ML_KEM_512) == 0 ||
+		 strcasecmp(name, DCRYPT_ML_KEM_768) == 0 ||
+		 strcasecmp(name, DCRYPT_ML_KEM_1024) == 0);
+}
+
+static bool dcrypt_nid_is_kem(int nid)
+{
+	return dcrypt_name_is_kem(OBJ_nid2ln(nid));
+}
+
+static bool dcrypt_pkey_is_kem(const EVP_PKEY *pkey)
+{
+	return EVP_PKEY_is_a(pkey, DCRYPT_ML_KEM_512) == 1 ||
+	       EVP_PKEY_is_a(pkey, DCRYPT_ML_KEM_768) == 1 ||
+	       EVP_PKEY_is_a(pkey, DCRYPT_ML_KEM_1024) == 1;
 }
 
 static int
@@ -910,7 +927,6 @@ dcrypt_openssl_generate_rsa_key(int bits, EVP_PKEY **key, const char **error_r)
 	return ec == 0;
 }
 
-#ifdef HAVE_OPENSSL_KEM
 static bool
 dcrypt_openssl_kem_derive_secret_local(struct dcrypt_private_key *local_key,
 				       buffer_t *R, buffer_t *S,
@@ -981,7 +997,6 @@ dcrypt_openssl_kem_derive_secret_peer(struct dcrypt_public_key *peer_key,
 	return TRUE;
 
 }
-#endif /* HAVE_OPENSSL_KEM */
 
 static bool
 dcrypt_openssl_derive_secret(struct dcrypt_private_key *priv_key,
@@ -1025,12 +1040,10 @@ dcrypt_openssl_derive_secret_local(struct dcrypt_private_key *local_key,
 	bool ret;
 	i_assert(local_key != NULL && local_key->key != NULL);
 
-#ifdef HAVE_OPENSSL_KEM
 	if (dcrypt_key_type_private(local_key) == DCRYPT_KEY_KEM) {
 		return dcrypt_openssl_kem_derive_secret_local(local_key, R, S,
 							      error_r);
 	}
-#endif
 
 	EVP_PKEY *local = local_key->key;
 	const char *group = dcrypt_EVP_PKEY_get_group_name(local);
@@ -1085,12 +1098,10 @@ dcrypt_openssl_derive_secret_peer(struct dcrypt_public_key *peer_key,
 	i_assert(peer_key != NULL && peer_key->key != NULL);
 	bool ret;
 
-#ifdef HAVE_OPENSSL_KEM
 	if (dcrypt_key_type_public(peer_key) == DCRYPT_KEY_KEM) {
 		return dcrypt_openssl_kem_derive_secret_peer(peer_key, R, S,
 							     error_r);
 	}
-#endif
 
 	/* ensure peer_key is EC key */
 	EVP_PKEY *local = NULL;
@@ -1199,15 +1210,14 @@ dcrypt_openssl_generate_keypair(struct dcrypt_keypair *pair_r,
 		dcrypt_openssl_private_to_public_key(pair_r->priv,
 						     &pair_r->pub);
 		return TRUE;
-#ifdef HAVE_OPENSSL_KEM
 	} else if (kind == DCRYPT_KEY_KEM) {
-		/* OpenSSL has two names for kem curves,
-		 * one with upper and one with lower case. */
-		curve = t_str_lcase(curve);
-		if (strstr(curve, "-kem-") == NULL) {
+		if (!dcrypt_name_is_kem(curve)) {
 			*error_r = "Curve must be KEM key type";
 			return FALSE;
 		}
+		/* OpenSSL has two names for kem curves,
+		 * one with upper and one with lower case. */
+		curve = t_str_lcase(curve);
 		EVP_PKEY *pkey = EVP_PKEY_Q_keygen(NULL, NULL, curve);
 		if (pkey == NULL)
 			return dcrypt_openssl_error(error_r);
@@ -1218,7 +1228,6 @@ dcrypt_openssl_generate_keypair(struct dcrypt_keypair *pair_r,
 		dcrypt_openssl_private_to_public_key(pair_r->priv,
 						     &pair_r->pub);
 		return TRUE;
-#endif /* HAVE_OPENSSL_KEM */
 	}
 
 	*error_r = "Key type not supported in this build";
@@ -1600,12 +1609,10 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 				peer_key->data, peer_key->used, secret,
 				DCRYPT_PADDING_RSA_PKCS1_OAEP, error_r))
 				return FALSE;
-#ifdef HAVE_OPENSSL_KEM
 		} else if (dcrypt_key_type_private(dec_key) == DCRYPT_KEY_KEM) {
 			if (!dcrypt_openssl_kem_derive_secret_local(
 				dec_key, peer_key, secret, error_r))
 				return FALSE;
-#endif /* HAVE_OPENSSL_KEM */
 		} else {
 			/* perform ECDH */
 			if (!dcrypt_openssl_derive_secret_local(
@@ -1667,7 +1674,8 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 		*key_r = i_new(struct dcrypt_private_key, 1);
 		(*key_r)->key = pkey;
 		(*key_r)->ref++;
-	} else if (IS_XD_CURVE(nid) || IS_ED_CURVE(nid) || IS_KEM(nid)) {
+	} else if (IS_XD_CURVE(nid) || IS_ED_CURVE(nid) ||
+		   dcrypt_nid_is_kem(nid)) {
 		EVP_PKEY *pkey =
 			EVP_PKEY_new_raw_private_key(nid, NULL, key_data->data,
 						     key_data->used);
@@ -2925,12 +2933,10 @@ dcrypt_openssl_encrypt_private_key_dovecot(buffer_t *key, int enctype,
 				enc_key, peer_key, secret, error_r)) {
 				return FALSE;
 			}
-#ifdef HAVE_OPENSSL_KEM
 		} else if (dcrypt_key_type_public(enc_key) == DCRYPT_KEY_KEM) {
 			if (!dcrypt_openssl_kem_derive_secret_peer(
 				enc_key, peer_key, secret, error_r))
 				return FALSE;
-#endif /* HAVE_OPENSSL_KEM */
 		} else {
 			*error_r = "Unsupported key type";
 			return FALSE;
@@ -3730,12 +3736,8 @@ dcrypt_openssl_private_key_type(struct dcrypt_private_key *key)
 {
 	i_assert(key != NULL && key->key != NULL);
 	EVP_PKEY *priv = key->key;
-#ifdef HAVE_OPENSSL_KEM
-	if (EVP_PKEY_is_a(priv, LN_ML_KEM_512) ||
-	    EVP_PKEY_is_a(priv, LN_ML_KEM_768) ||
-	    EVP_PKEY_is_a(priv, LN_ML_KEM_1024))
+	if (dcrypt_pkey_is_kem(priv))
 		return DCRYPT_KEY_KEM;
-#endif
 	int id = EVP_PKEY_base_id(priv);
 	if (id == EVP_PKEY_RSA)
 		return DCRYPT_KEY_RSA;
@@ -3750,12 +3752,8 @@ dcrypt_openssl_public_key_type(struct dcrypt_public_key *key)
 {
 	i_assert(key != NULL && key->key != NULL);
 	EVP_PKEY *pub = key->key;
-#ifdef HAVE_OPENSSL_KEM
-	if (EVP_PKEY_is_a(pub, LN_ML_KEM_512) ||
-	    EVP_PKEY_is_a(pub, LN_ML_KEM_768) ||
-	    EVP_PKEY_is_a(pub, LN_ML_KEM_1024))
+	if (dcrypt_pkey_is_kem(pub))
 		return DCRYPT_KEY_KEM;
-#endif
 	int id = EVP_PKEY_base_id(pub);
 	if (id == EVP_PKEY_RSA)
 		return DCRYPT_KEY_RSA;
