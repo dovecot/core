@@ -592,12 +592,14 @@ driver_sqlite_result_log(const struct sqlite_result *result, const char *query)
 		e->add_str("error", error);
 		e->add_str("error", "Cannot connect to database");
 		e->add_int("error_code", db->connect_err.rc);
+		e->add_int("error_code_extended", db->connect_err.ext_rc);
 	} else if (result->err.rc == SQLITE_NOMEM) {
 		i_fatal_status(FATAL_OUTOFMEM, SQL_QUERY_FINISHED_FMT"%s", query,
 			       duration, error);
 	} else if (!SQLITE_IS_OK(result->err.rc)) {
 		e->add_str("error", error);
 		e->add_int("error_code", result->err.rc);
+		e->add_int("error_code_extended", result->err.ext_rc);
 	}
 
 	if (*error != '\0')
@@ -986,7 +988,8 @@ driver_sqlite_transaction_rollback(struct sql_transaction_context *_ctx)
 	} else {
 		e_debug(sql_transaction_finished_event(_ctx)->
 			add_str("error", error)->
-			add_int("error_code", err.rc)->event(),
+			add_int("error_code", err.rc)->
+			add_int("error_code_extended", err.ext_rc)->event(),
 			"Transaction rollback failed");
 	}
 	event_unref(&_ctx->event);
