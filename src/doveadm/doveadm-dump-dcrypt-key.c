@@ -37,6 +37,24 @@ static int load_key_from_file(const char *file, const char **data_r,
 	return 0;
 }
 
+static void dcrypt_dump_key_type(enum dcrypt_key_type key_type)
+{
+	switch (key_type) {
+	case DCRYPT_KEY_UNKNOWN:
+		printf("key type: unknown\n");
+		break;
+	case DCRYPT_KEY_RSA:
+		printf("key type: DCRYPT_KEY_RSA\n");
+		break;
+	case DCRYPT_KEY_EC:
+		printf("key type: DCRYPT_KEY_EC\n");
+		break;
+	case DCRYPT_KEY_KEM:
+		printf("key type: DCRYPT_KEY_KEM\n");
+		break;
+	}
+}
+
 static void
 dcrypt_dump_public_key_metadata(struct doveadm_cmd_context *cctx,
 				const char *buf,
@@ -51,10 +69,7 @@ dcrypt_dump_public_key_metadata(struct doveadm_cmd_context *cctx,
 		return;
 	}
 	enum dcrypt_key_type key_type = dcrypt_key_type_public(pub_key);
-	if (key_type == DCRYPT_KEY_RSA)
-		printf("key type: DCRYPT_KEY_RSA\n");
-	else if (key_type == DCRYPT_KEY_EC)
-		printf("key type: DCRYPT_KEY_EC\n");
+	dcrypt_dump_key_type(key_type);
 
 	string_t *hash = t_str_new(128);
 	if (!dcrypt_key_id_public(pub_key, "sha256", hash, &error)) {
@@ -144,10 +159,7 @@ dcrypt_dump_private_key_metadata(struct doveadm_cmd_context *cctx,
 		return;
 	}
 	enum dcrypt_key_type key_type = dcrypt_key_type_private(priv_key);
-	if (key_type == DCRYPT_KEY_RSA)
-		printf("key type: DCRYPT_KEY_RSA\n");
-	else if (key_type == DCRYPT_KEY_EC)
-		printf("key type: DCRYPT_KEY_EC\n");
+	dcrypt_dump_key_type(key_type);
 
 	string_t *hash = t_str_new(128);
 	if (!dcrypt_key_id_private(priv_key, "sha256", hash, &error)) {
