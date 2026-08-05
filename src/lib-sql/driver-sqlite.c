@@ -676,8 +676,8 @@ static int driver_sqlite_exec_query(struct sqlite_db *db, const char *query,
 	   but this simplifies error logging, so we include
 	   it here. */
 	if (driver_sqlite_connect(&db->api) < 0) {
-		*error_r = driver_sqlite_result_log(&result, query);
 		result.rc = db->connect_rc;
+		*error_r = driver_sqlite_result_log(&result, query);
 	} else if (*query == '\0') {
 		*error_r = "Empty query";
 		result.rc = SQLITE_MISUSE;
