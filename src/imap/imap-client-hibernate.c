@@ -62,7 +62,10 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 	str_append_tabescaped(cmd, user->set->unexpanded_mail_log_prefix);
 	str_printfa(cmd, "\tidle_notify_interval=%u",
 		    client->set->imap_idle_notify_interval);
-	if (fstat(client->fd_in, &peer_st) == 0) {
+	/* e.g. FreeBSD returns NODEV as sockets' st_dev, which can't be
+	   used for verifying that the fd is the expected one. */
+	if (fstat(client->fd_in, &peer_st) == 0 &&
+	    peer_st.st_dev != (dev_t)-1) {
 		str_printfa(cmd, "\tpeer_dev_major=%lu\tpeer_dev_minor=%lu\tpeer_ino=%llu",
 			    (unsigned long)major(peer_st.st_dev),
 			    (unsigned long)minor(peer_st.st_dev),
