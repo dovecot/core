@@ -252,7 +252,7 @@ driver_sqlite_get_eacces_error(struct sqlite_db *db, const char *func)
 
 static const char *driver_sqlite_connect_error(struct sqlite_db *db)
 {
-	const char *err;
+	const char *errstr;
 
 	switch (db->connect_rc) {
 	/* Should not end here with OK */
@@ -260,17 +260,17 @@ static const char *driver_sqlite_connect_error(struct sqlite_db *db)
 		i_unreached();
 	case SQLITE_CANTOPEN:
 	case SQLITE_PERM:
-		err = driver_sqlite_get_eacces_error(db, "open");
+		errstr = driver_sqlite_get_eacces_error(db, "open");
 		break;
 	case SQLITE_NOMEM:
 		i_fatal_status(FATAL_OUTOFMEM, "open(%s) failed: %s",
 			       db->set->path, sqlite3_errstr(db->connect_rc));
 	default:
-		err = t_strdup_printf("open(%s) failed: %s", db->set->path,
-				      sqlite3_errstr(db->connect_rc));
+		errstr = t_strdup_printf("open(%s) failed: %s", db->set->path,
+					 sqlite3_errstr(db->connect_rc));
 		break;
 	}
-	return err;
+	return errstr;
 }
 
 static void
@@ -507,27 +507,28 @@ static const char*
 driver_sqlite_result_str(struct sql_db *_db, int rc)
 {
 	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
-	const char *err = "";
+	const char *errstr = "";
 
 	if (!db->connected) {
-		err = t_strconcat("Cannot connect to database: ",
-				  driver_sqlite_connect_error(db), NULL);
+		errstr = t_strconcat("Cannot connect to database: ",
+				     driver_sqlite_connect_error(db), NULL);
 	} else if (rc == SQLITE_READONLY) {
 		if (db->set->readonly) {
 			/* Expected to happen */
-			err = t_strdup_printf("%s (because of sqlite_readonly=on)",
-					      sqlite3_errstr(rc));
+			errstr = t_strdup_printf("%s (because of sqlite_readonly=on)",
+						 sqlite3_errstr(rc));
 		} else {
 			/* Check why the database is read only */
-			err = driver_sqlite_readonly_error(db);
+			errstr = driver_sqlite_readonly_error(db);
 		}
 	} else if (rc == SQLITE_CANTOPEN || rc == SQLITE_PERM) {
-		err = driver_sqlite_get_eacces_error(db, "write");
+		errstr = driver_sqlite_get_eacces_error(db, "write");
 	} else if (!SQLITE_IS_OK(rc)) {
-		err = t_strdup_printf("%s (rc=%d, errno=%d)", sqlite3_errstr(rc),
-				      rc, sqlite3_system_errno(db->sqlite));
+		errstr = t_strdup_printf("%s (rc=%d, errno=%d)",
+					 sqlite3_errstr(rc), rc,
+					 sqlite3_system_errno(db->sqlite));
 	}
-	return err;
+	return errstr;
 }
 
 static const char *
