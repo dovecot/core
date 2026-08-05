@@ -2735,12 +2735,20 @@ auth_request_db_password_verify_log(struct auth_request *request,
 		log_password_mismatch);
 }
 
+static bool auth_request_password_check_skipped(struct auth_request *request)
+{
+	/* The passdb password isn't going to be used to verify the client's
+	   password, so a missing or empty password mustn't be rejected:
+	   either an earlier passdb already verified the password, or
+	   nopassword accepts any password. */
+	return request->fields.skip_password_check ||
+		auth_fields_exists(request->fields.extra_fields, "nopassword");
+}
+
 enum passdb_result auth_request_password_missing(struct auth_request *request)
 {
-	if (request->fields.skip_password_check) {
-		/* This passdb wasn't used for authentication */
+	if (auth_request_password_check_skipped(request))
 		return PASSDB_RESULT_OK;
-	}
 	e_info(authdb_event(request),
 	       "No password returned (and no nopassword)");
 	return PASSDB_RESULT_PASSWORD_MISMATCH;
