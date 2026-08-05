@@ -92,6 +92,9 @@ test_client_userdb_lookup_parallel(const char *const *usernames,
 				   bool retry, const char **error_r);
 
 static int test_client_user_list_simple(void);
+static int
+test_client_user_list_timeout(unsigned int timeout_msecs,
+			      unsigned int *count_r);
 
 /* test*/
 static void
@@ -1215,6 +1218,185 @@ static void test_user_list(void)
 }
 
 /*
+ * User list slow
+ */
+
+/* server */
+
+enum _user_list_slow_state {
+	USER_LIST_SLOW_STATE_VERSION = 0,
+	USER_LIST_SLOW_STATE_USER
+};
+
+struct _user_list_slow_server {
+	enum _user_list_slow_state state;
+	struct timeout *to;
+
+	unsigned int id;
+	unsigned int users_sent;
+};
+
+/* how many usernames the server sends and whether it stalls afterwards
+   instead of finishing with DONE */
+static unsigned int test_user_list_slow_users;
+static bool test_user_list_slow_stall;
+
+static void test_user_list_slow_send_next(struct server_connection *conn)
+{
+	struct _user_list_slow_server *ctx =
+		(struct _user_list_slow_server *)conn->context;
+	string_t *str = t_str_new(64);
+
+	if (ctx->users_sent < test_user_list_slow_users) {
+		ctx->users_sent++;
+		str_printfa(str, "LIST\t%u\tuser%u\n", ctx->id,
+			    ctx->users_sent);
+		o_stream_nsend_str(conn->conn.output, str_c(str));
+		return;
+	}
+	timeout_remove(&ctx->to);
+	if (test_user_list_slow_stall) {
+		/* stop sending, but keep the connection open so that the
+		   client's request timeout is what terminates the list */
+		return;
+	}
+	str_printfa(str, "DONE\t%u\n", ctx->id);
+	o_stream_nsend_str(conn->conn.output, str_c(str));
+	server_connection_deinit(&conn);
+}
+
+static void test_user_list_slow_input(struct server_connection *conn)
+{
+	struct _user_list_slow_server *ctx =
+		(struct _user_list_slow_server *)conn->context;
+	const char *line;
+	const char *const *args;
+
+	for (;;) {
+		line = i_stream_read_next_line(conn->conn.input);
+		if (line == NULL) {
+			if (conn->conn.input->eof)
+				server_connection_deinit(&conn);
+			return;
+		}
+
+		switch (ctx->state) {
+		case USER_LIST_SLOW_STATE_VERSION:
+			if (!str_begins_with(line, "VERSION\t")) {
+				i_error("Bad VERSION");
+				server_connection_deinit(&conn);
+				return;
+			}
+			ctx->state = USER_LIST_SLOW_STATE_USER;
+			continue;
+		case USER_LIST_SLOW_STATE_USER:
+			args = t_strsplit_tabescaped(line);
+			if (strcmp(args[0], "LIST") != 0 || args[1] == NULL ||
+			    str_to_uint(args[1], &ctx->id) < 0) {
+				i_error("Bad LIST request");
+				server_connection_deinit(&conn);
+				return;
+			}
+			/* send one username every 300 ms, so that the whole
+			   listing takes longer than the client's 2000 ms
+			   request timeout, but the reply intervals stay well
+			   below it. The margin between the interval and the
+			   timeout is kept large, so that a slow/overloaded
+			   test machine doesn't cause spurious failures. */
+			ctx->to = timeout_add_short(
+				300, test_user_list_slow_send_next, conn);
+			return;
+		}
+		i_unreached();
+	}
+}
+
+static void test_user_list_slow_init(struct server_connection *conn)
+{
+	struct _user_list_slow_server *ctx;
+
+	ctx = p_new(conn->pool, struct _user_list_slow_server, 1);
+	conn->context = (void*)ctx;
+
+	o_stream_nsend_str(conn->conn.output, "VERSION\t1\t0\n");
+	o_stream_nsend_str(conn->conn.output, "SPID\t23234\n");
+}
+
+static void test_user_list_slow_deinit(struct server_connection *conn)
+{
+	struct _user_list_slow_server *ctx =
+		(struct _user_list_slow_server *)conn->context;
+
+	timeout_remove(&ctx->to);
+}
+
+static void test_server_user_list_slow(void)
+{
+	test_user_list_slow_users = 10;
+	test_user_list_slow_stall = FALSE;
+	test_server_init = test_user_list_slow_init;
+	test_server_input = test_user_list_slow_input;
+	test_server_deinit = test_user_list_slow_deinit;
+	test_server_run();
+}
+
+static void test_server_user_list_stall(void)
+{
+	test_user_list_slow_users = 2;
+	test_user_list_slow_stall = TRUE;
+	test_server_init = test_user_list_slow_init;
+	test_server_input = test_user_list_slow_input;
+	test_server_deinit = test_user_list_slow_deinit;
+	test_server_run();
+}
+
+/* client */
+
+static bool test_client_user_list_slow(void)
+{
+	unsigned int count;
+	int ret;
+
+	ret = test_client_user_list_timeout(2000, &count);
+	test_out("run (ret == 0)", ret == 0);
+	test_out("count (count == 10)", count == 10);
+
+	return FALSE;
+}
+
+static bool test_client_user_list_stall(void)
+{
+	unsigned int count;
+	int ret;
+
+	ret = test_client_user_list_timeout(2000, &count);
+	test_out("run (ret < 0)", ret < 0);
+	test_out("count (count == 2)", count == 2);
+
+	return FALSE;
+}
+
+/* test */
+
+static void test_user_list_slow(void)
+{
+	test_begin("user list slow");
+	test_expect_errors(0);
+	test_run_client_server(test_client_user_list_slow,
+			       test_server_user_list_slow);
+	test_end();
+}
+
+static void test_user_list_stall(void)
+{
+	test_begin("user list stall");
+	test_expect_errors(1);
+	test_run_client_server(test_client_user_list_stall,
+			       test_server_user_list_stall);
+	test_end();
+}
+
+/*
  * All tests
  */
 
@@ -1230,6 +1412,8 @@ static void (*const test_functions[])(void) = {
 	test_passdb_lookup,
 	test_userdb_lookup,
 	test_user_list,
+	test_user_list_slow,
+	test_user_list_stall,
 	NULL
 };
 
@@ -1688,12 +1872,15 @@ test_client_userdb_lookup_parallel(const char *const *usernames,
 	return ret;
 }
 
-static int test_client_user_list_simple(void)
+static int
+test_client_user_list_timeout(unsigned int timeout_msecs,
+			      unsigned int *count_r)
 {
 	struct auth_master_connection *auth_conn;
 	struct auth_master_user_list_ctx *list_ctx;
 	enum auth_master_flags flags = 0;
 	struct auth_user_info info;
+	unsigned int count = 0;
 	int ret;
 
 	i_zero(&info);
@@ -1704,13 +1891,21 @@ static int test_client_user_list_simple(void)
 		flags |= AUTH_MASTER_FLAG_DEBUG;
 
 	auth_conn = auth_master_init(TEST_SOCKET, flags);
-	auth_master_set_timeout(auth_conn, 1000);
+	auth_master_set_timeout(auth_conn, timeout_msecs);
 	list_ctx = auth_master_user_list_init(auth_conn, "*", &info);
-	while (auth_master_user_list_next(list_ctx) != NULL);
+	while (auth_master_user_list_next(list_ctx) != NULL)
+		count++;
 	ret = auth_master_user_list_deinit(&list_ctx);
 	auth_master_deinit(&auth_conn);
 
+	if (count_r != NULL)
+		*count_r = count;
 	return ret;
+}
+
+static int test_client_user_list_simple(void)
+{
+	return test_client_user_list_timeout(1000, NULL);
 }
 
 /*
