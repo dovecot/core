@@ -31,6 +31,19 @@ auth_master_request_get_timeout_msecs(struct auth_master_request *req)
 	return (unsigned int)(msecs < 0 ? 0 : msecs);
 }
 
+void auth_master_request_extend_timeout(struct auth_master_request *req)
+{
+	struct auth_master_connection *conn = req->conn;
+
+	/* The timeout handling assumes that requests expire in the order
+	   they were created, so the deadline of the oldest request must not
+	   be pushed past the deadlines of newer requests. */
+	i_assert(conn->requests_count == 1);
+
+	req->create_stamp = ioloop_timeval;
+	auth_master_connection_update_timeout(conn);
+}
+
 static void auth_master_request_remove(struct auth_master_request *req)
 {
 	struct auth_master_connection *conn = req->conn;

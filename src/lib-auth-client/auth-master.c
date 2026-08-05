@@ -1381,6 +1381,17 @@ const char *auth_master_user_list_next(struct auth_master_user_list_ctx *ctx)
 	if (username == NULL)
 		return NULL;
 
+	/* A LIST request is a single long-lived, multi-reply request that
+	   stays alive for the entire user enumeration, which for large
+	   installations can take far longer than the normal auth lookup
+	   timeout allows for a single request. Since we just made progress
+	   (another username was returned), push the request's deadline out
+	   from now instead of leaving it anchored to when the LIST request
+	   was first created. This turns the timeout into a "no progress for
+	   N seconds" stall detector for listing. */
+	i_assert(ctx->req != NULL);
+	auth_master_request_extend_timeout(ctx->req);
+
 	e_debug(ctx->event, "Returned username: %s", username);
 	return username;
 }

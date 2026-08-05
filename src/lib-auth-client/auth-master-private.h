@@ -89,6 +89,7 @@ struct auth_master_connection {
 
 unsigned int
 auth_master_request_get_timeout_msecs(struct auth_master_request *req);
+void auth_master_request_extend_timeout(struct auth_master_request *req);
 
 void auth_master_request_send(struct auth_master_request *req);
 int auth_master_request_got_reply(struct auth_master_request **_req,
