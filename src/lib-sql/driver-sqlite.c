@@ -1008,7 +1008,10 @@ driver_sqlite_transaction_commit_s(struct sql_transaction_context *_ctx,
 	driver_sqlite_transaction_exec(ctx, "COMMIT");
 	if (!SQLITE_IS_OK(ctx->err.rc)) {
 		e_debug(sql_transaction_finished_event(_ctx)->
-			add_str("error", ctx->error)->event(),
+			add_str("error", ctx->error)->
+			add_int("error_code", ctx->err.rc)->
+			add_int("error_code_extended", ctx->err.ext_rc)->
+			event(),
 			"Transaction failed: %s", ctx->error);
 		*error_r = t_strdup(ctx->error);
 		driver_sqlite_transaction_rollback(_ctx);
