@@ -2672,6 +2672,17 @@ auth_request_password_verify_log(struct auth_request *request,
 		return PASSDB_RESULT_OK;
 	}
 
+	/* All passdbs either verify the password themselves or hand a
+	   non-NULL crypted_password here. An empty password field is still
+	   non-NULL: its scheme prefix (e.g. "{PLAIN}") has already been
+	   split off, so it arrives as crypted_password="" with
+	   scheme="PLAIN". */
+	i_assert(crypted_password != NULL);
+	if (*crypted_password == '\0') {
+		/* passdb returned an empty password */
+		return auth_request_password_empty(request);
+	}
+
 	ret = password_decode(crypted_password, scheme,
 			      &raw_password, &raw_password_size, &error);
 	if (ret <= 0) {
@@ -2751,6 +2762,14 @@ enum passdb_result auth_request_password_missing(struct auth_request *request)
 		return PASSDB_RESULT_OK;
 	e_info(authdb_event(request),
 	       "No password returned (and no nopassword)");
+	return PASSDB_RESULT_PASSWORD_MISMATCH;
+}
+
+enum passdb_result auth_request_password_empty(struct auth_request *request)
+{
+	if (auth_request_password_check_skipped(request))
+		return PASSDB_RESULT_OK;
+	e_info(authdb_event(request), "Empty password returned");
 	return PASSDB_RESULT_PASSWORD_MISMATCH;
 }
 
