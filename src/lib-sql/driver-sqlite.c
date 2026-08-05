@@ -676,8 +676,9 @@ static void driver_sqlite_statement_abort(struct sql_statement *_stmt)
 	pool_unref(&stmt->api.pool);
 }
 
-static int driver_sqlite_exec_query(struct sqlite_db *db, const char *query,
-				    const char **error_r)
+static void driver_sqlite_exec_query(struct sqlite_db *db, const char *query,
+				     struct sqlite_error *err_r,
+				     const char **error_r)
 {
 	struct sqlite_result result;
 
@@ -701,15 +702,16 @@ static int driver_sqlite_exec_query(struct sqlite_db *db, const char *query,
 	}
 
 	event_unref(&result.api.event);
-	return result.err.rc;
+	*err_r = result.err;
 }
 
 static void driver_sqlite_exec(struct sql_db *_db, const char *query)
 {
 	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
+	struct sqlite_error err;
 	const char *error;
 
-	(void)driver_sqlite_exec_query(db, query, &error);
+	driver_sqlite_exec_query(db, query, &err, &error);
 }
 
 static struct sqlite_result *
@@ -900,18 +902,18 @@ driver_sqlite_transaction_exec(struct sqlite_transaction_context *ctx,
 			       const char *query)
 {
 	struct sqlite_db *db = container_of(ctx->ctx.db, struct sqlite_db, api);
+	struct sqlite_error err;
 	const char *error;
-	int rc;
 
 	/* We have already failed */
 	if (!SQLITE_IS_OK(ctx->err.rc))
 		return;
 
-	rc = driver_sqlite_exec_query(db, query, &error);
-	if (!SQLITE_IS_OK(rc) && SQLITE_IS_OK(ctx->err.rc)) {
+	driver_sqlite_exec_query(db, query, &err, &error);
+	if (!SQLITE_IS_OK(err.rc) && SQLITE_IS_OK(ctx->err.rc)) {
 		/* first error in the transaction */
 		i_assert(ctx->error == NULL);
-		ctx->err.rc = rc;
+		ctx->err = err;
 		ctx->error = i_strdup(error);
 	}
 }
@@ -938,16 +940,18 @@ driver_sqlite_transaction_rollback(struct sql_transaction_context *_ctx)
 		container_of(_ctx, struct sqlite_transaction_context, ctx);
 	struct sqlite_db *db = container_of(_ctx->db, struct sqlite_db, api);
 
+	struct sqlite_error err;
 	const char *error;
-	int rc = driver_sqlite_exec_query(db, "ROLLBACK", &error);
-	if (SQLITE_IS_OK(rc)) {
+
+	driver_sqlite_exec_query(db, "ROLLBACK", &err, &error);
+	if (SQLITE_IS_OK(err.rc)) {
 		e_debug(sql_transaction_finished_event(_ctx)->
 			add_str("error", "Rolled back")->event(),
 			"Transaction rolled back");
 	} else {
 		e_debug(sql_transaction_finished_event(_ctx)->
 			add_str("error", error)->
-			add_int("error_code", rc)->event(),
+			add_int("error_code", err.rc)->event(),
 			"Transaction rollback failed");
 	}
 	event_unref(&_ctx->event);
