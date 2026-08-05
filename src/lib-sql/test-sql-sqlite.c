@@ -131,9 +131,93 @@ static void test_sql_sqlite(void)
 	test_end();
 }
 
+static void test_sql_sqlite_errors(void)
+{
+	test_begin("test sql api errors");
+
+	struct settings_simple set;
+	settings_simple_init(&set, (const char *const []) {
+		"sql_driver", "sqlite",
+		"sqlite_path", "test-database-errors.db",
+		"sqlite_journal_mode", "wal",
+		NULL,
+	});
+	struct sql_db *sql = NULL;
+	const char *error = NULL;
+
+	sql_drivers_init_without_drivers();
+	driver_sqlite_init();
+
+	if (sql_init_auto(set.event, &sql, &error) <= 0)
+		i_fatal("%s", error);
+	sql_disconnect(sql);
+	i_unlink_if_exists("test-database-errors.db");
+	sql_exec(sql, "CREATE TABLE pk(id INTEGER PRIMARY KEY)");
+	sql_exec(sql, "INSERT INTO pk VALUES(1)");
+
+	/* SQLite's own message is reported, not just the generic text for the
+	   result code, which would be "SQL logic error" for all of these. */
+	struct sql_result *result =
+		sql_query_s(sql, "SELECT x FROM nosuchtable");
+	test_assert(sql_result_next_row(result) < 0);
+	error = sql_result_get_error(result);
+	test_assert(strstr(error, "no such table: nosuchtable") != NULL);
+	test_assert(strstr(error, "rc=1") != NULL);
+	sql_result_unref(result);
+
+	result = sql_query_s(sql, "SELCT bogus");
+	test_assert(sql_result_next_row(result) < 0);
+	error = sql_result_get_error(result);
+	test_assert(strstr(error, "syntax error") != NULL);
+	sql_result_unref(result);
+
+	result = sql_query_s(sql, "SELECT nosuchcolumn FROM pk");
+	test_assert(sql_result_next_row(result) < 0);
+	error = sql_result_get_error(result);
+	test_assert(strstr(error, "no such column: nosuchcolumn") != NULL);
+	sql_result_unref(result);
+
+	/* A failing sqlite3_step() reports the extended result code, which
+	   says which kind of constraint failed (SQLITE_CONSTRAINT_PRIMARYKEY
+	   rather than plain SQLITE_CONSTRAINT). */
+	result = sql_query_s(sql, "INSERT INTO pk VALUES(1)");
+	test_assert(sql_result_next_row(result) < 0);
+	error = sql_result_get_error(result);
+	test_assert(strstr(error, "UNIQUE constraint failed: pk.id") != NULL);
+	test_assert(strstr(error, "rc=19") != NULL);
+	test_assert(strstr(error, "extended_rc=1555") != NULL);
+	sql_result_unref(result);
+
+	/* The transaction keeps the whole error of the statement that failed,
+	   not just its result code. */
+	struct sql_transaction_context *t = sql_transaction_begin(sql);
+	sql_update(t, "INSERT INTO pk VALUES(1)");
+	test_assert(sql_transaction_commit_s(&t, &error) < 0);
+	test_assert(strstr(error, "UNIQUE constraint failed: pk.id") != NULL);
+	test_assert(strstr(error, "extended_rc=1555") != NULL);
+
+	/* Errors that driver-sqlite generates itself have no SQLite message or
+	   extended code, so they fall back to the text for the result code. */
+	result = sql_query_s(sql, "");
+	test_assert(sql_result_next_row(result) < 0);
+	error = sql_result_get_error(result);
+	test_assert(strstr(error, "rc=21") != NULL);
+	test_assert(strstr(error, "extended_rc=21") != NULL);
+	sql_result_unref(result);
+
+	sql_unref(&sql);
+	driver_sqlite_deinit();
+	sql_drivers_deinit_without_drivers();
+	settings_simple_deinit(&set);
+	i_unlink_if_exists("test-database-errors.db");
+
+	test_end();
+}
+
 int main(void) {
 	static void (*const test_functions[])(void) = {
 		test_sql_sqlite,
+		test_sql_sqlite_errors,
 		NULL
 	};
 	return test_run(test_functions);
