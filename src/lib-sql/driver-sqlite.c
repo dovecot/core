@@ -243,10 +243,15 @@ static void driver_sqlite_disconnect(struct sql_db *_db)
 
 	sql_connection_log_finished(_db);
 	driver_sqlite_finalize_prepared_statements(db);
+	/* sqlite3_close() fails only if the connection still has unfinalized
+	   statements or unfinished backups, i.e. only because of a bug in
+	   driver-sqlite. */
 	int rc = sqlite3_close(db->sqlite);
 	if (rc != SQLITE_OK) {
-		e_error(db->api.event, "sqlite3_close() failed: %s (%d)",
-			sqlite3_errstr(rc), rc);
+		/* The connection isn't closed on failure, so its error message
+		   is still readable. */
+		e_error(db->api.event, "sqlite3_close() failed: %s (rc=%d)",
+			sqlite3_errmsg(db->sqlite), rc);
 	}
 	db->sqlite = NULL;
 	db->connected = FALSE;
