@@ -479,7 +479,8 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			 const char *alt_setting_name_filter,
 			 const char *alt_setting_name_filter2,
 			 bool hide_key, bool default_hide_passwords,
-			 const char *strip_prefix, const char *strip_prefix2)
+			 const char *strip_prefix, const char *strip_prefix2,
+			 bool *value_printed)
 {
 	ARRAY_TYPE(const_string) prefixes_arr;
 	ARRAY_TYPE(prefix_stack) prefix_stack;
@@ -676,6 +677,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 					o_stream_nsend(output, "\"", 1);
 				}
 				boollist_add_space = TRUE;
+				*value_printed = TRUE;
 			}
 			/* value was already written, skip the generic value
 			   writing code. */
@@ -691,7 +693,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			}
 			o_stream_nsend_str(output, " = ");
 		} else if (!bool_list_elem || !str_list_elem) {
-			if (output->offset != 0)
+			if (*value_printed)
 				i_fatal("Multiple settings matched with -h parameter");
 		}
 		/* Extract embedded heredoc marker if present */
@@ -747,6 +749,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			boollist_one_line = FALSE;
 			bool_list_elem = str_list_elem = FALSE;
 			o_stream_nsend(output, "\n", 1);
+			*value_printed = TRUE;
 		}
 	end: ;
 	} T_END;
@@ -864,7 +867,8 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 			      struct config_filter_parser *filter_parser,
 			      struct ostream *output, unsigned int indent,
 			      string_t *list_prefix, bool *list_prefix_sent,
-			      bool hide_key, bool hide_passwords)
+			      bool hide_key, bool hide_passwords,
+			      bool *value_printed)
 {
 	for (; filter_parser != NULL; filter_parser = filter_parser->next) {
 		const char *suffix, *set_name_filter = NULL;
@@ -953,7 +957,8 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 					 alt_set_name_filter,
 					 alt_set_name_filter2,
 					 hide_key, sub_hide_passwords,
-					 strip_prefix, strip_prefix2);
+					 strip_prefix, strip_prefix2,
+					 value_printed);
 
 		bool sub_list_prefix_sent = ctx->list_prefix_sent;
 		if (scope != CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_AND_GROUP_OVERRIDES) {
@@ -971,13 +976,15 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 		config_dump_human_filter_path(scope, sub_filter_path,
 			filter_parser->children_head, output, sub_indent,
 			list_prefix, &sub_list_prefix_sent,
-			hide_key, hide_passwords);
+			hide_key, hide_passwords, value_printed);
 		if (sub_list_prefix_sent) {
 			*list_prefix_sent = TRUE;
 			config_dump_filter_end(output, sub_indent, indent);
 		}
-		if (hide_key && output->offset == 0)
+		if (hide_key && !*value_printed) {
 			o_stream_nsend(output, "\n", 1);
+			*value_printed = TRUE;
+		}
 		str_truncate(list_prefix, parent_list_prefix_len);
 	}
 }
@@ -1045,6 +1052,10 @@ config_dump_human(enum config_dump_scope scope,
 	struct config_dump_human_context *ctx;
 	struct ostream *output;
 	const char *str;
+	/* Track whether any setting value has been written. The output
+	   stream's offset can't be used for this, because it is initialized
+	   from the current file offset when stdout is a seekable fd. */
+	bool value_printed = FALSE;
 	int ret = 0;
 
 	output = o_stream_create_fd(STDOUT_FILENO, 0);
@@ -1063,7 +1074,8 @@ config_dump_human(enum config_dump_scope scope,
 		config_dump_human_init_hidden_keys(ctx, filter_parser);
 	}
 	config_dump_human_output(ctx, output, 0, NULL, setting_name_filter, NULL, NULL,
-				 hide_key, hide_passwords, NULL, NULL);
+				 hide_key, hide_passwords, NULL, NULL,
+				 &value_printed);
 	config_dump_human_deinit(ctx);
 
 	string_t *list_prefix = t_str_new(128);
@@ -1082,11 +1094,11 @@ config_dump_human(enum config_dump_scope scope,
 	config_dump_human_filter_path(scope, set_filter_path,
 				      filter_parser->children_head, output, 0,
 				      list_prefix, &list_prefix_sent,
-				      hide_key, hide_passwords);
+				      hide_key, hide_passwords, &value_printed);
 
 	if (setting_name_filter == NULL)
 		config_dump_human_include_group(filter_parser, output, NULL, 0);
-	if (hide_key && output->offset == 0)
+	if (hide_key && !value_printed)
 		o_stream_nsend(output, "\n", 1);
 	/* flush output before writing errors */
 	o_stream_uncork(output);
