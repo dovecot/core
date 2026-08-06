@@ -80,8 +80,7 @@ void mail_index_transaction_unref(struct mail_index_transaction **_t)
 
 	DLLIST_REMOVE(&t->view->transactions_list, t);
 	array_free(&t->module_contexts);
-	if (t->latest_view != NULL)
-		mail_index_view_close(&t->latest_view);
+	mail_index_view_close(&t->latest_view);
 	mail_index_view_close(&t->view);
 	i_free(t);
 }

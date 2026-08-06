@@ -58,8 +58,7 @@ static void vsize_header_refresh(struct mailbox_vsize_update *update)
 	const void *data;
 	size_t size;
 
-	if (update->view != NULL)
-		mail_index_view_close(&update->view);
+	mail_index_view_close(&update->view);
 	(void)mail_index_refresh(update->box->index);
 	update->view = mail_index_view_open(update->box->index);
 

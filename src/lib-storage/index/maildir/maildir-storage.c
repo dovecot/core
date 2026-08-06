@@ -614,8 +614,7 @@ static void maildir_mailbox_close(struct mailbox *box)
 		timeout_remove(&mbox->keep_lock_to);
 	}
 
-	if (mbox->flags_view != NULL)
-		mail_index_view_close(&mbox->flags_view);
+	mail_index_view_close(&mbox->flags_view);
 	if (mbox->keywords != NULL)
 		maildir_keywords_deinit(&mbox->keywords);
 	if (mbox->uidlist != NULL)

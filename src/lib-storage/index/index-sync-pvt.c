@@ -87,8 +87,7 @@ index_mailbox_sync_view_refresh(struct index_mailbox_sync_pvt_context *ctx)
 		mailbox_set_index_error(ctx->box);
 		return -1;
 	}
-	if (ctx->view_shared != NULL)
-		mail_index_view_close(&ctx->view_shared);
+	mail_index_view_close(&ctx->view_shared);
 	ctx->view_shared = mail_index_view_open(ctx->box->index);
 	return 0;
 }
@@ -339,7 +338,6 @@ void index_mailbox_sync_pvt_deinit(struct index_mailbox_sync_pvt_context **_ctx)
 
 	if (ctx->sync_ctx != NULL)
 		mail_index_sync_rollback(&ctx->sync_ctx);
-	if (ctx->view_shared != NULL)
-		mail_index_view_close(&ctx->view_shared);
+	mail_index_view_close(&ctx->view_shared);
 	i_free(ctx);
 }

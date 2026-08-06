@@ -49,8 +49,7 @@ void test_mail_cache_init(struct mail_index *index,
 
 void test_mail_cache_deinit(struct test_mail_cache_ctx *ctx)
 {
-	if (ctx->view != NULL)
-		mail_index_view_close(&ctx->view);
+	mail_index_view_close(&ctx->view);
 	test_mail_index_close(&ctx->index);
 }
 

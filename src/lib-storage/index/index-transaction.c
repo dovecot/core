@@ -10,8 +10,7 @@
 
 static void index_transaction_free(struct mailbox_transaction_context *t)
 {
-	if (t->view_pvt != NULL)
-		mail_index_view_close(&t->view_pvt);
+	mail_index_view_close(&t->view_pvt);
 	mail_cache_view_close(&t->cache_view);
 	mail_index_view_close(&t->view);
 	if (array_is_created(&t->pvt_saves))

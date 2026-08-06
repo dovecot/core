@@ -100,8 +100,7 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 
 	*changes_r = FALSE;
 
-	if (mbox->delayed_sync_view != NULL)
-		mail_index_view_close(&mbox->delayed_sync_view);
+	mail_index_view_close(&mbox->delayed_sync_view);
 	if (mbox->delayed_sync_trans == NULL)
 		;
 	else if (!mbox->selected && !force) {
@@ -122,14 +121,12 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 		/* delayed expunges - commit them now in a separate
 		   transaction. Reopen mbox->sync_view to see changes
 		   committed in delayed_sync_trans. */
-		if (mbox->sync_view != NULL)
-			mail_index_view_close(&mbox->sync_view);
+		mail_index_view_close(&mbox->sync_view);
 		if (imapc_mailbox_commit_delayed_expunges(mbox) < 0)
 			ret = -1;
 	}
 
-	if (mbox->sync_view != NULL)
-		mail_index_view_close(&mbox->sync_view);
+	mail_index_view_close(&mbox->sync_view);
 	i_assert(mbox->delayed_sync_trans == NULL);
 	i_assert(mbox->delayed_sync_view == NULL);
 	i_assert(mbox->delayed_sync_cache_trans == NULL);
