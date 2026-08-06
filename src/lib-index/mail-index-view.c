@@ -409,6 +409,9 @@ void mail_index_view_close(struct mail_index_view **_view)
 {
 	struct mail_index_view *view = *_view;
 
+	if (view == NULL)
+		return;
+
 	*_view = NULL;
 	if (--view->refcount > 0)
 		return;
