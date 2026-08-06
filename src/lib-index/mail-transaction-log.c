@@ -358,6 +358,17 @@ int mail_transaction_log_has_changed(struct mail_transaction_log *log,
 	return 1;
 }
 
+static void
+mail_transaction_log_replace_head(struct mail_transaction_log *log,
+				  struct mail_transaction_log_file *file)
+{
+	struct mail_transaction_log_file *old_head = log->head;
+
+	mail_transaction_log_set_head(log, file);
+	if (--old_head->refcount == 0)
+		mail_transaction_logs_clean(log);
+}
+
 static int
 mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush,
 			     const char **reason_r)
@@ -378,10 +389,7 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush,
 
 	i_assert(!file->locked);
 
-	struct mail_transaction_log_file *old_head = log->head;
-	mail_transaction_log_set_head(log, file);
-	if (--old_head->refcount == 0)
-		mail_transaction_logs_clean(log);
+	mail_transaction_log_replace_head(log, file);
 	*reason_r = "Log reopened";
 	return 0;
 }
