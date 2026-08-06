@@ -123,8 +123,15 @@ imap_notify_next(struct imap_notify_namespace *notify_ns,
 	int ret;
 
 	if ((rec->events & MAILBOX_LIST_NOTIFY_CREATE) != 0) {
-		if (mailbox_list_mailbox(notify_ns->ns->list, rec->storage_name,
-					 &mailbox_flags) < 0)
+		if ((rec->events & MAILBOX_LIST_NOTIFY_DELETE) != 0) {
+			/* mailbox was created and deleted before we noticed
+			   it. Don't look up the flags, since the mailbox
+			   doesn't exist anymore - the delete event below
+			   tells that to the client. */
+			mailbox_flags = 0;
+		} else if (mailbox_list_mailbox(notify_ns->ns->list,
+						rec->storage_name,
+						&mailbox_flags) < 0)
 			mailbox_flags = 0;
 		if ((ret = imap_notify_list(notify_ns, rec, mailbox_flags)) <= 0)
 			return ret;
