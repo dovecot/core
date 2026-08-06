@@ -228,18 +228,45 @@ static bool dcrypt_openssl_error(const char **error_r)
 /* ML-KEM support is detected at runtime by algorithm name. The NID macros
    can't be used for this: a libcrypto may well support ML-KEM without the
    headers it was built with declaring the NIDs, since adding NIDs renumbers
-   the object table and breaks ABI. */
-static bool dcrypt_name_is_kem(const char *name)
+   the object table and breaks ABI. The OIDs are mapped here for the same
+   reason: OBJ_txt2nid() and OBJ_txt2obj() would need the object table
+   entries. */
+static const struct {
+	const char *name;
+	const char *oid;
+} dcrypt_kem_algorithms[] = {
+	{ DCRYPT_ML_KEM_512, "2.16.840.1.101.3.4.4.1" },
+	{ DCRYPT_ML_KEM_768, "2.16.840.1.101.3.4.4.2" },
+	{ DCRYPT_ML_KEM_1024, "2.16.840.1.101.3.4.4.3" },
+};
+
+static const char *dcrypt_kem_name2oid(const char *name)
 {
-	return name != NULL &&
-		(strcasecmp(name, DCRYPT_ML_KEM_512) == 0 ||
-		 strcasecmp(name, DCRYPT_ML_KEM_768) == 0 ||
-		 strcasecmp(name, DCRYPT_ML_KEM_1024) == 0);
+	unsigned int i;
+
+	if (name == NULL)
+		return NULL;
+	for (i = 0; i < N_ELEMENTS(dcrypt_kem_algorithms); i++) {
+		if (strcasecmp(name, dcrypt_kem_algorithms[i].name) == 0)
+			return dcrypt_kem_algorithms[i].oid;
+	}
+	return NULL;
 }
 
-static bool dcrypt_nid_is_kem(int nid)
+static const char *dcrypt_kem_oid2name(const char *oid)
 {
-	return dcrypt_name_is_kem(OBJ_nid2ln(nid));
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(dcrypt_kem_algorithms); i++) {
+		if (strcmp(oid, dcrypt_kem_algorithms[i].oid) == 0)
+			return dcrypt_kem_algorithms[i].name;
+	}
+	return NULL;
+}
+
+static bool dcrypt_name_is_kem(const char *name)
+{
+	return dcrypt_kem_name2oid(name) != NULL;
 }
 
 static bool dcrypt_pkey_is_kem(const EVP_PKEY *pkey)
@@ -1533,11 +1560,16 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 		return FALSE;
 	}
 
-	/* get key type */
-	int nid = OBJ_txt2nid(input[1]);
+	/* get key type. The ML-KEM OIDs are mapped by dcrypt itself, since
+	   the libcrypto's object table doesn't necessarily have them. */
+	const char *kem_name = dcrypt_kem_oid2name(input[1]);
+	int nid = NID_undef;
 
-	if (nid == NID_undef)
-		return dcrypt_openssl_error(error_r);
+	if (kem_name == NULL) {
+		nid = OBJ_txt2nid(input[1]);
+		if (nid == NID_undef)
+			return dcrypt_openssl_error(error_r);
+	}
 
 	if (strlen(input[3]) > DCRYPT_MAX_KEY_BUFFER_SIZE * 2) {
 		*error_r = "Corrupted data";
@@ -1662,7 +1694,17 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 	}
 
 	/* decode actual key */
-	if (EVP_PKEY_type(nid) == EVP_PKEY_RSA) {
+	if (kem_name != NULL) {
+		EVP_PKEY *pkey = EVP_PKEY_new_raw_private_key_ex(NULL,
+			kem_name, NULL, key_data->data, key_data->used);
+		buffer_clear_safe(key_data);
+		if (pkey == NULL)
+			return dcrypt_openssl_error(error_r);
+
+		*key_r = i_new(struct dcrypt_private_key, 1);
+		(*key_r)->key = pkey;
+		(*key_r)->ref++;
+	} else if (EVP_PKEY_type(nid) == EVP_PKEY_RSA) {
 		EVP_PKEY *pkey = NULL;
 		size_t len;
 		const unsigned char *ptr = buffer_get_data(key_data, &len);
@@ -1674,8 +1716,7 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 		*key_r = i_new(struct dcrypt_private_key, 1);
 		(*key_r)->key = pkey;
 		(*key_r)->ref++;
-	} else if (IS_XD_CURVE(nid) || IS_ED_CURVE(nid) ||
-		   dcrypt_nid_is_kem(nid)) {
+	} else if (IS_XD_CURVE(nid) || IS_ED_CURVE(nid)) {
 		EVP_PKEY *pkey =
 			EVP_PKEY_new_raw_private_key(nid, NULL, key_data->data,
 						     key_data->used);
@@ -2986,26 +3027,36 @@ dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key,
 	const char *cipher2 = NULL;
 	EVP_PKEY *pkey = key->key;
 	char objtxt[OID_TEXT_MAX_LEN];
-	ASN1_OBJECT *obj;
-
-	if (EVP_PKEY_base_id(pkey) == EVP_PKEY_EC) {
-		obj = OBJ_nid2obj(dcrypt_EVP_PKEY_get_nid(pkey));
-	} else {
-		const char *type = EVP_PKEY_get0_type_name(pkey);
-		obj = OBJ_txt2obj(type, 0);
-	}
-
-
-	if (obj == NULL)
-		return dcrypt_openssl_error(error_r);
-
 	int enctype = DCRYPT_KEY_ENCRYPTION_TYPE_NONE;
-	int len = OBJ_obj2txt(objtxt, sizeof(objtxt), obj, 1);
-	if (len < 1)
-		return dcrypt_openssl_error(error_r);
-	if (len > (int)sizeof(objtxt)) {
-		*error_r = "Object identifier too long";
-		return FALSE;
+	const char *kem_oid =
+		dcrypt_kem_name2oid(EVP_PKEY_get0_type_name(pkey));
+
+	if (kem_oid != NULL) {
+		/* The ML-KEM OIDs aren't necessarily in the libcrypto's
+		   object table, so they are mapped by dcrypt itself. */
+		if (i_strocpy(objtxt, kem_oid, sizeof(objtxt)) < 0) {
+			*error_r = "Object identifier too long";
+			return FALSE;
+		}
+	} else {
+		ASN1_OBJECT *obj;
+
+		if (EVP_PKEY_base_id(pkey) == EVP_PKEY_EC) {
+			obj = OBJ_nid2obj(dcrypt_EVP_PKEY_get_nid(pkey));
+		} else {
+			const char *type = EVP_PKEY_get0_type_name(pkey);
+			obj = OBJ_txt2obj(type, 0);
+		}
+		if (obj == NULL)
+			return dcrypt_openssl_error(error_r);
+
+		int len = OBJ_obj2txt(objtxt, sizeof(objtxt), obj, 1);
+		if (len < 1)
+			return dcrypt_openssl_error(error_r);
+		if (len > (int)sizeof(objtxt)) {
+			*error_r = "Object identifier too long";
+			return FALSE;
+		}
 	}
 
 	buffer_t *buf = t_buffer_create(256);
