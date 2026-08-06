@@ -28,7 +28,7 @@ struct client {
 	struct event *event;
 	struct io *io_client, *io_server;
 	struct istream *input, *stdin_input;
-	struct ostream *output;
+	struct ostream *output, *stdout_output;
 	struct ssl_iostream *ssl_iostream;
 	const struct compression_handler *handler;
 	char *algorithm;
@@ -241,10 +241,8 @@ static void server_input(struct client *client)
 	}
 
 	while ((line = i_stream_next_line(client->input)) != NULL) {
-		if (write(STDOUT_FILENO, line, strlen(line)) < 0)
-			i_fatal("write(stdout) failed: %m");
-		if (write(STDOUT_FILENO, "\n", 1) < 0)
-			i_fatal("write(stdout) failed: %m");
+		o_stream_nsend_str(client->stdout_output, line);
+		o_stream_nsend_str(client->stdout_output, "\n");
 
 		switch (server_input_line_type(client, line)) {
 		case SERVER_INPUT_LINE_TYPE_STARTTLS:
@@ -278,9 +276,13 @@ static void server_input(struct client *client)
 	}
 
 	data = i_stream_get_data(client->input, &size);
-	if (write(STDOUT_FILENO, data, size) < 0)
-		i_fatal("write(stdout) failed: %m");
+	o_stream_nsend(client->stdout_output, data, size);
 	i_stream_skip(client->input, size);
+
+	if (o_stream_flush(client->stdout_output) < 0) {
+		i_fatal("write(stdout) failed: %s",
+			o_stream_get_error(client->stdout_output));
+	}
 }
 
 static void cmd_compress_connect(struct doveadm_cmd_context *cctx)
@@ -318,6 +320,10 @@ static void cmd_compress_connect(struct doveadm_cmd_context *cctx)
 	client.fd = fd;
 	fd_set_nonblock(STDIN_FILENO, TRUE);
 	client.stdin_input = i_stream_create_fd(STDIN_FILENO, SIZE_MAX);
+	/* stdin and stdout may point to the same file description (e.g. a
+	   pty), in which case stdout is now also non-blocking. Buffer stdout
+	   writes and retry them from the ioloop on EAGAIN. */
+	client.stdout_output = o_stream_create_fd(STDOUT_FILENO, SIZE_MAX);
 	client.input = i_stream_create_fd(fd, SIZE_MAX);
 	client.output = o_stream_create_fd(fd, 0);
 	o_stream_set_no_error_handling(client.output, TRUE);
@@ -326,10 +332,17 @@ static void cmd_compress_connect(struct doveadm_cmd_context *cctx)
 	master_service_run(master_service, NULL);
 	io_remove(&client.io_client);
 	io_remove(&client.io_server);
+	/* switch stdout back to blocking for the final flush */
+	fd_set_nonblock(STDOUT_FILENO, FALSE);
+	if (o_stream_finish(client.stdout_output) < 0) {
+		i_fatal("write(stdout) failed: %s",
+			o_stream_get_error(client.stdout_output));
+	}
 	ssl_iostream_destroy(&client.ssl_iostream);
 	i_stream_unref(&client.stdin_input);
 	i_stream_unref(&client.input);
 	o_stream_unref(&client.output);
+	o_stream_unref(&client.stdout_output);
 	event_unref(&client.event);
 	if (close(fd) < 0)
 		i_fatal("close() failed: %m");
