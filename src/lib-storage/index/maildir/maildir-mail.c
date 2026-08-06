@@ -201,6 +201,10 @@ maildir_mail_get_fname(struct maildir_mailbox *mbox, struct mail *mail,
 	/* file exists in index file, but not in dovecot-uidlist anymore. */
 	mail_set_expunged(mail);
 
+	/* the resync below is just a cleanup - make sure it doesn't overwrite
+	   the expunged-error, which the caller may be checking. */
+	mail_storage_last_error_push(mail->box->storage);
+
 	/* one reason this could happen is if we delayed opening
 	   dovecot-uidlist and we're trying to open a mail that got recently
 	   expunged. Let's test this theory first: */
@@ -215,6 +219,7 @@ maildir_mail_get_fname(struct maildir_mailbox *mbox, struct mail *mail,
 		   the same as in index. fix this by forcing a resync. */
 		(void)maildir_storage_sync_force(mbox, mail->uid);
 	}
+	mail_storage_last_error_pop(mail->box->storage);
 	return 0;
 }
 
