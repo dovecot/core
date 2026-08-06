@@ -62,6 +62,13 @@ struct mailbox_list_index_header {
 	/* array of { uint32_t id; char name[]; } */
 };
 
+/* name_id => name mapping from struct mailbox_list_index_header */
+struct mailbox_list_index_name {
+	uint32_t id;
+	const char *name;
+};
+ARRAY_DEFINE_TYPE(mailbox_list_index_name, struct mailbox_list_index_name);
+
 struct mailbox_list_index_name_iter {
 	const unsigned char *data;
 	size_t size, offset;
@@ -281,6 +288,16 @@ int mailbox_list_index_name_iter_next(struct mailbox_list_index_name_iter *iter,
 				      bool *fixed_r);
 int mailbox_list_index_parse(struct mailbox_list *list,
 			     struct mail_index_view *view, bool force);
+/* Same as mailbox_list_index_parse(), but the view isn't known to be fully
+   consistent, so a parsing failure isn't treated as index corruption. Returns
+   -1 if the view couldn't be parsed, leaving the mailbox tree unusable until
+   the next mailbox_list_index_parse().
+
+   names are used for the name_ids that the view's index header doesn't have.
+   It may be NULL. */
+int mailbox_list_index_parse_try(struct mailbox_list *list,
+				 struct mail_index_view *view,
+				 const ARRAY_TYPE(mailbox_list_index_name) *names);
 
 struct mailbox_list_iterate_context *
 mailbox_list_index_iter_init(struct mailbox_list *list,

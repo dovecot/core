@@ -656,8 +656,30 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 	return *error_r == NULL ? 0 : -1;
 }
 
-int mailbox_list_index_parse(struct mailbox_list *list,
-			     struct mail_index_view *view, bool force)
+static void
+mailbox_list_index_add_extra_names(struct mailbox_list_index *ilist,
+	const ARRAY_TYPE(mailbox_list_index_name) *extra_names)
+{
+	const struct mailbox_list_index_name *extra_name;
+
+	array_foreach(extra_names, extra_name) {
+		if (hash_table_lookup(ilist->mailbox_names,
+				      POINTER_CAST(extra_name->id)) != NULL)
+			continue;
+		hash_table_insert(ilist->mailbox_names,
+				  POINTER_CAST(extra_name->id),
+				  p_strdup(ilist->mailbox_pool,
+					   extra_name->name));
+		if (ilist->highest_name_id < extra_name->id)
+			ilist->highest_name_id = extra_name->id;
+	}
+}
+
+static int
+mailbox_list_index_parse_full(struct mailbox_list *list,
+			      struct mail_index_view *view, bool force,
+			      bool handle_corruption,
+			      const ARRAY_TYPE(mailbox_list_index_name) *names)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 	const struct mail_index_header *hdr;
@@ -670,7 +692,8 @@ int mailbox_list_index_parse(struct mailbox_list *list,
 		/* nothing changed */
 		return 0;
 	}
-	if ((hdr->flags & MAIL_INDEX_HDR_FLAG_FSCKD) != 0) {
+	if ((hdr->flags & MAIL_INDEX_HDR_FLAG_FSCKD) != 0 &&
+	    handle_corruption) {
 		mailbox_list_set_critical(list,
 			"Mailbox list index was marked as fsck'd %s", ilist->path);
 		ilist->call_corruption_callback = TRUE;
@@ -681,6 +704,8 @@ int mailbox_list_index_parse(struct mailbox_list *list,
 	ilist->sync_log_file_offset = hdr->log_file_head_offset;
 
 	if (mailbox_list_index_parse_header(ilist, view) < 0) {
+		if (!handle_corruption)
+			return -1;
 		mailbox_list_set_critical(list,
 			"Corrupted mailbox list index header %s", ilist->path);
 		if (ilist->has_backing_store) {
@@ -690,7 +715,11 @@ int mailbox_list_index_parse(struct mailbox_list *list,
 		ilist->call_corruption_callback = TRUE;
 		ilist->corrupted_names_or_parents = TRUE;
 	}
+	if (names != NULL)
+		mailbox_list_index_add_extra_names(ilist, names);
 	if (mailbox_list_index_parse_records(ilist, view, &error) < 0) {
+		if (!handle_corruption)
+			return -1;
 		mailbox_list_set_critical(list,
 			"Corrupted mailbox list index %s: %s",
 			ilist->path, error);
@@ -702,6 +731,19 @@ int mailbox_list_index_parse(struct mailbox_list *list,
 		ilist->corrupted_names_or_parents = TRUE;
 	}
 	return 0;
+}
+
+int mailbox_list_index_parse(struct mailbox_list *list,
+			     struct mail_index_view *view, bool force)
+{
+	return mailbox_list_index_parse_full(list, view, force, TRUE, NULL);
+}
+
+int mailbox_list_index_parse_try(struct mailbox_list *list,
+				 struct mail_index_view *view,
+				 const ARRAY_TYPE(mailbox_list_index_name) *names)
+{
+	return mailbox_list_index_parse_full(list, view, FALSE, FALSE, names);
 }
 
 const unsigned char *
