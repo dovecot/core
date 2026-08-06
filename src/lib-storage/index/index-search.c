@@ -1040,6 +1040,29 @@ static void search_limit_lowwater(struct index_search_context *ctx,
 		*first_seq = seq1;
 }
 
+/* Returns TRUE if the view's header counters (e.g.
+   deleted_messages_count) may be older than the flags that searching
+   actually matches. */
+static bool search_view_have_stale_hdr_counters(struct mail_index_view *view)
+{
+	const struct mail_index_modseq_header *view_modseq_hdr, *head_modseq_hdr;
+
+	if (view->map == view->index->map)
+		return FALSE;
+
+	/* The view's map is older than the index's head map. If their
+	   highest_modseqs are equal, there are no flag, keyword, append or
+	   expunge changes between the maps, so the view's header counters
+	   are still valid. Compare the maps' raw modseq headers -
+	   mail_index_map_modseq_get_highest() could fall back to returning
+	   the log head's modseq for both maps, hiding their difference. */
+	view_modseq_hdr = mail_index_map_get_modseq_header(view->map);
+	head_modseq_hdr = mail_index_map_get_modseq_header(view->index->map);
+	return view_modseq_hdr == NULL || head_modseq_hdr == NULL ||
+		view_modseq_hdr->highest_modseq == 0 ||
+		view_modseq_hdr->highest_modseq != head_modseq_hdr->highest_modseq;
+}
+
 static bool search_limit_by_hdr(struct index_search_context *ctx,
 				struct mail_search_arg *args,
 				uint32_t *seq1, uint32_t *seq2)
@@ -1047,6 +1070,18 @@ static bool search_limit_by_hdr(struct index_search_context *ctx,
 	const struct mail_index_header *hdr;
 	enum mail_flags pvt_flags_mask;
 	uint64_t highest_modseq;
+
+	if (search_view_have_stale_hdr_counters(ctx->view)) {
+		/* Flag matching uses the latest flags from the index's head
+		   map (see view_lookup_full()), but the view's header still
+		   has the counters from the last sync. For example with a
+		   pipelined UID STORE +FLAGS \Deleted followed by UID EXPUNGE
+		   the view's header could still have deleted_messages_count=0,
+		   even though the messages are already marked as \Deleted in
+		   the head map. Don't do any optimizations based on the stale
+		   header counters in that case. */
+		return *seq1 <= *seq2;
+	}
 
 	hdr = mail_index_get_header(ctx->view);
 	/* we can't trust that private view's header is fully up to date,
