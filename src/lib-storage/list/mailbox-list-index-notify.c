@@ -38,6 +38,10 @@ struct mailbox_list_notify_index {
 	struct mailbox_tree_context *subscriptions;
 	struct mailbox_list_notify_tree *tree;
 	struct mail_index_view *view, *old_view;
+	/* view synced to the same position as view, but with the expunges
+	   left unapplied. Used only for looking up the mailboxes that were
+	   both created and expunged, since those aren't in old_view. */
+	struct mail_index_view *new_expunged_view;
 	struct mail_index_view_sync_ctx *sync_ctx;
 	enum ilist_ext_type cur_ext;
 	uint32_t cur_ext_id;
@@ -48,11 +52,23 @@ struct mailbox_list_notify_index {
 	struct timeout *to_wait, *to_notify;
 
 	ARRAY_TYPE(seq_range) new_uids, expunged_uids, changed_uids;
+	/* mailboxes that were both created and deleted after the previous
+	   sync - they are reported as created and deleted */
+	ARRAY_TYPE(seq_range) new_and_expunged_uids;
+	/* name_id => name mappings seen in the index header while reading the
+	   changes. The header is rewritten without the names of the deleted
+	   mailboxes, so this is the only place where the name of a mailbox
+	   that was created and deleted can still be found. */
+	ARRAY_TYPE(mailbox_list_index_name) extra_names;
+	ARRAY_TYPE(seq_range) extra_name_ids;
+	pool_t extra_names_pool;
 	ARRAY_TYPE(const_string) new_subscriptions, new_unsubscriptions;
 	ARRAY(struct mailbox_list_notify_rename) renames;
 	struct seq_range_iter new_uids_iter, expunged_uids_iter;
 	struct seq_range_iter changed_uids_iter;
+	struct seq_range_iter new_and_expunged_uids_iter;
 	unsigned int new_uids_n, expunged_uids_n, changed_uids_n;
+	unsigned int new_and_expunged_uids_n;
 	unsigned int rename_idx, subscription_idx, unsubscription_idx;
 
 	struct mailbox_list_notify_rec notify_rec;
@@ -142,10 +158,15 @@ int mailbox_list_index_notify_init(struct mailbox_list *list,
 	inotify->tree = mailbox_list_notify_tree_init(list);
 	i_array_init(&inotify->new_uids, 8);
 	i_array_init(&inotify->expunged_uids, 8);
+	i_array_init(&inotify->new_and_expunged_uids, 8);
 	i_array_init(&inotify->changed_uids, 16);
 	i_array_init(&inotify->renames, 16);
 	i_array_init(&inotify->new_subscriptions, 16);
 	i_array_init(&inotify->new_unsubscriptions, 16);
+	i_array_init(&inotify->extra_names, 8);
+	i_array_init(&inotify->extra_name_ids, 8);
+	inotify->extra_names_pool =
+		pool_alloconly_create("mailbox list notify names", 512);
 	inotify->rec_name = str_new(default_pool, 64);
 	if ((mask & (MAILBOX_LIST_NOTIFY_SUBSCRIBE |
 		     MAILBOX_LIST_NOTIFY_UNSUBSCRIBE)) != 0) {
@@ -191,11 +212,16 @@ void mailbox_list_index_notify_deinit(struct mailbox_list_notify *notify)
 		(void)mail_index_view_sync_commit(&inotify->sync_ctx, &b);
 	mail_index_view_close(&inotify->view);
 	mail_index_view_close(&inotify->old_view);
+	mail_index_view_close(&inotify->new_expunged_view);
 	mailbox_list_notify_tree_deinit(&inotify->tree);
 	array_free(&inotify->new_subscriptions);
 	array_free(&inotify->new_unsubscriptions);
+	array_free(&inotify->extra_names);
+	array_free(&inotify->extra_name_ids);
+	pool_unref(&inotify->extra_names_pool);
 	array_free(&inotify->new_uids);
 	array_free(&inotify->expunged_uids);
+	array_free(&inotify->new_and_expunged_uids);
 	array_free(&inotify->changed_uids);
 	array_free(&inotify->renames);
 	str_free(&inotify->rec_name);
@@ -223,8 +249,19 @@ notify_lookup_guid(struct mailbox_list_notify_index *inotify,
 	if (index_node == NULL) {
 		/* re-parse the index list using the given view. we could be
 		   jumping here between old and new view. */
-		(void)mailbox_list_index_parse(inotify->notify.list,
-					       view, FALSE);
+		if (view != inotify->new_expunged_view) {
+			(void)mailbox_list_index_parse(inotify->notify.list,
+						       view, FALSE);
+		} else if (mailbox_list_index_parse_try(
+				inotify->notify.list, view,
+				&inotify->extra_names) < 0) {
+			/* This view can have records referring to names that
+			   the header no longer has. Get back to a usable
+			   mailbox tree and give up on this mailbox. */
+			(void)mailbox_list_index_parse(inotify->notify.list,
+						       inotify->view, TRUE);
+			return NULL;
+		}
 		index_node = mailbox_list_index_lookup_uid(ilist, uid);
 		if (index_node == NULL)
 			return NULL;
@@ -265,10 +302,25 @@ static void notify_update_stat(struct mailbox_list_notify_index *inotify,
 static void
 mailbox_list_index_notify_sync_init(struct mailbox_list_notify_index *inotify)
 {
+	struct mail_index_view_sync_ctx *sync_ctx;
 	struct mail_index_view_sync_rec sync_rec;
+	bool delayed_expunges;
 
 	notify_update_stat(inotify, TRUE, TRUE);
 	(void)mail_index_refresh(inotify->view->index);
+
+	/* Sync a copy of the view without applying the expunges, so also the
+	   mailboxes that were created and deleted since the previous sync can
+	   be looked up. Note that this view's records and its header can be
+	   from different states, so it must be used only for looking up such
+	   mailboxes - see _notify_new_expunge(). */
+	mail_index_view_close(&inotify->new_expunged_view);
+	inotify->new_expunged_view = mail_index_view_dup_private(inotify->view);
+	sync_ctx = mail_index_view_sync_begin(inotify->new_expunged_view,
+		MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES |
+		MAIL_INDEX_VIEW_SYNC_FLAG_KEEP_EXPUNGED);
+	while (mail_index_view_sync_next(sync_ctx, &sync_rec)) ;
+	(void)mail_index_view_sync_commit(&sync_ctx, &delayed_expunges);
 
 	/* sync the view so that map extensions gets updated */
 	inotify->sync_ctx = mail_index_view_sync_begin(inotify->view, 0);
@@ -310,6 +362,32 @@ static bool notify_ext_rec(struct mailbox_list_notify_index *inotify,
 	}
 	seq_range_array_add(&inotify->changed_uids, uid);
 	return TRUE;
+}
+
+static void
+notify_add_extra_names(struct mailbox_list_notify_index *inotify,
+		       const void *data, size_t size)
+{
+	struct mailbox_list_index_name_iter iter;
+	struct mailbox_list_index_name *extra_name;
+	const char *name;
+	uint32_t id;
+	bool fixed;
+
+	/* The header is rewritten whenever a new mailbox name is added,
+	   dropping the names of the mailboxes that were deleted since the
+	   previous rewrite - so remember them while they're still here.
+	   Corruption is ignored here; it's handled when the header is parsed
+	   for real. */
+	mailbox_list_index_name_iter_init(&iter, data, size);
+	while (mailbox_list_index_name_iter_next(&iter, &id, &name,
+						 &fixed) > 0) {
+		if (seq_range_array_add(&inotify->extra_name_ids, id))
+			continue;
+		extra_name = array_append_space(&inotify->extra_names);
+		extra_name->id = id;
+		extra_name->name = p_strdup(inotify->extra_names_pool, name);
+	}
 }
 
 static int
@@ -391,6 +469,24 @@ mailbox_list_index_notify_read_next(struct mailbox_list_notify_index *inotify)
 				inotify->cur_ext = ILIST_EXT_UNKNOWN;
 			inotify->cur_ext_id = ext->index_idx;
 		}
+		break;
+	}
+	case MAIL_TRANSACTION_EXT_HDR_UPDATE: {
+		const struct mail_transaction_ext_hdr_update *u = data;
+
+		if (inotify->cur_ext != ILIST_EXT_BASE ||
+		    u->offset != 0 || sizeof(*u) + u->size > hdr->size)
+			break;
+		notify_add_extra_names(inotify, u + 1, u->size);
+		break;
+	}
+	case MAIL_TRANSACTION_EXT_HDR_UPDATE32: {
+		const struct mail_transaction_ext_hdr_update32 *u = data;
+
+		if (inotify->cur_ext != ILIST_EXT_BASE ||
+		    u->offset != 0 || sizeof(*u) + u->size > hdr->size)
+			break;
+		notify_add_extra_names(inotify, u + 1, u->size);
 		break;
 	}
 	case MAIL_TRANSACTION_EXT_REC_UPDATE: {
@@ -577,9 +673,12 @@ mailbox_list_index_notify_reset_iters(struct mailbox_list_notify_index *inotify)
 				  &inotify->expunged_uids);
 	seq_range_array_iter_init(&inotify->changed_uids_iter,
 				  &inotify->changed_uids);
+	seq_range_array_iter_init(&inotify->new_and_expunged_uids_iter,
+				  &inotify->new_and_expunged_uids);
 	inotify->changed_uids_n = 0;
 	inotify->new_uids_n = 0;
 	inotify->expunged_uids_n = 0;
+	inotify->new_and_expunged_uids_n = 0;
 	inotify->rename_idx = 0;
 	inotify->subscription_idx = 0;
 	inotify->unsubscription_idx = 0;
@@ -599,11 +698,23 @@ mailbox_list_index_notify_read_init(struct mailbox_list_notify_index *inotify)
 
 	(void)mail_index_view_sync_commit(&inotify->sync_ctx, &b);
 
-	/* remove changes for already deleted mailboxes */
+	/* mailboxes that were created and deleted before we saw them are
+	   reported as both created and deleted */
+	array_clear(&inotify->new_and_expunged_uids);
+	seq_range_array_merge(&inotify->new_and_expunged_uids,
+			      &inotify->new_uids);
+	seq_range_array_intersect(&inotify->new_and_expunged_uids,
+				  &inotify->expunged_uids);
 	seq_range_array_remove_seq_range(&inotify->new_uids,
-					 &inotify->expunged_uids);
+					 &inotify->new_and_expunged_uids);
+	seq_range_array_remove_seq_range(&inotify->expunged_uids,
+					 &inotify->new_and_expunged_uids);
+
+	/* remove changes for already deleted mailboxes */
 	seq_range_array_remove_seq_range(&inotify->changed_uids,
 					 &inotify->expunged_uids);
+	seq_range_array_remove_seq_range(&inotify->changed_uids,
+					 &inotify->new_and_expunged_uids);
 	mailbox_list_index_notify_reset_iters(inotify);
 	if (array_count(&inotify->new_uids) > 0 &&
 	    array_count(&inotify->expunged_uids) > 0) {
@@ -625,8 +736,12 @@ mailbox_list_index_notify_read_deinit(struct mailbox_list_notify_index *inotify)
 
 	array_clear(&inotify->new_subscriptions);
 	array_clear(&inotify->new_unsubscriptions);
+	array_clear(&inotify->extra_names);
+	array_clear(&inotify->extra_name_ids);
+	p_clear(inotify->extra_names_pool);
 	array_clear(&inotify->new_uids);
 	array_clear(&inotify->expunged_uids);
+	array_clear(&inotify->new_and_expunged_uids);
 	array_clear(&inotify->changed_uids);
 	array_clear(&inotify->renames);
 
@@ -733,6 +848,23 @@ mailbox_list_index_notify_expunge(struct mailbox_list_notify_index *inotify,
 }
 
 static bool
+mailbox_list_index_notify_new_expunge(struct mailbox_list_notify_index *inotify,
+				      uint32_t uid)
+{
+	struct mailbox_list_notify_rec *rec;
+	struct mailbox_status status;
+
+	/* the mailbox isn't in view (expunged) nor in old_view (created after
+	   it was saved), so it can be looked up only from new_expunged_view */
+	if (!mailbox_list_index_notify_lookup(inotify,
+					      inotify->new_expunged_view,
+					      uid, 0, &status, &rec))
+		return FALSE;
+	rec->events = MAILBOX_LIST_NOTIFY_CREATE | MAILBOX_LIST_NOTIFY_DELETE;
+	return TRUE;
+}
+
+static bool
 mailbox_list_index_notify_new(struct mailbox_list_notify_index *inotify,
 			      uint32_t uid)
 {
@@ -782,7 +914,14 @@ mailbox_list_index_notify_try_next(struct mailbox_list_notify_index *inotify)
 {
 	uint32_t uid;
 
-	/* first show mailbox deletes */
+	/* first show mailboxes that were created and deleted, so a mailbox
+	   that was recreated with the same name afterwards is still shown as
+	   existing */
+	if (seq_range_array_iter_nth(&inotify->new_and_expunged_uids_iter,
+				     inotify->new_and_expunged_uids_n++, &uid))
+		return mailbox_list_index_notify_new_expunge(inotify, uid);
+
+	/* next show mailbox deletes */
 	if (seq_range_array_iter_nth(&inotify->expunged_uids_iter,
 				     inotify->expunged_uids_n++, &uid))
 		return mailbox_list_index_notify_expunge(inotify, uid);
