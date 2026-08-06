@@ -3101,6 +3101,7 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 
 	hash_table_destroy(&importer->import_guids);
 	hash_table_destroy(&importer->import_uids);
+	hash_table_destroy(&importer->remote_attr_keys);
 	array_free(&importer->maybe_expunge_uids);
 	array_free(&importer->maybe_saves);
 	array_free(&importer->wanted_uids);
