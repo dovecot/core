@@ -369,11 +369,34 @@ mail_transaction_log_replace_head(struct mail_transaction_log *log,
 		mail_transaction_logs_clean(log);
 }
 
+/* Opening the .log file failed, even though stat() saw it with a different
+   inode than the current head. This can happen in the middle of another
+   process's log rotation: .log has been hard-linked to .log.2, and we may
+   already have the same file opened via the .log.2 path (e.g. added by a
+   view sync that was looking for older log files). Returns the already
+   opened file if the .log file we tried to open is it, or NULL if not. */
+static struct mail_transaction_log_file *
+mail_transaction_log_refresh_find_opened(struct mail_transaction_log *log,
+	const struct mail_transaction_log_file *opened_file)
+{
+	struct mail_transaction_log_file *file;
+
+	for (file = log->files; file != NULL; file = file->next) {
+		if (file->st_ino == opened_file->st_ino &&
+		    CMP_DEV_T(file->st_dev, opened_file->st_dev) &&
+		    !file->corrupted && file->fd != -1)
+			break;
+	}
+	if (file == NULL || file->hdr.file_seq <= log->head->hdr.file_seq)
+		return NULL;
+	return file;
+}
+
 static int
 mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush,
 			     const char **reason_r)
 {
-        struct mail_transaction_log_file *file;
+	struct mail_transaction_log_file *file, *opened_file;
 
 	int ret = mail_transaction_log_has_changed(log, nfs_flush, reason_r);
 	if (ret <= 0)
@@ -381,10 +404,17 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush,
 
 	file = mail_transaction_log_file_alloc(log, log->filepath);
 	if (mail_transaction_log_file_open(file, reason_r) <= 0) {
-		*reason_r = t_strdup_printf(
-			"Failed to refresh main transaction log: %s", *reason_r);
+		opened_file = mail_transaction_log_refresh_find_opened(log, file);
 		mail_transaction_log_file_free(&file);
-		return -1;
+		if (opened_file == NULL) {
+			*reason_r = t_strdup_printf(
+				"Failed to refresh main transaction log: %s",
+				*reason_r);
+			return -1;
+		}
+		mail_transaction_log_replace_head(log, opened_file);
+		*reason_r = "Log reopened via already opened file";
+		return 0;
 	}
 
 	i_assert(!file->locked);
