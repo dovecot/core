@@ -258,6 +258,11 @@ enum mail_index_view_sync_flags {
 	   that inconsistencies can be expected and if found should be fixed
 	   by fully syncing. */
 	MAIL_INDEX_VIEW_SYNC_FLAG_2ND_INDEX		= 0x04,
+	/* Keep also the records that were both appended and expunged during
+	   this sync. Without this flag they are never visible in the view,
+	   because syncing can simply switch to the index's current map.
+	   Requires MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES. */
+	MAIL_INDEX_VIEW_SYNC_FLAG_KEEP_EXPUNGED		= 0x08,
 };
 
 struct mail_index_sync_rec {

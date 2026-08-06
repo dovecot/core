@@ -565,6 +565,9 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 	ctx->view = view;
 	ctx->flags = flags;
 
+	i_assert((flags & MAIL_INDEX_VIEW_SYNC_FLAG_KEEP_EXPUNGED) == 0 ||
+		 (flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) != 0);
+
 	sync_expunges = (flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) == 0;
 	if (sync_expunges)
 		i_array_init(&ctx->expunges, 64);
@@ -658,7 +661,8 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 		return ctx;
 	}
 
-	if (!have_expunges && !partial_sync) {
+	if (!have_expunges && !partial_sync &&
+	    (flags & MAIL_INDEX_VIEW_SYNC_FLAG_KEEP_EXPUNGED) == 0) {
 		/* no expunges, we can just replace the map */
 		if (view->index->map->hdr.messages_count <
 		    ctx->finish_min_msg_count) {
