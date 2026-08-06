@@ -1189,17 +1189,33 @@ index_mail_parse_body_finish(struct index_mail *mail,
 			    i_stream_have_bytes_left(parser_input))
 				i_unreached();
 		}
-		/* EPIPE = input already closed. allow the caller to
-		   decide if that is an error or not. (for example we
-		   could be coming here from IMAP APPEND when IMAP
-		   client has closed the connection too early. we
-		   don't want to log an error in that case.)
-		   Note that EPIPE may also come from istream-mail which
-		   detects a corrupted message size. Either way, the
-		   body wasn't successfully parsed. */
+		/* Log the failure, unless the errno tells that nothing
+		   useful would be logged. The body wasn't successfully
+		   parsed in any case, so ret=-1 regardless.
+
+		   EPIPE never means a failed syscall here: it's set for
+		   any stream that was closed without an error (see
+		   i_stream_close()), and by istream-mail when the message
+		   is smaller than its cached size - which is already
+		   reported via mail_set_cache_corrupted(). The stream may
+		   for example have been closed by IMAP APPEND when the
+		   client disconnected in the middle of sending the mail.
+		   Let the caller decide whether that is an error.
+
+		   ECONNRESET/ECONNABORTED mean that the connection was
+		   reset instead of being closed cleanly. Ignore it only
+		   while saving has already failed, because then the stream
+		   is the client's (e.g. IMAP APPEND, LMTP) and the caller
+		   logs the disconnection. When reading a mail the stream
+		   comes from the storage instead (e.g. obox over HTTP),
+		   where a reset connection is a real error. */
 		if (parser_input->stream_errno == 0)
 			;
 		else if (parser_input->stream_errno == EPIPE)
+			ret = -1;
+		else if (!success &&
+			 (parser_input->stream_errno == ECONNRESET ||
+			  parser_input->stream_errno == ECONNABORTED))
 			ret = -1;
 		else {
 			index_mail_stream_log_failure_for(mail, parser_input);
