@@ -62,6 +62,13 @@ struct mailbox_list_index_header {
 	/* array of { uint32_t id; char name[]; } */
 };
 
+struct mailbox_list_index_name_iter {
+	const unsigned char *data;
+	size_t size, offset;
+	uint32_t prev_id;
+	string_t *str;
+};
+
 struct mailbox_list_index_header2 {
 	/* ID number in mailbox_list_index_header which should be considered
 	   as the <prefix>/INBOX mailbox, which would be escaped as
@@ -256,6 +263,22 @@ mailbox_list_index_node_find_sibling(struct mailbox_list *list,
 				     struct mailbox_list_index_node *node,
 				     const char *name);
 void mailbox_list_index_reset(struct mailbox_list_index *ilist);
+
+/* Iterate through the name_id => name mappings in a
+   struct mailbox_list_index_header. The header may come from an index view or
+   straight from a transaction log record. Note that the iterator uses the data
+   stack. */
+void mailbox_list_index_name_iter_init(
+	struct mailbox_list_index_name_iter *iter,
+	const void *data, size_t size);
+/* Returns 1 if the next name was returned, 0 at the end of the header, or -1
+   if the header is corrupted. The returned name is always valid UTF-8; if the
+   header's name wasn't, it's replaced with a fixed one and *fixed_r is set to
+   TRUE. The name points to the header data or to the data stack, so it must be
+   duplicated to be kept. */
+int mailbox_list_index_name_iter_next(struct mailbox_list_index_name_iter *iter,
+				      uint32_t *id_r, const char **name_r,
+				      bool *fixed_r);
 int mailbox_list_index_parse(struct mailbox_list *list,
 			     struct mail_index_view *view, bool force);
 

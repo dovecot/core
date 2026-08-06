@@ -318,15 +318,72 @@ void mailbox_list_index_node_unlink(struct mailbox_list_index *ilist,
 	*prev = node->next;
 }
 
+void mailbox_list_index_name_iter_init(
+	struct mailbox_list_index_name_iter *iter,
+	const void *data, size_t size)
+{
+	i_zero(iter);
+	iter->data = data;
+	iter->size = size;
+	iter->offset = sizeof(struct mailbox_list_index_header);
+	iter->str = t_str_new(128);
+}
+
+int mailbox_list_index_name_iter_next(struct mailbox_list_index_name_iter *iter,
+				      uint32_t *id_r, const char **name_r,
+				      bool *fixed_r)
+{
+	const unsigned char *name_start, *p;
+	size_t len;
+	uint32_t id;
+
+	*fixed_r = FALSE;
+	if (iter->offset >= iter->size)
+		return 0;
+
+	/* get id */
+	if (iter->offset + sizeof(id) > iter->size)
+		return -1;
+	memcpy(&id, iter->data + iter->offset, sizeof(id));
+	iter->offset += sizeof(id);
+
+	if (id <= iter->prev_id) {
+		/* allow extra space in the end as long as last id=0 */
+		return id == 0 ? 0 : -1;
+	}
+	iter->prev_id = id;
+
+	/* get name. It's NUL-terminated within the header, so it can be
+	   returned as-is when it doesn't need fixing. */
+	name_start = iter->data + iter->offset;
+	p = memchr(name_start, '\0', iter->size - iter->offset);
+	if (p == NULL)
+		return -1;
+	len = p - name_start;
+	iter->offset += len + 1;
+
+	str_truncate(iter->str, 0);
+	if (uni_utf8_get_valid_data(name_start, len, iter->str))
+		*name_r = (const char *)name_start;
+	else {
+		/* corrupted index. fix the name. */
+		*name_r = str_c(iter->str);
+		*fixed_r = TRUE;
+	}
+	*id_r = id;
+	return 1;
+}
+
 static int mailbox_list_index_parse_header(struct mailbox_list_index *ilist,
 					   struct mail_index_view *view)
 {
-	const void *data, *name_start, *p;
-	size_t i, len, size;
-	uint32_t id, prev_id = 0;
-	string_t *str;
-	char *name;
-	int ret = 0;
+	struct mailbox_list_index_name_iter iter;
+	const void *data;
+	const char *name;
+	size_t size;
+	uint32_t id;
+	bool fixed;
+	int ret = 0, iter_ret;
 
 	mail_index_map_get_header_ext(view, view->map, ilist->ext2_id, &data, &size);
 	if (size >= sizeof(struct mailbox_list_index_header2)) {
@@ -340,47 +397,20 @@ static int mailbox_list_index_parse_header(struct mailbox_list_index *ilist,
 	if (size == 0)
 		return 0;
 
-	str = t_str_new(128);
-	for (i = sizeof(struct mailbox_list_index_header); i < size; ) {
-		/* get id */
-		if (i + sizeof(id) > size)
-			return -1;
-		memcpy(&id, CONST_PTR_OFFSET(data, i), sizeof(id));
-		i += sizeof(id);
-
-		if (id <= prev_id) {
-			/* allow extra space in the end as long as last id=0 */
-			return id == 0 ? 0 : -1;
-		}
-		prev_id = id;
-
-		/* get name */
-		p = memchr(CONST_PTR_OFFSET(data, i), '\0', size-i);
-		if (p == NULL)
-			return -1;
-		name_start = CONST_PTR_OFFSET(data, i);
-		len = (const char *)p - (const char *)name_start;
-
-		if (uni_utf8_get_valid_data(name_start, len, str)) {
-			name = p_strndup(ilist->mailbox_pool, name_start, len);
-		} else {
-			/* corrupted index. fix the name. */
-			name = p_strdup(ilist->mailbox_pool, str_c(str));
-			str_truncate(str, 0);
+	mailbox_list_index_name_iter_init(&iter, data, size);
+	while ((iter_ret = mailbox_list_index_name_iter_next(&iter, &id, &name,
+							     &fixed)) > 0) {
+		if (fixed)
 			ret = -1;
-		}
-
-		i += len + 1;
-
 		/* add id => name to hash table */
 		if (id != ilist->inbox_inbox_name_id) {
 			hash_table_insert(ilist->mailbox_names,
-					  POINTER_CAST(id), name);
+					  POINTER_CAST(id),
+					  p_strdup(ilist->mailbox_pool, name));
 		}
 		ilist->highest_name_id = id;
 	}
-	i_assert(i == size);
-	return ret;
+	return iter_ret < 0 ? -1 : ret;
 }
 
 static void
