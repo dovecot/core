@@ -578,6 +578,14 @@ int mail_transaction_log_lock_head(struct mail_transaction_log *log,
 			  "Locking transaction log file %s took %ld seconds (%s)",
 			  log->head->filepath, (long)lock_secs, lock_reason);
 	}
+	if (ret < 0 && !log->index->index_deleted) {
+		/* Make sure the error is logged and gets added to the index's
+		   last error, so it doesn't fail with only a generic internal
+		   error visible to the client. */
+		mail_index_set_error(log->index,
+			"Failed to lock transaction log %s head for %s: %s",
+			log->filepath, lock_reason, reason);
+	}
 
 	i_assert(ret < 0 || log->head != NULL);
 	return ret;
