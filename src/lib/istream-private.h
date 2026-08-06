@@ -81,6 +81,10 @@ struct istream_private {
 	/* After IO is added back to this istream, call io_set_pending() for
 	   it. This is set only for the root istream. */
 	bool io_pending:1;
+	/* io_add_istream() has been used at some point for this istream. This
+	   isn't cleared when the IO is removed again, so it can be used to
+	   check whether the istream is expected to have an IO. */
+	bool io_ever_added:1;
 	/* If this is TRUE for the istream or its parents after i_stream_read(),
 	   set the istream IO pending again. This is cleared before each
 	   istream read(). The purpose is to prevent hangs in case a child
@@ -150,6 +154,11 @@ void i_stream_snapshot_free(struct istream_snapshot **snapshot);
 struct istream *i_stream_get_root_io(struct istream *stream);
 void i_stream_set_io(struct istream *stream, struct io *io);
 void i_stream_unset_io(struct istream *stream, struct io *io);
+/* Returns TRUE if io_add_istream() has been used at some point for this istream
+   or for any other istream that shares its ioloop IO. This isn't cleared when
+   the IO is removed again, so it can be used to check whether the istream is
+   expected to have an IO. */
+bool i_stream_io_ever_added(struct istream *stream);
 
 /* Filter istreams should be calling this instead of i_stream_read() to avoid
    unnecessarily referencing memareas. After this call any pointers to the

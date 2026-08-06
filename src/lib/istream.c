@@ -1070,12 +1070,18 @@ void i_stream_switch_ioloop(struct istream *stream)
 	i_stream_switch_ioloop_to(stream, current_ioloop);
 }
 
+bool i_stream_io_ever_added(struct istream *stream)
+{
+	return i_stream_get_root_io(stream)->real_stream->io_ever_added;
+}
+
 void i_stream_set_io(struct istream *stream, struct io *io)
 {
 	stream = i_stream_get_root_io(stream);
 
 	i_assert(stream->real_stream->io == NULL);
 	stream->real_stream->io = io;
+	stream->real_stream->io_ever_added = TRUE;
 	if (stream->real_stream->io_pending) {
 		io_set_pending(io);
 		stream->real_stream->io_pending = FALSE;
