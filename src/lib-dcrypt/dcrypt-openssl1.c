@@ -2854,7 +2854,7 @@ dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key,
 	int len = OBJ_obj2txt(objtxt, sizeof(objtxt), obj, 1);
 	if (len < 1)
 		return dcrypt_openssl_error(error_r);
-	if (len > (int)sizeof(objtxt)) {
+	if (len >= (int)sizeof(objtxt)) {
 		*error_r = "Object identifier too long";
 		return FALSE;
 	}
@@ -4318,7 +4318,7 @@ dcrypt_openssl_key_get_curve_public(struct dcrypt_public_key *key,
 
 	if (len < 1) {
 		return dcrypt_openssl_error(error_r);
-	} else if ((unsigned int)len > sizeof(objtxt)) {
+	} else if ((unsigned int)len >= sizeof(objtxt)) {
 		*error_r = "Object name too long";
 		return FALSE;
 	}
