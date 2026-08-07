@@ -133,6 +133,7 @@ subdir('meson' / 'sodium')
 subdir('meson' / 'pcre')
 subdir('meson' / 'gssapi')
 subdir('meson' / 'crypt')
+subdir('meson' / 'unwind')
 
 dovecot_moduledir = get_option('moduledir')
 if dovecot_moduledir == ''
