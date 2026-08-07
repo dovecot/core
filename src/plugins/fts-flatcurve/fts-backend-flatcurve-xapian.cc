@@ -349,9 +349,14 @@ fts_flatcurve_xapian_db_iter_next(struct flatcurve_xapian_db_iter *iter)
 
 	struct stat st;
 	if (stat(iter->path->path, &st) < 0) {
+		if (errno == ENOENT) {
+			/* Another process deleted the entry after readdir()
+			   returned it, e.g. a temporary lock file created by
+			   file_create_locked(). Just skip it. */
+			return fts_flatcurve_xapian_db_iter_next(iter);
+		}
 		iter->error = i_strdup_printf(
-			"stat(%s) failed: %m",
-			str_c(iter->backend->db_path));
+			"stat(%s) failed: %m", iter->path->path);
 		return FALSE;
 	}
 
