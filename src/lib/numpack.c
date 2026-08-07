@@ -34,6 +34,8 @@ int numpack_decode(const uint8_t **p, const uint8_t *end, uint64_t *num_r)
 		c++;
 	}
 
+	if (c == end)
+		return -1;
 	bits += bits_required8(*c);
 	if (bits > 64) /* overflow */
 		return -1;
