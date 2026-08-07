@@ -540,8 +540,10 @@ driver_pgsql_result_free_binary_values(struct pgsql_result *result)
 	if (!array_is_created(&result->binary_values))
 		return;
 
-	array_foreach_modifiable(&result->binary_values, value)
+	array_foreach_modifiable(&result->binary_values, value) {
 		PQfreemem(value->value);
+		i_zero(value);
+	}
 }
 
 static void driver_pgsql_result_free(struct sql_result *_result)
@@ -881,6 +883,12 @@ static int driver_pgsql_result_next_row(struct sql_result *_result)
 {
 	struct pgsql_result *result = (struct pgsql_result *)_result;
 	struct pgsql_db *db = (struct pgsql_db *)_result->db;
+
+	/* The cached binary values belong to the row we're leaving. The
+	   sql_result API returns field values only until the next row is
+	   fetched, so drop them - otherwise every following row would be
+	   given the first row's values. */
+	driver_pgsql_result_free_binary_values(result);
 
 	if (result->rows != 0) {
 		/* second time we're here */
