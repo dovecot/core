@@ -518,6 +518,11 @@ static int maildir_create_maildirfolder_file(struct mailbox *box)
 	   all subfolders. Do this only with Maildir++ layout. */
 	if (strcmp(box->list->name, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) != 0)
 		return 0;
+
+	/* INBOX root is not a child Maildir; the marker breaks quota et al. */
+	if (box->inbox_any)
+		return 0;
+
 	perm = mailbox_get_permissions(box);
 
 	path = t_strconcat(mailbox_get_path(box),
