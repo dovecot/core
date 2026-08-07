@@ -81,6 +81,28 @@ static void test_mbox_from_parse(void)
 	}
 }
 
+static void test_mbox_from_parse_no_overread(void)
+{
+	/* A truncated non-alt date whose trailing space leaves the parser
+	   pointing exactly at the end of the input when the year field is
+	   read. Feed it from an exact-size heap buffer so an over-read past
+	   msg+size is caught under valgrind/ASAN. */
+	const char *date = "x Fri Jan  22 12:34:56 ";
+	size_t len = strlen(date);
+	unsigned char *buf = i_malloc(len);
+	char *sender = NULL;
+	time_t t;
+	int tz, ret;
+
+	test_begin("mbox_from_parse() no over-read of year");
+	memcpy(buf, date, len);
+	ret = mbox_from_parse(buf, len, &t, &tz, &sender);
+	test_assert(ret < 0);
+	i_free(sender);
+	i_free(buf);
+	test_end();
+}
+
 static void test_mbox_from_create(void)
 {
 	time_t t = 1234567890;
@@ -97,6 +119,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mbox_from_parse,
+		test_mbox_from_parse_no_overread,
 		test_mbox_from_create,
 		NULL
 	};
