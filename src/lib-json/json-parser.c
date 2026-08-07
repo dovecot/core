@@ -1440,6 +1440,11 @@ json_parser_parse_unicode_escape(struct json_parser *parser,
 			return JSON_PARSE_OVERFLOW;
 		}
 		uni_ucs4_to_utf8_c(ech, buf);
+		/* Clear the stale non-surrogate `ech' left in state->context,
+		   matching the normal completion path below - otherwise the
+		   next json_parser_parse_unicode_escape_close() call sees a
+		   stale nonzero context and mishandles it. */
+		state->context = NULL;
 		return JSON_PARSE_OK;
 	}
 

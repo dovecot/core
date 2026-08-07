@@ -433,6 +433,50 @@ static void test_istream_json_string_seek(void)
 	test_end();
 }
 
+static void test_istream_json_string_overflow_resume(void)
+{
+	/* Regression test for 820c7538c0 ("clear context on unicode escape
+	   overflow resume"): json_parser_parse_unicode_escape() parks the
+	   already-decoded character in state->context when the nested
+	   parser's decode buffer doesn't have room for it. Forced here with
+	   a 2-byte max_buffer_size: "A" ("A", 1-byte UTF-8) fills the
+	   buffer to capacity, so "É" ("\xc3\x89", 2-byte UTF-8) that
+	   follows it overflows and gets parked instead of appended. Once
+	   the buffer is drained and parsing resumes, the parked character
+	   is appended - and if the resume path doesn't clear state->context
+	   afterwards, the next json_parser_parse_unicode_escape_close()
+	   call (fired here for the plain "X" that follows the escape)
+	   asserts on the stale non-surrogate value instead of seeing a
+	   clean "no pending surrogate" state. */
+	struct istream *parent, *stream;
+	const unsigned char *data;
+	size_t size;
+	string_t *got;
+	int ret;
+	static const char raw[] = "\\u0041\\u00C9X";
+
+	test_begin("istream json string overflow-resume (820c7538c0)");
+
+	parent = i_stream_create_from_data(raw, strlen(raw));
+	stream = i_stream_create_json_string(parent);
+	i_stream_unref(&parent);
+	i_stream_set_max_buffer_size(stream, 2);
+
+	got = str_new(default_pool, 8);
+	while ((ret = i_stream_read_more(stream, &data, &size)) > 0) {
+		str_append_data(got, data, size);
+		i_stream_skip(stream, size);
+	}
+	test_assert(ret < 0);
+	test_assert_cmp(stream->stream_errno, ==, 0);
+	test_assert_strcmp(i_stream_get_error(stream), "EOF");
+	test_assert_strcmp(str_c(got), "A\xc3\x89X");
+	str_free(&got);
+	i_stream_unref(&stream);
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
@@ -444,6 +488,7 @@ int main(void)
 		test_istream_json_string_escape_at_boundary,
 		test_istream_json_string_truncated_escape,
 		test_istream_json_string_seek,
+		test_istream_json_string_overflow_resume,
 		NULL
 	};
 	return test_run(test_functions);
