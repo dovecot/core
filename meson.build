@@ -114,6 +114,7 @@ meson.add_dist_script(
 subdir('meson' / 'version')
 subdir('meson' / 'compiler')
 subdir('meson' / 'attributes')
+subdir('meson' / 'sanitizers')
 
 dovecot_moduledir = get_option('moduledir')
 if dovecot_moduledir == ''
