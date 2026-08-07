@@ -532,6 +532,18 @@ static void consume_results(struct pgsql_db *db)
 		driver_pgsql_set_idle(db);
 }
 
+static void
+driver_pgsql_result_free_binary_values(struct pgsql_result *result)
+{
+	struct pgsql_binary_value *value;
+
+	if (!array_is_created(&result->binary_values))
+		return;
+
+	array_foreach_modifiable(&result->binary_values, value)
+		PQfreemem(value->value);
+}
+
 static void driver_pgsql_result_free(struct sql_result *_result)
 {
 	struct pgsql_db *db = (struct pgsql_db *)_result->db;
@@ -560,13 +572,8 @@ static void driver_pgsql_result_free(struct sql_result *_result)
 		driver_pgsql_set_idle(db);
 	}
 
-	if (array_is_created(&result->binary_values)) {
-		struct pgsql_binary_value *value;
-
-		array_foreach_modifiable(&result->binary_values, value)
-			PQfreemem(value->value);
-		array_free(&result->binary_values);
-	}
+	driver_pgsql_result_free_binary_values(result);
+	array_free(&result->binary_values);
 
 	event_unref(&result->api.event);
 	i_free(result->query);
