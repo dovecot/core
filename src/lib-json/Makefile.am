@@ -58,7 +58,9 @@ endif
 noinst_PROGRAMS += json-format $(fuzz_programs)
 
 EXTRA_DIST = \
-	fuzz-json-istream.dict
+	fuzz-istream-json-string.dict \
+	fuzz-json-istream.dict \
+	fuzz-json-pointer.dict
 
 json_format_SOURCES = \
 	json-format.c
