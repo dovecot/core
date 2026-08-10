@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "write-full.h"
 #include "test-common.h"
 #include "test-mail-index.h"
 #include "mail-transaction-log-private.h"
@@ -342,6 +343,138 @@ static void test_mail_index_corruption_record_size_zero(void)
 	test_end();
 }
 
+static void test_mail_index_log_garbage_at_eof(void)
+{
+	static const unsigned char garbage[8] = { 0 };
+	struct mail_index *index;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	struct mail_index_sync_ctx *sync_ctx = NULL;
+	struct mail_index_view *sync_view;
+	struct mail_index_transaction *sync_trans;
+	struct mail_transaction_log_file *file;
+	const char *path;
+	struct stat st;
+	uoff_t old_sync_offset;
+	uint32_t seq, old_file_seq;
+	int fd;
+
+	test_begin("mail index log garbage at EOF");
+	index = test_mail_index_init(TRUE);
+
+	/* Write something to the log */
+	uint32_t uid_validity = 123456;
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view,
+			MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	mail_index_update_header(trans,
+		offsetof(struct mail_index_header, uid_validity),
+		&uid_validity, sizeof(uid_validity), TRUE);
+	mail_index_append(trans, 1, &seq);
+	test_assert_cmp(mail_index_transaction_commit(&trans), ==, 0);
+	mail_index_view_close(&view);
+
+	file = index->log->head;
+	old_file_seq = file->hdr.file_seq;
+	old_sync_offset = file->sync_offset;
+
+	/* Simulate a transaction that another process couldn't write fully */
+	path = t_strconcat(test_mail_index_get_dir(),
+			   "/test.dovecot.index.log", NULL);
+	fd = open(path, O_RDWR | O_APPEND);
+	if (fd == -1)
+		i_fatal("open(%s) failed: %m", path);
+	test_assert_cmp(write_full(fd, garbage, sizeof(garbage)), ==, 0);
+	i_close_fd(&fd);
+
+	/* Syncing must rotate the log instead of truncating the garbage
+	   away. */
+	test_assert_cmp(mail_index_sync_begin(index, &sync_ctx, &sync_view,
+					      &sync_trans, 0), >=, 0);
+	if (sync_ctx != NULL)
+		test_assert_cmp(mail_index_sync_commit(&sync_ctx), ==, 0);
+
+	file = index->log->head;
+	test_assert_ucmp(file->hdr.file_seq, ==, old_file_seq + 1);
+	test_assert_ucmp(file->hdr.prev_file_seq, ==, old_file_seq);
+	test_assert_ucmp(file->hdr.prev_file_offset, ==, old_sync_offset);
+	test_assert(!file->garbage_at_eof);
+
+	/* The old log still has the partially written transaction */
+	path = t_strconcat(test_mail_index_get_dir(),
+			   "/test.dovecot.index.log.2", NULL);
+	if (stat(path, &st) < 0)
+		i_fatal("stat(%s) failed: %m", path);
+	test_assert_ucmp((uoff_t)st.st_size, ==,
+			 old_sync_offset + sizeof(garbage));
+
+	/* Appending works again */
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view,
+			MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	mail_index_append(trans, 2, &seq);
+	test_assert_cmp(mail_index_transaction_commit(&trans), ==, 0);
+	mail_index_view_close(&view);
+	test_assert_ucmp(index->log->head->hdr.file_seq, ==, old_file_seq + 1);
+
+	test_mail_index_deinit(&index);
+	test_end();
+}
+
+static void test_mail_index_log_rotate_at_close(void)
+{
+	static const unsigned char garbage[8] = { 0 };
+	struct mail_index *index;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	struct mail_transaction_log_file *file;
+	const char *path;
+	uoff_t old_sync_offset;
+	uint32_t seq, old_file_seq;
+	int fd;
+
+	test_begin("mail index log rotate at close");
+	index = test_mail_index_init(TRUE);
+
+	uint32_t uid_validity = 123456;
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view,
+			MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	mail_index_update_header(trans,
+		offsetof(struct mail_index_header, uid_validity),
+		&uid_validity, sizeof(uid_validity), TRUE);
+	mail_index_append(trans, 1, &seq);
+	test_assert_cmp(mail_index_transaction_commit(&trans), ==, 0);
+	mail_index_view_close(&view);
+
+	file = index->log->head;
+	old_file_seq = file->hdr.file_seq;
+	old_sync_offset = file->sync_offset;
+
+	path = t_strconcat(test_mail_index_get_dir(),
+			   "/test.dovecot.index.log", NULL);
+	fd = open(path, O_RDWR | O_APPEND);
+	if (fd == -1)
+		i_fatal("open(%s) failed: %m", path);
+	test_assert_cmp(write_full(fd, garbage, sizeof(garbage)), ==, 0);
+	i_close_fd(&fd);
+
+	/* Simulate this process having failed to fully write the transaction.
+	   The rotation must not be left for the next process, which couldn't
+	   append to the log either. */
+	mail_transaction_log_file_set_garbage_at_eof(file, "test");
+	test_mail_index_close(&index);
+
+	index = test_mail_index_open(FALSE);
+	test_assert_ucmp(index->log->head->hdr.file_seq, ==, old_file_seq + 1);
+	test_assert_ucmp(index->log->head->hdr.prev_file_seq, ==, old_file_seq);
+	test_assert_ucmp(index->log->head->hdr.prev_file_offset, ==,
+			 old_sync_offset);
+
+	test_mail_index_deinit(&index);
+	test_end();
+}
+
 static void test_mail_index_map_fsck_fail_restores_map(void)
 {
 	struct mail_index *index;
@@ -404,6 +537,8 @@ int main(void)
 		test_mail_index_new_extension,
 		test_mail_index_corruption_message_count,
 		test_mail_index_corruption_record_size_zero,
+		test_mail_index_log_garbage_at_eof,
+		test_mail_index_log_rotate_at_close,
 		test_mail_index_map_fsck_fail_restores_map,
 		NULL
 	};

@@ -1214,6 +1214,19 @@ log_file_track_sync(struct mail_transaction_log_file *file,
 	return 1;
 }
 
+/* Returns TRUE if the index has already been synced past the given offset in
+   this log file, i.e. the log has lost data that was already used. */
+static bool
+log_file_is_index_synced_past(const struct mail_transaction_log_file *file,
+			      uoff_t offset)
+{
+	const struct mail_index_map *map = file->log->index->map;
+
+	if (map == NULL || map->hdr.log_file_seq != file->hdr.file_seq)
+		return FALSE;
+	return map->hdr.log_file_head_offset > offset;
+}
+
 static int
 mail_transaction_log_file_sync(struct mail_transaction_log_file *file,
 			       bool *retry_r, const char **reason_r)
@@ -1295,14 +1308,28 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file,
 		/* There's more data than we could sync at the moment. If the
 		   last record's size wasn't valid, we can't know if it will
 		   be updated unless we've locked the log. */
-		if (file->locked) {
+		if (file->locked &&
+		    !log_file_is_index_synced_past(file, file->sync_offset)) {
+			/* A previous write to the log wasn't fully written.
+			   The log isn't corrupted - the partially written
+			   transaction is simply ignored - but it can't be
+			   appended to anymore. */
+			mail_transaction_log_file_set_garbage_at_eof(file,
+				"Partially written transaction at "
+				"offset %"PRIuUOFF_T, file->sync_offset);
+		} else if (file->locked) {
+			/* The index has already been synced past this point,
+			   so the log has really lost data that was used. */
 			*reason_r = "Unexpected garbage at EOF";
-			mail_transaction_log_file_set_corrupted(file, "%s", *reason_r);
+			mail_transaction_log_file_set_corrupted(file, "%s",
+								*reason_r);
 			return 0;
+		} else {
+			/* The size field will be updated soon */
+			mail_index_flush_read_cache(file->log->index,
+						    file->filepath,
+						    file->fd, file->locked);
 		}
-		/* The size field will be updated soon */
-		mail_index_flush_read_cache(file->log->index, file->filepath,
-					    file->fd, file->locked);
 	}
 
 	if (file->next != NULL &&
