@@ -1,3 +1,237 @@
+v2.4.5 2026-08-10  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* CVE-2026-27852: Messages with a huge number of From/To/Cc/etc email addresses
+	  could result in excessive memory usage.
+	* CVE-2026-33263: Submission: Login service crashes with panic once
+	  mail_max_userip_connections limit is reached.
+	* CVE-2026-33604: The SMTP outbound dot-stuffing mechanism does not properly
+	  escape dots following a bare \r in message bodies, potentially allowing
+	  spoofed emails via malicious end-of-DATA injection.
+	* CVE-2026-33606: Mail content stored by a user can be crafted so that it is
+	  interpreted as dsync protocol commands when an administrator later runs dsync
+	  with the stream protocol, for example during a migration.
+	* CVE-2026-33607: IMAP LIST command could be used to cause excessive CPU usage.
+	* CVE-2026-40014: IMAP THREAD command could have used excessive amount of CPU
+	  processing a single email with a massive number of Message-IDs in References
+	  header.
+	* CVE-2026-40015: Invalid IMAP command sent to imap-hibernate process might
+	  crash it.
+	* CVE-2026-40017: IMAP THREAD command could have used excessive amount of CPU
+	  processing emails with a large number of specially crafted Message-IDs in
+	  References header. The fix requires a new dovecot.index.thread file format,
+	  which is enabled only after setting dovecot_storage_version or newer. This
+	  rebuilds the index, so it will cause some extra CPU usage and extra
+	  metacache disk IO usage. It shouldn't cause (much) extra object storage IO,
+	  because all the fields should be coming from dovecot.index.cache.
+	* CVE-2026-40203: When IMAP COMPRESS=DEFLATE was enabled, an attacker
+	  could send mails into a victim's mailbox and observe network traffic to
+	  determine whether a secret message matched a known string by comparing
+	  compressed response sizes (a CRIME-style attack). The fix resets the
+	  compression dictionary after each IMAP command, preventing information from
+	  leaking between commands.
+	* CVE-2026-40205: If multiple OAUTH scopes were required, then
+	  this could have been only partially enforced with certain
+	  configurations.
+	* CVE-2026-4200: XCLIENT FORWARD allows to forward key only passdb
+	  fields without the "forward_" prefix which allows connections from
+	  trusted networks to set nopasswd field which allows to skip the
+	  authentication.
+	* CVE-2026-42391: Pre-login IMAP ID command could have used excessive
+	  amount of memory, causing the process to become killed and disconnecting
+	  all the other IMAP connections being proxied by the process. Or
+	  alternatively it could have caused excessive CPU usage, slowing down
+	  all the other IMAP connections being proxied by the process.
+	* CVE-2026-42392: If URLAUTH is enabled, sending an invalid IMAP URLFETCH
+	  can result in an untagged NO response containing uninitialized memory,
+	  potentially leaking sensitive data.
+	* CVE-2026-42393: Doveadm password length or API key length could still
+	  be determined via timing based attacks.
+	* CVE-2026-42395: XCLIENT FORWARD command from login_trusted_networks
+	  could have been used to cause login processes to crash.
+	* CVE-2026-52681: Sieve resource usage (sieve_max_cpu_time) was tracked
+	  in the active Sieve binary. Switching to a different active binary
+	  could have been used to reset (bypass) the resource usage.
+	* CVE-2026-52687: Using IMAP COMPRESS ZSTD command can cause excessive
+	  memory usage in imap-login process, possibly making it reach vsz_limit
+	  and kill all the connections being served by the process. Fixed by
+	  disabling COMPRESS command with all other compression algorithms than
+	  the standard DEFLATE.
+	* CVE-2026-73208: In oauth2, scope/aud checking was done with JWT tokens.
+	  Now it requires all scopes.
+	* CVE-2026-73209: Sending IMAP COMPRESS package containing zero-length
+	  frames crashes imap or imap-login process.
+	* auth: SIGHUP no longer flushes the passdb cache and SIGUSR2 no longer
+	  logs cache statistics. Use "doveadm auth cache flush" and the new
+	  "doveadm auth cache status" instead.
+	* auth: The OTP authentication mechanism, the {OTP} password scheme and
+	  the passdb set-credentials support have been removed. They were
+	  unmaintained and unused. This also drops the passdb_sql_update_query
+	  setting.
+	* config: doveconf no longer prints a flat global setting when a
+	  top-level named filter overrides the same setting.
+	* doveadm: The doveadm protocol has been bumped to v1.4. The server uses
+	  the newer multiplex stream format with clients supporting it. Older
+	  clients keep working unchanged.
+	* imap: Change imap_compress_on_proxy default to yes.
+	* lib-dict-extra: Increase dict client request timeout from 30s to 65s,
+	  so it stays above the SQL/Cassandra query timeout.
+	* lib-http: HTTP requests are now parsed strictly: obsolete line folding
+	  (obs-fold) and a bare LF line terminator are rejected. Both are
+	  request desynchronization/smuggling risks. HTTP responses are still
+	  parsed leniently.
+	* lib-storage: A '~' in a mailbox name is now escaped only when it is at
+	  the beginning of the mailbox name, not at the beginning of every
+	  hierarchy part. Directories written by older versions are migrated
+	  automatically while listing mailboxes.
+	* lib-var-expand: Add %{time:unix} provider and the epoch, from_epoch,
+	  date, iso8601 and escape filters. Deprecates the old time providers.
+	* lib-var-expand: The safe filter must now be the last filter in the
+	  chain.
+	* master: Increase the timeout after config reload before killing still
+	  running old processes from 6s to 35s, so that lib-master can stop them
+	  gracefully first.
+	+ config: Support heredoc syntax for multi-line setting values:
+	  key = <<EOD ... EOD. doveconf now outputs inline SET_FILE contents
+	  (e.g. ssl_ca) using heredoc instead of the "inline:" prefix. The
+	  "inline:" form is still accepted.
+	+ configure: Build imap-hibernate also when only kqueue notify is
+	  available.
+	+ doveadm: Add "doveadm auth cache status" command, with --reset for
+	  clearing the counters.
+	+ doveadm: dump - List all supported dump types, and print the key type
+	  also for KEM and unsupported keys.
+	+ fts-flatcurve: Add support for phrase searching. This fixes false
+	  positives where the searched words existed, but not as a phrase.
+	+ fts-flatcurve: Delete the FTS index directory also when a Maildir
+	  mailbox is deleted.
+	+ imap: Add [THROTTLED] response code to tagged replies when a plugin
+	  has throttled the command.
+	+ last-login: Add last_login_dict_fields setting for updating multiple
+	  dictionary fields at login.
+	+ lib-dcrypt: Add ML-KEM-512/768/1024 support with OpenSSL 3.
+	+ lib-dcrypt: Support AEAD with Dovecot key encryption.
+	+ lib-settings: Expand %{variables} also in strlist and boollist keys.
+	+ lib-sql: sqlite - Add sqlite_busy_timeout setting, default 1s.
+	+ login-common: Log the destination also when a proxy connection fails.
+	+ quota: Update quota-clone also when "doveadm quota recalc" is run.
+	- Fix building on systems with a signed 32-bit time_t.
+	- Fix building with Lua when LUA_LIBS contains linker flags such as -L.
+	- anvil: Fix busy loop eating CPU after an admin socket connection was
+	  disconnected.
+	- auth: Fix authentication failing after a password change when the
+	  passdb cache entry was verified by an auth worker.
+	- auth: Fix the credentials scheme of one passdb leaking into the next
+	  one during a multi-passdb lookup.
+	- auth: oauth2 - Fix losing userdb_* fields during OAUTHBEARER
+	  authentication.
+	- auth: passwd-file - Fix %{passdb:...} and %{userdb:...} expansion
+	  returning garbage or crashing.
+	- config: Fix crash in "doveconf -f" for a filter that includes a @group.
+	- config: Fix crash when including a default @group into a filter.
+	- config: Fix hiding secrets in doveconf output.
+	- config: Fix startup failures with some settings containing %{variables}.
+	- configure: Fix BUILD_IMAP_HIBERNATE detection.
+	- doc: solr-schema-9.xml - Add the mandatory tokenizer class attribute.
+	- doveadm: compress-connect - Fix writing server input to a non-blocking
+	  stdout.
+	- doveadm: fs delete - Fix crash with concurrent async deletes.
+	- doveconf: Fix bogus "Multiple settings matched" error when stdout is
+	  redirected to a file that already has content.
+	- dsync: Fix truncating a mailbox attribute value when it is compared to
+	  the local one, e.g. truncating a Sieve script.
+	- dsync: backup - Mailbox attributes changed or created only in the
+	  destination are now reverted or deleted.
+	- fts-flatcurve: Ignore index directory entries that vanish during
+	  iteration.
+	- fts: Don't run FTS optimize on forced resync.
+	- fts: build-mail - Fix accessing Content-Type header buffer out of
+	  bounds.
+	- imap-login, pop3-login: Tolerate SASL continuations "+" without a
+	  trailing space when proxying authentication.
+	- imap: Don't report FETCH output stream errors as
+	  "BUG: Unknown internal error".
+	- imap: Fix hibernation always failing on FreeBSD.
+	- imap: Fix panic on GETMETADATA with an invalid UTF-8 mailbox pattern.
+	- imapc: Don't send SEEEN/UNSEEN to the remote server when private
+	  indexes are used.
+	- imapc: Fix SEARCH results pointing at wrong messages after an untagged
+	  EXPUNGE.
+	- imapc: Fix SORT returning an empty result when search criteria were
+	  used.
+	- imapc: Fix crash when copying a mail that was already expunged in the
+	  source mailbox.
+	- imapc: Fix stale SEARCH/SORT results after a STORE in the same
+	  session.
+	- imapc: Honor imapc_features=no-search also for SORT.
+	- imapc: Properly handle search criteria that can be sent to remote server.
+	- lib-dcrypt: Don't panic on key algorithms the backend doesn't support.
+	- lib-dcrypt: Fix x9.62 ECDSA signatures randomly failing verification.
+	- lib-dict-backend: cdb - Fix use-after-free of the returned key.
+	- lib-dns-client: Fix handling of a disconnect initiated by the
+	  dns-client service.
+	- lib-fs: Fix panic in fs_write_stream_abort(), e.g. when the disk is
+	  full during FTS indexing.
+	- lib-index: Fix "File is already open" error when appending to the
+	  transaction log while another process is rotating it. This showed up
+	  as "NO [SERVERBUG] Internal error occurred." without any logging.
+	- lib-ldap: Fall back to system default CA paths, needed for OpenLDAP
+	  built against GnuTLS.
+	- lib-mail: istream-binary-converter - Fix heap use-after-free with a
+	  bodyless MIME part.
+	- lib-mail: message-parser - Fix out of bounds read with an empty
+	  preamble, fix skipping the epilogue boundary line, and degrade to a
+	  re-parse instead of panicking with an inconsistent cached MIME tree.
+	- lib-master: Fix kick reason when the KICK-USER-SIGNAL command arrives
+	  late, which logged "Killed with signal 15" instead of "User kicked".
+	- lib-oauth2: jwt - Fix use-after-realloc, guard against an empty body
+	  segment and percent-encode bare "." and ".." identifiers.
+	- lib-program-client: Fix panic upon irregular termination.
+	- lib-settings: Fix sorting of the settings history, which caused
+	  changed defaults and renames to be ignored once a plugin registered
+	  its own history, if dovecot_config_version has been set to greater
+	  than 2.4.0.
+	- lib-smtp: Fix assert with an empty broken localpart.
+	- lib-smtp: xclient - Reject an invalid HELO parameter with 501.
+	- lib-sql: pgsql - Fix binary field values for rows after the first.
+	  This mainly affected dict-sql maps with hexblob fields.
+	- lib-ssl-iostream: Fix crash at process exit with OpenSSL 4.0.
+	- lib-storage: Don't log an error when the client resets the connection
+	  while saving a mail.
+	- lib-storage: Fix crash when reverting a failed mailbox deletion.
+	- lib-storage: Fix decoded size calculation for base64 attachments,
+	  which could delete the cache record of a mail with a detached
+	  attachment.
+	- lib-storage: Fix handling escaped mailbox names in the mailbox list
+	  index.
+	- lib-storage: Fix rewriting non-NFC subscriptions with mUTF-7 storage
+	  names, which caused repeated rename errors.
+	- lib-storage: Fix searching flags when the view is not up to date. This
+	  broke e.g. a pipelined UID STORE +FLAGS \Deleted followed by UID
+	  EXPUNGE.
+	- lib-storage: Fix the mailbox vsize header not being repaired when it
+	  is corrupted, causing wrong mailbox sizes to be reported.
+	- lib-storage: thread - Fix panic when running IMAP THREAD in multiple
+	  connections in parallel.
+	- lib-var-expand: Reject an empty separator in the index filter, which
+	  caused an infinite loop.
+	- lib: Fix crash and out of bounds reads when decoding IDN addresses.
+	  Reachable only with the experimental mail UTF-8 support enabled.
+	- lib: ioloop - Fix panic and delayed timeouts when time moves forwards.
+	- lib: ostream-multiplex - Fix stalls, busy loops and a panic when
+	  streaming data through a multiplexed connection, e.g. IMAP FETCH
+	  through a login proxy or TLS connections.
+	- login-common: Fix connection hanging if an ostream write failed. This
+	  happened at least with HAProxy health check connections.
+	- login-common: Fix real_remote_ip being looked up incorrectly.
+	- login-common: Reject proxy credentials with ASCII control characters.
+	- login-proxy: Fix "doveadm kick" for proxied connections in
+	  high-security mode, and log "Kicked by admin" as the reason.
+	- maildir: Fix random SEARCH failures when another session concurrently
+	  expunges mails.
+	- quota: Fix maildir quota dropping to zero after IMAP MOVE or REPLACE.
+	- submission-login: proxy - Fix crash and unbounded memory usage with a
+	  multi-line or malformed AUTH reply from the backend.
+
 v2.4.4 2026-05-06  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* CVE-2026-27851: lib-var-expand: Safe filter marks all following pipelines safe.
