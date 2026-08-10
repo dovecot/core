@@ -6,7 +6,9 @@
 #include "mail-index-private.h"
 #include "mail-transaction-log-private.h"
 
+#include <signal.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 
 static bool log_lock_failure = FALSE;
 
@@ -116,6 +118,61 @@ static void test_append_sync_offset(struct mail_transaction_log *log)
 	test_end();
 }
 
+static void test_append_partial_write(struct mail_transaction_log *log, int fd)
+{
+	static unsigned int buf[] = { 0x12345678, 0xabcdef09 };
+	struct mail_transaction_log_file *file = log->head;
+	struct mail_transaction_log_append_ctx *ctx;
+	const struct mail_transaction_header *hdr;
+	struct rlimit old_limit, limit;
+	struct stat st;
+	size_t trans_size = sizeof(*hdr) + sizeof(buf);
+
+	test_begin("transaction log append: partially written tail offset");
+
+	buffer_set_used_size(file->buffer, 0);
+	file->buffer_offset = 0;
+	file->sync_offset = 0;
+	file->last_size = 0;
+	file->max_tail_offset = 0;
+	file->fd = fd;
+
+	/* Allow only a part of the log_file_tail_offset update following the
+	   transaction to be written. */
+	if (getrlimit(RLIMIT_FSIZE, &old_limit) < 0)
+		i_fatal("getrlimit() failed: %m");
+	limit = old_limit;
+	limit.rlim_cur = trans_size + 4;
+	if (setrlimit(RLIMIT_FSIZE, &limit) < 0)
+		i_fatal("setrlimit() failed: %m");
+	if (signal(SIGXFSZ, SIG_IGN) == SIG_ERR)
+		i_fatal("signal(SIGXFSZ) failed: %m");
+
+	test_assert_cmp(mail_transaction_log_append_begin(log->index, 0, &ctx),
+			==, 0);
+	ctx->index_sync_transaction = TRUE;
+	mail_transaction_log_append_add(ctx, MAIL_TRANSACTION_APPEND,
+					buf, sizeof(buf));
+	test_assert_cmp(mail_transaction_log_append_commit(&ctx), ==, 0);
+
+	if (signal(SIGXFSZ, SIG_DFL) == SIG_ERR)
+		i_fatal("signal(SIGXFSZ) failed: %m");
+	if (setrlimit(RLIMIT_FSIZE, &old_limit) < 0)
+		i_fatal("setrlimit() failed: %m");
+
+	/* The transaction was fully written, so it must be kept. The partially
+	   written tail offset update after it must be truncated away. */
+	if (fstat(fd, &st) < 0) i_fatal("fstat() failed: %m");
+	test_assert_cmp(st.st_size, ==, (off_t)trans_size);
+	test_assert_ucmp(file->sync_offset, ==, trans_size);
+	test_assert_ucmp(file->buffer->used, ==, trans_size);
+	/* The tail offset update wasn't written */
+	test_assert_ucmp(file->max_tail_offset, ==, 0);
+
+	file->fd = -1;
+	test_end();
+}
+
 static void test_mail_transaction_log_append(void)
 {
 	struct mail_transaction_log *log;
@@ -155,6 +212,8 @@ static void test_mail_transaction_log_append(void)
 	test_assert(st.st_size == 1);
 	file->fd = -1;
 	test_end();
+
+	test_append_partial_write(log, fd);
 
 	buffer_free(&log->head->buffer);
 	i_free(log->head);

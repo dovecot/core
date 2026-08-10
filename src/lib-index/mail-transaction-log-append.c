@@ -59,9 +59,38 @@ log_buffer_move_to_memory(struct mail_transaction_log_append_ctx *ctx)
 	return 0;
 }
 
-static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
+/* Keep the first keep_size bytes of the write, which are already visible to
+   the other processes reading the log, and truncate away the rest. */
+static int
+log_buffer_keep_written(struct mail_transaction_log_append_ctx *ctx,
+			size_t keep_size)
 {
 	struct mail_transaction_log_file *file = ctx->log->head;
+
+	if (keep_size < ctx->output->used) {
+		if (ftruncate(file->fd, file->sync_offset + keep_size) < 0) {
+			mail_index_file_set_syscall_error(ctx->log->index,
+							  file->filepath,
+							  "ftruncate()");
+		}
+	}
+
+	if (file->mmap_base == NULL && file->buffer != NULL) {
+		i_assert(file->buffer_offset +
+			 file->buffer->used == file->sync_offset);
+		buffer_append(file->buffer, ctx->output->data, keep_size);
+	}
+	file->sync_offset += keep_size;
+	/* Don't update max_tail_offset. Either the update to it wasn't
+	   written, or it wasn't durably written. */
+	return 0;
+}
+
+static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx,
+			    size_t trans_size)
+{
+	struct mail_transaction_log_file *file = ctx->log->head;
+	size_t written;
 
 	if (ctx->output->used == 0)
 		return 0;
@@ -76,12 +105,21 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 		return 0;
 	}
 
-	if (write_full(file->fd, ctx->output->data, ctx->output->used) < 0) {
+	if (write_full_count(file->fd, ctx->output->data, ctx->output->used,
+			     &written) < 0) {
 		/* write failure, fallback to in-memory indexes. */
 		mail_index_file_set_syscall_error(ctx->log->index,
 						  file->filepath,
-						  "write_full()");
-		return log_buffer_move_to_memory(ctx);
+						  "write_full_count()");
+		if (trans_size == 0 || written < trans_size) {
+			/* The transaction wasn't fully written. Readers skip
+			   partially written transactions, so it's safe to
+			   truncate it away. */
+			return log_buffer_move_to_memory(ctx);
+		}
+		/* The transaction itself was fully written, only the
+		   log_file_tail_offset update following it wasn't. */
+		return log_buffer_keep_written(ctx, trans_size);
 	}
 
 	if ((ctx->want_fsync &&
@@ -91,7 +129,10 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 			mail_index_file_set_syscall_error(ctx->log->index,
 							  file->filepath,
 							  "fdatasync()");
-			return log_buffer_move_to_memory(ctx);
+			/* The write itself succeeded, so the whole transaction
+			   is already visible to the other processes reading the
+			   log. It can't be truncated away anymore. */
+			return log_buffer_keep_written(ctx, ctx->output->used);
 		}
 	}
 
@@ -201,8 +242,12 @@ mail_transaction_log_append_locked(struct mail_transaction_log_append_ctx *ctx)
 		buffer_delete(ctx->output, 0, boundary_size);
 	}
 
+	/* The log_file_tail_offset update is appended outside the transaction,
+	   so remember where the transaction ends. */
+	size_t trans_size = ctx->output->used;
+
 	log_append_sync_offset_if_needed(ctx);
-	if (log_buffer_write(ctx) < 0)
+	if (log_buffer_write(ctx, trans_size) < 0)
 		return -1;
 	file->sync_highest_modseq = ctx->new_highest_modseq;
 	return 0;
