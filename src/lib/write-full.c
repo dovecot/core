@@ -7,27 +7,37 @@
 
 int write_full(int fd, const void *data, size_t size)
 {
+	size_t written;
+	if (write_full_count(fd, data, size, &written) < 0)
+		return -1;
+	i_assert(written == size);
+	return 0;
+}
+
+int write_full_count(int fd, const void *data, size_t size, size_t *written_r)
+{
+	size_t pos = 0;
 	ssize_t ret;
 
 	i_assert(size <= SSIZE_T_MAX);
 
-	while (size > 0) {
-		ret = write(fd, data, size);
+	while (pos < size) {
+		ret = write(fd, CONST_PTR_OFFSET(data, pos), size - pos);
 		if (unlikely(ret < 0))
-			return -1;
+			break;
 
 		if (unlikely(ret == 0)) {
 			/* nothing was written, only reason for this should
 			   be out of disk space */
 			errno = ENOSPC;
-			return -1;
+			break;
 		}
 
-		data = CONST_PTR_OFFSET(data, ret);
-		size -= ret;
+		pos += ret;
 	}
 
-	return 0;
+	*written_r = pos;
+	return pos == size ? 0 : -1;
 }
 
 int pwrite_full(int fd, const void *data, size_t size, off_t offset)
