@@ -18,6 +18,24 @@ void mail_index_file_set_syscall_error(struct mail_index *index ATTR_UNUSED,
 {
 }
 
+void mail_index_set_error(struct mail_index *index ATTR_UNUSED,
+			  const char *fmt ATTR_UNUSED, ...)
+{
+}
+
+void mail_transaction_log_file_set_garbage_at_eof(
+	struct mail_transaction_log_file *file, const char *fmt, ...)
+{
+	va_list va;
+
+	file->garbage_at_eof = TRUE;
+	if (file->need_rotate == NULL) {
+		va_start(va, fmt);
+		file->need_rotate = i_strdup_vprintf(fmt, va);
+		va_end(va);
+	}
+}
+
 int mail_transaction_log_lock_head(struct mail_transaction_log *log ATTR_UNUSED,
 				   const char *lock_reason ATTR_UNUSED)
 {
@@ -127,6 +145,7 @@ static void test_append_partial_write(struct mail_transaction_log *log, int fd)
 	struct rlimit old_limit, limit;
 	struct stat st;
 	size_t trans_size = sizeof(*hdr) + sizeof(buf);
+	off_t old_size;
 
 	test_begin("transaction log append: partially written tail offset");
 
@@ -159,17 +178,34 @@ static void test_append_partial_write(struct mail_transaction_log *log, int fd)
 		i_fatal("signal(SIGXFSZ) failed: %m");
 	if (setrlimit(RLIMIT_FSIZE, &old_limit) < 0)
 		i_fatal("setrlimit() failed: %m");
+	if (fstat(fd, &st) < 0) i_fatal("fstat() failed: %m");
+	old_size = st.st_size;
 
 	/* The transaction was fully written, so it must be kept. The partially
-	   written tail offset update after it must be truncated away. */
+	   written tail offset update after it isn't truncated away, so the log
+	   needs to be rotated before it can be appended to again. */
 	if (fstat(fd, &st) < 0) i_fatal("fstat() failed: %m");
-	test_assert_cmp(st.st_size, ==, (off_t)trans_size);
+	test_assert_cmp(st.st_size, >, (off_t)trans_size);
 	test_assert_ucmp(file->sync_offset, ==, trans_size);
 	test_assert_ucmp(file->buffer->used, ==, trans_size);
 	/* The tail offset update wasn't written */
 	test_assert_ucmp(file->max_tail_offset, ==, 0);
+	test_assert(file->garbage_at_eof);
+	test_assert(file->need_rotate != NULL);
+
+	/* Appending isn't allowed until the log has been rotated. */
+	test_assert_cmp(mail_transaction_log_append_begin(log->index, 0, &ctx),
+			==, 0);
+	mail_transaction_log_append_add(ctx, MAIL_TRANSACTION_APPEND,
+					buf, sizeof(buf));
+	test_assert_cmp(mail_transaction_log_append_commit(&ctx), <, 0);
+	if (fstat(fd, &st) < 0) i_fatal("fstat() failed: %m");
+	test_assert_cmp(st.st_size, ==, old_size);
+	test_assert_ucmp(file->sync_offset, ==, trans_size);
 
 	file->fd = -1;
+	file->garbage_at_eof = FALSE;
+	i_free_and_null(file->need_rotate);
 	test_end();
 }
 
@@ -201,16 +237,23 @@ static void test_mail_transaction_log_append(void)
 	test_append_sync_offset(log);
 
 	/* do this after head->buffer has already been initialized */
-	test_begin("transaction log append: garbage truncation");
+	test_begin("transaction log append: garbage at EOF");
 	file->sync_offset = 1;
 	file->buffer_offset = 1;
 	file->last_size = 3;
 	file->fd = fd;
-	test_assert(mail_transaction_log_append_begin(log->index, 0, &ctx) == 0);
-	test_assert(mail_transaction_log_append_commit(&ctx) == 0);
+	/* The garbage can't be truncated away, so appending must fail until
+	   the log has been rotated. */
+	test_assert_cmp(mail_transaction_log_append_begin(log->index, 0, &ctx),
+			==, 0);
+	test_assert_cmp(mail_transaction_log_append_commit(&ctx), <, 0);
+	test_assert(file->garbage_at_eof);
+	test_assert(file->need_rotate != NULL);
 	if (fstat(fd, &st) < 0) i_fatal("fstat() failed: %m");
-	test_assert(st.st_size == 1);
+	test_assert_cmp(st.st_size, ==, 0);
 	file->fd = -1;
+	file->garbage_at_eof = FALSE;
+	i_free_and_null(file->need_rotate);
 	test_end();
 
 	test_append_partial_write(log, fd);

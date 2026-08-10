@@ -41,14 +41,6 @@ log_buffer_move_to_memory(struct mail_transaction_log_append_ctx *ctx)
 {
 	struct mail_transaction_log_file *file = ctx->log->head;
 
-	/* first we need to truncate this latest write so that log syncing
-	   doesn't break */
-	if (ftruncate(file->fd, file->sync_offset) < 0) {
-		mail_index_file_set_syscall_error(ctx->log->index,
-						  file->filepath,
-						  "ftruncate()");
-	}
-
 	if (mail_index_move_to_memory(ctx->log->index) < 0)
 		return -1;
 	i_assert(MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file));
@@ -60,7 +52,9 @@ log_buffer_move_to_memory(struct mail_transaction_log_append_ctx *ctx)
 }
 
 /* Keep the first keep_size bytes of the write, which are already visible to
-   the other processes reading the log, and truncate away the rest. */
+   the other processes reading the log. The rest of the write can't be
+   truncated away, so the log needs to be rotated before it can be appended
+   to again. */
 static int
 log_buffer_keep_written(struct mail_transaction_log_append_ctx *ctx,
 			size_t keep_size)
@@ -68,11 +62,9 @@ log_buffer_keep_written(struct mail_transaction_log_append_ctx *ctx,
 	struct mail_transaction_log_file *file = ctx->log->head;
 
 	if (keep_size < ctx->output->used) {
-		if (ftruncate(file->fd, file->sync_offset + keep_size) < 0) {
-			mail_index_file_set_syscall_error(ctx->log->index,
-							  file->filepath,
-							  "ftruncate()");
-		}
+		mail_transaction_log_file_set_garbage_at_eof(file,
+			"Partially written transaction at "
+			"offset %"PRIuUOFF_T, file->sync_offset + keep_size);
 	}
 
 	if (file->mmap_base == NULL && file->buffer != NULL) {
@@ -113,8 +105,12 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx,
 						  "write_full_count()");
 		if (trans_size == 0 || written < trans_size) {
 			/* The transaction wasn't fully written. Readers skip
-			   partially written transactions, so it's safe to
-			   truncate it away. */
+			   it, but it still can't be removed from the file. */
+			if (written > 0) {
+				mail_transaction_log_file_set_garbage_at_eof(file,
+					"Partially written transaction at "
+					"offset %"PRIuUOFF_T, file->sync_offset);
+			}
 			return log_buffer_move_to_memory(ctx);
 		}
 		/* The transaction itself was fully written, only the
@@ -214,17 +210,27 @@ mail_transaction_log_append_locked(struct mail_transaction_log_append_ctx *ctx)
 	struct mail_transaction_boundary *boundary;
 
 	if (file->sync_offset < file->last_size) {
-		/* there is some garbage at the end of the transaction log
-		   (eg. previous write failed). remove it so reader doesn't
-		   break because of it. */
+		/* There is some garbage at the end of the transaction log
+		   (eg. a previous write failed). The log is append-only, so it
+		   can't be truncated away. */
 		buffer_set_used_size(file->buffer,
 				     file->sync_offset - file->buffer_offset);
 		if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
-			if (ftruncate(file->fd, file->sync_offset) < 0) {
-				mail_index_file_set_syscall_error(ctx->log->index,
-					file->filepath, "ftruncate()");
-			}
+			mail_transaction_log_file_set_garbage_at_eof(file,
+				"Partially written transaction at "
+				"offset %"PRIuUOFF_T, file->sync_offset);
 		}
+	}
+	if (file->garbage_at_eof &&
+	    !MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
+		/* Appending after the partially written transaction would
+		   make the appended transactions invisible to the readers,
+		   which stop at it. Wait until the log is rotated. */
+		mail_index_set_error(ctx->log->index,
+			"Transaction log %s has garbage at EOF: %s - "
+			"Write failed because log is not yet rotated",
+			file->filepath, file->need_rotate);
+		return -1;
 	}
 
 	/* don't include log_file_tail_offset update in the transaction */
