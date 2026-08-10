@@ -366,6 +366,19 @@ mail_index_sync_begin_init(struct mail_index *index,
 		}
 	}
 
+	if (locked) {
+		/* If the log has a partially written transaction at the end,
+		   it can't be appended to. Rotate it now, before anything
+		   tries to write to it. */
+		if (mail_transaction_log_rotate_pending(index->log) < 0) {
+			mail_transaction_log_sync_unlock(index->log,
+				"log rotation failure");
+			return -1;
+		}
+		seq = index->log->head->hdr.file_seq;
+		offset = index->log->head->sync_offset;
+	}
+
 	if (!mail_index_need_sync(index, flags, log_file_seq, log_file_offset) &&
 	    !index->index_deleted && index->need_recreate == NULL) {
 		if (locked)

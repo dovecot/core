@@ -251,6 +251,65 @@ bool mail_transaction_log_want_rotate(struct mail_transaction_log *log,
 	return FALSE;
 }
 
+static bool
+mail_transaction_log_rotate_is_pending(const struct mail_transaction_log *log)
+{
+	return log->head != NULL && log->head->garbage_at_eof &&
+		!log->index->readonly &&
+		!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(log->head);
+}
+
+int mail_transaction_log_rotate_pending(struct mail_transaction_log *log)
+{
+	struct mail_index *index = log->index;
+	struct mail_transaction_log_file *file = log->head;
+
+	i_assert(index->log_sync_locked);
+
+	if (!mail_transaction_log_rotate_is_pending(log))
+		return 0;
+
+	if (index->map == NULL ||
+	    index->map->hdr.log_file_seq != file->hdr.file_seq ||
+	    index->map->hdr.log_file_head_offset != file->sync_offset) {
+		/* The index isn't synced up to the log head, so the new log
+		   file would get wrong prev_file_* offsets. Rotate later. */
+		return 0;
+	}
+	if (mail_transaction_log_rotate(log, FALSE) < 0)
+		return -1;
+
+	/* The index still points to the old log file. That works, because the
+	   new log file's prev_file_* points back to it, but rewrite the index
+	   soon so the old log file can be cleaned up. */
+	if (index->need_recreate == NULL) {
+		index->need_recreate =
+			i_strdup("transaction log had to be rotated");
+	}
+	return 0;
+}
+
+void mail_transaction_log_finish_pending_rotation(
+	struct mail_transaction_log *log)
+{
+	uint32_t file_seq;
+	uoff_t file_offset;
+
+	if (!mail_transaction_log_rotate_is_pending(log) ||
+	    log->index->log_sync_locked)
+		return;
+
+	/* Nothing can be appended to the log before it's rotated, so don't
+	   leave it for the next process to deal with. Errors are already
+	   logged by the rotation itself, and there's nothing to be done about
+	   them here. */
+	if (mail_transaction_log_sync_lock(log, "rotating pending",
+					   &file_seq, &file_offset) < 0)
+		return;
+	(void)mail_transaction_log_rotate_pending(log);
+	mail_transaction_log_sync_unlock(log, "rotating pending");
+}
+
 int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset)
 {
 	struct mail_transaction_log_file *file, *old_head;

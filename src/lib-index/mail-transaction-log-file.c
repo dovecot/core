@@ -73,6 +73,29 @@ void mail_transaction_log_file_set_need_rotate(
 	va_end(va);
 }
 
+void mail_transaction_log_file_set_garbage_at_eof(
+	struct mail_transaction_log_file *file, const char *fmt, ...)
+{
+	va_list va;
+
+	if (file->garbage_at_eof) {
+		/* Already known - don't log it again */
+		return;
+	}
+	file->garbage_at_eof = TRUE;
+
+	va_start(va, fmt);
+	T_BEGIN {
+		const char *reason = t_strdup_vprintf(fmt, va);
+
+		mail_transaction_log_file_set_need_rotate(file, "%s", reason);
+		e_debug(file->log->index->event,
+			"Transaction log %s has garbage at EOF: %s",
+			file->filepath, reason);
+	} T_END;
+	va_end(va);
+}
+
 void
 mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 					const char *fmt, ...)

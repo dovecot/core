@@ -102,6 +102,13 @@ struct mail_transaction_log_file {
 	   The indexid is also usually overwritten to be 0 in the log header at
 	   this time. */
 	bool corrupted:1;
+	/* There is a partially written transaction at the end of the log file
+	   (e.g. a previous write ran out of disk space). Log files are
+	   append-only, so it can't be truncated away. Nothing can be appended
+	   to the file either, because readers stop at the partially written
+	   transaction. The log must be rotated before it can be written to
+	   again. */
+	bool garbage_at_eof:1;
 };
 
 struct mail_transaction_log {
@@ -183,8 +190,22 @@ void mail_transaction_logs_clean(struct mail_transaction_log *log);
 void mail_transaction_log_file_set_need_rotate(
 	struct mail_transaction_log_file *file, const char *fmt, ...)
 	ATTR_FORMAT(2, 3);
+/* Remember that the log file has a partially written transaction at its end
+   and must be rotated before anything can be appended to it. */
+void mail_transaction_log_file_set_garbage_at_eof(
+	struct mail_transaction_log_file *file, const char *fmt, ...)
+	ATTR_FORMAT(2, 3);
 bool mail_transaction_log_want_rotate(struct mail_transaction_log *log,
 				      const char **reason_r);
+/* Rotate the log if a rotation is pending due to garbage_at_eof and it can be
+   done safely. The log must be locked. Returns 0 if ok (also when nothing was
+   done), -1 if the rotation failed. */
+int mail_transaction_log_rotate_pending(struct mail_transaction_log *log);
+/* Same as mail_transaction_log_rotate_pending(), but lock the log first.
+   Used when closing the index, so a pending rotation isn't left for the next
+   process (which couldn't append to the log either). */
+void mail_transaction_log_finish_pending_rotation(
+	struct mail_transaction_log *log);
 int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset);
 int mail_transaction_log_lock_head(struct mail_transaction_log *log,
 				   const char *lock_reason);

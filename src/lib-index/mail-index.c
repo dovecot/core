@@ -750,6 +750,8 @@ static void mail_index_close_nonopened(struct mail_index *index)
 	}
 	i_assert(index->views == NULL);
 
+	mail_transaction_log_finish_pending_rotation(index->log);
+
 	if (index->map != NULL)
 		mail_index_unmap(&index->map);
 
