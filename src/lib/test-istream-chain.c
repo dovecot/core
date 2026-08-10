@@ -196,28 +196,47 @@ static void test_istream_chain_accumulate(void)
 	test_end();
 }
 
+struct fatal_chain_ctx {
+	struct ioloop *ioloop;
+	struct istream *input, *test_input;
+	struct io *io;
+};
+static struct fatal_chain_ctx fatal_ctx;
+
+static void fatal_istream_chain_free(struct fatal_chain_ctx *ctx)
+{
+	/* The IO must be removed before the ioloop is destroyed, or the
+	   ioloop panics about an IO leak. */
+	io_remove(&ctx->io);
+	i_stream_unref(&ctx->input);
+	i_stream_unref(&ctx->test_input);
+	io_loop_destroy(&ctx->ioloop);
+}
+
 enum fatal_test_state fatal_istream_chain(unsigned int stage)
 {
-	struct istream *input, *test_input;
 	struct istream_chain *chain;
-	struct ioloop *ioloop;
 
 	switch (stage) {
 	case 0:
 		test_begin("istream chain fatals");
 		/* The chain istream owns the ioloop IO, but the appended
 		   istream's i_stream_set_input_pending() can't reach it. */
-		ioloop = io_loop_create();
-		input = i_stream_create_chain(&chain, IO_BLOCK_SIZE);
-		(void)io_add_istream(input, test_istream_chain_io_noop, NULL);
+		fatal_ctx.ioloop = io_loop_create();
+		fatal_ctx.input = i_stream_create_chain(&chain, IO_BLOCK_SIZE);
+		fatal_ctx.io = io_add_istream(fatal_ctx.input,
+					      test_istream_chain_io_noop, NULL);
 
-		test_input = test_istream_create("stream1");
-		test_istream_set_input_pending(test_input, TRUE);
-		i_stream_chain_append(chain, test_input);
+		fatal_ctx.test_input = test_istream_create("stream1");
+		test_istream_set_input_pending(fatal_ctx.test_input, TRUE);
+		i_stream_chain_append(chain, fatal_ctx.test_input);
 
 		test_expect_fatal_string("is lost");
-		i_error("This shouldn't return: %zd", i_stream_read(input));
-		io_loop_destroy(&ioloop);
+		/* The fatal longjmps out of here, so free via the callback. */
+		test_fatal_set_callback(fatal_istream_chain_free, &fatal_ctx);
+		i_error("This shouldn't return: %zd",
+			i_stream_read(fatal_ctx.input));
+		fatal_istream_chain_free(&fatal_ctx);
 		return FATAL_TEST_FAILURE;
 	}
 	test_end();
