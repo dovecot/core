@@ -278,10 +278,8 @@ int mail_transaction_log_file_get_modseq_next_offset(
 			file->log->index->need_recreate =
 				i_strdup("modseq tracking is corrupted");
 		}
-		if (file->need_rotate == NULL) {
-			file->need_rotate =
-				i_strdup("modseq tracking is corrupted");
-		}
+		mail_transaction_log_file_set_need_rotate(file,
+			"modseq tracking is corrupted");
 		/* clear cache, since it's unreliable */
 		memset(file->modseq_cache, 0, sizeof(file->modseq_cache));
 	}

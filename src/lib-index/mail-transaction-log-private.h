@@ -178,6 +178,11 @@ int mail_transaction_log_file_move_to_memory(struct mail_transaction_log_file *f
 
 void mail_transaction_logs_clean(struct mail_transaction_log *log);
 
+/* Remember that the log file should be rotated. The rotation itself is done
+   later on, when it's safe to do it. */
+void mail_transaction_log_file_set_need_rotate(
+	struct mail_transaction_log_file *file, const char *fmt, ...)
+	ATTR_FORMAT(2, 3);
 bool mail_transaction_log_want_rotate(struct mail_transaction_log *log,
 				      const char **reason_r);
 int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset);

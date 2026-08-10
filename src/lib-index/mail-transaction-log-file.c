@@ -60,6 +60,19 @@ mail_transaction_log_mark_corrupted(struct mail_transaction_log_file *file)
 	}
 }
 
+void mail_transaction_log_file_set_need_rotate(
+	struct mail_transaction_log_file *file, const char *fmt, ...)
+{
+	va_list va;
+
+	if (file->need_rotate != NULL)
+		return;
+
+	va_start(va, fmt);
+	file->need_rotate = i_strdup_vprintf(fmt, va);
+	va_end(va);
+}
+
 void
 mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 					const char *fmt, ...)
