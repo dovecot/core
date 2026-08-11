@@ -1926,6 +1926,10 @@ fts_flatcurve_xapian_optimize_box_do(struct flatcurve_fts_backend *backend,
 		return 0;
 	}
 
+	/* Close all write handles before deleting directories. */
+	if (fts_flatcurve_xapian_refresh(backend, error_r) < 0)
+		return -1;
+
 	/* Delete old indexes. */
 	struct flatcurve_xapian_db_iter *iter =
 		fts_flatcurve_xapian_db_iter_init(backend, opts);
