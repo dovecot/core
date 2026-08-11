@@ -343,7 +343,12 @@ void smtp_client_command_fail_reply(struct smtp_client_command **_cmd,
 		e_debug(e->event(), "Failed: %s", smtp_reply_log(reply));
 
 		if (callback != NULL) {
-			while (cmd->replies_seen++ < cmd->replies_expected)
+			/* Generate a callback for each reply that is still
+			   expected, but leave cmd->replies_seen alone: when the
+			   command was already sent, it stays in the wait list
+			   and the peer's replies are still to be consumed by
+			   smtp_client_command_input_reply(). */
+			for (unsigned int i = cmd->replies_seen; i < cmd->replies_expected; i++)
 				(void)callback(reply, context);
 		}
 	}
