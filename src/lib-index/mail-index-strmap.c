@@ -63,7 +63,7 @@ struct mail_index_strmap_read_context {
 	const unsigned char *data, *end, *str_idx_base;
 	struct mail_index_strmap_rec rec;
 	uint32_t next_ref_index;
-	unsigned int rec_size;
+	size_t rec_size;
 
 	bool too_large_uids:1;
 };
