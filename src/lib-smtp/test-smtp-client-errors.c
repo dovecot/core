@@ -2217,6 +2217,201 @@ static void test_early_data_reply(void)
 }
 
 /*
+ * Pipelined MAIL failure
+ */
+
+/* server */
+
+static int
+test_pipelined_mail_failure_input_line(struct server_connection *conn,
+				       const char *line)
+{
+	if (debug)
+		i_debug("[%u] GOT LINE: %s", server_index, line);
+
+	switch (conn->state) {
+	case SERVER_CONNECTION_STATE_EHLO:
+		/* Let the default handler announce the capabilities
+		   (including PIPELINING) */
+		return 0;
+	case SERVER_CONNECTION_STATE_MAIL_FROM:
+		/* Withhold the MAIL reply until the pipelined RCPT command
+		   arrives */
+		conn->state = SERVER_CONNECTION_STATE_RCPT_TO;
+		return 1;
+	case SERVER_CONNECTION_STATE_RCPT_TO:
+		/* Reject both commands in a single write, so that the client
+		   parses both replies from the same input buffer */
+		o_stream_nsend_str(
+			conn->conn.output,
+			"451 4.7.1 Service unavailable - try again later\r\n"
+			"503 5.5.1 Error: need MAIL command\r\n");
+		conn->state = SERVER_CONNECTION_STATE_DATA;
+		return 1;
+	case SERVER_CONNECTION_STATE_DATA:
+		/* Stay in this state: no message payload is ever sent, since
+		   the client aborts the transaction locally */
+		o_stream_nsend_str(conn->conn.output,
+				   "503 5.5.1 Error: need RCPT command\r\n");
+		return 1;
+	case SERVER_CONNECTION_STATE_FINISH:
+		break;
+	}
+	return 1;
+}
+
+static void test_server_pipelined_mail_failure(unsigned int index)
+{
+	test_server_input_line = test_pipelined_mail_failure_input_line;
+	test_server_run(index);
+}
+
+/* client */
+
+struct _pipelined_mail_failure {
+	struct smtp_client_connection *conn;
+	struct smtp_client_transaction *trans;
+
+	bool mail_from_callback:1;
+	bool rcpt_to_callback:1;
+	bool rcpt_data_callback:1;
+	bool data_callback:1;
+};
+
+static void
+test_client_pipelined_mail_failure_mail_from_cb(
+	const struct smtp_reply *reply,
+	struct _pipelined_mail_failure *ctx)
+{
+	if (debug)
+		i_debug("MAIL FROM REPLY: %s", smtp_reply_log(reply));
+
+	ctx->mail_from_callback = TRUE;
+	test_assert(reply->status == 451);
+}
+
+static void
+test_client_pipelined_mail_failure_rcpt_to_cb(
+	const struct smtp_reply *reply,
+	struct _pipelined_mail_failure *ctx)
+{
+	if (debug)
+		i_debug("RCPT TO REPLY: %s", smtp_reply_log(reply));
+
+	ctx->rcpt_to_callback = TRUE;
+	/* The RCPT command was already pipelined when MAIL failed, so this is
+	   the MAIL failure propagated locally; the 503 reply the server sends
+	   for the RCPT command itself is never returned to the caller. */
+	test_assert(reply->status == 451);
+}
+
+static void
+test_client_pipelined_mail_failure_rcpt_data_cb(
+	const struct smtp_reply *reply,
+	struct _pipelined_mail_failure *ctx)
+{
+	if (debug)
+		i_debug("RCPT DATA REPLY: %s", smtp_reply_log(reply));
+
+	/* No recipient was ever approved */
+	ctx->rcpt_data_callback = TRUE;
+}
+
+static void
+test_client_pipelined_mail_failure_data_cb(
+	const struct smtp_reply *reply,
+	struct _pipelined_mail_failure *ctx)
+{
+	if (debug)
+		i_debug("DATA REPLY: %s", smtp_reply_log(reply));
+
+	ctx->data_callback = TRUE;
+	test_assert(reply->status == 451);
+}
+
+static void
+test_client_pipelined_mail_failure_finished(
+	struct _pipelined_mail_failure *ctx)
+{
+	if (debug)
+		i_debug("FINISHED");
+
+	test_assert(ctx->mail_from_callback);
+	test_assert(ctx->rcpt_to_callback);
+	test_assert(!ctx->rcpt_data_callback);
+	test_assert(ctx->data_callback);
+
+	ctx->trans = NULL;
+	i_free(ctx);
+	io_loop_stop(ioloop);
+}
+
+static bool
+test_client_pipelined_mail_failure(
+	const struct smtp_client_settings *client_set)
+{
+	static const char *message =
+		"From: stephan@example.com\r\n"
+		"To: timo@example.com\r\n"
+		"Subject: Frop!\r\n"
+		"\r\n"
+		"Frop!\r\n";
+	struct _pipelined_mail_failure *ctx;
+	struct istream *input;
+
+	ctx = i_new(struct _pipelined_mail_failure, 1);
+
+	smtp_client = smtp_client_init(client_set);
+
+	/* Submit the whole transaction in one go, just like smtp_submit does,
+	   so that MAIL, RCPT and DATA end up pipelined. */
+	ctx->conn = smtp_client_connection_create(
+		smtp_client, SMTP_PROTOCOL_SMTP,
+		net_ip2addr(&bind_ip), bind_ports[0],
+		SMTP_CLIENT_SSL_MODE_NONE, NULL);
+	ctx->trans = smtp_client_transaction_create(
+		ctx->conn, &((struct smtp_address){
+			.localpart = "sender",
+			.domain = "example.com"}), NULL, 0,
+		test_client_pipelined_mail_failure_finished, ctx);
+	smtp_client_connection_unref(&ctx->conn);
+
+	smtp_client_transaction_start(
+		ctx->trans, test_client_pipelined_mail_failure_mail_from_cb,
+		ctx);
+	smtp_client_transaction_add_rcpt(
+		ctx->trans, &((struct smtp_address){
+			.localpart = "rcpt",
+			.domain = "example.com"}), NULL,
+		test_client_pipelined_mail_failure_rcpt_to_cb,
+		test_client_pipelined_mail_failure_rcpt_data_cb, ctx);
+
+	input = i_stream_create_from_data(message, strlen(message));
+	i_stream_set_name(input, "message");
+	smtp_client_transaction_send(
+		ctx->trans, input,
+		test_client_pipelined_mail_failure_data_cb, ctx);
+	i_stream_unref(&input);
+
+	return TRUE;
+}
+
+/* test */
+
+static void test_pipelined_mail_failure(void)
+{
+	struct smtp_client_settings smtp_client_set;
+
+	test_client_defaults(&smtp_client_set, NULL);
+
+	test_begin("pipelined mail failure");
+	test_run_client_server(&smtp_client_set,
+			       test_client_pipelined_mail_failure,
+			       test_server_pipelined_mail_failure, 1, NULL);
+	test_end();
+}
+
+/*
  * Bad reply
  */
 
@@ -3809,6 +4004,7 @@ static void (*const test_functions[])(void) = {
 	test_unexpected_reply,
 	test_premature_reply,
 	test_early_data_reply,
+	test_pipelined_mail_failure,
 	test_partial_reply,
 	test_bad_reply,
 	test_bad_greeting,
