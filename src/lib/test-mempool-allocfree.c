@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "test-lib.h"
+#include "array.h"
 
 #define SENSE 0xAB /* produces 10101011 */
 
@@ -16,6 +17,27 @@ static bool mem_has_bytes(const void *mem, size_t size, uint8_t b)
 		}
 	}
 	return TRUE;
+}
+
+static void test_mempool_allocfree_external_refs(void)
+{
+	pool_t pool, ref_pool;
+
+	test_begin("mempool_allocfree external refs");
+	pool = pool_allocfree_create("test refs");
+	ref_pool = pool_allocfree_create("test refs2");
+
+	pool_add_external_ref(pool, ref_pool);
+	test_assert(array_is_created(&pool->external_refs));
+
+	/* clearing the pool must drop the external references */
+	p_clear(pool);
+	test_assert(!array_is_created(&pool->external_refs));
+
+	/* ref_pool is freed by this unref */
+	pool_unref(&ref_pool);
+	pool_unref(&pool);
+	test_end();
 }
 
 void test_mempool_allocfree(void)
@@ -85,6 +107,8 @@ void test_mempool_allocfree(void)
 	pool_unref(&pool);
 
 	test_end();
+
+	test_mempool_allocfree_external_refs();
 }
 
 enum fatal_test_state fatal_mempool_allocfree(unsigned int stage)

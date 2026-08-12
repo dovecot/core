@@ -315,6 +315,10 @@ static void pool_allocfree_clear(pool_t pool)
 		container_of(pool, struct allocfree_pool, pool);
 	struct pool_block *block, *next;
 
+	/* the pool's contents are being freed, so anything referring to the
+	   external pools is gone as well */
+	pool_external_refs_unref(&apool->pool);
+
 	for (block = apool->blocks; block != NULL; block = next) {
 		next = block->next;
 		pool_allocfree_free(pool, block->block);
