@@ -440,8 +440,16 @@ static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 	ret = acl_backend_vfile_refresh(_aclobj, aclobj->local_path,
 					old_validity == NULL ? NULL :
 					&old_validity->local_validity);
-	if (ret <= 0)
+	if (ret < 0)
 		return ret;
+	/* ret==0 means the name-level validity cache says no re-read is needed.
+	   That's only safe when THIS object's rights were already populated by
+	   an earlier query on the same object. A freshly allocated object shares
+	   the backend's name-keyed validity cache with other objects, so the
+	   cache can be warm while this object's rights array was never created.
+	   Force at least one real read in that case. */
+	if (ret == 0 && array_is_created(&_aclobj->rights))
+		return 0;
 
 	/* either global or local ACLs changed, need to re-read both */
 	if (!array_is_created(&_aclobj->rights)) {
