@@ -93,8 +93,8 @@ pool_t pool_allocfree_create_clean(const char *name);
 size_t pool_get_exp_grown_size(pool_t pool, size_t old_size, size_t min_size);
 
 /* Reference another memory pool in the given pool. This call also increases
-   the ref_pool's reference count. When the pool is freed, the referenced
-   memory pools are also unreferenced. */
+   the ref_pool's reference count. When the pool is freed or cleared, the
+   referenced memory pools are also unreferenced. */
 void pool_add_external_ref(pool_t pool, pool_t ref_pool);
 
 /* We require sizeof(type) to be <= UINT_MAX. This allows compiler to optimize

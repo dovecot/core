@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "test-lib.h"
+#include "array.h"
 
 static bool mem_has_bytes(const void *mem, size_t size, uint8_t b)
 {
@@ -12,6 +13,27 @@ static bool mem_has_bytes(const void *mem, size_t size, uint8_t b)
 			return FALSE;
 	}
 	return TRUE;
+}
+
+static void test_mempool_alloconly_external_refs(void)
+{
+	pool_t pool, ref_pool;
+
+	test_begin("mempool_alloconly external refs");
+	pool = pool_alloconly_create("test refs", 128);
+	ref_pool = pool_alloconly_create("test refs2", 128);
+
+	pool_add_external_ref(pool, ref_pool);
+	test_assert(array_is_created(&pool->external_refs));
+
+	/* clearing the pool must drop the external references */
+	p_clear(pool);
+	test_assert(!array_is_created(&pool->external_refs));
+
+	/* ref_pool is freed by this unref */
+	pool_unref(&ref_pool);
+	pool_unref(&pool);
+	test_end();
 }
 
 void test_mempool_alloconly(void)
@@ -51,6 +73,8 @@ void test_mempool_alloconly(void)
 		}
 	}
 	test_end();
+
+	test_mempool_alloconly_external_refs();
 }
 
 enum fatal_test_state fatal_mempool_alloconly(unsigned int stage)

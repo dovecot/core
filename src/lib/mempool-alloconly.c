@@ -501,6 +501,9 @@ static void pool_alloconly_clear(pool_t pool)
 	check_sentries(apool->block);
 #endif
 
+	/* the pool's contents are being freed, so anything referring to the
+	   external pools is gone as well */
+	pool_external_refs_unref(&apool->pool);
 	pool_alloconly_free_blocks_until_last(apool);
 
 	/* clear the first block */
