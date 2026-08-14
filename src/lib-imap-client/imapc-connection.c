@@ -1041,7 +1041,8 @@ imapc_connection_channel_bind_callback(const char *type, void *context,
 
 static void imapc_connection_authenticate(struct imapc_connection *conn)
 {
-	const struct imapc_settings *set = conn->client->set;
+	struct imapc_client *client = conn->client;
+	const struct imapc_settings *set = client->set;
 	struct imapc_command *cmd;
 	struct dsasl_client_settings sasl_set;
 	const struct dsasl_client_mech *sasl_mech = NULL;
@@ -1073,19 +1074,19 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 					   conn);
 		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
 		imapc_command_sendf(cmd, "LOGIN %s %s",
-				    set->imapc_master_user, conn->client->password);
+				    set->imapc_master_user, client->password);
 		return;
 	}
 	if (sasl_mech == NULL &&
 	    ((*set->imapc_master_user == '\0' &&
-	      !need_literal(set->imapc_user) && !need_literal(conn->client->password)) ||
+	      !need_literal(set->imapc_user) && !need_literal(client->password)) ||
 	     (conn->capabilities & IMAPC_CAPABILITY_AUTH_PLAIN) == 0)) {
 		/* We can use LOGIN command */
 		cmd = imapc_connection_cmd(conn, imapc_connection_login_cb,
 					   conn);
 		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
 		imapc_command_sendf(cmd, "LOGIN %s %s",
-				    set->imapc_user, conn->client->password);
+				    set->imapc_user, client->password);
 		return;
 	}
 
@@ -1097,10 +1098,10 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		sasl_set.authid = set->imapc_master_user;
 		sasl_set.authzid = set->imapc_user;
 	}
-	sasl_set.password = conn->client->password;
+	sasl_set.password = client->password;
 	sasl_set.protocol = "imap";
-	sasl_set.host = conn->client->set->imapc_host;
-	sasl_set.port = conn->client->set->imapc_port;
+	sasl_set.host = set->imapc_host;
+	sasl_set.port = set->imapc_port;
 
 	if (sasl_mech == NULL)
 		sasl_mech = &dsasl_client_mech_plain;
