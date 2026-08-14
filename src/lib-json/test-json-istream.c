@@ -4022,6 +4022,64 @@ static void test_json_istream_finish_value_stream(void)
 	test_end();
 }
 
+/* A caller may pre-drain a streamed value fully - discovering a truncation
+   there - then skip() and keep parsing. json_istream_consumed_value_stream()
+   must close the parser-linked value stream on this path too, not only when
+   the seekable wrapper reaches genuine completion on its own: otherwise
+   parser->str_stream stays set and the very next json_parse_more() call,
+   made here by json_istream_read(), aborts on its entry assertion. */
+static void test_json_istream_truncated_value_stream(void)
+{
+	const char *text =
+		"\"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"; /* no closing quote */
+	const unsigned char *data;
+	struct istream *input, *val_input;
+	struct json_istream *jinput;
+	struct json_node jnode;
+	const char *error;
+	size_t size;
+	int ret;
+
+	test_begin("json istream truncated value stream, then continue");
+
+	input = test_istream_create_data(text, strlen(text));
+	input->seekable = FALSE;
+	jinput = json_istream_create(input, 0, NULL, 0);
+
+	ret = json_istream_read_stream(jinput, 0, 16,
+				       test_dir_prepend("json-test."), &jnode);
+	test_out_reason_quiet("read success", ret > 0,
+			      json_istream_get_error(jinput));
+	val_input = jnode.value.content.stream;
+	i_stream_ref(val_input);
+
+	while (i_stream_read_more(val_input, &data, &size) > 0)
+		i_stream_skip(val_input, size);
+	test_assert(val_input->stream_errno == EPIPE);
+
+	json_istream_skip(jinput);
+
+	ret = json_istream_read(jinput, &jnode);
+	error = json_istream_get_error(jinput);
+	test_out_reason("read failure", ret < 0, error);
+	/* A real parse error must be set, not one of the generic fallback
+	   strings json_istream_get_error() uses when stream->error is
+	   NULL - that would mean the stream was merely closed without ever
+	   explaining why. */
+	test_assert(strcmp(error, "<closed>") != 0);
+	test_assert(strcmp(error, "<no error>") != 0);
+	test_assert(strcmp(error, "END-OF-INPUT") != 0);
+	test_assert(val_input->stream_errno == EPIPE);
+
+	i_stream_unref(&val_input);
+	json_istream_unref(&jinput);
+	i_stream_unref(&input);
+
+	test_end();
+}
+
 /*
  * Main
  */
@@ -4041,6 +4099,7 @@ int main(int argc, char *argv[])
 		test_json_istream_read_stream,
 		test_json_istream_destroy_value_stream,
 		test_json_istream_finish_value_stream,
+		test_json_istream_truncated_value_stream,
 		test_json_istream_tokens_buffer,
 		test_json_istream_tokens_trickle,
 		test_json_istream_skip_array,

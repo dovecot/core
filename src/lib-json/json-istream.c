@@ -447,6 +447,16 @@ json_istream_parse_value(void *context, void *parent_context, const char *name,
 	stream->node.value = *value;
 	stream->node_parsed = TRUE;
 	if (value->content_type == JSON_CONTENT_TYPE_STREAM) {
+		/* json_istream_consumed_value_stream() closes this stream
+		   directly, with close_parents=TRUE. That is only safe
+		   because a json_string_istream has no real istream parent
+		   (json-parser.c: json_string_stream_create() creates it with
+		   parent==NULL) and its close() vfunc ignores close_parents.
+		   A stream with a real parent - e.g. one built with
+		   i_stream_create_range() - must never be assigned here: its
+		   default close() propagates to the parent, which would be
+		   parser->input, taking the caller's entire JSON body down
+		   with it. */
 		stream->value_stream = value->content.stream;
 		i_stream_ref(stream->value_stream);
 	}
@@ -743,6 +753,20 @@ static void json_istream_detach_value_stream(struct json_istream *stream)
 
 static void json_istream_consumed_value_stream(struct json_istream *stream)
 {
+	/* On genuine completion the seekable wrapper's own unref_streams()
+	   has already destroyed stream->value_stream, running
+	   json_string_istream_close() and clearing parser->str_stream, so
+	   this is a no-op. On a truncated or errored source it has not:
+	   close it explicitly here so parser->str_stream is always cleared
+	   once a value is treated as consumed, whatever state the wrapper
+	   is in. This must run before json_istream_dereference_value(),
+	   which can drop the last reference and NULL stream->value_stream
+	   itself (via json_istream_drop_seekable_stream()); the NULL check
+	   above would then skip the close entirely. Every in-tree caller
+	   holds its own reference across this point, so nothing currently
+	   exercises that order - it guards a caller that does not. */
+	if (stream->value_stream != NULL)
+		i_stream_close(stream->value_stream);
 	json_istream_dereference_value(stream);
 	json_istream_detach_value_stream(stream);
 	json_parser_disable_string_stream(stream->parser);
