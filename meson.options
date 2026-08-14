@@ -3,3 +3,8 @@ option('moduledir', type: 'string', value : '', description: 'Base directory for
 option('development-extra-checks', type: 'combo', choices: ['no', 'fast', 'yes'], value: 'no', description: 'Enable some extra expensive checks for developers (fast enables only some of them)')
 option('development-static-analysis', type: 'boolean', value: false, description: 'Enable code to be used when building with static code analyzer')
 option('experimental-mail-utf8', type: 'boolean', value: false, description: 'Enable experimental support for SMTPUTF8 and UTF8=ACCEPT')
+option('hardening', type: 'boolean', value: true, description: 'Enable various code hardening features')
+option('hardening-retpoline', type: 'combo', choices: ['none', 'keep', 'thunk', 'thunk-inline', 'thunk-extern'], value: 'keep', description: 'Retpoline mitigation choice')
+option('hardening-fcf-protection', type: 'combo', choices: ['none', 'branch', 'return', 'full'], value: 'none', description: 'Control-flow protection level')
+option('hardening-sls', type: 'combo', choices: ['none', 'all', 'return', 'indirect-jmp'], value: 'none', description: 'Straight-Line Speculation (SLS) mitigation choice')
+option('hardening-stack-protector', type: 'combo', choices: ['off', 'auto', 'normal', 'strong'], value: 'auto', description: 'Add stack guards for buffer overflows')
