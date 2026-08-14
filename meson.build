@@ -118,6 +118,7 @@ subdir('meson' / 'sanitizers')
 subdir('meson' / 'cflags')
 subdir('meson' / 'security')
 subdir('meson' / 'defines')
+subdir('meson' / 'endian')
 
 dovecot_moduledir = get_option('moduledir')
 if dovecot_moduledir == ''
