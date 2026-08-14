@@ -115,6 +115,7 @@ subdir('meson' / 'version')
 subdir('meson' / 'compiler')
 subdir('meson' / 'attributes')
 subdir('meson' / 'sanitizers')
+subdir('meson' / 'cflags')
 
 dovecot_moduledir = get_option('moduledir')
 if dovecot_moduledir == ''
