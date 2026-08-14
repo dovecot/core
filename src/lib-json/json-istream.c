@@ -38,6 +38,7 @@ struct json_istream {
 };
 
 static void json_istream_dereference_value(struct json_istream *stream);
+static void json_istream_detach_value_stream(struct json_istream *stream);
 static int json_istream_consume_value_stream(struct json_istream *stream);
 
 /*
@@ -107,6 +108,10 @@ void json_istream_unref(struct json_istream **_stream)
 		return;
 
 	json_istream_dereference_value(stream);
+	/* Must happen before json_parser_deinit(): dereferencing the value can
+	   itself fire json_istream_drop_seekable_stream(), which uses the
+	   parser. */
+	json_istream_detach_value_stream(stream);
 
 	json_parser_deinit(&stream->parser);
 	i_free(stream->error);
@@ -714,21 +719,29 @@ static void json_istream_drop_value_stream(struct json_istream *stream)
 	stream->seekable_stream = NULL;
 }
 
+/* Removes the destroy callbacks registered by json_istream_handle_stream().
+   The value streams can outlive the JSON istream, so the callbacks must be
+   gone before their context is freed. Both callbacks are registered together
+   and every path that removes or fires one clears both stream pointers, so a
+   NULL seekable_stream means there is nothing to remove. */
+static void json_istream_detach_value_stream(struct json_istream *stream)
+{
+	if (stream->seekable_stream == NULL)
+		return;
+
+	i_assert(stream->value_stream != NULL);
+	i_stream_remove_destroy_callback(stream->seekable_stream,
+					 json_istream_drop_seekable_stream);
+	i_stream_remove_destroy_callback(stream->value_stream,
+					 json_istream_drop_value_stream);
+	stream->value_stream = NULL;
+	stream->seekable_stream = NULL;
+}
+
 static void json_istream_consumed_value_stream(struct json_istream *stream)
 {
 	json_istream_dereference_value(stream);
-	if (stream->seekable_stream != NULL) {
-		i_stream_remove_destroy_callback(
-			stream->seekable_stream,
-			json_istream_drop_seekable_stream);
-	}
-	if (stream->value_stream != NULL) {
-		i_stream_remove_destroy_callback(
-			stream->value_stream,
-			json_istream_drop_value_stream);
-	}
-	stream->value_stream = NULL;
-	stream->seekable_stream = NULL;
+	json_istream_detach_value_stream(stream);
 	json_parser_disable_string_stream(stream->parser);
 }
 
