@@ -2713,7 +2713,8 @@ json_string_istream_set_max_buffer_size(struct iostream_private *stream,
 			     istream.iostream);
 
 	i_assert(max_size > 0);
-	jstream->parser->str_stream_max_buffer_size = max_size;
+	if (jstream->parser != NULL)
+		jstream->parser->str_stream_max_buffer_size = max_size;
 }
 
 static void
@@ -2724,11 +2725,14 @@ json_string_istream_close(struct iostream_private *stream,
 		container_of(stream, struct json_string_istream,
 			     istream.iostream);
 
-	if (jstream->parser != NULL)
+	/* Neither the parser nor its input istream survives
+	   json_parser_deinit(), but a closed string istream may - and
+	   io_stream_unref() runs this close() again when the last reference
+	   goes away. Drop both pointers before they become dangling. */
+	if (jstream->parser != NULL) {
 		jstream->parser->str_stream = NULL;
-	/* The parser's input istream doesn't survive json_parser_deinit(),
-	   but a closed string istream may. Drop the io_parent pointer before
-	   it becomes dangling. */
+		jstream->parser = NULL;
+	}
 	jstream->istream.io_parent = NULL;
 }
 
