@@ -3976,6 +3976,52 @@ static void test_json_istream_destroy_value_stream(void)
 	test_end();
 }
 
+static void test_json_istream_finish_value_stream(void)
+{
+	const char *text =
+		"\"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789"
+		"012345678901234567890123456789\"";
+	const unsigned char *data;
+	struct istream *input, *val_input;
+	struct json_istream *jinput;
+	struct json_node jnode;
+	const char *error;
+	size_t size;
+	int ret;
+
+	test_begin("json istream finish with referenced value stream");
+
+	input = test_istream_create_data(text, strlen(text));
+	input->seekable = FALSE;
+	jinput = json_istream_create(input, 0, NULL, 0);
+
+	ret = json_istream_read_stream(jinput, 0, 16,
+				       test_dir_prepend("json-test."), &jnode);
+	test_out_reason_quiet("read success", ret > 0,
+			      json_istream_get_error(jinput));
+	val_input = jnode.value.content.stream;
+	i_stream_ref(val_input);
+
+	json_istream_skip(jinput);
+	ret = json_istream_finish(&jinput, &error);
+	test_out_reason_quiet("finish", ret > 0, error);
+
+	i_stream_seek(val_input, 0);
+	while (i_stream_read_more(val_input, &data, &size) > 0)
+		i_stream_skip(val_input, size);
+
+	i_stream_unref(&val_input);
+	i_stream_unref(&input);
+
+	test_end();
+}
+
 /*
  * Main
  */
@@ -3994,6 +4040,7 @@ int main(int argc, char *argv[])
 		test_json_istream_read_into_tree,
 		test_json_istream_read_stream,
 		test_json_istream_destroy_value_stream,
+		test_json_istream_finish_value_stream,
 		test_json_istream_tokens_buffer,
 		test_json_istream_tokens_trickle,
 		test_json_istream_skip_array,

@@ -706,15 +706,18 @@ static void json_istream_drop_seekable_stream(struct json_istream *stream)
 
 static void json_istream_drop_value_stream(struct json_istream *stream)
 {
-	if (stream->deref_value) {
-		stream->deref_value = FALSE;
-		if (stream->seekable_stream != NULL) {
-			i_stream_remove_destroy_callback(
-				stream->seekable_stream,
-				json_istream_drop_seekable_stream);
+	if (stream->seekable_stream != NULL) {
+		/* The seekable stream outlives its wrapped value stream
+		   whenever the caller holds a reference of its own, so drop its
+		   destroy callback here as well: the pointer to it is cleared
+		   below either way. */
+		i_stream_remove_destroy_callback(
+			stream->seekable_stream,
+			json_istream_drop_seekable_stream);
+		if (stream->deref_value)
 			i_stream_unref(&stream->seekable_stream);
-		}
 	}
+	stream->deref_value = FALSE;
 	stream->value_stream = NULL;
 	stream->seekable_stream = NULL;
 }
