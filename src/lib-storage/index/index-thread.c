@@ -212,7 +212,7 @@ static void mail_thread_strmap_remap(const uint32_t *idx_map,
 	new_first_invalid = new_count + 1 +
 		THREAD_INVALID_MSGID_STR_IDX_SKIP_COUNT;
 	for (i = 0; i < invalid_count; i++) {
-		node = array_idx_modifiable(&new_nodes, new_first_invalid + i);
+		node = array_idx_get_space(&new_nodes, new_first_invalid + i);
 		*node = old_nodes[cache->first_invalid_msgid_str_idx + i];
 		if (node->parent_idx != 0) {
 			node->parent_idx = idx_map[node->parent_idx];
