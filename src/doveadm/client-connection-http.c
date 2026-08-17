@@ -908,31 +908,9 @@ doveadm_http_server_request_destroy(struct client_request_http *req)
 {
 	struct client_connection_http *conn = req->conn;
 	struct http_server_request *http_sreq = req->http_request;
-	const struct http_request *http_req =
-		http_server_request_get(http_sreq);
-	struct http_server_response *http_resp =
-		http_server_request_get_response(http_sreq);
 
 	i_assert(conn->request == req);
 
-	if (http_resp != NULL) {
-		const char *agent, *url, *reason;
-		uoff_t size;
-		int status;
-
-		http_server_response_get_status(http_resp, &status, &reason);
-		size = http_server_response_get_total_size(http_resp);
-		agent = http_request_header_get(http_req, "User-Agent");
-		if (agent == NULL) agent = "";
-
-		url = http_url_create(http_req->target.url);
-		e_info(conn->conn.event, "doveadm: %s %s %s \"%s %s "
-		       "HTTP/%d.%d\" %d %"PRIuUOFF_T" \"%s\" \"%s\"",
-		       net_ip2addr(&conn->conn.remote_ip), "-", "-",
-		       http_req->method, http_req->target.url->path,
-		       http_req->version_major, http_req->version_minor,
-		       status, size, url, agent);
-	}
 	json_istream_destroy(&req->json_input);
 	json_ostream_destroy(&req->json_output);
 	if (req->output != NULL)
