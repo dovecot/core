@@ -425,6 +425,9 @@ mail_index_strmap_read_rec_first(struct mail_index_strmap_read_context *ctx,
 	if (mail_index_strmap_read_packed(ctx, &n) <= 0)
 		return -1;
 	count = n < 2 ? n + 1 : n;
+	/* check that rec_size fits */
+	if (UINT_MAX / (sizeof(ctx->rec.str_idx) + sizeof(*crc32_r)) < count)
+		return -1;
 	ctx->view->total_ref_count += count;
 
 	ctx->rec_size = count * (sizeof(ctx->rec.str_idx) + sizeof(*crc32_r));
