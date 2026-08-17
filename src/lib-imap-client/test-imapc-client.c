@@ -34,12 +34,12 @@ struct test_server {
 	struct ostream *output;
 };
 
+static struct event *common_event, *client_event, *server_event;
 static struct ip_addr bind_ip;
 static struct test_server server;
 static struct imapc_client *imapc_client;
 static enum imapc_command_state imapc_login_last_reply;
 static ARRAY(enum imapc_command_state) imapc_cmd_last_replies;
-static bool debug = FALSE;
 
 static struct settings_simple test_set;
 
@@ -96,11 +96,8 @@ static bool test_imapc_cmd_last_reply_expect(enum imapc_command_state state)
 static void imapc_login_callback(const struct imapc_command_reply *reply,
 				 void *context ATTR_UNUSED)
 {
-	if (debug) {
-		i_debug("Login reply: %s %s",
-			imapc_command_state_names[reply->state],
-			reply->text_full);
-	}
+	e_debug(client_event, "Login reply: %s %s",
+		imapc_command_state_names[reply->state], reply->text_full);
 	imapc_login_last_reply = reply->state;
 	imapc_client_stop(imapc_client);
 }
@@ -108,11 +105,8 @@ static void imapc_login_callback(const struct imapc_command_reply *reply,
 static void imapc_command_callback(const struct imapc_command_reply *reply,
 				   void *context ATTR_UNUSED)
 {
-	if (debug) {
-		i_debug("Command reply: %s %s",
-			imapc_command_state_names[reply->state],
-			reply->text_full);
-	}
+	e_debug(client_event, "Command reply: %s %s",
+		imapc_command_state_names[reply->state], reply->text_full);
 	array_push_back(&imapc_cmd_last_replies, &reply->state);
 	imapc_client_stop(imapc_client);
 }
@@ -137,8 +131,7 @@ test_imapc_server_expect_full(struct test_server *server,
 {
 	const char *line = i_stream_read_next_line(server->input);
 
-	if (debug)
-		i_debug("Received: %s", (line == NULL ? "<EOF>" : line));
+	e_debug(server_event, "Received: %s", (line == NULL ? "<EOF>" : line));
 
 	if (line == NULL) {
 		printf("imapc client disconnected unexpectedly: %s\n",
@@ -161,14 +154,12 @@ static bool test_imapc_server_expect(const char *expected_line)
 static void
 test_server_wait_connection_common(struct test_server *server)
 {
-	if (debug)
-		i_debug("Waiting for connection");
+	e_debug(server_event, "Waiting for connection");
 
 	server->fd = net_accept(server->fd_listen, NULL, NULL);
 	i_assert(server->fd >= 0);
 
-	if (debug)
-		i_debug("Client connected");
+	e_debug(server_event, "Client connected");
 
 	fd_set_nonblock(server->fd, FALSE);
 	server->input = i_stream_create_fd(server->fd, SIZE_MAX);
@@ -201,8 +192,7 @@ test_server_wait_connection_imap4rev2(struct test_server *server, bool send_bann
 
 static void test_server_disconnect(struct test_server *server)
 {
-	if (debug)
-		i_debug("Disconnecting client");
+	e_debug(server_event, "Disconnecting client");
 
 	i_stream_unref(&server->input);
 	o_stream_unref(&server->output);
@@ -222,8 +212,7 @@ static void test_server_disconnect_and_wait(bool send_banner)
 static int test_open_server_fd(in_port_t *bind_port)
 {
 	int fd = net_listen(&bind_ip, bind_port, 128);
-	if (debug)
-		i_debug("server listening on %u", *bind_port);
+	e_debug(common_event, "server listening on %u", *bind_port);
 	if (fd == -1) {
 		i_fatal("listen(%s:%u) failed: %m",
 			net_ip2addr(&bind_ip), *bind_port);
@@ -238,8 +227,7 @@ static int test_run_server(test_server_init_t *server_test)
 
 	i_set_failure_prefix("SERVER: ");
 
-	if (debug)
-		i_debug("PID=%s", my_pid);
+	e_debug(server_event, "PID=%s", my_pid);
 
 	ioloop = io_loop_create();
 	if (server_test != NULL)
@@ -247,8 +235,7 @@ static int test_run_server(test_server_init_t *server_test)
 	test_server_disconnect(&server);
 	io_loop_destroy(&ioloop);
 
-	if (debug)
-		i_debug("Terminated");
+	e_debug(server_event, "Terminated");
 
 	i_close_fd(&server.fd_listen);
 	main_deinit();
@@ -268,8 +255,7 @@ test_run_client(test_client_init_t *client_test, const char *temp_path_prefix)
 
 	i_set_failure_prefix("CLIENT: ");
 
-	if (debug)
-		i_debug("PID=%s", my_pid);
+	e_debug(client_event, "PID=%s", my_pid);
 
 	i_sleep_msecs(100); /* wait a little for server setup */
 
@@ -287,8 +273,7 @@ test_run_client(test_client_init_t *client_test, const char *temp_path_prefix)
 		imapc_client_deinit(&imapc_client);
 	io_loop_destroy(&ioloop);
 
-	if (debug)
-		i_debug("Terminated");
+	e_debug(client_event, "Terminated");
 }
 
 static void
@@ -310,7 +295,7 @@ test_run_client_server(test_client_init_t *client_test,
 
 	const char **settings = test_generate_settings(dec2str(server.port),
 						       reduce_timeout ? "500ms" : "5s");
-	settings_simple_init(&test_set, settings);
+	settings_simple_init_with_event(&test_set, client_event, settings);
 
 	const char *temp_path_prefix = t_strdup_printf(
 		"%s/client-run-%u/", test_dir_get(), run_id++);
@@ -1093,17 +1078,24 @@ static void test_imapc_client_get_capabilities_imap4rev2(void)
 
 static void main_init(void)
 {
-	/* nothing yet */
+	common_event = test_event;
+	client_event = event_create(common_event);
+	event_set_append_log_prefix(client_event, "test client: ");
+	server_event = event_create(common_event);
+	event_set_append_log_prefix(server_event, "test server: ");
 }
 
 static void main_deinit(void)
 {
-	/* nothing yet; also called from sub-processes */
+	event_unref(&client_event);
+	event_unref(&server_event);
+	common_event = NULL;
 }
 
 int main(int argc ATTR_UNUSED, char *argv[])
 {
 	int c;
+	bool debug = FALSE;
 	int ret;
 
 	static void (*const test_functions[])(void) = {
@@ -1130,7 +1122,6 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	};
 
 	lib_init();
-	main_init();
 
 	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
@@ -1146,6 +1137,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	event_set_forced_debug(test_event, debug);
 	test_dir_init("test-imapc-client");
 	test_subprocesses_init();
+	main_init();
 
 	/* listen on localhost */
 	i_zero(&bind_ip);
