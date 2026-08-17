@@ -205,6 +205,35 @@ imap_list_flag_parse(const char *str, enum mailbox_info_flags *flag_r)
 	return FALSE;
 }
 
+/* Escape a remote IMAP name into a mailbox_list name. The remote name is
+   split by the remote IMAP separator and each hierarchy part is escaped
+   separately, the same way mailbox_list_default_get_storage_name() does for
+   vnames. */
+static const char *
+imapc_list_escape_remote_name(const char *remote_name, char root_sep,
+			      char list_sep, char escape_char)
+{
+	string_t *dest = t_str_new(128);
+	const char *p;
+	bool first_part = TRUE;
+
+	for (;;) {
+		p = root_sep == '\0' ? NULL : strchr(remote_name, root_sep);
+		if (!first_part)
+			str_append_c(dest, list_sep);
+		mailbox_list_escape_name_params_to_str(dest,
+			p == NULL ? remote_name :
+			t_strdup_until(remote_name, p),
+			'\0', /* no separator conversion */
+			list_sep, escape_char, "", first_part);
+		if (p == NULL)
+			break;
+		remote_name = p + 1;
+		first_part = FALSE;
+	}
+	return str_c(dest);
+}
+
 static const char *
 imapc_list_remote_to_storage_name(struct imapc_mailbox_list *list,
 				  const char *remote_name)
@@ -212,11 +241,9 @@ imapc_list_remote_to_storage_name(struct imapc_mailbox_list *list,
 	/* typically mailbox_list_escape_name() is used to escape vname into
 	   a list name. but we want to convert remote IMAP name to a list name,
 	   so we need to use the remote IMAP separator. */
-	return mailbox_list_escape_name_params(remote_name,
-		list->root_sep,
+	return imapc_list_escape_remote_name(remote_name, list->root_sep,
 		mailbox_list_get_hierarchy_sep(&list->list),
-		list->list.mail_set->mailbox_list_storage_escape_char[0], "",
-		TRUE);
+		list->list.mail_set->mailbox_list_storage_escape_char[0]);
 }
 
 static const char *
@@ -517,10 +544,9 @@ imapc_list_storage_to_fs_name(struct imapc_mailbox_list *list,
 		return NULL;
 
 	remote_name = imapc_list_storage_to_remote_name(list, storage_name);
-	return mailbox_list_escape_name_params(remote_name,
-		list->root_sep, mailbox_list_get_hierarchy_sep(fs_list),
-		fs_list->mail_set->mailbox_list_storage_escape_char[0], "",
-		TRUE);
+	return imapc_list_escape_remote_name(remote_name, list->root_sep,
+		mailbox_list_get_hierarchy_sep(fs_list),
+		fs_list->mail_set->mailbox_list_storage_escape_char[0]);
 }
 
 static const char *
