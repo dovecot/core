@@ -71,9 +71,11 @@ void test_begin(const char *name);
 #define test_assert_memcmp_idx(_m1, _len1, _m2, _len2, i) STMT_START { \
 		const void *_temp_m1 = (_m1); \
 		const void *_temp_m2 = (_m2); \
-		const size_t _temp_len = I_MIN((_len1), (_len2)); \
-		if ((_len1) != (_len2)) \
-			test_assert_failed_ucmp_intmax_idx(#_len1 " == " #_len2, __FILE__, __LINE__, _len1, _len2, "=", i); \
+		const size_t _temp_len1 = (_len1); \
+		const size_t _temp_len2 = (_len2); \
+		const size_t _temp_len = I_MIN(_temp_len1, _temp_len2); \
+		if (_temp_len1 != _temp_len2) \
+			test_assert_failed_ucmp_intmax_idx(#_len1 " == " #_len2, __FILE__, __LINE__, _temp_len1, _temp_len2, "=", i); \
 		if ((memcmp(_temp_m1, _temp_m2, _temp_len) != 0)) \
 			test_assert_failed_memcmp_idx("memcmp(" #_m1 ","  #_m2 ","  #_len2 ")", \
 						      __FILE__, __LINE__, _temp_m1, _temp_m2, _temp_len, i); \
@@ -87,7 +89,7 @@ void test_begin(const char *name);
 #define test_assert_cmp_idx(_value1, _op, _value2, _idx) STMT_START { \
 		intmax_t _temp_value1 = (_value1); \
 		intmax_t _temp_value2 = (_value2); \
-		if (!(_value1 _op _value2)) \
+		if (!(_temp_value1 _op _temp_value2)) \
 			test_assert_failed_cmp_intmax_idx( \
 				#_value1 " " #_op " " #_value2, \
 				__FILE__, __LINE__, _temp_value1, _temp_value2, \
@@ -99,7 +101,7 @@ void test_begin(const char *name);
 #define test_assert_ucmp_idx(_value1, _op, _value2, _idx) STMT_START { \
 		uintmax_t _temp_value1 = (_value1); \
 		uintmax_t _temp_value2 = (_value2); \
-		if (!(_value1 _op _value2)) \
+		if (!(_temp_value1 _op _temp_value2)) \
 			test_assert_failed_ucmp_intmax_idx( \
 				#_value1 " " #_op " " #_value2, \
 				__FILE__, __LINE__, _temp_value1, _temp_value2, \
