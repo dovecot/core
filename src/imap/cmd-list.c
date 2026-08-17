@@ -551,6 +551,15 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 		/* non-extended LIST: use default flags */
 		ctx->list_flags |= MAILBOX_LIST_ITER_RETURN_CHILDREN |
 			MAILBOX_LIST_ITER_RETURN_SPECIALUSE;
+	} else if (HAS_ALL_BITS(client_enabled_mailbox_features(client),
+				MAILBOX_FEATURE_IMAP4REV2)) {
+		/* IMAP4rev2 includes the special-use attributes in the
+		   regular mailbox attributes (RFC 9051 section 7.3.1), but
+		   it doesn't have the SPECIAL-USE return option to request
+		   them with an extended LIST. Return them always, so an
+		   IMAP4rev2-only client can get them e.g. together with
+		   RETURN (STATUS ...). */
+		ctx->list_flags |= MAILBOX_LIST_ITER_RETURN_SPECIALUSE;
 	}
 
 	if (!IMAP_ARG_IS_EOL(args)) {
