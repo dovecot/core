@@ -211,32 +211,32 @@ static bool need_escape_dirstart(const char *vname, const char *maildir_name)
 
 void
 mailbox_list_escape_name_params_to_str(string_t *escaped_name, const char *vname,
-				       char ns_sep, char list_sep,
-				       char escape_char, const char *maildir_name,
-				       bool first_part)
+				       char list_sep, char escape_char,
+				       const char *maildir_name, bool first_part)
 {
 	bool dirstart = TRUE;
 
 	i_assert(escape_char != '\0');
 
-	/* escape the mailbox name. The leading '~' is escaped only at the very
-	   beginning of the full name, since '~' is otherwise a perfectly valid
-	   character in a hierarchy component. Callers operating on a single
-	   hierarchy part (already split from the full vname) pass first_part=FALSE
-	   for non-leading parts to skip this check. */
+	/* Escape a single hierarchy part of the mailbox name. The caller has
+	   already split the name by its hierarchy separator, so list_sep can
+	   appear here only as a literal character that needs to be escaped.
+
+	   The leading '~' is escaped only at the very beginning of the full
+	   name. The intention is to avoid external scripts/tools from
+	   expanding ~/ or ~user/ to the home directories. The '~' doesn't need
+	   to be escaped elsewhere. */
 	if (first_part && *vname == '~') {
 		str_printfa(escaped_name, "%c%02x", escape_char, *vname);
 		vname++;
 		dirstart = FALSE;
 	}
 	for (; *vname != '\0'; vname++) {
-		if (*vname == ns_sep)
-			str_append_c(escaped_name, list_sep);
-		else if (*vname == list_sep ||
-			 *vname == escape_char ||
-			 *vname == '/' ||
-			 (dirstart &&
-			  need_escape_dirstart(vname, maildir_name))) {
+		if (*vname == list_sep ||
+		    *vname == escape_char ||
+		    *vname == '/' ||
+		    (dirstart &&
+		     need_escape_dirstart(vname, maildir_name))) {
 			str_printfa(escaped_name, "%c%02x",
 				    escape_char, *vname);
 		} else {
@@ -247,14 +247,14 @@ mailbox_list_escape_name_params_to_str(string_t *escaped_name, const char *vname
 }
 
 const char *
-mailbox_list_escape_name_params(const char *vname, char ns_sep, char list_sep,
+mailbox_list_escape_name_params(const char *vname, char list_sep,
 				char escape_char, const char *maildir_name,
 				bool first_part)
 {
 	string_t *escaped_name = t_str_new(64);
-	mailbox_list_escape_name_params_to_str(escaped_name, vname, ns_sep,
-					       list_sep, escape_char,
-					       maildir_name, first_part);
+	mailbox_list_escape_name_params_to_str(escaped_name, vname, list_sep,
+					       escape_char, maildir_name,
+					       first_part);
 	return str_c(escaped_name);
 }
 
@@ -404,7 +404,6 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 		else {
 			str_append(storage_name,
 				   mailbox_list_escape_name_params(raw_parts[i],
-				   '\0', /* no separator conversion */
 				   mailbox_list_get_hierarchy_sep(list),
 				   list->mail_set->mailbox_list_storage_escape_char[0],
 				   list->mail_set->mailbox_directory_name,

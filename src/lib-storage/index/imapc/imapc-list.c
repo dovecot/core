@@ -224,7 +224,6 @@ imapc_list_escape_remote_name(const char *remote_name, char root_sep,
 		mailbox_list_escape_name_params_to_str(dest,
 			p == NULL ? remote_name :
 			t_strdup_until(remote_name, p),
-			'\0', /* no separator conversion */
 			list_sep, escape_char, "", first_part);
 		if (p == NULL)
 			break;

@@ -524,7 +524,6 @@ static void test_mailbox_list_escape_name_params(void)
 {
 	const struct {
 		const char *input;
-		char ns_sep;
 		char list_sep;
 		char escape_char;
 		const char *maildir_name;
@@ -532,36 +531,42 @@ static void test_mailbox_list_escape_name_params(void)
 		const char *expected;
 	} tests[] = {
 		/* leading '~' escaped only when first_part=TRUE */
-		{ "~foo", '/', '/', '+', "", TRUE, "+7efoo" },
-		{ "~foo", '/', '/', '+', "", FALSE, "~foo" },
+		{ "~foo", '/', '+', "", TRUE, "+7efoo" },
+		{ "~foo", '/', '+', "", FALSE, "~foo" },
 		/* '~' in the middle never escaped */
-		{ "foo~bar", '/', '/', '+', "", TRUE, "foo~bar" },
-		{ "foo~bar", '/', '/', '+', "", FALSE, "foo~bar" },
+		{ "foo~bar", '/', '+', "", TRUE, "foo~bar" },
+		{ "foo~bar", '/', '+', "", FALSE, "foo~bar" },
 		/* dirstart checks are per-part: "." and ".." escaped */
-		{ ".", '/', '/', '+', "", TRUE, "+2e" },
-		{ ".", '/', '/', '+', "", FALSE, "+2e" },
-		{ "..", '/', '/', '+', "", TRUE, "+2e." },
-		{ "..", '/', '/', '+', "", FALSE, "+2e." },
+		{ ".", '/', '+', "", TRUE, "+2e" },
+		{ ".", '/', '+', "", FALSE, "+2e" },
+		{ "..", '/', '+', "", TRUE, "+2e." },
+		{ "..", '/', '+', "", FALSE, "+2e." },
+		/* ".." is escaped regardless of the list separator, since the
+		   storage name may still end up used as a filesystem path */
+		{ "..", '.', '+', "", TRUE, "+2e+2e" },
+		{ "..", ':', '+', "", FALSE, "+2e." },
 		/* leading '.' followed by other chars is not escaped */
-		{ ".hidden", '/', '/', '+', "", FALSE, ".hidden" },
+		{ ".hidden", '/', '+', "", FALSE, ".hidden" },
 		/* maildir_name at part start always escaped */
-		{ "dbox-Mails", '/', '/', '+', "dbox-Mails", FALSE,
+		{ "dbox-Mails", '/', '+', "dbox-Mails", FALSE,
 		  "+64box-Mails" },
-		/* separator conversion */
-		{ "a/b", '/', '.', '+', "", TRUE, "a.b" },
-		/* literal list_sep escaped */
-		{ "a.b", '/', '.', '+', "", TRUE, "a+2eb" },
+		/* literal list_sep escaped - the name is a single hierarchy
+		   part, so list_sep can't be a separator here */
+		{ "a.b", '.', '+', "", TRUE, "a+2eb" },
+		{ "a/b", '/', '+', "", TRUE, "a+2fb" },
 		/* literal escape_char escaped */
-		{ "a+b", '/', '.', '+', "", TRUE, "a+2bb" },
-		/* literal '/' escaped when not the ns_sep */
-		{ "a/b", ':', '.', '+', "", TRUE, "a+2fb" },
+		{ "a+b", '.', '+', "", TRUE, "a+2bb" },
+		/* '/' escaped even when it isn't the list_sep */
+		{ "a/b", '.', '+', "", TRUE, "a+2fb" },
+		/* escaped '/' still starts a new dirstart check */
+		{ "a/..", ':', '+', "", TRUE, "a+2f+2e." },
 	};
 	const char *result;
 
 	test_begin("mailbox_list_escape_name_params");
 	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
 		result = mailbox_list_escape_name_params(tests[i].input,
-			tests[i].ns_sep, tests[i].list_sep,
+			tests[i].list_sep,
 			tests[i].escape_char, tests[i].maildir_name,
 			tests[i].first_part);
 		test_assert_strcmp_idx(result, tests[i].expected, i);
@@ -595,8 +600,8 @@ static void test_mailbox_list_escape_unescape_roundtrip(void)
 	test_begin("mailbox_list_escape/unescape round-trip");
 	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
 		escaped = mailbox_list_escape_name_params(tests[i].input,
-			tests[i].ns_sep, tests[i].list_sep,
-			tests[i].escape_char, "", tests[i].first_part);
+			tests[i].list_sep, tests[i].escape_char, "",
+			tests[i].first_part);
 		/* unescape uses ns_sep<-list_sep mapping; pass the same
 		   separators so the round-trip restores the input. */
 		roundtrip = mailbox_list_unescape_name_params(escaped,

@@ -229,7 +229,6 @@ void mailbox_list_get_escaped_mailbox_name(struct mailbox_list *list,
 		return;
 	}
 	mailbox_list_escape_name_params_to_str(escaped_name, node->raw_name,
-		'\0', /* no separator conversion */
 		mailbox_list_get_hierarchy_sep(list),
 		escape_char,
 		list->mail_set->mailbox_directory_name,
@@ -869,7 +868,7 @@ mailbox_name_hdr_decode_storage_name(struct mailbox_list *list,
 		else {
 			str_append(storage_name,
 				   mailbox_list_escape_name_params(raw_part,
-					'\0', list_sep, escape_char,
+					list_sep, escape_char,
 					list->mail_set->mailbox_directory_name,
 					first_part));
 		}

@@ -196,13 +196,16 @@ extern struct mailbox_list_module_register mailbox_list_module_register;
 void mailbox_lists_init(void);
 void mailbox_lists_deinit(void);
 
+/* Escape a single hierarchy part of a mailbox name. The name must already be
+   split by its hierarchy separator - list_sep is escaped as a literal
+   character. first_part=TRUE only for the leading part of the full name. */
 void
 mailbox_list_escape_name_params_to_str(string_t *escaped_name, const char *vname,
-				       char ns_sep, char list_sep,
-				       char escape_char, const char *maildir_name,
+				       char list_sep, char escape_char,
+				       const char *maildir_name,
 				       bool first_part);
 const char *
-mailbox_list_escape_name_params(const char *vname, char ns_sep, char list_sep,
+mailbox_list_escape_name_params(const char *vname, char list_sep,
 				char escape_char, const char *maildir_name,
 				bool first_part);
 const char *
