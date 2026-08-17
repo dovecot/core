@@ -82,7 +82,7 @@ void test_begin(const char *name);
 	} STMT_END
 
 #define test_assert_cmp_bool(_bool_value1, _op, _value2) \
-	test_assert_cmp((unsigned int) _bool_value1, _op, (unsigned int _bool_value2))
+	test_assert_cmp((unsigned int)(_bool_value1), _op, (unsigned int)(_value2))
 
 #define test_assert_cmp(_value1, _op, _value2) \
 	test_assert_cmp_idx(_value1, _op, _value2, LLONG_MIN)
