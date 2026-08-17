@@ -20,11 +20,18 @@ static struct event_category event_category_doveadm = {
 };
 
 struct doveadm_cmd_context*
-doveadm_cmd_context_create(enum doveadm_client_type conn_type, bool forced_debug)
+doveadm_cmd_context_create(struct event *parent_event,
+			   enum doveadm_client_type conn_type, bool forced_debug)
 {
 	pool_t pool = pool_alloconly_create("doveadm cmd", 256);
-	struct event *event = event_create(NULL);
+	struct event *event = event_create(parent_event);
 	event_set_append_log_prefix(event, "doveadm: ");
+	if (parent_event != NULL) {
+		/* Inherit the connection/request event's fields, but not its
+		   log prefixes - those would otherwise be prepended to every
+		   doveadm-server log line. */
+		event_drop_parent_log_prefixes(event, UINT_MAX);
+	}
 	event_set_forced_debug(event, forced_debug);
 	event_add_category(event, &event_category_doveadm);
 
@@ -449,7 +456,6 @@ int doveadm_cmdline_run(int argc, const char *const argv[],
 		const char * prefix = t_strdup_printf("cmd %s: ", cctx->cmd->name);
 		event_set_append_log_prefix(cctx->event, prefix);
 		cctx->cmd->cmd(cctx);
-		event_drop_parent_log_prefixes(cctx->event, 1);
 	} else
 		cctx->cmd->cmd(cctx);
 

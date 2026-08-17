@@ -189,6 +189,7 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 	prev_ioloop = current_ioloop;
 
 	struct doveadm_cmd_context *cctx = doveadm_cmd_context_create(
+		http_server_request_get_event(req->http_request),
 		conn->conn.type, doveadm_verbose || doveadm_debug);
 
 	cctx->input = req->input;
@@ -222,7 +223,6 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 		e_debug(cctx->event, "Executing command");
 	cctx->cmd->cmd(cctx);
 
-	event_drop_parent_log_prefixes(cctx->event, 1);
 	client_connection_set_proctitle(&conn->conn, "");
 
 	o_stream_switch_ioloop_to(req->output, prev_ioloop);

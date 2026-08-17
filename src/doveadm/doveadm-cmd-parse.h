@@ -125,7 +125,8 @@ struct doveadm_cmd_context {
 };
 
 struct doveadm_cmd_context*
-doveadm_cmd_context_create(enum doveadm_client_type conn_type, bool forced_debug);
+doveadm_cmd_context_create(struct event *parent_event,
+			   enum doveadm_client_type conn_type, bool forced_debug);
 void doveadm_cmd_context_unref(struct doveadm_cmd_context **cctx);
 
 void doveadm_cmd_context_replace_set_event(struct doveadm_cmd_context *cctx,

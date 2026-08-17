@@ -343,7 +343,8 @@ static bool client_handle_command(struct client_connection_tcp *conn,
 				  const char *const *args)
 {
 	struct doveadm_cmd_context *cctx = doveadm_cmd_context_create(
-		conn->conn.type, doveadm_verbose || doveadm_debug);
+		conn->conn.event, conn->conn.type,
+		doveadm_verbose || doveadm_debug);
 	cctx->input = conn->input;
 	cctx->output = conn->output;
 	cctx->local_ip = conn->conn.local_ip;

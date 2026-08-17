@@ -398,7 +398,7 @@ int main(int argc, char *argv[])
 	}
 
 	struct doveadm_cmd_context *cctx = doveadm_cmd_context_create(
-		DOVEADM_CONNECTION_TYPE_CLI, doveadm_debug);
+		NULL, DOVEADM_CONNECTION_TYPE_CLI, doveadm_debug);
 	/* this has to be done here because proctitle hack can break
 	   the env pointer */
 	cctx->username = getenv("USER");
