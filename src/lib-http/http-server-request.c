@@ -238,6 +238,11 @@ http_server_request_get(struct http_server_request *req)
 	return &req->req;
 }
 
+struct event *http_server_request_get_event(struct http_server_request *req)
+{
+	return req->event;
+}
+
 pool_t http_server_request_get_pool(struct http_server_request *req)
 {
 	return req->pool;
