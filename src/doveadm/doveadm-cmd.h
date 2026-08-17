@@ -34,6 +34,12 @@ bool doveadm_cmdline_try_run(const char *cmd_name,
 			     int argc, const char *const argv[],
 			     struct doveadm_cmd_context *cctx);
 
+/* Emit doveadm_command_finished for a command that has just run.
+   Reads the current doveadm_exit_code. Must be the last user of
+   cctx->event on the calling path, since it clears cctx->event's log
+   prefix. */
+void doveadm_cmd_context_finished(struct doveadm_cmd_context *cctx);
+
 extern struct doveadm_cmd_ver2 doveadm_cmd_dump;
 extern struct doveadm_cmd_ver2 doveadm_cmd_service_stop_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_service_status_ver2;

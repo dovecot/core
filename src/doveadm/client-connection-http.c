@@ -165,7 +165,7 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 {
 	struct client_connection_http *conn = req->conn;
 	struct istream *is;
-	const char *user;
+	const char *user = NULL;
 	struct ioloop *ioloop, *prev_ioloop;
 
 	/* final preflight check */
@@ -187,10 +187,11 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 	}
 
 	prev_ioloop = current_ioloop;
+	struct event *event_parent = http_server_request_get_event(req->http_request);
+	event_add_str(event_parent, "origin", "http");
 
 	struct doveadm_cmd_context *cctx = doveadm_cmd_context_create(
-		http_server_request_get_event(req->http_request),
-		conn->conn.type, doveadm_verbose || doveadm_debug);
+		event_parent, conn->conn.type, doveadm_verbose || doveadm_debug);
 
 	cctx->input = req->input;
 	cctx->output = req->output;
@@ -221,6 +222,9 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 		e_debug(cctx->event, "Executing command as '%s'", user);
 	else
 		e_debug(cctx->event, "Executing command");
+	event_add_str(cctx->event, "user", user);
+	event_add_str(cctx->event, "agent", http_request_header_get(
+		http_server_request_get(req->http_request), "User-Agent"));
 	cctx->cmd->cmd(cctx);
 
 	client_connection_set_proctitle(&conn->conn, "");
@@ -253,6 +257,7 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 		doveadm_http_server_json_success(req, is);
 	}
 	i_stream_unref(&is);
+	doveadm_cmd_context_finished(cctx);
 	doveadm_cmd_context_unref(&cctx);
 }
 

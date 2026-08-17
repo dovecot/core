@@ -197,6 +197,7 @@ doveadm_cmd_server_run_ver2(struct client_connection_tcp *conn,
 	if (doveadm_cmdline_run(argc, argv, cctx) < 0)
 		doveadm_exit_code = EX_USAGE;
 	doveadm_cmd_server_post(conn, cctx);
+	doveadm_cmd_context_finished(cctx);
 }
 
 static int doveadm_cmd_handle(struct client_connection_tcp *conn,
@@ -309,6 +310,7 @@ static bool client_handle_command_ctx(struct client_connection_tcp *conn,
 		return FALSE;
 	}
 	cctx->username = args[0]; args++; argc--;
+	event_add_str(cctx->event, "user", cctx->username);
 	cmd_name = args[0];
 
 	if (strcmp(cmd_name, "OPTION") == 0) {
@@ -598,6 +600,7 @@ client_connection_tcp_create(int fd, int listen_fd, bool ssl)
 	conn->conn.event = event_create(NULL);
 	settings_event_add_filter_name(conn->conn.event, DOVEADM_SERVER_FILTER);
 	event_set_append_log_prefix(conn->conn.event, "tcp: ");
+	event_add_str(conn->conn.event, "origin", "tcp");
 	conn->fd = fd;
 
 	if (client_connection_init(&conn->conn,

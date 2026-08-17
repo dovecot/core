@@ -159,5 +159,34 @@ bool doveadm_cmdline_try_run(const char *cmd_name,
 		return FALSE;
 	if (doveadm_cmdline_run(argc, argv, cctx) < 0)
 		doveadm_exit_code = EX_USAGE;
+	doveadm_cmd_context_finished(cctx);
 	return TRUE;
+}
+
+void doveadm_cmd_context_finished(struct doveadm_cmd_context *cctx)
+{
+	const char *cmd_name = cctx->cmd == NULL ? NULL : cctx->cmd->name;
+
+	struct event *event =
+		event_create_passthrough(cctx->event)->
+		set_name("doveadm_command_finished")->
+		add_str("command", cmd_name)->
+		add_int("exit_code", doveadm_exit_code)->
+		add_int_nonzero("local_port", cctx->local_port)->
+		add_int_nonzero("remote_port", cctx->remote_port)->
+		event();
+
+	/* Added explicitly rather than relying on inheritance: on the http
+	   path the parent chain has no local_ip at all (lib-http never
+	   resolves its own listening address), so this is the only place
+	   it can come from. The family != 0 guard keeps event_add_ip() from
+	   ever taking its "clear the inherited field" branch, which is what
+	   would otherwise make an unconditional add unsafe here (e.g. on
+	   the CLI path, where cctx has neither address). */
+	if (cctx->local_ip.family != 0)
+		event_add_ip(event, "local_ip", &cctx->local_ip);
+	if (cctx->remote_ip.family != 0)
+		event_add_ip(event, "remote_ip", &cctx->remote_ip);
+
+	e_debug(event, "Command finished.");
 }

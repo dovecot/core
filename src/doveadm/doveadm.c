@@ -397,10 +397,13 @@ int main(int argc, char *argv[])
 		i_set_debug_file("/dev/null");
 	}
 
+	struct event *event = event_create(NULL);
+	event_add_str(event, "origin", "cli");
 	struct doveadm_cmd_context *cctx = doveadm_cmd_context_create(
-		NULL, DOVEADM_CONNECTION_TYPE_CLI, doveadm_debug);
+		event, DOVEADM_CONNECTION_TYPE_CLI, doveadm_debug);
 	/* this has to be done here because proctitle hack can break
 	   the env pointer */
+	event_unref(&event);
 	cctx->username = getenv("USER");
 
 	if (!doveadm_cmdline_try_run(cmd_name, argc, (const char**)argv, cctx)) {
