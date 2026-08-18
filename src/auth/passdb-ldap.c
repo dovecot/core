@@ -191,6 +191,7 @@ static void ldap_auth_bind(struct ldap_connection *conn,
 		passdb_ldap_request->callback.
 			verify_plain(PASSDB_RESULT_PASSWORD_MISMATCH,
 				     auth_request);
+		auth_request_unref(&auth_request);
 		return;
 	}
 
