@@ -55,10 +55,8 @@ static ssize_t i_stream_json_string_read(struct istream_private *stream)
 	struct json_string_decode_istream *jstream =
 		container_of(stream, struct json_string_decode_istream, istream);
 	const char *error;
-	const unsigned char *data;
-	size_t avail_size, size;
-	ssize_t sret;
-	int ret;
+	size_t pos;
+	ssize_t ret;
 
 	/* Run the parser to obtain the string stream */
 	if (jstream->str_stream == NULL) {
@@ -79,47 +77,54 @@ static ssize_t i_stream_json_string_read(struct istream_private *stream)
 
 	}
 
-	/* Read more from the string stream if nothing from it is buffered
-	   yet. */
-	if (i_stream_get_data_size(jstream->str_stream) == 0) {
-		if (jstream->str_stream->eof) {
-			/* String stream fully drained. */
-			stream->istream.eof = TRUE;
-			return -1;
-		}
-		sret = i_stream_read(jstream->str_stream);
+	/* Expose the string stream's buffer directly. It is a normal
+	   memarea-backed istream buffer, so snapshots of it keep the data
+	   alive (see i_stream_json_string_snapshot()). The string stream
+	   isn't our istream-parent, so the data consumed from this stream
+	   needs to be skipped from it explicitly. */
+	i_stream_skip(jstream->str_stream, stream->skip);
+	stream->pos -= stream->skip;
+	stream->skip = 0;
+
+	stream->buffer = i_stream_get_data(jstream->str_stream, &pos);
+	if (pos > stream->pos)
+		ret = 0;
+	else do {
+		ret = i_stream_read_memarea(jstream->str_stream);
 		if (jstream->str_stream->stream_errno != 0) {
 			io_stream_set_error(&stream->iostream, "%s",
 				i_stream_get_error(jstream->str_stream));
 		}
-		stream->istream.stream_errno = jstream->str_stream->stream_errno;
-		if (sret <= 0) {
-			stream->istream.eof = jstream->str_stream->eof &&
-				i_stream_get_data_size(jstream->str_stream) == 0;
-			return sret;
-		}
-	}
-
-	/* Copy the newly available bytes into our own buffer instead of
-	   aliasing str_stream's buffer directly: str_stream's underlying
-	   storage can be reallocated by a later read (it decodes into a
-	   plain string_t via a plain realloc, outside the istream
-	   memarea/snapshot machinery), which would leave a caller-held
-	   pointer into our previously exposed buffer dangling. Copying here
-	   makes our own buffer growth go through the normal
-	   i_stream_try_alloc()/memarea path, so it is actually protected. */
-	data = i_stream_get_data(jstream->str_stream, &size);
-	i_assert(size > 0);
-	if (!i_stream_try_alloc(stream, size, &avail_size))
+		stream->istream.stream_errno =
+			jstream->str_stream->stream_errno;
+		stream->istream.eof = jstream->str_stream->eof;
+		stream->buffer = i_stream_get_data(jstream->str_stream, &pos);
+	} while (pos <= stream->pos && ret > 0);
+	if (ret == -2)
 		return -2;
-	if (size > avail_size)
-		size = avail_size;
-	i_assert(size > 0);
 
-	memcpy(stream->w_buffer + stream->pos, data, size);
-	stream->pos += size;
-	i_stream_skip(jstream->str_stream, size);
-	return size;
+	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
+		(ret == 0 ? 0 : -1);
+	stream->pos = pos;
+	return ret;
+}
+
+static struct istream_snapshot *
+i_stream_json_string_snapshot(struct istream_private *stream,
+			      struct istream_snapshot *prev_snapshot)
+{
+	struct json_string_decode_istream *jstream =
+		container_of(stream, struct json_string_decode_istream, istream);
+	struct istream_private *str_stream;
+
+	if (jstream->str_stream == NULL) {
+		/* Nothing was read yet */
+		i_assert(stream->skip == stream->pos);
+		return prev_snapshot;
+	}
+	/* The buffer belongs to the string stream, so snapshot that one. */
+	str_stream = jstream->str_stream->real_stream;
+	return str_stream->snapshot(str_stream, prev_snapshot);
 }
 
 static void
@@ -192,6 +197,7 @@ i_stream_create_json_string_with_flags(struct istream *input,
 	jstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	jstream->istream.read = i_stream_json_string_read;
 	jstream->istream.seek = i_stream_json_string_seek;
+	jstream->istream.snapshot = i_stream_json_string_snapshot;
 
 	jstream->istream.istream.readable_fd = FALSE;
 	jstream->istream.istream.blocking = input->blocking;

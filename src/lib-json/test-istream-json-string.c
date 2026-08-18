@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "istream.h"
+#include "istream-private.h"
 #include "unichar.h"
 #include "test-common.h"
 
@@ -477,6 +478,62 @@ static void test_istream_json_string_overflow_resume(void)
 	test_end();
 }
 
+static void test_istream_json_string_snapshot(void)
+{
+	struct istream *parent, *stream;
+	struct istream_private *_stream;
+	struct istream_snapshot *snapshot;
+	const unsigned char *data;
+	size_t size, snapshot_size;
+	string_t *raw, *expected;
+	unsigned int i;
+	int ret;
+
+	/* Escaped content long enough to force several buffer growth cycles
+	   in the decoding stream's buffer. */
+	raw = t_str_new(4096);
+	expected = t_str_new(2048);
+	for (i = 0; i < 300; i++) {
+		str_append(raw, "\\n");
+		str_append_c(expected, '\n');
+	}
+
+	test_begin("istream json string snapshot");
+
+	parent = test_istream_create_data(str_data(raw), str_len(raw));
+	test_istream_set_size(parent, 10);
+	stream = i_stream_create_json_string(parent);
+	_stream = stream->real_stream;
+
+	/* Snapshotting before anything was read must work as well. */
+	snapshot = _stream->snapshot(_stream, NULL);
+	i_stream_snapshot_free(&snapshot);
+
+	/* Read the beginning of the string and hold on to it. */
+	ret = i_stream_read_more(stream, &data, &size);
+	test_assert(ret > 0 && size > 0);
+	snapshot_size = size;
+	snapshot = _stream->snapshot(_stream, NULL);
+
+	/* Decode the remainder of the string without consuming anything,
+	   which reallocates the buffer. */
+	for (i = 20; i <= str_len(raw); i += 10) {
+		test_istream_set_size(parent, i);
+		if (i_stream_read(stream) == -2)
+			break;
+	}
+	i_stream_unref(&stream);
+
+	/* The snapshotted data must still be intact. */
+	test_assert_memcmp(data, snapshot_size,
+			   str_data(expected), snapshot_size);
+
+	i_stream_snapshot_free(&snapshot);
+	i_stream_unref(&parent);
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
@@ -489,6 +546,7 @@ int main(void)
 		test_istream_json_string_truncated_escape,
 		test_istream_json_string_seek,
 		test_istream_json_string_overflow_resume,
+		test_istream_json_string_snapshot,
 		NULL
 	};
 	return test_run(test_functions);
