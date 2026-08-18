@@ -1724,6 +1724,7 @@ imapc_connection_ssl_handshaked(const char **error_r, void *context)
 
 static int imapc_connection_ssl_init(struct imapc_connection *conn)
 {
+	struct imapc_client *client = conn->client;
 	const char *error;
 
 	e_debug(conn->event, "Starting SSL handshake");
@@ -1742,7 +1743,7 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 	enum ssl_iostream_flags ssl_flags = 0;
 	const struct ssl_iostream_client_autocreate_parameters parameters = {
 		.event_parent = conn->event,
-		.host = conn->client->set->imapc_host,
+		.host = client->set->imapc_host,
 		.flags = ssl_flags,
 		.application_protocols = (const char *const[]) {
 			"imap", NULL
@@ -1765,9 +1766,9 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 		return -1;
 	}
 
-	if (*conn->client->imapc_rawlog_dir != '\0') {
+	if (*client->imapc_rawlog_dir != '\0') {
 		iostream_rawlog_create(conn->event, "imapc_rawlog_dir",
-				       conn->client->imapc_rawlog_dir,
+				       client->imapc_rawlog_dir,
 				       &conn->input, &conn->output);
 	}
 
