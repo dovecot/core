@@ -21,5 +21,7 @@ int restrict_get_process_size(rlim_t *limit_r);
 int restrict_get_process_limit(rlim_t *limit_r);
 /* Get the fd limit. Returns 0 if ok, -1 if lookup failed. */
 int restrict_get_fd_limit(rlim_t *limit_r);
+/* Get the process stack size limit. Returns 0 if ok, -1 if lookup failed. */
+int restrict_get_stack_limit(rlim_t *limit_r);
 
 #endif

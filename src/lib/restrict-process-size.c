@@ -109,3 +109,15 @@ int restrict_get_fd_limit(rlim_t *limit_r)
 	*limit_r = rlim.rlim_cur;
 	return 0;
 }
+
+int restrict_get_stack_limit(rlim_t *limit_r)
+{
+	struct rlimit rlim;
+
+	if (getrlimit(RLIMIT_STACK, &rlim) < 0) {
+		i_error("getrlimit(RLIMIT_STACK) failed: %m");
+		return -1;
+	}
+	*limit_r = rlim.rlim_cur;
+	return 0;
+}
