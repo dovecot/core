@@ -182,6 +182,15 @@ static void ldap_auth_bind(struct ldap_connection *conn,
 		container_of(brequest, struct passdb_ldap_request, request.bind);
 	struct auth_request *auth_request = brequest->request.auth_request;
 
+	if (auth_request->fields.skip_password_check) {
+		/* Already verified that the password matched -
+		   we just wanted to get any extra fields */
+		passdb_ldap_request->callback.
+			verify_plain(PASSDB_RESULT_OK, auth_request);
+		auth_request_unref(&auth_request);
+		return;
+	}
+
 	if (*auth_request->mech_password == '\0') {
 		/* Assume that empty password fails. This is especially
 		   important with Windows 2003 AD, which always returns success
