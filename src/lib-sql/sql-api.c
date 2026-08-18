@@ -852,6 +852,14 @@ void sql_statement_set_no_log_expanded_value_field(struct sql_statement *stmt,
 void sql_statement_bind_str(struct sql_statement *stmt,
 			    unsigned int column_idx, const char *value)
 {
+	/* FIXME: binding a real SQL NULL needs an explicit
+	   sql_statement_bind_null(stmt, column_idx) vfunc, to be added once
+	   a caller needs one. driver-mysql already has the plumbing for it
+	   (MYSQL_BIND.is_null) and so does driver-pgsql (a NULL entry in
+	   params_r->values[] is how PQexecParams encodes SQL NULL);
+	   driver-sqlite would need sqlite3_bind_null() and driver-cassandra
+	   cass_statement_bind_null(). */
+	i_assert(value != NULL);
 	const char *value_dup = p_strdup(stmt->pool, value);
 	array_idx_set(&stmt->args, column_idx, &value_dup);
 	bool needs_escaping = TRUE;
