@@ -590,6 +590,15 @@ mail_index_sync_record_real(struct mail_index_sync_map_ctx *ctx,
 
 		for (i = 0; i < hdr->size; ) {
 			rec = CONST_PTR_OFFSET(data, i);
+
+			if (i + sizeof(*rec) > hdr->size ||
+			    i + sizeof(*rec) + rec->size > hdr->size) {
+				mail_index_sync_set_corrupted(ctx,
+					"header update: invalid record size");
+				ret = -1;
+				break;
+			}
+
 			ret = sync_header_update(rec, ctx);
 			if (ret <= 0)
 				break;
