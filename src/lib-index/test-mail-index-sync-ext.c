@@ -76,10 +76,49 @@ static void test_mail_index_sync_ext_atomic_inc(void)
 	test_end();
 }
 
+static void test_mail_index_sync_header_update(void)
+{
+	struct mail_index_sync_map_ctx ctx;
+	struct mail_transaction_header hdr;
+	struct mail_transaction_header_update *u;
+
+	test_begin("mail index sync header update record size");
+
+	i_zero(&ctx);
+	ctx.view = t_new(struct mail_index_view, 1);
+	ctx.view->log_view = t_new(struct mail_transaction_log_view, 1);
+	ctx.view->index = t_new(struct mail_index, 1);
+	ctx.view->index->fsck_log_head_file_seq = 10; /* silence errors */
+	ctx.view->map = t_new(struct mail_index_map, 1);
+	ctx.view->map->hdr.base_header_size = 100;
+	ctx.view->map->hdr.header_size = 100;
+	ctx.view->map->hdr_copy_buf = buffer_create_dynamic(default_pool, 100);
+	buffer_append_zero(ctx.view->map->hdr_copy_buf, 100);
+
+	/* the record claims a 64-byte update payload but only the 4-byte
+	   sub-header is actually present. without the size check the payload
+	   read walks past the end of the record. */
+	u = i_malloc(sizeof(*u));
+	u->offset = 0;
+	u->size = 64;
+
+	i_zero(&hdr);
+	hdr.type = MAIL_TRANSACTION_HEADER_UPDATE;
+	hdr.size = sizeof(*u);
+
+	test_assert(mail_index_sync_record(&ctx, &hdr, u) == -1);
+
+	i_free(u);
+	buffer_free(&ctx.view->map->hdr_copy_buf);
+	i_free(ctx.view->index->need_recreate);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mail_index_sync_ext_atomic_inc,
+		test_mail_index_sync_header_update,
 		NULL
 	};
 	return test_run(test_functions);
