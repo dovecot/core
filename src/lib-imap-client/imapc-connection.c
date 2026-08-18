@@ -1837,9 +1837,9 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 		return -1;
 	}
 
-	if (*client->imapc_rawlog_dir != '\0') {
+	if (*client->set->imapc_rawlog_dir != '\0') {
 		iostream_rawlog_create(conn->event, "imapc_rawlog_dir",
-				       client->imapc_rawlog_dir,
+				       client->set->imapc_rawlog_dir,
 				       &conn->input, &conn->output);
 	}
 
@@ -1973,10 +1973,10 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	conn->output = conn->raw_output = o_stream_create_fd(fd, SIZE_MAX);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 
-	if (*client->imapc_rawlog_dir != '\0' &&
+	if (*client->set->imapc_rawlog_dir != '\0' &&
 	    client->ssl_mode != IMAPC_CLIENT_SSL_MODE_IMMEDIATE) {
 		iostream_rawlog_create(conn->event, "imapc_rawlog_dir",
-				       client->imapc_rawlog_dir,
+				       client->set->imapc_rawlog_dir,
 				       &conn->input, &conn->output);
 	}
 

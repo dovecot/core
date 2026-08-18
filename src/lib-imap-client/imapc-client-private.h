@@ -42,7 +42,6 @@ struct imapc_client {
 	struct ioloop *ioloop;
 	bool stop_on_state_finish;
 
-	const char *imapc_rawlog_dir;
 	const char *password;
 
 	struct dsasl_client *sasl_client;
