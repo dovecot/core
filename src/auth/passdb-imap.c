@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "passdb.h"
 #include "str.h"
+#include "settings.h"
 #include "imap-resp-code.h"
 #include "imapc-client.h"
 
@@ -29,6 +30,7 @@ const struct setting_parser_info passdb_imap_setting_parser_info = {
 };
 
 struct imap_auth_request {
+	struct settings_instance *set_instance;
 	struct imapc_client *client;
 	struct auth_request *auth_request;
 	verify_plain_callback_t *verify_callback;
@@ -55,6 +57,7 @@ static void passdb_imap_login_free(struct imap_auth_request *request)
 {
 	timeout_remove(&request->to_free);
 	imapc_client_deinit(&request->client);
+	settings_instance_free(&request->set_instance);
 	auth_request_unref(&request->auth_request);
 }
 
@@ -98,8 +101,6 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 		/* Required, but not used, since we halt after authentication.
 		 */
 		.temp_path_prefix = "/tmp",
-
-		.override_password = password,
 	};
 	struct imapc_client *imap_client;
 	const char *error;
@@ -109,15 +110,25 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 		return;
 	}
 
-	struct event *event = authdb_event(auth_request);
+	struct event *event = event_create(authdb_event(auth_request));
+	struct settings_instance *set_instance;
+
+	set_instance = settings_instance_new_from_event(event);
+	settings_override(set_instance, "imapc_password", password,
+			  SETTINGS_OVERRIDE_TYPE_CODE);
+	event_set_ptr(event, SETTINGS_EVENT_INSTANCE, set_instance);
 
 	if (imapc_client_init(&params, event, &imap_client, &error) < 0) {
 		e_error(event, "Failed to initialize IMAP client: %s", error);
+		settings_instance_free(&set_instance);
+		event_unref(&event);
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, auth_request);
 		return;
 	}
+	event_unref(&event);
 
 	request = p_new(auth_request->pool, struct imap_auth_request, 1);
+	request->set_instance = set_instance;
 	request->client = imap_client;
 	request->auth_request = auth_request;
 	request->verify_callback = callback;
