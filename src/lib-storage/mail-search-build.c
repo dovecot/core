@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "restrict-process-size.h"
 #include "charset-utf8.h"
 #include "mail-storage-private.h"
 #include "mail-search-register.h"
@@ -11,6 +12,38 @@
 
 static int mail_search_build_list(struct mail_search_build_context *ctx,
 				  struct mail_search_arg **arg_r);
+
+unsigned int mail_search_max_nesting_depth(void)
+{
+	static unsigned int max_depth = 0;
+	rlim_t stack_limit;
+	size_t stack_size, usable;
+
+	if (max_depth != 0)
+		return max_depth;
+
+	/* Assume 8 MB if the stack size is unlimited or unavailable, or
+	   unreasonably large. Compare in rlim_t before narrowing to size_t. */
+	if (restrict_get_stack_limit(&stack_limit) < 0 ||
+	    stack_limit == RLIM_INFINITY ||
+	    stack_limit > 1024ULL*1024*1024)
+		stack_size = 8*1024*1024;
+	else
+		stack_size = stack_limit;
+
+	/* Only use half of the stack, leaving room for the call chain
+	   above the recursion and for stack guard pages. Assume a
+	   generous per-level cost that covers the heaviest recursive
+	   search arg walker, so a query accepted here can also be
+	   walked safely afterwards. */
+	usable = stack_size / 2;
+	max_depth = usable / 4096;
+	if (max_depth < 32) {
+		/* Guarantee a sane minimum even with a tiny stack. */
+		max_depth = 32;
+	}
+	return max_depth;
+}
 
 struct mail_search_arg *
 mail_search_build_new(struct mail_search_build_context *ctx,
@@ -38,9 +71,9 @@ mail_search_build_str(struct mail_search_build_context *ctx,
 }
 
 static int
-mail_search_build_key_int(struct mail_search_build_context *ctx,
-			  struct mail_search_arg *parent,
-			  struct mail_search_arg **arg_r)
+mail_search_build_key_real(struct mail_search_build_context *ctx,
+			   struct mail_search_arg *parent,
+			   struct mail_search_arg **arg_r)
 {
 	struct mail_search_arg *sarg;
 	struct mail_search_arg *old_parent = ctx->parent;
@@ -82,6 +115,28 @@ mail_search_build_key_int(struct mail_search_build_context *ctx,
 	ctx->parent = old_parent;
 	*arg_r = sarg;
 	return sarg == NULL ? -1 : 1;
+}
+
+/* Each nested key adds one more mail_search_build_key_int() frame to the C
+   stack, so ctx->depth tracks the current nesting depth. Reject queries
+   that nest deeper than mail_search_max_nesting_depth() before they can
+   overflow the stack here or in the recursive walkers run later. */
+static int
+mail_search_build_key_int(struct mail_search_build_context *ctx,
+			  struct mail_search_arg *parent,
+			  struct mail_search_arg **arg_r)
+{
+	int ret;
+
+	if (ctx->depth >= mail_search_max_nesting_depth()) {
+		ctx->_error = "Too much nesting in search query";
+		return -1;
+	}
+
+	ctx->depth++;
+	ret = mail_search_build_key_real(ctx, parent, arg_r);
+	ctx->depth--;
+	return ret;
 }
 
 int mail_search_build_key(struct mail_search_build_context *ctx,

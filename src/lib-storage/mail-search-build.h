@@ -16,6 +16,9 @@ struct mail_search_build_context {
 	struct mail_search_arg *parent;
 	/* error is either here or in parser */
 	const char *_error;
+	/* current search key nesting depth, limited to
+	   mail_search_max_nesting_depth() */
+	unsigned int depth;
 	bool charset_checked;
 	bool unknown_charset;
 };
@@ -23,6 +26,14 @@ struct mail_search_build_context {
 /* Start building a new search query. Use mail_search_args_unref() to
    free it. */
 struct mail_search_args *mail_search_build_init(void);
+
+/* Returns the maximum allowed search key nesting depth. Deeper nesting is
+   rejected at build time with a "Too much nesting" error. The limit is
+   derived from the process stack size (RLIMIT_STACK), because the search
+   args are built and later walked (init, simplify, deinit, ...) with
+   recursion that is one C stack frame per nesting level, and several of
+   those walkers cannot fail partway. */
+unsigned int mail_search_max_nesting_depth(void);
 
 /* Convert IMAP SEARCH command compatible parameters to mail_search_args.
    If charset is unknown, it's changed to NULL. */

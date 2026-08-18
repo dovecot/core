@@ -37,9 +37,9 @@ mail_search_mime_build_str(struct mail_search_mime_build_context *ctx,
 }
 
 static int
-mail_search_mime_build_key_int(struct mail_search_mime_build_context *ctx,
-			  struct mail_search_mime_arg *parent,
-			  struct mail_search_mime_arg **arg_r)
+mail_search_mime_build_key_real(struct mail_search_mime_build_context *ctx,
+				struct mail_search_mime_arg *parent,
+				struct mail_search_mime_arg **arg_r)
 {
 	struct mail_search_mime_arg *sarg;
 	struct mail_search_mime_arg *old_parent = ctx->parent;
@@ -78,6 +78,27 @@ mail_search_mime_build_key_int(struct mail_search_mime_build_context *ctx,
 	ctx->parent = old_parent;
 	*arg_r = sarg;
 	return sarg == NULL ? -1 : 1;
+}
+
+/* Shares the top-level ctx->ctx->depth counter, so MIMEPART nesting is
+   bounded together with the enclosing search key nesting. See
+   mail_search_build_key_int(). */
+static int
+mail_search_mime_build_key_int(struct mail_search_mime_build_context *ctx,
+			       struct mail_search_mime_arg *parent,
+			       struct mail_search_mime_arg **arg_r)
+{
+	int ret;
+
+	if (ctx->ctx->depth >= mail_search_max_nesting_depth()) {
+		ctx->ctx->_error = "Too much nesting in search query";
+		return -1;
+	}
+
+	ctx->ctx->depth++;
+	ret = mail_search_mime_build_key_real(ctx, parent, arg_r);
+	ctx->ctx->depth--;
+	return ret;
 }
 
 int mail_search_mime_build_key(struct mail_search_mime_build_context *ctx,

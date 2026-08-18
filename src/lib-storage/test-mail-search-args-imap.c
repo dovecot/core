@@ -144,6 +144,67 @@ test_build_search_args(const char *args)
 	return sargs;
 }
 
+/* Like test_build_search_args(), but returns the build error (or NULL on
+   success) instead of panicking, so the nesting-limit failure can be
+   checked. */
+static const char *test_build_search_args_error(const char *args)
+{
+	struct mail_search_parser *parser;
+	struct mail_search_args *sargs;
+	const char *error, *charset = "UTF-8";
+	int ret;
+
+	parser = mail_search_parser_init_cmdline(t_strsplit(args, " "));
+	ret = mail_search_build(mail_search_register_get_imap4rev1(),
+				parser, &charset, &sargs, &error);
+	mail_search_parser_deinit(&parser);
+	if (ret < 0)
+		return t_strdup(error);
+	mail_search_args_unref(&sargs);
+	return NULL;
+}
+
+/* Build a query of "depth" nested parenthesized lists around a single SEEN
+   key, e.g. depth 2 -> "( ( SEEN ) )". The parens are space-separated so
+   the cmdline parser tokenizes each one. */
+static const char *test_nested_parens_query(unsigned int depth)
+{
+	string_t *str = t_str_new(depth * 4 + 8);
+	unsigned int i;
+
+	for (i = 0; i < depth; i++)
+		str_append(str, "( ");
+	str_append(str, "SEEN");
+	for (i = 0; i < depth; i++)
+		str_append(str, " )");
+	return str_c(str);
+}
+
+static void test_mail_search_args_imap_nesting_limit(void)
+{
+	unsigned int max_depth = mail_search_max_nesting_depth();
+	const char *error;
+
+	test_begin("mail search args imap nesting limit");
+
+	/* Wrapping SEEN in N parens builds it at nesting depth N+1, so the
+	   deepest query still within max_depth uses max_depth-1 parens. It
+	   must be accepted. */
+	error = test_build_search_args_error(
+		test_nested_parens_query(max_depth - 1));
+	test_assert(error == NULL);
+
+	/* One level deeper (max_depth parens) exceeds the limit and is
+	   rejected with a "too much nesting" error instead of overflowing
+	   the C stack. */
+	error = test_build_search_args_error(
+		test_nested_parens_query(max_depth));
+	test_assert(error != NULL &&
+		    strstr(error, "Too much nesting") != NULL);
+
+	test_end();
+}
+
 static void test_mail_search_args_imap(void)
 {
 	struct mail_search_args *args;
@@ -176,6 +237,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mail_search_args_imap,
+		test_mail_search_args_imap_nesting_limit,
 		NULL
 	};
 
