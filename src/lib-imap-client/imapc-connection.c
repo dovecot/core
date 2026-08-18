@@ -1865,16 +1865,17 @@ static void imapc_connection_reset_idle(struct imapc_connection *conn)
 
 static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 {
+	struct imapc_client *client = conn->client;
 	const struct ip_addr *ip = NULL;
 	unsigned int i;
 	int fd;
 
-	i_assert(conn->client->set->imapc_max_idle_time_secs > 0);
+	i_assert(client->set->imapc_max_idle_time_secs > 0);
 
 	for (i = 0; i<conn->ips_count;) {
 		conn->prev_connect_idx = (conn->prev_connect_idx+1) % conn->ips_count;
 		ip = &conn->ips[conn->prev_connect_idx];
-		fd = net_connect_ip(ip, conn->client->set->imapc_port, NULL);
+		fd = net_connect_ip(ip, client->set->imapc_port, NULL);
 		if (fd != -1)
 			break;
 
@@ -1883,10 +1884,10 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 		   before failing completely. */
 		const char *error = t_strdup_printf(
 			"net_connect_ip(%s:%u) failed: %m",
-			net_ip2addr(ip), conn->client->set->imapc_port);
+			net_ip2addr(ip), client->set->imapc_port);
 		if (conn->prev_connect_idx+1 == conn->ips_count) {
 			imapc_connection_try_reconnect(conn, error,
-				conn->client->set->imapc_connection_retry_interval_msecs, TRUE);
+				client->set->imapc_connection_retry_interval_msecs, TRUE);
 			return;
 		}
 		e_error(conn->event, "%s", error);
@@ -1896,14 +1897,14 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 
 	conn->fd = fd;
 	conn->input = conn->raw_input =
-		i_stream_create_fd(fd, conn->client->set->imapc_max_line_length);
+		i_stream_create_fd(fd, client->set->imapc_max_line_length);
 	conn->output = conn->raw_output = o_stream_create_fd(fd, SIZE_MAX);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 
-	if (*conn->client->imapc_rawlog_dir != '\0' &&
-	    conn->client->ssl_mode != IMAPC_CLIENT_SSL_MODE_IMMEDIATE) {
+	if (*client->imapc_rawlog_dir != '\0' &&
+	    client->ssl_mode != IMAPC_CLIENT_SSL_MODE_IMMEDIATE) {
 		iostream_rawlog_create(conn->event, "imapc_rawlog_dir",
-				       conn->client->imapc_rawlog_dir,
+				       client->imapc_rawlog_dir,
 				       &conn->input, &conn->output);
 	}
 
@@ -1911,14 +1912,14 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	o_stream_set_flush_callback(conn->output, imapc_connection_connected,
 				    conn);
 	conn->parser = imap_parser_create(conn->input, NULL,
-					  conn->client->set->imapc_max_line_length,
+					  client->set->imapc_max_line_length,
 					  NULL);
-	conn->to = timeout_add(conn->client->set->imapc_connection_timeout_interval_msecs,
+	conn->to = timeout_add(client->set->imapc_connection_timeout_interval_msecs,
 			       imapc_connection_timeout, conn);
-	conn->to_output = timeout_add(conn->client->set->imapc_max_idle_time_secs*1000,
+	conn->to_output = timeout_add(client->set->imapc_max_idle_time_secs*1000,
 				      imapc_connection_reset_idle, conn);
 	e_debug(conn->event, "Connecting to %s:%u", net_ip2addr(ip),
-		conn->client->set->imapc_port);
+		client->set->imapc_port);
 }
 
 static void
