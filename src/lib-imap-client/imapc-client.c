@@ -93,11 +93,6 @@ int imapc_client_init(const struct imapc_parameters *params,
 		p_strdup(pool, params->temp_path_prefix);
 	client->params.flags = params->flags;
 
-	client->password =
-		(params->override_password != NULL) ?
-			p_strdup(pool, params->override_password) :
-			p_strdup(pool, client->set->imapc_password);
-
 	event_set_append_log_prefix(client->event, t_strdup_printf(
 		"imapc(%s:%u): ", client->set->imapc_host, client->set->imapc_port));
 

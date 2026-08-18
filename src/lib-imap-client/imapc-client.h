@@ -89,8 +89,6 @@ struct imapc_parameters {
 	const char *session_id_prefix;
 	const char *temp_path_prefix;
 
-	const char *override_password;
-
 	enum imapc_parameter_flags flags;
 };
 
