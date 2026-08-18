@@ -62,6 +62,10 @@ auth_sasl_request_set_authid(struct sasl_server_req_ctx *rctx,
 			e_info(request->event, "Username not known");
 			return FALSE;
 		}
+		/* cert_username is the only way an auth client can provide the
+		   username before the mechanism runs - see
+		   auth_request_import_auth(). */
+		i_assert(request->fields.cert_username);
 
 		/* This call is done simply to put the username through
 		   translation settings */
@@ -69,6 +73,22 @@ auth_sasl_request_set_authid(struct sasl_server_req_ctx *rctx,
 			e_info(request->event, "Invalid username");
 			return FALSE;
 		}
+		/* The client certificate is the authentication; there is no
+		   password to verify. The passdb lookup still happens, but
+		   only to fetch extra fields. This mirrors how the oauth2
+		   mechanism treats an out-of-band verified token.
+
+		   This bypasses no checks, even with
+		   auth_ssl_require_client_cert disabled: the username tested
+		   above can only come from the cert_username field (asserted
+		   above), which the login process sends only for a client
+		   certificate it has validated. With
+		   ssl_server_request_client_cert=any-cert the certificate is
+		   instead validated by the passdb's
+		   check_client_fp/check_client_cert_fp/check_client_pubkey_fp
+		   fields, which fail the request independently of
+		   skip_password_check. */
+		auth_request_set_password_verified(request);
 		return TRUE;
 	}
 	i_unreached();
