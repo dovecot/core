@@ -1286,6 +1286,20 @@ void auth_request_default_verify_plain_continue(
 		return;
 	}
 
+	if (*password == '\0' && !request->fields.skip_password_check) {
+		/* Reject an empty client password for all passdbs. Some
+		   verifiers treat an empty password as an anonymous /
+		   pass-through success - most notably LDAP bind (Windows AD in
+		   particular returns success for empty passwords), but also
+		   e.g. PAM and checkpassword. Mechanisms that authenticate
+		   out-of-band (EXTERNAL via the client certificate) set
+		   skip_password_check and are exempt. */
+		e_info(authdb_event(request),
+		       "Login attempt with empty password");
+		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
+		return;
+	}
+
 	passdb = request->passdb;
 
 	while (passdb != NULL && auth_request_want_skip_passdb(request, passdb))

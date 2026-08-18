@@ -192,9 +192,11 @@ static void ldap_auth_bind(struct ldap_connection *conn,
 	}
 
 	if (*auth_request->mech_password == '\0') {
-		/* Assume that empty password fails. This is especially
-		   important with Windows 2003 AD, which always returns success
-		   with empty passwords. */
+		/* An empty password is an unauthenticated bind, which verifies
+		   nothing - Windows AD in particular answers it with success.
+		   The common verify_plain check already rejects empty client
+		   passwords before the passdb lookup, so this stays as a cheap
+		   defensive guard. */
 		e_info(authdb_event(auth_request),
 		       "Login attempt with empty password");
 		passdb_ldap_request->callback.
