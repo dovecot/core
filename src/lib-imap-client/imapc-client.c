@@ -59,11 +59,10 @@ imapc_client_init(const struct imapc_parameters *params,
 		"imapc(%s:%u): ", client->set->imapc_host, client->set->imapc_port));
 
 	client->ssl_mode = IMAPC_CLIENT_SSL_MODE_NONE;
-	if (strcmp(client->set->imapc_ssl, "imaps") == 0) {
+	if (strcmp(client->set->imapc_ssl, "imaps") == 0)
 		client->ssl_mode = IMAPC_CLIENT_SSL_MODE_IMMEDIATE;
-	} else if (strcmp(client->set->imapc_ssl, "starttls") == 0) {
+	else if (strcmp(client->set->imapc_ssl, "starttls") == 0)
 		client->ssl_mode = IMAPC_CLIENT_SSL_MODE_STARTTLS;
-	}
 
 	p_array_init(&client->conns, pool, 8);
 	return client;
