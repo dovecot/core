@@ -147,6 +147,27 @@ static void test_sql_sqlite(void)
 	test_assert_memcmp(value, size, "\xFF\xFF\x00\x00\xFF", 5);
 	sql_result_unref(cursor);
 
+	/* a zero-length binary bind must not panic */
+	stmt = sql_statement_init(sql, "INSERT INTO test2 VALUES(?,?,?,?)");
+	sql_statement_bind_str(stmt, 0, "empty_blob");
+	sql_statement_bind_uuid(stmt, 1, uuid);
+	sql_statement_bind_int64(stmt, 2, 0);
+	sql_statement_bind_binary(stmt, 3, "", 0);
+	cursor = sql_statement_query_s(&stmt);
+	test_assert(sql_result_next_row(cursor) == SQL_RESULT_NEXT_LAST);
+	sql_result_unref(cursor);
+
+	/* the bound value must round-trip as an empty blob, not SQL NULL */
+	stmt = sql_statement_init(sql, "SELECT blob FROM test2 "
+				  "WHERE str = ? AND blob IS NOT NULL");
+	sql_statement_bind_str(stmt, 0, "empty_blob");
+	cursor = sql_statement_query_s(&stmt);
+	test_assert(sql_result_next_row(cursor) == SQL_RESULT_NEXT_OK);
+	size_t empty_blob_size;
+	(void)sql_result_get_field_value_binary(cursor, 0, &empty_blob_size);
+	test_assert_ucmp(empty_blob_size, ==, 0);
+	sql_result_unref(cursor);
+
 	prep_stmt = sql_prepared_statement_init(sql, "SELECT foo FROM bar WHERE foo = ?");
 	sql_disconnect(sql);
 	stmt = sql_statement_init_prepared(prep_stmt);
