@@ -167,12 +167,12 @@ dsasl_client_session_create(struct dsasl_client *client,
 	msession->mech = mech;
 	msession->set.authid = p_strdup(pool, set->authid);
 	msession->set.authzid = p_strdup(pool, set->authzid);
-	msession->password = p_strdup(pool, set->password);
-	msession->set.password = msession->password;
+	msession->set.password = p_strdup(pool, set->password);
 	msession->set.protocol = p_strdup(pool, set->protocol);
 	msession->set.host = p_strdup(pool, set->host);
 	msession->set.port = set->port;
 	msession->session = session;
+	msession->password = msession->set.password;
 	session->mech = msession;
 
 	return session;
@@ -200,8 +200,6 @@ void dsasl_client_session_unref(struct dsasl_client_session **_session)
 
 	if (msession->mech->auth_free != NULL)
 		msession->mech->auth_free(msession);
-	if (msession->password != NULL)
-		safe_memset(msession->password, 0, strlen(msession->password));
 	event_unref(&session->event);
 	dsasl_client_unref(&session->client);
 	pool_unref(&session->pool);
@@ -214,11 +212,6 @@ void dsasl_client_session_destroy(struct dsasl_client_session **_session)
 	if (session == NULL)
 		return;
 	*_session = NULL;
-
-	struct dsasl_client_mech_session *msession = session->mech;
-
-	if (msession->password != NULL)
-		safe_memset(msession->password, 0, strlen(msession->password));
 
 	dsasl_client_session_unref(&session);
 }
