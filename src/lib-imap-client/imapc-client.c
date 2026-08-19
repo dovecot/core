@@ -32,6 +32,9 @@ imapc_client_init(const struct imapc_parameters *params,
 	struct imapc_client *client;
 	pool_t pool;
 
+	i_assert(params->temp_path_prefix != NULL &&
+		*params->temp_path_prefix != '\0');
+
 	pool = pool_alloconly_create("imapc client", 1024);
 	client = p_new(pool, struct imapc_client, 1);
 	client->pool = pool;
@@ -509,11 +512,8 @@ int imapc_client_create_temp_fd(struct imapc_client *client,
 	string_t *path;
 	int fd;
 
-	if (client->params.temp_path_prefix == NULL) {
-		e_error(client->event,
-			"temp_path_prefix not set, can't create temp file");
-		return -1;
-	}
+	i_assert(client->params.temp_path_prefix != NULL &&
+		 *client->params.temp_path_prefix != '\0');
 
 	path = t_str_new(128);
 	str_append(path, client->params.temp_path_prefix);

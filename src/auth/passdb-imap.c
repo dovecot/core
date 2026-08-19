@@ -95,6 +95,10 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 {
 	struct imap_auth_request *request;
 	struct imapc_parameters params = {
+		/* Required, but not used, since we halt after authentication.
+		 */
+		.temp_path_prefix = "/tmp",
+
 		.override_password = password,
 	};
 
