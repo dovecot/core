@@ -1501,6 +1501,9 @@ void driver_pgsql_deinit(void)
 {
 	struct pgsql_db_cache *cache;
 
+	if (!array_is_created(&pgsql_db_cache))
+		return;
+
 	array_foreach_modifiable(&pgsql_db_cache, cache) {
 		settings_free(cache->set);
 		sql_unref(&cache->db);

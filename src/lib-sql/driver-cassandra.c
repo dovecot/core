@@ -2968,6 +2968,9 @@ void driver_cassandra_deinit(void)
 {
 	struct cassandra_db *db;
 
+	if (!array_is_created(&cassandra_db_cache))
+		return;
+
 	array_foreach_elem(&cassandra_db_cache, db) {
 		struct sql_db *_db = &db->api;
 		sql_unref(&_db);

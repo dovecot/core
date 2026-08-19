@@ -1369,6 +1369,9 @@ void driver_sqlite_deinit(void)
 {
 	struct sqlite_db *db;
 
+	if (!array_is_created(&sqlite_db_cache))
+		return;
+
 	array_foreach_elem(&sqlite_db_cache, db) {
 		struct sql_db *_db = &db->api;
 		sql_unref(&_db);

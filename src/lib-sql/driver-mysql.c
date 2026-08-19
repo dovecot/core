@@ -916,6 +916,9 @@ void driver_mysql_deinit(void)
 {
 	struct mysql_db_cache *cache;
 
+	if (!array_is_created(&mysql_db_cache))
+		return;
+
 	array_foreach_modifiable(&mysql_db_cache, cache) {
 		settings_free(cache->set);
 		settings_free(cache->ssl_set);
