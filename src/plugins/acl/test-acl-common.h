@@ -39,6 +39,8 @@ void test_acl_mailbox_create(const char *name);
 const char *test_acl_local_path(const char *name);
 /* Writes content to path, replacing any existing file. */
 void test_acl_write_file(const char *path, const char *content);
+/* Returns the contents of path, or NULL if it doesn't exist. */
+const char *test_acl_read_file(const char *path);
 
 /* Space-separated rights of the ACL user, in all_mailbox_rights[] order, or
    "<error>" on failure. */

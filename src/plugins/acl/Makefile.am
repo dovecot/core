@@ -66,7 +66,8 @@ lib10_doveadm_acl_plugin_la_SOURCES = \
 test_programs = \
 	test-acl \
 	test-acl-cache \
-	test-acl-vfile
+	test-acl-vfile \
+	test-acl-vfile-update
 
 test_libs = \
 	$(module_LTLIBRARIES) \
@@ -88,3 +89,7 @@ test_acl_cache_DEPENDENCIES = $(test_deps)
 test_acl_vfile_SOURCES = test-acl-vfile.c test-acl-common.c
 test_acl_vfile_LDADD = $(test_libs)
 test_acl_vfile_DEPENDENCIES = $(test_deps)
+
+test_acl_vfile_update_SOURCES = test-acl-vfile-update.c test-acl-common.c
+test_acl_vfile_update_LDADD = $(test_libs)
+test_acl_vfile_update_DEPENDENCIES = $(test_deps)

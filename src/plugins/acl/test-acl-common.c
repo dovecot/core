@@ -149,6 +149,26 @@ void test_acl_write_file(const char *path, const char *content)
 	i_close_fd(&fd);
 }
 
+const char *test_acl_read_file(const char *path)
+{
+	string_t *str = t_str_new(256);
+	char buf[1024];
+	ssize_t ret;
+	int fd = open(path, O_RDONLY);
+
+	if (fd == -1) {
+		if (errno == ENOENT)
+			return NULL;
+		i_fatal("open(%s) failed: %m", path);
+	}
+	while ((ret = read(fd, buf, sizeof(buf))) > 0)
+		str_append_data(str, buf, ret);
+	if (ret < 0)
+		i_fatal("read(%s) failed: %m", path);
+	i_close_fd(&fd);
+	return str_c(str);
+}
+
 const char *test_acl_my_rights(struct acl_object *aclobj)
 {
 	const char *const *rights;
