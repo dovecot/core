@@ -5,6 +5,7 @@ doveadm_moduledir = $(moduledir)/doveadm
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-mail \
@@ -42,7 +43,8 @@ lib01_acl_plugin_la_SOURCES = \
 
 noinst_HEADERS = \
 	acl-backend-vfile.h \
-	acl-shared-storage.h
+	acl-shared-storage.h \
+	test-acl-common.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = \
@@ -63,7 +65,8 @@ lib10_doveadm_acl_plugin_la_SOURCES = \
 
 test_programs = \
 	test-acl \
-	test-acl-cache
+	test-acl-cache \
+	test-acl-vfile
 
 test_libs = \
 	$(module_LTLIBRARIES) \
@@ -81,3 +84,7 @@ test_acl_DEPENDENCIES = $(test_deps)
 test_acl_cache_SOURCES = test-acl-cache.c
 test_acl_cache_LDADD = $(test_libs)
 test_acl_cache_DEPENDENCIES = $(test_deps)
+
+test_acl_vfile_SOURCES = test-acl-vfile.c test-acl-common.c
+test_acl_vfile_LDADD = $(test_libs)
+test_acl_vfile_DEPENDENCIES = $(test_deps)
