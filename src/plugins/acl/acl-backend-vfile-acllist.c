@@ -180,6 +180,7 @@ acllist_append(struct acl_backend_vfile *backend, struct ostream *output,
 	struct acl_rights rights;
 	struct acl_backend_vfile_acllist acllist;
 	const char *name;
+	bool nonowner_lookup = FALSE;
 	int ret;
 
 	name = mailbox_list_get_storage_name(backend->backend.list, vname);
@@ -188,15 +189,17 @@ acllist_append(struct acl_backend_vfile *backend, struct ostream *output,
 
 	iter = acl_object_list_init(aclobj);
 	while (acl_object_list_next(iter, &rights)) {
-		if (acl_rights_has_nonowner_lookup_changes(&rights))
+		if (acl_rights_has_nonowner_lookup_changes(&rights)) {
+			nonowner_lookup = TRUE;
 			break;
+		}
 	}
 	ret = acl_object_list_deinit(&iter);
 
 	if (acl_backend_vfile_object_get_mtime(aclobj, &acllist.mtime) < 0)
 		ret = -1;
 
-	if (ret > 0) {
+	if (ret >= 0 && nonowner_lookup) {
 		acllist.name = p_strdup(backend->acllist_pool, name);
 		array_push_back(&backend->acllist, &acllist);
 

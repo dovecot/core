@@ -17,6 +17,7 @@
 
 #define TEST_MAILBOX "Test"
 #define TEST_MAILBOX2 "Test2"
+#define TEST_MAILBOX3 "Test3"
 #define TEST_UPDATE_ID "user="TEST_ACL_USER
 
 /* NULL-terminated userdb field list */
@@ -335,6 +336,14 @@ static void test_acl_vfile_acllist(void)
 	test_begin("acl vfile acllist");
 	test_acl_update_setup(NULL);
 	test_acl_mailbox_create(TEST_MAILBOX2);
+	test_acl_mailbox_create(TEST_MAILBOX3);
+
+	/* Test2 has ACLs, but none of them give a non-owner the lookup
+	   right. Test3 only has an owner entry, whose lookup right doesn't
+	   count either. Neither belongs in dovecot-acl-list. */
+	test_acl_write_file(test_acl_local_path(TEST_MAILBOX2),
+			    TEST_UPDATE_ID" r\n");
+	test_acl_write_file(test_acl_local_path(TEST_MAILBOX3), "owner l\n");
 
 	backend = container_of(test_acl.backend, struct acl_backend_vfile,
 			       backend);
@@ -359,6 +368,8 @@ static void test_acl_vfile_acllist(void)
 		    strstr(acllist, " "TEST_MAILBOX"\n") != NULL);
 	test_assert(acllist != NULL &&
 		    strstr(acllist, " "TEST_MAILBOX2"\n") == NULL);
+	test_assert(acllist != NULL &&
+		    strstr(acllist, " "TEST_MAILBOX3"\n") == NULL);
 
 	/* and the mailbox shows up in the non-owner lookup iteration */
 	ctx = acl_backend_nonowner_lookups_iter_init(test_acl.backend);
@@ -367,12 +378,12 @@ static void test_acl_vfile_acllist(void)
 		test_assert_strcmp(name, TEST_MAILBOX);
 	}
 	test_assert(acl_backend_nonowner_lookups_iter_deinit(&ctx) == 1);
-	test_assert(count == 1);
+	test_assert_cmp(count, ==, 1);
 
 	/* an explicit rebuild produces the same result */
 	test_assert(acl_backend_nonowner_lookups_rebuild(
 			test_acl.backend) == 0);
-	test_assert(array_count(&backend->acllist) == 1);
+	test_assert_cmp(array_count(&backend->acllist), ==, 1);
 
 	test_acl_user_deinit();
 	test_end();
