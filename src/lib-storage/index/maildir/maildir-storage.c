@@ -510,18 +510,36 @@ maildir_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 static int maildir_create_maildirfolder_file(struct mailbox *box)
 {
 	const struct mailbox_permissions *perm;
-	const char *path;
+	const char *path, *box_path, *root_dir;
 	mode_t old_mask;
-	int fd;
+	int fd, ret;
 
 	/* Maildir++ spec wants that maildirfolder named file is created for
 	   all subfolders. Do this only with Maildir++ layout. */
 	if (strcmp(box->list->name, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) != 0)
 		return 0;
+
+	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX,
+				  &box_path);
+	if (ret <= 0)
+		return ret;
+
+	/* Never create the marker in the mail root directory itself - it's
+	   not a child Maildir and the marker there breaks quota et al.
+	   INBOX is the root only with the default mail_inbox_path;
+	   otherwise it's a normal child mailbox that needs the marker. */
+	root_dir = mailbox_list_get_root_forced(box->list,
+						MAILBOX_LIST_PATH_TYPE_MAILBOX);
+
+	/* Only create the file if the box_path starts with root_dir,
+	   but is not root_dir. */
+	if (strcmp(box_path, root_dir) == 0 ||
+	    !str_begins_with(box_path, root_dir))
+		return 0;
+
 	perm = mailbox_get_permissions(box);
 
-	path = t_strconcat(mailbox_get_path(box),
-			   "/"MAILDIR_SUBFOLDER_FILENAME, NULL);
+	path = t_strconcat(box_path, "/"MAILDIR_SUBFOLDER_FILENAME, NULL);
 	old_mask = umask(0);
 	fd = open(path, O_CREAT | O_WRONLY | O_NOFOLLOW, perm->file_create_mode);
 	umask(old_mask);
