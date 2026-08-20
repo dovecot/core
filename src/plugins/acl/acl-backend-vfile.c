@@ -15,7 +15,6 @@
 #include <sys/stat.h>
 
 #define ACL_ESTALE_RETRY_COUNT NFS_ESTALE_RETRY_COUNT
-#define ACL_VFILE_DEFAULT_CACHE_SECS 30
 
 static struct acl_backend *acl_backend_vfile_alloc(void)
 {
@@ -31,6 +30,10 @@ static struct acl_backend *acl_backend_vfile_alloc(void)
 static int
 acl_backend_vfile_init(struct acl_backend *_backend, const char **error_r ATTR_UNUSED)
 {
+	struct acl_backend_vfile *backend =
+		container_of(_backend, struct acl_backend_vfile, backend);
+
+	backend->cache_secs = _backend->set->acl_cache_ttl;
 	_backend->cache =
 		acl_cache_init(_backend,
 			       sizeof(struct acl_backend_vfile_validity));
