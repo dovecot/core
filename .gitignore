@@ -10,6 +10,7 @@ Makefile.in
 *.gcda
 *.tmp
 .deps
+.dirstamp
 .libs
 .idea
 .directory
