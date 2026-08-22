@@ -370,8 +370,6 @@ int imapc_storage_client_create(struct mailbox_list *list,
 	params.override_dns_client_socket_path = *ns->user->set->base_dir == '\0' ? "" :
 		t_strconcat(ns->user->set->base_dir, "/",
 			    DNS_CLIENT_SOCKET_NAME, NULL);
-	params.override_rawlog_dir = mail_user_home_expand(ns->user,
-			imapc_set->imapc_rawlog_dir);
 
 	if ((imapc_set->parsed_features & IMAPC_FEATURE_SEND_ID) != 0)
 		params.session_id_prefix = ns->user->session_id;

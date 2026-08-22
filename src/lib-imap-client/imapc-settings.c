@@ -32,7 +32,7 @@ static const struct setting_define imapc_setting_defines[] = {
 	DEF(ENUM, imapc_ssl),
 
 	DEF(BOOLLIST, imapc_features),
-	DEF(STR, imapc_rawlog_dir),
+	DEF(PATH_DIR, imapc_rawlog_dir),
 	DEF(STR, imapc_list_prefix),
 	DEF_SECS(TIME, imapc_cmd_timeout),
 	DEF_SECS(TIME, imapc_max_idle_time),
