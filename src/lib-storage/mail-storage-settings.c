@@ -37,7 +37,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "layout_fs" },
 	{ .type = SET_FILTER_NAME, .key = "mail_ext_attachment",
 	  .required_setting = "fs", },
-	DEF(STR, mail_ext_attachment_path),
+	DEF(PATH_DIR, mail_ext_attachment_path),
 	DEF(STR_NOVARS_HIDDEN, mail_ext_attachment_hash),
 	DEF(SIZE, mail_ext_attachment_min_size),
 	DEF(BOOLLIST, mail_attachment_detection_options),
@@ -95,14 +95,14 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(STR_HIDDEN, mailbox_root_directory_name),
 	DEF(STR_HIDDEN, mailbox_subscriptions_filename),
 	DEF(STR, mail_driver),
-	DEF(STR, mail_path),
-	DEF(STR, mail_inbox_path),
-	DEF(STR, mail_index_path),
-	DEF(STR, mail_index_private_path),
-	DEF(STR_HIDDEN, mail_cache_path),
-	DEF(STR, mail_control_path),
-	DEF(STR, mail_volatile_path),
-	DEF(STR, mail_alt_path),
+	DEF(PATH_DIR, mail_path),
+	DEF(PATH_DIR, mail_inbox_path),
+	DEF(PATH_DIR, mail_index_path),
+	DEF(PATH_DIR, mail_index_private_path),
+	DEF(PATH_DIR_HIDDEN, mail_cache_path),
+	DEF(PATH_DIR, mail_control_path),
+	DEF(PATH_DIR, mail_volatile_path),
+	DEF(PATH_DIR, mail_alt_path),
 	DEF(BOOL_HIDDEN, mail_alt_check),
 	DEF(BOOL_HIDDEN, mail_full_filesystem_access),
 	DEF(BOOL, maildir_stat_dirs),
@@ -465,18 +465,6 @@ const struct setting_parser_info mail_user_setting_parser_info = {
 	.check_func = mail_user_settings_check,
 };
 
-static struct mail_user *mail_storage_event_get_user(struct event *event)
-{
-	struct mail_user *user;
-
-	for (; event != NULL; event = event_get_parent(event)) {
-		user = event_get_ptr(event, SETTINGS_EVENT_MAIL_USER);
-		if (user != NULL)
-			return user;
-	}
-	i_panic("mail_user not found from event");
-}
-
 static void
 fix_base_path(struct mail_user_settings *set, pool_t pool, const char **str)
 {
@@ -553,53 +541,11 @@ static bool
 mail_storage_settings_apply(struct event *event ATTR_UNUSED, void *_set,
 			    const char *key, const char **value,
 			    enum setting_apply_flags flags,
-			    const char **error_r)
+			    const char **error_r ATTR_UNUSED)
 {
 	struct mail_storage_settings *set = _set;
 	enum mailbox_list_path_type type;
 	const char *unexpanded_value = *value;
-
-	unsigned int key_len = strlen(key);
-	if (key_len > 5 && strcmp(key + key_len - 5, "_path") == 0) {
-		unsigned int value_len = strlen(*value);
-		bool truncate = FALSE;
-
-		/* drop trailing '/' and convert ~/ to %{home}/ */
-		if (value_len > 0 && (*value)[value_len-1] == '/')
-			truncate = TRUE;
-		if ((str_begins_with(*value, "~/") ||
-		     strcmp(*value, "~") == 0) &&
-		    (flags & SETTING_APPLY_FLAG_NO_EXPAND) == 0) {
-#ifndef CONFIG_BINARY
-			struct mail_user *user =
-				mail_storage_event_get_user(event);
-			const char *home;
-			if (mail_user_get_home(user, &home) > 0)
-				;
-			else if (user->nonexistent) {
-				/* Nonexistent shared user. Don't fail the user
-				   creation due to this. */
-				home = "";
-			} else {
-				*error_r = t_strdup_printf(
-					"%s setting used home directory (~/) but there is no "
-					"mail_home and userdb didn't return it", key);
-				return FALSE;
-			}
-			if (!truncate)
-				*value = p_strconcat(set->pool, home, *value + 1, NULL);
-			else T_BEGIN {
-				*value = p_strconcat(set->pool, home,
-					t_strndup(*value + 1, value_len - 2), NULL);
-			} T_END;
-#else
-			*error_r = "~/ expansion not supported in config binary";
-			return FALSE;
-#endif
-		} else if (truncate) {
-			*value = p_strndup(set->pool, *value, value_len - 1);
-		}
-	}
 
 	if (mailbox_list_get_path_setting(key, &unexpanded_value,
 					  set->pool, &type)) {
@@ -1103,7 +1049,9 @@ mail_storage_2nd_setting_reset_def(struct settings_instance *instance,
 		value = *v ? "yes" : "no";
 		break;
 	}
-	case SET_STR: {
+	case SET_STR:
+	case SET_PATH_FILE:
+	case SET_PATH_DIR: {
 		const char *const *v =
 			CONST_PTR_OFFSET(&mail_storage_default_settings,
 					 def->offset);
