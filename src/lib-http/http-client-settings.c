@@ -32,7 +32,7 @@ static const struct setting_define http_client_setting_defines[] = {
 	DEF(STR, proxy_username),
 	DEF(STR, proxy_password),
 
-	DEF(STR, rawlog_dir),
+	DEF(PATH_DIR, rawlog_dir),
 
 	DEF_MSECS(TIME_MSECS, max_idle_time),
 	DEF(UINT, max_parallel_connections),

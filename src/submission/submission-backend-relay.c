@@ -1096,10 +1096,7 @@ submission_backend_relay_create(
 	smtp_set.debug = event_want_debug(rbackend->backend.event);
 	smtp_set.event_parent = rbackend->backend.event;
 
-	if (set->rawlog_dir != NULL) {
-		smtp_set.rawlog_dir =
-			mail_user_home_expand(user, set->rawlog_dir);
-	}
+	smtp_set.rawlog_dir = set->rawlog_dir;
 
 	if (set->trusted) {
 		rbackend->trusted = TRUE;

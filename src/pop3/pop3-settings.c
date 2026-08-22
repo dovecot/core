@@ -62,7 +62,7 @@ const struct setting_keyvalue pop3_service_settings_defaults[] = {
 
 static const struct setting_define pop3_setting_defines[] = {
 	DEF(BOOL, verbose_proctitle),
-	DEF(STR, rawlog_dir),
+	DEF(PATH_DIR, rawlog_dir),
 
 	DEF(BOOL, pop3_no_flag_updates),
 	DEF(BOOL, pop3_enable_last),

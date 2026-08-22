@@ -62,7 +62,7 @@ const struct setting_keyvalue submission_service_settings_defaults[] = {
 
 static const struct setting_define submission_setting_defines[] = {
 	DEF(BOOL, verbose_proctitle),
-	DEF(STR, rawlog_dir),
+	DEF(PATH_DIR, rawlog_dir),
 
 	DEF(STR, hostname),
 
@@ -91,7 +91,7 @@ static const struct setting_define submission_setting_defines[] = {
 	DEF(ENUM, submission_relay_ssl),
 	DEF(BOOL, submission_relay_ssl_verify),
 
-	DEF(STR, submission_relay_rawlog_dir),
+	DEF(PATH_DIR, submission_relay_rawlog_dir),
 	DEF(TIME, submission_relay_max_idle_time),
 
 	DEF(TIME_MSECS, submission_relay_connect_timeout),

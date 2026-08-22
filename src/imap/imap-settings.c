@@ -70,7 +70,7 @@ const struct setting_keyvalue imap_service_settings_defaults[] = {
 static const struct setting_define imap_setting_defines[] = {
 	DEF(BOOL, verbose_proctitle),
 	DEF(BOOL, mailbox_list_index),
-	DEF(STR, rawlog_dir),
+	DEF(PATH_DIR, rawlog_dir),
 
 	DEF(SIZE_HIDDEN, imap_max_line_length),
 	DEF(TIME_HIDDEN, imap_idle_notify_interval),

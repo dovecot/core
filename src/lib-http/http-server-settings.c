@@ -19,7 +19,7 @@ http_server_settings_check(void *_set, pool_t pool, const char **error_r);
 static const struct setting_define http_server_setting_defines[] = {
 	SETTING_DEFINE_STRUCT_STR_HIDDEN("base_dir", base_dir,
 					 struct http_server_settings),
-	DEF(STR, rawlog_dir),
+	DEF(PATH_DIR, rawlog_dir),
 	DEF_MSECS(TIME_MSECS, max_client_idle_time),
 	DEF(UINT, max_pipelined_requests),
 
