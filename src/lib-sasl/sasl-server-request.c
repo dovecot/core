@@ -164,7 +164,7 @@ sasl_server_request_fail_on_nuls(struct sasl_server_request *req,
 
 	if ((mech->def->flags & SASL_MECH_SEC_ALLOW_NULS) != 0)
 		return FALSE;
-	if (memchr(data, '\0', data_size) != NULL) {
+	if (data_size > 0 && memchr(data, '\0', data_size) != NULL) {
 		e_debug(req->event, "Unexpected NUL in auth data");
 		sasl_server_request_failure(req->mech);
 		return TRUE;
