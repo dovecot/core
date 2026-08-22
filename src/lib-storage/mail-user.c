@@ -241,8 +241,7 @@ mail_user_var_expand_func_home(const char *data ATTR_UNUSED, const char **value_
 	struct mail_user *user = context;
 
 	if (mail_user_get_home(user, value_r) <= 0) {
-		*error_r = "Setting used home directory (%h) but there is no "
-			"mail_home and userdb didn't return it";
+		*error_r = "Setting used home directory (~/ or %{home}) but there is no mail_home and userdb didn't return it";
 		return -1;
 	}
 	return 0;
