@@ -235,6 +235,52 @@ static void test_mail_cache_fields(void)
 	test_end();
 }
 
+static void test_mail_cache_header_no_terminator(void)
+{
+	struct mail_cache_field cache_fields[] = {
+		{
+			.name = "header1",
+			.type = MAIL_CACHE_FIELD_HEADER,
+			.decision = MAIL_CACHE_DECISION_YES,
+		},
+	};
+	struct test_mail_cache_ctx ctx;
+	struct mail_index_transaction *trans;
+	struct mail_cache_view *cache_view;
+	struct mail_cache_transaction_ctx *cache_trans;
+	string_t *str = t_str_new(16);
+
+	test_begin("mail cache header without line number terminator");
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
+	mail_cache_register_fields(ctx.cache, cache_fields,
+				   N_ELEMENTS(cache_fields),
+				   unsafe_data_stack_pool);
+	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
+
+	cache_view = mail_cache_view_open(ctx.cache, ctx.view);
+	trans = mail_index_transaction_begin(ctx.view, 0);
+	cache_trans = mail_cache_get_transaction(cache_view, trans);
+	/* A header field's data is { uint32_t line_nums[], 0, "headers" }.
+	   Write a corrupted field whose size isn't a multiple of 4 and that
+	   has no 0 line-number terminator. */
+	const uint8_t bad[] = { 0xab, 0xcd, 0xef, 0x12, 0x34 };
+	mail_cache_add(cache_trans, 1, cache_fields[0].idx, bad, sizeof(bad));
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	test_mail_cache_view_sync(&ctx);
+
+	const unsigned int header_fields[] = { cache_fields[0].idx };
+	test_expect_error_string("Header field without line number terminator");
+	test_assert(mail_cache_lookup_headers(cache_view, str, 1, header_fields,
+					      N_ELEMENTS(header_fields)) == 1);
+	test_expect_no_more_errors();
+	test_assert(str_len(str) == 0);
+
+	mail_cache_view_close(&cache_view);
+	test_mail_cache_deinit(&ctx);
+	test_mail_index_delete();
+	test_end();
+}
+
 static void test_mail_cache_record_max_size_int(unsigned int field3_size)
 {
 	const struct mail_index_optimization_settings optimization_set = {
@@ -810,6 +856,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mail_cache_fields,
+		test_mail_cache_header_no_terminator,
 		test_mail_cache_record_max_size,
 		test_mail_cache_record_max_size2,
 		test_mail_cache_record_max_size3,
