@@ -241,6 +241,12 @@ mail_user_var_expand_func_home(const char *data ATTR_UNUSED, const char **value_
 	struct mail_user *user = context;
 
 	if (mail_user_get_home(user, value_r) <= 0) {
+		if (user->nonexistent) {
+			/* Nonexistent shared user. Don't fail settings
+			   expansion due to this. */
+			*value_r = "";
+			return 0;
+		}
 		*error_r = "Setting used home directory (~/ or %{home}) but there is no mail_home and userdb didn't return it";
 		return -1;
 	}
