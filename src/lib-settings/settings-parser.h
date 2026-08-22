@@ -30,6 +30,8 @@ enum setting_type {
 	SET_IN_PORT, /* internet port */
 	SET_STR, /* string with %variables */
 	SET_STR_NOVARS, /* string explicitly without %variables */
+	SET_PATH_FILE, /* file path: %variables and a leading ~/ are expanded */
+	SET_PATH_DIR, /* directory path: like SET_PATH_FILE, but a trailing / is also dropped */
 	SET_ENUM,
 	SET_FILE, /* string: <path> [<LF> file contents] */
 	SET_STRLIST, /* of type ARRAY_TYPE(const_string) */
@@ -52,6 +54,14 @@ enum setting_apply_flags {
 	/* SETTINGS_GET_FLAG_NO_EXPAND is being used. */
 	SETTING_APPLY_FLAG_NO_EXPAND = BIT(1),
 };
+
+/* Returns TRUE if the setting type behaves like SET_STR, i.e. it is a string
+   with %variables. */
+static inline bool setting_type_is_str_vars(enum setting_type type)
+{
+	return type == SET_STR || type == SET_PATH_FILE ||
+		type == SET_PATH_DIR;
+}
 
 #define SETTING_DEFINE_LIST_END { 0, SET_FLAG_EOL, NULL, 0, NULL, NULL, NULL }
 
@@ -98,6 +108,10 @@ struct setting_define {
 	SETTING_DEFINE_STRUCT_TYPE(SET_STR, 0, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_STR_NOVARS(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_STR_NOVARS, 0, const char *, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_PATH_FILE(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_PATH_FILE, 0, const char *, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_PATH_DIR(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_PATH_DIR, 0, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_ENUM(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_ENUM, 0, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_FILE(key, name, struct_name) \
@@ -127,6 +141,10 @@ struct setting_define {
 	SETTING_DEFINE_STRUCT_TYPE(SET_STR, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_STR_NOVARS_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_STR_NOVARS, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_PATH_FILE_HIDDEN(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_PATH_FILE, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_PATH_DIR_HIDDEN(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_PATH_DIR, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_ENUM_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_ENUM, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_FILE_HIDDEN(key, name, struct_name) \

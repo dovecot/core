@@ -832,6 +832,40 @@ settings_var_expand(struct settings_apply_ctx *ctx, unsigned int key_idx,
 		orig_value = file.path;
 	}
 
+	enum setting_type set_type = ctx->info->defines[key_idx].type;
+	if (set_type == SET_PATH_FILE || set_type == SET_PATH_DIR) {
+		/* Note: for these types *value points to the raw value both
+		   with and without a config-exported template. */
+		const char *path = *value;
+		size_t path_len = strlen(path);
+		bool path_changed = FALSE;
+
+		if (set_type == SET_PATH_DIR &&
+		    path_len > 0 && path[path_len-1] == '/') {
+			/* drop trailing '/' */
+			path = t_strndup(path, path_len - 1);
+			path_changed = TRUE;
+		}
+		if (str_begins_with(path, "~/") || strcmp(path, "~") == 0) {
+			/* Convert the ~/ prefix to the %{home} variable and
+			   let it be expanded like the other %variables. */
+			path = t_strconcat("%{home}", path + 1, NULL);
+			path_changed = TRUE;
+		}
+		if (path_changed) {
+			/* This replaces any config-exported var_expand
+			   template, since the template was compiled from the
+			   original value. */
+			orig_value = path;
+			if (!want_expand && strchr(path, '%') == NULL) {
+				/* no %variables - only the path changed */
+				*value = p_strdup(&ctx->mpool->pool, path);
+				return 1;
+			}
+			want_expand = TRUE;
+		}
+	}
+
 	/* Ensure we don't potentially have %{ values that we missed,
 	   and since this will be quite often called, just check for
 	   % and run it through var-expand.
@@ -960,7 +994,7 @@ settings_mmap_apply_defaults(struct settings_apply_ctx *ctx,
 
 		void *set = PTR_OFFSET(ctx->info->defaults,
 				       ctx->info->defines[key_idx].offset);
-		if (ctx->info->defines[key_idx].type != SET_STR)
+		if (!setting_type_is_str_vars(ctx->info->defines[key_idx].type))
 			continue; /* not needed for now */
 		const char *key = ctx->info->defines[key_idx].key;
 		const char *const *valuep = set;
@@ -2093,7 +2127,7 @@ settings_override_get_value(struct settings_apply_ctx *ctx,
 		key = t_strconcat(ctx->info->defines[key_idx].key, list, NULL);
 
 	if (!set->append ||
-	    ctx->info->defines[key_idx].type != SET_STR) {
+	    !setting_type_is_str_vars(ctx->info->defines[key_idx].type)) {
 		if (set->append && ctx->info->defines[key_idx].type != SET_FILTER_ARRAY)
 			*_key = t_strconcat(key, SETTINGS_APPEND_KEY_SUFFIX, NULL);
 		else
@@ -2476,6 +2510,38 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 				/* value was already strdup()ed */
 				value_needs_dup = FALSE;
 			}
+		} else if ((ctx->info->defines[key_idx].type == SET_PATH_FILE ||
+			    ctx->info->defines[key_idx].type == SET_PATH_DIR) &&
+			   (ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0) {
+			size_t value_len = strlen(value);
+			if (ctx->info->defines[key_idx].type == SET_PATH_DIR &&
+			    value_len > 0 && value[value_len-1] == '/') {
+				/* drop trailing '/' */
+				value = t_strndup(value, value_len - 1);
+				value_needs_dup = TRUE;
+			}
+			if (str_begins_with(value, "~/") ||
+			    strcmp(value, "~") == 0) {
+				/* Expand only the ~/ prefix to the %{home}
+				   variable's value. Unlike default settings,
+				   the rest of the override value is kept
+				   literal without %variable expansion. */
+				const char *error;
+				string_t *home = t_str_new(64);
+				if (var_expand(home, "%{home}", &ctx->var_params,
+					       &error) < 0) {
+					if ((ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
+						*error_r = t_strdup_printf(
+							"Failed to expand %s=%s home directory: %s",
+							key, value, error);
+						return -1;
+					}
+				} else {
+					str_append(home, value + 1);
+					value = str_c(home);
+					value_needs_dup = TRUE;
+				}
+			}
 		}
 		if (ctx->info->defines[key_idx].type == SET_FILTER_ARRAY &&
 		    set->type <= SETTINGS_OVERRIDE_TYPE_CLI_PARAM &&
@@ -2856,6 +2922,8 @@ settings_sort_filter_array(struct event *event, const char *field_name,
 		break;
 	case SET_STR:
 	case SET_STR_NOVARS:
+	case SET_PATH_FILE:
+	case SET_PATH_DIR:
 		item_type = _ITEM_TYPE_STR;
 		break;
 	case SET_ALIAS:

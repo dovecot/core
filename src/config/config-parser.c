@@ -714,6 +714,8 @@ settings_value_check(struct config_parser_context *ctx,
 		break;
 	}
 	case SET_STR:
+	case SET_PATH_FILE:
+	case SET_PATH_DIR:
 		if (settings_value_check_vars(ctx, value) < 0)
 			return -1;
 		break;
@@ -3482,7 +3484,7 @@ config_parser_add_info(struct config_parser_context *ctx,
 		}
 
 		i_assert((def->flags & SET_FLAG_EOL) == 0);
-		if (def->type == SET_STR ||
+		if (setting_type_is_str_vars(def->type) ||
 		    def->type == SET_STR_NOVARS ||
 		    def->type == SET_ENUM) {
 			const char *const *valuep =

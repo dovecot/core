@@ -144,6 +144,8 @@ bool config_export_type(string_t *str, const void *value,
 	}
 	case SET_STR:
 	case SET_STR_NOVARS:
+	case SET_PATH_FILE:
+	case SET_PATH_DIR:
 	case SET_FILE:
 	case SET_ENUM: {
 		const char *const *val = value;
@@ -282,6 +284,8 @@ settings_export(struct config_export_context *ctx,
 		case SET_IN_PORT:
 		case SET_STR:
 		case SET_STR_NOVARS:
+		case SET_PATH_FILE:
+		case SET_PATH_DIR:
 		case SET_ENUM: {
 			bool default_changed = FALSE;
 			const char *old_default = NULL;

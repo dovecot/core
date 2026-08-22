@@ -692,6 +692,8 @@ settings_parse(struct setting_parser_context *ctx,
 		break;
 	case SET_STR:
 	case SET_STR_NOVARS:
+	case SET_PATH_FILE:
+	case SET_PATH_DIR:
 		if (HAS_ANY_BITS(def->flags, SET_FLAG_UNICODE_NFC) &&
 		    value != set_value_unknown) {
 			if (uni_utf8_to_nfc(value, strlen(value), &value) < 0) {
@@ -1037,6 +1039,8 @@ unsigned int settings_hash(const struct setting_parser_info *info,
 		}
 		case SET_STR:
 		case SET_STR_NOVARS:
+		case SET_PATH_FILE:
+		case SET_PATH_DIR:
 		case SET_ENUM: {
 			const char *const *str = p;
 			crc = crc32_str_more(crc, *str);
@@ -1122,6 +1126,8 @@ bool settings_equal(const struct setting_parser_info *info,
 		}
 		case SET_STR:
 		case SET_STR_NOVARS:
+		case SET_PATH_FILE:
+		case SET_PATH_DIR:
 		case SET_ENUM:
 		case SET_FILE: {
 			const char *const *str1 = p1, *const *str2 = p2;

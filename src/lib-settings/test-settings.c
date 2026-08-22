@@ -523,6 +523,150 @@ static void test_settings_empty_default(void)
 	test_end();
 }
 
+struct test_path_settings {
+	pool_t pool;
+
+	const char *dir;
+	const char *file;
+	const char *str;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("test_path_"#name, name, \
+				     struct test_path_settings)
+
+static const struct setting_define test_path_setting_defines[] = {
+	DEF(PATH_DIR, dir),
+	DEF(PATH_FILE, file),
+	DEF(STR, str),
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct test_path_settings test_path_default_settings = {
+	.dir = "",
+	.file = "",
+	.str = "",
+};
+
+static const struct setting_parser_info test_path_setting_parser_info = {
+	.name = "test_path",
+
+	.defines = test_path_setting_defines,
+	.defaults = &test_path_default_settings,
+
+	.struct_size = sizeof(struct test_path_settings),
+	.pool_offset1 = 1 + offsetof(struct test_path_settings, pool),
+};
+
+static void
+test_settings_path_expand_scenario(const char *scenario_name,
+				   enum settings_override_type type,
+				   const char *value,
+				   const char *expected_dir,
+				   const char *expected_file,
+				   const char *expected_str)
+{
+	struct var_expand_table tab[] = {
+		{ .key = "home", .value = "/home/user" },
+		{ .key = "key1", .value = "key1_value" },
+		{ .key = NULL }
+	};
+	struct var_expand_params params = {
+		.table = tab,
+	};
+
+	test_begin(t_strdup_printf("settings_get - path expand %s",
+				   scenario_name));
+
+	struct settings_root *set_root = settings_root_init();
+	settings_root_override(set_root, "test_path_dir", value, type);
+	settings_root_override(set_root, "test_path_file", value, type);
+	settings_root_override(set_root, "test_path_str", value, type);
+
+	struct event *event = event_create(NULL);
+	event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
+	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, &params);
+
+	struct test_path_settings *set;
+	const char *error = NULL;
+	int ret = settings_get(event, &test_path_setting_parser_info, 0,
+			       &set, &error);
+	test_assert(ret == 0);
+	test_assert(error == NULL);
+	if (error != NULL)
+		i_error("%s", error);
+	if (ret == 0) {
+		test_assert_strcmp(set->dir, expected_dir);
+		test_assert_strcmp(set->file, expected_file);
+		test_assert_strcmp(set->str, expected_str);
+		settings_free(set);
+	}
+
+	event_unref(&event);
+	settings_root_deinit(&set_root);
+	test_end();
+}
+
+static void test_settings_path_expand(void)
+{
+	/* default settings get full %variable expansion, ~/ included */
+	test_settings_path_expand_scenario("default",
+		SETTINGS_OVERRIDE_TYPE_DEFAULT, "~/mail/%{key1}",
+		"/home/user/mail/key1_value", "/home/user/mail/key1_value",
+		"~/mail/key1_value");
+	test_settings_path_expand_scenario("default trailing slash",
+		SETTINGS_OVERRIDE_TYPE_DEFAULT, "~/mail/",
+		"/home/user/mail", "/home/user/mail/", "~/mail/");
+	test_settings_path_expand_scenario("default bare tilde",
+		SETTINGS_OVERRIDE_TYPE_DEFAULT, "~",
+		"/home/user", "/home/user", "~");
+	test_settings_path_expand_scenario("default absolute path",
+		SETTINGS_OVERRIDE_TYPE_DEFAULT, "/abs/path/",
+		"/abs/path", "/abs/path/", "/abs/path/");
+	/* -o and userdb overrides expand only the ~/ prefix, the rest of the
+	   value stays literal */
+	test_settings_path_expand_scenario("cli",
+		SETTINGS_OVERRIDE_TYPE_CLI_PARAM, "~/mail/%{key1}",
+		"/home/user/mail/%{key1}", "/home/user/mail/%{key1}",
+		"~/mail/%{key1}");
+	test_settings_path_expand_scenario("userdb",
+		SETTINGS_OVERRIDE_TYPE_USERDB, "~/mail/",
+		"/home/user/mail", "/home/user/mail/", "~/mail/");
+	test_settings_path_expand_scenario("userdb bare tilde",
+		SETTINGS_OVERRIDE_TYPE_USERDB, "~",
+		"/home/user", "/home/user", "~");
+}
+
+static void test_settings_path_expand_no_home(void)
+{
+	/* no home variable available - using ~/ must fail */
+	static const enum settings_override_type types[] = {
+		SETTINGS_OVERRIDE_TYPE_DEFAULT,
+		SETTINGS_OVERRIDE_TYPE_USERDB,
+	};
+
+	test_begin("settings_get - path expand without home");
+	for (unsigned int i = 0; i < N_ELEMENTS(types); i++) {
+		struct settings_root *set_root = settings_root_init();
+		settings_root_override(set_root, "test_path_dir", "~/mail",
+				       types[i]);
+
+		struct event *event = event_create(NULL);
+		event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
+
+		struct test_path_settings *set;
+		const char *error = NULL;
+		test_assert_idx(settings_get(event,
+			&test_path_setting_parser_info, 0, &set, &error) < 0, i);
+		test_assert_idx(error != NULL, i);
+
+		event_unref(&event);
+		settings_root_deinit(&set_root);
+	}
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -531,6 +675,8 @@ int main(void)
 		test_var_expand_strlist_key,
 		test_strlist_key_no_override_expand,
 		test_settings_empty_default,
+		test_settings_path_expand,
+		test_settings_path_expand_no_home,
 		NULL
 	};
 	return test_run(test_functions);
