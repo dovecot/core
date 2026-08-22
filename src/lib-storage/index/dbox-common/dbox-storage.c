@@ -95,12 +95,10 @@ int dbox_storage_create(struct mail_storage *_storage,
 	const char *error;
 
 	if (*set->mail_ext_attachment_path != '\0') {
-		const char *dir;
 		int ret;
 
-		dir = mail_user_home_expand(_storage->user,
-					    set->mail_ext_attachment_path);
-		storage->attachment_dir = p_strdup(_storage->pool, dir);
+		storage->attachment_dir = p_strdup(_storage->pool,
+						   set->mail_ext_attachment_path);
 
 		struct event *event = event_create(_storage->event);
 		settings_event_add_filter_name(event, "mail_ext_attachment");
