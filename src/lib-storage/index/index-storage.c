@@ -1259,6 +1259,21 @@ int index_storage_save_continue(struct mail_save_context *ctx,
 	} while (i_stream_read(input) > 0);
 
 	if (input->stream_errno != 0) {
+		if (!ctx->copying_or_moving &&
+		    (input->stream_errno == ECONNRESET ||
+		     input->stream_errno == ECONNABORTED)) {
+			/* The client reset the connection in the middle of
+			   sending the mail (e.g. IMAP APPEND). The caller
+			   logs the disconnection, so don't log an error about
+			   it here. The error string isn't sent anywhere,
+			   because the client is already gone. While copying
+			   the input comes from the storage instead (e.g. obox
+			   over HTTP), where a reset connection is a real
+			   error. */
+			mail_storage_set_error(storage, MAIL_ERROR_TEMP,
+					       "Client disconnected");
+			return -1;
+		}
 		mail_set_critical(ctx->dest_mail, "save: read(%s) failed: %s",
 			i_stream_get_name(input), i_stream_get_error(input));
 		return -1;
