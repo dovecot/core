@@ -1070,17 +1070,19 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 		if (ctx->failed) {
 			if (ctx->save_ctx != NULL)
 				mailbox_save_cancel(&ctx->save_ctx);
+		} else if (lit_offset != ctx->literal_size) {
+			/* client disconnected before it finished sending the
+			   whole message. Log the disconnection also when the
+			   saving failed because of it. */
+			ctx->failed = TRUE;
+			if (ctx->save_ctx != NULL)
+				mailbox_save_cancel(&ctx->save_ctx);
+			client_disconnect(client,
+				get_disconnect_reason(ctx, lit_offset));
 		} else if (ctx->save_ctx == NULL) {
 			/* failed above */
 			client_send_box_error(cmd, ctx->box);
 			ctx->failed = TRUE;
-		} else if (lit_offset != ctx->literal_size) {
-			/* client disconnected before it finished sending the
-			   whole message. */
-			ctx->failed = TRUE;
-			mailbox_save_cancel(&ctx->save_ctx);
-			client_disconnect(client,
-				get_disconnect_reason(ctx, lit_offset));
 		} else if (ctx->catenate) {
 			/* CATENATE isn't finished yet */
 		} else if (mailbox_save_finish(&ctx->save_ctx) < 0) {
