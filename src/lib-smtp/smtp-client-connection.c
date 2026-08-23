@@ -2415,8 +2415,15 @@ void smtp_client_connection_close(struct smtp_client_connection **_conn)
 		return;
 	conn->closed = TRUE;
 
-	smtp_client_connection_transactions_abort(conn);
-	smtp_client_connection_commands_abort(conn);
+	if (!conn->failing) {
+		smtp_client_connection_transactions_abort(conn);
+		smtp_client_connection_commands_abort(conn);
+	} else {
+		/* Called from a callback of the connection failure handling,
+		   which is still iterating the transactions and the commands.
+		   Aborting them here would free them from under it. They are
+		   all failed by the failure handling anyway. */
+	}
 	smtp_client_connection_disconnect(conn);
 
 	/* could have been created while already disconnected */

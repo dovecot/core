@@ -3846,6 +3846,175 @@ static void test_transaction_timeout(void)
 }
 
 /*
+ * Connection close in failure callback
+ */
+
+/* server */
+
+static int
+test_close_in_failure_input_line(struct server_connection *conn,
+				 const char *line)
+{
+	if (conn->state != SERVER_CONNECTION_STATE_RCPT_TO ||
+	    !str_begins_with(line, "RCPT "))
+		return 0;
+
+	/* Drop the connection while the RCPT commands are still pending. */
+	server_connection_deinit(&conn);
+	return -1;
+}
+
+static void test_server_close_in_failure(unsigned int index)
+{
+	test_server_input_line = test_close_in_failure_input_line;
+	test_server_run(index);
+}
+
+/* client */
+
+#define TEST_CLOSE_IN_FAILURE_RCPT_COUNT 2
+
+struct _close_in_failure {
+	struct smtp_client_connection *conn;
+	struct smtp_client_transaction *trans;
+
+	unsigned int rcpt_to_callbacks;
+
+	bool mail_from_callback:1;
+	bool data_callback:1;
+};
+
+static void
+test_client_close_in_failure_finished(struct _close_in_failure *ctx)
+{
+	if (debug)
+		i_debug("FINISHED");
+
+	ctx->trans = NULL;
+
+	test_assert(ctx->mail_from_callback);
+	test_assert_cmp(ctx->rcpt_to_callbacks, ==,
+			TEST_CLOSE_IN_FAILURE_RCPT_COUNT);
+	test_assert(ctx->data_callback);
+
+	if (ctx->conn != NULL)
+		smtp_client_connection_close(&ctx->conn);
+	i_free(ctx);
+	io_loop_stop(ioloop);
+}
+
+static void
+test_client_close_in_failure_mail_from_cb(const struct smtp_reply *reply,
+					  struct _close_in_failure *ctx)
+{
+	if (debug)
+		i_debug("MAIL FROM REPLY: %s", smtp_reply_log(reply));
+
+	test_assert(smtp_reply_is_success(reply));
+	ctx->mail_from_callback = TRUE;
+}
+
+static void
+test_client_close_in_failure_rcpt_to_cb(const struct smtp_reply *reply,
+					struct _close_in_failure *ctx)
+{
+	if (debug)
+		i_debug("RCPT TO REPLY: %s", smtp_reply_log(reply));
+
+	test_assert(reply->status == SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST);
+	ctx->rcpt_to_callbacks++;
+
+	if (ctx->conn == NULL)
+		return;
+
+	/* Close the connection while the transaction failure is still being
+	   handled. The commands that it is still going to fail must not be
+	   freed from under it. */
+	smtp_client_connection_close(&ctx->conn);
+}
+
+static void
+test_client_close_in_failure_rcpt_data_cb(
+	const struct smtp_reply *reply ATTR_UNUSED,
+	struct _close_in_failure *ctx ATTR_UNUSED)
+{
+	/* Not reached: the recipient was never accepted. */
+	test_assert(FALSE);
+}
+
+static void
+test_client_close_in_failure_data_cb(const struct smtp_reply *reply,
+				     struct _close_in_failure *ctx)
+{
+	if (debug)
+		i_debug("DATA REPLY: %s", smtp_reply_log(reply));
+
+	test_assert(reply->status == SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST);
+	ctx->data_callback = TRUE;
+}
+
+static bool
+test_client_close_in_failure(const struct smtp_client_settings *client_set)
+{
+	static const char *message =
+		"From: stephan@example.com\r\n"
+		"To: timo@example.com\r\n"
+		"Subject: Frop!\r\n"
+		"\r\n"
+		"Frop!\r\n";
+	struct _close_in_failure *ctx;
+	struct istream *input;
+	unsigned int i;
+
+	ctx = i_new(struct _close_in_failure, 1);
+
+	smtp_client = smtp_client_init(client_set);
+
+	ctx->conn = smtp_client_connection_create(
+		smtp_client, SMTP_PROTOCOL_SMTP,
+		net_ip2addr(&bind_ip), bind_ports[0],
+		SMTP_CLIENT_SSL_MODE_NONE, NULL);
+	ctx->trans = smtp_client_transaction_create(
+		ctx->conn, &((struct smtp_address){
+			.localpart = "sender",
+			.domain = "example.com"}), NULL, 0,
+		test_client_close_in_failure_finished, ctx);
+	smtp_client_transaction_start(
+		ctx->trans, test_client_close_in_failure_mail_from_cb, ctx);
+	for (i = 0; i < TEST_CLOSE_IN_FAILURE_RCPT_COUNT; i++) {
+		smtp_client_transaction_add_rcpt(
+			ctx->trans, &((struct smtp_address){
+				.localpart = t_strdup_printf("rcpt%u", i),
+				.domain = "example.com"}), NULL,
+			test_client_close_in_failure_rcpt_to_cb,
+			test_client_close_in_failure_rcpt_data_cb, ctx);
+	}
+
+	input = i_stream_create_from_data(message, strlen(message));
+	i_stream_set_name(input, "message");
+	smtp_client_transaction_send(
+		ctx->trans, input, test_client_close_in_failure_data_cb, ctx);
+	i_stream_unref(&input);
+
+	return TRUE;
+}
+
+/* test */
+
+static void test_close_in_failure(void)
+{
+	struct smtp_client_settings smtp_client_set;
+
+	test_client_defaults(&smtp_client_set, NULL);
+
+	test_begin("connection close in failure callback");
+	test_run_client_server(&smtp_client_set,
+			       test_client_close_in_failure,
+			       test_server_close_in_failure, 1, NULL);
+	test_end();
+}
+
+/*
  * Invalid SSL certificate
  */
 /* dns */
@@ -4016,6 +4185,7 @@ static void (*const test_functions[])(void) = {
 	test_dns_lookup_failure,
 	test_authentication,
 	test_transaction_timeout,
+	test_close_in_failure,
 	test_invalid_ssl_certificate,
 	NULL
 };
