@@ -1205,8 +1205,8 @@ index_mail_parse_body_finish(struct index_mail *mail,
 		   ECONNRESET/ECONNABORTED mean that the connection was
 		   reset instead of being closed cleanly. Ignore it only
 		   while saving has already failed, because then the stream
-		   is the client's (e.g. IMAP APPEND, LMTP) and the caller
-		   logs the disconnection. When reading a mail the stream
+		   is the client's (e.g. IMAP APPEND) and the caller logs
+		   the disconnection. When reading a mail the stream
 		   comes from the storage instead (e.g. obox over HTTP),
 		   where a reset connection is a real error. */
 		if (parser_input->stream_errno == 0)
