@@ -592,9 +592,12 @@ db_oauth2_token_in_scope(struct db_oauth2_request *req,
 			const char *const *entries = has_scope ?
 				t_strsplit_spaces(value, " ") :
 				t_strsplit_tabescaped(value);
+			found = TRUE;
 			array_foreach_elem(&req->db->set->scope, wanted_scope) {
-				if ((found = str_array_find(entries, wanted_scope)))
+				if (!str_array_find(entries, wanted_scope)) {
+					found = FALSE;
 					break;
+				}
 			}
 		}
 		if (!found) {
