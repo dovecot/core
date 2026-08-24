@@ -821,23 +821,81 @@ patterns_match_inbox(struct mail_namespace *namespaces,
 	return imap_match(glob, "INBOX") == IMAP_MATCH_YES;
 }
 
+/* mailbox_list_mailbox() returning 0 for INBOX is ambiguous: it means either
+   that INBOX genuinely doesn't exist yet (a normal, autocreatable mailbox) or
+   that ACL denied lookup rights on it. The latter can happen even though this
+   is the mail user's own INBOX in a private namespace: the ACLs are evaluated
+   for acl_user, which defaults to %{master_user}, so whenever someone logs in
+   through a master user the ACL backend doesn't consider them the owner.
+   acl_mailbox_exists() already knows the answer, but mailbox_list_mailbox()
+   throws it away by freeing the mailbox it probed. Redo the same probe here
+   and read box->acl_no_lookup_right before freeing it, so the two cases can
+   be told apart. The mailbox is freshly allocated and nothing but
+   mailbox_exists() is called on it, so acl_mailbox_exists() is the only thing
+   that can have set the flag. Returns the same convention as
+   mailbox_exists(): -1 on error, 0 on success with *denied_r set. */
+static int inbox_denied_by_acl(struct mail_namespace *ns, bool *denied_r)
+{
+	struct mailbox *box;
+	enum mailbox_existence existence;
+	int ret;
+
+	box = mailbox_alloc(ns->list, "INBOX", 0);
+	ret = mailbox_exists(box, FALSE, &existence);
+	*denied_r = box->acl_no_lookup_right;
+	if (ret < 0) {
+		enum mail_error error;
+		const char *errstr = mailbox_get_last_error(box, &error);
+		mailbox_list_set_error(ns->list, error, errstr);
+	}
+	mailbox_free(&box);
+	return ret;
+}
+
+/* Look up INBOX's own flags into ctx->inbox_info. If INBOX turns out to be
+   hidden by ACLs rather than simply uncreated, clear ctx->inbox_list so that
+   the caller doesn't force INBOX into the listing. Returns 0 on success, -1
+   on error. */
 static int inbox_info_init(struct ns_list_iterate_context *ctx,
 			   struct mail_namespace *namespaces)
 {
 	enum mailbox_info_flags flags;
+	bool denied;
 	int ret;
 
 	ctx->inbox_info.vname = "INBOX";
 	ctx->inbox_info.ns = mail_namespace_find_inbox(namespaces);
 	i_assert(ctx->inbox_info.ns != NULL);
 
-	if ((ret = mailbox_list_mailbox(ctx->inbox_info.ns->list, "INBOX", &flags)) > 0)
+	ret = mailbox_list_mailbox(ctx->inbox_info.ns->list, "INBOX", &flags);
+	if (ret > 0) {
 		ctx->inbox_info.flags = flags;
-	else if (ret < 0) {
-		ctx->cur_ns = ctx->inbox_info.ns;
-		mailbox_list_ns_iter_failed(ctx);
+		return 0;
 	}
-	return ret;
+	if (ret == 0) {
+		if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RAW_LIST) != 0) {
+			/* RAW_LIST means ACLs are deliberately ignored - it's
+			   what the ACL plugin itself lists with - so don't
+			   let them hide INBOX either. */
+			return 0;
+		}
+		ret = inbox_denied_by_acl(ctx->inbox_info.ns, &denied);
+		if (ret == 0) {
+			if (denied) {
+				/* INBOX doesn't exist, but not because it's
+				   simply uncreated: ACL denied lookup rights
+				   on it. Don't force it into the listing. */
+				ctx->inbox_list = FALSE;
+			}
+			return 0;
+		}
+	}
+	/* Either lookup failed, or the ACL re-probe did (e.g. an I/O error
+	   against dovecot-acl). Fail the iteration rather than fall back to
+	   listing a possibly denied INBOX. */
+	ctx->cur_ns = ctx->inbox_info.ns;
+	mailbox_list_ns_iter_failed(ctx);
+	return -1;
 }
 
 struct mailbox_list_iterate_context *

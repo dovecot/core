@@ -488,11 +488,12 @@ static int acl_mailbox_exists(struct mailbox *box, bool auto_boxes,
 		return -1;
 	}
 
-	/* for now this is used only by IMAP SUBSCRIBE. we'll intentionally
-	   violate RFC 4314 here, because it says SUBSCRIBE should succeed only
-	   when mailbox has 'l' right. But there's no point in not allowing
-	   a subscribe for a mailbox that can be selected anyway. Just the
-	   opposite: subscribing to such mailboxes is a very useful feature. */
+	/* Any one of the LOOKUP, READ and INSERT rights is enough to answer
+	   that the mailbox exists. This is intentionally wider than RFC 4314,
+	   which grants visibility only with the 'l' right: the rule comes from
+	   IMAP SUBSCRIBE, where there's no point in refusing to subscribe to a
+	   mailbox that can be selected anyway - just the opposite, subscribing
+	   to such mailboxes is a very useful feature. */
 	for (i = 0; rights[i] != NULL; i++) {
 		if (strcmp(rights[i], MAIL_ACL_LOOKUP) == 0 ||
 		    strcmp(rights[i], MAIL_ACL_READ) == 0 ||
@@ -500,6 +501,7 @@ static int acl_mailbox_exists(struct mailbox *box, bool auto_boxes,
 			return abox->module_ctx.super.exists(box, auto_boxes,
 							     existence_r);
 	}
+	box->acl_no_lookup_right = TRUE;
 	*existence_r = MAILBOX_EXISTENCE_NONE;
 	return 0;
 }
