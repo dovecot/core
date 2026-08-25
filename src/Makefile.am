@@ -15,6 +15,7 @@ endif
 LIBDOVECOT_SUBDIRS = \
 	lib-test \
 	lib \
+	lib-url \
 	lib-regex \
 	lib-var-expand \
 	lib-dns \

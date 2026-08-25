@@ -23,6 +23,7 @@ libdovecot_modules = [
   'smtp',
   'ssl_iostream',
   'test',
+  'url',
   'var_expand',
 ]
 

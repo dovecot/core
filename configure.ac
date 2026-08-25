@@ -608,6 +608,7 @@ LIBDOVECOT_LA_LIBS='\
 	$(top_builddir)/src/lib-dcrypt/libdcrypt.la \
 	$(top_builddir)/src/lib-json/libjson.la \
 	$(top_builddir)/src/lib-regex/libdregex.la \
+	$(top_builddir)/src/lib-url/liburl.la \
 	$(top_builddir)/src/lib-test/libtest.la \
 	$(top_builddir)/src/lib/liblib.la'
 # This is used in dovecot-config, which is grepped in dovecot.m4,
@@ -856,6 +857,7 @@ doc/index.html
 doc/dovecot.conf
 src/Makefile
 src/lib/Makefile
+src/lib-url/Makefile
 src/lib-sql/Makefile
 src/lib-auth/Makefile
 src/lib-auth-client/Makefile
