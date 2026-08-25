@@ -600,7 +600,7 @@ static void imap_client_io_deactivate_user(struct imap_client *client ATTR_UNUSE
 }
 
 static const char *const *
-userdb_fields_get_alt_usernames(char *const *userdb_fields)
+userdb_fields_get_alt_usernames(const char *const *userdb_fields)
 {
 	ARRAY_TYPE(const_string) alt_usernames;
 	t_array_init(&alt_usernames, 4);
@@ -706,12 +706,14 @@ imap_client_create(int fd, const struct imap_client_state *state)
 		.ip = client->state.remote_ip,
 	};
 	T_BEGIN {
-		char **fields = p_strsplit_tabescaped(unsafe_data_stack_pool,
-						      client->state.userdb_fields);
+		/* the imap process sends userdb_fields only if it has any */
+		const char *const *fields = client->state.userdb_fields == NULL ?
+			empty_str_array :
+			t_strsplit_tabescaped(client->state.userdb_fields);
 		const struct var_expand_params params = {
 			.table = imap_client_get_var_expand_table(client),
 			.providers = funcs,
-			.context = fields,
+			.context = (void *)fields,
 			.event = client->event,
 		};
 		string_t *str;
