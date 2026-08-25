@@ -43,6 +43,12 @@ static void imap_hibernate_client_destroy(struct connection *conn)
 		imap_client_set_destroy_ref(client->imap_client, NULL);
 		if (client->finished)
 			imap_client_create_finish(client->imap_client);
+		else {
+			/* The imap process disconnected before it had sent
+			   all of the fds. The client can't be hibernated. */
+			imap_client_destroy(&client->imap_client,
+				"Hibernation failed: imap process disconnected too early");
+		}
 	}
 	connection_deinit(conn);
 	i_free(conn);
