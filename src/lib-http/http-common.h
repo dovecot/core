@@ -1,7 +1,6 @@
 #ifndef HTTP_COMMON_H
 #define HTTP_COMMON_H
 
-#define HTTP_DEFAULT_PORT 80
-#define HTTPS_DEFAULT_PORT 443
+#include "http-url.h"
 
 #endif
