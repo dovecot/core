@@ -378,7 +378,7 @@ static void test_str_to_float(void)
 		/* strtof()/strtod() consume nothing here, so endp stays at str */
 		{ "", -1, 0 },
 	};
-	test_begin("str_to_int");
+	test_begin("str_to_float");
 	for (i = 0; i < N_ELEMENTS(tests); ++i) {
 		float val = 1234.0;
 		double val2 = 1234.0;
