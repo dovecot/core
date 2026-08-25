@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "version.h"
+#include "settings.h"
 #include "settings-history.h"
 #include "config-parser-private.h"
 #include "old-set-parser.h"
@@ -61,21 +62,71 @@ static bool old_settings_handle_value(struct config_parser_context *ctx,
 	return FALSE;
 }
 
+static const char *
+old_settings_cur_filter_name(struct config_parser_context *ctx)
+{
+	const char *filter_name =
+		ctx->cur_section->filter_parser->filter.filter_name;
+
+	if (filter_name == NULL)
+		return NULL;
+	if (filter_name[0] == SETTINGS_INCLUDE_GROUP_PREFIX)
+		filter_name++;
+	return filter_name;
+}
+
+static const char *
+old_settings_rename_new_key(struct config_parser_context *ctx,
+			    const char *new_key)
+{
+	const char *filter_name = old_settings_cur_filter_name(ctx);
+	const char *suffix;
+
+	/* The new key may have a filter prefix, e.g.
+	   imapc/client_auth_authzid. If the setting already is inside that
+	   filter, drop the prefix - otherwise a nested filter with the same
+	   name would be created. */
+	if (filter_name != NULL &&
+	    str_begins(new_key, t_strconcat(filter_name, "/", NULL), &suffix))
+		return suffix;
+	return new_key;
+}
+
 static void old_settings_handle_rename(struct config_parser_context *ctx,
 				       struct config_line *line)
 {
 	struct settings_history *history = settings_history_get();
 	const struct setting_history_rename *rename;
+	const char *filter_name = old_settings_cur_filter_name(ctx);
+	const char *old_keys[3];
+	unsigned int i, old_keys_count = 0;
+
+	/* The setting may be written with its full name, but inside a named
+	   filter it may also be written without the filter name prefix, e.g.
+	   imapc { user = .. } instead of imapc_user. Check the same key
+	   candidates as the autoprefixing in config_parser_apply_line(). */
+	old_keys[old_keys_count++] = line->key;
+	if (filter_name != NULL) {
+		old_keys[old_keys_count++] = t_strdup_printf("%s_%s",
+			t_str_replace(filter_name, '/', '_'), line->key);
+		if (strchr(filter_name, '/') != NULL) {
+			old_keys[old_keys_count++] = t_strdup_printf("%s_%s",
+				t_strcut(filter_name, '/'), line->key);
+		}
+	}
 
 	array_foreach(&history->renames, rename) {
 		if (version_cmp(rename->version,
 				ctx->dovecot_config_version) <= 0)
 			break;
-		if (strcmp(rename->old_key, line->key) == 0) {
+		for (i = 0; i < old_keys_count; i++) {
+			if (strcmp(rename->old_key, old_keys[i]) != 0)
+				continue;
 			obsolete(ctx, "%s has been renamed to %s",
 				 rename->old_key, rename->new_key);
-			line->key = rename->new_key;
-			break;
+			line->key = old_settings_rename_new_key(ctx,
+								rename->new_key);
+			return;
 		}
 	}
 }
