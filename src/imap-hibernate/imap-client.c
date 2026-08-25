@@ -725,6 +725,9 @@ imap_client_create(int fd, const struct imap_client_state *state)
 				state->mail_log_prefix, error);
 		}
 		client->log_prefix = p_strdup(pool, str_c(str));
+		/* the ioloop context isn't active for all of the logging,
+		   e.g. when the client is kicked before it's finished */
+		event_replace_log_prefix(client->event, client->log_prefix);
 		anvil_session.alt_usernames =
 			userdb_fields_get_alt_usernames(fields);
 		if (master_service_anvil_connect(master_service, &anvil_session,
@@ -886,7 +889,6 @@ static void imap_clients_unhibernate(void *context ATTR_UNUSED)
 
 static void imap_client_kick(struct imap_client *client, bool shutdown)
 {
-	imap_client_io_activate_user(client);
 	o_stream_nsend_str(client->output,
 			   "* BYE "MASTER_SERVICE_SHUTTING_DOWN_MSG".\r\n");
 	imap_client_destroy(&client, shutdown ?
