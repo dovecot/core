@@ -76,6 +76,9 @@ struct imap_client {
 	struct timeout *to_keepalive;
 	struct imap_master_connection *master_conn;
 	struct ioloop_context *ioloop_ctx;
+	/* Points to imap_hibernate_client.imap_client. Set to NULL when this
+	   client is destroyed. */
+	struct imap_client **destroy_ref;
 	const char *log_prefix;
 	unsigned int next_read_threshold;
 	bool bad_done, idle_done;
@@ -758,6 +761,8 @@ void imap_client_destroy(struct imap_client **_client, const char *reason)
 	struct imap_client *client = *_client;
 
 	*_client = NULL;
+	if (client->destroy_ref != NULL)
+		*client->destroy_ref = NULL;
 
 	if (reason != NULL) {
 		/* the client input/output bytes don't count the DONE+IDLE by
@@ -803,6 +808,12 @@ void imap_client_destroy(struct imap_client **_client, const char *reason)
 	pool_unref(&client->pool);
 
 	master_service_client_connection_destroyed(master_service);
+}
+
+void imap_client_set_destroy_ref(struct imap_client *client,
+				 struct imap_client **ref)
+{
+	client->destroy_ref = ref;
 }
 
 void imap_client_add_notify_fd(struct imap_client *client, int fd)

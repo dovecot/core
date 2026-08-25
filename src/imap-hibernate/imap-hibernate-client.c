@@ -39,8 +39,11 @@ static void imap_hibernate_client_destroy(struct connection *conn)
 
 	if (!client->imap_client_created)
 		master_service_client_connection_destroyed(master_service);
-	else if (client->finished)
-		imap_client_create_finish(client->imap_client);
+	else if (client->imap_client != NULL) {
+		imap_client_set_destroy_ref(client->imap_client, NULL);
+		if (client->finished)
+			imap_client_create_finish(client->imap_client);
+	}
 	connection_deinit(conn);
 	i_free(conn);
 }
@@ -264,6 +267,9 @@ imap_hibernate_client_input_args(struct connection *conn,
 		return -1;
 	}
 	client->imap_client = imap_client_create(fd, &state);
+	/* the client can be destroyed already before it's finished, e.g. if
+	   the user is kicked. make sure our pointer is set to NULL then. */
+	imap_client_set_destroy_ref(client->imap_client, &client->imap_client);
 	/* the transferred imap client fd is now counted as the client. */
 	client->imap_client_created = TRUE;
 	return state.have_notify_fd ? 0 : 1;
