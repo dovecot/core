@@ -8,7 +8,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-dcrypt \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-settings \
-	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-url \
 	-I$(top_srcdir)/src/lib-var-expand
 
 noinst_LTLIBRARIES=liboauth2.la
@@ -49,6 +49,7 @@ test_libs = \
 	../lib-var-expand/libvar_expand.la \
 	../lib-regex/libdregex.la \
 	../lib-test/libtest.la \
+	../lib-url/liburl.la \
 	../lib/liblib.la
 test_deps = \
 	$(noinst_LTLIBRARIES) \
@@ -67,6 +68,7 @@ test_deps = \
 	../lib-var-expand/libvar_expand.la \
 	../lib-regex/libdregex.la \
 	../lib-test/libtest.la \
+	../lib-url/liburl.la \
 	../lib/liblib.la
 
 test_oauth2_json_SOURCES = test-oauth2-json.c

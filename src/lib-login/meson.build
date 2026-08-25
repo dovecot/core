@@ -1,5 +1,6 @@
 deps = [
   dep_lib,
+  dep_url,
   dep_test,
   dep_auth_client,
   dep_master,

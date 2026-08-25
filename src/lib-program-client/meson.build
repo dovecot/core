@@ -1,5 +1,6 @@
 deps = [
   dep_lib,
+  dep_url,
   dep_settings,
   dep_dns_client,
   dep_mail,

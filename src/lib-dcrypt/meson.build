@@ -1,4 +1,4 @@
-deps = [dep_lib, dep_json, dep_ssl_iostream]
+deps = [dep_lib, dep_url, dep_json, dep_ssl_iostream]
 
 lib_dcrypt = static_library(
   'dcrypt',

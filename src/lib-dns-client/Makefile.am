@@ -4,6 +4,7 @@ noinst_LTLIBRARIES = libdns-client.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-url \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-var-expand \
 	-I$(top_srcdir)/src/lib-test \
@@ -28,6 +29,7 @@ test_libs = \
 	../lib-test/libtest.la \
 	../lib-var-expand/libvar_expand.la \
 	../lib-regex/libdregex.la \
+	../lib-url/liburl.la \
 	../lib/liblib.la
 
 test_dns_lookup_SOURCES = test-dns-lookup.c

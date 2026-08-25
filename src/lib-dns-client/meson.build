@@ -1,4 +1,4 @@
-deps = [dep_lib, dep_settings]
+deps = [dep_lib, dep_url, dep_settings]
 
 lib_dns_client = static_library(
   'dns-client',

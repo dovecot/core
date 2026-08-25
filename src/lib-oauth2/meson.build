@@ -1,4 +1,4 @@
-deps = [dep_lib, dep_settings, dep_json, dep_var_expand, dep_dcrypt, dep_dict, dep_http]
+deps = [dep_lib, dep_url, dep_settings, dep_json, dep_var_expand, dep_dcrypt, dep_dict, dep_http]
 
 lib_oauth2 = static_library(
   'oauth2',

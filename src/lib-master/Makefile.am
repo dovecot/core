@@ -62,6 +62,7 @@ test_deps = \
 	../lib-test/libtest.la \
 	../lib-dns-client/libdns-client.la  \
 	../lib-dns/libdns.la \
+	../lib-url/liburl.la \
 	../lib/liblib.la
 
 test_libs = \

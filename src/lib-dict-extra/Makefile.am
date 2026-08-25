@@ -36,6 +36,7 @@ test_libs = \
 	../lib-dns/libdns.la \
 	../lib-var-expand/libvar_expand.la \
 	../lib-regex/libdregex.la \
+	../lib-url/liburl.la \
 	../lib/liblib.la
 
 test_dict_fs_SOURCES = test-dict-fs.c

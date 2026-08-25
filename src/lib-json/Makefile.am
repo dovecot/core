@@ -4,7 +4,8 @@ noinst_LTLIBRARIES = libjson.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
-	-I$(top_srcdir)/src/lib-test
+	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-url
 
 libjson_la_SOURCES = \
 	json-syntax.c \
@@ -67,6 +68,7 @@ json_format_SOURCES = \
 json_format_LDADD = \
 	libjson.la \
 	../lib-charset/libcharset.la \
+	../lib-url/liburl.la \
 	../lib/liblib.la \
 	$(LIBDOVECOT_TEST_LIBS)
 
@@ -74,12 +76,14 @@ test_libs = \
 	libjson.la \
 	../lib-test/libtest.la \
 	../lib-charset/libcharset.la \
+	../lib-url/liburl.la \
 	../lib/liblib.la \
 	$(LIBDOVECOT_TEST_LIBS)
 test_deps = \
 	libjson.la \
 	../lib-test/libtest.la \
 	../lib-charset/libcharset.la \
+	../lib-url/liburl.la \
 	../lib/liblib.la
 
 test_json_parser_SOURCES = \

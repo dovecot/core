@@ -1,4 +1,4 @@
-deps = [dep_lib, dep_settings, dep_var_expand, ext_ssl]
+deps = [dep_lib, dep_url, dep_settings, dep_var_expand, ext_ssl]
 
 defines = [f'-DMODULE_DIR="@dovecot_moduledir@"']
 

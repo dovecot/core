@@ -1,4 +1,4 @@
-deps = [dep_lib, dep_settings]
+deps = [dep_lib, dep_url, dep_settings]
 
 lib_dict = static_library(
   'dict',

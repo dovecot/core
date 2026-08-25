@@ -1,4 +1,4 @@
-deps = [dep_lib, dep_auth, dep_dns_client, dep_settings, dep_ssl_iostream, dep_var_expand]
+deps = [dep_lib, dep_url, dep_auth, dep_dns_client, dep_settings, dep_ssl_iostream, dep_var_expand]
 
 lib_master = static_library(
   'master',

@@ -1,4 +1,4 @@
-deps = [dep_lib, ext_math]
+deps = [dep_lib, dep_url, ext_math]
 
 lib_json = static_library(
   'json',

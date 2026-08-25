@@ -1,4 +1,4 @@
-deps = [dep_lib, dep_test, dep_settings, dep_master, dep_var_expand, dep_sasl]
+deps = [dep_lib, dep_url, dep_test, dep_settings, dep_master, dep_var_expand, dep_sasl]
 
 lib_auth_client = static_library(
   'auth-client',

@@ -6,7 +6,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-charset \
-	-I$(top_srcdir)/src/lib-mail
+	-I$(top_srcdir)/src/lib-mail \
+	-I$(top_srcdir)/src/lib-url
 
 libimap_la_SOURCES = \
 	imap-arg.c \
@@ -60,6 +61,7 @@ test_programs = \
 test_libs = \
 	../lib-mail/libmail.la \
 	../lib-charset/libcharset.la \
+	../lib-url/liburl.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
 	$(LIBDOVECOT_TEST_LIBS)
