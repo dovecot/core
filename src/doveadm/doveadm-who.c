@@ -7,14 +7,19 @@
 #include "wildcard-match.h"
 #include "hash.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "strescape.h"
 #include "version.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
 #include "doveadm-who.h"
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
+
+/* Max length of a process title. Longer ones are truncated. */
+#define WHO_PROCESS_TITLE_MAX_LEN 1024
 
 struct who_user {
 	const char *username;
@@ -401,6 +406,53 @@ static void who_print(struct who_context *ctx)
 	hash_table_iterate_deinit(&iter);
 }
 
+/* Returns the process title, i.e. what ps(1) would show for the process, or
+   NULL if it can't be read. */
+static const char *who_process_title_get(pid_t pid, const char **error_r)
+{
+	const char *path = t_strdup_printf("/proc/%ld/cmdline", (long)pid);
+	/* Read one byte more than the limit, so that a too long title is
+	   marked as truncated by str_sanitize() below. */
+	char buf[WHO_PROCESS_TITLE_MAX_LEN + 1];
+	ssize_t ret;
+	size_t len;
+	int fd;
+
+	fd = open(path, O_RDONLY);
+	if (fd == -1) {
+		*error_r = t_strdup_printf("open(%s) failed: %m", path);
+		return NULL;
+	}
+	ret = read(fd, buf, sizeof(buf));
+	if (ret < 0)
+		*error_r = t_strdup_printf("read(%s) failed: %m", path);
+	i_close_fd(&fd);
+	if (ret < 0)
+		return NULL;
+
+	/* @UNSAFE: The arguments are NUL-separated. process_title_set()
+	   terminates the title with two NULs, and whatever follows them is
+	   either padding or leftovers of the original argv, so cut there.
+	   Then drop the trailing NUL and turn the remaining separators into
+	   spaces. */
+	len = (size_t)ret;
+	for (size_t i = 0; i + 1 < len; i++) {
+		if (buf[i] == '\0' && buf[i+1] == '\0') {
+			len = i;
+			break;
+		}
+	}
+	while (len > 0 && buf[len-1] == '\0')
+		len--;
+	for (size_t i = 0; i < len; i++) {
+		if (buf[i] == '\0')
+			buf[i] = ' ';
+	}
+	/* Make sure the title stays on a single line - it ends up in log
+	   messages. */
+	return str_sanitize(t_strndup(buf, len), WHO_PROCESS_TITLE_MAX_LEN);
+}
+
 bool who_line_filter_match(const struct who_line *line,
 			   const struct who_filter *filter)
 {
@@ -455,11 +507,53 @@ who_print_line(struct who_context *ctx, struct doveadm_who_iter *iter,
 	doveadm_print_empty(iter->alt_username_fields_count - alt_idx);
 }
 
+static void
+who_print_processes(struct who_context *ctx, struct doveadm_who_iter *iter)
+{
+	HASH_TABLE(void *, void *) seen_pids;
+	struct who_line line;
+
+	doveadm_print_header("username", "username", 0);
+	doveadm_print_header("service", "service", 0);
+	doveadm_print_header_simple("pid");
+	doveadm_print_header("title", "title",
+			     DOVEADM_PRINT_HEADER_FLAG_EXPAND);
+
+	hash_table_create_direct(&seen_pids, ctx->pool, 0);
+	if (doveadm_who_iter_init_filter(iter, &ctx->filter)) {
+		while (doveadm_who_iter_next(iter, &line)) {
+			if (!who_line_filter_match(&line, &ctx->filter))
+				continue;
+			/* A process can have multiple connections. Show it
+			   only once. */
+			if (hash_table_lookup(seen_pids,
+					      POINTER_CAST(line.pid)) != NULL)
+				continue;
+			hash_table_insert(seen_pids, POINTER_CAST(line.pid),
+					  POINTER_CAST(1));
+			T_BEGIN {
+				const char *error = NULL, *title;
+
+				doveadm_print(line.username);
+				doveadm_print(line.service);
+				doveadm_print(dec2str(line.pid));
+				title = who_process_title_get(line.pid, &error);
+				if (title == NULL) {
+					i_assert(error != NULL);
+					title = error;
+				}
+				doveadm_print(title);
+			} T_END;
+		}
+	}
+	hash_table_destroy(&seen_pids);
+}
+
 static void cmd_who(struct doveadm_cmd_context *cctx)
 {
 	const char *passdb_field, *const *masks;
 	struct who_context ctx;
-	bool separate_connections = FALSE;
+	bool separate_connections = FALSE, show_processes = FALSE;
 
 	i_zero(&ctx);
 	if (!doveadm_cmd_param_str(cctx, "socket-path", &(ctx.anvil_path)))
@@ -467,6 +561,12 @@ static void cmd_who(struct doveadm_cmd_context *cctx)
 	if (!doveadm_cmd_param_str(cctx, "passdb-field", &passdb_field))
 		passdb_field = NULL;
 	(void)doveadm_cmd_param_bool(cctx, "separate-connections", &separate_connections);
+	(void)doveadm_cmd_param_bool(cctx, "ps", &show_processes);
+	if (separate_connections && show_processes) {
+		e_error(cctx->event, "-1 and --ps can't be used together");
+		doveadm_exit_code = EX_USAGE;
+		return;
+	}
 
 	ctx.pool = pool_alloconly_create("who users", 10240);
 	ctx.event = cctx->event;
@@ -483,7 +583,9 @@ static void cmd_who(struct doveadm_cmd_context *cctx)
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	struct doveadm_who_iter *iter = doveadm_who_iter_init(ctx.anvil_path);
 	struct who_line who_line;
-	if (!separate_connections) {
+	if (show_processes) {
+		who_print_processes(&ctx, iter);
+	} else if (!separate_connections) {
 		while (doveadm_who_iter_next(iter, &who_line))
 			who_aggregate_line(&ctx, &who_line);
 		who_print(&ctx);
@@ -513,10 +615,11 @@ static void cmd_who(struct doveadm_cmd_context *cctx)
 
 #define DOVEADM_CMD_WHO_FIELDS \
 	.cmd = cmd_who, \
-	.usage = "[-a <anvil socket path>] [-1] [-f <passdb field>] [<user mask>] [<ip/bits>]", \
+	.usage = "[-a <anvil socket path>] [-1] [--ps] [-f <passdb field>] [<user mask>] [<ip/bits>]", \
 DOVEADM_CMD_PARAMS_START \
 DOVEADM_CMD_PARAM('a',"socket-path", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('1',"separate-connections", CMD_PARAM_BOOL, 0) \
+DOVEADM_CMD_PARAM('\0',"ps", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('f',"passdb-field", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('\0',"mask", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL) \
 DOVEADM_CMD_PARAMS_END
