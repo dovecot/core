@@ -375,6 +375,8 @@ static void test_str_to_float(void)
 		INVALID(0.1x),
 		INVALID(0.1.2),
 		INVALID(bad),
+		/* strtof()/strtod() consume nothing here, so endp stays at str */
+		{ "", -1, 0 },
 	};
 	test_begin("str_to_int");
 	for (i = 0; i < N_ELEMENTS(tests); ++i) {
