@@ -131,6 +131,30 @@ static void old_settings_handle_rename(struct config_parser_context *ctx,
 	}
 }
 
+bool old_settings_deprecated(struct config_parser_context *ctx,
+			     const char *key)
+{
+	struct settings_history *history = settings_history_get();
+	const struct setting_history_deprecate *deprecate;
+
+	array_foreach(&history->deprecates, deprecate) {
+		if (strcmp(deprecate->key, key) != 0)
+			continue;
+		if (!has_config_version(ctx->dovecot_config_version) ||
+		    version_cmp(deprecate->version,
+				ctx->dovecot_config_version) <= 0) {
+			/* The setting doesn't exist anymore in this config
+			   version. */
+			return TRUE;
+		}
+		obsolete(ctx, "%s is deprecated - "
+			 "it is removed in config version %s",
+			 key, deprecate->version);
+		return FALSE;
+	}
+	return FALSE;
+}
+
 void old_settings_handle(struct config_parser_context *ctx,
 			 struct config_line *line)
 {

@@ -1277,6 +1277,13 @@ config_apply_exact_line(struct config_parser_context *ctx,
 	if (config_key == NULL)
 		return 0;
 
+	if (ctx->change_counter == CONFIG_PARSER_CHANGE_EXPLICIT &&
+	    old_settings_deprecated(ctx, lookup_key)) {
+		/* The setting is deprecated and it no longer exists in the
+		   config's dovecot_config_version. */
+		return 0;
+	}
+
 	/* FIXME: These don't work because config_parsed_get_setting() doesn't
 	   expand groups. Maybe not worth the effort to fix it? */
 	if ((strcmp(lookup_key, "import_environment") == 0 ||
