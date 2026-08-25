@@ -481,6 +481,26 @@ int http_url_parse(const char *url, struct http_url *base,
 }
 
 /*
+ * HTTP URL evaluation
+ */
+
+/* Must compare every field of struct http_url except host.ip, which is
+   deliberately excluded: uri_do_parse_host() derives it from host.name,
+   so comparing host.name already covers it. */
+bool http_url_equals(const struct http_url *url1, const struct http_url *url2)
+{
+	return null_strcmp(url1->host.name, url2->host.name) == 0 &&
+	       null_strcmp(url1->user, url2->user) == 0 &&
+	       null_strcmp(url1->password, url2->password) == 0 &&
+	       null_strcmp(url1->enc_path, url2->enc_path) == 0 &&
+	       null_strcmp(url1->path, url2->path) == 0 &&
+	       null_strcmp(url1->enc_query, url2->enc_query) == 0 &&
+	       null_strcmp(url1->enc_fragment, url2->enc_fragment) == 0 &&
+	       url1->port == url2->port &&
+	       url1->have_ssl == url2->have_ssl;
+}
+
+/*
  * HTTP URL manipulation
  */
 
@@ -570,6 +590,8 @@ http_url_add_scheme(string_t *urlstr, const struct http_url *url)
 static void
 http_url_add_authority(string_t *urlstr, const struct http_url *url)
 {
+	/* Userinfo is intentionally left out, so that credentials don't end
+	   up in logs and other output. */
 	/* host */
 	uri_append_host(urlstr, &url->host);
 	/* port */
