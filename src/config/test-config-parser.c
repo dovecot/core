@@ -9,6 +9,7 @@
 #include "settings-parser-http-url.h"
 #include "http-url.h"
 #include "config-filter.h"
+#include "settings-history.h"
 #include "config-request.h"
 #include "test-common.h"
 #include "test-dir.h"
@@ -40,6 +41,9 @@ struct test_settings {
 	ARRAY_TYPE(const_string) key_strlist;
 	struct http_url key_url;
 	struct http_url key_url_auth;
+	const char *testfilter_new_key;
+	const char *deprecated_key;
+	const char *removed_key;
 };
 
 static const struct setting_define test_settings_defs[] = {
@@ -61,6 +65,10 @@ static const struct setting_define test_settings_defs[] = {
 	SETTING_DEFINE_STRUCT_STRLIST("key_strlist", key_strlist, struct test_settings),
 	SETTING_DEFINE_STRUCT_HTTP_URL("key_url", key_url, struct test_settings),
 	SETTING_DEFINE_STRUCT_HTTP_URL_AUTH("key_url_auth", key_url_auth, struct test_settings),
+	{ .type = SET_FILTER_NAME, .key = "testfilter" },
+	SETTING_DEFINE_STRUCT_STR("testfilter_new_key", testfilter_new_key, struct test_settings),
+	SETTING_DEFINE_STRUCT_STR("deprecated_key", deprecated_key, struct test_settings),
+	SETTING_DEFINE_STRUCT_STR("removed_key", removed_key, struct test_settings),
 	SETTING_DEFINE_LIST_END
 };
 
@@ -82,6 +90,9 @@ static const struct test_settings test_settings_defaults = {
 	.key_novars = "",
 	.key_url = HTTP_URL_INIT_EMPTY,
 	.key_url_auth = HTTP_URL_INIT_EMPTY,
+	.testfilter_new_key = "",
+	.deprecated_key = "",
+	.removed_key = "",
 };
 
 const struct setting_parser_info test_settings_info = {
@@ -988,6 +999,154 @@ static void test_config_parser_http_url_parse_error(void)
 	test_end();
 }
 
+/* Oldest config version that is still accepted. */
+#ifdef DOVECOT_PRO_EDITION
+#  define TEST_OLD_CONFIG_VERSION "3.1.0"
+#else
+#  define TEST_OLD_CONFIG_VERSION "2.4.0"
+#endif
+
+#define TEST_HISTORY_CONFIG_PREFIX \
+	"dovecot_config_version = "TEST_OLD_CONFIG_VERSION"\n"
+
+static const struct setting_history_rename test_history_renames[] = {
+	/* Renamed in a version that is always newer than the config's. */
+	{ "testfilter_old_key", "testfilter/new_key", "9999.0.0" }
+};
+static const struct setting_history_deprecate test_history_deprecates[] = {
+	/* Deprecated, but still supported by the config's version. */
+	{ "deprecated_key", "9999.0.0" },
+	/* Already removed before the config's version. */
+	{ "removed_key", "0.0.1" }
+};
+
+static void test_history_register(void)
+{
+	static bool registered = FALSE;
+
+	if (registered)
+		return;
+	registered = TRUE;
+	settings_history_register_renames(test_history_renames,
+					  N_ELEMENTS(test_history_renames));
+	settings_history_register_deprecates(test_history_deprecates,
+					     N_ELEMENTS(test_history_deprecates));
+}
+
+static int
+test_history_config_parse(const char *config_file, struct config_parsed **config_r,
+			  const char **error_r)
+{
+	*error_r = NULL;
+	return config_parse_file(config_file,
+				 CONFIG_PARSE_FLAG_EXPAND_VALUES |
+				 CONFIG_PARSE_FLAG_NO_DEFAULTS |
+				 CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS,
+				 NULL, config_r, error_r);
+}
+
+static const struct test_settings *
+test_history_config_get(struct config_parsed *config, pool_t pool,
+			struct setting_parser_context **set_parser_r)
+{
+	struct config_filter_parser *global_filter =
+		config_parsed_get_global_filter_parser(config);
+	const struct config_module_parser *p = global_filter->module_parsers;
+
+	*set_parser_r = settings_parser_init(pool, p->info, 0);
+	config_fill_set_parser(*set_parser_r, p, TRUE);
+	return settings_parser_get_set(*set_parser_r);
+}
+
+static void test_config_parser_history_rename(void)
+{
+	/* All of these set the renamed testfilter_new_key setting. */
+	const char *const configs[] = {
+		"testfilter_old_key = value\n",
+		"testfilter {\n"
+		"  old_key = value\n"
+		"}\n",
+		"testfilter {\n"
+		"  testfilter_old_key = value\n"
+		"}\n"
+	};
+	struct config_parsed *config;
+	struct setting_parser_context *set_parser;
+	const char *error;
+	const char *config_file = test_dir_prepend(TEST_CONFIG_FILE);
+	pool_t pool = pool_alloconly_create("test settings", 256);
+
+	test_begin("config_parse_file - settings history rename");
+	test_history_register();
+
+	for (unsigned int i = 0; i < N_ELEMENTS(configs); i++) {
+		write_config_file(t_strconcat(TEST_HISTORY_CONFIG_PREFIX,
+					      configs[i], NULL));
+		test_assert_idx(test_history_config_parse(config_file, &config,
+							  &error) == 1, i);
+		if (error != NULL) {
+			i_error("config_parse_file(): %s", error);
+			continue;
+		}
+		p_clear(pool);
+		const struct test_settings *set =
+			test_history_config_get(config, pool, &set_parser);
+		test_assert_strcmp_idx(set->testfilter_new_key, "value", i);
+		settings_parser_unref(&set_parser);
+		config_parsed_free(&config);
+		config_parser_deinit();
+	}
+	i_unlink_if_exists(config_file);
+	pool_unref(&pool);
+	test_end();
+}
+
+static void test_config_parser_history_deprecate(void)
+{
+	struct config_parsed *config = NULL;
+	struct setting_parser_context *set_parser;
+	const char *error;
+	const char *config_file = test_dir_prepend(TEST_CONFIG_FILE);
+	pool_t pool = pool_alloconly_create("test settings", 256);
+
+	test_begin("config_parse_file - settings history deprecate");
+	test_history_register();
+
+	/* The setting is deprecated, but still supported by the config
+	   version. */
+	write_config_file(TEST_HISTORY_CONFIG_PREFIX
+			  "deprecated_key = value\n");
+	test_assert(test_history_config_parse(config_file, &config,
+					      &error) == 1);
+	if (error != NULL)
+		i_error("config_parse_file(): %s", error);
+	else {
+		const struct test_settings *set =
+			test_history_config_get(config, pool, &set_parser);
+		test_assert_strcmp(set->deprecated_key, "value");
+		settings_parser_unref(&set_parser);
+		config_parsed_free(&config);
+	}
+	config_parser_deinit();
+
+	/* The setting was already removed in the config version, so it is
+	   handled as an unknown setting. */
+	config = NULL;
+	write_config_file(TEST_HISTORY_CONFIG_PREFIX
+			  "removed_key = value\n");
+	test_assert(test_history_config_parse(config_file, &config,
+					      &error) < 0);
+	test_assert(error != NULL &&
+		    strstr(error, "Unknown setting: removed_key") != NULL);
+	if (config != NULL)
+		config_parsed_free(&config);
+	config_parser_deinit();
+
+	i_unlink_if_exists(config_file);
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -1003,6 +1162,8 @@ int main(void)
 		test_config_parser_http_url_roundtrip,
 		test_config_parser_http_url_default_unset,
 		test_config_parser_http_url_parse_error,
+		test_config_parser_history_rename,
+		test_config_parser_history_deprecate,
 		NULL
 	};
 
