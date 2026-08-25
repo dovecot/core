@@ -17,9 +17,15 @@ static const struct setting_history_default settings_history_core_defaults[] = {
 static const struct setting_history_value settings_history_core_values[] = {
 %s\
 };
+static const struct setting_history_deprecate settings_history_core_deprecates[] = {
+%s\
+};
 """
 
-STRUCT_TEMPLATE = """\
+STRUCT_TEMPLATE2 = """\
+  { "%s", "%s" },
+"""
+STRUCT_TEMPLATE3 = """\
   { "%s", "%s", "%s" },
 """
 
@@ -40,7 +46,7 @@ class SettingDefault:
 
     def render(self) -> str:
         """Render this setting's default value update to text."""
-        return STRUCT_TEMPLATE % (self.key, self.old_value, self.version_text)
+        return STRUCT_TEMPLATE3 % (self.key, self.old_value, self.version_text)
 
 
 class SettingRename:
@@ -55,7 +61,21 @@ class SettingRename:
 
     def render(self) -> str:
         """Render this setting's rename to text."""
-        return STRUCT_TEMPLATE % (self.old_key, self.new_key, self.version_text)
+        return STRUCT_TEMPLATE3 % (self.old_key, self.new_key, self.version_text)
+
+
+class SettingDeprecate:
+    """Handle the logic behind a setting's deprecation."""
+
+    def __init__(self, key: str, version_text: str, version: [int]):
+        """Initialize a setting's deprecation object."""
+        self.key = key
+        self.version_text = version_text
+        self.version = version
+
+    def render(self) -> str:
+        """Render this setting's deprecate to text."""
+        return STRUCT_TEMPLATE2 % (self.key, self.version_text)
 
 
 class SettingValue:
@@ -139,9 +159,11 @@ def process(input_file: str, contents: str, pro: bool) -> (str, str, str):
     renames = ""
     defaults = ""
     replaced = ""
+    deprecates = ""
     renames_prev_version = None
     defaults_prev_version = None
     replaced_prev_version = None
+    deprecates_prev_version = None
     for line, data in enumerate(contents.splitlines()):
         line = line + 1
         values = data.split("\t")
@@ -149,16 +171,37 @@ def process(input_file: str, contents: str, pro: bool) -> (str, str, str):
         if data.startswith("#") or data.isspace() or data == "":
             continue
 
-        if len(values) != 5:
+        if values[0] == "rename":
+            num_fields = 5
+            ce_version_idx = 3
+            pro_version_idx = 4
+        elif values[0] == "default":
+            num_fields = 5
+            ce_version_idx = 3
+            pro_version_idx = 4
+        elif values[0] == "value":
+            num_fields = 5
+            ce_version_idx = 3
+            pro_version_idx = 4
+        elif values[0] == "deprecate":
+            num_fields = 4
+            ce_version_idx = 2
+            pro_version_idx = 3
+        else:
+            die(f"{input_file}:{line}: Unrecognized marker in `{data}`")
+
+        if len(values) != num_fields:
             die(
                 f"{input_file}:{line}: "
                 f"Invalid contents `{data}`: "
-                "Expecting 5 fields"
+                f"Expecting {num_fields} fields"
             )
+        ce_version = values[ce_version_idx]
+        pro_version = values[pro_version_idx]
 
         try:
             (version_text, version) = process_version(
-                ce_version=values[3], pro_version=values[4], pro=pro
+                ce_version=ce_version, pro_version=pro_version, pro=pro
             )
         except ValueError as e:
             die(f"{input_file}:{line}: {e}")
@@ -205,9 +248,19 @@ def process(input_file: str, contents: str, pro: bool) -> (str, str, str):
                 die(f"{input_file}:{line}: {e}")
 
             replaced += value.render()
-        else:
-            die(f"{input_file}:{line}: Unrecognized marker in `{data}`")
-    return (renames, defaults, replaced)
+        elif values[0] == "deprecate":
+            try:
+                deprecates_prev_version = check_version(deprecates_prev_version, version)
+            except ValueError as e:
+                die(f"{input_file}:{line}: {e}")
+
+            deprecate = SettingDeprecate(
+                key=values[1],
+                version_text=version_text,
+                version=version,
+            )
+            deprecates += deprecate.render()
+    return (renames, defaults, replaced, deprecates)
 
 
 def main():
@@ -246,13 +299,13 @@ def main():
 
     with open(input_file, mode="r", encoding="utf-8") as f_in:
         contents = f_in.read()
-        (renames, defaults, replaced) = process(
+        (renames, defaults, replaced, deprecates) = process(
             input_file, contents, pro=bool(args.pro)
         )
 
         with open(output_file, mode="w", encoding="utf-8") as f_out:
             template = FILE_TEMPLATE.replace("core", plugin_name)
-            f_out.write(template % (renames, defaults, replaced))
+            f_out.write(template % (renames, defaults, replaced, deprecates))
 
 
 if __name__ == "__main__":

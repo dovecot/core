@@ -32,11 +32,19 @@ settings_history_value_cmp(const struct setting_history_value *v1,
 	return version_cmp(v2->version, v1->version);
 }
 
+static int
+settings_history_deprecate_cmp(const struct setting_history_deprecate *d1,
+			       const struct setting_history_deprecate *d2)
+{
+	return version_cmp(d2->version, d1->version);
+}
+
 static void settings_history_free(void)
 {
 	array_free(&history.defaults);
 	array_free(&history.renames);
 	array_free(&history.values);
+	array_free(&history.deprecates);
 }
 
 static struct settings_history *settings_history_get_unsorted(void)
@@ -59,6 +67,11 @@ static struct settings_history *settings_history_get_unsorted(void)
 	array_append(&history.values,
 		     settings_history_core_values,
 		     N_ELEMENTS(settings_history_core_values));
+	i_array_init(&history.deprecates,
+		     N_ELEMENTS(settings_history_core_deprecates) + 16);
+	array_append(&history.deprecates,
+		     settings_history_core_deprecates,
+		     N_ELEMENTS(settings_history_core_deprecates));
 
 	lib_atexit(settings_history_free);
 	return &history;
@@ -74,6 +87,8 @@ struct settings_history *settings_history_get(void)
 			   settings_history_rename_cmp);
 		array_sort(&history->values,
 			   settings_history_value_cmp);
+		array_sort(&history->deprecates,
+			   settings_history_deprecate_cmp);
 		history->sort_pending = FALSE;
 	}
 	return history;
@@ -103,5 +118,14 @@ void settings_history_register_values(
 	struct settings_history *history = settings_history_get_unsorted();
 
 	array_append(&history->values, values, count);
+	history->sort_pending = TRUE;
+}
+
+void settings_history_register_deprecates(
+	const struct setting_history_deprecate *deprecates, unsigned int count)
+{
+	struct settings_history *history = settings_history_get_unsorted();
+
+	array_append(&history->deprecates, deprecates, count);
 	history->sort_pending = TRUE;
 }
