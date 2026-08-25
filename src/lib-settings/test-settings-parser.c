@@ -5,6 +5,8 @@
 #include "net.h"
 #include "var-expand.h"
 #include "settings-parser.h"
+#include "settings-parser-http-url.h"
+#include "http-url.h"
 #include "test-common.h"
 
 static const char *const test_settings_blobs[] =
@@ -392,6 +394,184 @@ static void test_settings_hash_equals(void)
 	test_end();
 }
 
+struct http_url_test_settings {
+	struct http_url url;
+	struct http_url url_auth;
+};
+
+static void test_settings_parser_http_url(void)
+{
+	struct http_url_test_settings test_defaults;
+	const struct setting_define defs[] = {
+		SETTING_DEFINE_STRUCT_HTTP_URL("url", url,
+			struct http_url_test_settings),
+		SETTING_DEFINE_STRUCT_HTTP_URL_AUTH("url_auth", url_auth,
+			struct http_url_test_settings),
+		SETTING_DEFINE_LIST_END
+	};
+	const struct setting_parser_info root = {
+		.name = "http_url_test",
+		.defines = defs,
+		.defaults = &test_defaults,
+		.struct_size = sizeof(struct http_url_test_settings),
+	};
+	struct http_url_test_settings *set;
+	pool_t pool;
+	struct setting_parser_context *ctx;
+
+	i_zero(&test_defaults);
+
+	test_begin("settings_parse() SET_HTTP_URL / SET_HTTP_URL_AUTH");
+
+	/* full URL with userinfo parses into a SET_HTTP_URL_AUTH member */
+	pool = pool_alloconly_create("http url test", 1024);
+	ctx = settings_parser_init(pool, &root, 0);
+	test_assert(settings_parse_keyvalue(ctx, "url_auth",
+		"https://u:p@h:8080/a/b?q=1") == 1);
+	set = settings_parser_get_set(ctx);
+	test_assert_strcmp(set->url_auth.host.name, "h");
+	test_assert(set->url_auth.port == 8080);
+	test_assert(set->url_auth.have_ssl);
+	test_assert_strcmp(set->url_auth.path, "/a/b");
+	test_assert_strcmp(set->url_auth.enc_query, "q=1");
+	test_assert_strcmp(set->url_auth.user, "u");
+	test_assert_strcmp(set->url_auth.password, "p");
+	settings_parser_unref(&ctx);
+	pool_unref(&pool);
+
+	/* the same value on a plain SET_HTTP_URL member is rejected -
+	   userinfo is not allowed there */
+	pool = pool_alloconly_create("http url test", 1024);
+	ctx = settings_parser_init(pool, &root, 0);
+	test_assert(settings_parse_keyvalue(ctx, "url",
+		"https://u:p@h:8080/a/b?q=1") < 0);
+	test_assert_strcmp(settings_parser_get_error(ctx),
+		"HTTP URL does not allow `userinfo@' part");
+	settings_parser_unref(&ctx);
+	pool_unref(&pool);
+
+	/* a URL with no path is set, not empty, and path stays NULL */
+	pool = pool_alloconly_create("http url test", 1024);
+	ctx = settings_parser_init(pool, &root, 0);
+	test_assert(settings_parse_keyvalue(ctx, "url", "http://host") == 1);
+	set = settings_parser_get_set(ctx);
+	test_assert(!http_url_is_empty(&set->url));
+	test_assert(set->url.path == NULL);
+	settings_parser_unref(&ctx);
+	pool_unref(&pool);
+
+	/* an empty value means unset, not a parse error */
+	pool = pool_alloconly_create("http url test", 1024);
+	ctx = settings_parser_init(pool, &root, 0);
+	test_assert(settings_parse_keyvalue(ctx, "url", "") == 1);
+	set = settings_parser_get_set(ctx);
+	test_assert(http_url_is_empty(&set->url));
+	settings_parser_unref(&ctx);
+	pool_unref(&pool);
+
+	/* the set_value_unknown sentinel means unset, not a parse error */
+	pool = pool_alloconly_create("http url test", 1024);
+	ctx = settings_parser_init(pool, &root, 0);
+	test_assert(settings_parse_keyvalue_nodup(ctx, "url",
+		set_value_unknown) == 1);
+	set = settings_parser_get_set(ctx);
+	test_assert(http_url_is_empty(&set->url));
+	settings_parser_unref(&ctx);
+	pool_unref(&pool);
+
+	/* a literal %{variable} means unset, not a parse error */
+	pool = pool_alloconly_create("http url test", 1024);
+	ctx = settings_parser_init(pool, &root, 0);
+	test_assert(settings_parse_keyvalue(ctx, "url",
+		"https://%{user}.example.com/") == 1);
+	set = settings_parser_get_set(ctx);
+	test_assert(http_url_is_empty(&set->url));
+	settings_parser_unref(&ctx);
+	pool_unref(&pool);
+
+	test_end();
+}
+
+struct http_url_hash_settings {
+	struct http_url url;
+};
+
+static void test_settings_equal_http_url_differs(void)
+{
+	const struct setting_define defines[] = {
+		SETTING_DEFINE_STRUCT_HTTP_URL_AUTH("url", url,
+			struct http_url_hash_settings),
+		SETTING_DEFINE_LIST_END
+	};
+	const struct setting_parser_info info = {
+		.defines = defines,
+	};
+	struct http_url_hash_settings set1, set2;
+
+	test_begin("settings_hash() and settings_equal() for differing SET_HTTP_URL");
+
+	i_zero(&set1);
+	set1.url.host.name = "host";
+	set1.url.port = 80;
+	set1.url.user = "u";
+	set1.url.password = "p1";
+	set1.url.enc_query = "q=1";
+	set2 = set1;
+
+	test_assert(settings_equal(&info, &set1, &set2, NULL));
+	test_assert(settings_hash(&info, &set1, NULL) ==
+		    settings_hash(&info, &set2, NULL));
+
+	/* differ only in password */
+	set2.url.password = "p2";
+	test_assert(!settings_equal(&info, &set1, &set2, NULL));
+	test_assert(settings_hash(&info, &set1, NULL) !=
+		    settings_hash(&info, &set2, NULL));
+	set2.url.password = set1.url.password;
+
+	/* differ only in enc_query */
+	set2.url.enc_query = "q=2";
+	test_assert(!settings_equal(&info, &set1, &set2, NULL));
+	set2.url.enc_query = set1.url.enc_query;
+
+	/* differ only in port */
+	set2.url.port = 81;
+	test_assert(!settings_equal(&info, &set1, &set2, NULL));
+	set2.url.port = set1.url.port;
+
+	/* differ only in have_ssl */
+	set2.url.have_ssl = !set1.url.have_ssl;
+	test_assert(!settings_equal(&info, &set1, &set2, NULL));
+	set2.url.have_ssl = set1.url.have_ssl;
+
+	test_assert(settings_equal(&info, &set1, &set2, NULL));
+
+	test_end();
+}
+
+static void test_settings_hash_equals_http_url_unset(void)
+{
+	const struct setting_define defines[] = {
+		SETTING_DEFINE_STRUCT_HTTP_URL_AUTH("url", url,
+			struct http_url_hash_settings),
+		SETTING_DEFINE_LIST_END
+	};
+	const struct setting_parser_info info = {
+		.defines = defines,
+	};
+	struct http_url_hash_settings set1, set2;
+
+	test_begin("settings_hash() and settings_equal() for unset SET_HTTP_URL");
+
+	/* both unset must not crash and must compare equal */
+	i_zero(&set1);
+	i_zero(&set2);
+	(void)settings_hash(&info, &set1, NULL);
+	test_assert(settings_equal(&info, &set1, &set2, NULL));
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -399,6 +579,9 @@ int main(void)
 		test_settings_parse_boollist_string,
 		test_settings_section_escape,
 		test_settings_hash_equals,
+		test_settings_parser_http_url,
+		test_settings_equal_http_url_differs,
+		test_settings_hash_equals_http_url_unset,
 		NULL
 	};
 	return test_run(test_functions);

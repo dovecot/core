@@ -8,6 +8,7 @@
 #include "read-full.h"
 #include "var-expand.h"
 #include "unichar.h"
+#include "http-url.h"
 #include "settings-parser.h"
 
 #include <sys/stat.h>
@@ -634,6 +635,7 @@ settings_parse(struct setting_parser_context *ctx,
 	const void *ptr2;
 	const char *error;
 	int ret;
+	enum http_url_parse_flags url_flags = 0;
 
 	if (value == set_value_unknown) {
 		/* setting value is unknown - preserve the exact pointer */
@@ -802,6 +804,32 @@ settings_parse(struct setting_parser_context *ctx,
 		settings_parser_set_error(ctx, t_strdup_printf(
 			"Setting is a named filter, use '%s {'", key));
 		return -1;
+	case SET_HTTP_URL_AUTH:
+		url_flags = HTTP_URL_ALLOW_USERINFO_PART;
+		/* fall through */
+	case SET_HTTP_URL: {
+		struct http_url *url;
+
+		/* Not parseable as a URL:
+		   - "" is the settings-layer spelling of "unset"
+		   - set_value_unknown: the config binary substitutes this
+		     sentinel for a value it cannot expand yet
+		   - a literal "%{": SETTINGS_GET_FLAG_NO_EXPAND /
+		     FAKE_EXPAND asked not to expand variables
+		   In all three cases store the unset (all-zero) URL. */
+		if (value == set_value_unknown || value[0] == '\0' ||
+		    strstr(value, "%{") != NULL) {
+			i_zero((struct http_url *)ptr);
+			break;
+		}
+		if (http_url_parse(value, NULL, url_flags, ctx->set_pool,
+				   &url, &error) < 0) {
+			settings_parser_set_error(ctx, error);
+			return -1;
+		}
+		*(struct http_url *)ptr = *url;
+		break;
+	}
 	case SET_ALIAS:
 		i_unreached();
 	}
@@ -1058,6 +1086,26 @@ unsigned int settings_hash(const struct setting_parser_info *info,
 			}
 			break;
 		}
+		case SET_HTTP_URL:
+		case SET_HTTP_URL_AUTH: {
+			const struct http_url *url = p;
+			const char *const fields[] = {
+				url->host.name, url->user, url->password,
+				url->enc_path, url->path, url->enc_query,
+				url->enc_fragment,
+			};
+			for (unsigned int j = 0; j < N_ELEMENTS(fields); j++) {
+				if (fields[j] != NULL)
+					crc = crc32_str_more(crc, fields[j]);
+				/* mix in a separator so "ab"+NULL and
+				   "a"+"b" hash differently */
+				crc = crc32_data_more(crc, "", 1);
+			}
+			crc = crc32_data_more(crc, &url->port, sizeof(url->port));
+			bool have_ssl = url->have_ssl;
+			crc = crc32_data_more(crc, &have_ssl, sizeof(have_ssl));
+			break;
+		}
 		case SET_ALIAS:
 		case SET_FILTER_NAME:
 			break;
@@ -1143,6 +1191,13 @@ bool settings_equal(const struct setting_parser_info *info,
 				if (strcmp(str1[i], str2[i]) != 0)
 					return FALSE;
 			}
+			break;
+		}
+		case SET_HTTP_URL:
+		case SET_HTTP_URL_AUTH: {
+			const struct http_url *url1 = p1, *url2 = p2;
+			if (!http_url_equals(url1, url2))
+				return FALSE;
 			break;
 		}
 		case SET_ALIAS:

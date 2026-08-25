@@ -21,6 +21,7 @@
 #include "config-dump-full.h"
 #include "config-parser-private.h"
 #include "strfuncs.h"
+#include "http-url.h"
 
 #include "default-settings-import.h"
 
@@ -614,6 +615,7 @@ settings_value_check(struct config_parser_context *ctx,
 		return 0;
 	const char *value = prefixed_value + 1;
 	int ret;
+	enum http_url_parse_flags url_flags = 0;
 
 	switch (def->type) {
 	case SET_BOOL: {
@@ -739,6 +741,24 @@ settings_value_check(struct config_parser_context *ctx,
 			return -1;
 		}
 		break;
+	case SET_HTTP_URL_AUTH:
+		url_flags = HTTP_URL_ALLOW_USERINFO_PART;
+		/* fall through */
+	case SET_HTTP_URL: {
+		struct http_url *url;
+
+		if ((ret = settings_value_check_common(ctx, value)) <= 0)
+			return ret; /* has %{ or $SET:/$ENV: - validate later */
+		if (value[0] == '\0')
+			break; /* explicitly unset */
+		if (http_url_parse(value, NULL, url_flags,
+				   pool_datastack_create(),
+				   &url, &error) < 0) {
+			ctx->error = p_strdup(ctx->pool, error);
+			return -1;
+		}
+		break;
+	}
 	case SET_FILE:
 	case SET_STRLIST:
 	case SET_BOOLLIST:

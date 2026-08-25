@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "ostream.h"
 #include "settings-parser.h"
+#include "http-url.h"
 #include "master-service-settings.h"
 #include "all-settings.h"
 #include "config-parser.h"
@@ -154,6 +155,14 @@ bool config_export_type(string_t *str, const void *value,
 			str_append(str, *val);
 		break;
 	}
+	case SET_HTTP_URL:
+	case SET_HTTP_URL_AUTH: {
+		const struct http_url *url = value;
+
+		if (!http_url_is_empty(url))
+			str_append(str, http_url_create(url));
+		break;
+	}
 	default:
 		return FALSE;
 	}
@@ -286,7 +295,9 @@ settings_export(struct config_export_context *ctx,
 		case SET_STR_NOVARS:
 		case SET_PATH_FILE:
 		case SET_PATH_DIR:
-		case SET_ENUM: {
+		case SET_ENUM:
+		case SET_HTTP_URL:
+		case SET_HTTP_URL_AUTH: {
 			bool default_changed = FALSE;
 			const char *old_default = NULL;
 			i_assert(info->defaults != NULL);

@@ -39,6 +39,8 @@ enum setting_type {
 	SET_ALIAS, /* alias name for above setting definition */
 	SET_FILTER_NAME,
 	SET_FILTER_ARRAY,
+	SET_HTTP_URL, /* struct http_url, userinfo not parsed */
+	SET_HTTP_URL_AUTH, /* struct http_url, userinfo parsed */
 };
 enum setting_flags {
 	SET_FLAG_HIDDEN = BIT(0),
