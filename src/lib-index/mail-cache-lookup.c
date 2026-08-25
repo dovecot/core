@@ -485,6 +485,12 @@ static void header_lines_save(struct header_lookup_context *ctx,
 	}
 	lines_count = i;
 	pos = (lines_count+1) * sizeof(uint32_t);
+	if (pos > field->size) {
+		/* line number list isn't terminated by 0 - corrupted */
+		mail_cache_set_corrupted(ctx->view->cache,
+			"Header field without line number terminator");
+		return;
+	}
 
 	hdr_data = p_new(ctx->pool, struct header_lookup_data, 1);
 	hdr_data->data_size = data_size;
