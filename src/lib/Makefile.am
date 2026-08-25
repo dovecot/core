@@ -298,7 +298,6 @@ liblib_la_SOURCES = \
 	unicode-data-tables.c \
 	unicode-data.c \
 	unicode-transform.c \
-	uri-util.c \
 	utc-offset.c \
 	utc-mktime.c \
 	version.c \
@@ -471,7 +470,6 @@ headers = \
 	unicode-data-tables.h \
 	unicode-data.h \
 	unicode-transform.h \
-	uri-util.h \
 	utc-offset.h \
 	utc-mktime.h \
 	version.h \
@@ -588,7 +586,6 @@ test_lib_SOURCES = \
 	test-unicode-nf.c \
 	test-unicode-casemap.c \
 	test-utc-mktime.c \
-	test-uri.c \
 	test-version.c \
 	test-wildcard-match.c
 

@@ -902,13 +902,17 @@ static void test_uri_iax(void)
 }
 
 
-void test_uri(void)
+int main(void)
 {
-	test_uri_valid();
-	test_uri_bounded_buffer();
-	test_uri_invalid();
-	test_uri_rfc();
-	test_uri_escape();
-	test_uri_aaa();
-	test_uri_iax();
+	static void (*const test_functions[])(void) = {
+		test_uri_valid,
+		test_uri_bounded_buffer,
+		test_uri_invalid,
+		test_uri_rfc,
+		test_uri_escape,
+		test_uri_aaa,
+		test_uri_iax,
+		NULL
+	};
+	return test_run(test_functions);
 }

@@ -105,7 +105,7 @@ uauth-mechanism  = "INTERNAL" / 1*(ALPHA / DIGIT / "-" / ".")
 
 [URI-GEN] RFC3986 Appendix A:
 
-Implemented in src/lib/uri-util.c
+Implemented in src/lib-url/uri-util.c
 
 */
 
