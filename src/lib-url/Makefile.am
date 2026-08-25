@@ -36,3 +36,25 @@ test_uri_util_DEPENDENCIES = $(test_libs)
 test_http_url_SOURCES = test-http-url.c
 test_http_url_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_http_url_DEPENDENCIES = $(test_libs)
+
+if USE_FUZZER
+noinst_PROGRAMS += fuzz-uri-util
+nodist_EXTRA_fuzz_uri_util_SOURCES = force-cxx-linking.cxx
+fuzz_uri_util_SOURCES = fuzz-uri-util.c
+fuzz_uri_util_CPPFLAGS = $(FUZZER_CPPFLAGS)
+fuzz_uri_util_LDFLAGS = $(FUZZER_LDFLAGS)
+fuzz_uri_util_LDADD = $(test_libs)
+fuzz_uri_util_DEPENDENCIES = $(test_libs)
+
+noinst_PROGRAMS += fuzz-http-url
+nodist_EXTRA_fuzz_http_url_SOURCES = force-cxx-linking.cxx
+fuzz_http_url_SOURCES = fuzz-http-url.c
+fuzz_http_url_CPPFLAGS = $(FUZZER_CPPFLAGS)
+fuzz_http_url_LDFLAGS = $(FUZZER_LDFLAGS)
+fuzz_http_url_LDADD = $(test_libs)
+fuzz_http_url_DEPENDENCIES = $(test_libs)
+
+EXTRA_DIST = \
+	fuzz-uri-util.dict \
+	fuzz-http-url.dict
+endif

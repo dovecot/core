@@ -36,3 +36,33 @@ foreach test_name : tests
     suite: 'url',
   )
 endforeach
+
+if get_option('fuzzing')
+  fuzzers = [
+    'uri-util',
+    'http-url',
+  ]
+
+  foreach fuzzer_name : fuzzers
+    exe = f'fuzz-@fuzzer_name@'
+    src = f'@exe@.c'
+    fuzzer = executable(
+      exe,
+      src,
+      link_language: 'cpp',
+      pie: true,
+      dependencies: [test_deps, ext_fuzzer],
+    )
+
+    if fuzzer_test_runs > 0
+      test(
+        exe,
+        fuzzer,
+        args: fuzzer_test_args,
+        suite: 'url',
+        timeout: fuzzer_test_timeout,
+        workdir: meson.current_build_dir(),
+      )
+    endif
+  endforeach
+endif
