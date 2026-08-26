@@ -2,11 +2,13 @@
 
 #include "lib.h"
 #include "settings-parser.h"
+#include "settings-parser-http-url.h"
 #include "http-request.h"
 #include "http-client-private.h"
 
 static bool
-http_client_settings_check(void *_set, pool_t pool, const char **error_r);
+http_client_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+			   const char **error_r);
 
 #undef DEF
 #define DEF(type, name) \
@@ -28,7 +30,7 @@ static const struct setting_define http_client_setting_defines[] = {
 	DEF(STR_HIDDEN, user_agent),
 
 	DEF(STR, proxy_socket_path),
-	DEF(STR, proxy_url),
+	DEF(HTTP_URL, proxy_url),
 	DEF(STR, proxy_username),
 	DEF(STR, proxy_password),
 
@@ -77,7 +79,7 @@ static const struct http_client_settings http_client_default_settings = {
 	.user_agent = "",
 
 	.proxy_socket_path = "",
-	.proxy_url = "",
+	.proxy_url = HTTP_URL_INIT_EMPTY,
 	.proxy_username = "",
 	.proxy_password = "",
 
@@ -131,19 +133,11 @@ const struct setting_parser_info http_client_setting_parser_info = {
 
 /* <settings checks> */
 static bool
-http_client_settings_check(void *_set, pool_t pool, const char **error_r)
+http_client_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+			   const char **error_r)
 {
 	struct http_client_settings *set = _set;
-	const char *error;
 
-	if (set->proxy_url[0] != '\0') {
-		if (http_url_parse(set->proxy_url, NULL, 0, pool,
-				   &set->parsed_proxy_url, &error) < 0) {
-			*error_r = t_strdup_printf(
-				"Invalid http_client_proxy_url: %s", error);
-			return FALSE;
-		}
-	}
 	if (set->request_max_attempts == 0) {
 		*error_r = "request_max_attempts must not be 0";
 		return FALSE;

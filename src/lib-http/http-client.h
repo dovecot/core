@@ -5,6 +5,7 @@
 
 #include "http-common.h"
 #include "http-response.h"
+#include "http-url.h"
 
 struct timeval;
 struct http_response;
@@ -34,7 +35,7 @@ struct http_client_settings {
 	/* Proxy on unix socket */
 	const char *proxy_socket_path;
 	/* URL for normal proxy (ignored if proxy_socket_path is set) */
-	const char *proxy_url;
+	struct http_url proxy_url;
 	/* Credentials for proxy */
 	const char *proxy_username;
 	const char *proxy_password;
@@ -139,9 +140,6 @@ struct http_client_settings {
 	   defaults are used when these settings are 0. */
 	uoff_t socket_send_buffer_size;
 	uoff_t socket_recv_buffer_size;
-
-	/* generated: */
-	struct http_url *parsed_proxy_url;
 };
 
 extern const struct setting_parser_info http_client_setting_parser_info;
