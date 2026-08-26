@@ -463,6 +463,7 @@ int http_url_parse(const char *url, struct http_url *base,
 	   certain flags may also dictate whether relative URLs are
 	   allowed/required. */
 	i_assert((flags & HTTP_URL_PARSE_SCHEME_EXTERNAL) == 0 || base == NULL);
+	i_assert(base == NULL || !http_url_is_empty(base));
 
 	i_zero(&url_parser);
 	uri_parser_init(&url_parser.parser, pool, url);
@@ -477,6 +478,8 @@ int http_url_parse(const char *url, struct http_url *base,
 		return -1;
 	}
 	*url_r = url_parser.url;
+	/* http_url_is_empty() relies on this being set on every success. */
+	i_assert(url_parser.url->host.name != NULL);
 	return 0;
 }
 
