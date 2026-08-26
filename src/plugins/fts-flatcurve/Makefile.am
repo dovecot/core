@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-doveadm \
 	-I$(top_srcdir)/src/lib-var-expand \
+	-I$(top_srcdir)/src/lib-url \
 	-I$(top_srcdir)/src/doveadm \
 	-I$(top_srcdir)/src/plugins/fts \
 	$(XAPIAN_CFLAGS)

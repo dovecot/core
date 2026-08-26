@@ -4,6 +4,7 @@
 #include "array.h"
 #include "settings.h"
 #include "settings-parser.h"
+#include "settings-parser-http-url.h"
 #include "fts-settings.h"
 
 #undef DEF
@@ -19,7 +20,7 @@ static const struct setting_define fts_setting_defines[] = {
 	DEF(ENUM,    decoder_driver),
 	DEF(STR,     decoder_script_socket_path),
 	{ .type = SET_FILTER_NAME, .key = FTS_FILTER_DECODER_TIKA },
-	DEF(STR,     decoder_tika_url),
+	DEF(HTTP_URL_AUTH, decoder_tika_url),
 	DEF(STR,     driver),
 	DEF(BOOL,    search),
 	DEF(ENUM,    search_add_missing),
@@ -57,7 +58,7 @@ static const struct fts_settings fts_default_settings = {
 		       ":"FTS_DECODER_KEYWORD_TIKA
 		       ":"FTS_DECODER_KEYWORD_SCRIPT,
 	.decoder_script_socket_path = "",
-	.decoder_tika_url = "",
+	.decoder_tika_url = HTTP_URL_INIT_EMPTY,
 	.driver = "",
 	.search = TRUE,
 	.search_add_missing = FTS_SEARCH_ADD_MISSING_BODY_SEARCH_ONLY":yes",
@@ -156,7 +157,7 @@ static bool fts_settings_check_decoder(struct fts_settings *set,
 			   "when using decoder_script_socket_path";
 		return FALSE;
 	}
-	if(*set->decoder_tika_url != '\0' &&
+	if(!http_url_is_empty(&set->decoder_tika_url) &&
 	   set->parsed_decoder_driver != FTS_DECODER_TIKA) {
 		*error_r = "fts_decoder_script = tika is required "
 			   "when using decoder_tika_url";
