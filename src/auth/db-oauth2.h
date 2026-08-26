@@ -47,7 +47,7 @@ struct auth_oauth2_settings {
 
 	   https://datatracker.ietf.org/doc/html/rfc7628#section-3.2.2
 	*/
-	const char *openid_configuration_url;
+	struct http_url openid_configuration_url;
 
 	/* How many seconds after token expiration is it still allowed to
 	   succeed the authentication. */

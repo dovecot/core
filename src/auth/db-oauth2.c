@@ -44,7 +44,7 @@ static const struct setting_define auth_oauth2_setting_defines[] = {
 	DEF(STR, client_id),
 	DEF(STR, client_secret),
 	DEF(BOOLLIST, issuers),
-	DEF(STR, openid_configuration_url),
+	DEF(HTTP_URL, openid_configuration_url),
 	DEF_SECS(TIME, token_expire_grace),
 	DEF(BOOL, force_introspection),
 	DEF(BOOL, send_auth_headers),
@@ -70,7 +70,7 @@ static const struct auth_oauth2_settings auth_oauth2_default_settings = {
 	.client_id = "",
 	.client_secret = "",
 	.issuers = ARRAY_INIT,
-	.openid_configuration_url = "",
+	.openid_configuration_url = HTTP_URL_INIT_EMPTY,
 	.token_expire_grace_secs = 60,
 	.send_auth_headers = FALSE,
 	.use_worker_with_mech = FALSE,
@@ -429,18 +429,6 @@ static int db_oauth2_setup(struct db_oauth2 *db, const char **error_r)
 		db->oauth2_set.key_cache = oauth2_validation_key_cache_init();
 	}
 
-	if (*db->set->openid_configuration_url != '\0') {
-		struct http_url *parsed_url ATTR_UNUSED;
-		const char *error;
-		if (http_url_parse(db->set->openid_configuration_url, NULL, 0,
-				   pool_datastack_create(), &parsed_url,
-				   &error) < 0) {
-			*error_r = t_strdup_printf("Invalid openid_configuration_url: %s",
-						   error);
-			return -1;
-		}
-	}
-
 	return 0;
 }
 
@@ -566,7 +554,9 @@ static void db_oauth2_free(struct db_oauth2 **_db)
 
 const char *db_oauth2_get_openid_configuration_url(const struct db_oauth2 *db)
 {
-	return db->set->openid_configuration_url;
+	if (http_url_is_empty(&db->set->openid_configuration_url))
+		return "";
+	return http_url_create(&db->set->openid_configuration_url);
 }
 
 const char *db_oauth2_get_scope(const struct db_oauth2 *db)
