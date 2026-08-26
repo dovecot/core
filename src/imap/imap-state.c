@@ -563,6 +563,22 @@ import_state_mailbox_struct(const unsigned char *data, size_t size,
 	return p - data;
 }
 
+/* Returns the result for a mailbox operation that failed while unhibernating
+   the client. If the mailbox was deleted, the client's state can't be restored
+   anymore, but it's not an internal error either - the client just needs to
+   relogin. */
+static enum imap_state_result
+import_state_mailbox_error(struct mailbox *box, const char *prefix,
+			   const char **error_r)
+{
+	enum mail_error error;
+	const char *errstr = mailbox_get_last_internal_error(box, &error);
+
+	*error_r = t_strdup_printf("%s: %s", prefix, errstr);
+	return error == MAIL_ERROR_NOTFOUND ?
+		IMAP_STATE_INCONSISTENT : IMAP_STATE_ERROR;
+}
+
 static enum imap_state_result
 import_state_mailbox_open(struct client *client,
 			  const struct mailbox_import_state *state,
@@ -575,6 +591,7 @@ import_state_mailbox_open(struct client *client,
 	const struct seq_range *range;
 	enum mailbox_flags flags = 0;
 	unsigned int expunge_count, new_mails_count = 0, flag_change_count = 0;
+	enum imap_state_result result;
 	uint32_t uid;
 	int ret = 0;
 
@@ -590,28 +607,25 @@ import_state_mailbox_open(struct client *client,
 		flags |= MAILBOX_FLAG_DROP_RECENT;
 	box = mailbox_alloc(ns->list, state->vname, flags);
 	if (mailbox_open(box) < 0) {
-		enum mail_error error;
-		const char *errstr = mailbox_get_last_internal_error(box, &error);
-
-		*error_r = t_strdup_printf("Couldn't open mailbox: %s", errstr);
+		result = import_state_mailbox_error(box, "Couldn't open mailbox",
+						    error_r);
 		mailbox_free(&box);
-		return error == MAIL_ERROR_NOTFOUND ?
-			IMAP_STATE_INCONSISTENT : IMAP_STATE_ERROR;
+		return result;
 	}
 
 	ret = mailbox_enable(box, client_enabled_mailbox_features(client));
 	if (ret < 0 || mailbox_sync(box, 0) < 0) {
-		*error_r = t_strdup_printf("Couldn't sync mailbox: %s",
-			mailbox_get_last_internal_error(box, NULL));
+		result = import_state_mailbox_error(box, "Couldn't sync mailbox",
+						    error_r);
 		mailbox_free(&box);
-		return IMAP_STATE_ERROR;
+		return result;
 	}
 	/* verify that this still looks like the same mailbox */
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
-		*error_r = t_strdup_printf("Couldn't get mailbox GUID: %s",
-			mailbox_get_last_internal_error(box, NULL));
+		result = import_state_mailbox_error(box,
+			"Couldn't get mailbox GUID", error_r);
 		mailbox_free(&box);
-		return IMAP_STATE_ERROR;
+		return result;
 	}
 	if (!guid_128_equals(metadata.guid, state->mailbox_guid)) {
 		*error_r = t_strdup_printf("Mailbox GUID has changed %s->%s",
