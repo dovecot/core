@@ -98,7 +98,16 @@ const char *invalid_uri_tests[] = {
 	"http://example.com/settings/%00/",
 	"http://[]/index.html",
 	"http://[2001:db8::7",
-	"http://example.com:65536/index.html"
+	"http://example.com:65536/index.html",
+	/* schemes with ';'-separated parameters (e.g. aaa) have no "?query"
+	   part, so a bare '?' after the path or the authority must be
+	   rejected rather than silently left unconsumed, including when
+	   the path itself is empty */
+	"aaa:,?.:",
+	"aaa:foo?bar",
+	"aaa://host?x",
+	"aaa://host:6666?x",
+	"aaa:?x"
 };
 
 unsigned int invalid_uri_test_count = N_ELEMENTS(invalid_uri_tests);

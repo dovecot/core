@@ -789,16 +789,25 @@ uri_do_parse_authority(struct uri_parser *parser, struct uri_authority *auth,
 		return -1;
 	if (parser->cur == parser->end)
 		return 1;
+	/* '?' only terminates the authority if the scheme actually has a
+	   "?query" part; ';' only if it uses ';'-separated parameters
+	   instead. */
+	bool host_end_valid;
 	switch (*parser->cur) {
-	case ':': case '/': case '?': case '#':
+	case ':': case '/': case '#':
+		host_end_valid = TRUE;
+		break;
+	case '?':
+		host_end_valid = !parser->semicolon_params;
 		break;
 	case ';':
-		if (parser->semicolon_params)
-			break;
-		/* fall-through */
+		host_end_valid = parser->semicolon_params;
+		break;
 	default:
-		if (parser->parse_prefix)
-			break;
+		host_end_valid = FALSE;
+		break;
+	}
+	if (!host_end_valid && !parser->parse_prefix) {
 		parser->error = "Invalid host identifier";
 		return -1;
 	}
@@ -812,16 +821,22 @@ uri_do_parse_authority(struct uri_parser *parser, struct uri_authority *auth,
 			return ret;
 		if (parser->cur == parser->end)
 			return 1;
+		bool port_end_valid;
 		switch (*parser->cur) {
-		case '/': case '?': case '#':
+		case '/': case '#':
+			port_end_valid = TRUE;
+			break;
+		case '?':
+			port_end_valid = !parser->semicolon_params;
 			break;
 		case ';':
-			if (parser->semicolon_params)
-				break;
-			/* fall-through */
+			port_end_valid = parser->semicolon_params;
+			break;
 		default:
-			if (parser->parse_prefix)
-				break;
+			port_end_valid = FALSE;
+			break;
+		}
+		if (!port_end_valid && !parser->parse_prefix) {
 			parser->error = "Invalid host port";
 			return -1;
 		}
@@ -980,6 +995,20 @@ int uri_parse_path(struct uri_parser *parser,
 			return -1;
 	}
 
+	/* A leading '?' only terminates the path if it introduces a query
+	   component. Schemes that use ';' for parameters (e.g. aaa) have no
+	   query component, so '?' there is just an invalid path character.
+	   This applies even to an empty path, so it must be checked before
+	   the empty-path return below. */
+	if (!parser->parse_prefix && parser->cur < parser->end &&
+	    *parser->cur != '#' &&
+	    (*parser->cur != '?' || parser->semicolon_params)) {
+		parser->error = p_strdup_printf(parser->pool,
+			"Path component contains invalid character %s",
+			uri_char_sanitize(*parser->cur));
+		return -1;
+	}
+
 	if (relative_r != NULL)
 		*relative_r = relative;
 	if (path_r != NULL)
@@ -998,13 +1027,6 @@ int uri_parse_path(struct uri_parser *parser,
 		}
 		array_append_zero(&segments);
 		*path_r = array_get(&segments, &count);
-	}
-	if (!parser->parse_prefix && parser->cur < parser->end &&
-	    *parser->cur != '?' && *parser->cur != '#') {
-		parser->error = p_strdup_printf(parser->pool,
-			"Path component contains invalid character %s",
-			uri_char_sanitize(*parser->cur));
-		return -1;
 	}
 	return 1;
 }
