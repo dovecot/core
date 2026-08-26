@@ -400,6 +400,23 @@ static int master_service_binary_config_cache_get(const char *cache_dir,
 	return fd;
 }
 
+/* Returns the error string for a failed config read. EINTR once the alarm()
+   timeout has elapsed means that the config socket didn't reply in time. */
+static const char *
+config_read_error(const char *func, const char *path, time_t start_time)
+{
+	int saved_errno = errno;
+	time_t secs = time(NULL) - start_time;
+
+	if (saved_errno == EINTR && secs >= (time_t)CONFIG_READ_TIMEOUT_SECS) {
+		return t_strdup_printf(
+			"Timeout (%ld secs) while reading config from %s",
+			(long)secs, path);
+	}
+	errno = saved_errno;
+	return t_strdup_printf("%s(%s) failed: %m", func, path);
+}
+
 static int
 master_service_open_config(struct master_service *service,
 			   const struct master_service_settings_input *input,
@@ -473,10 +490,11 @@ master_service_open_config(struct master_service *service,
 	if (input->reload_config)
 		str_append(str, "\treload");
 	str_append_c(str, '\n');
+	time_t start_time = time(NULL);
 	alarm(CONFIG_READ_TIMEOUT_SECS);
 	int ret = write_full(fd, str_data(str), str_len(str));
 	if (ret < 0)
-		*error_r = t_strdup_printf("write_full(%s) failed: %m", path);
+		*error_r = config_read_error("write_full", path, start_time);
 	else
 		*error_r = NULL;
 
@@ -486,7 +504,7 @@ master_service_open_config(struct master_service *service,
 		char buf[1024];
 		ret = fd_read(fd, buf, sizeof(buf)-1, &config_fd);
 		if (ret < 0)
-			*error_r = t_strdup_printf("fd_read() failed: %m");
+			*error_r = config_read_error("fd_read", path, start_time);
 		else if (ret > 0 && buf[0] == '+' && buf[1] == '\n') {
 			/* success, if fd was received */
 			if (config_fd == -1)
