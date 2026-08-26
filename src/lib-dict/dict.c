@@ -268,6 +268,7 @@ void dict_wait(struct dict *dict)
 bool dict_have_async_operations(struct dict *dict)
 {
 	return dict->iter_count != 0 ||
+		dict->lookup_count != 0 ||
 		dict->commits != NULL;
 }
 
@@ -369,6 +370,9 @@ dict_lookup_callback(const struct dict_lookup_result *result,
 		     void *context)
 {
 	struct dict_lookup_callback_ctx *ctx = context;
+
+	i_assert(ctx->dict->lookup_count > 0);
+	ctx->dict->lookup_count--;
 
 	dict_pre_api_callback(ctx->dict);
 	ctx->callback(result, ctx->context);
@@ -497,6 +501,7 @@ void dict_lookup_async(struct dict *dict, const struct dict_op_settings *set,
 		i_new(struct dict_lookup_callback_ctx, 1);
 	lctx->dict = dict;
 	dict_ref(lctx->dict);
+	dict->lookup_count++;
 	lctx->callback = callback;
 	lctx->context = context;
 	lctx->event = dict_event_create(dict, set);

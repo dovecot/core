@@ -74,6 +74,7 @@ struct dict {
 	struct dict_vfuncs v;
 	unsigned int iter_count;
 	unsigned int transaction_count;
+	unsigned int lookup_count;
 	struct dict_transaction_context *transactions;
 	int refcount;
 	struct event *event;
