@@ -577,8 +577,12 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	enum mail_error error;
 	int ret;
 
+	/* The map is locked here, so the mailbox must not be autocreated:
+	   mailbox_create() locks the mailbox list, which must be locked before
+	   the map. */
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY |
-			    MAILBOX_FLAG_IGNORE_ACLS | MAILBOX_FLAG_RAW_NAME);
+			    MAILBOX_FLAG_IGNORE_ACLS | MAILBOX_FLAG_RAW_NAME |
+			    MAILBOX_FLAG_NO_AUTOCREATE);
 	if (box->storage != &ctx->storage->storage.storage) {
 		/* the namespace has multiple storages. */
 		mailbox_free(&box);
@@ -586,6 +590,14 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	}
 	if (mailbox_open(box) < 0) {
 		error = mailbox_get_last_mail_error(box);
+		if (error == MAIL_ERROR_NOTFOUND &&
+		    mailbox_is_autocreated(box)) {
+			/* The mailbox is listed, but it doesn't exist yet.
+			   It's created when it's next accessed outside the
+			   rebuild. There are no mails to scan in it. */
+			mailbox_free(&box);
+			return 0;
+		}
 		e_error(box->event, "Couldn't open mailbox: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
