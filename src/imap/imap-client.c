@@ -365,13 +365,12 @@ void client_destroy(struct client *client, const char *reason)
 static void
 client_command_stats_append(string_t *str,
 			    const struct client_command_stats *stats,
+			    uint64_t ioloop_wait_usecs,
 			    const char *wait_condition,
 			    size_t buffered_size)
 {
-	uint64_t ioloop_wait_usecs;
 	unsigned int msecs_in_ioloop;
 
-	ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
 	msecs_in_ioloop = (ioloop_wait_usecs -
 		stats->start_ioloop_wait_usecs + 999) / 1000;
 	str_printfa(str, "running for %d.%03d + waiting ",
@@ -418,7 +417,9 @@ static const char *client_get_last_command_status(struct client *client)
 	if (timeval_diff_msecs(&stats->last_run_timeval, &stats->start_time) >=
 	    IMAP_CLIENT_DISCONNECT_LOG_STATS_CMD_MIN_RUNNING_MSECS) {
 		str_append(str, " - ");
-		client_command_stats_append(str, stats, "", 0);
+		client_command_stats_append(str, stats,
+					    io_loop_get_wait_usecs(current_ioloop),
+					    "", 0);
 	}
 	str_append_c(str, ')');
 	return str_c(str);
@@ -469,7 +470,8 @@ static const char *client_get_commands_status(struct client *client)
 	all_stats.start_ioloop_wait_usecs =
 		last_cmd->stats.start_ioloop_wait_usecs;
 	str_append_c(str, ' ');
-	client_command_stats_append(str, &all_stats, cond_str,
+	client_command_stats_append(str, &all_stats,
+		io_loop_get_wait_usecs(current_ioloop), cond_str,
 		o_stream_get_buffer_used_size(client->output));
 	str_printfa(str, ", state=%s)",
 		    client_command_state_names[last_cmd->state]);
