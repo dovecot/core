@@ -52,7 +52,7 @@ struct solr_connection {
 };
 
 /* Regardless of the specified URL, make sure path ends in '/' */
-static char *solr_connection_create_http_base_url(struct http_url *http_url)
+static char *solr_connection_create_http_base_url(const struct http_url *http_url)
 {
 	if (http_url->path == NULL)
 		return i_strconcat("/", http_url->enc_query, NULL);
@@ -70,15 +70,8 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 			 struct solr_connection **conn_r, const char **error_r)
 {
 	struct solr_connection *conn;
-	struct http_url *http_url;
+	const struct http_url *http_url = &solr_set->url;
 	const char *error;
-
-	if (http_url_parse(solr_set->url, NULL, HTTP_URL_ALLOW_USERINFO_PART,
-			   pool_datastack_create(), &http_url, &error) < 0) {
-		*error_r = t_strdup_printf(
-			"fts-solr: Failed to parse HTTP url: %s", error);
-		return -1;
-	}
 
 	conn = i_new(struct solr_connection, 1);
 	conn->event = event_create(event_parent);

@@ -1,13 +1,15 @@
 #ifndef FTS_SOLR_SETTINGS_H
 #define FTS_SOLR_SETTINGS_H
 
+#include "http-url.h"
+
 /* <settings checks> */
 #define FTS_SOLR_FILTER "fts_solr"
 /* </settings checks> */
 
 struct fts_solr_settings {
 	pool_t pool;
-	const char *url;
+	struct http_url url;
 	unsigned int batch_size;
 	bool soft_commit;
 };
