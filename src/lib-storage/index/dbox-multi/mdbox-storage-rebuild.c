@@ -64,6 +64,24 @@ struct mdbox_storage_rebuild_context {
 	bool have_pop3_orders:1;
 };
 
+/* Returns the mailbox list that the rebuild restores lost mails into, or NULL
+   if the storage has no namespace. */
+static struct mailbox_list *
+mdbox_rebuild_get_default_list(struct mdbox_storage *storage)
+{
+	struct mail_storage *_storage = &storage->storage.storage;
+	struct mailbox_list *list = NULL;
+	struct mail_namespace *ns;
+
+	for (ns = _storage->user->namespaces; ns != NULL; ns = ns->next) {
+		if (ns->storage == _storage && ns->alias_for == NULL &&
+		    (list == NULL ||
+		     HAS_ANY_BITS(ns->flags, NAMESPACE_FLAG_INBOX_ANY)))
+			list = ns->list;
+	}
+	return list;
+}
+
 static struct mdbox_storage_rebuild_context *
 mdbox_storage_rebuild_init(struct mdbox_storage *storage,
 			   struct mdbox_map_atomic_context *atomic)
@@ -75,6 +93,7 @@ mdbox_storage_rebuild_init(struct mdbox_storage *storage,
 	ctx = i_new(struct mdbox_storage_rebuild_context, 1);
 	ctx->storage = storage;
 	ctx->atomic = atomic;
+	ctx->default_list = mdbox_rebuild_get_default_list(storage);
 	ctx->pool = pool_alloconly_create("dbox map rebuild", 1024*256);
 	hash_table_create(&ctx->guid_hash, ctx->pool, 0,
 			  guid_128_hash, guid_128_cmp);
@@ -609,10 +628,6 @@ rebuild_namespace_mailboxes(struct mdbox_storage_rebuild_context *ctx,
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
 	int ret = 0;
-
-	if (ctx->default_list == NULL ||
-	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0)
-		ctx->default_list = ns->list;
 
 	iter = mailbox_list_iter_init(ns->list, "*",
 				      MAILBOX_LIST_ITER_RAW_LIST |
