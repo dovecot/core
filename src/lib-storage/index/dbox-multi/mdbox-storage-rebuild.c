@@ -1053,7 +1053,20 @@ int mdbox_storage_rebuild(struct mdbox_storage *storage,
 			  enum mdbox_rebuild_reason reason)
 {
 	struct mdbox_map_atomic_context *atomic;
+	struct mailbox_list *list;
 	int ret;
+
+	/* Restoring the lost mails may have to create their mailboxes, which
+	   locks the mailbox list. Lock it up front, because mailbox_delete()
+	   locks the mailbox list before the map and the opposite order would
+	   deadlock. The mails have to be restored while the map is locked, so
+	   that another process can't rebuild the storage at the same time and
+	   restore them a second time. */
+	list = mdbox_rebuild_get_default_list(storage);
+	if (list != NULL && mailbox_list_lock(list) < 0) {
+		mail_storage_copy_list_error(&storage->storage.storage, list);
+		return -1;
+	}
 
 	atomic = mdbox_map_atomic_begin(storage->map);
 	ret = mdbox_storage_rebuild_in_context(storage, atomic,
@@ -1063,5 +1076,8 @@ int mdbox_storage_rebuild(struct mdbox_storage *storage,
 	(void)mail_index_reset_fscked(storage->map->index);
 	if (mdbox_map_atomic_finish(&atomic) < 0)
 		ret = -1;
+
+	if (list != NULL)
+		mailbox_list_unlock(list);
 	return ret;
 }
