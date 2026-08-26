@@ -608,7 +608,8 @@ import_state_mailbox_open(struct client *client,
 	}
 	/* verify that this still looks like the same mailbox */
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
-		*error_r = mailbox_get_last_internal_error(box, NULL);
+		*error_r = t_strdup_printf("Couldn't get mailbox GUID: %s",
+			mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
 		return IMAP_STATE_ERROR;
 	}
