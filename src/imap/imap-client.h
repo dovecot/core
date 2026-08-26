@@ -72,6 +72,8 @@ struct client_command_stats {
 	struct timeval finish_timeval;
 	/* io_loop_get_wait_usecs()'s value when the command was started */
 	uint64_t start_ioloop_wait_usecs;
+	/* io_loop_get_wait_usecs()'s value at finish_timeval */
+	uint64_t finish_ioloop_wait_usecs;
 	/* how many usecs this command itself has spent running */
 	uint64_t running_usecs;
 	/* how many usecs this command itself has spent waiting for locks */

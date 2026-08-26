@@ -419,7 +419,7 @@ static const char *client_get_last_command_status(struct client *client)
 	    IMAP_CLIENT_DISCONNECT_LOG_STATS_CMD_MIN_RUNNING_MSECS) {
 		str_append(str, " - ");
 		client_command_stats_append(str, stats,
-					    io_loop_get_wait_usecs(current_ioloop),
+					    stats->finish_ioloop_wait_usecs,
 					    "", 0);
 	}
 	str_append_c(str, ')');
@@ -1106,6 +1106,8 @@ void client_command_free(struct client_command_context **_cmd)
 			   finished only now */
 			io_loop_time_refresh();
 			cmd->stats.finish_timeval = ioloop_timeval;
+			cmd->stats.finish_ioloop_wait_usecs =
+				io_loop_get_wait_usecs(current_ioloop);
 		}
 
 		i_free(client->last_cmd_name);
