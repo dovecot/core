@@ -65,6 +65,11 @@ struct client_command_stats {
 	/* time when command handling was last finished. this is before
 	   mailbox syncing is done. */
 	struct timeval last_run_timeval;
+	/* time when the command's own handling was finished: when it called
+	   cmd_sync(), or when it was freed if it never did. Mailbox syncing
+	   isn't included, because it can also be flushing changes made by
+	   other commands. */
+	struct timeval finish_timeval;
 	/* io_loop_get_wait_usecs()'s value when the command was started */
 	uint64_t start_ioloop_wait_usecs;
 	/* how many usecs this command itself has spent running */

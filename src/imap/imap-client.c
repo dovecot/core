@@ -408,13 +408,14 @@ static const char *client_get_last_command_status(struct client *client)
 	const struct client_command_stats *stats = &client->last_cmd_stats;
 
 	string_t *str = t_str_new(128);
-	long long last_run_msecs = timeval_diff_msecs(&ioloop_timeval,
-						      &stats->last_run_timeval);
+	long long idle_msecs = timeval_diff_msecs(&ioloop_timeval,
+						  &stats->finish_timeval);
+	long long duration_msecs = timeval_diff_msecs(&stats->finish_timeval,
+						      &stats->start_time);
 	str_printfa(str, " (%s finished %lld.%03lld secs ago",
-		    client->last_cmd_name, last_run_msecs/1000,
-		    last_run_msecs%1000);
+		    client->last_cmd_name, idle_msecs/1000, idle_msecs%1000);
 
-	if (timeval_diff_msecs(&stats->last_run_timeval, &stats->start_time) >=
+	if (duration_msecs >=
 	    IMAP_CLIENT_DISCONNECT_LOG_STATS_CMD_MIN_RUNNING_MSECS) {
 		str_append(str, " - ");
 		client_command_stats_append(str, stats,
@@ -1100,6 +1101,13 @@ void client_command_free(struct client_command_context **_cmd)
 	}
 
 	if (cmd->name != NULL) {
+		if (cmd->stats.finish_timeval.tv_sec == 0) {
+			/* cmd_sync() wasn't called, so the command's handling
+			   finished only now */
+			io_loop_time_refresh();
+			cmd->stats.finish_timeval = ioloop_timeval;
+		}
+
 		i_free(client->last_cmd_name);
 		client->last_cmd_name = i_strdup(cmd->name);
 		client->last_cmd_stats = cmd->stats;

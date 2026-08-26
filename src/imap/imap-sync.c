@@ -741,6 +741,7 @@ bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 		return TRUE;
 
 	cmd->stats.last_run_timeval = ioloop_timeval;
+	cmd->stats.finish_timeval = ioloop_timeval;
 	if (client->mailbox == NULL) {
 		/* no mailbox selected, no point in delaying the sync */
 		if (tagline != NULL)
