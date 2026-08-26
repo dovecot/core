@@ -70,8 +70,10 @@ event_exporter_http_post_init(pool_t pool, struct event *event,
 		settings_free(exporter->set);
 		return -1;
 	}
-	if (http_client_init_auto(event, &exporter->client, error_r) < 0)
+	if (http_client_init_auto(event, &exporter->client, error_r) < 0) {
+		settings_free(exporter->set);
 		return -1;
+	}
 	*exporter_r = &exporter->exporter;
 	return 0;
 }
