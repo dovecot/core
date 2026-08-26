@@ -87,6 +87,10 @@ enum mailbox_flags {
 	MAILBOX_FLAG_ATTRIBUTE_SESSION	= 0x10000,
 	/* Skip normalizing the mailbox name to Unicode NFC form. */
 	MAILBOX_FLAG_RAW_NAME           = 0x20000,
+	/* Never implicitly create the mailbox, even if it would normally be
+	   autocreated (e.g. INBOX). Accessing a nonexistent mailbox fails
+	   with MAIL_ERROR_NOTFOUND instead. */
+	MAILBOX_FLAG_NO_AUTOCREATE	= 0x40000,
 };
 
 enum mailbox_feature {

@@ -1767,6 +1767,7 @@ static int mailbox_verify_existing_name_int(struct mailbox *box)
 
 	if (ret < 0) {
 		if (box->storage->error != MAIL_ERROR_NOTFOUND ||
+		    HAS_ANY_BITS(box->flags, MAILBOX_FLAG_NO_AUTOCREATE) ||
 		    !mailbox_is_autocreated(box))
 			return -1;
 		/* if this is an autocreated mailbox, create it now */
@@ -2024,6 +2025,7 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 	}
 	if (ret < 0 && storage->error == MAIL_ERROR_NOTFOUND &&
 	    !box->deleting && !box->creating &&
+	    HAS_NO_BITS(box->flags, MAILBOX_FLAG_NO_AUTOCREATE) &&
 	    box->input == NULL && mailbox_is_autocreated(box)) T_BEGIN {
 		ret = mailbox_autocreate_and_reopen(box);
 	} T_END;
