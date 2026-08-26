@@ -21,7 +21,13 @@ node_lookup_guid(struct mailbox_list_index_sync_context *ctx,
 	mailbox_list_index_node_get_path(ctx->list, node, str);
 
 	vname = mailbox_list_get_vname(ctx->list, str_c(str));
-	box = mailbox_alloc(ctx->list, vname, MAILBOX_FLAG_RAW_NAME);
+	/* Never autocreate the mailbox here. Its GUID would be a newly
+	   generated one, which isn't what the caller is looking for. It would
+	   also deadlock: the mailbox list index transaction log is locked
+	   while syncing, while mailbox_create() locks the mailbox list first
+	   and the transaction log only afterwards. */
+	box = mailbox_alloc(ctx->list, vname, MAILBOX_FLAG_RAW_NAME |
+			    MAILBOX_FLAG_NO_AUTOCREATE);
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) == 0)
 		memcpy(guid_r, metadata.guid, GUID_128_SIZE);
 	mailbox_free(&box);

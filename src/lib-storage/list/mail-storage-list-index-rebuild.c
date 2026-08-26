@@ -251,8 +251,12 @@ mail_storage_list_index_find_indexed_mailbox(struct mail_storage_list_index_rebu
 	if ((info->flags & (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) != 0)
 		return 0;
 
+	/* Never autocreate the mailbox here, similarly to the mailbox list
+	   index syncing: the mailbox list indexes are kept locked here, while
+	   mailbox_create() locks the mailbox list first. */
 	box = mailbox_alloc(info->ns->list, info->vname,
-			    MAILBOX_FLAG_IGNORE_ACLS | MAILBOX_FLAG_RAW_NAME);
+			    MAILBOX_FLAG_IGNORE_ACLS | MAILBOX_FLAG_RAW_NAME |
+			    MAILBOX_FLAG_NO_AUTOCREATE);
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
 		mail_storage_set_critical(rebuild_ns->ns->storage,
 			"List rebuild: Couldn't lookup mailbox %s GUID: %s",
