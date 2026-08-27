@@ -170,6 +170,31 @@ static void test_imap_utf7_bad_ascii(void)
 	test_end();
 }
 
+static void test_imap_utf7_raw_octet_after_shift(void)
+{
+	string_t *dest;
+	unsigned int i;
+
+	dest = t_str_new(256);
+
+	test_begin("imap mutf7 raw octet after shift");
+	for (i = 1; i <= 0xff; ++i) {
+		if (i == ' ')
+			i = 0x7f; /* skip the self-coding ASCII range */
+		/* A raw 8-bit or control octet following a completed shift
+		   sequence is invalid mUTF-7. It must be rejected, not silently
+		   emitted (which used to append an embedded NUL and still
+		   return success). */
+		const unsigned char csrc[] = {
+			'&', 'A', 'A', 'E', '-', (unsigned char)i, '\0'
+		};
+		test_assert_idx(!imap_utf7_is_valid((const char *)csrc), i);
+		str_truncate(dest, 0);
+		test_assert_idx(imap_utf7_to_utf8((const char *)csrc, dest) < 0, i);
+	}
+	test_end();
+}
+
 static void test_imap_utf7_unnecessary(void)
 {
 	string_t *dest;
@@ -210,6 +235,7 @@ int main(void)
 		test_imap_utf7_ucs4_cases,
 		test_imap_utf7_non_utf16,
 		test_imap_utf7_bad_ascii,
+		test_imap_utf7_raw_octet_after_shift,
 		test_imap_utf7_unnecessary,
 		NULL
 	};
