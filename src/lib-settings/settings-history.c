@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
 #include "version.h"
 #include "settings-history.h"
 
@@ -92,6 +93,43 @@ struct settings_history *settings_history_get(void)
 		history->sort_pending = FALSE;
 	}
 	return history;
+}
+
+const char *settings_history_translate_key(const char *key)
+{
+	struct settings_history *history = settings_history_get();
+	const struct setting_history_rename *rename;
+	unsigned int max_iterations = array_count(&history->renames);
+	bool changed;
+
+	do {
+		const char *p = strrchr(key, '/');
+		const char *prefix = p == NULL ? "" :
+			t_strdup_until(key, p + 1);
+		const char *last_key = p == NULL ? key : p + 1;
+
+		changed = FALSE;
+		array_foreach(&history->renames, rename) {
+			if (strcmp(rename->old_key, last_key) != 0)
+				continue;
+
+			const char *new_key = rename->new_key;
+			/* The new key may have a filter prefix, e.g.
+			   imapc/client_auth_authzid. If the key already is
+			   inside that filter, drop the prefix - otherwise a
+			   nested filter with the same name would be used. */
+			if (strchr(new_key, '/') != NULL) {
+				const char *filter_prefix = t_strconcat(
+					t_strcut(new_key, '/'), "/", NULL);
+				if (str_ends_with(prefix, filter_prefix))
+					new_key = strchr(new_key, '/') + 1;
+			}
+			key = t_strconcat(prefix, new_key, NULL);
+			changed = TRUE;
+			break;
+		}
+	} while (changed && max_iterations-- > 0);
+	return key;
 }
 
 void settings_history_register_defaults(

@@ -37,6 +37,14 @@ struct settings_history {
 
 struct settings_history *settings_history_get(void);
 
+/* Translate a renamed setting key to its current name. The key may have a
+   filter prefix path, which is preserved. Returns the translated key
+   (data stack allocated) or the key itself if it wasn't renamed. Version
+   checks are intentionally not done: renames are applied regardless of
+   dovecot_config_version, because the callers (userdb and command line
+   overrides) have no config version context. */
+const char *settings_history_translate_key(const char *key);
+
 /* Register new defaults/renames/values/deprecates. The strings are assumed to
    be statically allocated, i.e. they are not duplicated. */
 void settings_history_register_defaults(
