@@ -11,6 +11,7 @@
 #include "mmap-util.h"
 #include "settings.h"
 #include "settings-bin-filter.h"
+#include "settings-history.h"
 #include "var-expand.h"
 
 #include <ctype.h>
@@ -3384,6 +3385,17 @@ settings_override_fill(struct settings_override *set, pool_t pool,
 			while (len > 0 && i_isspace(key[len-1]))
 				len--;
 			key = t_strndup(key, len);
+		}
+		switch (type) {
+		case SETTINGS_OVERRIDE_TYPE_USERDB:
+		case SETTINGS_OVERRIDE_TYPE_CLI_PARAM:
+		case SETTINGS_OVERRIDE_TYPE_2ND_CLI_PARAM:
+			/* Overrides coming from outside the code may still
+			   use old names of renamed settings. */
+			key = settings_history_translate_key(key);
+			break;
+		default:
+			break;
 		}
 		set->key = set->orig_key = p_strdup(pool, key);
 		set->value = p_strdup(pool, value);

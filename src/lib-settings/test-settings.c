@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "settings.h"
+#include "settings-history.h"
 #include "test-common.h"
 
 /*
@@ -1047,6 +1048,84 @@ static void test_settings_no_config_2nd_defaults(void)
 	test_end();
 }
 
+static void test_settings_history_translate_key(void)
+{
+	static const struct setting_history_rename test_renames[] = {
+		{ "test2_old_title", "test2_title", "2.4.1" },
+		{ "test2_older_title", "test2_old_title", "2.4.0" },
+		{ "test_old_pass", "test_filt/test_new_pass", "2.4.0" },
+	};
+	test_begin("settings_history_translate_key");
+	settings_history_register_renames(test_renames,
+					  N_ELEMENTS(test_renames));
+
+	/* not renamed */
+	test_assert_strcmp(settings_history_translate_key("test2_title"),
+			   "test2_title");
+	/* simple rename */
+	test_assert_strcmp(settings_history_translate_key("test2_old_title"),
+			   "test2_title");
+	/* chained rename */
+	test_assert_strcmp(settings_history_translate_key("test2_older_title"),
+			   "test2_title");
+	/* filter prefixes are preserved */
+	test_assert_strcmp(
+		settings_history_translate_key("ns/foo/test2_old_title"),
+		"ns/foo/test2_title");
+	/* rename adding a filter prefix */
+	test_assert_strcmp(settings_history_translate_key("test_old_pass"),
+			   "test_filt/test_new_pass");
+	test_assert_strcmp(
+		settings_history_translate_key("ns/foo/test_old_pass"),
+		"ns/foo/test_filt/test_new_pass");
+	/* already inside the added filter - prefix isn't duplicated */
+	test_assert_strcmp(
+		settings_history_translate_key("test_filt/test_old_pass"),
+		"test_filt/test_new_pass");
+	test_assert_strcmp(
+		settings_history_translate_key("ns/foo/test_filt/test_old_pass"),
+		"ns/foo/test_filt/test_new_pass");
+	test_end();
+}
+
+static void test_settings_override_rename(void)
+{
+	/* Uses the renames registered by
+	   test_settings_history_translate_key() */
+	static const struct {
+		enum settings_override_type type;
+		const char *expected_title;
+	} tests[] = {
+		/* userdb and CLI overrides may still use old names of
+		   renamed settings */
+		{ SETTINGS_OVERRIDE_TYPE_USERDB, "New Title" },
+		{ SETTINGS_OVERRIDE_TYPE_CLI_PARAM, "New Title" },
+		{ SETTINGS_OVERRIDE_TYPE_2ND_CLI_PARAM, "New Title" },
+		/* code overrides must use the current names */
+		{ SETTINGS_OVERRIDE_TYPE_CODE, "" },
+	};
+	test_begin("settings_get - renamed override key");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		struct settings_root *set_root = settings_root_init();
+		settings_root_override(set_root, "test2_old_title",
+				       "New Title", tests[i].type);
+
+		struct event *event = event_create(NULL);
+		event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
+
+		struct test2_settings *set;
+		const char *error;
+		test_assert_idx(settings_get(event,
+			&test2_setting_parser_info, 0, &set, &error) == 0, i);
+		test_assert_strcmp_idx(set->title, tests[i].expected_title, i);
+		settings_free(set);
+
+		event_unref(&event);
+		settings_root_deinit(&set_root);
+	}
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -1060,6 +1139,8 @@ int main(void)
 		test_settings_no_config_defaults,
 		test_settings_no_config_2nd_defaults,
 		test_settings_alias,
+		test_settings_history_translate_key,
+		test_settings_override_rename,
 		NULL
 	};
 	return test_run(test_functions);
