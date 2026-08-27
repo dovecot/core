@@ -89,6 +89,9 @@ struct master_service {
 	volatile sig_atomic_t last_kick_signal_user_accessed;
 	volatile sig_atomic_t last_kick_signal_user_matched;
 	volatile sig_atomic_t killed_signal;
+	/* The killed_signal was sent by the master process. It can't be a
+	   user kick, so there is no point in waiting for a kick command. */
+	volatile sig_atomic_t killed_by_master;
 	volatile struct timeval killed_time;
 
 	struct stats_client *stats_client;

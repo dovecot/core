@@ -96,10 +96,21 @@ log_killed_signal(struct master_service *service, const siginfo_t *si)
 	    master_service_is_user_kicked(service))
 		return;
 
-	e_warning(service->event,
-		  "Killed with signal %d (by pid=%s uid=%s code=%s)",
-		  si->si_signo, dec2str(si->si_pid), dec2str(si->si_uid),
-		  lib_signal_code_to_str(si->si_signo, si->si_code));
+	if (service->killed_by_master != 0) {
+		/* This is how the master process stops its child processes,
+		   so it's entirely normal. If the process was supposed to
+		   have stopped by itself, the master logs a warning about
+		   it. */
+		e_debug(service->event,
+			"Killed with signal %d (by the master process)",
+			si->si_signo);
+	} else {
+		e_warning(service->event,
+			  "Killed with signal %d (by pid=%s uid=%s code=%s)",
+			  si->si_signo, dec2str(si->si_pid),
+			  dec2str(si->si_uid),
+			  lib_signal_code_to_str(si->si_signo, si->si_code));
+	}
 	service->killed_signal_logged = TRUE;
 }
 
@@ -115,11 +126,30 @@ static bool master_service_can_idle_die(struct master_service *service)
 	return TRUE;
 }
 
+/* Returns TRUE if the signal was sent by the master process. */
+static bool sig_is_from_master(struct master_service *service,
+			       const siginfo_t *si)
+{
+	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0) {
+		/* There is no master process - the parent is whatever started
+		   us, e.g. a shell or a script. */
+		return FALSE;
+	}
+	return si->si_code == SI_USER && si->si_pid == getppid();
+}
+
 static void sig_delayed_die(const siginfo_t *si, void *context)
 {
 	struct master_service *service = context;
 
+	if (si->si_signo == SIGTERM && sig_is_from_master(service, si)) {
+		/* Processes without master-admin sockets don't have the
+		   sig_term() handler, so set this here as well. */
+		service->killed_by_master = 1;
+	}
+
 	if (si->si_signo == SIGTERM && service->callback != NULL &&
+	    service->killed_by_master == 0 &&
 	    service->last_kick_signal_user_matched == 0) {
 		/* The SIGTERM handler didn't see a KICK-USER-SIGNAL command.
 		   It may still be on its way in a master-admin connection that
@@ -314,6 +344,17 @@ static void sig_term(const siginfo_t *si, void *context)
 	sigset_t sigmask, oldmask;
 	int saved_errno = errno;
 	bool call_delayed = TRUE;
+
+	if (sig_is_from_master(service, si)) {
+		/* The master process is killing us. It's never sending
+		   KICK-USER-SIGNAL commands, so don't even try to look for
+		   one. This also avoids the delay of waiting for a kick
+		   command that can't be coming. */
+		service->killed_by_master = 1;
+		sig_die_delayed(service, si);
+		errno = saved_errno;
+		return;
+	}
 
 	/* Block SIGTERM so that we don't get back here recursively. */
 	if (sigemptyset(&sigmask) < 0)
