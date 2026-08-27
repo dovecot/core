@@ -101,14 +101,24 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 
 		.override_password = password,
 	};
+	struct imapc_client *imap_client;
+	const char *error;
 
 	if (auth_request_set_passdb_fields(auth_request, NULL) < 0) {
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, auth_request);
 		return;
 	}
 
+	struct event *event = authdb_event(auth_request);
+
+	if (imapc_client_init(&params, event, &imap_client, &error) < 0) {
+		e_error(event, "Failed to initialize IMAP client: %s", error);
+		callback(PASSDB_RESULT_INTERNAL_FAILURE, auth_request);
+		return;
+	}
+
 	request = p_new(auth_request->pool, struct imap_auth_request, 1);
-	request->client = imapc_client_init(&params, authdb_event(auth_request));
+	request->client = imap_client;
 	request->auth_request = auth_request;
 	request->verify_callback = callback;
 

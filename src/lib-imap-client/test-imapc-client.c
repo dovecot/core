@@ -264,6 +264,7 @@ static void
 test_run_client(test_client_init_t *client_test, const char *temp_path_prefix)
 {
 	struct ioloop *ioloop;
+	const char *error;
 
 	i_set_failure_prefix("CLIENT: ");
 
@@ -276,7 +277,9 @@ test_run_client(test_client_init_t *client_test, const char *temp_path_prefix)
 		.temp_path_prefix = temp_path_prefix,
 	};
 	ioloop = io_loop_create();
-	imapc_client = imapc_client_init(&imapc_params, test_set.event);
+	if (imapc_client_init(&imapc_params, test_set.event,
+			      &imapc_client, &error) < 0)
+		i_fatal("Failed to initialize IMAP client: %s", error);
 	client_test();
 	imapc_client_logout(imapc_client);
 	test_assert(array_count(&imapc_cmd_last_replies) == 0);

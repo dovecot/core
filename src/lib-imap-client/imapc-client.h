@@ -5,6 +5,8 @@
 #include "iostream-ssl.h"
 #include "imapc-settings.h"
 
+struct imapc_client;
+
 enum imapc_command_state {
 	IMAPC_COMMAND_STATE_OK = 0,
 	IMAPC_COMMAND_STATE_NO,
@@ -108,9 +110,9 @@ typedef void imapc_state_change_callback_t(void *context,
 					   enum imapc_state_change_event event,
 					   const char *error);
 
-struct imapc_client *
-imapc_client_init(const struct imapc_parameters *params,
-		  struct event *event_parent);
+int imapc_client_init(const struct imapc_parameters *params,
+		      struct event *event_parent,
+		      struct imapc_client **client_r, const char **error_r);
 void imapc_client_disconnect(struct imapc_client *client);
 void imapc_client_deinit(struct imapc_client **client);
 

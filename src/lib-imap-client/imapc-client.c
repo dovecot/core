@@ -25,24 +25,37 @@ default_untagged_callback(const struct imapc_untagged_reply *reply ATTR_UNUSED,
 {
 }
 
-struct imapc_client *
-imapc_client_init(const struct imapc_parameters *params,
-		  struct event *event_parent)
+int imapc_client_init(const struct imapc_parameters *params,
+		      struct event *event_parent,
+		      struct imapc_client **client_r, const char **error_r)
 {
+	struct event *event;
+	struct imapc_settings *set;
 	struct imapc_client *client;
 	pool_t pool;
 
+	*client_r = NULL;
+	*error_r = NULL;
+
 	i_assert(params->temp_path_prefix != NULL &&
 		*params->temp_path_prefix != '\0');
+
+	event = event_create(event_parent);
+
+	if (settings_get(event, &imapc_setting_parser_info, 0,
+			 &set, error_r) < 0) {
+		event_unref(&event);
+		return -1;
+	}
 
 	pool = pool_alloconly_create("imapc client", 1024);
 	client = p_new(pool, struct imapc_client, 1);
 	client->pool = pool;
 	client->refcount = 1;
-	client->event = event_create(event_parent);
 	client->untagged_callback = default_untagged_callback;
+	client->event = event;
+	client->set = set;
 
-	client->set = settings_get_or_fatal(client->event, &imapc_setting_parser_info);
 	client->params.session_id_prefix =
 		p_strdup(pool, params->session_id_prefix);
 	client->params.temp_path_prefix =
@@ -68,7 +81,8 @@ imapc_client_init(const struct imapc_parameters *params,
 		client->ssl_mode = IMAPC_CLIENT_SSL_MODE_STARTTLS;
 
 	p_array_init(&client->conns, pool, 8);
-	return client;
+	*client_r = client;
+	return 0;
 }
 
 void imapc_client_ref(struct imapc_client *client)

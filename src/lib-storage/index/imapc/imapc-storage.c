@@ -332,6 +332,7 @@ int imapc_storage_client_create(struct mailbox_list *list,
 {
 	struct mail_namespace *ns = list->ns;
 	const struct imapc_settings *imapc_set;
+	struct imapc_client *imap_client;
 	struct imapc_storage_client *client;
 	struct imapc_parameters params = {};
 	const struct ssl_settings *ssl_set = NULL;
@@ -384,6 +385,9 @@ int imapc_storage_client_create(struct mailbox_list *list,
 	mail_user_set_get_temp_prefix(str, ns->user->set);
 	params.temp_path_prefix = str_c(str);
 
+	if (imapc_client_init(&params, list->event, &imap_client, error_r) < 0)
+		return -1;
+
 	client = i_new(struct imapc_storage_client, 1);
 	client->refcount = 1;
 	client->set = imapc_set;
@@ -391,7 +395,7 @@ int imapc_storage_client_create(struct mailbox_list *list,
 	client->disabled =
 		HAS_ALL_BITS(params.flags, IMAPC_PARAMETER_CLIENT_DISABLED);
 	i_array_init(&client->untagged_callbacks, 16);
-	client->client = imapc_client_init(&params, list->event);
+	client->client = imap_client;
 	imapc_client_register_untagged(client->client,
 				       imapc_storage_client_untagged_cb, client);
 
