@@ -1042,6 +1042,25 @@ imapc_connection_channel_bind_callback(const char *type, void *context,
 						type, data_r, error_r);
 }
 
+static void
+imapc_connection_send_authenticate(struct imapc_connection *conn,
+				   const char *mech_name, const char *init_resp)
+{
+	struct imapc_command *cmd;
+
+	cmd = imapc_connection_cmd(conn, imapc_connection_authenticate_cb, conn);
+	cmd->authenticate = TRUE;
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
+
+	if (init_resp == NULL) {
+		imapc_command_sendf(cmd, "AUTHENTICATE %1s", mech_name);
+		return;
+	}
+
+	imapc_command_sendf(cmd, "AUTHENTICATE %1s %1s",
+			    mech_name, init_resp);
+}
+
 static void imapc_connection_authenticate(struct imapc_connection *conn)
 {
 	struct imapc_client *client = conn->client;
@@ -1049,7 +1068,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	struct imapc_command *cmd;
 	struct dsasl_client_settings sasl_set;
 	const struct dsasl_client_mech *sasl_mech = NULL;
-	const char *error;
+	const char *mech_name, *error;
 
 	if (*set->imapc_master_user == '\0') {
 		e_debug(conn->event, "Authenticating as %s", set->imapc_user);
@@ -1109,16 +1128,14 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	if (sasl_mech == NULL)
 		sasl_mech = &dsasl_client_mech_plain;
 	conn->sasl_client = dsasl_client_new(sasl_mech, &sasl_set);
+
+	mech_name = dsasl_client_mech_get_name(sasl_mech);
 	if (conn->ssl_iostream != NULL) {
 		dsasl_client_enable_channel_binding(
 			conn->sasl_client,
 			ssl_iostream_get_protocol_version(conn->ssl_iostream),
 			imapc_connection_channel_bind_callback, conn);
 	}
-
-	cmd = imapc_connection_cmd(conn, imapc_connection_authenticate_cb, conn);
-	cmd->authenticate = TRUE;
-	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
 
 	if ((conn->capabilities & IMAPC_CAPABILITY_SASL_IR) != 0) {
 		const unsigned char *sasl_output;
@@ -1139,16 +1156,15 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 			imapc_connection_disconnect(conn);
 			return;
 		}
+
 		sasl_output_base64 = t_str_new(MAX_BASE64_ENCODED_SIZE(sasl_output_len));
 		base64_encode(sasl_output, sasl_output_len, sasl_output_base64);
 
-		imapc_command_sendf(cmd, "AUTHENTICATE %1s %1s",
-				    dsasl_client_mech_get_name(sasl_mech),
-				    str_c(sasl_output_base64));
-	} else {
-		imapc_command_sendf(cmd, "AUTHENTICATE %1s",
-				    dsasl_client_mech_get_name(sasl_mech));
+		imapc_connection_send_authenticate(conn, mech_name,
+						   str_c(sasl_output_base64));
+		return;
 	}
+	imapc_connection_send_authenticate(conn, mech_name, NULL);
 }
 
 static void
