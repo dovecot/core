@@ -21,6 +21,10 @@ enum service_type {
 	   and they can regularly reach it. There shouldn't be unnecessary
 	   warnings about temporarily reaching the limit. */
 	SERVICE_TYPE_WORKER,
+	/* Processes serving externally visible client connections, which
+	   can't be transparently re-established. A config reload can preserve
+	   these processes instead of disconnecting their clients. */
+	SERVICE_TYPE_CLIENT,
 };
 
 struct config_service {

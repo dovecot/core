@@ -376,6 +376,8 @@ static bool master_settings_parse_type(struct service_settings *set,
 		set->parsed_type = SERVICE_TYPE_STARTUP;
 	else if (strcmp(set->type, "worker") == 0)
 		set->parsed_type = SERVICE_TYPE_WORKER;
+	else if (strcmp(set->type, "client") == 0)
+		set->parsed_type = SERVICE_TYPE_CLIENT;
 	else {
 		*error_r = t_strconcat("Unknown service type: ",
 				       set->type, NULL);
