@@ -313,6 +313,13 @@ imap_utf7_to_utf8_int(const char *src, const char *escape_chars, string_t *dest)
 	while (*p != '\0') {
 		if (strchr(escape_chars, *p) != NULL ||
 		    *p < 0x20 || *p >= 0x7f) {
+			if (escape_chars[0] == '\0') {
+				/* non-escaped API: an 8-bit or control octet
+				   outside a shift sequence is invalid mUTF-7.
+				   Reject it like the mbase64 failure path below
+				   instead of emitting a NUL escape char. */
+				return -1;
+			}
 			str_printfa(dest, "%c%02x", escape_chars[0],
 				    (unsigned char)*p);
 			p++;
