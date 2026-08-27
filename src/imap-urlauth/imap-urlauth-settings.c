@@ -12,7 +12,7 @@
 struct service_settings imap_urlauth_service_settings = {
 	.name = "imap-urlauth",
 	.protocol = "imap",
-	.type = "",
+	.type = "client",
 	.executable = "imap-urlauth",
 	.user = "$SET:default_internal_user",
 	.group = "",

@@ -17,7 +17,7 @@ static bool pop3_settings_verify(void *_set, pool_t pool,
 struct service_settings pop3_service_settings = {
 	.name = "pop3",
 	.protocol = "pop3",
-	.type = "",
+	.type = "client",
 	.executable = "pop3",
 	.user = "",
 	.group = "",

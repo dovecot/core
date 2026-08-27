@@ -14,7 +14,7 @@
 struct service_settings imap_urlauth_worker_service_settings = {
 	.name = "imap-urlauth-worker",
 	.protocol = "imap",
-	.type = "",
+	.type = "client",
 	.executable = "imap-urlauth-worker",
 	.user = "",
 	.group = "",

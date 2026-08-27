@@ -14,7 +14,7 @@ static bool imap_settings_verify(void *_set, pool_t pool,
 struct service_settings imap_service_settings = {
 	.name = "imap",
 	.protocol = "imap",
-	.type = "",
+	.type = "client",
 	.executable = "imap",
 	.user = "",
 	.group = "",

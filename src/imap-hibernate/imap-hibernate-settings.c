@@ -10,7 +10,7 @@
 struct service_settings imap_hibernate_service_settings = {
 	.name = "imap-hibernate",
 	.protocol = "imap",
-	.type = "",
+	.type = "client",
 	.executable = "imap-hibernate",
 	.user = "$SET:default_internal_user",
 	.group = "",

@@ -19,7 +19,7 @@ static bool doveadm_settings_check(void *_set, pool_t pool, const char **error_r
 struct service_settings doveadm_service_settings = {
 	.name = "doveadm",
 	.protocol = "",
-	.type = "",
+	.type = "client",
 	.executable = "doveadm-server",
 	.user = "",
 	.group = "",

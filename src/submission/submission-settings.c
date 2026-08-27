@@ -17,7 +17,7 @@ static bool submission_settings_verify(void *_set, pool_t pool,
 struct service_settings submission_service_settings = {
 	.name = "submission",
 	.protocol = "submission",
-	.type = "",
+	.type = "client",
 	.executable = "submission",
 	.user = "",
 	.group = "",
