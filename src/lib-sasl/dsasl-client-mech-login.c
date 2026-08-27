@@ -51,7 +51,7 @@ mech_login_output(struct dsasl_client *_client,
 
 	switch (client->state) {
 	case STATE_INIT:
-		*output_r = uchar_empty_ptr;
+		*output_r = NULL;
 		*output_len_r = 0;
 		return DSASL_CLIENT_RESULT_OK;
 	case STATE_USER:

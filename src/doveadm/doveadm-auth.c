@@ -290,9 +290,6 @@ static void auth_connected(struct auth_client *client,
 				&sasl_output_len,
 				&error) != DSASL_CLIENT_RESULT_OK)
 		i_fatal("Failed to create initial SASL reply: %s", error);
-	sasl_output_base64 =
-		t_str_new(MAX_BASE64_ENCODED_SIZE(sasl_output_len));
-	base64_encode(sasl_output, sasl_output_len, sasl_output_base64);
 
 	i_zero(&info);
 	info.mech = mech;
@@ -309,7 +306,12 @@ static void auth_connected(struct auth_client *client,
 	info.real_remote_port = input->info.real_remote_port;
 	info.extra_fields = input->info.extra_fields;
 	info.forward_fields = input->info.forward_fields;
-	info.initial_resp_base64 = str_c(sasl_output_base64);
+	if (sasl_output != NULL) {
+		sasl_output_base64 =
+			t_str_new(MAX_BASE64_ENCODED_SIZE(sasl_output_len));
+		base64_encode(sasl_output, sasl_output_len, sasl_output_base64);
+		info.initial_resp_base64 = str_c(sasl_output_base64);
+	}
 	if (auth_want_log_debug())
 		info.flags |= AUTH_REQUEST_FLAG_DEBUG;
 

@@ -374,6 +374,8 @@ static void test_sasl_interact(struct test_sasl_context *tctx)
 			test_out_reason_quiet("client output",
 					      result == DSASL_CLIENT_RESULT_OK,
 					      error);
+			i_assert(sasl_data != NULL ||
+				 result != DSASL_CLIENT_RESULT_OK);
 		}
 
 		sasl_server_request_input(&tctx->ssrctx,

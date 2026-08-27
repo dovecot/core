@@ -1160,6 +1160,10 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 			imapc_connection_disconnect(conn);
 			return;
 		}
+		if (sasl_output == NULL) {
+			imapc_connection_send_authenticate(conn, mech_name, NULL);
+			return;
+		}
 		if (sasl_output_len == 0) {
 			imapc_connection_send_authenticate(conn, mech_name, "");
 			return;

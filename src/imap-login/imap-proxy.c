@@ -180,11 +180,13 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 				LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
 			return -1;
 		}
-		str_append_c(str, ' ');
-		if (sasl_output_len == 0)
-			str_append_c(str, '=');
-		else
-			base64_encode(sasl_output, sasl_output_len, str);
+		if (sasl_output != NULL) {
+			str_append_c(str, ' ');
+			if (sasl_output_len == 0)
+				str_append_c(str, '=');
+			else
+				base64_encode(sasl_output, sasl_output_len, str);
+		}
 	}
 	str_append(str, "\r\n");
 	client->proxy_sent_state |= IMAP_PROXY_SENT_STATE_AUTHENTICATE;

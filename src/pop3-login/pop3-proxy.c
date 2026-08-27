@@ -99,7 +99,7 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 		dsasl_client_new(client->common.proxy_mech, &sasl_set);
 	mech_name = dsasl_client_mech_get_name(client->common.proxy_mech);
 
-	str_printfa(str, "AUTH %s ", mech_name);
+	str_printfa(str, "AUTH %s", mech_name);
 	if (dsasl_client_output(client->common.proxy_sasl_client,
 				&sasl_output, &sasl_output_len,
 				&error) != DSASL_CLIENT_RESULT_OK) {
@@ -111,10 +111,13 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 			LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
 		return -1;
 	}
-	if (sasl_output_len == 0)
-		str_append_c(str, '=');
-	else
-		base64_encode(sasl_output, sasl_output_len, str);
+	if (sasl_output != NULL) {
+		str_append_c(str, ' ');
+		if (sasl_output_len == 0)
+			str_append_c(str, '=');
+		else
+			base64_encode(sasl_output, sasl_output_len, str);
+	}
 	str_append(str, "\r\n");
 	o_stream_nsend(output, str_data(str), str_len(str));
 

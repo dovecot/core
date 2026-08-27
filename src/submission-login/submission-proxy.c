@@ -297,6 +297,10 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 			LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
 		return -1;
 	}
+	if (sasl_output == NULL) {
+		proxy_send_auth_command(client, output, mech_name, NULL);
+		return 0;
+	}
 	if (sasl_output_len == 0) {
 		proxy_send_auth_command(client, output, mech_name, "");
 		return 0;

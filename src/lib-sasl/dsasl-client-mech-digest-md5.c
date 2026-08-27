@@ -515,7 +515,7 @@ mech_digest_md5_output(struct dsasl_client *client,
 		dclient->state = DIGEST_MD5_STATE_SERVER_FIRST;
 		/* Fall through */
 	case DIGEST_MD5_STATE_SERVER_FIRST:
-		*output_r = uchar_empty_ptr;
+		*output_r = NULL;
 		*output_len_r = 0;
 		return DSASL_CLIENT_RESULT_OK;
 	case DIGEST_MD5_STATE_CLIENT_FIRST:

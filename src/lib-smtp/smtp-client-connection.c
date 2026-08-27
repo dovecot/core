@@ -1027,6 +1027,10 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 			error, "Internal authentication failure");
 		return FALSE;
 	}
+	if (sasl_output == NULL) {
+		smtp_client_connection_send_auth(conn, mech_name, NULL);
+		return FALSE;
+	}
 	if (sasl_output_len == 0) {
 		smtp_client_connection_send_auth(conn, mech_name, "");
 		return FALSE;
