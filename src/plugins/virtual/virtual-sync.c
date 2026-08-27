@@ -1629,8 +1629,11 @@ static int virtual_sync_backend_sort_new(struct virtual_sync_context *ctx)
 							vrec->mailbox_id, &bbox))
 				   i_unreached();
 			if (!bbox->box->opened &&
-			    virtual_backend_box_open(ctx->mbox, bbox) < 0)
+			    virtual_backend_box_open(ctx->mbox, bbox) < 0) {
+				virtual_box_copy_error(&ctx->mbox->box,
+						       bbox->box);
 				return -1;
+			}
 			virtual_backend_box_sync_mail_set(bbox);
 		}
 		if (!mail_set_uid(bbox->sync_mail, vrec->real_uid)) {
@@ -1639,8 +1642,11 @@ static int virtual_sync_backend_sort_new(struct virtual_sync_context *ctx)
 			adds[i].received_date = 0;
 		} else if (mail_get_received_date(bbox->sync_mail,
 						  &adds[i].received_date) < 0) {
-			if (!bbox->sync_mail->expunged)
+			if (!bbox->sync_mail->expunged) {
+				virtual_box_copy_error(&ctx->mbox->box,
+						       bbox->box);
 				return -1;
+			}
 			/* expunged already, just add it somewhere */
 			adds[i].received_date = 0;
 		}
@@ -1687,8 +1693,11 @@ static int virtual_sync_backend_add_new(struct virtual_sync_context *ctx)
 				i_unreached();
 			}
 			if (!bbox->box->opened &&
-			    virtual_backend_box_open(ctx->mbox, bbox) < 0)
+			    virtual_backend_box_open(ctx->mbox, bbox) < 0) {
+				virtual_box_copy_error(&ctx->mbox->box,
+						       bbox->box);
 				return -1;
+			}
 			virtual_backend_box_sync_mail_set(bbox);
 		}
 
