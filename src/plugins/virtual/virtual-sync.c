@@ -1642,12 +1642,18 @@ static int virtual_sync_backend_sort_new(struct virtual_sync_context *ctx)
 			adds[i].received_date = 0;
 		} else if (mail_get_received_date(bbox->sync_mail,
 						  &adds[i].received_date) < 0) {
-			if (!bbox->sync_mail->expunged) {
+			enum mail_error error =
+				mailbox_get_last_mail_error(bbox->box);
+
+			if (!bbox->sync_mail->expunged &&
+			    error != MAIL_ERROR_NOTFOUND) {
 				virtual_box_copy_error(&ctx->mbox->box,
 						       bbox->box);
 				return -1;
 			}
-			/* expunged already, just add it somewhere */
+			/* Expunged already, or the mailbox was deleted under
+			   us. Just add it somewhere - the mails are removed
+			   from the virtual mailbox by the next sync. */
 			adds[i].received_date = 0;
 		}
 	}
