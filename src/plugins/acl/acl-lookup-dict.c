@@ -246,6 +246,9 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			dt = dict_transaction_begin(dict->dict, set);
 			dict_unset(dt, str_c(path));
 			oldi++;
+		} else {
+			/* old identifier that we're not allowed to remove */
+			oldi++;
 		}
 		if (dt != NULL && dict_transaction_commit(&dt, &error) < 0) {
 			e_error(event, "dict commit failed: %s", error);
