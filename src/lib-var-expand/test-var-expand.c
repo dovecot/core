@@ -140,6 +140,13 @@ static void test_var_expand_builtin_filters(void) {
 		{ .in = "%{missing | default('hello')}", .out = "hello", .ret = 0 },
 		/* preserves first error */
 		{ .in = "%{missing | default(missing)}", .out = "Unknown variable 'missing'", .ret = -1 },
+		{ .in = "%{missing | upper}", .out = "Unknown variable 'missing'", .ret = -1 },
+		{ .in = "%{missing | default(missing) | upper}", .out = "Unknown variable 'missing'", .ret = -1 },
+		/* a later filter can still recover from the error */
+		{ .in = "%{missing | default(missing) | default}", .out = "", .ret = 0 },
+		{ .in = "%{missing | default(missing) | default('none')}", .out = "none", .ret = 0 },
+		{ .in = "%{missing | default(missing) | default(first)}", .out = "hello", .ret = 0 },
+		{ .in = "%{missing | upper | default('none')}", .out = "none", .ret = 0 },
 		{ .in = "%{first | default(second)}", .out = "hello", .ret = 0 },
 		{ .in = "%{first | default('world')}", .out = "hello", .ret = 0 },
 		{ .in = "%{default(first)}", .out = "hello", .ret = 0 },
@@ -597,6 +604,12 @@ static void test_var_expand_providers(void) {
 		{ .in = "%{event:string}", .out = "event", .ret = 0 },
 		{ .in = "%{event:missing}", .out = "event: No such field 'missing' in event", .ret = -1 },
 		{ .in = "%{event:missing|default}", .out = "", .ret = 0 },
+		{ .in = "%{event:missing|default(event:string)}", .out = "event", .ret = 0 },
+		{ .in = "%{event:string|default(event:missing)}", .out = "event", .ret = 0 },
+		{ .in = "%{event:missing|default(event:missing2)}",
+		  .out = "event: No such field 'missing' in event", .ret = -1 },
+		{ .in = "%{event:missing|default(event:missing2)|default('none')}",
+		  .out = "none", .ret = 0 },
 		{ .in = "%{event:magic}", .out = "42", .ret = 0 },
 	};
 

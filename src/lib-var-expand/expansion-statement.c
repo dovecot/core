@@ -43,8 +43,11 @@ bool var_expand_execute_stmt(struct var_expand_state *state,
 		if (ret < 0) {
 			var_expand_state_unset_transfer(state);
 			if (state->delayed_error != NULL) {
-				*error_r = t_strdup(state->delayed_error);
-				return FALSE;
+				/* The earlier error is the root cause for
+				   this failure, so keep reporting it.
+				   Continue anyway, so a later filter such as
+				   default() can still recover from it. */
+				return TRUE;
 			}
 			delayed_error =
 				i_strdup_printf("%s: %s", stmt->function, error);
