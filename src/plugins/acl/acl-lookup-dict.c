@@ -179,7 +179,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			key += prefix_len;
 			p = strrchr(key, '/');
 			if (p != NULL && strcmp(p + 1, username) == 0) {
-				key = t_strdup_until(key, p);
+				key = t_strdup(key);
 				array_push_back(&old_ids_arr, &key);
 			}
 		}
@@ -205,7 +205,8 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 		iter = dict_iterate_init(dict->dict, set, prefix, DICT_ITERATE_FLAG_RECURSE);
 		while (dict_iterate(iter, &key, &value)) {
 			/* prefix/$dest */
-			key = t_strdup_printf("user/%s", key + prefix_len);
+			key = t_strdup_printf("user/%s/%s", key + prefix_len,
+					      username);
 			array_push_back(&old_ids_arr, &key);
 		}
 	}
@@ -241,8 +242,6 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			/* old identifier removed */
 			str_truncate(path, prefix_len);
 			str_append(path, old_ids[oldi]);
-			str_append_c(path, '/');
-			str_append(path, username);
 			dt = dict_transaction_begin(dict->dict, set);
 			dict_unset(dt, str_c(path));
 			oldi++;
