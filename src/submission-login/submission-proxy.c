@@ -232,6 +232,28 @@ proxy_send_xclient(struct submission_client *client, struct ostream *output)
 	return 1;
 }
 
+static void
+proxy_send_auth_command(struct submission_client *client,
+			struct ostream *output, const char *mech_name,
+			const char *init_resp)
+{
+	string_t *str = t_str_new(128);
+
+	str_printfa(str, "AUTH %s", mech_name);
+	if (init_resp != NULL) {
+		if (*init_resp == '\0')
+			str_append(str, " =");
+		else {
+			str_append_c(str, ' ');
+			str_append(str, init_resp);
+		}
+	}
+	str_append(str, "\r\n");
+	o_stream_nsend(output, str_data(str), str_len(str));
+
+	client->proxy_state = SUBMISSION_PROXY_AUTHENTICATE;
+}
+
 static int
 proxy_send_login(struct submission_client *client, struct ostream *output)
 {
@@ -239,7 +261,6 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 	const unsigned char *sasl_output;
 	size_t sasl_output_len;
 	const char *mech_name, *error;
-	string_t *str;
 
 	if ((client->proxy_capability & SMTP_CAPABILITY_AUTH) == 0) {
 		/* Prevent sending credentials to a server that has login
@@ -250,8 +271,6 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 			"Authentication support not advertised (TLS required?)");
 		return -1;
 	}
-
-	str = t_str_new(128);
 
 	if (client->common.proxy_mech == NULL)
 		client->common.proxy_mech = &dsasl_client_mech_plain;
@@ -267,7 +286,6 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 		dsasl_client_new(client->common.proxy_mech, &sasl_set);
 	mech_name = dsasl_client_mech_get_name(client->common.proxy_mech);
 
-	str_printfa(str, "AUTH %s", mech_name);
 	if (dsasl_client_output(client->common.proxy_sasl_client,
 				&sasl_output, &sasl_output_len,
 				&error) != DSASL_CLIENT_RESULT_OK) {
@@ -278,6 +296,10 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 			login_proxy_get_event(client->common.login_proxy),
 			LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
 		return -1;
+	}
+	if (sasl_output_len == 0) {
+		proxy_send_auth_command(client, output, mech_name, "");
+		return 0;
 	}
 
 	string_t *sasl_output_base64 = t_str_new(
@@ -297,21 +319,16 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 	   This indicates that the response is present, but contains no data.
 	 */
 
+	const char *init_resp = NULL;
+
 	i_assert(client->proxy_sasl_ir == NULL);
-	if (str_len(sasl_output_base64) == 0)
-		str_append(str, " =");
-	else if ((5 + strlen(mech_name) + 1 + str_len(sasl_output_base64)) >
-		 SMTP_BASE_LINE_LENGTH_LIMIT)
+	if ((5 + strlen(mech_name) + 1 + str_len(sasl_output_base64)) >
+	    SMTP_BASE_LINE_LENGTH_LIMIT)
 		client->proxy_sasl_ir = i_strdup(str_c(sasl_output_base64));
-	else {
-		str_append_c(str, ' ');
-		str_append_str(str, sasl_output_base64);
-	}
+	else
+		init_resp = str_c(sasl_output_base64);
 
-	str_append(str, "\r\n");
-	o_stream_nsend(output, str_data(str), str_len(str));
-
-	client->proxy_state = SUBMISSION_PROXY_AUTHENTICATE;
+	proxy_send_auth_command(client, output, mech_name, init_resp);
 	return 0;
 }
 
