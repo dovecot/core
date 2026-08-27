@@ -930,13 +930,35 @@ smtp_client_connection_get_sasl_mech(struct smtp_client_connection *conn,
 	return -1;
 }
 
+static void
+smtp_client_connection_send_auth(struct smtp_client_connection *conn,
+				 const char *mech_name, const char *init_resp)
+{
+	struct smtp_client_command *cmd =
+		smtp_client_command_new(conn, SMTP_CLIENT_COMMAND_FLAG_PRELOGIN,
+					smtp_client_connection_auth_cb, conn);
+	if (init_resp == NULL)
+		smtp_client_command_printf(cmd, "AUTH %s", mech_name);
+	else if (*init_resp == '\0')
+		smtp_client_command_printf(cmd, "AUTH %s =", mech_name);
+	else {
+		smtp_client_command_printf(cmd, "AUTH %s %s",
+					   mech_name, init_resp);
+	}
+	smtp_client_command_submit(cmd);
+	conn->cmd_auth = cmd;
+
+	smtp_client_connection_set_state(
+		conn, SMTP_CLIENT_CONNECTION_STATE_AUTHENTICATING);
+}
+
 static bool
 smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 {
 	const struct smtp_client_settings *set = &conn->set;
 	struct dsasl_client_settings sasl_set;
 	const struct dsasl_client_mech *sasl_mech = NULL;
-	struct smtp_client_command *cmd;
+	const char *mech_name;
 	const unsigned char *sasl_output;
 	size_t sasl_output_len;
 	string_t *sasl_output_base64;
@@ -993,6 +1015,7 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 	sasl_set.port = conn->port;
 
 	conn->sasl_client = dsasl_client_new(sasl_mech, &sasl_set);
+	mech_name =  dsasl_client_mech_get_name(sasl_mech);
 
 	if (dsasl_client_output(conn->sasl_client, &sasl_output,
 				&sasl_output_len, &error) != DSASL_CLIENT_RESULT_OK) {
@@ -1002,6 +1025,10 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 		smtp_client_connection_fail(
 			conn, SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED,
 			error, "Internal authentication failure");
+		return FALSE;
+	}
+	if (sasl_output_len == 0) {
+		smtp_client_connection_send_auth(conn, mech_name, "");
 		return FALSE;
 	}
 
@@ -1022,31 +1049,16 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 	   This indicates that the response is present, but contains no data.
 	 */
 
-	const char *init_resp = "";
-	const char *mech_name =  dsasl_client_mech_get_name(sasl_mech);
+	const char *init_resp = NULL;
 
 	i_assert(conn->sasl_ir == NULL);
-	if (str_len(sasl_output_base64) == 0)
-		init_resp = "=";
-	else if ((5 + strlen(mech_name) + 1 + str_len(sasl_output_base64)) >
-		 SMTP_BASE_LINE_LENGTH_LIMIT)
+	if ((5 + strlen(mech_name) + 1 + str_len(sasl_output_base64)) >
+	    SMTP_BASE_LINE_LENGTH_LIMIT)
 		conn->sasl_ir = i_strdup(str_c(sasl_output_base64));
 	else
 		init_resp = str_c(sasl_output_base64);
 
-	cmd = smtp_client_command_new(conn, SMTP_CLIENT_COMMAND_FLAG_PRELOGIN,
-				      smtp_client_connection_auth_cb, conn);
-	if (*init_resp == '\0')
-		smtp_client_command_printf(cmd, "AUTH %s", mech_name);
-	else {
-		smtp_client_command_printf(cmd, "AUTH %s %s",
-					   mech_name, init_resp);
-	}
-	smtp_client_command_submit(cmd);
-	conn->cmd_auth = cmd;
-
-	smtp_client_connection_set_state(
-		conn, SMTP_CLIENT_CONNECTION_STATE_AUTHENTICATING);
+	smtp_client_connection_send_auth(conn, mech_name, init_resp);
 	return FALSE;
 }
 
