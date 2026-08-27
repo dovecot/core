@@ -3635,6 +3635,19 @@ struct settings_instance *settings_instance_find(const struct event *event)
 	return NULL;
 }
 
+struct settings_instance *settings_instance_new_from_event(struct event *event)
+{
+	struct settings_instance *set_instance = settings_instance_find(event);
+
+	if (set_instance != NULL)
+		return settings_instance_dup(set_instance);
+
+	struct settings_root *set_root = settings_root_find(event);
+
+	i_assert(set_root != NULL);
+	return settings_instance_new(set_root);
+}
+
 void settings_simple_init(struct settings_simple *set_r,
 			  const char *const settings[])
 {
