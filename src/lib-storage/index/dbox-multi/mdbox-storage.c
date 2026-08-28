@@ -21,7 +21,7 @@
 extern struct mail_storage mdbox_storage;
 extern struct mailbox mdbox_mailbox;
 
-static struct event_category event_category_mdbox = {
+struct event_category event_category_mdbox = {
 	.name = "mdbox",
 	.parent = &event_category_storage,
 };

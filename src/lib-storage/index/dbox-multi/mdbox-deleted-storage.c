@@ -239,10 +239,15 @@ mdbox_deleted_storage_sync_init(struct mailbox *box,
 
 struct mail_storage mdbox_deleted_storage = {
 	.name = MDBOX_DELETED_STORAGE_NAME,
+	/* mdbox_deleted is just a different view into the same mdbox storage,
+	   so it must use exactly the same settings as mdbox. */
+	.set_filter_name = MDBOX_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT |
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS |
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_SAVE_GUIDS |
 		MAIL_STORAGE_CLASS_FLAG_BINARY_DATA,
+	.event_category = &event_category_mdbox,
+	.set_info = &mdbox_setting_parser_info,
 
 	.v = {
 		mdbox_deleted_storage_alloc,
