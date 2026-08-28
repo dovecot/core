@@ -200,6 +200,13 @@ pop3c_client_async_callback_disconnected(struct pop3c_client *client)
 				    "Disconnected");
 }
 
+static void pop3c_client_reset_state(struct pop3c_client *client)
+{
+	i_zero(&client->ip);
+	client->capabilities = 0;
+	client->dot_input = NULL;
+}
+
 static void pop3c_client_disconnect(struct pop3c_client *client)
 {
 	client->state = POP3C_CLIENT_STATE_DISCONNECTED;
@@ -211,6 +218,8 @@ static void pop3c_client_disconnect(struct pop3c_client *client)
 
 	if (client->dns_lookup != NULL)
 		dns_lookup_abort(&client->dns_lookup);
+	pop3c_client_reset_state(client);
+
 	timeout_remove(&client->to);
 	io_remove(&client->io);
 	i_stream_destroy(&client->input);
