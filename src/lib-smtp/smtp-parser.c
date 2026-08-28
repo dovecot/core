@@ -277,7 +277,10 @@ smtp_parser_parse_snum(struct smtp_parser *parser, string_t *literal,
 	                           ; value in the range 0 through 255
 	 */
 
-	if (*parser->cur < '0' || *parser->cur > '9')
+	/* Don't rely on the input buffer being NUL-terminated - bound every
+	   dereference with parser->end like the rest of the parsers here. */
+	if (parser->cur >= parser->end ||
+	    *parser->cur < '0' || *parser->cur > '9')
 		return 0;
 	do {
 		if (octet >= ((uint8_t)-1 / 10)) {
@@ -288,7 +291,8 @@ smtp_parser_parse_snum(struct smtp_parser *parser, string_t *literal,
 		}
 		octet = octet * 10 + (*parser->cur - '0');
 		parser->cur++;
-	} while (*parser->cur >= '0' && *parser->cur <= '9');
+	} while (parser->cur < parser->end &&
+		 *parser->cur >= '0' && *parser->cur <= '9');
 
 	if (literal != NULL)
 		str_append_data(literal, pbegin, parser->cur - pbegin);
