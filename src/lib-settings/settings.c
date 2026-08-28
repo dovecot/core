@@ -3663,9 +3663,16 @@ struct settings_instance *settings_instance_new_from_event(struct event *event)
 void settings_simple_init(struct settings_simple *set_r,
 			  const char *const settings[])
 {
+	settings_simple_init_with_event(set_r, NULL, settings);
+}
+
+void settings_simple_init_with_event(struct settings_simple *set_r,
+				     struct event *event_parent,
+				     const char *const settings[])
+{
 	i_zero(set_r);
 	set_r->root = settings_root_init();
-	set_r->event = event_create(NULL);
+	set_r->event = event_create(event_parent);
 	event_set_ptr(set_r->event, SETTINGS_EVENT_ROOT, set_r->root);
 	if (settings != NULL)
 		settings_simple_update(set_r, settings);

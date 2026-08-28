@@ -328,6 +328,9 @@ struct settings_simple {
 
 void settings_simple_init(struct settings_simple *set_r,
 			  const char *const settings[]);
+void settings_simple_init_with_event(struct settings_simple *set_r,
+				     struct event *event_parent,
+				     const char *const settings[]);
 void settings_simple_deinit(struct settings_simple *set);
 void settings_simple_update(struct settings_simple *set,
 			    const char *const settings[]);
