@@ -189,6 +189,12 @@ static void userdb_ldap_iterate_callback(struct ldap_connection *conn,
 						&urequest->request, res, TRUE)
 	};
 
+	/* NOTE: No .escape_func here, unlike the other LDAP paths. Those
+	   escape because their expansion output is composed into an LDAP
+	   filter. Here the expansion result is the username that gets returned
+	   to the iteration caller, so escaping it would corrupt legitimate
+	   usernames. Any caller that feeds a returned username back into a
+	   query must escape it at that query-construction site. */
 	struct var_expand_params params = {
 		.providers = db_ldap_field_expand_fn_table,
 		.context = &fctx
