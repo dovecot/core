@@ -781,6 +781,25 @@ int imap_bodystructure_parse(const char *bodystructure,
  * IMAP BODYSTRUCTURE to BODY conversion
  */
 
+/* NOTE: The functions below walk the parsed imap_arg tree recursively, one
+   stack frame per level of list nesting, and there is deliberately no depth
+   limit here. The BODYSTRUCTURE string being converted is not arbitrary input:
+   it can only have been written by
+
+    - imap_bodystructure_write() from a message_part tree built by
+      message-parser, whose nesting is capped by
+      message_parser_settings.max_nested_mime_parts (defaulting to
+      MESSAGE_PARSER_DEFAULT_MAX_NESTED_MIME_PARTS), or
+    - imapc_args_to_bodystructure(), which first parses the remote server's
+      BODYSTRUCTURE with imap_bodystructure_parse_args() - capped by
+      BODYSTRUCTURE_MAX_PARENTHESIS_NESTING - and re-serializes the result, so
+      an over-nested reply from the server never reaches the cache.
+
+   An input nested deeper than that means the cache file has been corrupted or
+   the parser limits have been changed. Adding a limit here wouldn't help
+   either case: it would only turn the corruption into a different error, while
+   breaking any mail that the write path had legitimately accepted. */
+
 static bool str_append_nstring(string_t *str, const struct imap_arg *arg)
 {
 	const char *cstr;
