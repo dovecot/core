@@ -110,8 +110,8 @@ static int proxy_write_starttls(struct imap_client *client, string_t *str)
 static int proxy_write_login(struct imap_client *client, string_t *str)
 {
 	struct dsasl_client_settings sasl_set;
-	const unsigned char *output;
-	size_t len;
+	const unsigned char *sasl_output;
+	size_t sasl_output_len;
 	const char *mech_name, *error;
 
 	/* Send CAPABILITY command if we don't know the capabilities yet.
@@ -170,7 +170,7 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 	str_append(str, mech_name);
 	if (client->proxy_sasl_ir) {
 		if (dsasl_client_output(client->common.proxy_sasl_client,
-					&output, &len,
+					&sasl_output, &sasl_output_len,
 					&error) != DSASL_CLIENT_RESULT_OK) {
 			const char *reason = t_strdup_printf(
 				"SASL mechanism %s init failed: %s",
@@ -181,10 +181,10 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 			return -1;
 		}
 		str_append_c(str, ' ');
-		if (len == 0)
+		if (sasl_output_len == 0)
 			str_append_c(str, '=');
 		else
-			base64_encode(output, len, str);
+			base64_encode(sasl_output, sasl_output_len, str);
 	}
 	str_append(str, "\r\n");
 	client->proxy_sent_state |= IMAP_PROXY_SENT_STATE_AUTHENTICATE;
