@@ -137,6 +137,11 @@ struct mail_storage_error {
 
 struct mail_storage {
 	const char *name;
+	/* Name of the settings filter used for looking up this storage's
+	   settings. NULL is the same as using name. This is used by storages
+	   that are just a different view into another storage, and which
+	   therefore must use the exact same settings. */
+	const char *set_filter_name;
 	enum mail_storage_class_flags class_flags;
 	/* Fields that the storage backend can get by other means than parsing
 	   the message header/body. For example the imapc backend can lookup

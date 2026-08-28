@@ -360,7 +360,10 @@ mail_storage_create_list(struct mail_namespace *ns,
 	struct event *set_event = event_create(parent_set_event);
 	/* Lookup storage-specific settings, especially to get
 	   storage-specific defaults for mailbox list settings. */
-	settings_event_add_filter_name(set_event, storage_class->name);
+	settings_event_add_filter_name(set_event,
+				       storage_class->set_filter_name != NULL ?
+				       storage_class->set_filter_name :
+				       storage_class->name);
 	/* Set namespace, but don't overwrite if it already is set.
 	   Shared storage uses the same shared namespace here also for the
 	   user's root prefix="" namespace. */
