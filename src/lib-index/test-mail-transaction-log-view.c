@@ -137,6 +137,25 @@ add_append_record(struct mail_transaction_log_file *file,
 	return size;
 }
 
+static size_t
+add_attribute_update_record(struct mail_transaction_log_file *file,
+			    const void *data, size_t data_size)
+{
+	struct mail_transaction_header hdr;
+	size_t size;
+
+	i_zero(&hdr);
+	hdr.type = MAIL_TRANSACTION_ATTRIBUTE_UPDATE | MAIL_TRANSACTION_EXTERNAL;
+	hdr.size = mail_index_uint32_to_offset(sizeof(hdr) + data_size);
+
+	buffer_append(file->buffer, &hdr, sizeof(hdr));
+	buffer_append(file->buffer, data, data_size);
+
+	size = sizeof(hdr) + data_size;
+	file->sync_offset += size;
+	return size;
+}
+
 static void test_mail_transaction_log_view(void)
 {
 	const struct mail_transaction_header *hdr;
@@ -258,10 +277,59 @@ static void test_mail_transaction_log_view(void)
 	i_free(log);
 }
 
+static void test_mail_transaction_log_view_attribute_update(void)
+{
+	const struct mail_transaction_header *hdr;
+	const void *data;
+	const char *reason;
+	void *oldfile;
+	bool reset;
+
+	test_begin("attribute update record validation");
+
+	log = i_new(struct mail_transaction_log, 1);
+	log->index = i_new(struct mail_index, 1);
+	log->index->log = log;
+	log->index->log_sync_locked = TRUE;
+	test_transaction_log_file_add(1);
+
+	/* Valid: "+p" prefix, NUL-terminated key, NUL list terminator.
+	   Records are padded to a 4 byte boundary. */
+	add_attribute_update_record(log->head, "+pkey\0\0\0", 8);
+	/* Invalid: the key runs to the end of the record with no NUL. The
+	   validation must notice this instead of strlen()ing past the
+	   record - with a mmap()ed log the read could fault. */
+	add_attribute_update_record(log->head, "+pkeyabc", 8);
+
+	view = mail_transaction_log_view_open(log);
+	i_assert(view != NULL);
+
+	test_assert(mail_transaction_log_view_set(view, 0, 0, (uint32_t)-1,
+						  UOFF_T_MAX, &reset,
+						  &reason) == 1);
+	test_assert(mail_transaction_log_view_next(view, &hdr, &data) == 1);
+	test_assert(hdr->type == (MAIL_TRANSACTION_ATTRIBUTE_UPDATE |
+				  MAIL_TRANSACTION_EXTERNAL));
+	test_assert(mail_transaction_log_view_next(view, &hdr, &data) == -1);
+
+	mail_transaction_log_view_close(&view);
+	i_free(log->index);
+	while (log->files != NULL) {
+		oldfile = log->files;
+		buffer_free(&log->files->buffer);
+		log->files = log->files->next;
+		i_free(oldfile);
+	}
+	i_free(log);
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mail_transaction_log_view,
+		test_mail_transaction_log_view_attribute_update,
 		NULL
 	};
 	return test_run(test_functions);

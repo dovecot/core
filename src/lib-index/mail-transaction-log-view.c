@@ -750,7 +750,17 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 					"attribute update: Empty key");
 				return FALSE;
 			}
-			i += strlen(attr_changes+i) + 1;
+			/* The record contents are untrusted, so the key isn't
+			   guaranteed to be NUL-terminated within the record.
+			   Don't strlen() past rec_size. */
+			const char *key_end =
+				memchr(attr_changes+i, '\0', rec_size - i);
+			if (key_end == NULL) {
+				mail_transaction_log_file_set_corrupted(file,
+					"attribute update: Key not NUL-terminated");
+				return FALSE;
+			}
+			i = (key_end - attr_changes) + 1;
 		}
 		if (i == 0 || (i < rec_size && attr_changes[i] != '\0')) {
 			mail_transaction_log_file_set_corrupted(file,
