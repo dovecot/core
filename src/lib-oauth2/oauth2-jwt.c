@@ -672,7 +672,17 @@ int oauth2_try_parse_jwt(const struct oauth2_settings *set,
 		kid = escape_identifier(kid);
 	}
 
-	/* parse body */
+	/* Parse body.
+
+	   NOTE: The body is parsed and its claims are validated before the
+	   signature is verified, i.e. an unauthenticated attacker can reach
+	   the JSON parser and the claim helpers with unsigned input. This is
+	   inherent to JWT as used here: the 'azp' claim needed to select the
+	   verification key lives in the body, so the body has to be parsed
+	   first. The signature check in oauth2_jwt_body_process() remains the
+	   only gate that grants access - nothing here is trusted before it
+	   passes. lib-json is fuzzed (see src/lib-json/fuzz-json-istream.c)
+	   for this reason. */
 	struct json_tree *body_tree;
 	buffer_t *body =
 		t_base64url_decode_str(BASE64_DECODE_FLAG_NO_PADDING, blobs[1]);
