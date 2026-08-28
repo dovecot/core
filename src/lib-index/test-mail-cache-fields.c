@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
+#include "write-full.h"
 #include "test-common.h"
 #include "test-mail-cache.h"
 
@@ -104,10 +105,50 @@ static void test_mail_cache_fields_read_write(void)
 	test_end();
 }
 
+static void test_mail_cache_fields_type_corruption(void)
+{
+	struct mail_cache_field cache_field = {
+		.name = "testfield",
+		.type = MAIL_CACHE_FIELD_STRING,
+		.decision = MAIL_CACHE_DECISION_NO,
+	};
+	struct test_mail_cache_ctx ctx;
+
+	test_begin("mail cache fields type corruption");
+
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
+	mail_cache_register_fields(ctx.cache, &cache_field, 1,
+				   unsafe_data_stack_pool);
+	test_assert(mail_cache_purge(ctx.cache, (uint32_t)-1, "test") == 0);
+	test_assert(mail_cache_header_fields_read(ctx.cache) == 0);
+	test_assert(ctx.cache->file_fields_count > 0);
+
+	/* MAIL_CACHE_FIELD_COUNT is a sentinel, not a valid field type.
+	   Writing it into the header must be detected as corruption - it
+	   used to slip through and reach i_unreached(). */
+	uint32_t offset =
+		mail_index_offset_to_uint32(ctx.cache->hdr->field_header_offset);
+	uoff_t type_offset = offset +
+		MAIL_CACHE_FIELD_TYPE(ctx.cache->file_fields_count);
+	uint8_t bad_type = MAIL_CACHE_FIELD_COUNT;
+	test_assert(pwrite_full(ctx.cache->fd, &bad_type, sizeof(bad_type),
+				type_offset) == 0);
+
+	test_expect_error_string("field type corrupted");
+	test_assert(mail_cache_header_fields_read(ctx.cache) == -1);
+	test_expect_no_more_errors();
+
+	test_mail_cache_deinit(&ctx);
+	test_mail_index_delete();
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mail_cache_fields_read_write,
+		test_mail_cache_fields_type_corruption,
 		NULL
 	};
 	test_dir_init("mail-cache-fields");

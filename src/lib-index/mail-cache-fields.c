@@ -422,7 +422,10 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 			return -1;
 		}
 
-		if (types[i] > MAIL_CACHE_FIELD_COUNT) {
+		/* MAIL_CACHE_FIELD_COUNT is a sentinel, not a valid type.
+		   Letting it through would end up in field_has_fixed_size()
+		   reaching i_unreached(). */
+		if (types[i] >= MAIL_CACHE_FIELD_COUNT) {
 			mail_cache_set_corrupted(cache, "field type corrupted");
 			return -1;
 		}
