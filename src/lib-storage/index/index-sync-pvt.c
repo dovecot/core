@@ -195,8 +195,13 @@ index_mailbox_sync_pvt_index(struct index_mailbox_sync_pvt_context *ctx,
 
 	count_shared = mail_index_view_get_messages_count(ctx->view_shared);
 	if (!reset) {
+		/* The private index's next_uid can be higher than the shared
+		   index's, e.g. if the private index was copied from another
+		   server after the mails were copied. Don't look up an
+		   invalid UID range in that case. */
 		if (!mail_index_lookup_seq_range(ctx->view_shared,
-						 hdr_pvt->next_uid,
+						 I_MIN(hdr_pvt->next_uid,
+						       hdr_shared->next_uid),
 						 hdr_shared->next_uid,
 						 &seq_shared, &seq2)) {
 			/* no new messages */
