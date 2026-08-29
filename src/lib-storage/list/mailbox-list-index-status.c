@@ -836,6 +836,9 @@ void mailbox_list_index_status_set_info_flags(struct mailbox *box, uint32_t uid,
 	uint32_t seq;
 	int ret;
 
+	if (!mailbox_list_index_has_cache(box))
+		return;
+
 	view = mail_index_view_open(ilist->index);
 	if (!mail_index_lookup_seq(view, uid, &seq)) {
 		/* our in-memory tree is out of sync */

@@ -1482,7 +1482,8 @@ mailbox_list_index_sync_init(struct mailbox *box,
 {
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
 
-	mailbox_list_index_status_sync_init(box);
+	if (mailbox_list_index_has_cache(box))
+		mailbox_list_index_status_sync_init(box);
 	if (!ibox->have_backend)
 		mailbox_list_index_backend_sync_init(box, flags);
 	return ibox->module_ctx.super.sync_init(box, flags);
@@ -1499,7 +1500,8 @@ mailbox_list_index_sync_deinit(struct mailbox_sync_context *ctx,
 		return -1;
 	ctx = NULL;
 
-	mailbox_list_index_status_sync_deinit(box);
+	if (mailbox_list_index_has_cache(box))
+		mailbox_list_index_status_sync_deinit(box);
 	if (ibox->have_backend)
 		return mailbox_list_index_backend_sync_deinit(box);
 	else
@@ -1531,7 +1533,12 @@ static void mailbox_list_index_mailbox_allocated(struct mailbox *box)
 	v->sync_init = mailbox_list_index_sync_init;
 	v->sync_deinit = mailbox_list_index_sync_deinit;
 
-	mailbox_list_index_status_init_mailbox(v);
+	/* Some storages have no mailbox list index records of their own. Only
+	   the backend part is still needed by them, because with
+	   mailbox_list_layout=index the mailbox names exist only in the
+	   mailbox list index. */
+	if (mailbox_list_index_has_cache(box))
+		mailbox_list_index_status_init_mailbox(v);
 	ibox->have_backend = mailbox_list_index_backend_init_mailbox(box, v);
 }
 

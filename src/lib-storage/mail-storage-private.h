@@ -110,6 +110,11 @@ enum mail_storage_class_flags {
 	MAIL_STORAGE_CLASS_FLAG_NO_LIST_DELETES	= 0x400,
 	/* Storage creates a secondary index */
 	MAIL_STORAGE_CLASS_FLAG_SECONDARY_INDEX	= 0x800,
+	/* Storage's mailboxes have no records of their own in the mailbox list
+	   index. The records with their names belong to another storage's
+	   mailboxes, so their cached status and metadata must neither be read
+	   nor updated. */
+	MAIL_STORAGE_CLASS_FLAG_NO_LIST_INDEX_CACHE = 0x1000,
 };
 
 struct mail_binary_cache {
