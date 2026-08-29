@@ -254,7 +254,11 @@ mailbox_log_iter_next(struct mailbox_log_iter *iter)
 			iter->failed = TRUE;
 			return NULL;
 		}
-		if (ret == 0) {
+		if ((size_t)ret < sizeof(iter->buf[0])) {
+			/* EOF. If ret > 0, the file ends with a partially
+			   written record. Just ignore it - it's either a
+			   crashed/truncated write, or a write that is still
+			   in progress. */
 			if (!mailbox_log_iter_open_next(iter))
 				return NULL;
 			iter->idx = iter->count = 0;
