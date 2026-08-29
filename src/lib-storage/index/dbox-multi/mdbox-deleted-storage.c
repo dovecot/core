@@ -245,7 +245,8 @@ struct mail_storage mdbox_deleted_storage = {
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT |
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS |
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_SAVE_GUIDS |
-		MAIL_STORAGE_CLASS_FLAG_BINARY_DATA,
+		MAIL_STORAGE_CLASS_FLAG_BINARY_DATA |
+		MAIL_STORAGE_CLASS_FLAG_NO_LIST_INDEX_CACHE,
 	.event_category = &event_category_mdbox,
 	.set_info = &mdbox_setting_parser_info,
 
