@@ -4,6 +4,7 @@
 #include "buffer.h"
 #include "str.h"
 #include "strescape.h"
+#include "abnf.h"
 #include "hmac.h"
 #include "array.h"
 #include "hash-method.h"
@@ -598,7 +599,10 @@ oauth2_jwt_body_process(const struct oauth2_settings *set,
 	const char *azp = get_field(tree, "azp", NULL);
 	if (azp == NULL)
 		azp = "default";
-	else
+	else if (abnf_contains_ascii_ctrl(azp)) {
+		*error_r = "'azp' field contains control characters";
+		return -1;
+	} else
 		azp = escape_identifier(azp);
 
 	if (oauth2_validate_signature(set, azp, alg, kid, blobs, error_r) < 0)
@@ -647,10 +651,17 @@ int oauth2_try_parse_jwt(const struct oauth2_settings *set,
 	/* it is now assumed to be a JWT token */
 	*is_jwt_r = TRUE;
 
+	/* 'kid' and 'azp' are attacker-controlled and end up both in the
+	   shared/<azp>/<alg>/<kid> dict key and in error messages written to
+	   the authentication log, where a LF would forge extra log lines.
+	   Control characters have no legitimate use in either field. */
 	if (kid == NULL)
 		kid = "default";
 	else if (*kid == '\0') {
 		*error_r = "'kid' field is empty";
+		return -1;
+	} else if (abnf_contains_ascii_ctrl(kid)) {
+		*error_r = "'kid' field contains control characters";
 		return -1;
 	} else {
 		kid = escape_identifier(kid);

@@ -375,6 +375,68 @@ static void test_jwt_token_escape(void)
 	test_end();
 }
 
+static void test_jwt_control_chars(void)
+{
+	const char *const control_ids[] = {
+		"test\nkid", "test\rkid", "test\tkid", "test\x01kid",
+		"test\x7fkid",
+	};
+
+	test_begin("JWT control characters in 'azp' and 'kid'");
+
+	/* Both fields end up in the dict key and in error messages that go to
+	   the authentication log, so they must be rejected before they are used
+	   for anything. No key is stored for them: the point of the test is that
+	   the specific control-character error is returned, not the generic
+	   "key not found" that a later failure would produce. */
+	time_t now = time(NULL);
+	ARRAY_TYPE(oauth2_field) fields;
+	t_array_init(&fields, 8);
+
+	for (unsigned int i = 0; i < N_ELEMENTS(control_ids); i++) {
+		struct oauth2_request req;
+		struct oauth2_field *field;
+		const char *error;
+		buffer_t *token;
+		bool is_jwt;
+
+		/* control character in 'kid' */
+		array_clear(&fields);
+		field = array_append_space(&fields);
+		field->name = "sub";
+		field->value = "testuser";
+		token = create_jwt_token_fields_kid("HS256", control_ids[i],
+						    now+500, now-500, 0, &fields);
+		sign_jwt_token_hs256(token, hs_sign_key);
+		error = NULL;
+		test_assert_idx(parse_jwt_token(&req, str_c(token), &is_jwt,
+						&error) != 0, i);
+		test_assert_idx(is_jwt == TRUE, i);
+		test_assert_strcmp_idx(error,
+			"'kid' field contains control characters", i);
+
+		/* control character in 'azp' */
+		array_clear(&fields);
+		field = array_append_space(&fields);
+		field->name = "sub";
+		field->value = "testuser";
+		field = array_append_space(&fields);
+		field->name = "azp";
+		field->value = control_ids[i];
+		token = create_jwt_token_fields_kid("HS256", "default",
+						    now+500, now-500, 0, &fields);
+		sign_jwt_token_hs256(token, hs_sign_key);
+		error = NULL;
+		test_assert_idx(parse_jwt_token(&req, str_c(token), &is_jwt,
+						&error) != 0, i);
+		test_assert_idx(is_jwt == TRUE, i);
+		test_assert_strcmp_idx(error,
+			"'azp' field contains control characters", i);
+	}
+
+	test_end();
+}
+
 static void test_jwt_cache_key_collision(void)
 {
 	test_begin("JWT validation key cache key collision");
@@ -1105,6 +1167,7 @@ int main(void)
 		test_jwt_hs_token,
 		test_jwt_token_escape,
 		test_jwt_cache_key_collision,
+		test_jwt_control_chars,
 		test_jwt_valid_token,
 		test_jwt_bad_valid_token,
 		test_jwt_broken_token,
