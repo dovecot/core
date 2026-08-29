@@ -22,6 +22,15 @@ extern struct mail_storage mdbox_deleted_storage;
 extern struct mailbox mdbox_deleted_mailbox;
 extern struct dbox_storage_vfuncs mdbox_deleted_dbox_storage_vfuncs;
 
+/* mdbox_deleted mailboxes have no permanent index files, so there is nowhere
+   to store a mailbox GUID. All of them also list the same mails: every mail in
+   the storage that hasn't been purged yet. Use a single hardcoded GUID for
+   them, so at least it stays the same between sessions. It's "mdbox_deleted"
+   as ASCII, zero-padded. */
+static const guid_128_t mdbox_deleted_mailbox_guid = {
+	'm', 'd', 'b', 'o', 'x', '_', 'd', 'e', 'l', 'e', 't', 'e', 'd', 0, 0, 0
+};
+
 static struct mail_storage *mdbox_deleted_storage_alloc(void)
 {
 	struct mdbox_storage *storage;
@@ -111,7 +120,7 @@ mdbox_deleted_mailbox_get_metadata(struct mailbox *box,
 		return -1;
 
 	if ((items & MAILBOX_METADATA_GUID) != 0)
-		guid_128_generate(metadata_r->guid);
+		guid_128_copy(metadata_r->guid, mdbox_deleted_mailbox_guid);
 	return 0;
 }
 
