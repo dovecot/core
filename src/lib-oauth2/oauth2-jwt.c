@@ -183,7 +183,8 @@ oauth2_lookup_hmac_key(const struct oauth2_settings *set, const char *azp,
 		return -1;
 	} else if (ret == 0) {
 		*error_r = t_strdup_printf("%s key '%s' not found",
-					   alg, key_id);
+					   str_sanitize_utf8(alg, 32),
+					   str_sanitize_utf8(key_id, 128));
 		return -1;
 	}
 
@@ -213,7 +214,8 @@ oauth2_validate_hmac(const struct oauth2_settings *set, const char *azp,
 	else if (strcmp(alg, "HS512") == 0)
 		method = hash_method_lookup("sha512");
 	else {
-		*error_r = t_strdup_printf("unsupported algorithm '%s'", alg);
+		*error_r = t_strdup_printf("unsupported algorithm '%s'",
+					   str_sanitize_utf8(alg, 32));
 		return -1;
 	}
 
@@ -268,7 +270,8 @@ oauth2_lookup_pubkey(const struct oauth2_settings *set, const char *azp,
 		return -1;
 	} else if (ret == 0) {
 		*error_r = t_strdup_printf("%s key '%s' not found",
-					   alg, key_id);
+					   str_sanitize_utf8(alg, 32),
+					   str_sanitize_utf8(key_id, 128));
 		return -1;
 	}
 
@@ -324,7 +327,8 @@ oauth2_validate_rsa_ecdsa(const struct oauth2_settings *set,
 	} else if (strcmp(alg+2, "512") == 0) {
 		method = "sha512";
 	} else {
-		*error_r = t_strdup_printf("Unsupported algorithm '%s'", alg);
+		*error_r = t_strdup_printf("Unsupported algorithm '%s'",
+					   str_sanitize_utf8(alg, 32));
 		return -1;
 	}
 
@@ -366,7 +370,8 @@ oauth2_validate_signature(const struct oauth2_settings *set, const char *azp,
 						 error_r);
 	}
 
-	*error_r = t_strdup_printf("Unsupported algorithm '%s'", alg);
+	*error_r = t_strdup_printf("Unsupported algorithm '%s'",
+				   str_sanitize_utf8(alg, 32));
 	return -1;
 }
 
@@ -590,7 +595,7 @@ oauth2_jwt_body_process(const struct oauth2_settings *set,
 		if (!check_scope(req_scope, got_scope)) {
 			*error_r = t_strdup_printf(
 				"configured scope '%s' missing from token scope '%s'",
-				req_scope, got_scope);
+				req_scope, str_sanitize_utf8(got_scope, 128));
 			return -1;
 		}
 	}
