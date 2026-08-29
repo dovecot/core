@@ -247,6 +247,19 @@ static void save_key_azp_to(const char *algo, const char *azp,
 		i_error("dict_set(%s) failed: %s", name, error);
 }
 
+/* Drops the cached validation key for the key saved by save_key_azp_to(). The
+   cache is keyed on the same shared/<azp>/<alg>/<kid> path as the dict
+   lookup. */
+#define evict_key(algo) evict_key_azp_to(algo, "default", "default")
+static void evict_key_azp_to(const char *algo, const char *azp,
+			     const char *name)
+{
+	const char *key = t_strconcat(DICT_PATH_SHARED, azp, "/",
+				      t_str_ucase(algo), "/", name, NULL);
+
+	(void)oauth2_validation_key_cache_evict(key_cache, key);
+}
+
 static void sign_jwt_token_hs256(buffer_t *tokenbuf, buffer_t *key)
 {
 	i_assert(key != NULL);
@@ -371,6 +384,61 @@ static void test_jwt_token_escape(void)
 		sign_jwt_token_hs256(token, hs_sign_key);
 		test_jwt_token(str_c(token));
 	}
+
+	test_end();
+}
+
+static void test_jwt_key_cache_evict(void)
+{
+	test_begin("JWT validation key cache eviction");
+
+	/* Own (azp, kid) namespace, so the cache entry under test is not shared
+	   with any other test. */
+	const char *azp = "evict", *kid = "test";
+	buffer_t *key1 = t_buffer_create(32);
+	random_fill(buffer_append_space_unsafe(key1, 32), 32);
+	buffer_t *key2 = t_buffer_create(32);
+	random_fill(buffer_append_space_unsafe(key2, 32), 32);
+	buffer_t *b64_key1 =
+		t_base64_encode(0, SIZE_MAX, key1->data, key1->used);
+	buffer_t *b64_key2 =
+		t_base64_encode(0, SIZE_MAX, key2->data, key2->used);
+
+	time_t now = time(NULL);
+	ARRAY_TYPE(oauth2_field) fields;
+	t_array_init(&fields, 8);
+	struct oauth2_field *field = array_append_space(&fields);
+	field->name = "sub";
+	field->value = "testuser";
+	field = array_append_space(&fields);
+	field->name = "azp";
+	field->value = azp;
+
+	/* Validating a token signed with key1 caches key1. */
+	save_key_azp_to("HS256", azp, kid, str_c(b64_key1));
+	buffer_t *token1 = create_jwt_token_fields_kid("HS256", kid, now+500,
+						       now-500, 0, &fields);
+	sign_jwt_token_hs256(token1, key1);
+	test_jwt_token(str_c(token1));
+
+	/* Replace the stored key. The cache still holds key1, so a token signed
+	   with the new key must not validate yet - otherwise the eviction below
+	   would pass even without evicting anything. */
+	save_key_azp_to("HS256", azp, kid, str_c(b64_key2));
+	buffer_t *token2 = create_jwt_token_fields_kid("HS256", kid, now+500,
+						       now-500, 0, &fields);
+	sign_jwt_token_hs256(token2, key2);
+
+	struct oauth2_request req;
+	const char *error = NULL;
+	bool is_jwt;
+	test_assert(parse_jwt_token(&req, str_c(token2), &is_jwt, &error) != 0);
+	test_assert(error != NULL);
+
+	/* After eviction the new key is looked up again. This fails if the
+	   eviction key does not match the key the cache was populated with. */
+	evict_key_azp_to("HS256", azp, kid);
+	test_jwt_token(str_c(token2));
 
 	test_end();
 }
@@ -1003,7 +1071,7 @@ static void test_jwt_rs_token(void)
 
 	test_begin("JWT RSA token");
 	/* write public key to file */
-	oauth2_validation_key_cache_evict(key_cache, "default");
+	evict_key("RS256");
 	save_key("RS256", rsa_public_key);
 
 	buffer_t *tokenbuf = create_jwt_token("RS256");
@@ -1040,7 +1108,7 @@ static void test_jwt_ps_token(void)
 
 	test_begin("JWT RSAPSS token");
 	/* write public key to file */
-	oauth2_validation_key_cache_evict(key_cache, "default");
+	evict_key("PS256");
 	save_key("PS256", rsa_public_key);
 
 	buffer_t *tokenbuf = create_jwt_token("PS256");
@@ -1090,7 +1158,7 @@ static void test_jwt_ec_token(void)
 		i_error("dcrypt key store failed: %s", error);
 		lib_exit(1);
 	}
-	oauth2_validation_key_cache_evict(key_cache, "default");
+	evict_key("ES256");
 	save_key("ES256", str_c(keybuf));
 
 	buffer_t *tokenbuf = create_jwt_token("ES256");
@@ -1168,6 +1236,7 @@ int main(void)
 		test_jwt_token_escape,
 		test_jwt_cache_key_collision,
 		test_jwt_control_chars,
+		test_jwt_key_cache_evict,
 		test_jwt_valid_token,
 		test_jwt_bad_valid_token,
 		test_jwt_broken_token,
