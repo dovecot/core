@@ -36,21 +36,7 @@ struct submission_settings {
 	ARRAY_TYPE(const_string) submission_backend_capabilities;
 
 	/* submission relay: */
-	const char *submission_relay_host;
-	in_port_t submission_relay_port;
-	bool submission_relay_trusted;
-
-	const char *submission_relay_user;
-	const char *submission_relay_master_user;
-	const char *submission_relay_password;
-
-	const char *submission_relay_ssl;
-
-	const char *submission_relay_rawlog_dir;
 	unsigned int submission_relay_max_idle_time;
-
-	unsigned int submission_relay_connect_timeout;
-	unsigned int submission_relay_command_timeout;
 
 	/* imap urlauth: */
 	const char *imap_urlauth_host;

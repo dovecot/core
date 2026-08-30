@@ -126,33 +126,14 @@ void client_default_backend_started(struct client *client,
 	}
 }
 
-static void
-client_create_backend_default(struct client *client,
-			      const struct submission_settings *set)
+static int client_create_backend_default(struct client *client)
 {
-	struct submision_backend_relay_settings relay_set;
-
-	i_zero(&relay_set);
-	relay_set.my_hostname = set->hostname;
-	relay_set.protocol = SMTP_PROTOCOL_SMTP;
-	relay_set.host = set->submission_relay_host;
-	relay_set.port = set->submission_relay_port;
-	relay_set.rawlog_dir = set->submission_relay_rawlog_dir;
-	relay_set.connect_timeout_msecs = set->submission_relay_connect_timeout;
-	relay_set.command_timeout_msecs = set->submission_relay_command_timeout;
-	relay_set.trusted = set->submission_relay_trusted;
-
-	if (strcmp(set->submission_relay_ssl, "smtps") == 0)
-		relay_set.ssl_mode = SMTP_CLIENT_SSL_MODE_IMMEDIATE;
-	else if (strcmp(set->submission_relay_ssl, "starttls") == 0)
-		relay_set.ssl_mode = SMTP_CLIENT_SSL_MODE_STARTTLS;
-	else
-		relay_set.ssl_mode = SMTP_CLIENT_SSL_MODE_NONE;
-
-	client->backend_default_relay =
-		submission_backend_relay_create(client, &relay_set);
+	if (submission_backend_relay_create(client,
+					    &client->backend_default_relay) < 0)
+		return -1;
 	client->backend_default =
 		submission_backend_relay_get(client->backend_default_relay);
+	return 0;
 }
 
 static void client_init_urlauth(struct client *client)
@@ -175,8 +156,7 @@ static void client_init_urlauth(struct client *client)
 }
 
 struct client *
-client_create(int fd_in, int fd_out, struct event *event,
-	      struct mail_user *user,
+client_create(int fd_in, int fd_out, struct mail_user *user,
 	      const struct submission_settings *set, const char *helo,
 	      const struct smtp_proxy_data *proxy_data,
 	      const unsigned char *pdata, unsigned int pdata_len,
@@ -197,8 +177,7 @@ client_create(int fd_in, int fd_out, struct event *event,
 	client = p_new(pool, struct client, 1);
 	client->pool = pool;
 	client->v = submission_client_vfuncs;
-	client->event = event;
-	event_ref(client->event);
+	client->event = event_create(user->event);
 	client->user = user;
 	client->set = set;
 
@@ -215,7 +194,7 @@ client_create(int fd_in, int fd_out, struct event *event,
 	smtp_set.rawlog_dir = set->rawlog_dir;
 	smtp_set.no_greeting = no_greeting;
 	smtp_set.debug = event_want_debug(client->event);
-	smtp_set.event_parent = event;
+	smtp_set.event_parent = client->event;
 	smtp_set.max_recipients = SET_UINT_UNLIMITED;
 
 	if ((workarounds & SUBMISSION_WORKAROUND_WHITESPACE_BEFORE_PATH) != 0) {
@@ -240,16 +219,21 @@ client_create(int fd_in, int fd_out, struct event *event,
 				     pdata, pdata_len,
 				     user->conn.end_client_tls_secured);
 
-	client_create_backend_default(client, set);
+	submission_client_count++;
+	DLLIST_PREPEND(&submission_clients, client);
+
+	if (client_create_backend_default(client) < 0) {
+		smtp_server_connection_abort(
+			&conn, 400, "4.3.5",
+			"System incorrectly configured");
+		return NULL;
+	}
 
 	if (*set->imap_urlauth_host != '\0' && have_mailbox_attribute_dict) {
 		/* Enable BURL capability only when urlauth dict is
 		   configured correctly */
 		client_init_urlauth(client);
 	}
-
-	submission_client_count++;
-	DLLIST_PREPEND(&submission_clients, client);
 
 	struct master_service_anvil_session anvil_session;
 	mail_user_get_anvil_session(client->user, &anvil_session);

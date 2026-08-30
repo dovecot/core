@@ -82,17 +82,7 @@ static const struct setting_define submission_setting_defines[] = {
 
 	DEF(BOOLLIST, submission_backend_capabilities),
 
-	DEF(STR, submission_relay_host),
-	DEF(IN_PORT, submission_relay_port),
-	DEF(BOOL, submission_relay_trusted),
-
-	DEF(ENUM, submission_relay_ssl),
-
-	DEF(PATH_DIR, submission_relay_rawlog_dir),
 	DEF(TIME_HIDDEN, submission_relay_max_idle_time),
-
-	DEF(TIME_MSECS, submission_relay_connect_timeout),
-	DEF(TIME_MSECS, submission_relay_command_timeout),
 
 	DEF(STR, imap_urlauth_host),
 	DEF(IN_PORT, imap_urlauth_port),
@@ -120,17 +110,7 @@ static const struct submission_settings submission_default_settings = {
 
 	.submission_backend_capabilities = ARRAY_INIT,
 
-	.submission_relay_host = "",
-	.submission_relay_port = 25,
-	.submission_relay_trusted = FALSE,
-
-	.submission_relay_ssl = "no:smtps:starttls",
-
-	.submission_relay_rawlog_dir = "",
 	.submission_relay_max_idle_time = 60*29,
-
-	.submission_relay_connect_timeout = 30*1000,
-	.submission_relay_command_timeout = 60*5*1000,
 
 	.imap_urlauth_host = "",
 	.imap_urlauth_port = 143,
@@ -140,6 +120,9 @@ static const struct setting_keyvalue submission_default_settings_keyvalue[] = {
 #ifdef DOVECOT_PRO_EDITION
 	{ "service/submission/process_shutdown_filter", "event=mail_user_session_finished AND rss > 20MB" },
 #endif
+	{ "submission_relay/smtp_client_port", "25" },
+	{ "submission_relay/smtp_client_connect_timeout", "30s" },
+	{ "submission_relay/smtp_client_command_timeout", "5min" },
 	{ NULL, NULL },
 };
 

@@ -200,17 +200,6 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	if (set->verbose_proctitle)
 		verbose_proctitle = TRUE;
 
-	if (set->submission_relay_host == NULL ||
-		*set->submission_relay_host == '\0') {
-		*error_r = "No relay host configured for submission proxy "
-			"(submission_relay_host is unset)";
-		send_error(fd_out, event, set->hostname,
-			   "4.3.5", MAIL_ERRSTR_CRITICAL_MSG);
-		settings_free(set);
-		mail_user_deinit(&mail_user);
-		event_unref(&event);
-		return -1;
-	}
 	int ret = mailbox_attribute_dict_is_enabled(mail_user, error_r);
 	if (ret < 0) {
 		send_error(fd_out, event, my_hostname,
@@ -241,7 +230,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 		 */
 	}
 
-	(void)client_create(fd_in, fd_out, event, mail_user,
+	(void)client_create(fd_in, fd_out, mail_user,
 			    set, helo, &proxy_data, data, data_len,
 			    no_greeting, have_mailbox_attribute_dict);
 	event_unref(&event);

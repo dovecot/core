@@ -28,8 +28,14 @@ void submission_backend_init(struct submission_backend *backend,
 	DLLIST_PREPEND(&client->backends, backend);
 }
 
-static void submission_backend_destroy(struct submission_backend *backend)
+void submission_backend_destroy(struct submission_backend **_backend)
 {
+	struct submission_backend *backend = *_backend;
+
+	if (backend == NULL)
+		return;
+	*_backend = NULL;
+
 	struct client *client = backend->client;
 
 	i_stream_unref(&backend->data_input);
@@ -46,8 +52,11 @@ static void submission_backend_destroy(struct submission_backend *backend)
 
 void submission_backends_destroy_all(struct client *client)
 {
-	while (client->backends != NULL)
-		submission_backend_destroy(client->backends);
+	while (client->backends != NULL) {
+		struct submission_backend *backend = client->backends;
+
+		submission_backend_destroy(&backend);
+	}
 	array_clear(&client->rcpt_backends);
 	client->state.backend = NULL;
 }

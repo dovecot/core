@@ -116,6 +116,7 @@ submission_backend_module_register;
 void submission_backend_init(struct submission_backend *backend,
 			     pool_t pool, struct client *client,
 			     const struct submission_backend_vfuncs *vfunc);
+void submission_backend_destroy(struct submission_backend **_backend);
 void submission_backends_destroy_all(struct client *client);
 
 void submission_backend_start(struct submission_backend *backend);

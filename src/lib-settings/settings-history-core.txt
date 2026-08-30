@@ -2,6 +2,13 @@
 # rename <old-setting-key> <new-setting-key> <ce-version> <pro-version>
 # value <old-setting-key>=<old-value> <new-setting-key>=<new-value> <ce-version> <pro-version>
 # deprecate <setting-key> <ce-version> <pro-version>
+rename	submission_relay_host	submission_relay/smtp_client_host	2.4.6	3.3.0
+rename	submission_relay_port	submission_relay/smtp_client_port	2.4.6	3.3.0
+rename	submission_relay_ssl	submission_relay/smtp_client_ssl	2.4.6	3.3.0
+rename	submission_relay_rawlog_dir	submission_relay/smtp_client_rawlog_dir	2.4.6	3.3.0
+rename	submission_relay_connect_timeout	submission_relay/smtp_client_connect_timeout	2.4.6	3.3.0
+rename	submission_relay_command_timeout	submission_relay/smtp_client_command_timeout	2.4.6	3.3.0
+rename	submission_relay_trusted	submission_relay/smtp_client_peer_trusted	2.4.6	3.3.0
 deprecate	submission_relay_max_idle_time	2.4.6	3.3.0
 rename	submission_ssl	mail_submit/smtp_client_ssl	2.4.6	3.3.0
 rename	submission_timeout	mail_submit_timeout	2.4.6	3.3.0
