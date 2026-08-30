@@ -77,6 +77,7 @@ struct lmtp_proxy_connection {
 
 struct lmtp_proxy {
 	struct client *client;
+	struct event *event;
 
 	struct smtp_client *lmtp_client;
 
@@ -107,6 +108,7 @@ static struct lmtp_proxy *lmtp_proxy_init(struct client *client)
 
 	proxy = i_new(struct lmtp_proxy, 1);
 	proxy->client = client;
+	proxy->event = event_create(client->event);
 	i_array_init(&proxy->rcpt_to, 32);
 	i_array_init(&proxy->connections, 32);
 
@@ -120,7 +122,7 @@ static struct lmtp_proxy *lmtp_proxy_init(struct client *client)
 	else
 		proxy->initial_ttl = proxy_data.ttl_plus_1 - 2;
 
-	proxy->lmtp_client = smtp_client_init(client->event);
+	proxy->lmtp_client = smtp_client_init(proxy->event);
 
 	return proxy;
 }
@@ -153,6 +155,7 @@ void lmtp_proxy_deinit(struct lmtp_proxy **_proxy)
 	i_stream_unref(&proxy->data_input);
 	array_free(&proxy->rcpt_to);
 	array_free(&proxy->connections);
+	event_unref(&proxy->event);
 	i_free(proxy);
 }
 
@@ -239,7 +242,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 
 	conn = i_new(struct lmtp_proxy_connection, 1);
 	conn->proxy = proxy;
-	conn->event = event_create(client->event);
+	conn->event = event_create(proxy->event);
 	conn->set.protocol = set->protocol;
 	conn->set.set.host_ip = set->set.host_ip;
 	conn->host = i_strdup(set->set.host);
@@ -1152,7 +1155,7 @@ void lmtp_proxy_data(struct client *client,
 	proxy->data_input = data_input;
 	i_stream_ref(proxy->data_input);
 	if (i_stream_get_size(proxy->data_input, TRUE, &size) < 0) {
-		e_error(client->event,
+		e_error(proxy->event,
 			"i_stream_get_size(data_input) failed: %s",
 			i_stream_get_error(proxy->data_input));
 		size = UOFF_T_MAX;
