@@ -40,6 +40,7 @@ struct lmtp_local_recipient {
 
 struct lmtp_local {
 	struct client *client;
+	struct event *event;
 
 	ARRAY(struct lmtp_local_recipient *) rcpt_to;
 
@@ -61,6 +62,9 @@ lmtp_local_init(struct client *client)
 	local = i_new(struct lmtp_local, 1);
 	local->client = client;
 	i_array_init(&local->rcpt_to, 8);
+
+	local->event = event_create(client->event);
+
 	const struct smtp_server_stats *stats =
 	        smtp_server_connection_get_stats(local->client->conn);
 	local->stats = *stats;
@@ -86,6 +90,7 @@ void lmtp_local_deinit(struct lmtp_local **_local)
 		mailbox_free(&raw_box);
 	}
 
+	event_unref(&local->event);
 	i_free(local);
 }
 
@@ -707,7 +712,7 @@ lmtp_local_open_raw_mail(struct lmtp_local *local,
 	if (raw_mailbox_alloc_stream(client->raw_mail_user, input,
 				     (time_t)-1, smtp_address_encode(trans->mail_from),
 				     &box) < 0) {
-		e_error(client->event, "Can't open delivery mail as raw: %s",
+		e_error(local->event, "Can't open delivery mail as raw: %s",
 			mailbox_get_last_internal_error(box, &error));
 		mailbox_free(&box);
 		lmtp_local_rcpt_fail_all(local, 451, "4.3.0",
