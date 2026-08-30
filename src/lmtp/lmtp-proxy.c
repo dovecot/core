@@ -78,8 +78,6 @@ struct lmtp_proxy_connection {
 struct lmtp_proxy {
 	struct client *client;
 
-	struct smtp_server_transaction *trans;
-
 	struct smtp_client *lmtp_client;
 
 	ARRAY(struct lmtp_proxy_connection *) connections;
@@ -103,15 +101,12 @@ lmtp_proxy_data_cb(const struct smtp_reply *reply,
  * LMTP proxy
  */
 
-static struct lmtp_proxy *
-lmtp_proxy_init(struct client *client,
-		struct smtp_server_transaction *trans)
+static struct lmtp_proxy *lmtp_proxy_init(struct client *client)
 {
 	struct lmtp_proxy *proxy;
 
 	proxy = i_new(struct lmtp_proxy, 1);
 	proxy->client = client;
-	proxy->trans = trans;
 	i_array_init(&proxy->rcpt_to, 32);
 	i_array_init(&proxy->connections, 32);
 
@@ -213,6 +208,7 @@ lmtp_proxy_connection_handle_settings(
 
 static struct lmtp_proxy_connection *
 lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
+			  struct smtp_server_transaction *trans,
 			  const struct lmtp_proxy_rcpt_settings *set)
 {
 	static const char *rcpt_param_extensions[] =
@@ -266,7 +262,6 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	struct smtp_client_parameters lmtp_params;
 	struct smtp_proxy_data *proxy_data = &lmtp_params.proxy_data;
 	struct smtp_client_settings lmtp_set;
-	struct smtp_server_transaction *trans = proxy->trans;
 	bool end_client_tls_secured =
 		client->end_client_tls_secured_set ?
 		client->end_client_tls_secured :
@@ -591,16 +586,14 @@ lmtp_proxy_rcpt_get_connection(struct lmtp_proxy_recipient *lprcpt,
 		return -1;
 	}
 
-	if (client->proxy == NULL) {
-		trans = smtp_server_connection_get_transaction(rcpt->conn);
-		i_assert(trans != NULL); /* MAIL command is synchronous */
-
-		client->proxy = lmtp_proxy_init(client, trans);
-	}
+	if (client->proxy == NULL)
+		client->proxy = lmtp_proxy_init(client);
 	if (lprcpt->conn == NULL)
 		lprcpt->proxy_ttl = client->proxy->initial_ttl;
 
-	conn = lmtp_proxy_get_connection(client->proxy, set);
+	trans = smtp_server_connection_get_transaction(rcpt->conn);
+	i_assert(trans != NULL); /* MAIL command is synchronous */
+	conn = lmtp_proxy_get_connection(client->proxy, trans, set);
 	i_assert(conn != lprcpt->conn);
 
 	event_add_str(lprcpt->rcpt->rcpt->event, "dest_host", set->set.host);
@@ -1082,8 +1075,7 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 	struct lmtp_proxy_connection *conn = lprcpt->conn;
 	struct lmtp_recipient *lrcpt = lprcpt->rcpt;
 	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
-	struct lmtp_proxy *proxy = conn->proxy;
-	struct smtp_server_transaction *trans = proxy->trans;
+	struct smtp_server_transaction *trans = rcpt->trans;
 	struct smtp_address *address = lprcpt->address;
 	const struct smtp_client_transaction_times *times =
 		smtp_client_transaction_get_times(conn->lmtp_trans);
