@@ -342,6 +342,7 @@ void smtp_server_recipient_ref(struct smtp_server_recipient *rcpt);
 bool smtp_server_recipient_unref(struct smtp_server_recipient **_rcpt);
 void smtp_server_recipient_destroy(struct smtp_server_recipient **_rcpt);
 
+void smtp_server_recipient_rcpt_begin(struct smtp_server_recipient *rcpt);
 void smtp_server_recipient_replied(struct smtp_server_recipient *rcpt,
 				   const struct smtp_server_reply *reply);
 bool smtp_server_recipient_approved(struct smtp_server_recipient **_rcpt);
@@ -350,6 +351,7 @@ void smtp_server_recipient_denied(struct smtp_server_recipient *rcpt,
 
 void smtp_server_recipient_data_command(struct smtp_server_recipient *rcpt,
 					struct smtp_server_cmd_ctx *cmd);
+void smtp_server_recipient_data_begin(struct smtp_server_recipient *rcpt);
 void smtp_server_recipient_data_replied(struct smtp_server_recipient *rcpt);
 
 void smtp_server_recipient_reset(struct smtp_server_recipient *rcpt);
@@ -377,6 +379,7 @@ smtp_server_transaction_rcpt_count(struct smtp_server_transaction *trans);
 
 void smtp_server_transaction_data_command(struct smtp_server_transaction *trans,
 					  struct smtp_server_cmd_ctx *cmd);
+void smtp_server_transaction_data_begin(struct smtp_server_transaction *trans);
 
 void smtp_server_transaction_received(struct smtp_server_transaction *trans,
 				      uoff_t data_size);

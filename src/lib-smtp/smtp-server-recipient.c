@@ -141,6 +141,12 @@ smtp_server_recipient_get_original(struct smtp_server_recipient *rcpt)
 	return rcpt->params.orcpt.addr;
 }
 
+void smtp_server_recipient_rcpt_begin(struct smtp_server_recipient *rcpt)
+{
+	event_strlist_copy_recursive(rcpt->event, event_get_global(),
+				     EVENT_REASON_CODE);
+}
+
 void smtp_server_recipient_replied(struct smtp_server_recipient *rcpt,
 				  const struct smtp_server_reply *reply)
 {
@@ -186,6 +192,12 @@ void smtp_server_recipient_data_command(struct smtp_server_recipient *rcpt,
 					struct smtp_server_cmd_ctx *cmd)
 {
 	rcpt->cmd = cmd;
+}
+
+void smtp_server_recipient_data_begin(struct smtp_server_recipient *rcpt)
+{
+	event_strlist_copy_recursive(rcpt->event, event_get_global(),
+				     EVENT_REASON_CODE);
 }
 
 void smtp_server_recipient_data_replied(struct smtp_server_recipient *rcpt)

@@ -402,6 +402,7 @@ cmd_data_next(struct smtp_server_cmd_ctx *cmd,
 		i_assert(conn->state.trans != NULL);
 		struct event_reason *reason =
 			smtp_server_connection_reason_begin(conn, "cmd_data");
+		smtp_server_transaction_data_begin(trans);
 		int ret = callbacks->conn_cmd_data_begin(conn->context,
 			cmd, conn->state.trans, conn->state.data_input);
 		event_reason_end(&reason);

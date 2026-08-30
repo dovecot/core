@@ -226,6 +226,7 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 
 	struct event_reason *reason =
 		smtp_server_connection_reason_begin(conn, "cmd_rcpt");
+	smtp_server_recipient_rcpt_begin(rcpt);
 	ret = callbacks->conn_cmd_rcpt(conn->context, cmd, rcpt);
 	event_reason_end(&reason);
 	if (ret <= 0) {

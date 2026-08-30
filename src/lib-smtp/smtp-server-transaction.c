@@ -175,6 +175,16 @@ void smtp_server_transaction_data_command(struct smtp_server_transaction *trans,
 		smtp_server_recipient_data_command(rcpt, cmd);
 }
 
+void smtp_server_transaction_data_begin(struct smtp_server_transaction *trans)
+{
+	struct smtp_server_recipient *rcpt;
+
+	if (!array_is_created(&trans->rcpt_to))
+		return;
+	array_foreach_elem(&trans->rcpt_to, rcpt)
+		smtp_server_recipient_data_begin(rcpt);
+}
+
 void smtp_server_transaction_received(struct smtp_server_transaction *trans,
 				      uoff_t data_size)
 {
