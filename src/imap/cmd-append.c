@@ -572,8 +572,6 @@ cmd_append_start_catenate(struct cmd_append_context *ctx,
 	if (!imap_arg_get_list(++(*args), &list_args))
 		return -1;
 
-	ctx->catenate = TRUE;
-
 	/* We'll do BINARY conversion only if the CATENATE's first
 	   part is a literal8. If it doesn't and a literal8 is seen
 	   later we'll abort the append with UNKNOWN-CTE. */
@@ -591,6 +589,8 @@ cmd_append_start_catenate(struct cmd_append_context *ctx,
 			imap_arg_atom_equals(&list_args[0], "TEXT") &&
 			list_args[1].literal8;
 	}
+
+	ctx->catenate = TRUE;
 	*cat_list_r = list_args;
 	return 1;
 }
@@ -775,7 +775,10 @@ cmd_append_handle_args(struct client_command_context *cmd,
 	if (!ctx->catenate) {
 		/* normal APPEND */
 		return 1;
-	} else if (cat_list->type == IMAP_ARG_EOL) {
+	}
+
+	i_assert(cat_list != NULL);
+	if (cat_list->type == IMAP_ARG_EOL) {
 		/* zero parts */
 		if (!ctx->failed)
 			client_send_command_error(cmd, "Empty CATENATE list.");
