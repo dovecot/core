@@ -52,6 +52,8 @@ struct anvil_connection {
 
 	enum anvil_connection_type conn_type;
 	char *service;
+	/* pid of the connecting process, from the handshake */
+	pid_t pid;
 	bool fifo:1;
 	bool added_to_hash:1;
 };
@@ -724,9 +726,14 @@ anvil_connection_handshake(struct anvil_connection *conn,
 	conn->cmd_output = o_stream_multiplex_add_channel(conn->conn.output,
 							  ANVIL_CMD_CHANNEL_ID);
 
+	/* Use the handshake pid, which is verified above against the UNIX
+	   credentials pid whenever the OS provides it. Some OSes (e.g. macOS)
+	   can't return the pid at all, in which case remote_pid is -1 and all
+	   the service's processes would collide in the hash. */
+	conn->pid = pid;
 	struct anvil_connection_key *hash_key, key = {
 		.service = conn->service,
-		.pid = conn->conn.remote_pid,
+		.pid = conn->pid,
 	};
 	struct anvil_connection *hash_conn;
 	if (hash_table_lookup_full(anvil_connections_hash, &key,
@@ -829,7 +836,7 @@ static void anvil_connection_destroy(struct connection *_conn)
 	if (conn->added_to_hash) {
 		struct anvil_connection_key *hash_key, key = {
 			.service = conn->service,
-			.pid = conn->conn.remote_pid,
+			.pid = conn->pid,
 		};
 		struct anvil_connection *hash_conn;
 		if (!hash_table_lookup_full(anvil_connections_hash, &key,
