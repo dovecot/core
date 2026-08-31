@@ -168,16 +168,9 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 	const char *user = NULL;
 	struct ioloop *ioloop, *prev_ioloop;
 
-	/* final preflight check */
-	if (req->method_err == 0 &&
-		!doveadm_client_is_allowed_command(conn->conn.set,
-						   req->cmd->name))
-		req->method_err = 403;
 	if (req->method_err != 0) {
 		if (req->method_err == 404) {
 			doveadm_http_server_json_error(req, "unknownMethod");
-		} else if (req->method_err == 403) {
-			doveadm_http_server_json_error(req, "unAuthorized");
 		} else if (req->method_err == 400) {
 			doveadm_http_server_json_error(req, "invalidRequest");
 		} else {

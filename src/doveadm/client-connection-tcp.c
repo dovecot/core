@@ -318,13 +318,6 @@ static bool client_handle_command_ctx(struct client_connection_tcp *conn,
 		return TRUE;
 	}
 
-	if (!doveadm_client_is_allowed_command(conn->conn.set, cmd_name)) {
-		e_error(cctx->event,
-			"doveadm client isn't allowed to use command: %s",
-			cmd_name);
-		return FALSE;
-	}
-
 	client_connection_set_proctitle(&conn->conn, cmd_name);
 	o_stream_cork(conn->output);
 	/* Disable IO while running a command. This is required for commands

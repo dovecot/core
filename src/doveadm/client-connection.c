@@ -1,34 +1,12 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
-#include "array.h"
 #include "process-title.h"
 #include "settings.h"
 #include "master-service.h"
 #include "doveadm.h"
 #include "doveadm-settings.h"
 #include "client-connection-private.h"
-
-bool doveadm_client_is_allowed_command(const struct doveadm_settings *set,
-				       const char *cmd_name)
-{
-	bool ret = FALSE;
-
-	if (array_is_empty(&set->doveadm_allowed_commands))
-		return TRUE;
-
-	T_BEGIN {
-		const char *const *cmds =
-			settings_boollist_get(&set->doveadm_allowed_commands);
-		for (; *cmds != NULL; cmds++) {
-			if (strcmp(*cmds, cmd_name) == 0) {
-				ret = TRUE;
-				break;
-			}
-		}
-	} T_END;
-	return ret;
-}
 
 static int client_connection_read_settings(struct client_connection *conn)
 {
