@@ -832,16 +832,11 @@ int net_getunixcred(int fd, struct net_unix_cred *cred_r)
 	cred_r->gid = ucred.unp_egid;
 	cred_r->pid = ucred.unp_pid;
 	return 0;
-#elif defined(HAVE_GETPEEREID)
-	/* OSX 10.4+, FreeBSD 4.6+, OpenBSD 3.0+, NetBSD 5.0+ */
-	if (getpeereid(fd, &cred_r->uid, &cred_r->gid) < 0) {
-		i_error("getpeereid() failed: %m");
-		return -1;
-	}
-	cred_r->pid = (pid_t)-1;
-	return 0;
-#elif defined(LOCAL_PEERCRED)
-	/* Older FreeBSD */
+#elif defined(LOCAL_PEERCRED) && \
+	(defined(HAVE_STRUCT_XUCRED_CR_PID) || !defined(HAVE_GETPEEREID))
+	/* FreeBSD, macOS. getpeereid() usually exists as well, but it can't
+	   return the pid. Prefer it only if struct xucred has no pid either
+	   (FreeBSD <13, macOS). */
 	struct xucred ucred;
 	socklen_t len = sizeof(ucred);
 
@@ -857,6 +852,18 @@ int net_getunixcred(int fd, struct net_unix_cred *cred_r)
 
 	cred_r->uid = ucred.cr_uid;
 	cred_r->gid = ucred.cr_gid;
+# ifdef HAVE_STRUCT_XUCRED_CR_PID
+	cred_r->pid = ucred.cr_pid;
+# else
+	cred_r->pid = (pid_t)-1;
+# endif
+	return 0;
+#elif defined(HAVE_GETPEEREID)
+	/* OSX 10.4+, FreeBSD 4.6+, OpenBSD 3.0+, NetBSD 5.0+ */
+	if (getpeereid(fd, &cred_r->uid, &cred_r->gid) < 0) {
+		i_error("getpeereid() failed: %m");
+		return -1;
+	}
 	cred_r->pid = (pid_t)-1;
 	return 0;
 #elif defined(HAVE_GETPEERUCRED)

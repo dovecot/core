@@ -359,6 +359,15 @@ AC_CHECK_HEADERS([valgrind/valgrind.h])
 
 DOVECOT_SOCKPEERCRED
 
+dnl FreeBSD 13+ added the peer's pid to struct xucred.
+AC_CHECK_MEMBERS([struct xucred.cr_pid],,,[
+#include <sys/types.h>
+#include <sys/socket.h>
+#ifdef HAVE_SYS_UCRED_H
+#  include <sys/ucred.h>
+#endif
+])
+
 DOVECOT_TYPEOF
 DOVECOT_IOLOOP
 DOVECOT_NOTIFY
