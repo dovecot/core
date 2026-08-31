@@ -523,16 +523,14 @@ struct mailbox {
 	   corrupted mailbox name. Try to revert to the previously known good
 	   name. */
 	bool corrupted_mailbox_name:1;
-	/* The mailbox is hidden by ACLs. Set by the ACL plugin in two places,
-	   with slightly different conditions:
-	    - acl_mailbox_exists() sets it when the mailbox has none of the
-	      LOOKUP, READ and INSERT rights, i.e. whenever it answers
-	      MAILBOX_EXISTENCE_NONE. This covers any vfunc that ends up
-	      calling exists(), including a bare mailbox_exists() probe.
-	    - acl_mailbox_fail_not_found() sets it when the mailbox is missing
-	      just the LOOKUP right, even if READ or INSERT is granted, i.e.
-	      whenever mailbox_open(), delete or rename is turned into
-	      MAIL_ERROR_NOTFOUND. */
+	/* The ACL plugin determined that the session does not hold the
+	   LOOKUP right on this mailbox. Set by acl_mailbox_exists() whether
+	   or not it goes on to answer MAILBOX_EXISTENCE_NONE - READ or
+	   INSERT alone can still let the box exist for SUBSCRIBE and the
+	   METADATA commands. Not limited to mailbox_open() - any vfunc that
+	   ends up calling exists() (e.g. a bare mailbox_exists() probe, or
+	   delete/rename failing with MAIL_ERROR_NOTFOUND via
+	   acl_mailbox_fail_not_found()) can set this. */
 	bool acl_no_lookup_right:1;
 	/* mailbox_alloc() opened a different mailbox than asked (e.g. virtual
 	   plugin opened the backend mailbox). */

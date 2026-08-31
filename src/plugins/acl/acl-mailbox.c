@@ -481,6 +481,7 @@ static int acl_mailbox_exists(struct mailbox *box, bool auto_boxes,
 {
 	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 	const char *const *rights;
+	bool have_lookup = FALSE, have_any = FALSE;
 	unsigned int i;
 
 	if (acl_object_get_my_rights(abox->aclobj, pool_datastack_create(), &rights) < 0) {
@@ -488,20 +489,27 @@ static int acl_mailbox_exists(struct mailbox *box, bool auto_boxes,
 		return -1;
 	}
 
-	/* Any one of the LOOKUP, READ and INSERT rights is enough to answer
-	   that the mailbox exists. This is intentionally wider than RFC 4314,
-	   which grants visibility only with the 'l' right: the rule comes from
-	   IMAP SUBSCRIBE, where there's no point in refusing to subscribe to a
-	   mailbox that can be selected anyway - just the opposite, subscribing
-	   to such mailboxes is a very useful feature. */
 	for (i = 0; rights[i] != NULL; i++) {
-		if (strcmp(rights[i], MAIL_ACL_LOOKUP) == 0 ||
-		    strcmp(rights[i], MAIL_ACL_READ) == 0 ||
-		    strcmp(rights[i], MAIL_ACL_INSERT) == 0)
-			return abox->module_ctx.super.exists(box, auto_boxes,
-							     existence_r);
+		if (strcmp(rights[i], MAIL_ACL_LOOKUP) == 0)
+			have_lookup = have_any = TRUE;
+		else if (strcmp(rights[i], MAIL_ACL_READ) == 0 ||
+			 strcmp(rights[i], MAIL_ACL_INSERT) == 0)
+			have_any = TRUE;
 	}
-	box->acl_no_lookup_right = TRUE;
+	/* box->acl_no_lookup_right always reflects whether LOOKUP is held,
+	   regardless of what the existence answer below ends up being. */
+	if (!have_lookup)
+		box->acl_no_lookup_right = TRUE;
+
+	/* for now the existence answer below is used only by IMAP SUBSCRIBE.
+	   we'll intentionally violate RFC 4314 here, because it says
+	   SUBSCRIBE should succeed only when mailbox has 'l' right. But
+	   there's no point in not allowing a subscribe for a mailbox that
+	   can be selected anyway. Just the opposite: subscribing to such
+	   mailboxes is a very useful feature. */
+	if (have_any)
+		return abox->module_ctx.super.exists(box, auto_boxes,
+						     existence_r);
 	*existence_r = MAILBOX_EXISTENCE_NONE;
 	return 0;
 }
