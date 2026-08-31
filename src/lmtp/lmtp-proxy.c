@@ -79,6 +79,7 @@ struct lmtp_proxy_connection {
 struct lmtp_proxy {
 	struct client *client;
 	struct event *event;
+	const struct lmtp_proxy_settings *set;
 
 	struct smtp_client *lmtp_client;
 
@@ -103,17 +104,39 @@ lmtp_proxy_data_cb(const struct smtp_reply *reply,
  * LMTP proxy
  */
 
-static struct lmtp_proxy *lmtp_proxy_init(struct client *client)
+static int
+lmtp_proxy_init(struct client *client, struct lmtp_proxy **proxy_r)
 {
 	struct event *event;
+	const struct lmtp_proxy_settings *set;
 	struct lmtp_proxy *proxy;
+	const char *error;
+
+	*proxy_r = NULL;
+
+	if (client->proxy_disabled)
+		return 0;
 
 	event = event_create(client->event);
 	event_set_append_log_prefix(event, "proxy: ");
 
+	if (settings_get(event, &lmtp_proxy_setting_parser_info, 0,
+			 &set, &error) < 0) {
+		e_error(event, "%s", error);
+		event_unref(&event);
+		return -1;
+	}
+	if (!set->lmtp_proxy) {
+		settings_free(set);
+		event_unref(&event);
+		client->proxy_disabled = TRUE;
+		return 0;
+	}
+
 	proxy = i_new(struct lmtp_proxy, 1);
 	proxy->client = client;
 	proxy->event = event;
+	proxy->set = set;
 	i_array_init(&proxy->rcpt_to, 32);
 	i_array_init(&proxy->connections, 32);
 
@@ -129,7 +152,8 @@ static struct lmtp_proxy *lmtp_proxy_init(struct client *client)
 
 	proxy->lmtp_client = smtp_client_init(proxy->event);
 
-	return proxy;
+	*proxy_r = proxy;
+	return 1;
 }
 
 static void lmtp_proxy_connection_deinit(struct lmtp_proxy_connection *conn)
@@ -161,6 +185,7 @@ void lmtp_proxy_deinit(struct lmtp_proxy **_proxy)
 	array_free(&proxy->rcpt_to);
 	array_free(&proxy->connections);
 	event_unref(&proxy->event);
+	settings_free(proxy->set);
 	i_free(proxy);
 }
 
@@ -595,8 +620,6 @@ lmtp_proxy_rcpt_get_connection(struct lmtp_proxy_recipient *lprcpt,
 		return -1;
 	}
 
-	if (client->proxy == NULL)
-		client->proxy = lmtp_proxy_init(client);
 	if (lprcpt->conn == NULL)
 		lprcpt->proxy_ttl = client->proxy->initial_ttl;
 
@@ -1044,11 +1067,23 @@ lmtp_proxy_rcpt_user_lookup_cb(struct lmtp_proxy_recipient *lprcpt, int result,
 
 int lmtp_proxy_rcpt(struct lmtp_recipient *lrcpt)
 {
+	struct client *client = lrcpt->client;
 	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
 	struct lmtp_proxy_recipient *lprcpt;
 	struct auth_master_connection *auth_conn;
 	struct auth_user_info info;
 	struct mail_storage_service_input input;
+	int ret;
+
+	ret = (client->proxy != NULL ?
+	       1 : lmtp_proxy_init(client, &client->proxy));
+	if (ret < 0) {
+		smtp_server_recipient_reply(rcpt, 451, "4.3.5",
+					    "Internal server error");
+		return -1;
+	}
+	if (ret == 0)
+		return lmtp_rcpt_continue(lrcpt);
 
 	lprcpt = p_new(rcpt->pool, struct lmtp_proxy_recipient, 1);
 	lprcpt->rcpt = lrcpt;

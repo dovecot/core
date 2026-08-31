@@ -114,10 +114,6 @@ static int lmtp_rcpt_do_continue(struct lmtp_recipient *lrcpt)
 int lmtp_rcpt_start(struct lmtp_recipient *lrcpt)
 {
 	lrcpt->state = LMTP_RECIPIENT_STATE_ATTEMPT_PROXY;
-	if (!lrcpt->client->lmtp_set->lmtp_proxy) {
-		/* skip attempting proxy */
-		lrcpt->state = LMTP_RECIPIENT_STATE_ATTEMPT_LOCAL;
-	}
 	return lmtp_rcpt_do_continue(lrcpt);
 }
 

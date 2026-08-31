@@ -98,6 +98,7 @@ struct client {
 	bool destroyed:1;
 	bool end_client_tls_secured:1;
 	bool end_client_tls_secured_set:1;
+	bool proxy_disabled:1;
 };
 
 struct lmtp_module_register {

@@ -84,10 +84,33 @@ const struct setting_parser_info lmtp_pre_mail_setting_parser_info = {
 
 #undef DEF
 #define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct lmtp_proxy_settings)
+
+static const struct setting_define lmtp_proxy_setting_defines[] = {
+	DEF(BOOL, lmtp_proxy),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct lmtp_proxy_settings lmtp_proxy_default_settings = {
+	.lmtp_proxy = FALSE,
+};
+
+const struct setting_parser_info lmtp_proxy_setting_parser_info = {
+	.name = "lmtp_proxy",
+
+	.defines = lmtp_proxy_setting_defines,
+	.defaults = &lmtp_proxy_default_settings,
+
+	.struct_size = sizeof(struct lmtp_proxy_settings),
+	.pool_offset1 = 1 + offsetof(struct lmtp_proxy_settings, pool),
+};
+
+#undef DEF
+#define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct lmtp_settings)
 
 static const struct setting_define lmtp_setting_defines[] = {
-	DEF(BOOL, lmtp_proxy),
 	DEF(BOOL, lmtp_save_to_detail_mailbox),
 	DEF(BOOL, lmtp_rcpt_check_quota),
 	DEF(BOOL, lmtp_add_received_header),
@@ -110,7 +133,6 @@ static const struct setting_define lmtp_setting_defines[] = {
 };
 
 static const struct lmtp_settings lmtp_default_settings = {
-	.lmtp_proxy = FALSE,
 	.lmtp_save_to_detail_mailbox = FALSE,
 	.lmtp_rcpt_check_quota = FALSE,
 	.lmtp_add_received_header = TRUE,
