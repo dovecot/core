@@ -65,6 +65,7 @@ lmtp_local_init(struct client *client)
 	i_array_init(&local->rcpt_to, 8);
 
 	local->event = event_create(client->event);
+	event_set_append_log_prefix(local->event, "local: ");
 
 	const struct smtp_server_stats *stats =
 	        smtp_server_connection_get_stats(local->client->conn);
@@ -313,6 +314,7 @@ int lmtp_local_rcpt(struct lmtp_recipient *lrcpt)
 	int ret = 0;
 
 	event = event_create(rcpt->event);
+	event_set_append_log_prefix(event, "local: ");
 
 	i_zero(&input);
 	input.service = "lmtp";
