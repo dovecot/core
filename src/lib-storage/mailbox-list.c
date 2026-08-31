@@ -1387,12 +1387,14 @@ int mailbox_has_children(struct mailbox_list *list, const char *name)
 	return ret;
 }
 
-int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
-			 enum mailbox_info_flags *flags_r)
+int mailbox_list_mailbox_full(struct mailbox_list *list, const char *name,
+			      enum mailbox_info_flags *flags_r,
+			      bool *acl_no_lookup_right_r)
 {
 	const char *path, *fname, *suffix, *rootdir, *dir, *inbox;
 
 	*flags_r = 0;
+	*acl_no_lookup_right_r = FALSE;
 
 	if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
 	    strcasecmp(name, "INBOX") == 0) {
@@ -1416,6 +1418,7 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 			errstr = mailbox_get_last_error(box, &error);
 			mailbox_list_set_error(list, error, errstr);
 		}
+		*acl_no_lookup_right_r = box->acl_no_lookup_right;
 		mailbox_free(&box);
 		if (ret < 0)
 			return -1;
@@ -1491,6 +1494,15 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 	return list->v.get_mailbox_flags(list, dir, fname,
 					 MAILBOX_LIST_FILE_TYPE_UNKNOWN,
 					 flags_r);
+}
+
+int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
+			 enum mailbox_info_flags *flags_r)
+{
+	bool acl_no_lookup_right;
+
+	return mailbox_list_mailbox_full(list, name, flags_r,
+					 &acl_no_lookup_right);
 }
 
 int mailbox_list_get_count(struct mailbox_list *list, unsigned int *count_r)

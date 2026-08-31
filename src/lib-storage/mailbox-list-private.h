@@ -274,4 +274,12 @@ mailbox_list_iter_autocreate_filter(struct mailbox_list_iterate_context *ctx,
 int mailbox_list_lock(struct mailbox_list *list);
 void mailbox_list_unlock(struct mailbox_list *list);
 
+/* Like mailbox_list_mailbox(), but additionally reports whether the ACL
+   plugin determined that the session does not hold the LOOKUP right on the
+   mailbox (always FALSE without the ACL plugin, and FALSE whenever "name"
+   isn't the special-cased INBOX). */
+int mailbox_list_mailbox_full(struct mailbox_list *list, const char *name,
+			      enum mailbox_info_flags *flags_r,
+			      bool *acl_no_lookup_right_r);
+
 #endif
