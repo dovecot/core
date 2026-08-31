@@ -98,7 +98,7 @@ mail_strmap_rec_get_msgid(struct mail_thread_context *ctx,
 	msgid = message_id_get_next(&msgids);
 	if (msgid != NULL && n > 0) {
 		for (; n > 1; n--) T_BEGIN {
-			msgid = message_id_get_next(&msgids);
+			(void)message_id_get_next(&msgids);
 		} T_END;
 		msgid = message_id_get_next(&msgids);
 	}
