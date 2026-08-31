@@ -24,9 +24,6 @@
 #include "lmtp-recipient.h"
 #include "lmtp-proxy.h"
 
-#define LMTP_MAX_REPLY_SIZE 4096
-#define LMTP_PROXY_DEFAULT_TIMEOUT_MSECS (1000*125)
-
 struct lmtp_proxy_redirect {
 	struct ip_addr ip;
 	in_port_t port;
@@ -263,10 +260,12 @@ lmtp_proxy_connection_handle_settings(
 	}
 }
 
-static struct lmtp_proxy_connection *
+static int
 lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 			  struct smtp_server_transaction *trans,
-			  const struct lmtp_proxy_rcpt_settings *set)
+			  const struct lmtp_proxy_rcpt_settings *set,
+			  struct lmtp_proxy_connection **conn_r,
+			  const char **error_r)
 {
 	static const char *rcpt_param_extensions[] =
 		{ LMTP_RCPT_FORWARD_PARAMETER, NULL };
@@ -279,6 +278,8 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	enum smtp_client_connection_ssl_mode ssl_mode;
 
 	i_assert(set->set.timeout_msecs > 0);
+	i_assert(set->set.connect_timeout_msecs > 0);
+	*error_r = NULL;
 
 	array_foreach_elem(&proxy->connections, conn) {
 		if (conn->set.protocol == set->protocol &&
@@ -289,9 +290,13 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 		    net_ip_compare(&conn->set.set.source_ip, &set->set.source_ip) &&
 		    conn->set.set.ssl_flags == set->set.ssl_flags &&
 		    conn->set.set.timeout_msecs == set->set.timeout_msecs &&
+		    (smtp_client_connection_is_ready(conn->lmtp_conn) ||
+		     conn->set.set.connect_timeout_msecs == set->set.connect_timeout_msecs) &&
 		    conn->set.set.remote_not_trusted == set->set.remote_not_trusted &&
-		    conn->set.set.nopipelining == set->set.nopipelining)
-			return conn;
+		    conn->set.set.nopipelining == set->set.nopipelining) {
+			*conn_r = conn;
+			return 0;
+		}
 	}
 
 	conn = i_new(struct lmtp_proxy_connection, 1);
@@ -305,6 +310,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	conn->set.set.port = set->set.port;
 	conn->set.set.ssl_flags = set->set.ssl_flags;
 	conn->set.set.timeout_msecs = set->set.timeout_msecs;
+	conn->set.set.connect_timeout_msecs = set->set.connect_timeout_msecs;
 	conn->set.set.remote_not_trusted = set->set.remote_not_trusted;
 	conn->set.set.nopipelining = set->set.nopipelining;
 	array_push_back(&proxy->connections, &conn);
@@ -318,11 +324,11 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 
 	struct smtp_client_parameters lmtp_params;
 	struct smtp_proxy_data *proxy_data = &lmtp_params.proxy_data;
-	struct smtp_client_settings lmtp_set;
 	bool end_client_tls_secured =
 		client->end_client_tls_secured_set ?
 		client->end_client_tls_secured :
 		smtp_server_connection_is_ssl_secured(client->conn);
+	int ret;
 
 	lmtp_proxy_connection_handle_settings(conn, set);
 
@@ -332,6 +338,15 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 					     SMTP_CAPABILITY_PIPELINING : 0);
 	lmtp_params.mail_send_broken_path = TRUE;
 	lmtp_params.verbose_user_errors = client->lmtp_set->lmtp_verbose_replies;
+
+	lmtp_params.overrides.host = set->set.host;
+	lmtp_params.overrides.host_ip = set->set.host_ip;
+	lmtp_params.overrides.port = set->set.port;
+	lmtp_params.overrides.ssl_mode = ssl_mode;
+	lmtp_params.overrides.source_ip = set->set.source_ip;
+	lmtp_params.overrides.peer_not_trusted = set->set.remote_not_trusted;
+	lmtp_params.overrides.command_timeout_msecs = set->set.timeout_msecs;
+	lmtp_params.overrides.connect_timeout_msecs = set->set.connect_timeout_msecs;
 
 	smtp_server_connection_get_proxy_data(client->conn, proxy_data);
 	proxy_data->dest_ip = client->local_ip;
@@ -348,27 +363,16 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	else
 		proxy_data->ttl_plus_1--;
 
-	i_zero(&lmtp_set);
-	lmtp_set.hostname = client->my_domain;
-	lmtp_set.parsed.source_ip = conn->set.set.source_ip;
-	lmtp_set.peer_trusted = !set->set.remote_not_trusted;
-	lmtp_set.command_timeout_msecs = set->set.timeout_msecs;
-	lmtp_set.connect_timeout_msecs = set->set.timeout_msecs;
-	lmtp_set.max_reply_size = LMTP_MAX_REPLY_SIZE;
-	lmtp_set.rawlog_dir = client->lmtp_set->lmtp_proxy_rawlog_dir;
-
-	if (conn->set.set.host_ip.family != 0) {
-		conn->lmtp_conn = smtp_client_connection_create_ip(
-			proxy->lmtp_client, conn->event, set->protocol,
-			&conn->set.set.host_ip, conn->set.set.port,
-			conn->set.set.host, ssl_mode,
-			&lmtp_params, &lmtp_set);
-	} else {
-		conn->lmtp_conn = smtp_client_connection_create(
-			proxy->lmtp_client, conn->event, set->protocol,
-			conn->set.set.host, conn->set.set.port, ssl_mode,
-			&lmtp_params, &lmtp_set);
+	ret = smtp_client_connection_create_auto(
+		proxy->lmtp_client, conn->event, set->protocol, &lmtp_params,
+		&conn->lmtp_conn, error_r);
+	if (ret < 0) {
+		array_pop_back(&proxy->connections);
+		lmtp_proxy_connection_deinit(conn);
+		return -1;
 	}
+	i_assert(ret != 0); /* host is guaranteed to be overriden */
+
 	smtp_client_connection_accept_extra_capability(conn->lmtp_conn,
 						       &cap_rcpt_forward);
 	smtp_client_connection_connect(conn->lmtp_conn, NULL, NULL);
@@ -382,7 +386,8 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 
 	if (proxy->max_timeout_msecs < set->set.timeout_msecs)
 		proxy->max_timeout_msecs = set->set.timeout_msecs;
-	return conn;
+	*conn_r = conn;
+	return 0;
 }
 
 static void
@@ -472,7 +477,9 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_recipient *lprcpt,
 			     struct lmtp_proxy_rcpt_settings *set,
 			     const char *const *args, const char **address)
 {
-	struct smtp_server_recipient *rcpt = lprcpt->rcpt->rcpt;
+	struct lmtp_recipient *lrcpt = lprcpt->rcpt;
+	struct lmtp_proxy *proxy = lrcpt->client->proxy;
+	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
 	const char *p, *key, *value, *error;
 	in_port_t orig_port = set->set.port;
 	string_t *fwfields = NULL;
@@ -539,6 +546,14 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_recipient *lprcpt,
 	}
 	if (set->set.port == 0)
 		set->set.port = orig_port;
+	if (set->set.timeout_msecs == 0) {
+		set->set.timeout_msecs =
+			proxy->set->lmtp_client_command_timeout_msecs;
+	}
+	if (set->set.connect_timeout_msecs == 0) {
+		set->set.connect_timeout_msecs =
+			proxy->set->lmtp_client_connect_timeout_msecs;
+	}
 	if (!set->set.proxy)
 		return 0;
 
@@ -631,6 +646,7 @@ lmtp_proxy_rcpt_get_connection(struct lmtp_proxy_recipient *lprcpt,
 	struct smtp_server_transaction *trans;
 	struct lmtp_proxy_connection *conn;
 	struct smtp_proxy_data proxy_data;
+	const char *error;
 
 	smtp_server_connection_get_proxy_data(rcpt->conn, &proxy_data);
 	if (proxy_data.ttl_plus_1 == 1 ||
@@ -649,7 +665,13 @@ lmtp_proxy_rcpt_get_connection(struct lmtp_proxy_recipient *lprcpt,
 
 	trans = smtp_server_connection_get_transaction(rcpt->conn);
 	i_assert(trans != NULL); /* MAIL command is synchronous */
-	conn = lmtp_proxy_get_connection(client->proxy, trans, set);
+	if (lmtp_proxy_get_connection(client->proxy, trans, set,
+				      &conn, &error) < 0) {
+		e_error(lprcpt->event, "%s", error);
+		smtp_server_recipient_reply(rcpt, 451, "4.3.5",
+					    "Internal server error");
+		return -1;
+	}
 	i_assert(conn != lprcpt->conn);
 
 	event_add_str(rcpt->event, "dest_host", set->set.host);
@@ -1022,7 +1044,6 @@ lmtp_proxy_rcpt_user_lookup_cb(struct lmtp_proxy_recipient *lprcpt, int result,
 	}
 
 	i_zero(&set);
-	set.set.timeout_msecs = proxy->set->lmtp_client_command_timeout_msecs;
 	set.set.port = proxy->set->lmtp_client_port;
 	set.set.remote_not_trusted = !proxy->set->lmtp_client_peer_trusted;
 	set.protocol = SMTP_PROTOCOL_LMTP;

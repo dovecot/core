@@ -30,6 +30,7 @@ struct lmtp_proxy_settings {
 
 	/* used as default for rcpt settings */
 	unsigned int lmtp_client_command_timeout_msecs;
+	unsigned int lmtp_client_connect_timeout_msecs;
 	in_port_t lmtp_client_port;
 	bool lmtp_client_peer_trusted;
 };
@@ -44,7 +45,6 @@ struct lmtp_settings {
 	unsigned int lmtp_user_concurrency_limit;
 	const char *lmtp_hdr_delivery_address;
 	const char *lmtp_rawlog_dir;
-	const char *lmtp_proxy_rawlog_dir;
 
 	ARRAY_TYPE(const_string) lmtp_client_workarounds;
 
