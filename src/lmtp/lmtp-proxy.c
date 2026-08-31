@@ -743,9 +743,10 @@ lmtp_proxy_rcpt_redirect_finish(struct lmtp_proxy_recipient *lprcpt,
 }
 
 static void
-lmtp_proxy_rcpt_init_auth_user_info(struct lmtp_recipient *lrcpt,
+lmtp_proxy_rcpt_init_auth_user_info(struct lmtp_proxy_recipient *lprcpt,
 				    struct auth_user_info *info_r)
 {
+	struct lmtp_recipient *lrcpt = lprcpt->rcpt;
 	struct client *client = lrcpt->client;
 
 	i_zero(info_r);
@@ -760,6 +761,7 @@ lmtp_proxy_rcpt_init_auth_user_info(struct lmtp_recipient *lrcpt,
 	info_r->real_remote_port = client->real_remote_port;
 	info_r->forward_fields = lrcpt->forward_fields;
 	info_r->local_name = client->local_name;
+	info_r->event_parent = lprcpt->event;
 }
 
 static void
@@ -821,7 +823,7 @@ lmtp_proxy_rcpt_redirect_relookup(struct lmtp_proxy_recipient *lprcpt,
 	struct auth_master_connection *auth_conn;
 	struct auth_user_info info;
 
-	lmtp_proxy_rcpt_init_auth_user_info(lrcpt, &info);
+	lmtp_proxy_rcpt_init_auth_user_info(lprcpt, &info);
 
 	string_t *hosts_attempted = t_str_new(64);
 	str_append(hosts_attempted, "proxy_redirect_host_attempts=");
@@ -1148,7 +1150,7 @@ int lmtp_proxy_rcpt(struct lmtp_recipient *lrcpt)
 	input.service = "lmtp";
 	mail_storage_service_init_settings(storage_service, &input);
 
-	lmtp_proxy_rcpt_init_auth_user_info(lrcpt, &info);
+	lmtp_proxy_rcpt_init_auth_user_info(lprcpt, &info);
 
 	auth_conn = mail_storage_service_get_auth_conn(storage_service);
 	lprcpt->auth_request = auth_master_pass_lookup_async(
