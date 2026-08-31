@@ -383,8 +383,7 @@ imap_client_input_parse_input(struct istream *input, struct imap_parser *parser,
 	   we'll unnecessarily recreate the imap process and immediately resume
 	   IDLE there. if this becomes an issue we could add a small delay to
 	   the imap process creation and wait for the IDLE command during it. */
-	rest = i_stream_get_data(input, &rest_size);
-	if (rest_size == 0)
+	if (i_stream_get_data_size(input) == 0)
 		return state;
 
 	ret = imap_parser_read_tag(parser, &tag);
