@@ -106,17 +106,20 @@ static void client_load_modules(struct client *client)
 
 static void client_read_settings(struct client *client, bool ssl)
 {
-	struct mail_storage_service_input input;
+	struct mail_storage_service_input *input;
 	const char *error;
 
-	i_zero(&input);
-	input.service = "lmtp";
-	input.local_ip = client->local_ip;
-	input.remote_ip = client->remote_ip;
-	input.local_port = client->local_port;
-	input.remote_port = client->remote_port;
-	input.end_client_tls_secured = ssl;
-	input.username = "";
+	/* This needs to persist across client lifetime for var_expand provider
+	   lookups. var_expand_clone_params() does not and cannot clone this, as
+	   this is only available there as void *context. */
+	input = p_new(client->pool, struct mail_storage_service_input, 1);
+	input->service = "lmtp";
+	input->local_ip = client->local_ip;
+	input->remote_ip = client->remote_ip;
+	input->local_port = client->local_port;
+	input->remote_port = client->remote_port;
+	input->end_client_tls_secured = ssl;
+	input->username = "";
 
 	client->set_instance = settings_instance_new(
 		master_service_get_settings_root(master_service));
@@ -126,16 +129,18 @@ static void client_read_settings(struct client *client, bool ssl)
 		raw_storage_create_from_set(storage_service, client->set_instance);
 
 	const struct var_expand_params *params =
-		mail_storage_service_get_var_expand_params(storage_service, &input);
+		mail_storage_service_get_var_expand_params(storage_service, input);
 
-	struct event *event = event_create(client->event);
-	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, (void *)params);
-	if (settings_get(event, &lda_setting_parser_info, 0,
+	/* Needs to persist across client lifetime for later setting lookups. */
+	params = var_expand_clone_params(client->pool, params);
+	event_set_ptr(client->event,
+		      SETTINGS_EVENT_VAR_EXPAND_PARAMS, (void *)params);
+
+	if (settings_get(client->event, &lda_setting_parser_info, 0,
 			 &client->lda_set, &error) < 0 ||
-	    settings_get(event, &lmtp_setting_parser_info, 0,
+	    settings_get(client->event, &lmtp_setting_parser_info, 0,
 			 &client->lmtp_set, &error) < 0)
 		i_fatal("%s", error);
-	event_unref(&event);
 }
 
 struct client *client_create(int fd_in, int fd_out,
