@@ -501,12 +501,18 @@ static int acl_mailbox_exists(struct mailbox *box, bool auto_boxes,
 	if (!have_lookup)
 		box->acl_no_lookup_right = TRUE;
 
-	/* for now the existence answer below is used only by IMAP SUBSCRIBE.
-	   we'll intentionally violate RFC 4314 here, because it says
-	   SUBSCRIBE should succeed only when mailbox has 'l' right. But
-	   there's no point in not allowing a subscribe for a mailbox that
-	   can be selected anyway. Just the opposite: subscribing to such
-	   mailboxes is a very useful feature. */
+	/* The existence answer below intentionally violates RFC 4314, which
+	   says that SUBSCRIBE should succeed only when the mailbox has the
+	   'l' right. There's no point in not allowing a subscribe for a
+	   mailbox that can be selected anyway. Just the opposite: subscribing
+	   to such mailboxes is a very useful feature.
+
+	   SUBSCRIBE is no longer the only user of the answer: the METADATA
+	   commands and several internal existence probes - among them
+	   mailbox_list_mailbox_full(), which the mailbox listing uses - go
+	   through here as well. None of them may use it to decide whether a
+	   mailbox is listed, because that requires the LOOKUP right alone.
+	   box->acl_no_lookup_right above is what answers that question. */
 	if (have_any)
 		return abox->module_ctx.super.exists(box, auto_boxes,
 						     existence_r);
