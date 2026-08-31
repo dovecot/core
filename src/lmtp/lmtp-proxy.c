@@ -105,11 +105,15 @@ lmtp_proxy_data_cb(const struct smtp_reply *reply,
 
 static struct lmtp_proxy *lmtp_proxy_init(struct client *client)
 {
+	struct event *event;
 	struct lmtp_proxy *proxy;
+
+	event = event_create(client->event);
+	event_set_append_log_prefix(event, "proxy: ");
 
 	proxy = i_new(struct lmtp_proxy, 1);
 	proxy->client = client;
-	proxy->event = event_create(client->event);
+	proxy->event = event;
 	i_array_init(&proxy->rcpt_to, 32);
 	i_array_init(&proxy->connections, 32);
 
@@ -441,7 +445,7 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_recipient *lprcpt,
 		ret = auth_proxy_settings_parse(&set->set, NULL,
 						key, value, &error);
 		if (ret < 0) {
-			e_error(lprcpt->event, "proxy: Invalid %s value '%s': %s",
+			e_error(lprcpt->event, "Invalid %s value '%s': %s",
 				key, value, error);
 			return -1;
 		}
@@ -461,7 +465,7 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_recipient *lprcpt,
 					set->set.port = 25;
 			} else {
 				e_error(lprcpt->event,
-					"proxy: Unknown protocol %s", value);
+					"Unknown protocol %s", value);
 				return -1;
 			}
 		} else if (strcmp(key, "user") == 0) {
@@ -490,7 +494,7 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_recipient *lprcpt,
 		return 0;
 
 	if (set->set.host == NULL) {
-		e_error(lprcpt->event, "proxy: host not given");
+		e_error(lprcpt->event, "host not given");
 		return -1;
 	}
 	if (set->set.redirect_reauth)
@@ -1050,6 +1054,7 @@ int lmtp_proxy_rcpt(struct lmtp_recipient *lrcpt)
 	lprcpt->rcpt = lrcpt;
 
 	lprcpt->event = event_create(rcpt->event);
+	event_set_append_log_prefix(lprcpt->event, "proxy: ");
 
 	lrcpt->type = LMTP_RECIPIENT_TYPE_PROXY;
 	lrcpt->backend_context = lprcpt;
