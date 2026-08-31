@@ -104,11 +104,21 @@ static bool auth_master_request_unref(struct auth_master_request **_req)
 	return FALSE;
 }
 
+void auth_master_request_set_event_internal(struct auth_master_request *req,
+					    struct event *event)
+{
+	event_unref(&req->event);
+	req->event = event_create(event);
+	auth_master_request_update_event(req);
+}
+
 void auth_master_request_set_event(struct auth_master_request *req,
 				   struct event *event)
 {
 	event_unref(&req->event);
 	req->event = event_create(event);
+	event_add_category(req->event, &event_category_auth_client);
+	event_set_append_log_prefix(req->event, "auth-master: ");
 	event_set_forced_debug(req->event,
 			       HAS_ALL_BITS(req->conn->flags,
 					    AUTH_MASTER_FLAG_DEBUG));

@@ -101,6 +101,8 @@ struct auth_user_info {
 	in_port_t local_port, remote_port, real_local_port, real_remote_port;
 	const char *const *forward_fields;
 	ARRAY_TYPE(const_string) extra_fields;
+
+	struct event *event_parent;
 	bool debug;
 };
 

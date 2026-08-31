@@ -827,8 +827,16 @@ auth_master_user_event_create(struct auth_master_connection *conn,
 {
 	struct event *event;
 
-	event = event_create(conn->conn.event);
-	event_drop_parent_log_prefixes(event, 1);
+	if (info == NULL || info->event_parent == NULL) {
+		event = event_create(conn->conn.event);
+		event_drop_parent_log_prefixes(event, 1);
+	} else {
+		event = event_create(info->event_parent);
+		event_add_category(event, &event_category_auth_client);
+		event_set_append_log_prefix(event, "auth-master: ");
+		event_set_forced_debug(event,
+			HAS_ALL_BITS(conn->flags, AUTH_MASTER_FLAG_DEBUG));
+	}
 	event_set_append_log_prefix(event, prefix);
 
 	if (info != NULL) {
@@ -1089,7 +1097,7 @@ auth_master_pass_lookup_async(struct auth_master_connection *conn,
 	req = auth_master_request(conn, "PASS", str_data(args), str_len(args),
 				  auth_lookup_reply_callback, &lookup->lookup);
 
-	auth_master_request_set_event(req, lookup->lookup.event);
+	auth_master_request_set_event_internal(req, lookup->lookup.event);
 	auth_master_request_add_destroy_callback(req,
 		auth_master_pass_lookup_destroyed, lookup);
 	lookup->lookup.req = req;
@@ -1256,7 +1264,7 @@ auth_master_user_lookup_async(struct auth_master_connection *conn,
 	req = auth_master_request(conn, "USER", str_data(args), str_len(args),
 				  auth_lookup_reply_callback, &lookup->lookup);
 
-	auth_master_request_set_event(req, lookup->lookup.event);
+	auth_master_request_set_event_internal(req, lookup->lookup.event);
 	auth_master_request_add_destroy_callback(req,
 		auth_master_user_lookup_destroyed, lookup);
 	lookup->lookup.req = req;
@@ -1378,7 +1386,7 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 	ctx->req = auth_master_request(conn, "LIST",
 				       str_data(args), str_len(args),
 				       auth_user_list_reply_callback, ctx);
-	auth_master_request_set_event(ctx->req, ctx->event);
+	auth_master_request_set_event_internal(ctx->req, ctx->event);
 
 	connection_input_halt(&conn->conn);
 
@@ -1543,7 +1551,7 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 	req = auth_master_request(conn, "CACHE-FLUSH",
 				  str_data(args), str_len(args),
 				  auth_cache_flush_reply_callback, &ctx);
-	auth_master_request_set_event(req, ctx.event);
+	auth_master_request_set_event_internal(req, ctx.event);
 	(void)auth_master_request_wait(req);
 
 	if (ctx.failed)
@@ -1667,7 +1675,7 @@ int auth_master_cache_get_status(struct auth_master_connection *conn, bool reset
 	req = auth_master_request(conn, "CACHE-STATUS",
 				  str_data(args), str_len(args),
 				  auth_cache_status_reply_callback, &ctx);
-	auth_master_request_set_event(req, ctx.event);
+	auth_master_request_set_event_internal(req, ctx.event);
 	(void)auth_master_request_wait(req);
 
 	if (ctx.failed)

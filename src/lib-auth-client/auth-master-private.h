@@ -107,6 +107,9 @@ auth_master_request_invalid(struct auth_master_connection *conn,
 	auth_master_request_invalid(conn, \
 		(auth_master_request_callback_t *)callback, context)
 
+void auth_master_request_set_event_internal(struct auth_master_request *req,
+					    struct event *event);
+
 /*
  * Connection
  */
