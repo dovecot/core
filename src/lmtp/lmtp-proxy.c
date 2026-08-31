@@ -40,6 +40,7 @@ struct lmtp_proxy_rcpt_settings {
 
 struct lmtp_proxy_recipient {
 	struct lmtp_recipient *rcpt;
+	struct event *event;
 	struct lmtp_proxy_connection *conn;
 	ARRAY(struct lmtp_proxy_redirect) redirect_path;
 
@@ -410,6 +411,7 @@ lmtp_proxy_rcpt_destroy(struct smtp_server_recipient *rcpt ATTR_UNUSED,
 {
 	array_free(&lprcpt->redirect_path);
 	auth_master_request_abort(&lprcpt->auth_request);
+	event_unref(&lprcpt->event);
 }
 
 static int
@@ -439,7 +441,7 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_recipient *lprcpt,
 		ret = auth_proxy_settings_parse(&set->set, NULL,
 						key, value, &error);
 		if (ret < 0) {
-			e_error(rcpt->event, "proxy: Invalid %s value '%s': %s",
+			e_error(lprcpt->event, "proxy: Invalid %s value '%s': %s",
 				key, value, error);
 			return -1;
 		}
@@ -458,7 +460,7 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_recipient *lprcpt,
 				if (set->set.port == 0)
 					set->set.port = 25;
 			} else {
-				e_error(rcpt->event,
+				e_error(lprcpt->event,
 					"proxy: Unknown protocol %s", value);
 				return -1;
 			}
@@ -488,7 +490,7 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_recipient *lprcpt,
 		return 0;
 
 	if (set->set.host == NULL) {
-		e_error(rcpt->event, "proxy: host not given");
+		e_error(lprcpt->event, "proxy: host not given");
 		return -1;
 	}
 	if (set->set.redirect_reauth)
@@ -580,7 +582,7 @@ lmtp_proxy_rcpt_get_connection(struct lmtp_proxy_recipient *lprcpt,
 	smtp_server_connection_get_proxy_data(rcpt->conn, &proxy_data);
 	if (proxy_data.ttl_plus_1 == 1 ||
 	    (lprcpt->conn != NULL && lprcpt->proxy_ttl == 0)) {
-		e_error(rcpt->event,
+		e_error(lprcpt->event,
 			"Proxying to <%s> appears to be looping (TTL=0)",
 			smtp_address_encode(rcpt->path));
 		smtp_server_recipient_reply(rcpt, 554, "5.4.6",
@@ -633,7 +635,7 @@ lmtp_proxy_rcpt_redirect_finish(struct lmtp_proxy_recipient *lprcpt,
 	struct lmtp_proxy_connection *conn;
 
 	if (lmtp_proxy_rcpt_have_connected(lprcpt, ip, port)) {
-		e_error(rcpt->event,
+		e_error(lprcpt->event,
 			"Proxying loops - already connected to %s:%u",
 			net_ip2addr(ip), port);
 		smtp_server_recipient_reply(rcpt, 554, "5.4.6",
@@ -641,7 +643,7 @@ lmtp_proxy_rcpt_redirect_finish(struct lmtp_proxy_recipient *lprcpt,
 		return;
 	}
 	if (lmtp_proxy_is_ourself(client, set)) {
-		e_error(rcpt->event, "Proxying to <%s> loops to itself",
+		e_error(lprcpt->event, "Proxying to <%s> loops to itself",
 			smtp_address_encode(lprcpt->address));
 		smtp_server_recipient_reply(rcpt, 554, "5.4.6",
 					    "Proxying loops to itself");
@@ -659,7 +661,7 @@ lmtp_proxy_rcpt_redirect_finish(struct lmtp_proxy_recipient *lprcpt,
 	redirect->port = port;
 
 	/* Connect to new host */
-	e_debug(rcpt->event, "Redirecting to %s", net_ipport2str(ip, port));
+	e_debug(lprcpt->event, "Redirecting to %s", net_ipport2str(ip, port));
 
 	if (lmtp_proxy_rcpt_get_connection(lprcpt, set, &conn) < 0)
 		return;
@@ -714,7 +716,7 @@ lmtp_proxy_rcpt_redirect_relookup_cb(struct lmtp_proxy_recipient *lprcpt,
 
 	ret = lmtp_proxy_rcpt_parse_fields(lprcpt, set, fields, &username);
 	if (ret == 0 && (!lprcpt->nologin || set->set.host == NULL)) {
-		e_error(lprcpt->rcpt->rcpt->event,
+		e_error(lprcpt->event,
 			"Redirect authentication is missing proxy or nologin field");
 		ret = -1;
 	}
@@ -787,7 +789,7 @@ lmtp_proxy_rcpt_redirect(struct lmtp_proxy_recipient *lprcpt,
 
 	if (lmtp_proxy_rcpt_parse_redirect(proxy_reply, &destuser,
 					   &host, &ip, &port, &error) < 0) {
-		e_error(rcpt->event,
+		e_error(lprcpt->event,
 			"Backend server returned invalid redirect '%s': %s",
 			str_sanitize(smtp_reply_log(proxy_reply), 160), error);
 		smtp_server_recipient_reply(rcpt, 451, "4.3.0",
@@ -990,7 +992,7 @@ lmtp_proxy_rcpt_user_lookup_cb(struct lmtp_proxy_recipient *lprcpt, int result,
 		return;
 	}
 
-	e_debug(rcpt->event, "Recipient maps to proxy user %s", username);
+	e_debug(lprcpt->event, "Recipient maps to proxy user %s", username);
 
 	if (strcmp(username, lrcpt->username) != 0) {
 		/* The existing "user" event field is overridden with the new
@@ -1000,7 +1002,7 @@ lmtp_proxy_rcpt_user_lookup_cb(struct lmtp_proxy_recipient *lprcpt, int result,
 
 		if (smtp_address_parse_username(pool_datastack_create(),
 						username, &user, &errstr) < 0) {
-			e_error(rcpt->event, "%s: "
+			e_error(lprcpt->event, "%s: "
 				"Username `%s' returned by passdb lookup is not a valid SMTP address",
 				lrcpt->username, username);
 			smtp_server_recipient_reply(
@@ -1016,7 +1018,7 @@ lmtp_proxy_rcpt_user_lookup_cb(struct lmtp_proxy_recipient *lprcpt, int result,
 				user, lrcpt->detail, lrcpt->delim);
 		}
 	} else if (lmtp_proxy_is_ourself(client, &set)) {
-		e_error(rcpt->event, "Proxying to <%s> loops to itself",
+		e_error(lprcpt->event, "Proxying to <%s> loops to itself",
 			username);
 		smtp_server_recipient_reply(rcpt, 554, "5.4.6",
 					    "Proxying loops to itself");
@@ -1047,6 +1049,8 @@ int lmtp_proxy_rcpt(struct lmtp_recipient *lrcpt)
 	lprcpt = p_new(rcpt->pool, struct lmtp_proxy_recipient, 1);
 	lprcpt->rcpt = lrcpt;
 
+	lprcpt->event = event_create(rcpt->event);
+
 	lrcpt->type = LMTP_RECIPIENT_TYPE_PROXY;
 	lrcpt->backend_context = lprcpt;
 
@@ -1055,6 +1059,7 @@ int lmtp_proxy_rcpt(struct lmtp_recipient *lrcpt)
 		lmtp_proxy_rcpt_destroy, lprcpt);
 
 	i_zero(&input);
+	input.event_parent = lprcpt->event;
 	input.service = "lmtp";
 	mail_storage_service_init_settings(storage_service, &input);
 
@@ -1103,7 +1108,7 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 	/* Handle reply */
 	if (smtp_reply_is_success(proxy_reply)) {
 		/* If backend accepts it, we accept it too */
-		e_info(rcpt->event, "%s", str_c(msg));
+		e_info(lprcpt->event, "%s", str_c(msg));
 
 		/* Substitute our own success message */
 		smtp_reply_printf(&reply, 250, "%s Saved", lrcpt->session_id);
@@ -1118,9 +1123,9 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 			/* The problem isn't with the proxy, it's with the
 			   remote side. so the remote side will log an error,
 			   while for us this is just an info event */
-			e_info(rcpt->event, "%s", str_c(msg));
+			e_info(lprcpt->event, "%s", str_c(msg));
 		} else {
-			e_error(rcpt->event, "%s", str_c(msg));
+			e_error(lprcpt->event, "%s", str_c(msg));
 		}
 
 		if (!lmtp_proxy_handle_reply(lprcpt, proxy_reply, &reply))
