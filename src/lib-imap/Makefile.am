@@ -109,7 +109,8 @@ test_imap_util_DEPENDENCIES = $(test_deps)
 if USE_FUZZER
 noinst_PROGRAMS += \
 	fuzz-imap-utf7 \
-	fuzz-imap-bodystructure
+	fuzz-imap-bodystructure \
+	fuzz-imap-parser
 
 nodist_EXTRA_fuzz_imap_utf7_SOURCES = force-cxx-linking.cxx
 fuzz_imap_utf7_SOURCES = fuzz-imap-utf7.c
@@ -124,6 +125,13 @@ fuzz_imap_bodystructure_CPPFLAGS = $(FUZZER_CPPFLAGS)
 fuzz_imap_bodystructure_LDFLAGS = $(FUZZER_LDFLAGS)
 fuzz_imap_bodystructure_LDADD = libimap.la ../lib-mail/libmail.la $(test_libs)
 fuzz_imap_bodystructure_DEPENDENCIES = libimap.la $(test_deps) ../lib-mail/libmail.la
+
+nodist_EXTRA_fuzz_imap_parser_SOURCES = force-cxx-linking.cxx
+fuzz_imap_parser_SOURCES = fuzz-imap-parser.c
+fuzz_imap_parser_CPPFLAGS = $(FUZZER_CPPFLAGS)
+fuzz_imap_parser_LDFLAGS = $(FUZZER_LDFLAGS)
+fuzz_imap_parser_LDADD = libimap.la $(test_libs)
+fuzz_imap_parser_DEPENDENCIES = libimap.la $(test_deps)
 
 
 endif
