@@ -288,6 +288,36 @@ static void test_imap_parser_quoted_escapes(void)
 	test_end();
 }
 
+static void test_imap_parser_literal_size_empty_line(void)
+{
+	/* imapc calls imap_parser_get_literal_size() for every line it
+	   parses. A line without any arguments - e.g. an untagged reply
+	   consisting of just "*" - used to assert-crash there. */
+	const char *tests[] = {
+		"\n",
+		"\r\n",
+	};
+
+	test_begin("imap parser literal size empty line");
+	for (size_t i = 0; i < N_ELEMENTS(tests); i++) {
+		struct istream *input = test_istream_create(tests[i]);
+		struct imap_parser *parser =
+			imap_parser_create(input, NULL, 1024, NULL);
+		const struct imap_arg *args;
+		uoff_t literal_size;
+
+		(void)i_stream_read(input);
+		test_assert_idx(imap_parser_read_args(parser, 0,
+			IMAP_PARSE_FLAG_LITERAL_SIZE, &args) == 0, i);
+		test_assert_idx(!imap_parser_get_literal_size(parser,
+							      &literal_size), i);
+
+		imap_parser_unref(&parser);
+		i_stream_destroy(&input);
+	}
+	test_end();
+}
+
 static void test_imap_arg_get_list_empty(void)
 {
 	/* An IMAP_ARG_LIST whose backing array is empty - i.e. holds no
@@ -320,6 +350,7 @@ int main(void)
 		test_imap_parser_read_tag_cmd,
 		test_imap_parser_read_literal,
 		test_imap_parser_quoted_escapes,
+		test_imap_parser_literal_size_empty_line,
 		test_imap_arg_get_list_empty,
 		NULL
 	};

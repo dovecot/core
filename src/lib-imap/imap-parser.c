@@ -870,8 +870,11 @@ imap_parser_get_last_literal_size(struct imap_parser *parser,
 
 	list = &parser->root_list;
 	args = array_get_modifiable(&parser->root_list, &count);
-	i_assert(count > 1 && args[count-1].type == IMAP_ARG_EOL);
-	count--;
+	i_assert(count > 0 && args[count-1].type == IMAP_ARG_EOL);
+	if (--count == 0) {
+		/* the line had no arguments at all */
+		return NULL;
+	}
 
 	while (args[count-1].type != IMAP_ARG_LITERAL_SIZE &&
 	       args[count-1].type != IMAP_ARG_LITERAL_SIZE_NONSYNC) {
