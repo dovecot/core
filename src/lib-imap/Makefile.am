@@ -138,4 +138,5 @@ endif
 
 EXTRA_DIST = \
 	fuzz-imap-utf7.dict \
-	fuzz-imap-bodystructure.dict
+	fuzz-imap-bodystructure.dict \
+	fuzz-imap-parser.dict
