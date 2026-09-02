@@ -13,6 +13,7 @@ libdovecot_modules = [
   'lib',
   'login',
   'mail',
+  'imap',
   'master',
   'oauth2',
   'program_client',
