@@ -10,8 +10,8 @@ struct anonymous_dsasl_client {
 
 static enum dsasl_client_result
 mech_anonymous_input(struct dsasl_client *_client,
-		    const unsigned char *input ATTR_UNUSED, size_t input_len,
-		    const char **error_r)
+		     const unsigned char *input ATTR_UNUSED, size_t input_len,
+		     const char **error_r)
 {
 	struct anonymous_dsasl_client *client =
 		container_of(_client, struct anonymous_dsasl_client, client);
@@ -30,8 +30,8 @@ mech_anonymous_input(struct dsasl_client *_client,
 
 static enum dsasl_client_result
 mech_anonymous_output(struct dsasl_client *_client,
-		     const unsigned char **output_r, size_t *output_len_r,
-		     const char **error_r ATTR_UNUSED)
+		      const unsigned char **output_r, size_t *output_len_r,
+		      const char **error_r ATTR_UNUSED)
 {
 	struct anonymous_dsasl_client *client =
 		container_of(_client, struct anonymous_dsasl_client, client);
