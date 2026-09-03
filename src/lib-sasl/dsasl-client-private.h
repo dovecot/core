@@ -28,13 +28,13 @@ struct dsasl_client_mech {
 	enum dsasl_mech_security_flags flags;
 
 	enum dsasl_client_result
-		(*input)(struct dsasl_client *client,
-			 const unsigned char *input, size_t input_len,
-			 const char **error_r);
+	(*input)(struct dsasl_client *client,
+		 const unsigned char *input, size_t input_len,
+		 const char **error_r);
 	enum dsasl_client_result
-		(*output)(struct dsasl_client *client,
-			  const unsigned char **output_r, size_t *output_len_r,
-			  const char **error_r);
+	(*output)(struct dsasl_client *client,
+		  const unsigned char **output_r, size_t *output_len_r,
+		  const char **error_r);
 	int (*set_parameter)(struct dsasl_client *client,
 			     const char *key, const char *value,
 			     const char **error_r);
