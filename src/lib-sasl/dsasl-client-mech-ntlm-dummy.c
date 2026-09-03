@@ -84,7 +84,7 @@ const struct dsasl_client_mech dsasl_client_mech_ntlm = {
 	.struct_size = sizeof(struct ntlm_dsasl_client),
 
 	.input = mech_ntlm_input,
-	.output = mech_ntlm_output
+	.output = mech_ntlm_output,
 };
 
 void dsasl_client_mech_ntlm_init_dummy(void)
