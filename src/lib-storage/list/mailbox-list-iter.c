@@ -41,6 +41,9 @@ struct ns_list_iterate_context {
 };
 
 static void mailbox_list_ns_iter_failed(struct ns_list_iterate_context *ctx);
+static void
+mailbox_list_ns_iter_list_failed(struct ns_list_iterate_context *ctx,
+				 struct mailbox_list *list);
 static bool ns_match_next(struct ns_list_iterate_context *ctx,
 			  struct mail_namespace *ns, const char *pattern);
 static int mailbox_list_match_anything(struct ns_list_iterate_context *ctx,
@@ -653,16 +656,23 @@ static void inbox_set_children_flags(struct ns_list_iterate_context *ctx)
 		ctx->inbox_info.flags |= MAILBOX_NOCHILDREN;
 }
 
-static void mailbox_list_ns_iter_failed(struct ns_list_iterate_context *ctx)
+static void
+mailbox_list_ns_iter_list_failed(struct ns_list_iterate_context *ctx,
+				 struct mailbox_list *list)
 {
 	enum mail_error error;
 	const char *errstr;
 
-	if (ctx->cur_ns->list != ctx->error_list) {
-		errstr = mailbox_list_get_last_error(ctx->cur_ns->list, &error);
+	if (list != ctx->error_list) {
+		errstr = mailbox_list_get_last_error(list, &error);
 		mailbox_list_set_error(ctx->error_list, error, errstr);
 	}
 	ctx->ctx.failed = TRUE;
+}
+
+static void mailbox_list_ns_iter_failed(struct ns_list_iterate_context *ctx)
+{
+	mailbox_list_ns_iter_list_failed(ctx, ctx->cur_ns->list);
 }
 
 static bool
@@ -856,8 +866,7 @@ static int inbox_info_init(struct ns_list_iterate_context *ctx,
 	ret = mailbox_list_mailbox_full(ctx->inbox_info.ns->list, "INBOX",
 					&flags, &acl_no_lookup_right);
 	if (ret < 0) {
-		ctx->cur_ns = ctx->inbox_info.ns;
-		mailbox_list_ns_iter_failed(ctx);
+		mailbox_list_ns_iter_list_failed(ctx, ctx->inbox_info.ns->list);
 		return ret;
 	}
 	if (ret > 0)
