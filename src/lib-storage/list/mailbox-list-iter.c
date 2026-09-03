@@ -842,40 +842,58 @@ patterns_match_inbox(struct mail_namespace *namespaces,
 }
 
 /* When acl_user makes this session a non-owner of the inbox namespace, the
-   INBOX we are about to force into the listing belongs to somebody else. The
+   INBOX that the ns-level iterator emits belongs to somebody else. The
    per-namespace iterator would filter it out via
-   acl_mailbox_list_info_is_visible(), but the ns-level forced entry is
-   emitted from a synthetic mailbox_list that no plugin wraps, so ACL never
-   sees it. mailbox_list_mailbox_full() reaches acl_mailbox_exists() for us;
-   take its LOOKUP verdict rather than trying to infer one from the return
-   value. acl_mailbox_exists() deliberately answers "exists" for READ or
-   INSERT as well as LOOKUP (RFC 4314 deviation, used by SUBSCRIBE and the
-   METADATA commands), but listing is governed by LOOKUP alone, so the
-   return value is not usable here in either direction. */
+   acl_mailbox_list_info_is_visible(), but the ns-level entries are emitted
+   from a synthetic mailbox_list that no plugin wraps, so ACL never sees them.
+   mailbox_list_mailbox_full() reaches acl_mailbox_exists() for us; take its
+   LOOKUP verdict rather than trying to infer one from the return value.
+   acl_mailbox_exists() deliberately answers "exists" for READ or INSERT as
+   well as LOOKUP (RFC 4314 deviation, used by SUBSCRIBE and the METADATA
+   commands), but listing is governed by LOOKUP alone, so the return value is
+   not usable here in either direction.
+
+   The verdict is left in ctx->inbox_acl_denied. Returns -1 on error, 0 if
+   INBOX doesn't exist, 1 if it does, with *flags_r always set. */
+static int inbox_acl_lookup(struct ns_list_iterate_context *ctx,
+			    struct mail_namespace *inbox_ns,
+			    enum mailbox_info_flags *flags_r)
+{
+	bool acl_no_lookup_right;
+	int ret;
+
+	ret = mailbox_list_mailbox_full(inbox_ns->list, "INBOX", flags_r,
+					&acl_no_lookup_right);
+	if (ret < 0) {
+		mailbox_list_ns_iter_list_failed(ctx, inbox_ns->list);
+		return -1;
+	}
+	if (acl_no_lookup_right &&
+	    (ctx->ctx.flags & MAILBOX_LIST_ITER_RAW_LIST) == 0)
+		ctx->inbox_acl_denied = TRUE;
+	return ret;
+}
+
+/* Look up INBOX's own flags into ctx->inbox_info. If ACL denies LOOKUP on it,
+   clear ctx->inbox_list so that the caller doesn't force INBOX into the
+   listing. Returns -1 on error, 0 or 1 as inbox_acl_lookup() does. */
 static int inbox_info_init(struct ns_list_iterate_context *ctx,
 			   struct mail_namespace *namespaces)
 {
 	enum mailbox_info_flags flags;
-	bool acl_no_lookup_right;
 	int ret;
 
 	ctx->inbox_info.vname = "INBOX";
 	ctx->inbox_info.ns = mail_namespace_find_inbox(namespaces);
 	i_assert(ctx->inbox_info.ns != NULL);
 
-	ret = mailbox_list_mailbox_full(ctx->inbox_info.ns->list, "INBOX",
-					&flags, &acl_no_lookup_right);
-	if (ret < 0) {
-		mailbox_list_ns_iter_list_failed(ctx, ctx->inbox_info.ns->list);
+	ret = inbox_acl_lookup(ctx, ctx->inbox_info.ns, &flags);
+	if (ret < 0)
 		return ret;
-	}
 	if (ret > 0)
 		ctx->inbox_info.flags = flags;
-	if (acl_no_lookup_right &&
-	    (ctx->ctx.flags & MAILBOX_LIST_ITER_RAW_LIST) == 0) {
-		ctx->inbox_acl_denied = TRUE;
+	if (ctx->inbox_acl_denied)
 		ctx->inbox_list = FALSE;
-	}
 	return ret;
 }
 
