@@ -38,6 +38,7 @@ struct ns_list_iterate_context {
 	bool inbox_listed:1;
 	bool inbox_seen:1;
 	bool inbox_acl_denied:1;
+	bool inbox_acl_checked:1;
 };
 
 static void mailbox_list_ns_iter_failed(struct ns_list_iterate_context *ctx);
@@ -49,6 +50,9 @@ static bool ns_match_next(struct ns_list_iterate_context *ctx,
 static int mailbox_list_match_anything(struct ns_list_iterate_context *ctx,
 				       struct mail_namespace *ns,
 				       const char *prefix);
+static int inbox_acl_lookup(struct ns_list_iterate_context *ctx,
+			    struct mail_namespace *inbox_ns,
+			    enum mailbox_info_flags *flags_r);
 
 static struct mailbox_list_iterate_context mailbox_list_iter_failed;
 
@@ -541,13 +545,28 @@ mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 		ctx->ns_info.flags |= MAILBOX_CHILD_SPECIALUSE;
 
 	if (strcasecmp(ctx->ns_info.vname, "INBOX") == 0) {
+		if (!ctx->inbox_acl_checked) {
+			/* Subscription listings don't call inbox_info_init(),
+			   because INBOX isn't forced into them - but this
+			   namespace prefix *is* INBOX (e.g. prefix=INBOX.
+			   maildir++), so the same LOOKUP verdict is needed
+			   here. Only the verdict is used; the flags of this
+			   entry come from the namespace prefix, not from
+			   INBOX itself. */
+			struct mail_namespace *inbox_ns =
+				mail_namespace_find_inbox(ctx->namespaces);
+			enum mailbox_info_flags inbox_flags;
+
+			if (inbox_acl_lookup(ctx, inbox_ns, &inbox_flags) < 0)
+				return FALSE;
+			ctx->inbox_acl_checked = TRUE;
+		}
 		if (ctx->inbox_acl_denied) {
-			/* ACL denied LOOKUP on this INBOX. This namespace
-			   prefix *is* INBOX (e.g. prefix=INBOX. maildir++),
-			   so emitting it here would be the same disclosure
-			   inbox_info_init() already suppressed via
-			   ctx->inbox_list - don't let it leak out through
-			   this second emit site instead. */
+			/* ACL denied LOOKUP on this INBOX. Emitting it here
+			   would be the same disclosure inbox_info_init()
+			   suppresses via ctx->inbox_list for the forced
+			   entry - don't let it leak out through this second
+			   emit site instead. */
 			return FALSE;
 		}
 		i_assert(!ctx->inbox_listed);
