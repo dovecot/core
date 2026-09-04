@@ -49,8 +49,6 @@ void dsasl_client_unref(struct dsasl_client **_client);
 /* PLAIN mechanism always exists and can be accessed directly via this. */
 extern const struct dsasl_client_mech dsasl_client_mech_plain;
 
-const struct dsasl_client_mech *
-dsasl_client_mech_find(struct dsasl_client *client, const char *name);
 const char *dsasl_client_mech_get_name(const struct dsasl_client_mech *mech);
 bool dsasl_client_mech_uses_password(const struct dsasl_client_mech *mech);
 

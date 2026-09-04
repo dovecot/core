@@ -90,7 +90,7 @@ dsasl_client_mech_find_idx(struct dsasl_client *client, const char *name,
 	return NULL;
 }
 
-const struct dsasl_client_mech *
+static const struct dsasl_client_mech *
 dsasl_client_mech_find(struct dsasl_client *client, const char *name)
 {
 	unsigned int idx;
