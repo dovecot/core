@@ -187,3 +187,11 @@ test_sql_pgsql_LDADD = $(PGSQL_LIB) $(pkglib_LTLIBRARIES) $(test_libs) $(DLLIB)
 test_sql_pgsql_DEPENDENCIES = $(PGSQL_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
 test_sql_pgsql_CPPFLAGS = $(AM_CPPFLAGS) $(PGSQL_CFLAGS)
 endif
+
+if BUILD_CASSANDRA
+noinst_PROGRAMS += test-cql-cassandra
+test_cql_cassandra_SOURCES = test-cql-cassandra.c
+test_cql_cassandra_LDADD = $(CASSANDRA_LIB) $(pkglib_LTLIBRARIES) $(test_libs) $(DLLIB)
+test_cql_cassandra_DEPENDENCIES = $(CASSANDRA_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
+test_cql_cassandra_CPPFLAGS = $(AM_CPPFLAGS) $(CASSANDRA_CFLAGS)
+endif
