@@ -46,9 +46,6 @@ struct dsasl_client *dsasl_client_create(struct event *event_parent);
 void dsasl_client_ref(struct dsasl_client *client);
 void dsasl_client_unref(struct dsasl_client **_client);
 
-/* PLAIN mechanism always exists and can be accessed directly via this. */
-extern const struct dsasl_client_mech dsasl_client_mech_plain;
-
 int dsasl_client_check_settings(struct dsasl_client *client,
 				const char **error_r);
 
