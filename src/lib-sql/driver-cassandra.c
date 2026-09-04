@@ -2326,6 +2326,11 @@ driver_cassandra_result_get_fields_count(struct sql_result *_result)
 	struct cassandra_result *result =
 		container_of(_result, struct cassandra_result, api);
 
+	/* result->fields is only p_array_init()'d once a row has been
+	   fetched - a result whose query never got that far (e.g. it
+	   failed before sending) has no fields yet. */
+	if (!array_is_created(&result->fields))
+		return 0;
 	return array_count(&result->fields);
 }
 
@@ -2349,10 +2354,8 @@ static int
 driver_cassandra_result_find_field(struct sql_result *_result,
 				   const char *field_name)
 {
-	struct cassandra_result *result =
-		container_of(_result, struct cassandra_result, api);
-
-	for (unsigned int i = 0; i < array_count(&result->fields); i++) {
+	for (unsigned int i = 0;
+	     i < driver_cassandra_result_get_fields_count(_result); i++) {
 		const char *idx_name =
 			driver_cassandra_result_get_field_name(_result, i);
 		if (strcmp(idx_name, field_name) == 0)
@@ -2368,6 +2371,8 @@ driver_cassandra_result_get_field_value(struct sql_result *_result,
 	struct cassandra_result *result =
 		container_of(_result, struct cassandra_result, api);
 
+	if (!array_is_created(&result->fields))
+		return NULL;
 	return array_idx_elem(&result->fields, idx);
 }
 
@@ -2381,6 +2386,10 @@ driver_cassandra_result_get_field_value_binary(struct sql_result *_result ATTR_U
 	const char *str;
 	const size_t *sizep;
 
+	if (!array_is_created(&result->fields)) {
+		*size_r = 0;
+		return NULL;
+	}
 	str = array_idx_elem(&result->fields, idx);
 	sizep = array_idx(&result->field_sizes, idx);
 	*size_r = *sizep;
@@ -2400,6 +2409,8 @@ driver_cassandra_result_get_values(struct sql_result *_result)
 	struct cassandra_result *result =
 		container_of(_result, struct cassandra_result, api);
 
+	if (!array_is_created(&result->fields))
+		return NULL;
 	return array_front(&result->fields);
 }
 
