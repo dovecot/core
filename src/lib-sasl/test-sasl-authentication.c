@@ -512,8 +512,8 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 	i_assert(server_mech != NULL);
 
 #ifdef HAVE_GSSAPI
-	if (strcmp(test->mech, SASL_MECH_NAME_GSSAPI) == 0 ||
-	    strcmp(test->mech, SASL_MECH_NAME_GSS_SPNEGO) == 0) {
+	if (strcasecmp(test->mech, SASL_MECH_NAME_GSSAPI) == 0 ||
+	    strcasecmp(test->mech, SASL_MECH_NAME_GSS_SPNEGO) == 0) {
 		gss_dummy_add_principal(test->server.authid);
 		gss_dummy_kinit(test->client.authid != NULL ?
 				test->client.authid : test->server.authid);

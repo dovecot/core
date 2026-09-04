@@ -671,8 +671,8 @@ static void fuzz_sasl_run(struct istream *input)
 	e_debug(fuzz_event, "run: %s", str_sanitize(params.mech, 1024));
 
 #ifdef HAVE_GSSAPI
-	if (strcmp(params.mech, SASL_MECH_NAME_GSSAPI) == 0 ||
-	    strcmp(params.mech, SASL_MECH_NAME_GSS_SPNEGO) == 0) {
+	if (strcasecmp(params.mech, SASL_MECH_NAME_GSSAPI) == 0 ||
+	    strcasecmp(params.mech, SASL_MECH_NAME_GSS_SPNEGO) == 0) {
 		gss_dummy_add_principal(params.authid);
 		gss_dummy_kinit(params.authid);
 	}
