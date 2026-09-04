@@ -98,11 +98,6 @@ dsasl_client_mech_find(struct dsasl_client *client, const char *name)
 	return dsasl_client_mech_find_idx(client, name, &idx);
 }
 
-const char *dsasl_client_mech_get_name(const struct dsasl_client_mech *mech)
-{
-	return mech->name;
-}
-
 bool dsasl_client_mech_uses_password(const struct dsasl_client_mech *mech)
 {
 	return (mech->flags & DSASL_MECH_SEC_NO_PASSWORD) == 0;
