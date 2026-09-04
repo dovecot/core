@@ -532,6 +532,20 @@ static void index_list_rename_corrupted(struct mailbox *box, const char *newname
 					box->list, newname);
 }
 
+static void
+index_list_update_name_hdr(struct mailbox *box,
+			   const unsigned char *box_zerosep_name,
+			   size_t box_name_len)
+{
+	struct mail_index_transaction *trans =
+		mail_index_transaction_begin(box->view, 0);
+	mail_index_ext_resize_hdr(trans, box->box_name_hdr_ext_id,
+				  box_name_len);
+	mail_index_update_header_ext(trans, box->box_name_hdr_ext_id, 0,
+				     box_zerosep_name, box_name_len);
+	(void)mail_index_transaction_commit(&trans);
+}
+
 static int index_list_mailbox_open(struct mailbox *box)
 {
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
@@ -581,13 +595,7 @@ static int index_list_mailbox_open(struct mailbox *box)
 		/* Same mailbox name */
 	} else if (!mailbox_has_corrupted_name(box)) {
 		/* Mailbox name changed - update */
-		struct mail_index_transaction *trans =
-			mail_index_transaction_begin(box->view, 0);
-		mail_index_ext_resize_hdr(trans, box->box_name_hdr_ext_id,
-					  box_name_len);
-		mail_index_update_header_ext(trans, box->box_name_hdr_ext_id, 0,
-					     box_zerosep_name, box_name_len);
-		(void)mail_index_transaction_commit(&trans);
+		index_list_update_name_hdr(box, box_zerosep_name, box_name_len);
 	} else if (name_hdr_size > 0) {
 		/* Mailbox name is corrupted. Rename it to the previous name. */
 		const char *newname =
