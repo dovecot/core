@@ -352,6 +352,10 @@ struct cassandra_db {
 
 	int fd_pipe[2];
 	struct io *io_pipe;
+	/* incremented every time fd_pipe is closed, so
+	   driver_cassandra_input() can tell a stale id apart from one
+	   that belongs to the pipe it's currently reading. */
+	unsigned int pipe_gen;
 	ARRAY(struct cassandra_sql_prepared_statement *) pending_prepares;
 	ARRAY(struct cassandra_callback *) callbacks;
 	ARRAY(struct cassandra_result *) results;
@@ -780,6 +784,7 @@ static void driver_cassandra_close(struct cassandra_db *db, const char *error)
 
 	io_remove(&db->io_pipe);
 	if (db->fd_pipe[0] != -1) {
+		db->pipe_gen++;
 		i_close_fd(&db->fd_pipe[0]);
 		i_close_fd(&db->fd_pipe[1]);
 	}
@@ -894,9 +899,18 @@ static void driver_cassandra_input(struct cassandra_db *db)
 	else {
 		/* success */
 		unsigned int i, count = ret / sizeof(ids[0]);
+		unsigned int gen = db->pipe_gen;
 
-		for (i = 0; i < count &&
-			    db->api.state != SQL_DB_STATE_DISCONNECTED; i++)
+		/* driver_cassandra_input_id() may close and reopen fd_pipe
+		   (e.g. a callback disconnecting and reconnecting the db).
+		   Any id still left in this batch was read from the fds
+		   that are gone now - whoever closed them already accounted
+		   for those callbacks - so stop rather than feed a stale id
+		   to a db->callbacks lookup that will never find it and
+		   i_panic(). db->callback_ids is monotonic and never reset,
+		   so a stale id is always unknown, even if the db has since
+		   reconnected within this same batch. */
+		for (i = 0; i < count && gen == db->pipe_gen; i++)
 			driver_cassandra_input_id(db, ids[i]);
 		return;
 	}
