@@ -407,6 +407,41 @@ static void test_sql_cassandra(void)
 	}
 	sql_result_unref(cursor);
 
+	/* A bind whose type doesn't match the column ("blob_col" is BLOB,
+	   not UUID) must fail the whole statement instead of silently
+	   sending it with that column unbound. The column is not part of
+	   the primary key, so an unbound column alone would not make the
+	   server reject the write - a fix that merely logged the bind
+	   failure without propagating it would leave this row inserted
+	   with blob_col left NULL.
+
+	   The column order here must not match a query template used
+	   earlier in this test: a statement whose prepared statement is
+	   already cached binds immediately instead of queuing the bind,
+	   and only the queued path resolved by prepare_finish_arg() goes
+	   through the fix being tested here. */
+	prep_stmt = sql_prepared_statement_init(sql, t_strdup_printf(
+		"INSERT INTO %s (blob_col, str, uuid, num) VALUES(?,?,?,?)",
+		test_cassandra_tbl_test2));
+	stmt = sql_statement_init_prepared(prep_stmt);
+	sql_statement_bind_uuid(stmt, 0, uuid);
+	sql_statement_bind_str(stmt, 1, "bad_bind_test");
+	sql_statement_bind_uuid(stmt, 2, uuid);
+	sql_statement_bind_int64(stmt, 3, 1);
+	test_expect_errors(1);
+	cursor = test_cassandra_statement_query(&stmt);
+	test_assert(sql_result_next_row(cursor) == SQL_RESULT_NEXT_ERROR);
+	test_assert(sql_result_get_error(cursor) != NULL);
+	sql_result_unref(cursor);
+	test_expect_no_more_errors();
+	sql_prepared_statement_unref(&prep_stmt);
+
+	cursor = sql_query_s(sql, t_strdup_printf(
+		"SELECT blob_col FROM %s WHERE str = 'bad_bind_test'",
+		test_cassandra_tbl_test2));
+	test_assert(sql_result_next_row(cursor) == SQL_RESULT_NEXT_LAST);
+	sql_result_unref(cursor);
+
 	/* a zero-length binary bind must round-trip as an empty blob, not
 	   as CQL NULL */
 	prep_stmt = sql_prepared_statement_init(sql, t_strdup_printf(
@@ -431,6 +466,37 @@ static void test_sql_cassandra(void)
 		sql_result_get_field_value_binary(cursor, 0, &empty_blob_size);
 	test_assert_ucmp(empty_blob_size, ==, 0);
 	test_assert(empty_blob_value != NULL);
+	sql_result_unref(cursor);
+
+	/* Immediate-bind path: this reuses the exact query template from
+	   the multi-type prepared statement above, whose prep_stmt is
+	   already cached and resolved, so sql_statement_init_prepared()
+	   binds immediately instead of queuing the bind - the driver's
+	   cass_statement_bind_*() call happens straight from
+	   sql_statement_bind_int64() below, not from prepare_finish_arg().
+	   Binding an int64 into the UUID column must fail the whole
+	   statement instead of silently sending it with that column
+	   unbound. */
+	prep_stmt = sql_prepared_statement_init(sql, t_strdup_printf(
+		"INSERT INTO %s (str, uuid, num, blob_col) VALUES(?,?,?,?)",
+		test_cassandra_tbl_test2));
+	stmt = sql_statement_init_prepared(prep_stmt);
+	test_expect_errors(1);
+	sql_statement_bind_str(stmt, 0, "bad_immediate_bind_test");
+	sql_statement_bind_int64(stmt, 1, 42);
+	sql_statement_bind_int64(stmt, 2, 1);
+	sql_statement_bind_binary(stmt, 3, "", 0);
+	cursor = test_cassandra_statement_query(&stmt);
+	test_assert(sql_result_next_row(cursor) == SQL_RESULT_NEXT_ERROR);
+	test_assert(sql_result_get_error(cursor) != NULL);
+	sql_result_unref(cursor);
+	test_expect_no_more_errors();
+	sql_prepared_statement_unref(&prep_stmt);
+
+	cursor = sql_query_s(sql, t_strdup_printf(
+		"SELECT str FROM %s WHERE str = 'bad_immediate_bind_test'",
+		test_cassandra_tbl_test2));
+	test_assert(sql_result_next_row(cursor) == SQL_RESULT_NEXT_LAST);
 	sql_result_unref(cursor);
 
 	/* test that failures are handled properly: "extra_col" doesn't

@@ -483,6 +483,12 @@ struct cassandra_sql_statement {
 	   and freeing it here would race prepare_finish_pending_statements()
 	   still walking its own snapshot of the same statement. */
 	bool prepare_pending;
+	/* TRUE if binding directly to an already-prepared cass_stmt (as
+	   opposed to a pending_args bind resolved later by
+	   prepare_finish_arg()) failed. Checked before the statement is
+	   sent, so it's never executed with a column silently left
+	   unbound. */
+	bool bind_failed;
 };
 ARRAY_DEFINE_TYPE(cassandra_sql_statement, struct cassandra_sql_statement *);
 
@@ -2867,6 +2873,13 @@ static void cassandra_transaction_finish(struct cassandra_transaction_context *c
 	bool waiting_for_prepare = FALSE;
 	const char *log_query = NULL;
 	array_foreach_elem(&ctx->statements, stmt) {
+		if (stmt->bind_failed) {
+			const char *error = t_strdup_printf(
+				"Statement '%s': Failed to bind arguments",
+				sql_statement_get_log_query(&stmt->stmt));
+			cassandra_transaction_finish(ctx, error);
+			return;
+		}
 		if (stmt->prep != NULL && stmt->cass_stmt == NULL) {
 			/* Wait for prepare to finish in
 			   prepare_finish_statement(), which will resume this
@@ -3128,7 +3141,7 @@ driver_cassandra_bind_int(struct cassandra_sql_statement *stmt,
 	}
 }
 
-static void prepare_finish_arg(struct cassandra_sql_statement *stmt,
+static bool prepare_finish_arg(struct cassandra_sql_statement *stmt,
 			       const struct cassandra_sql_arg *arg)
 {
 	CassError rc;
@@ -3165,7 +3178,9 @@ static void prepare_finish_arg(struct cassandra_sql_statement *stmt,
 			"Statement '%s': Failed to bind column %u: %s",
 			stmt->stmt.query_template, arg->column_idx,
 			cass_error_desc(rc));
+		return FALSE;
 	}
+	return TRUE;
 }
 
 static void prepare_finish_statement(struct cassandra_sql_statement *stmt)
@@ -3204,9 +3219,28 @@ static void prepare_finish_statement(struct cassandra_sql_statement *stmt)
 	if (stmt->timestamp != 0)
 		cass_statement_set_timestamp(stmt->cass_stmt, stmt->timestamp);
 
+	bool bind_failed = FALSE;
 	if (array_is_created(&stmt->pending_args)) {
-		array_foreach(&stmt->pending_args, arg)
-			prepare_finish_arg(stmt, arg);
+		array_foreach(&stmt->pending_args, arg) {
+			if (!prepare_finish_arg(stmt, arg))
+				bind_failed = TRUE;
+		}
+	}
+	if (bind_failed) {
+		const char *error = t_strdup_printf(
+			"Statement '%s': Failed to bind arguments",
+			sql_statement_get_log_query(&stmt->stmt));
+		if (stmt->pending_transaction != NULL) {
+			cassandra_transaction_finish(stmt->pending_transaction,
+						     error);
+		} else if (stmt->result != NULL) {
+			stmt->result->error = i_strdup(error);
+			result_finish(stmt->result);
+			cassandra_sql_statement_free(stmt);
+		} else {
+			cassandra_sql_statement_free(stmt);
+		}
+		return;
 	}
 	if (stmt->pending_transaction != NULL)
 		cassandra_transaction_finish(stmt->pending_transaction, NULL);
@@ -3421,15 +3455,28 @@ driver_cassandra_add_pending_arg(struct cassandra_sql_statement *stmt,
 }
 
 static void
+driver_cassandra_immediate_bind_failed(struct cassandra_sql_statement *stmt,
+				       unsigned int column_idx, CassError rc)
+{
+	e_error(stmt->stmt.db->event,
+		"Statement '%s': Failed to bind column %u: %s",
+		stmt->stmt.query_template, column_idx, cass_error_desc(rc));
+	stmt->bind_failed = TRUE;
+}
+
+static void
 driver_cassandra_statement_bind_str(struct sql_statement *_stmt,
 				    unsigned int column_idx,
 				    const char *value)
 {
 	struct cassandra_sql_statement *stmt =
 		container_of(_stmt, struct cassandra_sql_statement, stmt);
-	if (stmt->cass_stmt != NULL)
-		cass_statement_bind_string(stmt->cass_stmt, column_idx, value);
-	else if (stmt->prep != NULL) {
+	if (stmt->cass_stmt != NULL) {
+		CassError rc = cass_statement_bind_string(stmt->cass_stmt,
+							  column_idx, value);
+		if (rc != CASS_OK)
+			driver_cassandra_immediate_bind_failed(stmt, column_idx, rc);
+	} else if (stmt->prep != NULL) {
 		struct cassandra_sql_arg *arg =
 			driver_cassandra_add_pending_arg(stmt, column_idx,
 				CASSANDRA_SQL_ARG_TYPE_STR);
@@ -3446,8 +3493,10 @@ driver_cassandra_statement_bind_binary(struct sql_statement *_stmt,
 		container_of(_stmt, struct cassandra_sql_statement, stmt);
 
 	if (stmt->cass_stmt != NULL) {
-		cass_statement_bind_bytes(stmt->cass_stmt, column_idx,
-					  value, value_size);
+		CassError rc = cass_statement_bind_bytes(stmt->cass_stmt, column_idx,
+							 value, value_size);
+		if (rc != CASS_OK)
+			driver_cassandra_immediate_bind_failed(stmt, column_idx, rc);
 	} else if (stmt->prep != NULL) {
 		struct cassandra_sql_arg *arg =
 			driver_cassandra_add_pending_arg(stmt, column_idx,
@@ -3465,9 +3514,11 @@ driver_cassandra_statement_bind_int64(struct sql_statement *_stmt,
 	struct cassandra_sql_statement *stmt =
 		container_of(_stmt, struct cassandra_sql_statement, stmt);
 
-	if (stmt->cass_stmt != NULL)
-		driver_cassandra_bind_int(stmt, column_idx, value);
-	else if (stmt->prep != NULL) {
+	if (stmt->cass_stmt != NULL) {
+		CassError rc = driver_cassandra_bind_int(stmt, column_idx, value);
+		if (rc != CASS_OK)
+			driver_cassandra_immediate_bind_failed(stmt, column_idx, rc);
+	} else if (stmt->prep != NULL) {
 		struct cassandra_sql_arg *arg =
 			driver_cassandra_add_pending_arg(stmt, column_idx,
 				CASSANDRA_SQL_ARG_TYPE_INT64);
@@ -3482,9 +3533,12 @@ driver_cassandra_statement_bind_double(struct sql_statement *_stmt,
 	struct cassandra_sql_statement *stmt =
 		container_of(_stmt, struct cassandra_sql_statement, stmt);
 
-	if (stmt->cass_stmt != NULL)
-		cass_statement_bind_double(stmt->cass_stmt, column_idx, value);
-	else if (stmt->prep != NULL) {
+	if (stmt->cass_stmt != NULL) {
+		CassError rc = cass_statement_bind_double(stmt->cass_stmt,
+							  column_idx, value);
+		if (rc != CASS_OK)
+			driver_cassandra_immediate_bind_failed(stmt, column_idx, rc);
+	} else if (stmt->prep != NULL) {
 		struct cassandra_sql_arg *arg =
 			driver_cassandra_add_pending_arg(stmt, column_idx,
 				CASSANDRA_SQL_ARG_TYPE_DOUBLE);
@@ -3502,9 +3556,12 @@ driver_cassandra_statement_bind_uuid(struct sql_statement *_stmt,
 	CassError err =
 		cass_uuid_from_string(guid_128_to_uuid_string(uuid, FORMAT_RECORD), &cuuid);
 	i_assert(err == CASS_OK);
-	if (stmt->cass_stmt != NULL)
-		cass_statement_bind_uuid(stmt->cass_stmt, column_idx, cuuid);
-	else if (stmt->prep != NULL) {
+	if (stmt->cass_stmt != NULL) {
+		CassError rc = cass_statement_bind_uuid(stmt->cass_stmt,
+							column_idx, cuuid);
+		if (rc != CASS_OK)
+			driver_cassandra_immediate_bind_failed(stmt, column_idx, rc);
+	} else if (stmt->prep != NULL) {
 		struct cassandra_sql_arg *arg =
 			driver_cassandra_add_pending_arg(stmt, column_idx,
 				CASSANDRA_SQL_ARG_TYPE_UUID);
@@ -3528,6 +3585,14 @@ driver_cassandra_statement_query(struct sql_statement *_stmt,
 				sql_statement_get_log_query(_stmt),
 				CASSANDRA_QUERY_TYPE_READ,
 				result_type, callback, context);
+	if (stmt->bind_failed) {
+		stmt->result->error = i_strdup(t_strdup_printf(
+			"Statement '%s': Failed to bind arguments",
+			sql_statement_get_log_query(_stmt)));
+		result_finish(stmt->result);
+		cassandra_sql_statement_free(stmt);
+		return;
+	}
 	if (stmt->cass_stmt != NULL) {
 		stmt->result->statement = stmt->cass_stmt;
 		stmt->cass_stmt = NULL;
