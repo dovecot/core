@@ -859,12 +859,13 @@ static void driver_cassandra_future_callback(CassFuture *future ATTR_UNUSED,
 	   writing the callback id to the pipe. note that we must not use
 	   almost any dovecot functions here because most of them are using
 	   data-stack, which isn't thread-safe. especially don't use
-	   i_error() here. */
+	   i_error() or t_strdup_printf() here - the data stack is a
+	   per-process global, and calling into it from another thread
+	   corrupts whatever frame the main thread currently has open. */
 	if (write_full(cb->db->fd_pipe[1], &cb->id, sizeof(cb->id)) < 0) {
-		const char *str = t_strdup_printf(
-			"cassandra: write(pipe) failed: %s\n",
-			strerror(errno));
-		(void)write_full(STDERR_FILENO, str, strlen(str));
+		static const char errmsg[] =
+			"cassandra: write(pipe) failed\n";
+		(void)write_full(STDERR_FILENO, errmsg, sizeof(errmsg)-1);
 	}
 }
 
