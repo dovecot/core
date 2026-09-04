@@ -283,6 +283,75 @@ static void test_sql_cassandra(void)
 	test_cassandra_assert_bar_row(sql, "prep1");
 	test_cassandra_assert_bar_row(sql, "prep2");
 
+	/* Two statements sharing one prepared statement, in the same
+	   transaction, whose prepare itself fails (the column doesn't
+	   exist): the first statement to be resolved fails the whole
+	   transaction, which must not free the second statement while
+	   prepare_finish_pending_statements() is still walking its own
+	   snapshot of the same prep_stmt's pending statements - a
+	   heap-use-after-free on that second statement otherwise. */
+	t = sql_transaction_begin(sql);
+	struct sql_prepared_statement *bad_prep_stmt = sql_prepared_statement_init(
+		sql, t_strdup_printf(
+			"INSERT INTO %s (foo, no_such_column) VALUES(?,?)",
+			test_cassandra_tbl_bar));
+	stmt = sql_statement_init_prepared(bad_prep_stmt);
+	sql_statement_bind_str(stmt, 0, "badprep1");
+	sql_statement_bind_str(stmt, 1, "x");
+	sql_update_stmt(t, &stmt);
+	stmt = sql_statement_init_prepared(bad_prep_stmt);
+	sql_statement_bind_str(stmt, 0, "badprep2");
+	sql_statement_bind_str(stmt, 1, "y");
+	sql_update_stmt(t, &stmt);
+	test_expect_errors(1);
+	test_assert(test_cassandra_transaction_commit(&t, &error) == -1);
+	test_assert(error != NULL);
+	test_expect_no_more_errors();
+	sql_prepared_statement_unref(&bad_prep_stmt);
+
+	/* Many statements in one transaction, each bound to its own not-yet-
+	   prepared prepared statement: the transaction's sweep must record
+	   that it depends on every one of them before returning, regardless
+	   of which prepare resolves first over the network. Getting that
+	   wrong frees whichever statement the sweep hasn't reached yet as
+	   soon as its own prepare resolves, while it's still a member of the
+	   transaction's statement array - a heap-use-after-free the next
+	   time the transaction sweeps it. A single pair of statements rarely
+	   resolves out of order on a fast local cluster, so race enough of
+	   them at once (and over enough transactions) that some inversion
+	   somewhere in the batch is close to certain. */
+	for (unsigned int iter = 0; iter < 5; iter++) {
+		t = sql_transaction_begin(sql);
+		enum { N = 10 };
+		struct sql_prepared_statement *preps[N];
+		for (unsigned int i = 0; i < N; i++) {
+			/* trailing whitespace, a distinct amount per (iter, i)
+			   and never zero, keeps each of these prepared
+			   statements' own query text distinct from every
+			   other one, including the plain "VALUES(?)" text
+			   other tests in this file prepare:
+			   sql_prepared_statement_init() hashes and reuses an
+			   existing prepared statement by its exact text, and
+			   this test specifically wants N independent,
+			   not-yet-prepared prepared statements racing each
+			   other - not the same one reused fifty times. */
+			preps[i] = sql_prepared_statement_init(sql, t_strdup_printf(
+				"INSERT INTO %s (foo) VALUES(?)%*s",
+				test_cassandra_tbl_bar,
+				(int)(iter * N + i + 1), ""));
+		}
+		for (unsigned int i = 0; i < N; i++) {
+			stmt = sql_statement_init_prepared(preps[i]);
+			sql_statement_bind_str(stmt, 0,
+				t_strdup_printf("race%u_%u", iter, i));
+			sql_update_stmt(t, &stmt);
+		}
+		test_assert(test_cassandra_transaction_commit(&t, &error) == 0);
+		test_assert(error == NULL);
+		for (unsigned int i = 0; i < N; i++)
+			sql_prepared_statement_unref(&preps[i]);
+	}
+
 	/* multi-type prepared statement: bind str, uuid, int64 and binary,
 	   then read every value back and confirm it round-tripped */
 	prep_stmt = sql_prepared_statement_init(sql, t_strdup_printf(

@@ -476,6 +476,13 @@ struct cassandra_sql_statement {
 
 	struct cassandra_result *result;
 	struct cassandra_transaction_context *pending_transaction;
+	/* TRUE from being queued on prep->pending_statements until
+	   prepare_finish_statement() has run for this statement. A
+	   transaction may free only statements for which this is FALSE -
+	   while it's TRUE, the statement is owned by the pending prepare
+	   and freeing it here would race prepare_finish_pending_statements()
+	   still walking its own snapshot of the same statement. */
+	bool prepare_pending;
 };
 ARRAY_DEFINE_TYPE(cassandra_sql_statement, struct cassandra_sql_statement *);
 
@@ -2777,8 +2784,17 @@ driver_cassandra_transaction_unref(struct cassandra_transaction_context **_ctx)
 	if (--ctx->refcount > 0)
 		return;
 
-	array_foreach_elem(&ctx->statements, stmt)
+	array_foreach_elem(&ctx->statements, stmt) {
+		if (stmt->prepare_pending) {
+			/* still owned by its pending prepare - it will free
+			   itself in prepare_finish_statement() once that
+			   resolves. This transaction is gone, so make sure
+			   it doesn't try to report back to it. */
+			stmt->pending_transaction = NULL;
+			continue;
+		}
 		cassandra_sql_statement_free(stmt);
+	}
 	array_free(&ctx->statements);
 	event_unref(&ctx->ctx.event);
 	i_free(ctx->error);
@@ -2848,14 +2864,27 @@ static void cassandra_transaction_finish(struct cassandra_transaction_context *c
 
 	struct cassandra_sql_statement *stmt;
 	bool have_nonprepared = FALSE;
+	bool waiting_for_prepare = FALSE;
 	const char *log_query = NULL;
 	array_foreach_elem(&ctx->statements, stmt) {
 		if (stmt->prep != NULL && stmt->cass_stmt == NULL) {
-			/* wait for prepare to finish in
-			   prepare_finish_statement() */
+			/* Wait for prepare to finish in
+			   prepare_finish_statement(), which will resume this
+			   sweep. Keep scanning instead of returning here -
+			   every statement still waiting on its own prepare
+			   must be marked before this call returns, not just
+			   the first one found, since they can resolve in any
+			   order. A statement left unmarked would, on
+			   resolving, find no pending_transaction and no
+			   result and treat itself as orphaned by an already
+			   finished transaction - freeing itself while still
+			   a live member of ctx->statements. */
+			i_assert(stmt->prepare_pending);
 			stmt->pending_transaction = ctx;
-			return;
+			waiting_for_prepare = TRUE;
+			continue;
 		}
+		stmt->pending_transaction = NULL;
 
 		if (stmt->prep == NULL)
 			have_nonprepared = TRUE;
@@ -2877,6 +2906,8 @@ static void cassandra_transaction_finish(struct cassandra_transaction_context *c
 		else
 			log_query = "<batch query>";
 	}
+	if (waiting_for_prepare)
+		return;
 
 	enum cassandra_result_type result_type;
 	if (array_count(&ctx->statements) > 1)
@@ -2899,6 +2930,7 @@ static void cassandra_transaction_finish(struct cassandra_transaction_context *c
 						    CASS_BATCH_TYPE_UNLOGGED :
 						    CASS_BATCH_TYPE_LOGGED);
 		array_foreach_elem(&ctx->statements, stmt) {
+			i_assert(stmt->cass_stmt != NULL);
 			cass_batch_add_statement(cass_result->batch,
 						 stmt->cass_stmt);
 			cass_statement_free(stmt->cass_stmt);
@@ -3140,6 +3172,11 @@ static void prepare_finish_statement(struct cassandra_sql_statement *stmt)
 {
 	const struct cassandra_sql_arg *arg;
 
+	/* this statement is no longer waiting on the prepare - from here on
+	   it's either sent, handed back to its transaction/result, or freed
+	   directly below. */
+	stmt->prepare_pending = FALSE;
+
 	if (stmt->prep->prepared == NULL) {
 		i_assert(stmt->prep->error != NULL);
 
@@ -3155,6 +3192,9 @@ static void prepare_finish_statement(struct cassandra_sql_statement *stmt)
 			result_finish(stmt->result);
 			cassandra_sql_statement_free(stmt);
 		} else {
+			/* not part of a live transaction and not a direct
+			   query result - see the matching branch below for
+			   why that means it's safe to free here. */
 			cassandra_sql_statement_free(stmt);
 		}
 		return;
@@ -3172,6 +3212,16 @@ static void prepare_finish_statement(struct cassandra_sql_statement *stmt)
 		cassandra_transaction_finish(stmt->pending_transaction, NULL);
 	else if (stmt->result != NULL) {
 		cassandra_statement_send_query(stmt);
+		cassandra_sql_statement_free(stmt);
+	} else {
+		/* its transaction already finished without it (the
+		   transaction failed on an earlier statement while this one
+		   was still pending its own prepare) - nothing else is
+		   waiting on it. cassandra_transaction_finish() marks
+		   pending_transaction on every statement still awaiting its
+		   own prepare before it returns, so a statement belonging
+		   to a still-live transaction always has it set here; NULL
+		   means the transaction is gone. */
 		cassandra_sql_statement_free(stmt);
 	}
 }
@@ -3322,6 +3372,7 @@ driver_cassandra_statement_init_prepared(struct sql_prepared_statement *_prep_st
 		if (prep_stmt->error != NULL)
 			prepare_start(prep_stmt);
 		/* need to wait until prepare is finished */
+		stmt->prepare_pending = TRUE;
 		array_push_back(&prep_stmt->pending_statements, &stmt);
 	}
 	return &stmt->stmt;
