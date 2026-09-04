@@ -373,6 +373,12 @@ struct cassandra_db {
 	struct sql_result *sync_result;
 
 	char *error;
+
+	/* TRUE for the duration of driver_cassandra_close(), including
+	   while it's waiting inside driver_cassandra_close_drain(). Blocks
+	   new work from being started on a session that's going away -
+	   see the db->closing checks below. */
+	bool closing:1;
 };
 
 struct cassandra_result {
@@ -782,6 +788,10 @@ static void driver_cassandra_close(struct cassandra_db *db, const char *error)
 	struct cassandra_sql_prepared_statement *prep_stmt;
 	struct cassandra_result *const *resultp;
 
+	if (db->closing)
+		return;
+	db->closing = TRUE;
+
 	io_remove(&db->io_pipe);
 	if (db->fd_pipe[0] != -1) {
 		db->pipe_gen++;
@@ -790,24 +800,35 @@ static void driver_cassandra_close(struct cassandra_db *db, const char *error)
 	}
 	driver_cassandra_set_state(db, SQL_DB_STATE_DISCONNECTED);
 
-	array_foreach_elem(&db->pending_prepares, prep_stmt) {
-		prep_stmt->pending = FALSE;
-		prep_stmt->error = i_strdup(error);
-		prepare_finish_pending_statements(prep_stmt);
-	}
-	array_clear(&db->pending_prepares);
+	/* A callback invoked below (result_finish() or a prepare finishing)
+	   runs synchronously and may itself start new work on this db - the
+	   gates further down in this file push that back onto
+	   pending_prepares/results instead of sending it, so re-run both
+	   loops until neither array is refilled. Without this, e.g. a
+	   result callback that prepares a new statement during the results
+	   loop below would leave an entry on pending_prepares that nothing
+	   drains, tripping deinit_v's array_count() assert. */
+	do {
+		array_foreach_elem(&db->pending_prepares, prep_stmt) {
+			prep_stmt->pending = FALSE;
+			prep_stmt->error = i_strdup(error);
+			prepare_finish_pending_statements(prep_stmt);
+		}
+		array_clear(&db->pending_prepares);
 
-	while (array_count(&db->results) > 0) {
-		resultp = array_front(&db->results);
-		if ((*resultp)->error == NULL)
-			(*resultp)->error = i_strdup(error);
-		result_finish(*resultp);
-	}
+		while (!array_is_empty(&db->results)) {
+			resultp = array_front(&db->results);
+			if ((*resultp)->error == NULL)
+				(*resultp)->error = i_strdup(error);
+			result_finish(*resultp);
+		}
+	} while (!array_is_empty(&db->pending_prepares));
 
 	if (db->ioloop != NULL) {
 		/* running a sync query, stop it */
 		io_loop_stop(db->ioloop);
 	}
+	db->closing = FALSE;
 }
 
 static void driver_cassandra_log_error(struct cassandra_db *db,
@@ -984,6 +1005,10 @@ static int driver_cassandra_connect(struct sql_db *_db)
 	CassFuture *future;
 
 	i_assert(db->api.state == SQL_DB_STATE_DISCONNECTED);
+	/* Catches any db->closing gate this file missed - nothing should
+	   ever be starting a fresh connect while driver_cassandra_close()
+	   is still tearing this db down. */
+	i_assert(!db->closing);
 
 	if (pipe(db->fd_pipe) < 0) {
 		e_error(_db->event, "pipe() failed: %m");
@@ -1650,6 +1675,16 @@ static void query_resend_with_fallback(struct cassandra_result *result)
 	time_t last_warning =
 		ioloop_time - db->last_fallback_warning[result->query_type];
 
+	if (db->closing) {
+		/* Don't resend onto a session that's closing - result->error
+		   is already set by the caller, so just finish it. Resending
+		   here could otherwise pick up a "session is closing" style
+		   error that query_error_want_fallback() itself classifies
+		   as fallback-worthy, looping. */
+		result_finish(result);
+		return;
+	}
+
 	if (last_warning >= CASSANDRA_FALLBACK_WARN_INTERVAL_SECS) {
 		e_warning(db->api.event,
 			  "%s - retrying future %s queries with consistency %s (instead of %s)",
@@ -1936,6 +1971,14 @@ cassandra_result_connect_and_send_query(struct cassandra_result *result)
 {
 	struct cassandra_db *db = container_of(result->api.db, struct cassandra_db, api);
 	int ret;
+
+	if (db->closing) {
+		/* Leave the result on db->results unsent, with row_pool
+		   still NULL (pool_unref() on it later is NULL-safe) - the
+		   force-completion loop in driver_cassandra_close() will
+		   finish it with an error once this returns. */
+		return 0;
+	}
 
 	if (!SQL_DB_IS_READY(&db->api)) {
 		if ((ret = sql_connect(&db->api)) <= 0) {
@@ -2321,7 +2364,16 @@ driver_cassandra_result_more(struct sql_result **_result, bool async,
 
 	if (async)
 		(void)cassandra_result_connect_and_send_query(new_result);
-	else {
+	else if (db->closing) {
+		/* Don't start a nested connect loop on a closing db - state
+		   is already DISCONNECTED, so the IDLE assert just below
+		   would fire. result_finish() invokes the same callback
+		   this function was given, satisfying sql_result_more_s()'s
+		   "the callback must have been called" requirement. */
+		new_result->error = i_strdup("Disconnecting");
+		result_finish(new_result);
+		return;
+	} else {
 		i_assert(db->api.state == SQL_DB_STATE_IDLE);
 		driver_cassandra_sync_init(db);
 		(void)cassandra_result_connect_and_send_query(new_result);
@@ -2923,6 +2975,18 @@ static void prepare_start(struct cassandra_sql_prepared_statement *prep_stmt)
 {
 	struct cassandra_db *db = container_of(prep_stmt->prep_stmt.db, struct cassandra_db, api);
 	CassFuture *future;
+
+	if (db->closing) {
+		/* Don't call sql_connect() on a closing db - queue this on
+		   pending_prepares (if not already there) and let the loop
+		   in driver_cassandra_close() set the error and finish it
+		   once this returns. */
+		if (!prep_stmt->pending) {
+			prep_stmt->pending = TRUE;
+			array_push_back(&db->pending_prepares, &prep_stmt);
+		}
+		return;
+	}
 
 	if (!SQL_DB_IS_READY(&db->api)) {
 		if (!prep_stmt->pending) {
