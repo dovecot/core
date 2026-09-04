@@ -158,6 +158,50 @@ static void test_sql_sqlpool_commit_s_queue_drain(void)
 	test_end();
 }
 
+struct test_sqlpool_abort_ctx {
+	bool got_callback;
+	const char *error;
+};
+
+static void
+test_sqlpool_abort_callback(const struct sql_commit_result *result,
+			    struct test_sqlpool_abort_ctx *ctx)
+{
+	ctx->got_callback = TRUE;
+	ctx->error = result->error;
+}
+
+/* sqlpool_request_abort() must resolve a still-queued transaction commit
+   it never got to send, not just drop it: the caller is otherwise left
+   waiting for a callback that never arrives, and the transaction context
+   itself leaks. Deinit while a commit is still queued is what runs this
+   path - driver_sqlpool_abort_requests() walks the queue and aborts every
+   request left in it. */
+static void test_sql_sqlpool_abort_queued_commit(void)
+{
+	test_begin("sqlpool abort queued commit");
+
+	struct ioloop *ioloop = io_loop_create();
+	struct test_sqlpool ts;
+	test_sqlpool_init(&ts, "test_sqlpool_abort_queued_commit");
+
+	struct test_sqlpool_abort_ctx ctx = { FALSE, NULL };
+
+	/* queues: no ready connection yet, and never becomes one */
+	struct sql_transaction_context *t = sql_transaction_begin(ts.pool);
+	sql_transaction_commit(&t, test_sqlpool_abort_callback, &ctx);
+	test_assert(!ctx.got_callback);
+
+	sql_unref(&ts.pool);
+
+	test_assert(ctx.got_callback);
+	test_assert(ctx.error != NULL);
+
+	io_loop_destroy(&ioloop);
+
+	test_end();
+}
+
 struct test_sqlpool_stmt_ctx {
 	bool got_a;
 	bool got_b;
@@ -332,6 +376,7 @@ int main(void)
 	static void (*const test_functions[])(void) = {
 		test_sql_sqlpool_commit_queue_drain,
 		test_sql_sqlpool_commit_s_queue_drain,
+		test_sql_sqlpool_abort_queued_commit,
 		test_sql_sqlpool_statement_queue_drain,
 		test_sql_sqlpool_update_stmt_no_connection,
 		test_sql_sqlpool_statement_scan_error,

@@ -224,15 +224,35 @@ sqlpool_request_abort(struct sqlpool_request **_request)
 
 	*_request = NULL;
 
-	if (request->callback != NULL)
-		request->callback(&sql_not_connected_result, request->context);
-	if (request->pool_stmt != NULL)
-		pool_unref(&request->pool_stmt->api.pool);
-
+	/* unlink before running any callback: a callback that starts
+	   another transaction or query re-enters the pool, and this
+	   request must not still look queued while that happens. */
 	i_assert(request->prev != NULL ||
 		 request->db->requests_head == request);
 	DLLIST2_REMOVE(&request->db->requests_head,
 		       &request->db->requests_tail, request);
+
+	if (request->callback != NULL)
+		request->callback(&sql_not_connected_result, request->context);
+	if (request->pool_stmt != NULL)
+		pool_unref(&request->pool_stmt->api.pool);
+	if (request->trans != NULL) {
+		struct sqlpool_transaction_context *trans = request->trans;
+		/* the commit was never sent, so this is a definite failure,
+		   not SQL_RESULT_ERROR_TYPE_WRITE_UNCERTAIN. */
+		struct sql_commit_result result = {
+			.error = SQL_ERRSTR_NOT_CONNECTED,
+			.error_type = SQL_RESULT_ERROR_TYPE_UNKNOWN,
+		};
+
+		request->trans = NULL;
+		/* already being freed through this same request - avoid
+		   driver_sqlpool_transaction_free() calling back in here */
+		trans->commit_request = NULL;
+		trans->callback(&result, trans->context);
+		driver_sqlpool_transaction_free(trans);
+	}
+
 	sqlpool_request_free(&request);
 }
 
