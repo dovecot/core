@@ -850,8 +850,15 @@ mailbox_name_hdr_decode_storage_name(struct mailbox_list *list,
 			name_hdr_size -= name_part_len + 1;
 		}
 
-		raw_part = t_strndup(name_hdr, name_part_len);
-		array_push_back(&raw_parts, &raw_part);
+		/* Skip empty name parts. Valid storage names never have
+		   them, so they can only come from a corrupted header.
+		   Keeping them would produce a name with adjacent, leading
+		   or trailing hierarchy separators, which isn't a valid
+		   mailbox name. */
+		if (name_part_len > 0) {
+			raw_part = t_strndup(name_hdr, name_part_len);
+			array_push_back(&raw_parts, &raw_part);
+		}
 
 		if (p != NULL)
 			name_hdr += name_part_len + 1;
