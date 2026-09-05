@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/signal.h>
 
 #define SERVER_KILL_TIMEOUT_SECS    20
 
@@ -229,6 +230,7 @@ static int test_run_server(test_server_init_t *server_test)
 
 	e_debug(server_event, "PID=%s", my_pid);
 
+	test_subprocess_notify_signal_send_parent(SIGHUP);
 	ioloop = io_loop_create();
 	if (server_test != NULL)
 		server_test();
@@ -256,8 +258,6 @@ test_run_client(test_client_init_t *client_test, const char *temp_path_prefix)
 	i_set_failure_prefix("CLIENT: ");
 
 	e_debug(client_event, "PID=%s", my_pid);
-
-	i_sleep_msecs(100); /* wait a little for server setup */
 
 	struct imapc_parameters imapc_params = {
 		.temp_path_prefix = temp_path_prefix,
@@ -304,7 +304,10 @@ test_run_client_server(test_client_init_t *client_test,
 
 	if (server_test != NULL) {
 		/* Fork server */
+		test_subprocess_notify_signal_reset(SIGHUP);
 		test_subprocess_fork(test_run_server, server_test, TRUE);
+		test_subprocess_notify_signal_wait(
+			SIGHUP, TEST_SIGNALS_DEFAULT_TIMEOUT_MS);
 	}
 	i_close_fd(&server.fd_listen);
 
