@@ -78,6 +78,12 @@ int dsasl_client_session_check_authid(
 int dsasl_client_session_check_password(
 	struct dsasl_client_mech_session *msession, const char **error_r);
 
+/* Determine whether server supports a particular mechanism in this session.
+   Returns -1 if unknown in this context, 1 if supported and 0 if not supported.
+ */
+int dsasl_client_session_server_supports_mech(
+	struct dsasl_client_mech_session *msession, const char *mech_name);
+
 bool dsasl_client_session_channel_binding_available(
 	struct dsasl_client_mech_session *msession);
 int dsasl_client_session_get_channel_binding(

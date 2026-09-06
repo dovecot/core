@@ -594,6 +594,16 @@ dsasl_client_session_get_mech_name(struct dsasl_client_session *session)
 	return session->mech->mech->name;
 }
 
+int dsasl_client_session_server_supports_mech(
+	struct dsasl_client_mech_session *msession, const char *mech_name)
+{
+	if (msession->params.server_mechanisms == NULL)
+		return -1;
+
+	return (str_array_icase_find(msession->params.server_mechanisms,
+				     mech_name) ? 1 : 0);
+}
+
 void dsasl_client_session_enable_channel_binding(
 	struct dsasl_client_session *session,
 	enum ssl_iostream_protocol_version channel_version,
