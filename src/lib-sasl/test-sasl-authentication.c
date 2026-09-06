@@ -34,6 +34,7 @@ struct test_sasl {
 
 	bool failure:1;
 	bool no_cbind:1;
+	bool server_no_plus:1;
 	bool expect_cbind:1;
 };
 
@@ -388,6 +389,7 @@ static void test_sasl_interact(struct test_sasl_context *tctx)
 
 static void
 test_sasl_run_once(const struct test_sasl *test,
+		   struct sasl_server_instance *server_inst,
 		   const struct sasl_server_mech *server_mech,
 		   bool auth_initial)
 {
@@ -449,11 +451,11 @@ test_sasl_run_once(const struct test_sasl *test,
 	event = event_create(test_event);
 	event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
 
-	const char *server_mechanisms[] = { test->mech, NULL };
 	struct dsasl_client_parameters client_params = {
 		.protocol = "imap",
 		.host = "example.com",
-		.server_mechanisms = server_mechanisms,
+		.server_mechanisms =
+			sasl_server_instance_mech_get_list(server_inst),
 	};
 	if (dsasl_client_session_create_auto(tctx.client, event,
 					     &client_params, &tctx.session,
@@ -474,6 +476,8 @@ test_sasl_run_once(const struct test_sasl *test,
 	settings_root_deinit(&set_root);
 	dsasl_client_unref(&tctx.client);
 	sasl_server_request_destroy(&tctx.ssrctx);
+
+	test_assert(test->expect_cbind == tctx.server_cbinding);
 
 	pool_unref(&tctx.pool);
 }
@@ -513,9 +517,11 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 	sasl_server_mech_register_login(server_inst);
 	sasl_server_mech_register_plain(server_inst);
 	sasl_server_mech_register_scram_sha1(server_inst);
-	sasl_server_mech_register_scram_sha1_plus(server_inst);
 	sasl_server_mech_register_scram_sha256(server_inst);
-	sasl_server_mech_register_scram_sha256_plus(server_inst);
+	if (!test->server_no_plus) {
+		sasl_server_mech_register_scram_sha1_plus(server_inst);
+		sasl_server_mech_register_scram_sha256_plus(server_inst);
+	}
 
 	sasl_server_mech_register_oauthbearer(server_inst, &server_oauth2_funcs,
 					      NULL);
@@ -553,7 +559,8 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 	unsigned int repeat = (test->repeat > 0 ? test->repeat : 1);
 
 	for (i = 0; i < repeat && !test_has_failed(); i++)
-		test_sasl_run_once(test, server_mech, auth_initial);
+		test_sasl_run_once(test, server_inst, server_mech,
+				   auth_initial);
 
 	sasl_server_instance_unref(&server_inst);
 	sasl_server_deinit(&server);
@@ -649,6 +656,7 @@ static const struct test_sasl success_tests[] = {
 			.authid = "user",
 			.password = "pass",
 		},
+		.expect_cbind = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-1",
@@ -658,6 +666,7 @@ static const struct test_sasl success_tests[] = {
 			.authzid = "user",
 			.password = "pass",
 		},
+		.expect_cbind = TRUE,
 	},
 	/* SCRAM-SHA-256 */
 	{
@@ -667,6 +676,7 @@ static const struct test_sasl success_tests[] = {
 			.authid = "user",
 			.password = "pass",
 		},
+		.expect_cbind = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-256",
@@ -676,6 +686,47 @@ static const struct test_sasl success_tests[] = {
 			.authzid = "user",
 			.password = "pass",
 		},
+		.expect_cbind = TRUE,
+	},
+	/* SCRAM-SHA-1 */
+	{
+		.mech = "SCRAM-SHA-1",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+		.server_no_plus = TRUE,
+	},
+	{
+		.mech = "SCRAM-SHA-1",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "master",
+			.authzid = "user",
+			.password = "pass",
+		},
+		.server_no_plus = TRUE,
+	},
+	/* SCRAM-SHA-256 */
+	{
+		.mech = "SCRAM-SHA-256",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+		.server_no_plus = TRUE,
+	},
+	{
+		.mech = "SCRAM-SHA-256",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "master",
+			.authzid = "user",
+			.password = "pass",
+		},
+		.server_no_plus = TRUE,
 	},
 	/* SCRAM-SHA-1 */
 	{
@@ -725,6 +776,7 @@ static const struct test_sasl success_tests[] = {
 			.authid = "user",
 			.password = "pass",
 		},
+		.expect_cbind = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-1-PLUS",
@@ -734,6 +786,7 @@ static const struct test_sasl success_tests[] = {
 			.authzid = "user",
 			.password = "pass",
 		},
+		.expect_cbind = TRUE,
 	},
 	/* SCRAM-SHA-256-PLUS */
 	{
@@ -743,6 +796,7 @@ static const struct test_sasl success_tests[] = {
 			.authid = "user",
 			.password = "pass",
 		},
+		.expect_cbind = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-256-PLUS",
@@ -752,6 +806,7 @@ static const struct test_sasl success_tests[] = {
 			.authzid = "user",
 			.password = "pass",
 		},
+		.expect_cbind = TRUE,
 	},
 	/* OAUTHBEARER */
 	{
@@ -1166,6 +1221,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.authid = "userb",
 		},
 		.failure = TRUE,
+		.server_no_plus = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-1",
@@ -1178,6 +1234,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.password = "florp",
 		},
 		.failure = TRUE,
+		.server_no_plus = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-1",
@@ -1191,6 +1248,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.authzid = "user",
 		},
 		.failure = TRUE,
+		.server_no_plus = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-1",
@@ -1204,6 +1262,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.authid = "commander",
 		},
 		.failure = TRUE,
+		.server_no_plus = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-1",
@@ -1217,6 +1276,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.authzid = "userb",
 		},
 		.failure = TRUE,
+		.server_no_plus = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-1",
@@ -1230,6 +1290,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.password = "florp",
 		},
 		.failure = TRUE,
+		.server_no_plus = TRUE,
 	},
 	/* SCRAM-SHA-256 */
 	{
@@ -1243,6 +1304,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.authid = "userb",
 		},
 		.failure = TRUE,
+		.server_no_plus = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-256",
@@ -1255,6 +1317,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.password = "florp",
 		},
 		.failure = TRUE,
+		.server_no_plus = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-256",
@@ -1268,6 +1331,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.authzid = "user",
 		},
 		.failure = TRUE,
+		.server_no_plus = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-256",
@@ -1281,6 +1345,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.authid = "commander",
 		},
 		.failure = TRUE,
+		.server_no_plus = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-256",
@@ -1294,6 +1359,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.authzid = "userb",
 		},
 		.failure = TRUE,
+		.server_no_plus = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-256",
@@ -1307,6 +1373,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.password = "florp",
 		},
 		.failure = TRUE,
+		.server_no_plus = TRUE,
 	},
 	/* SCRAM-SHA-1-PLUS */
 	{
@@ -1320,6 +1387,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.authid = "userb",
 		},
 		.failure = TRUE,
+		.expect_cbind = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-1-PLUS",
@@ -1332,6 +1400,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.password = "florp",
 		},
 		.failure = TRUE,
+		.expect_cbind = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-1-PLUS",
@@ -1345,6 +1414,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.authzid = "user",
 		},
 		.failure = TRUE,
+		.expect_cbind = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-1-PLUS",
@@ -1358,6 +1428,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.authid = "commander",
 		},
 		.failure = TRUE,
+		.expect_cbind = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-1-PLUS",
@@ -1371,6 +1442,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.authzid = "userb",
 		},
 		.failure = TRUE,
+		.expect_cbind = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-1-PLUS",
@@ -1384,6 +1456,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.password = "florp",
 		},
 		.failure = TRUE,
+		.expect_cbind = TRUE,
 	},
 	/* SCRAM-SHA-256-PLUS */
 	{
@@ -1397,6 +1470,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.authid = "userb",
 		},
 		.failure = TRUE,
+		.expect_cbind = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-256-PLUS",
@@ -1409,6 +1483,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.password = "florp",
 		},
 		.failure = TRUE,
+		.expect_cbind = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-256-PLUS",
@@ -1422,6 +1497,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.authzid = "user",
 		},
 		.failure = TRUE,
+		.expect_cbind = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-256-PLUS",
@@ -1435,6 +1511,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.authid = "commander",
 		},
 		.failure = TRUE,
+		.expect_cbind = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-256-PLUS",
@@ -1448,6 +1525,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.authzid = "userb",
 		},
 		.failure = TRUE,
+		.expect_cbind = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-256-PLUS",
@@ -1461,6 +1539,7 @@ static const struct test_sasl bad_creds_tests[] = {
 			.password = "florp",
 		},
 		.failure = TRUE,
+		.expect_cbind = TRUE,
 	},
 	/* OAUTHBEARER */
 	{

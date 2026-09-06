@@ -99,15 +99,20 @@ static string_t *auth_scram_get_client_first(struct auth_scram_client *client)
 	auth_scram_generate_cnonce(client);
 
 	i_zero(&gs2_header);
-	if (cbind_type == NULL) {
-		gs2_header.cbind.status =
-			AUTH_GS2_CBIND_STATUS_NO_CLIENT_SUPPORT;
-	} else if (cbind_support == AUTH_SCRAM_CBIND_SERVER_SUPPORT_NONE) {
+	switch (cbind_support) {
+	case AUTH_SCRAM_CBIND_SERVER_SUPPORT_NONE:
 		gs2_header.cbind.status =
 			AUTH_GS2_CBIND_STATUS_NO_SERVER_SUPPORT;
-	} else {
+		break;
+	case AUTH_SCRAM_CBIND_SERVER_SUPPORT_AVAILABLE:
+		gs2_header.cbind.status =
+			AUTH_GS2_CBIND_STATUS_NO_CLIENT_SUPPORT;
+		break;
+	case AUTH_SCRAM_CBIND_SERVER_SUPPORT_REQUIRED:
+		i_assert(cbind_type != NULL);
 		gs2_header.cbind.status = AUTH_GS2_CBIND_STATUS_PROVIDED;
 		gs2_header.cbind.name = cbind_type;
+		break;
 	}
 	gs2_header.authzid = client->set.authzid,
 

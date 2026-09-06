@@ -63,37 +63,115 @@ mech_scram_init_channel_binding(struct scram_sasl_session *ssession,
 	return 0;
 }
 
+static enum auth_scram_cbind_server_support
+mech_scram_get_cbind_server_support(
+	struct scram_sasl_session *ssession,
+	const struct dsasl_client_mech *mech,
+	const struct dsasl_client_mech *plus_mech)
+{
+	struct dsasl_client_mech_session *msession = &ssession->session;
+	int ret;
+
+	if (mech == plus_mech) {
+		/* Explicitly requested PLUS mechanism. This means the PLUS
+		   mechanism is also explicitly listed by the server as a
+		   capability or our configuration assumes support without
+		   further checks.
+
+		   RFC 5802, Section 6:
+
+		   Conversely, if the client requires the use of channel binding
+		   then it MUST use a "p" gs2-cbind-flag.
+
+		   -> It does here
+
+		   Clients that do not support mechanism negotiation never use a
+		   "y" gs2-cbind-flag, they use either "p" or "n" according to
+		   whether they require and support the use of channel binding
+		   or whether they do not, respectively.
+
+		   -> It always assumes channel binding support here
+		*/
+		return AUTH_SCRAM_CBIND_SERVER_SUPPORT_REQUIRED;
+	}
+
+	if (!dsasl_client_session_channel_binding_available(msession)) {
+		/* If the client does not support channel binding, then it MUST
+		   use an "n" gs2-cbind-flag. */
+		return AUTH_SCRAM_CBIND_SERVER_SUPPORT_AVAILABLE;
+	}
+
+	/* RFC 5802, Section 6:
+
+	   If the client supports channel binding and the server does not appear
+	   to (i.e., the client did not see the -PLUS name advertised by the
+	   server), then the client MUST NOT use an "n" gs2-cbind-flag.
+
+	   -> Not possible in this code path
+	 */
+
+	ret = dsasl_client_session_server_supports_mech(msession,
+							plus_mech->name);
+	if (ret < 0)
+		return AUTH_SCRAM_CBIND_SERVER_SUPPORT_AVAILABLE;
+	if (ret == 0)
+		return AUTH_SCRAM_CBIND_SERVER_SUPPORT_NONE;
+
+	/*  RFC 5802, Section 6:
+
+	    Clients that support mechanism negotiation and channel binding MUST
+	    use a "p" gs2-cbind-flag when the server offers the PLUS-variant of
+	    the desired GS2 mechanism.
+
+	    -> So, even when the non-PLUS variant of the mechanism is
+	       requested, act as though it was.
+	 */
+	return AUTH_SCRAM_CBIND_SERVER_SUPPORT_REQUIRED;
+}
+
 static int
 mech_scram_init(struct scram_sasl_session *ssession, const char **error_r)
 {
 	struct dsasl_client_mech_session *msession = &ssession->session;
 	const struct hash_method *hmethod;
-	bool cbind = FALSE;
+	enum auth_scram_cbind_server_support cbind_support;
+
+	/* Determine hash method */
 
 	/* SCRAM-SHA-1 */
-	if (msession->mech == &dsasl_client_mech_scram_sha_1) {
+	if (msession->mech == &dsasl_client_mech_scram_sha_1)
 		hmethod = &hash_method_sha1;
 	/* SCRAM-SHA-1-PLUS */
-	} else if (msession->mech == &dsasl_client_mech_scram_sha_1_plus) {
+	else if (msession->mech == &dsasl_client_mech_scram_sha_1_plus)
 		hmethod = &hash_method_sha1;
-		cbind = TRUE;
 	/* SCRAM-SHA-256 */
-	} else if (msession->mech == &dsasl_client_mech_scram_sha_256) {
+	else if (msession->mech == &dsasl_client_mech_scram_sha_256)
 		hmethod = &hash_method_sha256;
 	/* SCRAM-SHA-256-PLUS */
-	} else if (msession->mech == &dsasl_client_mech_scram_sha_256_plus) {
+	else if (msession->mech == &dsasl_client_mech_scram_sha_256_plus)
 		hmethod = &hash_method_sha256;
-		cbind = TRUE;
-	} else {
+	else
 		i_unreached();
-	}
 
-	/* FIXME: We should determine server support for -PLUS mechanisms
-	   explicitly and always initialize channel binding, so that the correct
-	   p=,y,n gs2-header is sent. This is only possible when the SASL client
-	   has access to the list of mechanisms announced by the server, which
-	   is currently not available. */
-	if (cbind && mech_scram_init_channel_binding(ssession, error_r) < 0)
+	/* Determine level of server channel binding support we're assuming. */
+
+	/* SCRAM-SHA-1* */
+	if (hmethod == &hash_method_sha1) {
+		cbind_support = mech_scram_get_cbind_server_support(
+			ssession, msession->mech,
+			&dsasl_client_mech_scram_sha_1_plus);
+	/* SCRAM-SHA-256* */
+	} else if (hmethod == &hash_method_sha256) {
+		cbind_support = mech_scram_get_cbind_server_support(
+			ssession, msession->mech,
+			&dsasl_client_mech_scram_sha_256_plus);
+	} else
+		i_unreached();
+
+	/* Initialize channel binding when required */
+
+	if (cbind_support == AUTH_SCRAM_CBIND_SERVER_SUPPORT_REQUIRED &&
+	    mech_scram_init_channel_binding(ssession, error_r) < 0)
 		return -1;
 
 	struct auth_scram_client_settings scram_set;
@@ -103,9 +181,7 @@ mech_scram_init(struct scram_sasl_session *ssession, const char **error_r)
 	scram_set.authid = msession->authid;
 	scram_set.authzid = msession->authzid;
 	scram_set.password = msession->password;
-	scram_set.cbind_support = (cbind ? // FIXME: See above.
-				   AUTH_SCRAM_CBIND_SERVER_SUPPORT_REQUIRED :
-				   AUTH_SCRAM_CBIND_SERVER_SUPPORT_NONE);
+	scram_set.cbind_support = cbind_support;
 	scram_set.cbind_type = ssession->cbind_type;
 	scram_set.cbind_data = ssession->cbind_data;
 
