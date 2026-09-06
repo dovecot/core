@@ -33,7 +33,7 @@ struct stats_client {
 static struct connection_list *stats_clients;
 struct event_filter **stats_event_filter = NULL;
 
-static void stats_client_connect(struct stats_client *client);
+static void stats_client_connect(struct stats_client *client, bool reconnect);
 
 static int
 client_handshake_filter(const char *const *args, struct event_filter **filter_r,
@@ -97,7 +97,7 @@ stats_client_input_args(struct connection *conn, const char *const *args)
 static void stats_client_reconnect(struct stats_client *client)
 {
 	timeout_remove(&client->to_reconnect);
-	stats_client_connect(client);
+	stats_client_connect(client, TRUE);
 }
 
 static void stats_client_destroy(struct connection *conn)
@@ -151,6 +151,22 @@ static const struct connection_vfuncs stats_client_vfuncs = {
 	.destroy = stats_client_destroy,
 	.input_args = stats_client_input_args,
 };
+
+static void
+stats_client_write_error(struct stats_client *client, struct ostream *output)
+{
+	if (output->stream_errno == EPIPE ||
+	    output->stream_errno == ECONNRESET) {
+		/* The stats process was stopped or restarted, e.g. by a
+		   configuration reload. The events are lost, but there is
+		   nothing to fix - the client reconnects on its own. */
+		e_debug(client->conn.event, "write() failed: %s",
+			o_stream_get_error(output));
+		return;
+	}
+	e_error(client->conn.event, "write() failed: %s",
+		o_stream_get_error(output));
+}
 
 static void
 stats_event_write(struct stats_client *client,
@@ -237,10 +253,8 @@ stats_client_send_event(struct stats_client *client, struct event *event,
 
 	i_assert(recursion > 0);
 	if (--recursion == 0) {
-		if (o_stream_uncork_flush(client->conn.output) < 0) {
-			e_error(client->conn.event, "write() failed: %s",
-				o_stream_get_error(client->conn.output));
-		}
+		if (o_stream_uncork_flush(client->conn.output) < 0)
+			stats_client_write_error(client, client->conn.output);
 	}
 }
 
@@ -380,14 +394,16 @@ static void stats_client_send_registered_categories(struct stats_client *client)
 	o_stream_nsend(client->conn.output, str_data(str), str_len(str));
 }
 
-static void stats_client_connect(struct stats_client *client)
+/* reconnect is TRUE when the stats process we were connected to went away,
+   e.g. because a configuration reload replaced it. */
+static void stats_client_connect(struct stats_client *client, bool reconnect)
 {
 	if (connection_client_connect(&client->conn) == 0) {
 		/* read the handshake so the global debug filter is updated */
 		stats_client_send_registered_categories(client);
 		if (!client->handshake_received_at_least_once)
 			stats_client_wait(client, STATS_CLIENT_HANDSHAKE_WAIT);
-	} else if (!client->silent_errors ||
+	} else if ((!client->silent_errors && !reconnect) ||
 		   (errno != ENOENT && errno != ECONNREFUSED &&
 		    !ENOACCESS(errno))) {
 		e_error(client->conn.event,
@@ -408,7 +424,7 @@ struct stats_client *stats_client_init(const char *path, bool silent_errors)
 	client = i_new(struct stats_client, 1);
 	client->silent_errors = silent_errors;
 	connection_init_client_unix(stats_clients, &client->conn, path);
-	stats_client_connect(client);
+	stats_client_connect(client, FALSE);
 	return client;
 }
 
@@ -439,12 +455,11 @@ stats_client_init_unittest(buffer_t *buf, const char *filter)
 
 static int stats_client_deinit_callback(struct connection *conn)
 {
+	struct stats_client *client = (struct stats_client *)conn;
 	struct ostream *output = conn->output;
 	int ret = o_stream_flush(output);
-	if (ret < 0) {
-		e_error(conn->event, "write() failed: %s",
-			o_stream_get_error(output));
-	}
+	if (ret < 0)
+		stats_client_write_error(client, output);
 	if (ret != 0)
 		io_loop_stop(current_ioloop);
 	return ret;
