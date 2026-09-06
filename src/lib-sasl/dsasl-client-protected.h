@@ -78,6 +78,8 @@ int dsasl_client_session_check_authid(
 int dsasl_client_session_check_password(
 	struct dsasl_client_mech_session *msession, const char **error_r);
 
+bool dsasl_client_session_channel_binding_available(
+	struct dsasl_client_mech_session *msession);
 int dsasl_client_session_get_channel_binding(
 	struct dsasl_client_mech_session *msession, const char *type,
 	const buffer_t **data_r, const char **error_r);
