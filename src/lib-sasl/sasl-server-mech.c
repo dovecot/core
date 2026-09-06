@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "llist.h"
+#include "array.h"
 
 #include "sasl-server-private.h"
 
@@ -181,6 +182,7 @@ sasl_server_mech_register_def(struct sasl_server *server,
 	sasl_server_mech_def_merge_settings(def, &mech_dreg->set, set);
 
 	DLLIST2_APPEND(&server->mechs_head, &server->mechs_tail, mech_dreg);
+	server->mechs_count++;
 	return mech_dreg;
 }
 
@@ -262,6 +264,7 @@ sasl_server_mech_register(struct sasl_server_instance *sinst,
 
 	mech = sasl_server_mech_register_common(sinst, def, set);
 	DLLIST2_APPEND(&sinst->mechs_head, &sinst->mechs_tail, mech->reg);
+	sinst->mechs_count++;
 
 	return mech;
 }
@@ -309,6 +312,8 @@ static void sasl_server_mech_reg_free(struct sasl_server_mech_reg *mech_reg)
 
 		DLLIST2_REMOVE(&server->mechs_head, &server->mechs_tail,
 			       mech_dreg);
+		i_assert(server->mechs_count > 0);
+		server->mechs_count--;
 		sasl_server_mech_data_deinit(mech_dreg);
 		mech_dreg->def = NULL;
 	}
@@ -340,6 +345,8 @@ void sasl_server_mech_unregister(struct sasl_server_instance *sinst,
 	if (mech_reg != NULL) {
 		DLLIST2_REMOVE(&sinst->mechs_head,
 			       &sinst->mechs_tail, mech_reg);
+		i_assert(sinst->mechs_count > 0);
+		sinst->mechs_count--;
 	} else {
 		mech_reg = sasl_server_mech_reg_list_find(
 			sinst->mechs_hidden, def);
@@ -378,6 +385,38 @@ void sasl_server_instance_mech_registry_free(
 void sasl_server_mech_registry_free(struct sasl_server *server)
 {
 	i_assert(server->mechs_head == NULL);
+}
+
+const char *const *
+sasl_server_mech_get_list(struct sasl_server *server)
+{
+	struct sasl_server_mech_def_reg *def_reg = server->mechs_head;
+	ARRAY_TYPE(const_string) list;
+
+	t_array_init(&list, server->mechs_count + 1);
+	while (def_reg != NULL) {
+		array_append(&list, &def_reg->def->name, 1);
+		def_reg = def_reg->next;
+	}
+	array_append_zero(&list);
+
+	return array_idx(&list, 0);
+}
+
+const char *const *
+sasl_server_instance_mech_get_list(struct sasl_server_instance *sinst)
+{
+	struct sasl_server_mech_reg *reg = sinst->mechs_head;
+	ARRAY_TYPE(const_string) list;
+
+	t_array_init(&list, sinst->mechs_count + 1);
+	while (reg != NULL) {
+		array_append(&list, &reg->mech->def->name, 1);
+		reg = reg->next;
+	}
+	array_append_zero(&list);
+
+	return array_idx(&list, 0);
 }
 
 /*

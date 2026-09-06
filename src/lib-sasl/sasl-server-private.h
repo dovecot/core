@@ -58,6 +58,7 @@ struct sasl_server_instance {
 	struct sasl_server_settings set;
 
 	struct sasl_server_mech_reg *mechs_head, *mechs_tail;
+	unsigned int mechs_count;
 	struct sasl_server_mech_reg *mechs_hidden;
 
 	unsigned int requests;
@@ -71,6 +72,7 @@ struct sasl_server {
 	struct sasl_server_instance *instances;
 
 	struct sasl_server_mech_def_reg *mechs_head, *mechs_tail;
+	unsigned int mechs_count;
 
 	unsigned int requests;
 };

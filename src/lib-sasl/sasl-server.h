@@ -221,6 +221,11 @@ sasl_server_mech_get_passdb_need(const struct sasl_server_mech *mech);
 const struct sasl_server_mech *
 sasl_server_mech_find(struct sasl_server_instance *sinst, const char *name);
 
+const char *const *
+sasl_server_mech_get_list(struct sasl_server *server);
+const char *const *
+sasl_server_instance_mech_get_list(struct sasl_server_instance *sinst);
+
 struct sasl_server_mech_iter *
 sasl_server_mech_iter_new(struct sasl_server *server);
 struct sasl_server_mech_iter *
