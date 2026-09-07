@@ -1137,6 +1137,26 @@ static void failure_exit_callback(int *status)
 	*status = EX_TEMPFAIL;
 }
 
+/* Returns the setting an alias points to, or the key itself if it's not an
+   alias. */
+static const char *config_setting_name_unalias(const char *key)
+{
+	unsigned int i, j;
+
+	for (i = 0; all_infos[i] != NULL; i++) {
+		const struct setting_define *defs = all_infos[i]->defines;
+
+		for (j = 0; defs[j].key != NULL; j++) {
+			if (defs[j].type == SET_ALIAS &&
+			    strcmp(defs[j].key, key) == 0) {
+				j = setting_parser_info_unalias(all_infos[i], j);
+				return defs[j].key;
+			}
+		}
+	}
+	return key;
+}
+
 static void print_help(void)
 {
 	printf(
@@ -1157,7 +1177,8 @@ int main(int argc, char *argv[])
 	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_DEFAULT;
 	const char *orig_config_path, *config_path;
 	const char *import_environment, *error;
-	char **exec_args = NULL, **setting_name_filters = NULL;
+	char **exec_args = NULL;
+	const char **setting_name_filters = NULL;
 	unsigned int i;
 	int c, ret, ret2;
 	struct config_filter dump_filter_parent = {};
@@ -1279,7 +1300,7 @@ int main(int argc, char *argv[])
 		exec_args = &argv[optind];
 	} else if (argv[optind] != NULL) {
 		/* print only a single config setting */
-		setting_name_filters = argv+optind;
+		setting_name_filters = (const char **)(argv+optind);
 		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)
 			scope = CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN;
 		flags |= CONFIG_PARSE_FLAG_MERGE_DEFAULT_FILTERS;
@@ -1319,6 +1340,14 @@ int main(int argc, char *argv[])
 	master_service_init_finish(master_service);
 	settings_set_config_binary(SETTINGS_BINARY_DOVECONF);
 	config_parse_load_modules(dump_config_import);
+	/* Aliases aren't written to the output, so "doveconf <alias>" has
+	   to look up the setting the alias points to. */
+	if (setting_name_filters != NULL) {
+		for (unsigned int i = 0; setting_name_filters[i] != NULL; i++) {
+			setting_name_filters[i] =
+				config_setting_name_unalias(setting_name_filters[i]);
+		}
+	}
 	if (dump_config_import) {
 		/* Run modules' deinit() while lib is still alive, but
 		   delay the actual dlclose() until after
