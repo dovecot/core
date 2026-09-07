@@ -252,6 +252,11 @@ int acl_backend_get_mailbox_acl(struct acl_backend *backend, struct acl_object *
 			struct acl_rights *right = array_append_space(&aclobj->rights);
 			e_debug(event, "Using configured acl '%s'", rset->id);
 			acl_rights_dup(rset->parsed, aclobj->rights_pool, right);
+			/* Configured ACLs are global: they override the
+			   per-mailbox ACL file and must not be written to it,
+			   copied to child mailboxes or exported as attributes
+			   by dsync. */
+			right->global = TRUE;
 			settings_free(rset);
 		}
 	}
