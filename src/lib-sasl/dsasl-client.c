@@ -128,6 +128,29 @@ void dsasl_client_mech_unregister(struct dsasl_client *client,
 	array_delete(&client->mechanisms, idx, 1);
 }
 
+static int
+dsasl_client_require_mech(struct dsasl_client *client, const char *mech_name,
+			  const struct dsasl_client_mech **mech_r,
+			  const char **error_r)
+{
+	const struct dsasl_client_mech *mech;
+
+	*mech_r = NULL;
+	*error_r = NULL;
+
+	mech = dsasl_client_mech_find(client, mech_name);
+	if (mech != NULL) {
+		*mech_r = mech;
+		return 0;
+	}
+
+	/* Not supported by client */
+	*error_r = t_strdup_printf(
+		"Configured SASL mechanism '%s' is not supported by client",
+		mech_name);
+	return -1;
+}
+
 /*
  * Session
  */
@@ -175,18 +198,25 @@ dsasl_client_session_create_event(struct dsasl_client *client,
 
 int dsasl_client_session_create(struct dsasl_client *client,
 				struct event *event_parent,
-				const struct dsasl_client_mech *mech,
 				const struct dsasl_client_parameters *params,
 				const struct dsasl_client_settings *set,
 				struct dsasl_client_session **session_r,
 				const char **error_r)
 {
 	struct event *event;
+	const struct dsasl_client_mech *mech;
 
 	*session_r = NULL;
 	*error_r = NULL;
 
+	i_assert(set->mechanism != NULL);
+
 	event = dsasl_client_session_create_event(client, event_parent);
+
+	if (dsasl_client_require_mech(client, set->mechanism,
+				      &mech, error_r) < 0)
+		return -1;
+
 	event_set_append_log_prefix(event,
 		t_strdup_printf("sasl(%s): ", t_str_lcase(mech->name)));
 

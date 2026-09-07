@@ -229,8 +229,7 @@ struct client {
 	unsigned int master_data_prefix_len;
 
 	struct login_proxy *login_proxy;
-	char *proxy_user, *proxy_master_user, *proxy_password;
-	const struct dsasl_client_mech *proxy_mech;
+	char *proxy_mech_name, *proxy_user, *proxy_master_user, *proxy_password;
 	struct dsasl_client_session *proxy_sasl_session;
 	unsigned int proxy_ttl;
 

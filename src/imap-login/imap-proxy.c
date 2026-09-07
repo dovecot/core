@@ -132,7 +132,7 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 		}
 	}
 
-	if (client->common.proxy_mech == NULL) {
+	if (client->common.proxy_mech_name == NULL) {
 		/* logging in normally - use LOGIN command */
 		if (client->proxy_logindisabled &&
 		    login_proxy_get_ssl_flags(client->common.login_proxy) == 0) {
@@ -154,6 +154,7 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 
 	i_assert(client->common.proxy_sasl_session == NULL);
 	i_zero(&sasl_set);
+	sasl_set.mechanism = client->common.proxy_mech_name;
 	sasl_set.authid = client->common.proxy_master_user != NULL ?
 		client->common.proxy_master_user : client->common.proxy_user;
 	sasl_set.authzid = client->common.proxy_user;
@@ -165,7 +166,6 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 		.port = login_proxy_get_port(client->common.login_proxy),
 	};
 	if (dsasl_client_session_create(sasl_client, client->common.event,
-					client->common.proxy_mech,
 					&sasl_params, &sasl_set,
 					&client->common.proxy_sasl_session,
 					&error) < 0) {
@@ -176,7 +176,8 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 			LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
 		return -1;
 	}
-	mech_name = dsasl_client_mech_get_name(client->common.proxy_mech);
+	mech_name = dsasl_client_session_get_mech_name(
+		client->common.proxy_sasl_session);
 
 	str_append(str, "L AUTHENTICATE ");
 	str_append(str, mech_name);

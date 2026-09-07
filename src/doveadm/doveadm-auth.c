@@ -43,7 +43,6 @@ struct authtest_input {
 	bool success;
 	bool internal_failure;
 
-	const struct dsasl_client_mech *sasl_mech;
 	struct dsasl_client *sasl_client;
 	struct dsasl_client_session *sasl_session;
 
@@ -274,7 +273,8 @@ static void auth_connected(struct auth_client *client,
 			   const char *connect_error, void *context)
 {
 	struct authtest_input *input = context;
-	const char *mech = dsasl_client_mech_get_name(input->sasl_mech);
+	const char *mech =
+		dsasl_client_session_get_mech_name(input->sasl_session);
 	struct auth_request_info info;
 	const unsigned char *sasl_output;
 	size_t sasl_output_len;
@@ -331,17 +331,9 @@ static void cmd_auth_init_sasl_client(struct authtest_input *input)
 	struct dsasl_client_parameters sasl_params;
 	const char *error;
 
-	if (input->mechanism != NULL) {
-		input->sasl_mech = dsasl_client_mech_find(
-			input->sasl_client, input->mechanism);
-		if (input->sasl_mech == NULL)
-			i_fatal("SASL mechanism '%s' not supported by client",
-				input->mechanism);
-	}
-	if (input->sasl_mech == NULL)
-		input->sasl_mech = &dsasl_client_mech_plain;
-
 	i_zero(&sasl_set);
+	sasl_set.mechanism = (input->mechanism == NULL ?
+			      SASL_MECH_NAME_PLAIN : input->mechanism);
 	if (input->master_user == NULL)
 		sasl_set.authid = input->username;
 	else {
@@ -369,7 +361,6 @@ static void cmd_auth_init_sasl_client(struct authtest_input *input)
 	sasl_params.port = input->info.local_port;
 
 	if (dsasl_client_session_create(input->sasl_client, input->event,
-					input->sasl_mech,
 					&sasl_params, &sasl_set,
 					&input->sasl_session, &error) < 0)
 		i_fatal("Failed to initialize SASL client session: %s", error);

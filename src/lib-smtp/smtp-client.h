@@ -66,7 +66,7 @@ struct smtp_client_settings {
 	const char *master_user;
 	const char *username;
 	const char *password;
-	const struct dsasl_client_mech *sasl_mech;
+	const char *sasl_mech;
 	/* Space-separated list of SASL mechanisms to try (in the specified
 	   order). The default is to use only SASL PLAIN. */
 	const char *sasl_mechanisms;

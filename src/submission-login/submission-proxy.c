@@ -272,11 +272,12 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 		return -1;
 	}
 
-	if (client->common.proxy_mech == NULL)
-		client->common.proxy_mech = &dsasl_client_mech_plain;
+	if (client->common.proxy_mech_name == NULL)
+		client->common.proxy_mech_name = SASL_MECH_NAME_PLAIN;
 
 	i_assert(client->common.proxy_sasl_session == NULL);
 	i_zero(&sasl_set);
+	sasl_set.mechanism = client->common.proxy_mech_name;
 	sasl_set.authid = client->common.proxy_master_user != NULL ?
 		client->common.proxy_master_user : client->common.proxy_user;
 	sasl_set.authzid = client->common.proxy_user;
@@ -287,7 +288,6 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 		.port = login_proxy_get_port(client->common.login_proxy),
 	};
 	if (dsasl_client_session_create(sasl_client, client->common.event,
-					client->common.proxy_mech,
 					&sasl_params, &sasl_set,
 					&client->common.proxy_sasl_session,
 					&error) < 0) {
@@ -298,7 +298,8 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 			LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
 		return -1;
 	}
-	mech_name = dsasl_client_mech_get_name(client->common.proxy_mech);
+	mech_name = dsasl_client_session_get_mech_name(
+		client->common.proxy_sasl_session);
 
 	if (dsasl_client_session_output(client->common.proxy_sasl_session,
 					&sasl_output, &sasl_output_len,

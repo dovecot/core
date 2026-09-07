@@ -1026,8 +1026,7 @@ imapc_connection_get_auth_mechs(struct imapc_connection *conn)
 
 static int
 imapc_connection_get_sasl_mech(struct imapc_connection *conn,
-			       const struct dsasl_client_mech **mech_r,
-			       const char **error_r)
+			       const char **mech_name_r, const char **error_r)
 {
 	struct imapc_client *client = conn->client;
 	const struct imapc_settings *set = client->set;
@@ -1037,9 +1036,7 @@ imapc_connection_get_sasl_mech(struct imapc_connection *conn,
 	/* find one of the specified SASL mechanisms */
 	for (; *mechanisms != NULL; mechanisms++) {
 		if (imapc_connection_have_auth(conn, *mechanisms)) {
-			*mech_r = dsasl_client_mech_find(client->sasl_client,
-							 *mechanisms);
-			i_assert(*mech_r != NULL);
+			*mech_name_r = *mechanisms;
 			return 0;
 		}
 	}
@@ -1088,8 +1085,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	const struct imapc_settings *set = client->set;
 	struct imapc_command *cmd;
 	struct dsasl_client_settings sasl_set;
-	const struct dsasl_client_mech *sasl_mech = NULL;
-	const char *mech_name, *error;
+	const char *mech_name = NULL, *error;
 
 	if (*set->imapc_master_user == '\0') {
 		e_debug(conn->event, "Authenticating as %s", set->imapc_user);
@@ -1099,7 +1095,8 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	}
 
 	if (array_not_empty(&set->imapc_sasl_mechanisms)) {
-		if (imapc_connection_get_sasl_mech(conn, &sasl_mech, &error) < 0) {
+		if (imapc_connection_get_sasl_mech(conn, &mech_name,
+						   &error) < 0) {
 			struct imapc_command_reply reply = {
 				.state = IMAPC_COMMAND_STATE_DISCONNECTED,
 				.text_full = "",
@@ -1120,7 +1117,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 				    set->imapc_master_user, client->password);
 		return;
 	}
-	if (sasl_mech == NULL &&
+	if (mech_name == NULL &&
 	    ((*set->imapc_master_user == '\0' &&
 	      !need_literal(set->imapc_user) && !need_literal(client->password)) ||
 	     (conn->capabilities & IMAPC_CAPABILITY_AUTH_PLAIN) == 0)) {
@@ -1134,6 +1131,8 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	}
 
 	i_zero(&sasl_set);
+	sasl_set.mechanism = (mech_name == NULL ?
+			      SASL_MECH_NAME_PLAIN : mech_name);
 	if (*set->imapc_master_user == '\0')
 		sasl_set.authid = set->imapc_user;
 	else {
@@ -1149,10 +1148,8 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		.server_mechanisms = imapc_connection_get_auth_mechs(conn),
 	};
 
-	if (sasl_mech == NULL)
-		sasl_mech = &dsasl_client_mech_plain;
 	if (dsasl_client_session_create(client->sasl_client, conn->event,
-					sasl_mech, &sasl_params, &sasl_set,
+					&sasl_params, &sasl_set,
 					&conn->sasl_session, &error) < 0) {
 		e_error(conn->event, "Failed to create SASL session: %s",
 			error);
@@ -1164,8 +1161,8 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		imapc_connection_disconnect(conn);
 		return;
 	}
+	mech_name = dsasl_client_session_get_mech_name(conn->sasl_session);
 
-	mech_name = dsasl_client_mech_get_name(sasl_mech);
 	if (conn->ssl_iostream != NULL) {
 		dsasl_client_session_enable_channel_binding(
 			conn->sasl_session,

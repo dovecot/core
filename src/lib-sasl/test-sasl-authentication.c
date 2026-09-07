@@ -387,7 +387,6 @@ test_sasl_run_once(const struct test_sasl *test,
 		   const struct sasl_server_mech *server_mech,
 		   bool auth_initial)
 {
-	const struct dsasl_client_mech *client_mech;
 	struct test_sasl_context tctx;
 	const char *error;
 
@@ -416,6 +415,7 @@ test_sasl_run_once(const struct test_sasl *test,
 				test->server.password);
 
 	struct dsasl_client_settings client_set = {
+		.mechanism = test->mech,
 		.authid = (realm == NULL ? authid :
 			   t_strconcat(authid, "@", realm, NULL)),
 		.authzid = authzid,
@@ -427,9 +427,7 @@ test_sasl_run_once(const struct test_sasl *test,
 		.host = "example.com",
 		.server_mechanisms = server_mechanisms,
 	};
-	client_mech = dsasl_client_mech_find(tctx.client, test->mech);
-	i_assert(client_mech != NULL);
-	if (dsasl_client_session_create(tctx.client, test_event, client_mech,
+	if (dsasl_client_session_create(tctx.client, test_event,
 					&client_params, &client_set,
 					&tctx.session, &error) < 0)
 		i_fatal("Failed to create SASL session: %s", error);

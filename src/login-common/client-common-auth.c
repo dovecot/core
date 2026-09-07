@@ -611,7 +611,7 @@ static bool proxy_check_ip_family(const struct client_auth_reply *reply,
 static bool
 proxy_check_start(struct client *client, struct event *event,
 		  const struct client_auth_reply *reply,
-		  const struct dsasl_client_mech **sasl_mech_r)
+		  const char **sasl_mech_name_r)
 {
 	i_assert(reply->proxy.username != NULL);
 	i_assert(reply->proxy.password != NULL);
@@ -621,16 +621,10 @@ proxy_check_start(struct client *client, struct event *event,
 	struct ip_addr ip;
 
 	if (reply->proxy.sasl_mechanism != NULL) {
-		*sasl_mech_r = dsasl_client_mech_find(
-			sasl_client, reply->proxy.sasl_mechanism);
-		if (*sasl_mech_r == NULL) {
-			e_error(event, "Unsupported SASL mechanism %s",
-				reply->proxy.sasl_mechanism);
-			return FALSE;
-		}
+		*sasl_mech_name_r = reply->proxy.sasl_mechanism;
 	} else if (reply->proxy.master_user != NULL) {
 		/* have to use PLAIN authentication with master user logins */
-		*sasl_mech_r = &dsasl_client_mech_plain;
+		*sasl_mech_name_r = SASL_MECH_NAME_PLAIN;
 	} else if (!proxy_check_ip_family(reply, &error)) {
 		e_error(event, "%s", error);
 		return FALSE;
@@ -682,7 +676,7 @@ static int proxy_start(struct client *client,
 		       const struct client_auth_reply *reply)
 {
 	struct login_proxy_settings proxy_set;
-	const struct dsasl_client_mech *sasl_mech = NULL;
+	const char *sasl_mech_name = NULL;
 	struct event *event;
 
 	i_assert(reply->proxy.username != NULL);
@@ -690,13 +684,13 @@ static int proxy_start(struct client *client,
 	i_assert(!client->destroyed);
 	i_assert(client->proxy_sasl_session == NULL);
 
-	client->proxy_mech = NULL;
+	i_free_and_null(client->proxy_mech_name);
 	client->v.proxy_reset(client);
 	event = event_create(client->event);
 	event_set_append_log_prefix(event, t_strdup_printf(
 		"proxy(%s): ", client->virtual_user));
 
-	if (!proxy_check_start(client, event, reply, &sasl_mech)) {
+	if (!proxy_check_start(client, event, reply, &sasl_mech_name)) {
 		client->v.proxy_failed(client,
 			LOGIN_PROXY_FAILURE_TYPE_INTERNAL,
 			LOGIN_PROXY_FAILURE_MSG, FALSE);
@@ -722,7 +716,7 @@ static int proxy_start(struct client *client,
 		reply->proxy_host_immediate_failure_after_secs;
 	proxy_set.rawlog_dir = client->set->login_proxy_rawlog_dir;
 
-	client->proxy_mech = sasl_mech;
+	client->proxy_mech_name = i_strdup(sasl_mech_name);
 	client->proxy_user = i_strdup(reply->proxy.username);
 	client->proxy_master_user = i_strdup(reply->proxy.master_user);
 	client->proxy_password = i_strdup(reply->proxy.password);

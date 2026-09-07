@@ -76,7 +76,7 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 
 	str_truncate(str, 0);
 
-	if (client->common.proxy_mech == NULL) {
+	if (client->common.proxy_mech_name == NULL) {
 		/* send USER command */
 		str_append(str, "USER ");
 		str_append(str, client->common.proxy_user);
@@ -87,6 +87,7 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 
 	i_assert(client->common.proxy_sasl_session == NULL);
 	i_zero(&sasl_set);
+	sasl_set.mechanism = client->common.proxy_mech_name;
 	sasl_set.authid = client->common.proxy_master_user != NULL ?
 		client->common.proxy_master_user : client->common.proxy_user;
 	sasl_set.authzid = client->common.proxy_user;
@@ -98,7 +99,6 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 		.port = login_proxy_get_port(client->common.login_proxy),
 	};
 	if (dsasl_client_session_create(sasl_client, client->common.event,
-					client->common.proxy_mech,
 					&sasl_params, &sasl_set,
 					&client->common.proxy_sasl_session,
 					&error) < 0) {
@@ -109,7 +109,8 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 			LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
 		return -1;
 	}
-	mech_name = dsasl_client_mech_get_name(client->common.proxy_mech);
+	mech_name = dsasl_client_session_get_mech_name(
+		client->common.proxy_sasl_session);
 
 	str_printfa(str, "AUTH %s", mech_name);
 	if (dsasl_client_session_output(client->common.proxy_sasl_session,

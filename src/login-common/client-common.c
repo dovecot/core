@@ -650,6 +650,7 @@ bool client_unref(struct client **_client)
 	event_unref(&client->event_auth);
 	client_settings_free(client);
 
+	i_free(client->proxy_mech_name);
 	i_free(client->proxy_user);
 	i_free(client->proxy_master_user);
 	i_free(client->virtual_user);

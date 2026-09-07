@@ -678,7 +678,6 @@ static void fuzz_sasl_run(struct istream *input)
 	}
 #endif
 
-	const struct dsasl_client_mech *client_mech;
 	struct fuzz_sasl_context fctx;
 	const char *error;
 	int ret;
@@ -701,6 +700,7 @@ static void fuzz_sasl_run(struct istream *input)
 	sasl_server_request_create(&fctx.ssrctx, server_mech, "imap", NULL);
 
 	struct dsasl_client_settings client_set = {
+		.mechanism = params.mech,
 		.authid = params.authid,
 		.authzid = params.authzid,
 		.password = params.client_password,
@@ -709,22 +709,15 @@ static void fuzz_sasl_run(struct istream *input)
 		.protocol = "imap",
 		.host = "example.com",
 	};
-	client_mech = dsasl_client_mech_find(fctx.client, params.mech);
-	ret = -1;
-	if (client_mech != NULL) {
-		ret = dsasl_client_session_create(fctx.client, fuzz_event,
-						  client_mech,
-						  &client_params, &client_set,
-						  &fctx.session, &error);
-		if (ret < 0) {
-			e_debug(fuzz_event,
-				"Failed to create %s SASL session: %s",
-				params.mech, error);
-		} else {
-			i_assert(fctx.session != NULL);
-		}
-	}
-	if (ret >= 0) {
+	ret = dsasl_client_session_create(fctx.client, fuzz_event,
+					  &client_params, &client_set,
+					  &fctx.session, &error);
+	if (ret <= 0) {
+		e_debug(fuzz_event, "Failed to create %s SASL session: %s",
+			params.mech, error);
+	} else {
+		i_assert(fctx.session != NULL);
+
 		dsasl_client_session_enable_channel_binding(
 			fctx.session, SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3,
 			fuzz_client_channel_binding_callback, &fctx);
