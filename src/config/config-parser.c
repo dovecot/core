@@ -3499,6 +3499,12 @@ config_parser_add_info(struct config_parser_context *ctx,
 					info->name, def->key);
 			}
 		}
+		/* An alias refers to the setting definition preceding it. Point
+		   the key to that one, so the rest of the config parsing uses
+		   the aliased setting's type and its value slot. */
+		unsigned int def_idx = setting_parser_info_unalias(info, i);
+		const struct setting_define *real_def = &info->defines[def_idx];
+
 		if (!hash_table_lookup_full(ctx->all_keys, info->defines[i].key,
 					    &name, &old_config_key))
 			old_config_key = NULL;
@@ -3507,22 +3513,22 @@ config_parser_add_info(struct config_parser_context *ctx,
 				all_infos[old_config_key->info_idx];
 			const struct setting_define *old_def =
 				&old_info->defines[old_config_key->define_idx];
-			i_assert(strcmp(old_def->key, def->key) == 0);
-			if (old_def->type != def->type)
+			if (old_def->type != real_def->type)
 				i_panic("Setting key '%s' type mismatch between infos %s and %s (%d != %d)",
 					def->key, old_info->name, info->name,
-					old_def->type, def->type);
-			if (old_def->flags != def->flags)
+					old_def->type, real_def->type);
+			if (old_def->flags != real_def->flags)
 				i_panic("Setting key '%s' flags mismatch between infos %s and %s (%d != %d)",
 					def->key, old_info->name, info->name,
-					old_def->flags, def->flags);
+					old_def->flags, real_def->flags);
 			T_BEGIN {
-				check_defaults_equal(old_info, old_def, info, def);
+				check_defaults_equal(old_info, old_def,
+						     info, real_def);
 			} T_END;
 		}
 		config_key = p_new(ctx->pool, struct config_parser_key, 1);
 		config_key->info_idx = info_idx;
-		config_key->define_idx = i;
+		config_key->define_idx = def_idx;
 		if (old_config_key != NULL)
 			DLLIST_PREPEND(&old_config_key, config_key);
 		hash_table_update(ctx->all_keys, def->key, config_key);
