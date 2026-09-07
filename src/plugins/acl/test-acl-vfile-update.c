@@ -389,6 +389,41 @@ static void test_acl_vfile_acllist(void)
 	test_end();
 }
 
+static void test_acl_vfile_update_config_rights(void)
+{
+	struct acl_object *aclobj;
+
+	test_begin("acl vfile update configured rights");
+	/* The configuration has "acl anyone { rights = lr }" and the mailbox
+	   has no dovecot-acl file. */
+	test_acl_update_setup(TEST_INPUT("acl+=anyone",
+					 "acl/anyone/acl_rights=lr"));
+	test_assert(test_acl_read_file(test_acl_path) == NULL);
+
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	/* the configured entry is listed as global */
+	test_assert_strcmp(test_acl_list(aclobj),
+			   "anyone lookup read (global)");
+	/* Add rights for a user. This writes the dovecot-acl file, which
+	   must contain only the added entry. The configured (global) entry
+	   must not be written into it. */
+	test_assert(test_acl_do_update(aclobj, TEST_UPDATE_ID,
+				       TEST_RIGHTS(MAIL_ACL_LOOKUP,
+						   MAIL_ACL_READ),
+				       ACL_MODIFY_MODE_ADD,
+				       ACL_MODIFY_MODE_ADD) == 0);
+	test_assert_strcmp(test_acl_read_file(test_acl_path),
+			   TEST_UPDATE_ID" lr\n");
+	/* the object still has both entries, the global one last */
+	test_assert_strcmp(test_acl_list(aclobj),
+			   TEST_UPDATE_ID" lookup read, "
+			   "anyone lookup read (global)");
+
+	acl_object_deinit(&aclobj);
+	test_acl_user_deinit();
+	test_end();
+}
+
 int main(int argc, char **argv)
 {
 	static void (*const test_functions[])(void) = {
@@ -401,6 +436,7 @@ int main(int argc, char **argv)
 		test_acl_vfile_update_named_rights,
 		test_acl_vfile_update_last_change,
 		test_acl_vfile_update_no_local_path,
+		test_acl_vfile_update_config_rights,
 		test_acl_vfile_acllist,
 		NULL
 	};

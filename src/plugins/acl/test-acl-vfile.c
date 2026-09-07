@@ -391,6 +391,59 @@ static void test_acl_vfile_defaults_from_inbox(void)
 	test_end();
 }
 
+static void test_acl_vfile_config_rights(void)
+{
+	struct acl_object *aclobj;
+
+	test_begin("acl vfile configured rights");
+	/* The configuration has "acl anyone { rights = lr }" and the
+	   mailbox's dovecot-acl file has "anyone lrw". */
+	(void)test_acl_setup(TEST_INPUT("acl+=anyone",
+					"acl/anyone/acl_rights=lr"),
+			     "anyone lrw\n");
+
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	/* Both entries are listed. The configured one is global, so the two
+	   aren't merged even though the identifier is the same. */
+	test_assert_strcmp(test_acl_list(aclobj),
+			   "anyone lookup read write, "
+			   "anyone lookup read (global)");
+	/* The configured entry overrides the file's entry. Since it's
+	   global, it applies also to the mailbox owner, who would otherwise
+	   have all rights. */
+	test_assert_strcmp(test_acl_my_rights(aclobj), "lookup read");
+	acl_object_deinit(&aclobj);
+	test_acl_user_deinit();
+
+	/* The configured entry overrides the file's entry also for a
+	   non-owner user: "acl authenticated { rights = lr }" configured,
+	   "authenticated w" in the file. */
+	(void)test_acl_setup(TEST_INPUT("acl_user="TEST_ACL_USER,
+					"acl+=authenticated",
+					"acl/authenticated/acl_rights=lr"),
+			     "authenticated w\n");
+
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	test_assert_strcmp(test_acl_my_rights(aclobj), "lookup read");
+	acl_object_deinit(&aclobj);
+	test_acl_user_deinit();
+
+	/* The first matching global entry resets the negative rights from
+	   the file: "acl anyone { rights = lrw }" configured,
+	   "authenticated lrw" and "-authenticated w" in the file. */
+	(void)test_acl_setup(TEST_INPUT("acl_user="TEST_ACL_USER,
+					"acl+=anyone",
+					"acl/anyone/acl_rights=lrw"),
+			     "authenticated lrw\n-authenticated w\n");
+
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	test_assert_strcmp(test_acl_my_rights(aclobj),
+			   "lookup read write");
+	acl_object_deinit(&aclobj);
+	test_acl_user_deinit();
+	test_end();
+}
+
 static void test_acl_vfile_parent(void)
 {
 	struct acl_object *aclobj;
@@ -434,6 +487,7 @@ int main(int argc, char **argv)
 		test_acl_vfile_last_changed,
 		test_acl_vfile_parse_error,
 		test_acl_vfile_defaults_from_inbox,
+		test_acl_vfile_config_rights,
 		test_acl_vfile_parent,
 		NULL
 	};
