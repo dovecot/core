@@ -181,6 +181,19 @@ struct setting_parser_info {
 	   separate optional packages, even though they don't have individual
 	   settings plugins. */
 	const char *plugin_dependency;
+	/* NULL-terminated list of setting_parser_info names whose named list
+	   filters never inherit these settings. For example quota settings
+	   are looked up with the user/mailbox events, never with a quota root
+	   filter, so "quota { .. }" can't contain them. The config process
+	   fails with an error instead of silently ignoring such settings.
+
+	   The special name "*" means that these settings are inherited only
+	   by their own named list filter, i.e. they are used globally and
+	   inside "<name> { .. }", but never inside any other filter.
+
+	   The array must be named <prefix>_never_inherited_by[] so that
+	   settings-get.pl copies it into all-settings.c. */
+	const char *const *never_inherited_by;
 
 	const struct setting_define *defines;
 	const void *defaults;

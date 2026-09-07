@@ -2700,13 +2700,123 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 	return 1;
 }
 
+/* Returns the SET_FILTER_ARRAY definition with the given key, or NULL if info
+   doesn't declare one. */
+static const struct setting_define *
+settings_info_find_filter_array(const struct setting_parser_info *info,
+				const char *filter_key)
+{
+	unsigned int i;
+
+	for (i = 0; info->defines[i].key != NULL; i++) {
+		if (info->defines[i].type == SET_FILTER_ARRAY &&
+		    strcmp(info->defines[i].key, filter_key) == 0)
+			return &info->defines[i];
+	}
+	return NULL;
+}
+
+/* Returns TRUE if any of the settings structs containing the given setting key
+   is listed in names. */
+static bool
+settings_mmap_key_in_blocks(struct settings_mmap *mmap, const char *key,
+			    const char *const *names)
+{
+	enum setting_type set_type ATTR_UNUSED;
+	const void *blocks;
+	uint32_t i, count, block_idx;
+
+	if (!settings_mmap_lookup_key(mmap, key, &set_type, &blocks))
+		return FALSE;
+
+	memcpy(&count, blocks, sizeof(count));
+	blocks = CONST_PTR_OFFSET(blocks, sizeof(count));
+	for (i = 0; i < count; i++) {
+		memcpy(&block_idx, blocks, sizeof(block_idx));
+		blocks = CONST_PTR_OFFSET(blocks, sizeof(block_idx));
+		if (block_idx >= mmap->block_names_count) {
+			/* Corrupted config - the actual settings lookup
+			   fails with an error, no point in duplicating it
+			   in this check. */
+			continue;
+		}
+
+		const char *block_name =
+			CONST_PTR_OFFSET(mmap->all_keys_base,
+					 mmap->block_names_rel_offsets[block_idx]);
+		if (str_array_find(names, block_name))
+			return TRUE;
+	}
+	return FALSE;
+}
+
+/* Verify that info->never_inherited_by is telling the truth. If these settings
+   are actually looked up with such a filter, the config process is wrongly
+   refusing to have them inside the filter.
+
+   This can't see everything. A filter can be resolved to the settings struct
+   it contains only when info itself declares the filter array, so a deny that
+   names a struct behind another struct's filter array isn't verified. With
+   "*", a lookup that doesn't name its filter (settings_get() on an event
+   that already carries the own filter) can't tell the own filter from a
+   foreign one, so only filters that info itself declares are checked then.
+   The config process's check covers the rest. */
 static void
-settings_event_convert_filter_names(struct event *src_event, struct event *dest_event)
+settings_check_never_inherited_by(struct settings_mmap *mmap,
+				  const struct setting_parser_info *info,
+				  const char *filter_key,
+				  const ARRAY_TYPE(const_string) *filter_names)
+{
+	const char *filter_name;
+	bool only_own_filter = str_array_find(info->never_inherited_by, "*");
+
+	if (mmap == NULL)
+		return;
+
+	array_foreach_elem(filter_names, filter_name) {
+		const char *name_key = t_strcut(filter_name, '/');
+		const struct setting_define *def =
+			settings_info_find_filter_array(info, name_key);
+
+		if (only_own_filter) {
+			/* The only allowed filter is the one this lookup is
+			   asking for. Filters that info itself declares are
+			   never that. */
+			if (def == NULL &&
+			    (filter_key == NULL ||
+			     strcmp(name_key, filter_key) == 0))
+				continue;
+			i_panic("%s settings are looked up with %s { .. } "
+				"filter in the event, but they declare "
+				"never_inherited_by=*", info->name, name_key);
+		}
+
+		if (def == NULL) {
+			/* Not a filter that info itself declares. */
+			continue;
+		}
+		if (settings_mmap_key_in_blocks(mmap,
+				def->filter_array_field_name,
+				info->never_inherited_by)) {
+			i_panic("%s settings are looked up with %s { .. } "
+				"filter in the event, but they declare "
+				"never_inherited_by=%s", info->name, def->key,
+				t_strarray_join(info->never_inherited_by, " "));
+		}
+	}
+}
+
+static void
+settings_event_convert_filter_names(struct event *src_event,
+				    struct event *dest_event,
+				    ARRAY_TYPE(const_string) *never_filter_names)
 {
 	const char *filter_name =
 		event_get_ptr(src_event, SETTINGS_EVENT_FILTER_NAME);
 	if (filter_name == NULL)
 		return;
+	if (never_filter_names != NULL)
+		array_push_back(never_filter_names, &filter_name);
 	event_strlist_append(dest_event, SETTINGS_EVENT_FILTER_NAME,
 			     filter_name);
 
@@ -2715,6 +2825,8 @@ settings_event_convert_filter_names(struct event *src_event, struct event *dest_
 	filter_name = event_get_ptr(src_event, SETTINGS_EVENT_FILTER_NAME"2");
 	if (filter_name == NULL)
 		return;
+	if (never_filter_names != NULL)
+		array_push_back(never_filter_names, &filter_name);
 	event_strlist_append(dest_event, SETTINGS_EVENT_FILTER_NAME,
 			     filter_name);
 
@@ -2727,6 +2839,8 @@ settings_event_convert_filter_names(struct event *src_event, struct event *dest_
 		filter_name = event_get_ptr(src_event, str_c(key));
 		if (filter_name == NULL)
 			break;
+		if (never_filter_names != NULL)
+			array_push_back(never_filter_names, &filter_name);
 		event_strlist_append(dest_event, SETTINGS_EVENT_FILTER_NAME,
 				     filter_name);
 	}
@@ -2746,9 +2860,18 @@ settings_get_real(struct event *event,
 	struct settings_instance *scan_instance, *instance = NULL;
 	struct event *lookup_event, *scan_event = event;
 	const char *filter_name = NULL;
+	ARRAY_TYPE(const_string) never_filter_names_arr;
+	ARRAY_TYPE(const_string) *never_filter_names = NULL;
 	bool filter_name_required = FALSE;
 
+	if (info->never_inherited_by != NULL) {
+		t_array_init(&never_filter_names_arr, 8);
+		never_filter_names = &never_filter_names_arr;
+	}
+
 	lookup_event = event_create(event);
+	if (filter_key != NULL && never_filter_names != NULL)
+		array_push_back(never_filter_names, &filter_key);
 	if (filter_value != NULL) {
 		filter_name = t_strdup_printf("%s/%s", filter_key,
 			settings_section_escape(filter_value));
@@ -2783,7 +2906,8 @@ settings_get_real(struct event *event,
 			root = instance->root;
 		}
 
-		settings_event_convert_filter_names(scan_event, lookup_event);
+		settings_event_convert_filter_names(scan_event, lookup_event,
+						    never_filter_names);
 		scan_event = event_get_parent(scan_event);
 	} while (scan_event != NULL);
 
@@ -2793,6 +2917,11 @@ settings_get_real(struct event *event,
 		mmap = instance->mmap;
 	else
 		mmap = root->mmap;
+
+	if (never_filter_names != NULL) {
+		settings_check_never_inherited_by(mmap, info, filter_key,
+						  never_filter_names);
+	}
 
 	/* no instance-specific settings */
 	struct settings_instance empty_instance = {
