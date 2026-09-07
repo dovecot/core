@@ -367,8 +367,15 @@ const struct mail_namespace_settings mail_namespace_default_settings = {
 	.mailboxes = ARRAY_INIT
 };
 
+/* Namespace settings are looked up with the user event, never with a
+   mailbox filter. */
+static const char *const mail_namespace_never_inherited_by[] = {
+	"mailbox", NULL
+};
+
 const struct setting_parser_info mail_namespace_setting_parser_info = {
 	.name = "mail_namespace",
+	.never_inherited_by = mail_namespace_never_inherited_by,
 
 	.defines = mail_namespace_setting_defines,
 	.defaults = &mail_namespace_default_settings,
