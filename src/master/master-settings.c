@@ -83,6 +83,8 @@ static const struct setting_define inet_listener_setting_defines[] = {
 	DEF(STR, name),
 	DEF(STR, type),
 	DEF(IN_PORT, port),
+	DEF(BOOLLIST, listen),
+	{ .type = SET_ALIAS, .key = "listen" },
 	DEF(BOOL, ssl),
 	DEF(BOOL, haproxy),
 
@@ -93,8 +95,14 @@ static const struct inet_listener_settings inet_listener_default_settings = {
 	.name = "",
 	.type = "",
 	.port = 0,
+	.listen = ARRAY_INIT,
 	.ssl = FALSE,
 	.haproxy = FALSE
+};
+
+static const struct setting_keyvalue inet_listener_default_settings_keyvalue[] = {
+	{ "inet_listener_listen", "* ::" },
+	{ NULL, NULL }
 };
 
 const struct setting_parser_info inet_listener_setting_parser_info = {
@@ -102,6 +110,7 @@ const struct setting_parser_info inet_listener_setting_parser_info = {
 
 	.defines = inet_listener_setting_defines,
 	.defaults = &inet_listener_default_settings,
+	.default_settings = inet_listener_default_settings_keyvalue,
 
 	.struct_size = sizeof(struct inet_listener_settings),
 	.pool_offset1 = 1 + offsetof(struct inet_listener_settings, pool),
@@ -193,7 +202,6 @@ static const struct setting_define master_setting_defines[] = {
 	DEF(STR_HIDDEN, libexec_dir),
 	DEF(STR, instance_name),
 	DEF(BOOLLIST, protocols),
-	DEF(BOOLLIST, listen),
 	DEF(ENUM, ssl),
 	DEF(STR, default_internal_user),
 	DEF(STR, default_internal_group),
@@ -246,7 +254,6 @@ static const struct master_settings master_default_settings = {
 };
 static const struct setting_keyvalue master_default_settings_keyvalue[] = {
 	{ "protocols", "" },
-	{ "listen", "* ::" },
 	{ "service_process_limit", "$SET:default_process_limit" },
 	{ "service_client_limit", "$SET:default_client_limit" },
 	{ "service_idle_kill_interval", "$SET:default_idle_kill_interval" },
@@ -490,7 +497,6 @@ master_service_get_inet_listeners(struct service_settings *service_set,
 				  const char **error_r)
 {
 	const struct inet_listener_settings *listener_set;
-	const struct master_settings *master_set;
 	const char *name, *error;
 	bool ret = TRUE;
 
@@ -512,36 +518,19 @@ master_service_get_inet_listeners(struct service_settings *service_set,
 			ret = FALSE;
 			break;
 		}
-
-		struct event *event2 = event_create(event);
-		settings_event_add_list_filter_name(event2, "inet_listener",
-						    name);
-		if (settings_get(event2, &master_setting_parser_info,
-				 SETTINGS_GET_FLAG_NO_CHECK,
-				 &master_set, &error) < 0) {
+		if (listener_set->port != 0 &&
+		    array_is_empty(&listener_set->listen)) {
 			*error_r = t_strdup_printf(
-				"Failed to get inet_listener %s: %s",
-				name, error);
+				"inet_listener %s: inet_listener_listen "
+				"can't be set empty", name);
 			ret = FALSE;
 			settings_free(listener_set);
-			event_unref(&event2);
 			break;
 		}
-		event_unref(&event2);
 
 		struct inet_listener_settings *listener_set_dup =
 			p_memdup(pool, listener_set, sizeof(*listener_set));
-		unsigned int listeners = array_count(&master_set->listen);
-		p_array_init(&listener_set_dup->listen, pool, listeners);
-
 		pool_add_external_ref(pool, listener_set->pool);
-		const char *address;
-		array_foreach_elem(&master_set->listen, address) {
-			const char **address_copy =
-				array_append_space(&listener_set_dup->listen);
-			*address_copy = p_strdup(listener_set_dup->pool, address);
-		}
-		settings_free(master_set);
 
 		array_push_back(&service_set->parsed_inet_listeners,
 				&listener_set_dup);
@@ -671,10 +660,6 @@ master_settings_ext_check(struct event *event, void *_set,
 		*error_r = "No services defined";
 		return FALSE;
 #endif
-	}
-	if (array_is_empty(&set->listen)) {
-		*error_r = "listen can't be set empty";
-		return FALSE;
 	}
 	if ((ret = master_settings_get_services(set, pool, event, error_r)) <= 0)
 		return ret == 0;

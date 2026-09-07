@@ -49,7 +49,6 @@ struct inet_listener_settings {
 	const char *name;
 	const char *type;
 	in_port_t port;
-	/* copied from master_settings: */
 	ARRAY_TYPE(const_string) listen;
 	bool ssl;
 	bool haproxy;
