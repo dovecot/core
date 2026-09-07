@@ -70,8 +70,15 @@ static const struct crypt_settings crypt_default_settings = {
 	.crypt_user_key_require_encrypted = FALSE,
 };
 
+/* Crypt settings are looked up with the user and fs events, never with a
+   private key filter. */
+static const char *const crypt_never_inherited_by[] = {
+	"crypt_private_key", NULL
+};
+
 const struct setting_parser_info crypt_setting_parser_info = {
 	.name = "crypt",
+	.never_inherited_by = crypt_never_inherited_by,
 	.plugin_dependency = "lib10_mail_crypt_plugin",
 
 	.defines = crypt_setting_defines,
