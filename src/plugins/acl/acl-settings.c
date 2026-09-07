@@ -82,8 +82,15 @@ static const struct acl_settings acl_default_settings = {
 static bool acl_settings_check(void *_set ATTR_UNUSED, pool_t pool ATTR_UNUSED,
 			       const char **error_r ATTR_UNUSED);
 
+/* ACL settings are looked up with the mailbox list and mailbox events,
+   never with an acl filter. */
+static const char *const acl_never_inherited_by[] = {
+	"acl_rights", NULL
+};
+
 const struct setting_parser_info acl_setting_parser_info = {
 	.name = "acl",
+	.never_inherited_by = acl_never_inherited_by,
 	.plugin_dependency = "lib01_acl_plugin",
 
 	.defines = acl_setting_defines,
