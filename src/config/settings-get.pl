@@ -65,6 +65,7 @@ foreach my $file (@ARGV) {
 
       if (/struct .*_settings \{/ ||
           /struct setting_define.*\{/ ||
+          /const char \*const .*_never_inherited_by\[\] = \{/ ||
           /struct .*_default_settings = \{/ ||
           /struct setting_keyvalue.*_default_settings_keyvalue\[\] = \{/) {
         # settings-related structure - copy.

@@ -984,6 +984,259 @@ static int config_apply_file(struct config_parser_context *ctx,
 	return 0;
 }
 
+/* Returns the named list filter key whose contents are this info's settings,
+   or NULL if the settings aren't used inside any named list filter. */
+static const char *
+config_info_get_own_filter_key(const struct setting_parser_info *info)
+{
+	unsigned int i, j, key_idx;
+
+	for (i = 0; all_infos[i] != NULL; i++) {
+		const struct setting_define *defs = all_infos[i]->defines;
+
+		for (j = 0; defs[j].key != NULL; j++) {
+			if (defs[j].type == SET_FILTER_ARRAY &&
+			    setting_parser_info_find_key(info,
+				defs[j].filter_array_field_name, &key_idx))
+				return defs[j].key;
+		}
+	}
+	return NULL;
+}
+
+/* Returns TRUE if the named filter doesn't inherit the info's settings. */
+static bool
+config_filter_name_denies_info(struct config_parser_context *ctx,
+			       const char *filter_name,
+			       const struct setting_parser_info *info,
+			       bool only_own_filter)
+{
+	if (filter_name[0] == SETTINGS_INCLUDE_GROUP_PREFIX) {
+		/* @group - its contents are checked when it's included */
+		return FALSE;
+	}
+
+	const struct config_parser_key *config_key =
+		hash_table_lookup(ctx->all_keys, t_strcut(filter_name, '/'));
+	if (config_key == NULL)
+		return FALSE;
+	const struct setting_define *def =
+		&all_infos[config_key->info_idx]->defines[config_key->define_idx];
+
+	if (def->type == SET_FILTER_NAME) {
+		/* Named filter: it doesn't contain any specific settings
+		   struct, so it's never the own filter. */
+		return only_own_filter;
+	}
+	if (def->type != SET_FILTER_ARRAY)
+		return FALSE;
+
+	/* Named list filter: it contains the settings struct that defines
+	   filter_array_field_name, e.g. quota { } contains quota_root because
+	   it defines quota_name. */
+	config_key = hash_table_lookup(ctx->all_keys,
+				       def->filter_array_field_name);
+	if (config_key == NULL)
+		return FALSE;
+	const struct setting_parser_info *filter_info =
+		all_infos[config_key->info_idx];
+	return str_array_find(info->never_inherited_by, filter_info->name) ||
+		(only_own_filter && strcmp(filter_info->name, info->name) != 0);
+}
+
+/* Returns TRUE if settings of the given info are inherited by the given
+   filter (and its parents). Settings inside a named filter are inherited
+   only by the settings structs that are looked up with that filter in the
+   event. If the info's lookups never have the filter, the setting is silently
+   ignored - return FALSE so the caller can fail with an error instead. The
+   offending filter's name is returned in filter_name_r. */
+static bool
+config_filter_inherits_info(struct config_parser_context *ctx,
+			    const struct config_filter *filter,
+			    const struct setting_parser_info *info,
+			    const char **filter_name_r)
+{
+	bool only_own_filter;
+
+	if (info->never_inherited_by == NULL)
+		return TRUE;
+	only_own_filter = str_array_find(info->never_inherited_by, "*");
+
+	for (; filter != NULL; filter = filter->parent) {
+		if (filter->filter_name != NULL &&
+		    config_filter_name_denies_info(ctx, filter->filter_name,
+						   info, only_own_filter)) {
+			*filter_name_r = filter->filter_name;
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+static void
+config_set_not_inherited_error(struct config_parser_context *ctx,
+			       const struct setting_parser_info *info,
+			       const char *key, const char *filter_name)
+{
+	const char *in_filter = t_str_replace(filter_name, '/', ' ');
+
+	if (!str_array_find(info->never_inherited_by, "*")) {
+		ctx->error = p_strdup_printf(ctx->pool,
+			"%s can't be used inside %s { .. } - "
+			"it would be silently ignored", key, in_filter);
+	} else {
+		const char *own = config_info_get_own_filter_key(info);
+		ctx->error = p_strdup_printf(ctx->pool,
+			"%s can only be used globally%s, not inside %s { .. }",
+			key, own == NULL ? "" :
+			t_strdup_printf(" or inside %s { .. }", own), in_filter);
+	}
+}
+
+/* Returns TRUE if any of the settings structs that define the given key
+   inherits it in the given filter. A key is often defined by multiple structs,
+   e.g. "ssl" by master, login and ssl_server. Such a key can be used inside a
+   filter as long as at least one of the structs is looked up with the filter.
+   The others simply ignore their copy of the setting, just like they did
+   before these checks existed. If nobody inherits it, the first denying struct
+   and filter name are returned for the error message. */
+static bool
+config_key_inherited_by_filter(struct config_parser_context *ctx,
+			       const struct config_parser_key *config_key,
+			       const struct config_filter *filter,
+			       const struct setting_parser_info **deny_info_r,
+			       const char **deny_filter_name_r)
+{
+	*deny_info_r = NULL;
+
+	for (; config_key != NULL; config_key = config_key->next) {
+		const struct setting_parser_info *info =
+			all_infos[config_key->info_idx];
+		const char *filter_name;
+
+		if (config_filter_inherits_info(ctx, filter, info,
+						&filter_name))
+			return TRUE;
+		if (*deny_info_r == NULL) {
+			*deny_info_r = info;
+			*deny_filter_name_r = filter_name;
+		}
+	}
+	i_assert(*deny_info_r != NULL);
+	return FALSE;
+}
+
+/* Same as config_key_inherited_by_filter(), but looks up the key first. */
+static bool
+config_key_name_inherited_by_filter(struct config_parser_context *ctx,
+				    const char *key,
+				    const struct config_filter *filter,
+				    const struct setting_parser_info **deny_info_r,
+				    const char **deny_filter_name_r)
+{
+	const struct config_parser_key *config_key =
+		hash_table_lookup(ctx->all_keys, key);
+
+	if (config_key == NULL)
+		return TRUE;
+	return config_key_inherited_by_filter(ctx, config_key, filter,
+					      deny_info_r, deny_filter_name_r);
+}
+
+/* Returns the filter_array_field_name of the named list filter with the given
+   name, or NULL if it's not a named list filter. That field is always set
+   when the filter is opened, also inside filters that don't inherit the rest
+   of the settings. */
+static const char *
+config_filter_name_get_own_name_key(struct config_parser_context *ctx,
+				    const char *filter_name)
+{
+	if (filter_name == NULL ||
+	    filter_name[0] == SETTINGS_INCLUDE_GROUP_PREFIX)
+		return NULL;
+
+	const struct config_parser_key *config_key =
+		hash_table_lookup(ctx->all_keys, t_strcut(filter_name, '/'));
+	if (config_key == NULL)
+		return NULL;
+	const struct setting_define *def =
+		&all_infos[config_key->info_idx]->defines[config_key->define_idx];
+	return def->type == SET_FILTER_ARRAY ?
+		def->filter_array_field_name : NULL;
+}
+
+/* Check that the settings in a @group's filter (and its child filters) are
+   inherited by the filter it is being included into. */
+static int
+config_include_check_inherited(struct config_parser_context *ctx,
+			       const struct config_filter_parser *src,
+			       struct config_filter *dest_filter,
+			       const char **error_r)
+{
+	const char *own_name_key = src->filter.filter_name_array ?
+		config_filter_name_get_own_name_key(ctx, src->filter.filter_name) :
+		NULL;
+	const struct setting_parser_info *deny_info;
+	const char *filter_name;
+	unsigned int i, j;
+
+	for (i = 0; src->module_parsers[i].info != NULL; i++) {
+		const struct config_module_parser *l = &src->module_parsers[i];
+
+		if (l->settings == NULL || l->info->never_inherited_by == NULL)
+			continue;
+		for (j = 0; j < l->set_count; j++) {
+			const struct setting_define *def = &l->info->defines[j];
+
+			if (l->change_counters[j] == 0 ||
+			    l->change_counters[j] == CONFIG_PARSER_CHANGE_DEFAULTS)
+				continue;
+			if (def->type == SET_FILTER_ARRAY ||
+			    def->type == SET_FILTER_NAME) {
+				/* nested filters - their contents are checked
+				   below */
+				continue;
+			}
+			if (own_name_key != NULL &&
+			    strcmp(def->key, own_name_key) == 0)
+				continue;
+			if (!config_key_name_inherited_by_filter(ctx,
+					def->key, dest_filter,
+					&deny_info, &filter_name)) {
+				config_set_not_inherited_error(ctx, deny_info,
+							       def->key,
+							       filter_name);
+				*error_r = ctx->error;
+				return -1;
+			}
+		}
+	}
+
+	const struct config_filter_parser *child;
+	for (child = src->children_head; child != NULL; child = child->next) {
+		/* the child's filter will be under the destination filter */
+		struct config_filter child_filter = child->filter;
+		child_filter.parent = dest_filter;
+		if (config_include_check_inherited(ctx, child, &child_filter,
+						   error_r) < 0)
+			return -1;
+	}
+	return 0;
+}
+
+/* Returns TRUE if the key is the name field of the named list filter that is
+   currently being opened, e.g. metric_name for "metric foo { .. }". */
+static bool
+config_key_is_filter_own_name(struct config_parser_context *ctx,
+			      const char *key)
+{
+	const struct setting_define *filter_def =
+		ctx->cur_section->filter_def;
+
+	return filter_def != NULL && filter_def->type == SET_FILTER_ARRAY &&
+		strcmp(key, filter_def->filter_array_field_name) == 0;
+}
+
 static int
 config_apply_exact_line(struct config_parser_context *ctx,
 			const struct config_line *line,
@@ -1012,6 +1265,20 @@ config_apply_exact_line(struct config_parser_context *ctx,
 		ctx->error = p_strdup_printf(ctx->pool,
 			"%s cannot currently be defined inside groups", lookup_key);
 		return -1;
+	}
+
+	if (ctx->change_counter != CONFIG_PARSER_CHANGE_DEFAULTS &&
+	    !config_key_is_filter_own_name(ctx, key)) {
+		const struct setting_parser_info *deny_info;
+		const char *filter_name;
+
+		if (!config_key_inherited_by_filter(ctx, config_key,
+				&ctx->cur_section->filter_parser->filter,
+				&deny_info, &filter_name)) {
+			config_set_not_inherited_error(ctx, deny_info,
+						       lookup_key, filter_name);
+			return -1;
+		}
 	}
 
 	for (; config_key != NULL; config_key = config_key->next) {
@@ -3224,6 +3491,13 @@ config_parser_include_merge(struct config_parser_context *ctx,
 		return -1;
 	}
 
+	if (config_include_check_inherited(ctx, include_filter,
+			&ctx->cur_section->filter_parser->filter, error_r) < 0) {
+		*error_r = t_strdup_printf("@%s = %s: %s",
+			include_group->label, include_group->name, *error_r);
+		return -1;
+	}
+
 	config_module_parsers_merge(ctx->pool,
 		ctx->cur_section->filter_parser->module_parsers,
 		include_filter->module_parsers, FALSE,
@@ -3479,6 +3753,24 @@ config_parser_add_info(struct config_parser_context *ctx,
 	struct config_parser_key *config_key, *old_config_key;
 	const char *name;
 	unsigned int i = 0;
+
+	if (info->never_inherited_by != NULL) {
+		const char *const *namep;
+		unsigned int j;
+
+		for (namep = info->never_inherited_by; *namep != NULL; namep++) {
+			if (strcmp(*namep, "*") == 0)
+				continue;
+			for (j = 0; all_infos[j] != NULL; j++) {
+				if (strcmp(all_infos[j]->name, *namep) == 0)
+					break;
+			}
+			if (all_infos[j] == NULL) {
+				i_panic("struct %s never_inherited_by refers to "
+					"unknown struct %s", info->name, *namep);
+			}
+		}
+	}
 
 	for (i = 0; info->defines[i].key != NULL; i++) {
 		const struct setting_define *def = &info->defines[i];
