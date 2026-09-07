@@ -82,8 +82,15 @@ static const struct stats_exporter_settings stats_exporter_default_settings = {
 	.time_format = "rfc3339:unix",
 };
 
+/* Exporter settings are used globally and inside event_exporter { .. }, never
+   inside any other filter. */
+static const char *const stats_exporter_never_inherited_by[] = {
+	"*", NULL
+};
+
 const struct setting_parser_info stats_exporter_setting_parser_info = {
 	.name = "stats_exporter",
+	.never_inherited_by = stats_exporter_never_inherited_by,
 
 	.defines = stats_exporter_setting_defines,
 	.defaults = &stats_exporter_default_settings,
@@ -205,8 +212,15 @@ static const struct setting_keyvalue stats_metric_default_settings_keyvalue[] = 
 	{ NULL, NULL }
 };
 
+/* Metric settings are used globally and inside metric { .. }, never inside
+   any other filter. */
+static const char *const stats_metric_never_inherited_by[] = {
+	"*", NULL
+};
+
 const struct setting_parser_info stats_metric_setting_parser_info = {
 	.name = "stats_metric",
+	.never_inherited_by = stats_metric_never_inherited_by,
 
 	.defines = stats_metric_setting_defines,
 	.defaults = &stats_metric_default_settings,
