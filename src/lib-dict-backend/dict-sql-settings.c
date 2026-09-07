@@ -104,8 +104,15 @@ static const struct dict_map_settings dict_map_default_settings = {
 	.username_field = "",
 	.expire_field = "",
 };
+/* Map settings are looked up with the dict_map filter, never with a
+   field filter. */
+static const char *const dict_map_never_inherited_by[] = {
+	"dict_map_key_field", "dict_map_value_field", NULL
+};
+
 const struct setting_parser_info dict_map_setting_parser_info = {
 	.name = "dict_map",
+	.never_inherited_by = dict_map_never_inherited_by,
 
 	.defines = dict_map_setting_defines,
 	.defaults = &dict_map_default_settings,
