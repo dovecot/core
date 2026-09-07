@@ -182,8 +182,15 @@ static const struct service_settings service_default_settings = {
 	.inet_listeners = ARRAY_INIT
 };
 
+/* Service settings are used globally and inside service { .. }, never inside
+   any other filter. */
+static const char *const service_never_inherited_by[] = {
+	"*", NULL
+};
+
 const struct setting_parser_info service_setting_parser_info = {
 	.name = "service",
+	.never_inherited_by = service_never_inherited_by,
 
 	.defines = service_setting_defines,
 	.defaults = &service_default_settings,
