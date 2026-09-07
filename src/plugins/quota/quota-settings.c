@@ -49,9 +49,16 @@ static bool quota_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 }
 /* </settings checks> */
 
+/* These settings are looked up with the user, mailbox list and mailbox events,
+   never with a quota root filter. */
+static const char *const quota_never_inherited_by[] = {
+	"quota_root", NULL
+};
+
 const struct setting_parser_info quota_setting_parser_info = {
 	.name = "quota",
 	.plugin_dependency = "lib10_quota_plugin",
+	.never_inherited_by = quota_never_inherited_by,
 	.defines = quota_setting_defines,
 	.defaults = &quota_default_settings,
 	.struct_size = sizeof(struct quota_settings),
