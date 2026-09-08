@@ -4,6 +4,7 @@
 #include "str.h"
 #include "str-sanitize.h"
 #include "connection.h"
+#include "auth-master.h"
 #include "imap-parser.h"
 #include "imap-quote.h"
 #include "imap-resp-code.h"
@@ -23,6 +24,7 @@ struct imap_id_params_forward {
 
 struct imap_id_params {
 	pool_t pool;
+	struct event *event;
 	struct ip_addr local_ip;
 	struct ip_addr ip;
 	in_port_t local_port, remote_port;
@@ -120,8 +122,15 @@ cmd_id_x_forward_(struct imap_id_params *params,
 		i_unreached();
 	if (!array_is_created(&params->forward_fields))
 		p_array_init(&params->forward_fields, params->pool, 1);
-	if (*suffix == '\0')
-		return FALSE;
+	if (!auth_forward_field_is_valid(suffix, value)) {
+		/* the proxy builds x-forward-* from passdb values: drop only
+		   the bad field, so a stray control byte in one value does
+		   not fail the whole ID and lose the client IP */
+		e_warning(params->event,
+			  "Ignoring invalid ID parameter '%s'",
+			  str_sanitize(key, 128));
+		return TRUE;
+	}
 	struct imap_id_params_forward *fwd =
 		array_append_space(&params->forward_fields);
 	fwd->key = p_strdup(params->pool, suffix);
@@ -224,7 +233,8 @@ static bool cmd_id_handle_keyvalue(struct imap_client *client,
 	} else if (client->common.connection_trusted) {
 		if (!handler->callback(client->cmd_id->params, key, value)) {
 			e_debug(client->common.event,
-				"Client sent invalid ID parameter '%s'", key);
+				"Client sent invalid ID parameter '%s'",
+				str_sanitize(key, 128));
 			return FALSE;
 		}
 		if ((handler->flags & IMAP_ID_PARAM_FLAG_RELOAD_SETTINGS) != 0)
@@ -405,6 +415,7 @@ int cmd_id(struct imap_client *client)
 		client->cmd_id = id = i_new(struct imap_client_cmd_id, 1);
 		id->params = p_new(param_pool, struct imap_id_params, 1);
 		id->params->pool = param_pool;
+		id->params->event = client->common.event;
 
 		const struct imap_parser_params params = {
 			.list_count_limit = IMAP_LOGIN_LIST_COUNT_LIMIT,
