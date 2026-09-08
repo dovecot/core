@@ -261,8 +261,17 @@ static const struct setting_keyvalue master_default_settings_keyvalue[] = {
 	{ NULL, NULL }
 };
 
+/* Master settings are used globally only. Note that service and listener
+   defaults refer to them with $SET:default_*, which is expanded within the
+   service filter - that keeps working, because the value is inherited from
+   the global level. */
+static const char *const master_never_inherited_by[] = {
+	"*", NULL
+};
+
 const struct setting_parser_info master_setting_parser_info = {
 	.name = "master",
+	.never_inherited_by = master_never_inherited_by,
 
 	.defines = master_setting_defines,
 	.defaults = &master_default_settings,
