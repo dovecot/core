@@ -496,7 +496,7 @@ mech_digest_md5_auth_initial(struct sasl_server_mech_request *auth_request,
 }
 
 static struct sasl_server_mech_request *
-mech_digest_md5_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED,
+mech_digest_md5_auth_alloc(const struct sasl_server_mech *mech ATTR_UNUSED,
 			 pool_t pool)
 {
 	struct digest_auth_request *request;
@@ -508,7 +508,7 @@ mech_digest_md5_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED,
 }
 
 static const struct sasl_server_mech_funcs mech_digest_md5_funcs = {
-	.auth_new = mech_digest_md5_auth_new,
+	.auth_alloc = mech_digest_md5_auth_alloc,
 	.auth_initial = mech_digest_md5_auth_initial,
 	.auth_continue = mech_digest_md5_auth_continue,
 };

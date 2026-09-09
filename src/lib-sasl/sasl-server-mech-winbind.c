@@ -447,8 +447,8 @@ mech_winbind_auth_continue(struct sasl_server_mech_request *auth_request,
 }
 
 static struct sasl_server_mech_request *
-mech_winbind_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED,
-		      pool_t pool)
+mech_winbind_auth_alloc(const struct sasl_server_mech *mech ATTR_UNUSED,
+			pool_t pool)
 {
 	struct winbind_auth_request *request;
 
@@ -488,7 +488,7 @@ static struct sasl_server_mech *mech_winbind_mech_new(pool_t pool)
 }
 
 static const struct sasl_server_mech_funcs mech_winbind_funcs = {
-	.auth_new = mech_winbind_auth_new,
+	.auth_alloc = mech_winbind_auth_alloc,
 	.auth_initial = mech_winbind_auth_initial,
 	.auth_continue = mech_winbind_auth_continue,
 

@@ -48,8 +48,8 @@ void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 
 	struct sasl_server_mech_request *mreq;
 
-	if (mech->def->funcs->auth_new != NULL)
-		mreq = mech->def->funcs->auth_new(mech, pool);
+	if (mech->def->funcs->auth_alloc != NULL)
+		mreq = mech->def->funcs->auth_alloc(mech, pool);
 	else
 		mreq = p_new(pool, struct sasl_server_mech_request, 1);
 	mreq->pool = pool;

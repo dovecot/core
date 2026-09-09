@@ -400,8 +400,8 @@ mech_xoauth2_auth_continue(struct sasl_server_mech_request *request,
 }
 
 static struct sasl_server_mech_request *
-mech_oauth2_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED,
-		     pool_t pool)
+mech_oauth2_auth_alloc(const struct sasl_server_mech *mech ATTR_UNUSED,
+		       pool_t pool)
 {
 	struct oauth2_auth_request *request;
 
@@ -434,7 +434,7 @@ static struct sasl_server_mech *mech_oauth2_mech_new(pool_t pool)
 }
 
 static const struct sasl_server_mech_funcs mech_oauthbearer_funcs = {
-	.auth_new = mech_oauth2_auth_new,
+	.auth_alloc = mech_oauth2_auth_alloc,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_oauthbearer_auth_continue,
 	.auth_free = mech_oauth2_auth_free,
@@ -454,7 +454,7 @@ static const struct sasl_server_mech_def mech_oauthbearer = {
 };
 
 static const struct sasl_server_mech_funcs mech_xoauth2_funcs = {
-	.auth_new = mech_oauth2_auth_new,
+	.auth_alloc = mech_oauth2_auth_alloc,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_xoauth2_auth_continue,
 	.auth_free = mech_oauth2_auth_free,

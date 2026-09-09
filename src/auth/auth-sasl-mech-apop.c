@@ -145,7 +145,8 @@ mech_apop_auth_initial(struct sasl_server_mech_request *req,
 }
 
 static struct sasl_server_mech_request *
-mech_apop_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED, pool_t pool)
+mech_apop_auth_alloc(const struct sasl_server_mech *mech ATTR_UNUSED,
+		     pool_t pool)
 {
 	struct apop_auth_request *request;
 
@@ -155,7 +156,7 @@ mech_apop_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED, pool_t pool)
 }
 
 static const struct sasl_server_mech_funcs mech_apop_funcs = {
-	.auth_new = mech_apop_auth_new,
+	.auth_alloc = mech_apop_auth_alloc,
 	.auth_initial = mech_apop_auth_initial,
 };
 

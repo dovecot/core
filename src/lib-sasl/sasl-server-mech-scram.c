@@ -192,7 +192,7 @@ mech_scram_auth_continue(struct sasl_server_mech_request *auth_request,
 }
 
 static struct sasl_server_mech_request *
-mech_scram_auth_new(const struct sasl_server_mech *mech, pool_t pool)
+mech_scram_auth_alloc(const struct sasl_server_mech *mech, pool_t pool)
 {
 	struct sasl_server_instance *sinst = mech->sinst;
 	const struct scram_auth_mech *scram_mech =
@@ -245,7 +245,7 @@ static struct sasl_server_mech *mech_scram_mech_new(pool_t pool)
 }
 
 const struct sasl_server_mech_funcs sasl_server_mech_scram_funcs = {
-	.auth_new = mech_scram_auth_new,
+	.auth_alloc = mech_scram_auth_alloc,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_scram_auth_continue,
 	.auth_free = mech_scram_auth_free,
