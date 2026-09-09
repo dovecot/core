@@ -65,6 +65,9 @@ void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 	rctx->request = req;
 
 	e_debug(req->event, "Request create");
+
+	if (mech->def->funcs->auth_init != NULL)
+		mech->def->funcs->auth_init(mreq);
 }
 
 void sasl_server_mech_request_ref(struct sasl_server_mech_request *mreq)
