@@ -1057,7 +1057,7 @@ imapc_connection_send_authenticate(struct imapc_connection *conn,
 static void imapc_connection_authenticate(struct imapc_connection *conn)
 {
 	struct imapc_client *client = conn->client;
-	const struct imapc_settings *set = client->set;
+	const struct imapc_client_settings *set = client->set;
 	struct imapc_command *cmd;
 	const char *const *server_mechanisms;
 	bool login_disabled = FALSE;

@@ -16,7 +16,6 @@
 #include "imapc-search.h"
 #include "imapc-sync.h"
 #include "imapc-attribute.h"
-#include "imapc-settings.h"
 #include "imapc-storage.h"
 
 #define DNS_CLIENT_SOCKET_NAME "dns-client"
@@ -308,7 +307,7 @@ bool imapc_storage_client_handle_auth_failure(struct imapc_storage_client *clien
 }
 
 static void imapc_storage_client_login(struct imapc_storage_client *client,
-				       struct mail_user *user, const char *host)
+				       struct mail_user *user)
 {
 	imapc_client_login(client->client);
 	if (!user->namespaces_created) {
@@ -320,7 +319,8 @@ static void imapc_storage_client_login(struct imapc_storage_client *client,
 		if (imapc_storage_client_handle_auth_failure(client)) {
 			user->error = p_strdup_printf(user->pool,
 				"imapc: Login to %s failed: %s",
-				host, client->auth_failed_reason);
+				imapc_client_get_host(client->client),
+				client->auth_failed_reason);
 		}
 	}
 }
@@ -341,14 +341,13 @@ int imapc_storage_client_create(struct mailbox_list *list,
 			 &imapc_set, error_r) < 0)
 		return -1;
 
-	if ((ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0 ||
-	    *imapc_set->imapc_host == '\0')
+	if ((ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0) {
 		/* Shared namespace user doesn't actually exist. Don't try to
 		   access the user via imapc, but also don't make this a
 		   visible error. If any code path tries to connect to imapc,
 		   it's a bug. */
 		params.flags |= IMAPC_PARAMETER_CLIENT_DISABLED;
-
+	}
 	if ((imapc_set->parsed_features & IMAPC_FEATURE_SEND_ID) != 0)
 		params.session_id_prefix = ns->user->session_id;
 
@@ -374,7 +373,7 @@ int imapc_storage_client_create(struct mailbox_list *list,
 	if ((ns->flags & NAMESPACE_FLAG_LIST_PREFIX) != 0 &&
 	    (imapc_set->parsed_features & IMAPC_FEATURE_NO_DELAY_LOGIN) != 0) {
 		/* start logging in immediately */
-		imapc_storage_client_login(client, ns->user, imapc_set->imapc_host);
+		imapc_storage_client_login(client, ns->user);
 	}
 
 	*client_r = client;
@@ -404,7 +403,9 @@ static bool
 imapc_storage_match(struct mail_storage *_storage, struct mailbox_list *list)
 {
 	struct imapc_storage *storage = IMAPC_STORAGE(_storage);
+	const struct imapc_settings *imapc_set;
 	const char *error;
+	bool match;
 
 	if (storage->client->disabled ||
 	    HAS_ANY_BITS(list->ns->flags, NAMESPACE_FLAG_UNUSABLE)) {
@@ -412,6 +413,16 @@ imapc_storage_match(struct mail_storage *_storage, struct mailbox_list *list)
 		   with a namespace that must not access the remote. */
 		return FALSE;
 	}
+	if (settings_get(list->event, &imapc_setting_parser_info, 0,
+			 &imapc_set, &error) < 0) {
+		/* The error is reported when the new storage is created. */
+		return FALSE;
+	}
+	match = settings_equal(&imapc_setting_parser_info,
+			       storage->client->set, imapc_set, NULL);
+	settings_free(imapc_set);
+	if (!match)
+		return FALSE;
 	if (imapc_client_settings_match(storage->client->client, list->event,
 					&error) <= 0) {
 		/* Any error is reported when the new storage is created. */

@@ -2,32 +2,30 @@
 
 #include "lib.h"
 #include "settings-parser.h"
-#include "imapc-settings.h"
+#include "imapc-client-settings.h"
 
 #undef DEF
 #define DEF(type, name) \
-	SETTING_DEFINE_STRUCT_##type(#name, name, struct imapc_settings)
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct imapc_client_settings)
 
 #undef DEF_MSECS
 #define DEF_MSECS(type, name) \
-	SETTING_DEFINE_STRUCT_##type(#name, name##_msecs, struct imapc_settings)
+	SETTING_DEFINE_STRUCT_##type(#name, name##_msecs, struct imapc_client_settings)
 
 #undef DEF_SECS
 #define DEF_SECS(type, name) \
-	SETTING_DEFINE_STRUCT_##type(#name, name##_secs, struct imapc_settings)
+	SETTING_DEFINE_STRUCT_##type(#name, name##_secs, struct imapc_client_settings)
 
-static bool imapc_settings_check(void *_set, pool_t pool, const char **error_r);
+static bool imapc_client_settings_check(void *_set, pool_t pool, const char **error_r);
 
-static const struct setting_define imapc_setting_defines[] = {
+static const struct setting_define imapc_client_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = IMAPC_SETTINGS_FILTER },
-	{ .type = SET_FILTER_NAME, .key = "layout_imapc" },
 	DEF(STR, imapc_host),
 	DEF(IN_PORT, imapc_port),
 	DEF(ENUM, imapc_ssl),
 
 	DEF(BOOLLIST, imapc_features),
 	DEF(PATH_DIR, imapc_rawlog_dir),
-	DEF(STR, imapc_list_prefix),
 	DEF_SECS(TIME, imapc_cmd_timeout),
 	DEF_SECS(TIME, imapc_max_idle_time),
 	DEF_MSECS(TIME_MSECS, imapc_connection_timeout_interval),
@@ -35,22 +33,19 @@ static const struct setting_define imapc_setting_defines[] = {
 	DEF_MSECS(TIME_MSECS, imapc_connection_retry_interval),
 	DEF(SIZE, imapc_max_line_length),
 
-	DEF(STR, pop3_deleted_flag),
-
 	/* deprecated: */
 	DEF(BOOLLIST_HIDDEN, imapc_sasl_mechanisms),
 
 	SETTING_DEFINE_LIST_END
 };
 
-static const struct imapc_settings imapc_default_settings = {
+static const struct imapc_client_settings imapc_client_default_settings = {
 	.imapc_host = "",
 	.imapc_port = 143,
 	.imapc_ssl = "no:imaps:starttls",
 
 	.imapc_features = ARRAY_INIT,
 	.imapc_rawlog_dir = "",
-	.imapc_list_prefix = "",
 	.imapc_cmd_timeout_secs = 5*60,
 	.imapc_max_idle_time_secs = IMAPC_DEFAULT_MAX_IDLE_TIME,
 	.imapc_connection_timeout_interval_msecs = 1000*30,
@@ -58,33 +53,26 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_connection_retry_interval_msecs = 1000,
 	.imapc_max_line_length = SET_SIZE_UNLIMITED,
 
-	.pop3_deleted_flag = "",
-
 	/* deprecated: */
 	.imapc_sasl_mechanisms = ARRAY_INIT,
 };
 
-static const struct setting_keyvalue imapc_default_settings_keyvalue[] = {
-	{ "imapc/mailbox_list_layout", "imapc" },
+static const struct setting_keyvalue imapc_client_default_settings_keyvalue[] = {
 	{ "imapc/client_auth_authzid", "%{owner_user}" },
-	/* We want to have all imapc mailboxes accessible, so escape them if
-	   necessary. */
-	{ "layout_imapc/mailbox_list_visible_escape_char", "~" },
-	{ "layout_imapc/mailbox_list_storage_escape_char", "%" },
 	{ NULL, NULL }
 };
 
-const struct setting_parser_info imapc_setting_parser_info = {
-	.name = "imapc",
+const struct setting_parser_info imapc_client_setting_parser_info = {
+	.name = "imapc-client",
 
-	.defines = imapc_setting_defines,
-	.defaults = &imapc_default_settings,
-	.default_settings = imapc_default_settings_keyvalue,
+	.defines = imapc_client_setting_defines,
+	.defaults = &imapc_client_default_settings,
+	.default_settings = imapc_client_default_settings_keyvalue,
 
-	.struct_size = sizeof(struct imapc_settings),
-	.pool_offset1 = 1 + offsetof(struct imapc_settings, pool),
+	.struct_size = sizeof(struct imapc_client_settings),
+	.pool_offset1 = 1 + offsetof(struct imapc_client_settings, pool),
 
-	.check_func = imapc_settings_check
+	.check_func = imapc_client_settings_check
 };
 
 /* <settings checks> */
@@ -126,35 +114,37 @@ enum imapc_capability imapc_capability_lookup(const char *str)
 	return 0;
 }
 
-struct imapc_feature_list {
+struct imapc_client_feature_list {
 	const char *name;
-	enum imapc_features num;
+	enum imapc_client_features num;
 };
 
-static const struct imapc_feature_list imapc_feature_list[] = {
-	{ "no-fetch-size", IMAPC_FEATURE_NO_FETCH_SIZE },
-	{ "guid-forced", IMAPC_FEATURE_GUID_FORCED },
-	{ "no-fetch-headers", IMAPC_FEATURE_NO_FETCH_HEADERS },
-	{ "gmail-migration", IMAPC_FEATURE_GMAIL_MIGRATION },
-	{ "no-search", IMAPC_FEATURE_NO_SEARCH },
-	{ "zimbra-workarounds", IMAPC_FEATURE_ZIMBRA_WORKAROUNDS },
-	{ "no-examine", IMAPC_FEATURE_NO_EXAMINE },
+/* Only the features implemented by the low-level imap client are listed here.
+   The rest of the features are implemented by lib-storage's imapc, which also
+   does the validation for all of them - see imapc_client_feature_lookup(). */
+static const struct imapc_client_feature_list imapc_client_feature_list[] = {
 	{ "proxyauth", IMAPC_FEATURE_PROXYAUTH },
-	{ "fetch-msn-workarounds", IMAPC_FEATURE_FETCH_MSN_WORKAROUNDS },
-	{ "fetch-fix-broken-mails", IMAPC_FEATURE_FETCH_FIX_BROKEN_MAILS },
-	{ "no-modseq", IMAPC_FEATURE_NO_MODSEQ },
-	{ "no-delay-login", IMAPC_FEATURE_NO_DELAY_LOGIN },
-	{ "no-fetch-bodystructure", IMAPC_FEATURE_NO_FETCH_BODYSTRUCTURE },
-	{ "send-id", IMAPC_FEATURE_SEND_ID },
-	{ "fetch-empty-is-expunged", IMAPC_FEATURE_FETCH_EMPTY_IS_EXPUNGED },
-	{ "no-msn-updates", IMAPC_FEATURE_NO_MSN_UPDATES },
-	{ "no-acl", IMAPC_FEATURE_NO_ACL },
 	{ NULL, 0 }
 };
 
+bool imapc_client_feature_lookup(const char *name,
+				 enum imapc_client_features *features_r)
+{
+	const struct imapc_client_feature_list *list;
+
+	for (list = imapc_client_feature_list; list->name != NULL; list++) {
+		if (strcmp(name, list->name) == 0) {
+			*features_r = list->num;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 static int
-imapc_settings_parse_throttle(struct imapc_settings *set,
-			      const char *throttle_str, const char **error_r)
+imapc_client_settings_parse_throttle(struct imapc_client_settings *set,
+				     const char *throttle_str,
+				     const char **error_r)
 {
 	const char *const *tmp;
 
@@ -170,24 +160,23 @@ imapc_settings_parse_throttle(struct imapc_settings *set,
 }
 
 static int
-imapc_settings_parse_features(struct imapc_settings *set,
-			      const char **error_r)
+imapc_client_settings_parse_features(struct imapc_client_settings *set,
+				     const char **error_r)
 {
-	enum imapc_features features = 0;
-	const struct imapc_feature_list *list;
+	enum imapc_client_features features = 0;
 	const char *const *str, *value;
 
 	str = settings_boollist_get(&set->imapc_features);
 	for (; *str != NULL; str++) {
-		list = imapc_feature_list;
-		for (; list->name != NULL; list++) {
-			if (strcmp(*str, list->name) == 0) {
-				features |= list->num;
-				break;
-			}
+		enum imapc_client_features feature;
+
+		if (imapc_client_feature_lookup(*str, &feature)) {
+			features |= feature;
+			continue;
 		}
 		if (str_begins(*str, "throttle:", &value)) {
-			if (imapc_settings_parse_throttle(set, value, error_r) < 0)
+			if (imapc_client_settings_parse_throttle(set, value,
+								 error_r) < 0)
 				return -1;
 			continue;
 		}
@@ -199,20 +188,19 @@ imapc_settings_parse_features(struct imapc_settings *set,
 				continue;
 			}
 		}
-		if (list->name == NULL) {
-			*error_r = t_strdup_printf("imapc_features: "
-				"Unknown feature: %s", *str);
-			return -1;
-		}
+		/* The feature is either implemented by lib-storage's imapc or
+		   it is unknown. Either way it is not handled here.
+		   imapc_settings_parse_features() reports unknown features. */
 	}
 	set->parsed_features = features;
 	return 0;
 }
 
-static bool imapc_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-				 const char **error_r)
+static bool
+imapc_client_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+			    const char **error_r)
 {
-	struct imapc_settings *set = _set;
+	struct imapc_client_settings *set = _set;
 
 	if (set->imapc_max_idle_time_secs == 0) {
 		*error_r = "imapc_max_idle_time must not be 0";
@@ -222,7 +210,7 @@ static bool imapc_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		*error_r = "imapc_max_line_length must not be 0";
 		return FALSE;
 	}
-	if (imapc_settings_parse_features(set, error_r) < 0)
+	if (imapc_client_settings_parse_features(set, error_r) < 0)
 		return FALSE;
 	return TRUE;
 }

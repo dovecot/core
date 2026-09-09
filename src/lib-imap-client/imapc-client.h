@@ -3,7 +3,7 @@
 
 #include "net.h"
 #include "iostream-ssl.h"
-#include "imapc-settings.h"
+#include "imapc-client-settings.h"
 
 struct imapc_client;
 

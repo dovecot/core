@@ -11,7 +11,6 @@
 #include "imapc-msgmap.h"
 #include "imapc-connection.h"
 #include "imapc-client-private.h"
-#include "imapc-settings.h"
 
 #include <unistd.h>
 
@@ -41,7 +40,7 @@ imapc_client_init_settings(struct event *event,
 
 static void
 imapc_client_handle_deprecated_settings(
-	struct event *event, const struct imapc_settings *set,
+	struct event *event, const struct imapc_client_settings *set,
 	struct settings_instance **set_instance)
 {
 	/* SASL */
@@ -67,7 +66,7 @@ int imapc_client_init(const struct imapc_parameters *params,
 		      struct imapc_client **client_r, const char **error_r)
 {
 	struct event *event;
-	struct imapc_settings *set;
+	struct imapc_client_settings *set;
 	const struct ssl_settings *ssl_set = NULL;
 	struct settings_instance *set_instance = NULL;
 	struct dsasl_client *sasl_client;
@@ -83,7 +82,7 @@ int imapc_client_init(const struct imapc_parameters *params,
 	event = event_create(event_parent);
 	settings_event_add_filter_name(event, IMAPC_SETTINGS_FILTER);
 
-	if (settings_get(event, &imapc_setting_parser_info, 0,
+	if (settings_get(event, &imapc_client_setting_parser_info, 0,
 			 &set, error_r) < 0) {
 		event_unref(&event);
 		return -1;
@@ -192,7 +191,7 @@ int imapc_client_settings_match(struct imapc_client *client,
 				struct event *event_other,
 				const char **error_r)
 {
-	const struct imapc_settings *imapc_set;
+	const struct imapc_client_settings *imapc_set;
 	const struct ssl_settings *ssl_set;
 	struct settings_instance *set_instance = NULL;
 	struct event *event;
@@ -203,7 +202,7 @@ int imapc_client_settings_match(struct imapc_client *client,
 	event = event_create(event_other);
 	settings_event_add_filter_name(event, IMAPC_SETTINGS_FILTER);
 
-	if (settings_get(event, &imapc_setting_parser_info, 0,
+	if (settings_get(event, &imapc_client_setting_parser_info, 0,
 			 &imapc_set, error_r) < 0) {
 		event_unref(&event);
 		return -1;
@@ -212,7 +211,7 @@ int imapc_client_settings_match(struct imapc_client *client,
 	    *imapc_set->imapc_host == '\0') {
 		/* Never match a disabled client */
 		ret = 0;
-	} else if (!settings_equal(&imapc_setting_parser_info,
+	} else if (!settings_equal(&imapc_client_setting_parser_info,
 				   client->set, imapc_set, NULL)) {
 		ret = 0;
 	} else {

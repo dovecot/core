@@ -2,7 +2,7 @@
 #define IMAPC_CLIENT_PRIVATE_H
 
 #include "imapc-client.h"
-#include "imapc-settings.h"
+#include "imapc-client-settings.h"
 
 #define IMAPC_CLIENT_IDLE_SEND_DELAY_MSECS 100
 
@@ -24,7 +24,7 @@ struct imapc_client {
 
 	struct event *event;
 	struct settings_instance *set_instance;
-	const struct imapc_settings *set;
+	const struct imapc_client_settings *set;
 	struct imapc_parameters params;
 	enum imapc_client_ssl_mode ssl_mode;
 	/* Client SSL settings, or NULL if imapc_ssl=no. Used only for
