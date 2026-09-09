@@ -471,7 +471,21 @@ static bool cmd_search_more(struct client_command_context *cmd)
 static void cmd_search_more_callback(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
+	struct imap_search_context *ctx = cmd->context;
 	bool finished;
+
+	if (client->output_cmd_lock != NULL) {
+		/* Another command is in the middle of sending its reply and
+		   nothing else can be sent until it's finished. Stop running
+		   the search until the output is unlocked again, because
+		   finishing the search would send the search result and the
+		   tagged reply. client_output_commands() continues the
+		   command once the output lock is released. */
+		timeout_remove(&ctx->to);
+		cmd->state = CLIENT_COMMAND_STATE_WAIT_OUTPUT;
+		o_stream_set_flush_pending(client->output, TRUE);
+		return;
+	}
 
 	o_stream_cork(client->output);
 	finished = command_exec(cmd);
