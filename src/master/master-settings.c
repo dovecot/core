@@ -130,6 +130,7 @@ static const struct setting_define service_setting_defines[] = {
 	DEF(UINT, client_limit),
 	DEF(UINT, restart_request_count),
 	DEF(TIME, idle_kill_interval),
+	DEF(TIME, shutdown_clients_timeout),
 	DEF(SIZE, vsz_limit),
 
 	{ .type = SET_FILTER_ARRAY, .key = "unix_listener",
@@ -164,6 +165,7 @@ static const struct service_settings service_default_settings = {
 	.client_limit = 0,
 	.restart_request_count = SET_UINT_UNLIMITED,
 	.idle_kill_interval = 0,
+	.shutdown_clients_timeout = 0,
 	.vsz_limit = 0,
 
 	.unix_listeners = ARRAY_INIT,

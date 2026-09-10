@@ -174,13 +174,16 @@ void master_service_init_log_with_pid(struct master_service *service);
 void master_service_init_stats_client(struct master_service *service,
 				      bool silent_notfound_errors);
 
-/* If set, die immediately when connection to master is lost.
-   Normally all existing clients are handled first. */
+/* Override the shutdown_clients_timeout setting for this process. If set is
+   TRUE, the process dies as soon as the master tells it to stop, even if it
+   still has clients. If set is FALSE, the process never stops on its own -
+   it keeps the existing clients until they're gone or until the master kills
+   the process. Without this the shutdown_clients_timeout setting decides. */
 void master_service_set_die_with_master(struct master_service *service,
 					bool set);
-/* Call the given when master connection dies and die_with_master is TRUE.
-   The callback is expected to shut down the service somewhat soon or it's
-   done forcibly. If NULL, the service is stopped immediately. */
+/* Call the given callback when the process is stopping while it still has
+   clients. The callback is expected to shut down the service somewhat soon
+   or it's done forcibly. If NULL, the service is stopped immediately. */
 void master_service_set_die_callback(struct master_service *service,
 				     void (*callback)(void));
 /* Set how long after the die callback is invoked the service is stopped

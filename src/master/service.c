@@ -630,13 +630,24 @@ static void services_kill_timeout(struct service_list *service_list)
 	struct service *service, *log_service;
 	unsigned int service_uninitialized, uninitialized_count = 0;
 	unsigned int signal_count = 0;
+	bool first_kill;
 	int sig;
 
+	first_kill = !service_list->sigterm_sent;
 	if (!service_list->sigterm_sent)
 		sig = SIGTERM;
 	else
 		sig = SIGKILL;
 	service_list->sigterm_sent = TRUE;
+
+	if (first_kill && service_list->kill_timeout_secs > 0) {
+		/* The first timeout was the configured kick. Escalate at the
+		   normal interval from now on. */
+		timeout_remove(&service_list->to_kill);
+		service_list->to_kill =
+			timeout_add(SERVICE_DIE_TIMEOUT_MSECS,
+				    services_kill_timeout, service_list);
+	}
 
 	log_service = NULL;
 	array_foreach_elem(&service_list->services, service) {
@@ -659,7 +670,8 @@ static void services_kill_timeout(struct service_list *service_list)
 		else
 			sig = SIGKILL;
 		service_list->sigterm_sent_to_log = TRUE;
-		signal_count += service_signal(log_service, sig, &service_uninitialized);
+		signal_count += service_signal(log_service, sig,
+					       &service_uninitialized);
 		uninitialized_count += service_uninitialized;
 	}
 	if (signal_count > 0) {
@@ -675,20 +687,47 @@ static void services_kill_timeout(struct service_list *service_list)
 	}
 }
 
+/* Returns the longest service_shutdown_clients_timeout of the services, which
+   is how long the generation's processes may be kept around. */
+static unsigned int
+services_get_shutdown_clients_timeout(struct service_list *service_list)
+{
+	struct service *service;
+	unsigned int max_secs = 0;
+
+	array_foreach_elem(&service_list->services, service) {
+		if (service->set->shutdown_clients_timeout > max_secs)
+			max_secs = service->set->shutdown_clients_timeout;
+	}
+	return max_secs;
+}
+
 void services_destroy(struct service_list *service_list, bool wait)
 {
-	const struct master_service_settings *service_set =
-		master_service_get_service_settings(master_service);
 	/* make sure we log if child processes died unexpectedly */
 	service_list->destroying = TRUE;
 	services_monitor_reap_children();
 
 	services_monitor_stop(service_list, wait);
 
-	if (service_list->refcount > 1 && service_set->shutdown_clients) {
+	service_list->kill_timeout_secs =
+		services_get_shutdown_clients_timeout(service_list);
+	if (service_list->refcount > 1 &&
+	    service_list->kill_timeout_secs != SET_TIME_INFINITE) {
+		unsigned int secs = service_list->kill_timeout_secs;
+		unsigned int msecs = secs == 0 ? SERVICE_DIE_TIMEOUT_MSECS :
+			(secs < UINT_MAX / 1000 ? secs * 1000 : UINT_MAX);
+
+		/* Kill the processes that are still around when the timeout
+		   expires, and escalate to SIGKILL from there on. */
 		service_list->to_kill =
-			timeout_add(SERVICE_DIE_TIMEOUT_MSECS,
-				    services_kill_timeout, service_list);
+			timeout_add(msecs, services_kill_timeout, service_list);
+		if (secs == 0 && !wait) {
+			/* Reload: disconnect all the clients now. When the
+			   master itself is stopping (wait=TRUE) the processes
+			   are stopped by services_monitor_stop() instead. */
+			services_kill_timeout(service_list);
+		}
 	}
 
 	service_list->destroyed = TRUE;

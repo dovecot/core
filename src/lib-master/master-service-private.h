@@ -74,7 +74,14 @@ struct master_service {
 	void *killed_context;
 
 	struct timeout *to_die;
+	/* Time when the master told this process to stop accepting new
+	   connections, or 0 if it hasn't. shutdown_clients_timeout is counted
+	   from this. */
+	time_t stop_time;
 	unsigned int die_timeout_msecs;
+	/* service_shutdown_clients_timeout for this process's own service, as
+	   the master passed it in the environment. */
+	unsigned int shutdown_clients_timeout_secs;
 
 	master_service_avail_overflow_callback_t *avail_overflow_callback;
 	struct timeout *to_overflow_state, *to_overflow_call;
@@ -110,6 +117,8 @@ struct master_service {
 	bool options_parsed:1;
 	bool log_directly:1;
 	bool initial_status_sent:1;
+	/* die_with_master overrides shutdown_clients_timeout */
+	bool die_with_master_set:1;
 	bool die_with_master:1;
 	/* master_service_die_now() was already called */
 	bool die_started:1;

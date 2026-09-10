@@ -167,6 +167,8 @@ struct service_list {
 	pool_t pool;
 	int refcount;
 	struct timeout *to_kill;
+	/* Effective shutdown_clients_timeout for this generation. */
+	unsigned int kill_timeout_secs;
 	unsigned int fork_counter;
 	struct event *event;
 

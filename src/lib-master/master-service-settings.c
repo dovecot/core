@@ -58,7 +58,6 @@ static const struct setting_define master_service_setting_defines[] = {
 	DEF(STR, auth_master_socket_path),
 	DEF(STR, dovecot_storage_version),
 	DEF(BOOL, version_ignore),
-	DEF(BOOL, shutdown_clients),
 	DEF(BOOL, verbose_proctitle),
 
 	DEF(STR, haproxy_trusted_networks),
@@ -87,7 +86,6 @@ static const struct master_service_settings master_service_default_settings = {
 	.auth_master_socket_path = "auth-master",
 	.dovecot_storage_version = "",
 	.version_ignore = FALSE,
-	.shutdown_clients = TRUE,
 	.verbose_proctitle = VERBOSE_PROCTITLE_DEFAULT,
 
 	.haproxy_trusted_networks = "",
@@ -678,9 +676,6 @@ master_service_settings_read_int(struct master_service *service,
 		   initialization was already done earlier. */
 		master_service_init_stats_client(service, TRUE);
 	}
-
-	if (service->set->shutdown_clients)
-		master_service_set_die_with_master(master_service, TRUE);
 
 	if (import_environment_missing) {
 		const char *import_environment =

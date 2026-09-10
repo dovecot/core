@@ -715,6 +715,11 @@ master_service_init(const char *name, enum master_service_flags flags,
 		value = getenv(MASTER_SERVICE_IDLE_KILL_INTERVAL_ENV);
 		if (value != NULL && str_to_uint(value, &count) == 0)
 			service->idle_kill_interval_secs = count;
+
+		/* set how long the clients may be kept after a reload */
+		value = getenv(MASTER_SERVICE_SHUTDOWN_CLIENTS_TIMEOUT_ENV);
+		if (value != NULL && str_to_uint(value, &count) == 0)
+			service->shutdown_clients_timeout_secs = count;
 	} else {
 		master_service_set_client_limit(service, 1);
 		master_service_set_restart_request_count(service, 1);
@@ -921,7 +926,31 @@ void master_service_init_stats_client(struct master_service *service,
 void master_service_set_die_with_master(struct master_service *service,
 					bool set)
 {
+	service->die_with_master_set = TRUE;
 	service->die_with_master = set;
+}
+
+/* Returns the number of seconds the process may still keep serving its
+   existing clients, or SET_TIME_INFINITE if there is no limit. The timeout
+   starts when the master tells the process to stop accepting new connections,
+   so if the master dies only later on, just the rest of it is left. */
+static unsigned int
+master_service_get_shutdown_timeout(struct master_service *service)
+{
+	unsigned int timeout_secs;
+	time_t elapsed_secs;
+
+	if (service->die_with_master_set)
+		return service->die_with_master ? 0 : SET_TIME_INFINITE;
+	timeout_secs = service->shutdown_clients_timeout_secs;
+	if (timeout_secs == SET_TIME_INFINITE || service->stop_time == 0)
+		return timeout_secs;
+
+	elapsed_secs = ioloop_time - service->stop_time;
+	if (elapsed_secs <= 0)
+		return timeout_secs;
+	return (uintmax_t)elapsed_secs < timeout_secs ?
+		timeout_secs - elapsed_secs : 0;
 }
 
 void master_service_set_die_callback(struct master_service *service,
@@ -1010,6 +1039,9 @@ static void master_service_die_now(struct master_service *service)
 	}
 	service->die_started = TRUE;
 
+	/* Replace a pending shutdown_clients_timeout with the die callback's
+	   own timeout. */
+	timeout_remove(&service->to_die);
 	if (service->die_callback == NULL)
 		master_service_stop(service);
 	else {
@@ -1021,7 +1053,11 @@ static void master_service_die_now(struct master_service *service)
 	}
 }
 
-static void master_service_error(struct master_service *service)
+/* Returns TRUE if the process has decided to stop. master_dead is TRUE when
+   the master process itself is gone, FALSE when it only told us to stop
+   accepting new connections. */
+static bool master_service_error(struct master_service *service,
+				 bool master_dead)
 {
 	/* Close all master-admin connections from anvil. This way they won't
 	   block stopping the process quickly. */
@@ -1029,8 +1065,23 @@ static void master_service_error(struct master_service *service)
 
 	master_service_stop_new_connections(service);
 	if (service->master_status.available_count ==
-	    service->total_available_count || service->die_with_master)
+	    service->total_available_count) {
+		/* No clients left to serve. */
 		master_service_die_now(service);
+	} else if (service->die_with_master_set) {
+		/* The process overrides shutdown_clients_timeout for
+		   itself. */
+		if (service->die_with_master)
+			master_service_die_now(service);
+	} else if (master_dead &&
+		   master_service_get_shutdown_timeout(service) == 0) {
+		/* The master is gone, so it can't disconnect the clients. */
+		master_service_die_now(service);
+	}
+	/* Otherwise keep serving the existing clients. While the master is
+	   alive it decides when they are disconnected, and once it's gone
+	   master_alive_error() arms a timer for the remaining time. */
+	return service->die_started;
 }
 
 /* The master has told us to stop accepting new connections, or it's gone
@@ -1043,6 +1094,7 @@ static void master_stopped(struct master_service *service)
 		return;
 	}
 	io_remove(&service->io_master_stop);
+	service->stop_time = ioloop_time;
 }
 
 static void master_stop_error(struct master_service *service)
@@ -1051,20 +1103,28 @@ static void master_stop_error(struct master_service *service)
 	   pipe whose read side is held by the master. So if we're here it
 	   means the master doesn't want us to accept new connections anymore.
 	   This happens both when the configuration is reloaded and when the
-	   master is stopping. Don't die until all service connections are
-	   finished. */
+	   master is stopping. Keep serving the existing clients - the master
+	   decides when they are disconnected. */
 	master_stopped(service);
 
 	/* the log fd may also be closed already, don't die when trying to
 	   log later */
 	i_set_failure_ignore_errors(TRUE);
 
-	master_service_error(service);
+	(void)master_service_error(service, FALSE);
+}
+
+static void master_service_shutdown_timeout(struct master_service *service)
+{
+	master_service_die_now(service);
 }
 
 static void master_alive_error(struct master_service *service)
 {
-	/* The master process itself is gone. */
+	unsigned int secs, msecs;
+
+	/* The master process itself is gone, so nobody is left to enforce
+	   shutdown_clients_timeout. Do it ourself. */
 	io_remove(&service->io_master_alive);
 	/* A stopping master closes the alive pipe before the per-service stop
 	   pipes, and a crashed one closes both at once. Either way it's not
@@ -1077,7 +1137,15 @@ static void master_alive_error(struct master_service *service)
 	   log later */
 	i_set_failure_ignore_errors(TRUE);
 
-	master_service_error(service);
+	if (master_service_error(service, TRUE))
+		return;
+
+	secs = master_service_get_shutdown_timeout(service);
+	if (secs == SET_TIME_INFINITE)
+		return;
+	msecs = secs < UINT_MAX / 1000 ? secs * 1000 : UINT_MAX;
+	service->to_die = timeout_add(msecs,
+				      master_service_shutdown_timeout, service);
 }
 
 static void master_status_update_wait(struct master_service *service)

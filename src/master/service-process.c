@@ -318,6 +318,8 @@ service_process_setup_environment(struct service *service, unsigned int uid,
 		dec2str(service->set->process_min_avail));
 	env_put(MASTER_SERVICE_IDLE_KILL_INTERVAL_ENV,
 		dec2str(service->idle_kill_interval));
+	env_put(MASTER_SERVICE_SHUTDOWN_CLIENTS_TIMEOUT_ENV,
+		dec2str(service->set->shutdown_clients_timeout));
 	if (service->set->restart_request_count != 0) {
 		env_put(MASTER_SERVICE_COUNT_ENV,
 			dec2str(service->set->restart_request_count));

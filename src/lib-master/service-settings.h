@@ -76,6 +76,7 @@ struct service_settings {
 	unsigned int client_limit;
 	unsigned int restart_request_count;
 	unsigned int idle_kill_interval;
+	unsigned int shutdown_clients_timeout;
 	uoff_t vsz_limit;
 
 	ARRAY_TYPE(const_string) unix_listeners;

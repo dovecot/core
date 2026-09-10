@@ -31,7 +31,6 @@ struct master_service_settings {
 	const char *dovecot_storage_version;
 	ARRAY_TYPE(const_string) import_environment;
 	bool version_ignore;
-	bool shutdown_clients;
 	bool verbose_proctitle;
 
 	const char *haproxy_trusted_networks;
