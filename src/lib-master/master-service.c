@@ -982,6 +982,19 @@ bool master_service_parse_option(struct master_service *service,
 	return TRUE;
 }
 
+static void master_service_die_now(struct master_service *service)
+{
+	if (service->die_callback == NULL)
+		master_service_stop(service);
+	else {
+		service->to_die =
+			timeout_add(service->die_timeout_msecs,
+				    master_service_stop,
+				    service);
+		service->die_callback();
+	}
+}
+
 static void master_service_error(struct master_service *service)
 {
 	/* Close all master-admin connections from anvil. This way they won't
@@ -990,17 +1003,8 @@ static void master_service_error(struct master_service *service)
 
 	master_service_stop_new_connections(service);
 	if (service->master_status.available_count ==
-	    service->total_available_count || service->die_with_master) {
-		if (service->die_callback == NULL)
-			master_service_stop(service);
-		else {
-			service->to_die =
-				timeout_add(service->die_timeout_msecs,
-					    master_service_stop,
-					    service);
-			service->die_callback();
-		}
-	}
+	    service->total_available_count || service->die_with_master)
+		master_service_die_now(service);
 }
 
 static void master_stop_error(struct master_service *service)
