@@ -203,9 +203,12 @@ service_dup_fds(struct service *service, unsigned int process_index,
 		dup2_append(&dups, service->stop_pipe_fd[1],
 			    MASTER_STOP_FD);
 	} else {
-		dup2_append(&dups, global_master_dead_pipe_fd[1],
+		/* anvil isn't restarted by a configuration reload, so it
+		   must not see the per-service pipe closing. */
+		dup2_append(&dups, master_alive_pipe_fd[1],
 			    MASTER_STOP_FD);
 	}
+	dup2_append(&dups, master_alive_pipe_fd[1], MASTER_ALIVE_FD);
 
 	if (service->type == SERVICE_TYPE_LOG) {
 		/* keep stderr as-is. this is especially important when

@@ -51,6 +51,9 @@ struct master_service {
 	/* Set when the master told this process to stop accepting new
 	   connections (MASTER_STOP_FD). */
 	struct io *io_master_stop;
+	/* Set when the master process died (MASTER_ALIVE_FD). Unlike
+	   io_master_stop this isn't triggered by a configuration reload. */
+	struct io *io_master_alive;
 	/* Number of requests left before process is stopped. */
 	unsigned int restart_request_count_left;
 	/* Starts as service's client_limit, but never more than
@@ -108,6 +111,8 @@ struct master_service {
 	bool log_directly:1;
 	bool initial_status_sent:1;
 	bool die_with_master:1;
+	/* master_service_die_now() was already called */
+	bool die_started:1;
 	bool call_avail_overflow:1;
 	bool config_path_changed_with_param:1;
 	bool have_admin_sockets:1;

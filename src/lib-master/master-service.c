@@ -984,6 +984,12 @@ bool master_service_parse_option(struct master_service *service,
 
 static void master_service_die_now(struct master_service *service)
 {
+	if (service->die_started) {
+		/* Both the stop and the alive pipe were closed. */
+		return;
+	}
+	service->die_started = TRUE;
+
 	if (service->die_callback == NULL)
 		master_service_stop(service);
 	else {
@@ -1007,6 +1013,18 @@ static void master_service_error(struct master_service *service)
 		master_service_die_now(service);
 }
 
+/* The master has told us to stop accepting new connections, or it's gone
+   altogether. Handles the stop pipe's closing, whether or not its io has run
+   yet. */
+static void master_stopped(struct master_service *service)
+{
+	if (service->io_master_stop == NULL) {
+		/* Already handled. */
+		return;
+	}
+	io_remove(&service->io_master_stop);
+}
+
 static void master_stop_error(struct master_service *service)
 {
 	/* This is an error for MASTER_STOP_FD, which is the write side of a
@@ -1015,7 +1033,25 @@ static void master_stop_error(struct master_service *service)
 	   This happens both when the configuration is reloaded and when the
 	   master is stopping. Don't die until all service connections are
 	   finished. */
-	io_remove(&service->io_master_stop);
+	master_stopped(service);
+
+	/* the log fd may also be closed already, don't die when trying to
+	   log later */
+	i_set_failure_ignore_errors(TRUE);
+
+	master_service_error(service);
+}
+
+static void master_alive_error(struct master_service *service)
+{
+	/* The master process itself is gone. */
+	io_remove(&service->io_master_alive);
+	/* A stopping master closes the alive pipe before the per-service stop
+	   pipes, and a crashed one closes both at once. Either way it's not
+	   going to tell us anything anymore, so handle the stop here instead
+	   of waiting for the stop pipe's io - master_service_is_master_stopped()
+	   must already be TRUE when the die callback runs. */
+	master_stopped(service);
 
 	/* the log fd may also be closed already, don't die when trying to
 	   log later */
@@ -1077,6 +1113,8 @@ void master_service_init_finish(struct master_service *service)
 		   stopped this process's service */
 		service->io_master_stop = io_add(MASTER_STOP_FD, IO_ERROR,
 						 master_stop_error, service);
+		service->io_master_alive = io_add(MASTER_ALIVE_FD, IO_ERROR,
+						 master_alive_error, service);
 		lib_signals_set_handler(SIGQUIT, 0, sig_close_listeners, service);
 	}
 	master_service_io_listeners_add(service);
@@ -1773,6 +1811,7 @@ static void master_service_deinit_real(struct master_service *service)
 	timeout_remove(&service->to_overflow_state);
 	timeout_remove(&service->to_status);
 	io_remove(&service->io_master_stop);
+	io_remove(&service->io_master_alive);
 	io_remove(&service->io_status_write);
 	if (array_is_created(&service->config_overrides))
 		array_free(&service->config_overrides);

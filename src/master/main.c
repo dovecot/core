@@ -61,7 +61,7 @@ bool core_dumps_disabled;
 bool have_proc_fs_suid_dumpable;
 bool have_proc_sys_kernel_core_pattern;
 const char *ssl_manual_key_password;
-int global_master_dead_pipe_fd[2];
+int master_alive_pipe_fd[2];
 struct log_error_buffer *log_error_buffer;
 int global_config_fd = -1;
 struct service_list *services;
@@ -602,14 +602,14 @@ static void main_init(const struct master_settings *set)
 	startup_finished = TRUE;
 }
 
-static void global_dead_pipe_close(void)
+static void master_alive_pipe_close(void)
 {
-	if (close(global_master_dead_pipe_fd[0]) < 0)
-		i_error("close(global dead pipe) failed: %m");
-	if (close(global_master_dead_pipe_fd[1]) < 0)
-		i_error("close(global dead pipe) failed: %m");
-	global_master_dead_pipe_fd[0] = -1;
-	global_master_dead_pipe_fd[1] = -1;
+	if (close(master_alive_pipe_fd[0]) < 0)
+		i_error("close(master alive pipe) failed: %m");
+	if (close(master_alive_pipe_fd[1]) < 0)
+		i_error("close(master alive pipe) failed: %m");
+	master_alive_pipe_fd[0] = -1;
+	master_alive_pipe_fd[1] = -1;
 }
 
 static void main_deinit(void)
@@ -620,7 +620,7 @@ static void main_deinit(void)
 	master_instance_list_deinit(&instances);
 
 	/* kill services and wait for them to die before unlinking pid file */
-	global_dead_pipe_close();
+	master_alive_pipe_close();
 	services_destroy(services, TRUE);
 
 	i_unlink(pidfile_path);
@@ -914,10 +914,10 @@ int main(int argc, char *argv[])
 		i_fatal("Unknown argument: --%s", argv[optind]);
 	}
 
-	if (pipe(global_master_dead_pipe_fd) < 0)
+	if (pipe(master_alive_pipe_fd) < 0)
 		i_fatal("pipe() failed: %m");
-	fd_close_on_exec(global_master_dead_pipe_fd[0], TRUE);
-	fd_close_on_exec(global_master_dead_pipe_fd[1], TRUE);
+	fd_close_on_exec(master_alive_pipe_fd[0], TRUE);
+	fd_close_on_exec(master_alive_pipe_fd[1], TRUE);
 
 	set = master_settings_read();
 	if (ask_key_pass) {

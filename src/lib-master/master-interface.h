@@ -138,18 +138,22 @@ enum master_login_state {
    also when the service's configuration is reloaded. (MASTER_STATUS_FD would
    have been fine for this, except it's inefficient in Linux) */
 #define MASTER_STOP_FD 6
+/* Pipe to master, which stays open for as long as the master process is
+   alive. Unlike MASTER_STOP_FD it isn't closed by a configuration reload, so
+   the process can tell the two apart. */
+#define MASTER_ALIVE_FD 7
 /* Configuration file descriptor. */
-#define MASTER_CONFIG_FD 7
+#define MASTER_CONFIG_FD 8
 /* If master pre-accepted a connection for a child process, this is the fd
    number where it's passed to. */
-#define MASTER_ACCEPTED_CLIENT_FD 8
+#define MASTER_ACCEPTED_CLIENT_FD 9
 /* First file descriptor where process is expected to be listening.
    The file descriptor count is given in -s parameter, defaulting to 1.
 
    master_status.available_count reports how many accept()s we're still
    accepting. Once no children are listening, master will do it and create
    new child processes when needed. */
-#define MASTER_LISTEN_FD_FIRST 9
+#define MASTER_LISTEN_FD_FIRST 10
 
 /* Timeouts: base everything on how long we can wait for login clients. */
 #define MASTER_LOGIN_TIMEOUT_SECS (3*60)
