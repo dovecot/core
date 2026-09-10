@@ -192,15 +192,25 @@ mech_scram_auth_continue(struct sasl_server_mech_request *auth_request,
 }
 
 static struct sasl_server_mech_request *
-mech_scram_auth_alloc(const struct sasl_server_mech *mech, pool_t pool)
+mech_scram_auth_alloc(const struct sasl_server_mech *mech ATTR_UNUSED,
+		      pool_t pool)
 {
-	struct sasl_server_instance *sinst = mech->sinst;
-	const struct scram_auth_mech *scram_mech =
-		container_of(mech, const struct scram_auth_mech, mech);
 	struct scram_auth_request *request;
 
 	request = p_new(pool, struct scram_auth_request, 1);
 
+	return &request->auth_request;
+}
+
+static void mech_scram_auth_init(struct sasl_server_mech_request *auth_request)
+{
+	struct scram_auth_request *request =
+		container_of(auth_request, struct scram_auth_request,
+			     auth_request);
+	const struct sasl_server_mech *mech = auth_request->mech;
+	struct sasl_server_instance *sinst = mech->sinst;
+	const struct scram_auth_mech *scram_mech =
+		container_of(mech, const struct scram_auth_mech, mech);
 	struct auth_scram_server_settings scram_set;
 
 	i_zero(&scram_set);
@@ -220,10 +230,8 @@ mech_scram_auth_alloc(const struct sasl_server_mech *mech, pool_t pool)
 			AUTH_SCRAM_CBIND_SERVER_SUPPORT_AVAILABLE;
 	}
 
-	auth_scram_server_init(&request->scram_server, pool,
+	auth_scram_server_init(&request->scram_server, auth_request->pool,
 			       &scram_set, &scram_server_backend);
-
-	return &request->auth_request;
 }
 
 static void mech_scram_auth_free(struct sasl_server_mech_request *auth_request)
@@ -246,6 +254,7 @@ static struct sasl_server_mech *mech_scram_mech_new(pool_t pool)
 
 const struct sasl_server_mech_funcs sasl_server_mech_scram_funcs = {
 	.auth_alloc = mech_scram_auth_alloc,
+	.auth_init = mech_scram_auth_init,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_scram_auth_continue,
 	.auth_free = mech_scram_auth_free,
