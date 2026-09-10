@@ -68,6 +68,7 @@ static int master_service_get_login_state(struct master_service *service,
 static void master_service_refresh_login_state(struct master_service *service);
 static void
 master_status_send(struct master_service *service, bool important_update);
+static void master_service_die_now(struct master_service *service);
 
 const char *master_service_getopt_string(void)
 {
@@ -138,6 +139,30 @@ static bool sig_is_from_master(struct master_service *service,
 	return si->si_code == SI_USER && si->si_pid == getppid();
 }
 
+static void
+sig_delayed_die_stop(struct master_service *service, const siginfo_t *si)
+{
+	/* Stop the ioloop only if we're in master_service_run(). Otherwise we
+	   might be in e.g. doveadm which is using the main ioloop for all
+	   kinds of random purposes, and things can break strangely if it's
+	   stopped in the middle. */
+	if (service->callback == NULL)
+		return;
+
+	if (si->si_signo == SIGTERM && service->killed_by_master != 0 &&
+	    service->die_callback != NULL) {
+		/* The master process is stopping this process. Shut down as
+		   gracefully as the die callback wants to, the same as when
+		   the process notices the master closing its stop pipe. The
+		   master escalates to SIGKILL if this takes too long. */
+		master_admin_clients_deinit();
+		master_service_stop_new_connections(service);
+		master_service_die_now(service);
+	} else {
+		io_loop_stop(service->ioloop);
+	}
+}
+
 static void sig_delayed_die(const siginfo_t *si, void *context)
 {
 	struct master_service *service = context;
@@ -179,12 +204,7 @@ static void sig_delayed_die(const siginfo_t *si, void *context)
 	}
 
 	service->killed_signal = si->si_signo;
-	/* Stop the ioloop only if we're in master_service_run(). Otherwise we
-	   might be in e.g. doveadm which is using the main ioloop for all
-	   kinds of random purposes, and things can break strangely if it's
-	   stopped in the middle. */
-	if (service->callback != NULL)
-		io_loop_stop(service->ioloop);
+	sig_delayed_die_stop(service, si);
 	if (service->killed_callback != NULL)
 		service->killed_callback(service->killed_context);
 }
