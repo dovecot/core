@@ -677,6 +677,12 @@ static void maildir_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
 {
 	struct maildir_mailbox_list_context *mlist;
 
+	/* list->vlast can't be used here, because add_list() is called only
+	   after the mailbox_list_created hooks have already finished. So the
+	   vfuncs must be wrapped by modifying list->v directly, which works
+	   only as long as this is done exactly once for the list. */
+	i_assert(MODULE_CONTEXT(list, maildir_mailbox_list_module) == NULL);
+
 	mlist = p_new(list->pool, struct maildir_mailbox_list_context, 1);
 	mlist->module_ctx.super = list->v;
 
