@@ -240,6 +240,12 @@ mailbox_name_hdr_decode_storage_name(struct mailbox_list *list,
 				     const unsigned char *name_hdr,
 				     size_t name_hdr_size,
 				     uint8_t *flags_r);
+/* Returns TRUE if a mailbox can be created and accessed with the given
+   storage name. A name recovered from a corrupted index may be unusable.
+   reason_r is set to the reason when the name can't be used. */
+bool mailbox_list_index_name_is_usable(struct mailbox_list *list,
+				       const char *storage_name,
+				       const char **reason_r);
 
 int mailbox_list_index_index_open(struct mailbox_list *list);
 bool mailbox_list_index_need_refresh(struct mailbox_list_index *ilist,

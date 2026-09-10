@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "hash.h"
 #include "str.h"
+#include "unichar.h"
 #include "mail-index-view-private.h"
 #include "mail-storage-hooks.h"
 #include "mail-storage-private.h"
@@ -799,6 +800,33 @@ mailbox_name_hdr_encode(struct mailbox_list *list, const char *storage_name,
 	}
 	*name_len_r = str_len(str);
 	return str_data(str);
+}
+
+bool mailbox_list_index_name_is_usable(struct mailbox_list *list,
+				       const char *storage_name,
+				       const char **reason_r)
+{
+	struct mailbox *box;
+	bool usable;
+
+	/* Storage names are either UTF-8 or mUTF-7, which is 7bit ASCII.
+	   Anything else can't be converted to a vname without mangling it,
+	   which would leave the mailbox unreachable. */
+	if (!uni_utf8_str_is_valid(storage_name)) {
+		*reason_r = "Mailbox name isn't valid UTF-8";
+		return FALSE;
+	}
+
+	box = mailbox_alloc(list, mailbox_list_get_vname(list, storage_name),
+			    MAILBOX_FLAG_IGNORE_ACLS | MAILBOX_FLAG_RAW_NAME |
+			    MAILBOX_FLAG_NO_AUTOCREATE);
+	usable = mailbox_verify_create_name(box) == 0;
+	if (!usable) {
+		*reason_r = t_strdup(
+			mailbox_get_last_internal_error(box, NULL));
+	}
+	mailbox_free(&box);
+	return usable;
 }
 
 const char *
