@@ -14,8 +14,13 @@ static int dlua_test_assert(lua_State *L)
 
 	if (!cond) {
 		lua_Debug ar;
-		i_assert(lua_getinfo(L, ">Sl", &ar) == 0);
-		test_assert_failed(what, ar.source, ar.currentline);
+		/* Get the location of the test_assert() call in the Lua
+		   script. Level 1 is the function that called us. */
+		if (lua_getstack(L, 1, &ar) == 0 ||
+		    lua_getinfo(L, "Sl", &ar) == 0)
+			test_assert_failed(what, "<lua>", 0);
+		else
+			test_assert_failed(what, ar.short_src, ar.currentline);
 	}
 
 	return 0;
