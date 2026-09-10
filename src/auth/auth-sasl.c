@@ -306,9 +306,13 @@ auth_sasl_translate_protocol_name(struct auth_request *request)
 void auth_sasl_request_init(struct auth_request *request,
 			    const struct sasl_server_mech *mech)
 {
+	enum sasl_server_request_flags flags = 0;
+
+	if (request->fields.conn_secured == AUTH_REQUEST_CONN_SECURED_TLS)
+		flags |= SASL_SERVER_REQUEST_FLAG_CBIND_AVAILABLE;
 	sasl_server_request_create(&request->sasl.req, mech,
 				   auth_sasl_translate_protocol_name(request),
-				   request->event);
+				   flags, request->event);
 }
 
 void auth_sasl_request_deinit(struct auth_request *request)

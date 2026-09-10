@@ -91,6 +91,11 @@ enum sasl_server_authid_type {
 	SASL_SERVER_AUTHID_TYPE_EXTERNAL,
 };
 
+enum sasl_server_request_flags {
+	/* The channel SASL is used on supports channel binding */
+	SASL_SERVER_REQUEST_FLAG_CBIND_AVAILABLE = BIT(0),
+};
+
 enum sasl_server_request_state {
 	/* Request is newly created */
 	SASL_SERVER_REQUEST_STATE_NEW = 0,
@@ -146,6 +151,7 @@ struct sasl_server_request_funcs {
 void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 				const struct sasl_server_mech *mech,
 				const char *protocol,
+				enum sasl_server_request_flags flags,
 				struct event *event_parent);
 void sasl_server_request_ref(struct sasl_server_req_ctx *rctx);
 void sasl_server_request_unref(struct sasl_server_req_ctx *rctx);

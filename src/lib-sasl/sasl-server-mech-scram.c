@@ -216,7 +216,9 @@ static void mech_scram_auth_init(struct sasl_server_mech_request *auth_request)
 	i_zero(&scram_set);
 	scram_set.hash_method = scram_mech->hash_method;
 
-	if (sasl_server_mech_find(
+	if (HAS_NO_BITS(auth_request->flags,
+			SASL_SERVER_REQUEST_FLAG_CBIND_AVAILABLE) ||
+	    sasl_server_mech_find(
 		sinst, t_strconcat(scram_mech->password_scheme,
 				   "-PLUS", NULL)) == NULL) {
 		scram_set.cbind_support =

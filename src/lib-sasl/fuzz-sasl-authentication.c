@@ -698,7 +698,9 @@ static void fuzz_sasl_run(struct istream *input)
 #endif
 	i_assert(fctx.client != NULL);
 
-	sasl_server_request_create(&fctx.ssrctx, server_mech, "imap", NULL);
+	sasl_server_request_create(&fctx.ssrctx, server_mech, "imap",
+				   SASL_SERVER_REQUEST_FLAG_CBIND_AVAILABLE,
+				   NULL);
 
 	struct client_auth_settings client_set = {
 		.mechanism = params.mech,

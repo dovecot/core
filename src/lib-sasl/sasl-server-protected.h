@@ -67,6 +67,8 @@ struct sasl_server_mech_request {
 	struct event *event;
 
 	const char *protocol;
+	enum sasl_server_request_flags flags;
+
 	const char *authid;
 	const char *realm;
 

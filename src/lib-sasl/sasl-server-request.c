@@ -13,6 +13,7 @@
 void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 				const struct sasl_server_mech *mech,
 				const char *protocol,
+				enum sasl_server_request_flags flags,
 				struct event *event_parent)
 {
 	struct sasl_server_instance *sinst = mech->sinst;
@@ -58,6 +59,7 @@ void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 	mreq->mech = mech;
 	mreq->event = req->event;
 	mreq->protocol = p_strdup(pool, protocol);
+	mreq->flags = flags;
 
 	req->mech = mreq;
 	rctx->mech = mech;
@@ -362,6 +364,8 @@ void sasl_server_request_start_channel_binding(
 		str_sanitize(type, 64));
 
 	i_assert(req->rctx != NULL);
+	i_assert(HAS_ALL_BITS(mreq->flags,
+			      SASL_SERVER_REQUEST_FLAG_CBIND_AVAILABLE));
 	i_assert(funcs->request_start_channel_binding != NULL);
 	funcs->request_start_channel_binding(req->rctx, type);
 }
@@ -375,6 +379,8 @@ int sasl_server_request_accept_channel_binding(
 	int ret;
 
 	i_assert(req->rctx != NULL);
+	i_assert(HAS_ALL_BITS(mreq->flags,
+			      SASL_SERVER_REQUEST_FLAG_CBIND_AVAILABLE));
 	i_assert(funcs->request_accept_channel_binding != NULL);
 	ret = funcs->request_accept_channel_binding(req->rctx, data_r);
 	if (ret < 0) {

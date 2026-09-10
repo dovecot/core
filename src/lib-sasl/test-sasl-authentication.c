@@ -33,6 +33,8 @@ struct test_sasl {
 	unsigned int repeat;
 
 	bool failure:1;
+	bool no_cbind:1;
+	bool expect_cbind:1;
 };
 
 struct test_sasl_context {
@@ -403,7 +405,12 @@ test_sasl_run_once(const struct test_sasl *test,
 #endif
 	i_assert(tctx.client != NULL);
 
-	sasl_server_request_create(&tctx.ssrctx, server_mech, "imap", NULL);
+	enum sasl_server_request_flags sreq_flags = 0;
+
+	if (!test->no_cbind)
+		sreq_flags |= SASL_SERVER_REQUEST_FLAG_CBIND_AVAILABLE;
+	sasl_server_request_create(&tctx.ssrctx, server_mech, "imap",
+				   sreq_flags, NULL);
 
 	const char *authid = (test->client.authid != NULL ?
 			      test->client.authid : test->server.authid);
@@ -454,9 +461,11 @@ test_sasl_run_once(const struct test_sasl *test,
 		i_fatal("Failed to create SASL session: %s", error);
 	i_assert(tctx.session != NULL);
 
-	dsasl_client_session_enable_channel_binding(
-		tctx.session, SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3,
-		test_client_channel_binding_callback, &tctx);
+	if (!test->no_cbind) {
+		dsasl_client_session_enable_channel_binding(
+			tctx.session, SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3,
+			test_client_channel_binding_callback, &tctx);
+	}
 
 	test_sasl_interact(&tctx);
 
@@ -667,6 +676,46 @@ static const struct test_sasl success_tests[] = {
 			.authzid = "user",
 			.password = "pass",
 		},
+	},
+	/* SCRAM-SHA-1 */
+	{
+		.mech = "SCRAM-SHA-1",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+		.no_cbind = TRUE,
+	},
+	{
+		.mech = "SCRAM-SHA-1",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "master",
+			.authzid = "user",
+			.password = "pass",
+		},
+		.no_cbind = TRUE,
+	},
+	/* SCRAM-SHA-256 */
+	{
+		.mech = "SCRAM-SHA-256",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+		.no_cbind = TRUE,
+	},
+	{
+		.mech = "SCRAM-SHA-256",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "master",
+			.authzid = "user",
+			.password = "pass",
+		},
+		.no_cbind = TRUE,
 	},
 	/* SCRAM-SHA-1-PLUS */
 	{
@@ -1647,7 +1696,7 @@ static void test_sasl_cram_md5_malformed_input(void)
 			MEMPOOL_GROWING"test_sasl", 1024);
 		tctx.test = &test;
 
-		sasl_server_request_create(&tctx.ssrctx, mech, "imap", NULL);
+		sasl_server_request_create(&tctx.ssrctx, mech, "imap", 0, NULL);
 		/* server sends challenge, no initial response from client */
 		sasl_server_request_initial(&tctx.ssrctx, NULL, 0);
 
@@ -1736,7 +1785,7 @@ static void test_sasl_oauthbearer_malformed_input(void)
 			MEMPOOL_GROWING"test_sasl", 1024);
 		tctx.test = &test;
 
-		sasl_server_request_create(&tctx.ssrctx, mech, "imap", NULL);
+		sasl_server_request_create(&tctx.ssrctx, mech, "imap", 0, NULL);
 		void *data_dup = i_memdup(cases[i].data, cases[i].data_size);
 		sasl_server_request_initial(&tctx.ssrctx,
 					    data_dup,

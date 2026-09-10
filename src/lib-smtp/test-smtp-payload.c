@@ -619,6 +619,7 @@ test_server_conn_cmd_auth(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 {
 	struct client *client = conn_ctx;
 	const struct sasl_server_mech *server_mech;
+	enum sasl_server_request_flags flags = 0;
 
 	server_mech = sasl_server_mech_find(sasl_server_inst, data->sasl_mech);
 	if (server_mech == NULL) {
@@ -628,8 +629,10 @@ test_server_conn_cmd_auth(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 
 	i_zero(&client->auth);
 	client->auth.cmd = cmd;
+	if (smtp_server_connection_is_ssl_secured(client->smtp_conn))
+		flags |= SASL_SERVER_REQUEST_FLAG_CBIND_AVAILABLE;
 	sasl_server_request_create(&client->auth.sasl_req, server_mech, "smtp",
-				   NULL);
+				   flags, NULL);
 
 	const unsigned char *sasl_data;
 	size_t sasl_data_size;
