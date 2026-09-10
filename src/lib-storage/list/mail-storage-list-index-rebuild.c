@@ -246,6 +246,68 @@ mail_storage_list_remove_duplicate(struct mail_storage_list_index_rebuild_ctx *c
 	return 0;
 }
 
+/* Delete the parent entries that were left behind by deleting a mailbox with
+   empty hierarchy components. Such entries can't be used for anything, since
+   their name isn't valid either. */
+static void
+mail_storage_list_index_delete_empty_parents(struct mail_storage_list_index_rebuild_ns *rebuild_ns,
+					     struct mailbox *box)
+{
+	const char sep = mailbox_list_get_hierarchy_sep(box->list);
+	const char *name = box->name, *p, *last_part;
+
+	while ((p = strrchr(name, sep)) != NULL) {
+		name = t_strdup_until(name, p);
+		last_part = strrchr(name, sep);
+		last_part = last_part == NULL ? name : last_part + 1;
+		if (last_part[0] != '\0')
+			break;
+		(void)mailbox_list_index_sync_delete(rebuild_ns->list_sync_ctx,
+						     name, TRUE);
+	}
+}
+
+/* A mailbox that exists in the list index couldn't be looked up at all. If
+   that's a permanent condition, don't let the single broken mailbox prevent
+   the rest of the list index from being rebuilt. */
+static int
+mail_storage_list_index_broken_mailbox(struct mail_storage_list_index_rebuild_ns *rebuild_ns,
+				       struct mailbox *box)
+{
+	enum mail_error error;
+	const char *errstr = mailbox_get_last_internal_error(box, &error);
+
+	if (error != MAIL_ERROR_PARAMS && error != MAIL_ERROR_NOTFOUND) {
+		/* Could be a temporary failure - don't lose the mailbox. */
+		mail_storage_set_critical(rebuild_ns->ns->storage,
+			"List rebuild: Couldn't lookup mailbox %s GUID: %s",
+			mailbox_get_vname(box), errstr);
+		return -1;
+	}
+	/* The mailbox can't be opened with this name at all, e.g. the name
+	   itself is invalid. Delete the entry - if the mailbox still exists in
+	   storage, it's recreated afterwards with a name recovered from the
+	   mailbox index. Keeping the entry would just duplicate the mailbox,
+	   since the same GUID gets recovered from storage under another
+	   name. */
+	e_warning(box->event,
+		  "List rebuild: Deleting unusable mailbox list index entry: %s",
+		  errstr);
+	if (mailbox_list_index_sync_delete(rebuild_ns->list_sync_ctx,
+					   box->name, TRUE) < 0) {
+		/* The name can be so broken that the entry can't even be
+		   looked up for deleting. Nothing can be done about it here,
+		   but the rest of the mailboxes must still be rebuilt. */
+		e_error(box->event,
+			"List rebuild: Couldn't delete mailbox list index "
+			"entry: %s",
+			mailbox_list_get_last_internal_error(box->list, NULL));
+		return 0;
+	}
+	mail_storage_list_index_delete_empty_parents(rebuild_ns, box);
+	return 0;
+}
+
 static int
 mail_storage_list_index_find_indexed_mailbox(struct mail_storage_list_index_rebuild_ctx *ctx,
 					     struct mail_storage_list_index_rebuild_ns *rebuild_ns,
@@ -266,10 +328,7 @@ mail_storage_list_index_find_indexed_mailbox(struct mail_storage_list_index_rebu
 			    MAILBOX_FLAG_IGNORE_ACLS | MAILBOX_FLAG_RAW_NAME |
 			    MAILBOX_FLAG_NO_AUTOCREATE);
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
-		mail_storage_set_critical(rebuild_ns->ns->storage,
-			"List rebuild: Couldn't lookup mailbox %s GUID: %s",
-			info->vname, mailbox_get_last_internal_error(box, NULL));
-		ret = -1;
+		ret = mail_storage_list_index_broken_mailbox(rebuild_ns, box);
 	} else {
 		const char *hk = t_strdup_printf("%s%s", info->ns->prefix,
 						 guid_128_to_string(metadata.guid));
