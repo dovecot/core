@@ -437,10 +437,7 @@ int services_listen_using(struct service_list *new_service_list,
 	ARRAY(struct service_listener *) old_listeners_arr;
 	struct service_listener *const *new_listeners, *const *old_listeners;
 	unsigned int i, j, count, new_count, old_count;
-
-	/* copy master listener */
-	new_service_list->master_fd = old_service_list->master_fd;
-	old_service_list->master_fd = -1;
+	int ret;
 
 	/* rescue anvil's UNIX socket listener */
 	new_service = service_lookup_type(new_service_list, SERVICE_TYPE_ANVIL);
@@ -462,6 +459,11 @@ int services_listen_using(struct service_list *new_service_list,
 			old_listeners[i]->fd = -1;
 		}
 	}
+
+	/* copy master listener. Do this only after the failures above, so the
+	   old configuration can keep using it. */
+	new_service_list->master_fd = old_service_list->master_fd;
+	old_service_list->master_fd = -1;
 
 	/* first create an arrays of all listeners to make things easier */
 	t_array_init(&new_listeners_arr, 64);
@@ -508,5 +510,13 @@ int services_listen_using(struct service_list *new_service_list,
 	}
 
 	/* and let services_listen() deal with the remaining fds */
-	return services_listen(new_service_list);
+	ret = services_listen(new_service_list);
+	if (ret < 0) {
+		/* Give the master listener back. The caller keeps the old
+		   configuration running, so it needs it to stay reachable
+		   with "doveadm reload" and "doveadm stop". */
+		old_service_list->master_fd = new_service_list->master_fd;
+		new_service_list->master_fd = -1;
+	}
+	return ret;
 }
