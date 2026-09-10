@@ -257,7 +257,7 @@ static int master_input_auth_request(struct auth_master_connection *conn,
 			arg++;
 		}
 
-		(void)auth_request_import_info(auth_request, name, arg);
+		(void)auth_request_import_auth(auth_request, name, arg);
 	}
 
 	if (auth_request->fields.protocol == NULL) {
