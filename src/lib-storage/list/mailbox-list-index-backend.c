@@ -509,27 +509,59 @@ static bool mailbox_has_corrupted_name(struct mailbox *box)
 		(node->flags & MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME) != 0;
 }
 
-static void index_list_rename_corrupted(struct mailbox *box, const char *newname)
+/* Rename the mailbox to newname, or to "<newname>-<current name>" if newname
+   already exists. Returns 1 if the mailbox was renamed, 0 if it can't be
+   renamed and the current name has to be kept, or -1 on a temporary
+   failure. */
+static int index_list_rename_corrupted(struct mailbox *box, const char *newname)
 {
+	const char *reason, *suffix;
+
 	if (index_list_rename_mailbox(box->list, box->name,
-				      box->list, newname) == 0 ||
-	    box->list->error != MAIL_ERROR_EXISTS)
-		return;
+				      box->list, newname) == 0)
+		return 1;
+	if (box->list->error != MAIL_ERROR_EXISTS)
+		return -1;
 
 	/* mailbox already exists. don't give up yet, just use the newname
 	   as prefix and add the "lost-xx" as suffix. */
 	char sep = mailbox_list_get_hierarchy_sep(box->list);
-	const char *oldname = box->name;
+	const char *oldname = box->name, *wanted_name = newname;
 
 	/* oldname should be at the root level, but check for hierarchies
 	   anyway to be safe. */
 	const char *p = strrchr(oldname, sep);
 	if (p != NULL)
 		oldname = p+1;
+	p = strrchr(wanted_name, sep);
+	if (p != NULL)
+		wanted_name = p+1;
+
+	if (str_begins(oldname, wanted_name, &suffix) && suffix[0] == '-') {
+		/* The mailbox is already named "<newname>-<suffix>", which is
+		   what would be generated here again. Renaming it to
+		   "<newname>-<newname>-<suffix>" wouldn't make the name any
+		   more useful - it would only double the name's length on
+		   every rebuild, until it's too long to be used at all. */
+		e_debug(box->event, "Keeping mailbox name %s - "
+			"it's already based on %s",
+			mailbox_name_sanitize(box->name),
+			mailbox_name_sanitize(newname));
+		return 0;
+	}
 
 	newname = t_strdup_printf("%s-%s", newname, oldname);
-	(void)index_list_rename_mailbox(box->list, box->name,
-					box->list, newname);
+	if (!mailbox_list_index_name_is_usable(box->list, newname, &reason)) {
+		e_warning(box->event,
+			  "Not renaming mailbox to %s (%s) - keeping name %s",
+			  mailbox_name_sanitize(newname), reason,
+			  mailbox_name_sanitize(box->name));
+		return 0;
+	}
+	if (index_list_rename_mailbox(box->list, box->name,
+				      box->list, newname) == 0)
+		return 1;
+	return box->list->error == MAIL_ERROR_EXISTS ? 0 : -1;
 }
 
 static void
@@ -544,6 +576,49 @@ index_list_update_name_hdr(struct mailbox *box,
 	mail_index_update_header_ext(trans, box->box_name_hdr_ext_id, 0,
 				     box_zerosep_name, box_name_len);
 	(void)mail_index_transaction_commit(&trans);
+}
+
+/* The mailbox's name in the list index is only a guess made while recovering
+   a lost mailbox. Rename it to the name stored in the mailbox index header,
+   if that name can be used. */
+static void
+index_list_recover_name(struct mailbox *box, const unsigned char *name_hdr,
+			size_t name_hdr_size,
+			const unsigned char *box_zerosep_name,
+			size_t box_name_len)
+{
+	const char *newname =
+		mailbox_name_hdr_decode_storage_name(box->list, name_hdr,
+						     name_hdr_size, NULL);
+	const char *reason;
+
+	if (strcmp(newname, box->name) == 0) {
+		/* The mailbox already has the name stored in the header -
+		   only the header isn't in the canonical encoding, e.g.
+		   because it has empty hierarchy components. Rewrite the
+		   header instead of trying to rename the mailbox to its own
+		   name, which would fail with "already exists" and end up
+		   renaming the mailbox to "<name>-<name>". */
+		index_list_update_name_hdr(box, box_zerosep_name,
+					   box_name_len);
+	} else if (mailbox_list_index_name_is_usable(box->list, newname,
+						    &reason)) {
+		if (index_list_rename_corrupted(box, newname) == 0) {
+			/* The mailbox can't be renamed to its original name.
+			   Keep the name it has now, so the rename isn't
+			   retried on every mailbox open and the name doesn't
+			   change on every list index rebuild. */
+			index_list_update_name_hdr(box, box_zerosep_name,
+						   box_name_len);
+		}
+	} else {
+		/* The name in the header can't be used for a mailbox at all.
+		   Keep the current name and leave the header alone, so the
+		   original name isn't lost. */
+		e_warning(box->event,
+			  "Not renaming mailbox to its original name %s (%s)",
+			  mailbox_name_sanitize(newname), reason);
+	}
 }
 
 static int index_list_mailbox_open(struct mailbox *box)
@@ -597,11 +672,8 @@ static int index_list_mailbox_open(struct mailbox *box)
 		/* Mailbox name changed - update */
 		index_list_update_name_hdr(box, box_zerosep_name, box_name_len);
 	} else if (name_hdr_size > 0) {
-		/* Mailbox name is corrupted. Rename it to the previous name. */
-		const char *newname =
-			mailbox_name_hdr_decode_storage_name(
-				box->list, name_hdr, name_hdr_size, NULL);
-		index_list_rename_corrupted(box, newname);
+		index_list_recover_name(box, name_hdr, name_hdr_size,
+					box_zerosep_name, box_name_len);
 	}
 	return 0;
 }
