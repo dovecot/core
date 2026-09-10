@@ -542,12 +542,34 @@ static void test_lua_base64(void)
 	test_end();
 }
 
+static void test_lua_str_sanitize(void)
+{
+	test_begin("lua str_sanitize");
+
+	struct dlua_script *script;
+	const char *error;
+
+	if (dlua_script_create_file(TEST_LUA_SCRIPT_DIR "/test-lua-str-sanitize.lua",
+				    &script, NULL, &error) < 0)
+		i_fatal("%s", error);
+
+	dlua_dovecot_register(script);
+	dlua_register(script, "test_assert", dlua_test_assert);
+
+	test_assert(dlua_script_init(script, &error) == 0);
+	test_assert(dlua_pcall(script->L, "test_str_sanitize", 0, 0, &error) == 0);
+
+	dlua_script_unref(&script);
+	test_end();
+}
+
 int main(void) {
 	void (*tests[])(void) = {
 		test_lua,
 		test_tls,
 		test_compat_tointegerx_and_isinteger,
 		test_lua_base64,
+		test_lua_str_sanitize,
 		NULL
 	};
 

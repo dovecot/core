@@ -10,6 +10,7 @@
 #include "dlua-script-private.h"
 #include "dict-lua.h"
 #include "doveadm-client-lua.h"
+#include "str-sanitize.h"
 #include "strescape.h"
 #include "var-expand.h"
 
@@ -772,6 +773,36 @@ static int dlua_split_tabescaped(lua_State *L)
 	return 1;
 }
 
+static int dlua_str_sanitize(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 2);
+	const char *src = luaL_checkstring(L, 1);
+	lua_Integer max_bytes = luaL_checkinteger(L, 2);
+
+	if (max_bytes < 1)
+		return luaL_error(L, "max_bytes must be at least 1");
+
+	T_BEGIN {
+		lua_pushstring(L, str_sanitize(src, max_bytes));
+	} T_END;
+	return 1;
+}
+
+static int dlua_str_sanitize_utf8(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 2);
+	const char *src = luaL_checkstring(L, 1);
+	lua_Integer max_cps = luaL_checkinteger(L, 2);
+
+	if (max_cps < 1)
+		return luaL_error(L, "max_cps must be at least 1");
+
+	T_BEGIN {
+		lua_pushstring(L, str_sanitize_utf8(src, max_cps));
+	} T_END;
+	return 1;
+}
+
 static int dlua_var_expand(lua_State *L)
 {
 	DLUA_REQUIRE_ARGS(L, 1);
@@ -825,6 +856,8 @@ static luaL_Reg lua_dovecot_methods[] = {
 	{ "tabescape", dlua_tabescape},
 	{ "tabunescape", dlua_tabunescape},
 	{ "split_tabescaped", dlua_split_tabescaped},
+	{ "str_sanitize", dlua_str_sanitize },
+	{ "str_sanitize_utf8", dlua_str_sanitize_utf8 },
 	{ "var_expand", dlua_var_expand },
 	{ NULL, NULL }
 };

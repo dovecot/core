@@ -66,7 +66,8 @@ pkginc_lib_HEADERS = $(headers)
 EXTRA_DIST = \
 	test-lua-http-client.lua \
 	test-io-lua.lua \
-	test-lua-base64.lua
+	test-lua-base64.lua \
+	test-lua-str-sanitize.lua
 
 test_libs_ssl = ../lib-ssl-iostream/libssl_iostream_openssl.la
 
