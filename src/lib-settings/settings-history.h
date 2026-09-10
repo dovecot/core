@@ -12,9 +12,18 @@ struct setting_history_rename {
 	const char *version;
 };
 
+/* A setting was replaced by another setting, whose value differs. Only the
+   listed old value is migrated. */
+struct setting_history_value {
+	const char *old_key, *old_value;
+	const char *new_key, *new_value;
+	const char *version;
+};
+
 struct settings_history {
 	ARRAY(struct setting_history_default) defaults;
 	ARRAY(struct setting_history_rename) renames;
+	ARRAY(struct setting_history_value) values;
 	bool sort_pending;
 };
 
@@ -26,5 +35,7 @@ void settings_history_register_defaults(
 	const struct setting_history_default *defaults, unsigned int count);
 void settings_history_register_renames(
 	const struct setting_history_rename *renames, unsigned int count);
+void settings_history_register_values(
+	const struct setting_history_value *values, unsigned int count);
 
 #endif

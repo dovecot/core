@@ -25,10 +25,18 @@ settings_history_rename_cmp(const struct setting_history_rename *r1,
 	return version_cmp(r2->version, r1->version);
 }
 
+static int
+settings_history_value_cmp(const struct setting_history_value *v1,
+			   const struct setting_history_value *v2)
+{
+	return version_cmp(v2->version, v1->version);
+}
+
 static void settings_history_free(void)
 {
 	array_free(&history.defaults);
 	array_free(&history.renames);
+	array_free(&history.values);
 }
 
 static struct settings_history *settings_history_get_unsorted(void)
@@ -46,6 +54,11 @@ static struct settings_history *settings_history_get_unsorted(void)
 	array_append(&history.renames,
 		     settings_history_core_renames,
 		     N_ELEMENTS(settings_history_core_renames));
+	i_array_init(&history.values,
+		     N_ELEMENTS(settings_history_core_values) + 16);
+	array_append(&history.values,
+		     settings_history_core_values,
+		     N_ELEMENTS(settings_history_core_values));
 
 	lib_atexit(settings_history_free);
 	return &history;
@@ -59,6 +72,8 @@ struct settings_history *settings_history_get(void)
 			   settings_history_default_cmp);
 		array_sort(&history->renames,
 			   settings_history_rename_cmp);
+		array_sort(&history->values,
+			   settings_history_value_cmp);
 		history->sort_pending = FALSE;
 	}
 	return history;
@@ -79,5 +94,14 @@ void settings_history_register_renames(
 	struct settings_history *history = settings_history_get_unsorted();
 
 	array_append(&history->renames, renames, count);
+	history->sort_pending = TRUE;
+}
+
+void settings_history_register_values(
+	const struct setting_history_value *values, unsigned int count)
+{
+	struct settings_history *history = settings_history_get_unsorted();
+
+	array_append(&history->values, values, count);
 	history->sort_pending = TRUE;
 }

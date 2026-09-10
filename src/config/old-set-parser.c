@@ -36,14 +36,36 @@ obsolete(struct config_parser_context *ctx, const char *str, ...)
 	va_end(args);
 }
 
+/* Returns TRUE if the setting was replaced by another setting with a
+   different value. */
+static bool old_settings_handle_value(struct config_parser_context *ctx,
+				      struct config_line *line)
+{
+	struct settings_history *history = settings_history_get();
+	const struct setting_history_value *value;
+
+	array_foreach(&history->values, value) {
+		if (version_cmp(value->version,
+				ctx->dovecot_config_version) <= 0)
+			break;
+		if (strcmp(value->old_key, line->key) == 0 &&
+		    strcasecmp(value->old_value, line->value) == 0) {
+			obsolete(ctx, "%s=%s has been replaced by %s=%s",
+				 value->old_key, value->old_value,
+				 value->new_key, value->new_value);
+			line->key = value->new_key;
+			line->value = value->new_value;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 static void old_settings_handle_rename(struct config_parser_context *ctx,
 				       struct config_line *line)
 {
 	struct settings_history *history = settings_history_get();
 	const struct setting_history_rename *rename;
-
-	if (!has_config_version(ctx->dovecot_config_version))
-		return;
 
 	array_foreach(&history->renames, rename) {
 		if (version_cmp(rename->version,
@@ -74,7 +96,10 @@ void old_settings_handle(struct config_parser_context *ctx,
 	case CONFIG_LINE_TYPE_KEYFILE:
 	case CONFIG_LINE_TYPE_KEYVALUE:
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
-		old_settings_handle_rename(ctx, line);
+		if (!has_config_version(ctx->dovecot_config_version))
+			break;
+		if (!old_settings_handle_value(ctx, line))
+			old_settings_handle_rename(ctx, line);
 		break;
 	}
 }
