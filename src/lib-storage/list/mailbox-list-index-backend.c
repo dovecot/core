@@ -613,11 +613,16 @@ index_list_recover_name(struct mailbox *box, const unsigned char *name_hdr,
 		}
 	} else {
 		/* The name in the header can't be used for a mailbox at all.
-		   Keep the current name and leave the header alone, so the
-		   original name isn't lost. */
+		   Keep the current name and replace the header with it. The
+		   original name is lost, but it couldn't have been used
+		   anyway and otherwise the warning would be logged on every
+		   mailbox open. */
 		e_warning(box->event,
-			  "Not renaming mailbox to its original name %s (%s)",
+			  "Not renaming mailbox to its original name %s (%s) - "
+			  "forgetting the original name",
 			  mailbox_name_sanitize(newname), reason);
+		index_list_update_name_hdr(box, box_zerosep_name,
+					   box_name_len);
 	}
 }
 
