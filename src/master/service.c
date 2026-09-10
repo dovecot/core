@@ -527,7 +527,7 @@ int services_create(const struct master_settings *set,
 }
 
 static unsigned int
-service_signal_processes(struct service *service, int signo,
+service_signal_processes(struct service *service, int signo, bool expected,
 			 struct service_process *processes,
 			 unsigned int *uninitialized_count)
 {
@@ -552,23 +552,31 @@ service_signal_processes(struct service *service, int signo,
 		}
 	}
 	if (count > 0 && signo != SIGUSR1) {
-		e_warning(service->event, "Sent %s to %u %s processes",
-			  signo == SIGTERM ? "SIGTERM" : "SIGKILL",
-			  count, service->set->name);
+		const char *signame = signo == SIGTERM ? "SIGTERM" : "SIGKILL";
+
+		if (expected) {
+			/* This is the expected kill of the old generation's
+			   processes, which happens on every reload. */
+			e_debug(service->event, "Sent %s to %u %s processes",
+				signame, count, service->set->name);
+		} else {
+			e_warning(service->event, "Sent %s to %u %s processes",
+				  signame, count, service->set->name);
+		}
 	}
 	return count;
 }
 
-unsigned int service_signal(struct service *service, int signo,
+unsigned int service_signal(struct service *service, int signo, bool expected,
 			    unsigned int *uninitialized_count_r)
 {
 	unsigned int count = 0;
 
 	*uninitialized_count_r = 0;
-	count = service_signal_processes(service, signo,
+	count = service_signal_processes(service, signo, expected,
 					 service->busy_processes,
 					 uninitialized_count_r);
-	count += service_signal_processes(service, signo,
+	count += service_signal_processes(service, signo, expected,
 					  service->idle_processes_head,
 					  uninitialized_count_r);
 	return count;
@@ -581,7 +589,7 @@ static void service_login_notify_send(struct service *service)
 	service->last_login_notify_time = ioloop_time;
 	timeout_remove(&service->to_login_notify);
 
-	service_signal(service, SIGUSR1, &uninitialized_count);
+	service_signal(service, SIGUSR1, TRUE, &uninitialized_count);
 }
 
 static void service_login_notify_timeout(struct service *service)
@@ -654,7 +662,7 @@ static void services_kill_timeout(struct service_list *service_list)
 		if (service->type == SERVICE_TYPE_LOG)
 			log_service = service;
 		else {
-			signal_count += service_signal(service, sig,
+			signal_count += service_signal(service, sig, first_kill,
 						       &service_uninitialized);
 			uninitialized_count += service_uninitialized;
 		}
@@ -670,21 +678,33 @@ static void services_kill_timeout(struct service_list *service_list)
 		else
 			sig = SIGKILL;
 		service_list->sigterm_sent_to_log = TRUE;
-		signal_count += service_signal(log_service, sig,
+		signal_count += service_signal(log_service, sig, first_kill,
 					       &service_uninitialized);
 		uninitialized_count += service_uninitialized;
 	}
-	if (signal_count > 0) {
-		string_t *str = t_str_new(128);
-		str_printfa(str, "Processes aren't dying after reload, "
-			    "sent %s to %u processes.",
-			    sig == SIGTERM ? "SIGTERM" : "SIGKILL", signal_count);
+	if (signal_count == 0)
+		return;
+
+	string_t *str = t_str_new(128);
+	if (first_kill) {
+		/* This is the intended kick, not processes failing to die. */
+		str_printfa(str, "Disconnecting clients from %u old processes.",
+			    signal_count);
 		if (uninitialized_count > 0) {
 			str_printfa(str, " (%u processes still uninitialized)",
 				    uninitialized_count);
 		}
-		e_warning(service_list->event, "%s", str_c(str));
+		e_debug(service_list->event, "%s", str_c(str));
+		return;
 	}
+	str_printfa(str, "Processes aren't dying after reload, "
+		    "sent %s to %u processes.",
+		    sig == SIGTERM ? "SIGTERM" : "SIGKILL", signal_count);
+	if (uninitialized_count > 0) {
+		str_printfa(str, " (%u processes still uninitialized)",
+			    uninitialized_count);
+	}
+	e_warning(service_list->event, "%s", str_c(str));
 }
 
 /* Returns the longest service_shutdown_clients_timeout of the services, which

@@ -215,8 +215,9 @@ const char *services_get_config_socket_path(struct service_list *service_list);
    a SIGTERM and a process hasn't yet sent the initial status notification,
    that process is skipped. The number of such skipped processes are stored in
    uninitialized_count_r. Returns the number of processes that a signal was
-   successfully sent to. */
-unsigned int service_signal(struct service *service, int signo,
+   successfully sent to. If expected is TRUE, the signal is logged at debug
+   level instead of warning level. */
+unsigned int service_signal(struct service *service, int signo, bool expected,
 			    unsigned int *uninitialized_count_r);
 /* Notify all processes (if necessary) that no more connections can be handled
    by the service without killing existing connections (TRUE) or that they

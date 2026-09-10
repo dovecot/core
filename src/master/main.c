@@ -480,7 +480,7 @@ static void
 sig_log_reopen(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 {
 	unsigned int uninitialized_count;
-	service_signal(services->log, SIGUSR1, &uninitialized_count);
+	service_signal(services->log, SIGUSR1, TRUE, &uninitialized_count);
 
 	master_service->log_initialized = FALSE;
 	master_service_init_log(master_service);
