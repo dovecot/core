@@ -508,8 +508,8 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 	storage = mail_storage_find(ns->user, storage_class, ns->list);
 	if (storage != NULL) {
 		/* using an existing storage */
-		storage->refcount++;
-		mail_namespace_add_storage(ns, storage);
+		if (mail_namespace_add_storage(ns, storage))
+			storage->refcount++;
 		*storage_r = storage;
 		return 0;
 	}

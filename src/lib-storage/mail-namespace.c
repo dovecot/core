@@ -32,9 +32,21 @@ static int
 mail_namespaces_init_default_location(struct mail_user *user,
 				      const char **error_r);
 
-void mail_namespace_add_storage(struct mail_namespace *ns,
+bool mail_namespace_add_storage(struct mail_namespace *ns,
 				struct mail_storage *storage)
 {
+	struct mail_storage *ns_storage;
+
+	array_foreach_elem(&ns->all_storages, ns_storage) {
+		if (ns_storage == storage) {
+			/* Already added to this namespace. This happens when
+			   the storage is looked up again with a mail_driver
+			   name that doesn't match the storage name, e.g.
+			   mail_driver=auto. */
+			return FALSE;
+		}
+	}
+
 	if (ns->storage == NULL)
 		ns->storage = storage;
 	array_push_back(&ns->all_storages, &storage);
@@ -42,6 +54,7 @@ void mail_namespace_add_storage(struct mail_namespace *ns,
 	if (storage->v.add_list != NULL)
 		storage->v.add_list(storage, ns->list);
 	hook_mail_namespace_storage_added(ns);
+	return TRUE;
 }
 
 void mail_namespace_finish_list_init(struct mail_namespace *ns,

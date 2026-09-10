@@ -121,7 +121,9 @@ void mail_namespaces_set_storage_callbacks(struct mail_namespace *namespaces,
 					   void *context);
 
 /* Add a new storage to namespace. */
-void mail_namespace_add_storage(struct mail_namespace *ns,
+/* Add storage to the namespace. Returns TRUE if it was added, or FALSE if the
+   storage was already added to the namespace earlier. */
+bool mail_namespace_add_storage(struct mail_namespace *ns,
 				struct mail_storage *storage);
 /* Destroy a single namespace and remove it from user's namespaces list. */
 void mail_namespace_destroy(struct mail_namespace *ns);
