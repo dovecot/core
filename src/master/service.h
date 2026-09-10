@@ -109,7 +109,9 @@ struct service {
 	int status_fd[2];
 	struct io *io_status;
 
-	int master_dead_pipe_fd[2];
+	/* Pipe that is closed when the master no longer wants this service's
+	   processes to accept new connections. */
+	int stop_pipe_fd[2];
 
 	unsigned int throttle_msecs;
 	time_t exit_failure_last;

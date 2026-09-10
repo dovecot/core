@@ -200,11 +200,11 @@ service_dup_fds(struct service *service, unsigned int process_index,
 	}
 	dup2_append(&dups, service->status_fd[1], MASTER_STATUS_FD);
 	if (service->type != SERVICE_TYPE_ANVIL) {
-		dup2_append(&dups, service->master_dead_pipe_fd[1],
-			    MASTER_DEAD_FD);
+		dup2_append(&dups, service->stop_pipe_fd[1],
+			    MASTER_STOP_FD);
 	} else {
 		dup2_append(&dups, global_master_dead_pipe_fd[1],
-			    MASTER_DEAD_FD);
+			    MASTER_STOP_FD);
 	}
 
 	if (service->type == SERVICE_TYPE_LOG) {

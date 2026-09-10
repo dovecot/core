@@ -383,7 +383,7 @@ static void sig_close_listeners(const siginfo_t *si ATTR_UNUSED, void *context)
 	   that don't have an io, but this shouldn't be a big problem. If there
 	   is an active io, the service is unlikely to be unresponsive for
 	   longer periods of time, so the listener gets closed soon enough via
-	   master_status_error().
+	   master_stop_error().
 
 	   For extra safety we don't actually close() the fd, but instead
 	   replace it with /dev/null. This way it won't be replaced with some
@@ -1003,13 +1003,15 @@ static void master_service_error(struct master_service *service)
 	}
 }
 
-static void master_status_error(struct master_service *service)
+static void master_stop_error(struct master_service *service)
 {
-	/* This is an error for MASTER_DEAD_FD, which is the write side of a
+	/* This is an error for MASTER_STOP_FD, which is the write side of a
 	   pipe whose read side is held by the master. So if we're here it
-	   means the master wants us to die (or died itself). Don't die until
-	   all service connections are finished. */
-	io_remove(&service->io_status_error);
+	   means the master doesn't want us to accept new connections anymore.
+	   This happens both when the configuration is reloaded and when the
+	   master is stopping. Don't die until all service connections are
+	   finished. */
+	io_remove(&service->io_master_stop);
 
 	/* the log fd may also be closed already, don't die when trying to
 	   log later */
@@ -1067,9 +1069,10 @@ void master_service_init_finish(struct master_service *service)
 		if (fstat(MASTER_STATUS_FD, &st) < 0 || !S_ISFIFO(st.st_mode))
 			i_fatal("Must be started by dovecot master process");
 
-		/* start listening errors for status fd, it means master died */
-		service->io_status_error = io_add(MASTER_DEAD_FD, IO_ERROR,
-						  master_status_error, service);
+		/* start listening errors for the stop fd, it means master
+		   stopped this process's service */
+		service->io_master_stop = io_add(MASTER_STOP_FD, IO_ERROR,
+						 master_stop_error, service);
 		lib_signals_set_handler(SIGQUIT, 0, sig_close_listeners, service);
 	}
 	master_service_io_listeners_add(service);
@@ -1450,7 +1453,7 @@ bool master_service_is_user_kicked(struct master_service *service)
 
 bool master_service_is_master_stopped(struct master_service *service)
 {
-	return service->io_status_error == NULL &&
+	return service->io_master_stop == NULL &&
 		(service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0;
 }
 
@@ -1651,7 +1654,7 @@ void master_service_client_connection_destroyed(struct master_service *service)
 		i_assert(service->master_status.available_count ==
 			 service->total_available_count);
 		master_service_stop(service);
-	} else if ((service->io_status_error == NULL ||
+	} else if ((service->io_master_stop == NULL ||
 		    service->listeners == NULL) &&
 		   service->master_status.available_count ==
 		   service->total_available_count) {
@@ -1765,7 +1768,7 @@ static void master_service_deinit_real(struct master_service *service)
 	timeout_remove(&service->to_die);
 	timeout_remove(&service->to_overflow_state);
 	timeout_remove(&service->to_status);
-	io_remove(&service->io_status_error);
+	io_remove(&service->io_master_stop);
 	io_remove(&service->io_status_write);
 	if (array_is_created(&service->config_overrides))
 		array_free(&service->config_overrides);

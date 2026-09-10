@@ -278,8 +278,8 @@ service_create_real(pool_t pool, struct event *event,
 	service->log_fd[1] = -1;
 	service->status_fd[0] = -1;
 	service->status_fd[1] = -1;
-	service->master_dead_pipe_fd[0] = -1;
-	service->master_dead_pipe_fd[1] = -1;
+	service->stop_pipe_fd[0] = -1;
+	service->stop_pipe_fd[1] = -1;
 	service->log_process_internal_fd = -1;
 	service->login_notify_fd = -1;
 

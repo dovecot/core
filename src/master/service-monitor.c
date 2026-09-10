@@ -614,13 +614,13 @@ void services_monitor_start(struct service_list *service_list)
 			if (service_login_create_notify_fd(service) < 0)
 				continue;
 		}
-		if (service->master_dead_pipe_fd[0] == -1) {
-			if (pipe(service->master_dead_pipe_fd) < 0) {
+		if (service->stop_pipe_fd[0] == -1) {
+			if (pipe(service->stop_pipe_fd) < 0) {
 				e_error(service->event, "pipe() failed: %m");
 				continue;
 			}
-			fd_close_on_exec(service->master_dead_pipe_fd[0], TRUE);
-			fd_close_on_exec(service->master_dead_pipe_fd[1], TRUE);
+			fd_close_on_exec(service->stop_pipe_fd[0], TRUE);
+			fd_close_on_exec(service->stop_pipe_fd[1], TRUE);
 		}
 		if (service->status_fd[0] == -1) {
 			/* we haven't yet created status pipe */
@@ -663,11 +663,11 @@ void services_monitor_start(struct service_list *service_list)
 	}
 }
 
-static void service_monitor_close_dead_pipe(struct service *service)
+static void service_monitor_close_stop_pipe(struct service *service)
 {
-	if (service->master_dead_pipe_fd[0] != -1) {
-		i_close_fd(&service->master_dead_pipe_fd[0]);
-		i_close_fd(&service->master_dead_pipe_fd[1]);
+	if (service->stop_pipe_fd[0] != -1) {
+		i_close_fd(&service->stop_pipe_fd[0]);
+		i_close_fd(&service->stop_pipe_fd[1]);
 	}
 }
 
@@ -701,7 +701,7 @@ void service_monitor_stop(struct service *service)
 	if (service->process_count == 0)
 		service_monitor_close_status_fd(service);
 
-	service_monitor_close_dead_pipe(service);
+	service_monitor_close_stop_pipe(service);
 	if (service->login_notify_fd != -1) {
 		if (close(service->login_notify_fd) < 0) {
 			e_error(service->event,
@@ -808,7 +808,7 @@ service_list_processes_close_listeners(struct service_list *service_list)
 
 static void services_monitor_wait_and_kill(struct service_list *service_list)
 {
-	/* we've notified all children that the master is dead.
+	/* we've notified all children that they should stop.
 	   now wait for the children to either die or to tell that
 	   they're no longer listening for new connections. */
 	services_monitor_wait(service_list);
@@ -832,7 +832,7 @@ void services_monitor_stop(struct service_list *service_list, bool wait)
 	struct service *service;
 
 	array_foreach_elem(&service_list->services, service)
-		service_monitor_close_dead_pipe(service);
+		service_monitor_close_stop_pipe(service);
 
 	if (wait)
 		services_monitor_wait_and_kill(service_list);

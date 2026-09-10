@@ -47,7 +47,10 @@ struct master_service {
 	struct master_service_listener *listeners;
 	unsigned int socket_count;
 
-	struct io *io_status_write, *io_status_error;
+	struct io *io_status_write;
+	/* Set when the master told this process to stop accepting new
+	   connections (MASTER_STOP_FD). */
+	struct io *io_master_stop;
 	/* Number of requests left before process is stopped. */
 	unsigned int restart_request_count_left;
 	/* Starts as service's client_limit, but never more than

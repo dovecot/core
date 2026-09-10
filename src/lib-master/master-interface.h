@@ -133,9 +133,11 @@ enum master_login_state {
 
 /* Shared pipe to master, used to send master_status reports */
 #define MASTER_STATUS_FD 5
-/* Pipe to master, used to detect when it dies. (MASTER_STATUS_FD would have
-   been fine for this, except it's inefficient in Linux) */
-#define MASTER_DEAD_FD 6
+/* Pipe to master, used to detect when the master no longer wants this
+   process to accept new connections. It's closed when the master dies, but
+   also when the service's configuration is reloaded. (MASTER_STATUS_FD would
+   have been fine for this, except it's inefficient in Linux) */
+#define MASTER_STOP_FD 6
 /* Configuration file descriptor. */
 #define MASTER_CONFIG_FD 7
 /* If master pre-accepted a connection for a child process, this is the fd
