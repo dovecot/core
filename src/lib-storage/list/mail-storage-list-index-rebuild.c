@@ -135,6 +135,16 @@ static bool try_get_mailbox_name(struct mail_storage_list_index_rebuild_ctx *ctx
 	return ret;
 }
 
+/* Returns the name used for a mailbox whose real name isn't known. */
+static const char *
+get_lost_box_name(struct mail_storage_list_index_rebuild_ctx *ctx,
+		  const guid_128_t guid)
+{
+	return t_strdup_printf("%s%s",
+		ctx->storage->set->mailbox_list_lost_mailbox_prefix,
+		guid_128_to_string(guid));
+}
+
 static const char *get_box_name(struct mail_storage_list_index_rebuild_ctx *ctx,
 				struct mail_storage_list_index_rebuild_mailbox *box,
 				uint8_t *flags_r)
@@ -153,9 +163,7 @@ static const char *get_box_name(struct mail_storage_list_index_rebuild_ctx *ctx,
 		e_debug(ctx->storage->event, "Found GUID '%s' from storage %s, "
 					     "but could not recover mailbox name",
 			guid_128_to_string(box->guid), path);
-		box_name = t_strdup_printf("%s%s",
-			ctx->storage->set->mailbox_list_lost_mailbox_prefix,
-			guid_128_to_string(box->guid));
+		box_name = get_lost_box_name(ctx, box->guid);
 	}
 	return box_name;
 }
@@ -439,6 +447,32 @@ struct mailbox_sort_node {
 	bool seen;
 };
 
+/* Returns vname if the storage name can be used for creating a mailbox, or
+   the lost mailbox name if it can't. A name recovered from a corrupted
+   mailbox index header must not prevent the mailbox from being recovered at
+   all. */
+static const char *
+mail_storage_list_index_get_usable_vname(
+	struct mail_storage_list_index_rebuild_ctx *ctx,
+	struct mail_storage_list_index_rebuild_mailbox *rebuild_box,
+	const char *name, const char *vname)
+{
+	const char *reason, *lost_vname;
+
+	if (mailbox_list_index_name_is_usable(rebuild_box->list, name, &reason))
+		return vname;
+
+	lost_vname = t_strconcat(rebuild_box->list->ns->prefix,
+				 get_lost_box_name(ctx, rebuild_box->guid),
+				 NULL);
+	e_warning(ctx->storage->event,
+		  "List rebuild: Mailbox GUID %s has an unusable name "
+		  "%s: %s - recovering it as %s",
+		  guid_128_to_string(rebuild_box->guid),
+		  mailbox_name_sanitize(vname), reason, lost_vname);
+	return lost_vname;
+}
+
 static int mail_storage_list_index_add_missing(struct mail_storage_list_index_rebuild_ctx *ctx)
 {
 	struct hash_iterate_context *iter;
@@ -464,8 +498,11 @@ static int mail_storage_list_index_add_missing(struct mail_storage_list_index_re
 		   mailbox's index. */
 		const char *name = box->storage_name;
 		uint8_t name_hdr_flags = 0;
-		if (name == NULL)
+		bool name_recovered = FALSE;
+		if (name == NULL) {
 			name = get_box_name(ctx, box, &name_hdr_flags);
+			name_recovered = TRUE;
+		}
 
 		/* Differentiate between INBOX and <ns prefix>/INBOX. The flag
 		   bit lets us recover <ns prefix>/INBOX from a box-name header
@@ -478,6 +515,14 @@ static int mail_storage_list_index_add_missing(struct mail_storage_list_index_re
 			orig_vname = "INBOX";
 		else
 			orig_vname = t_strconcat(box->list->ns->prefix, name, NULL);
+
+		/* The recovered name may still be unusable, e.g. the mailbox
+		   index header is corrupted. Fall back to the lost mailbox
+		   name rather than failing the whole rebuild. */
+		if (name_recovered) {
+			orig_vname = mail_storage_list_index_get_usable_vname(
+				ctx, box, name, orig_vname);
+		}
 
 		const char *vname = orig_vname;
 		for (unsigned int i = 0; ; i++) {
