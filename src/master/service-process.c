@@ -25,6 +25,7 @@
 #include "service-anvil.h"
 #include "service-listen.h"
 #include "service-log.h"
+#include "service-monitor.h"
 #include "service-process-notify.h"
 #include "service-process.h"
 
@@ -542,6 +543,11 @@ void service_process_destroy(struct service_process *process)
 	}
 	i_assert(service->process_count > 0);
 	service->process_count--;
+
+	if (service->monitor_stopped && service->process_count == 0) {
+		/* The last process died - the status fd is no longer needed. */
+		service_monitor_close_status_fd(service);
+	}
 
 	unsigned int active_process_count =
 		service_active_process_count(service);

@@ -149,6 +149,11 @@ struct service {
 	bool last_login_full_notify:1;
 	/* service has exited at least once with exit code 0 */
 	bool have_successful_exits:1;
+	/* service_monitor_stop() was called for this service. No new processes
+	   are created for it anymore. The status fd is still kept open as long
+	   as there are processes running, so their status notifications are
+	   still received. */
+	bool monitor_stopped:1;
 	/* service was stopped via doveadm */
 	bool doveadm_stop:1;
 };

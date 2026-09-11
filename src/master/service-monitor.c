@@ -172,10 +172,13 @@ static void service_check_idle(struct service_process *process)
 	process->idle_start = ioloop_time;
 
 	if (service->process_avail > service->set->process_min_avail &&
-	    service->to_idle == NULL &&
+	    service->to_idle == NULL && !service->monitor_stopped &&
 	    service->idle_kill_interval != UINT_MAX) {
 		/* We have more processes than we really need. Start a timer
-		   to trigger idle_kill_interval. */
+		   to trigger idle_kill_interval. Stopped services are skipped,
+		   because their processes are no longer ours to manage - they
+		   are either waited for to die on their own or killed by
+		   services_kill_timeout(). */
 		service->to_idle =
 			timeout_add(service->idle_kill_interval * 1000,
 				    service_kill_idle, service);
@@ -273,6 +276,10 @@ static void service_status_input(struct service *service)
 			e_error(service->event, "read(status) failed: %m");
 		else
 			return;
+		/* Close the status fd explicitly. service_monitor_stop()
+		   wouldn't do it while there are still processes running,
+		   which would cause this callback to be called in a loop. */
+		service_monitor_close_status_fd(service);
 		service_monitor_stop(service);
 		return;
 	}
@@ -494,7 +501,7 @@ static void service_monitor_start_extra_avail(struct service *service)
 {
 	if (service->process_avail >= service->set->process_min_avail ||
 	    service_active_process_count(service) >= service->process_limit ||
-	    service->list->destroying)
+	    service->list->destroying || service->monitor_stopped)
 		return;
 
 	if (service->process_avail == 0) {
@@ -530,7 +537,8 @@ static void service_monitor_listen_start_force(struct service *service)
 
 void service_monitor_listen_start(struct service *service)
 {
-	if (service->process_avail > 0 || service->to_throttle != NULL ||
+	if (service->monitor_stopped ||
+	    service->process_avail > 0 || service->to_throttle != NULL ||
 	    (service_active_process_count(service) >= service->process_limit &&
 	     service->listen_pending))
 		return;
@@ -631,6 +639,7 @@ void services_monitor_start(struct service_list *service_list)
 				io_add(service->status_fd[0], IO_READ,
 				       service_status_input, service);
 		}
+		service->monitor_stopped = FALSE;
 		service_monitor_listen_start(service);
 		array_push_back(&listener_services, &service);
 	}
@@ -662,7 +671,7 @@ static void service_monitor_close_dead_pipe(struct service *service)
 	}
 }
 
-void service_monitor_stop(struct service *service)
+void service_monitor_close_status_fd(struct service *service)
 {
 	int i;
 
@@ -678,6 +687,20 @@ void service_monitor_stop(struct service *service)
 			service->status_fd[i] = -1;
 		}
 	}
+}
+
+void service_monitor_stop(struct service *service)
+{
+	service->monitor_stopped = TRUE;
+
+	/* Keep the status fd open as long as there are processes running.
+	   Otherwise a process that hasn't yet sent its initial status
+	   notification could never send it, and it would be killed by the
+	   status timeout. The fd is closed once the last process is
+	   destroyed. */
+	if (service->process_count == 0)
+		service_monitor_close_status_fd(service);
+
 	service_monitor_close_dead_pipe(service);
 	if (service->login_notify_fd != -1) {
 		if (close(service->login_notify_fd) < 0) {
@@ -919,7 +942,8 @@ void services_monitor_reap_children(void)
 
 		if (throttle)
 			service_monitor_throttle(service);
-		service_stopped = service->status_fd[0] == -1;
+		service_stopped = service->monitor_stopped ||
+			service->status_fd[0] == -1;
 		if (!service_stopped && !service->list->destroying) {
 			service_monitor_start_extra_avail(service);
 			/* if there are no longer listening processes,
