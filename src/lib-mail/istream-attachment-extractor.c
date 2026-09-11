@@ -579,6 +579,19 @@ static void astream_part_reset(struct attachment_istream *astream)
 	hash_format_reset(astream->set.hash_format);
 }
 
+static void astream_part_abort(struct attachment_istream *astream)
+{
+	struct attachment_istream_part *part = &astream->part;
+
+	if (part->temp_output != NULL) {
+		/* the attachment is incomplete - it's never written out, so
+		   its errors don't need to be checked either */
+		o_stream_abort(part->temp_output);
+	}
+	part->state = MAIL_ATTACHMENT_STATE_NO;
+	astream_part_reset(astream);
+}
+
 static int
 astream_end_of_part(struct attachment_istream *astream, const char **error_r)
 {
@@ -633,6 +646,18 @@ static int astream_read_next(struct attachment_istream *astream, bool *retry_r)
 	switch (message_parser_parse_next_block(astream->parser, &block)) {
 	case -1:
 		/* done / error */
+		if (stream->parent->stream_errno != 0) {
+			/* Reading the input failed in the middle of the
+			   message. Any attachment that was being collected is
+			   incomplete, so throw it away instead of writing it
+			   out as if it was the whole attachment. */
+			astream_part_abort(astream);
+			stream->istream.eof = TRUE;
+			stream->istream.stream_errno =
+				stream->parent->stream_errno;
+			astream->cur_part = NULL;
+			return -1;
+		}
 		ret = astream_end_of_part(astream, &error);
 		if (ret > 0) {
 			/* final data */
