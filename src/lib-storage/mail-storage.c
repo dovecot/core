@@ -415,18 +415,16 @@ mail_storage_create_list(struct mail_namespace *ns,
 		return -1;
 	}
 
-	if (mail_set->mail_path[0] == '\0') {
-		/* no root directory given. is this allowed? */
-		if ((flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) == 0) {
-			/* autodetection should take care of this */
-		} else if ((storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0) {
-			/* root not required for this storage */
-		} else {
-			*error_r = "Root mail directory not given";
-			settings_free(mail_set);
-			event_unref(&set_event);
-			return -1;
-		}
+	if (mail_set->mail_path[0] == '\0' &&
+	    (storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) == 0) {
+		/* No root directory given, and this storage requires one.
+		   Autodetection was already attempted by
+		   mail_storage_get_class(), so there is nothing left to
+		   fall back to. */
+		*error_r = "Root mail directory not given";
+		settings_free(mail_set);
+		event_unref(&set_event);
+		return -1;
 	}
 
 	/* Use parent_set_event instead of set_event mainly to avoid
