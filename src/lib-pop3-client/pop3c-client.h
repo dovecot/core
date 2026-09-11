@@ -2,7 +2,7 @@
 #define POP3C_CLIENT_H
 
 #include "net.h"
-#include "pop3c-settings.h"
+#include "pop3c-client-settings.h"
 
 enum pop3c_capability {
 	POP3C_CAPABILITY_PIPELINING	= 0x01,
@@ -27,7 +27,7 @@ struct pop3c_parameters {
 	const char *temp_path_prefix;
 };
 
-struct pop3c_client_settings {
+struct pop3c_client_internal_settings {
 	const char *host;
 	in_port_t port;
 
@@ -40,7 +40,7 @@ struct pop3c_client_settings {
 	enum pop3c_client_ssl_mode ssl_mode;
 	bool ssl_allow_invalid_cert;
 
-	enum pop3c_features parsed_features;
+	enum pop3c_client_features parsed_features;
 
 	const char *rawlog_dir;
 
@@ -56,7 +56,7 @@ typedef void pop3c_cmd_callback_t(enum pop3c_command_state state,
 				  const char *reply, void *context);
 
 struct pop3c_client *
-pop3c_client_init(const struct pop3c_client_settings *set,
+pop3c_client_init(const struct pop3c_client_internal_settings *set,
 		  const struct pop3c_parameters *params,
 		  struct event *event_parent);
 void pop3c_client_deinit(struct pop3c_client **client);

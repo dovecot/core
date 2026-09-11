@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "settings-parser.h"
-#include "pop3c-settings.h"
+#include "pop3c-client-settings.h"
 
 /* <settings checks> */
 #include "pop3-protocol.h"
@@ -10,13 +10,13 @@
 
 #undef DEF
 #define DEF(type, name) \
-	SETTING_DEFINE_STRUCT_##type(#name, name, struct pop3c_settings)
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct pop3c_client_settings)
 
 #undef DEF_MSECS
 #define DEF_MSECS(type, name) \
-	SETTING_DEFINE_STRUCT_##type(#name, name##_msecs, struct pop3c_settings)
+	SETTING_DEFINE_STRUCT_##type(#name, name##_msecs, struct pop3c_client_settings)
 
-static const struct setting_define pop3c_setting_defines[] = {
+static const struct setting_define pop3c_client_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "pop3c" },
 	DEF(STR, pop3c_host),
 	DEF(IN_PORT, pop3c_port),
@@ -39,7 +39,7 @@ static const struct setting_define pop3c_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static const struct pop3c_settings pop3c_default_settings = {
+static const struct pop3c_client_settings pop3c_client_default_settings = {
 	.pop3c_host = "",
 	.pop3c_port = POP3_DEFAULT_PORT,
 
@@ -60,27 +60,27 @@ static const struct pop3c_settings pop3c_default_settings = {
 };
 
 /* <settings checks> */
-struct pop3c_feature_list {
+struct pop3c_client_feature_list {
 	const char *name;
-	enum pop3c_features num;
+	enum pop3c_client_features num;
 };
 
-static const struct pop3c_feature_list pop3c_feature_list[] = {
+static const struct pop3c_client_feature_list pop3c_client_feature_list[] = {
 	{ "no-pipelining", POP3C_FEATURE_NO_PIPELINING },
 	{ NULL, 0 }
 };
 
 static int
-pop3c_settings_parse_features(struct pop3c_settings *set,
-			      const char **error_r)
+pop3c_client_settings_parse_features(struct pop3c_client_settings *set,
+				     const char **error_r)
 {
-	enum pop3c_features features = 0;
-	const struct pop3c_feature_list *list;
+	enum pop3c_client_features features = 0;
+	const struct pop3c_client_feature_list *list;
 	const char *const *str;
 
 	str = settings_boollist_get(&set->pop3c_features);
 	for (; *str != NULL; str++) {
-		list = pop3c_feature_list;
+		list = pop3c_client_feature_list;
 		for (; list->name != NULL; list++) {
 			if (strcasecmp(*str, list->name) == 0) {
 				features |= list->num;
@@ -97,10 +97,11 @@ pop3c_settings_parse_features(struct pop3c_settings *set,
 	return 0;
 }
 
-static bool pop3c_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-				 const char **error_r)
+static bool
+pop3c_client_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+			    const char **error_r)
 {
-	struct pop3c_settings *set = _set;
+	struct pop3c_client_settings *set = _set;
 
 	if (set->pop3c_connect_timeout_msecs == 0) {
 		*error_r = "pop3c_connect_timeout must not be 0";
@@ -110,20 +111,20 @@ static bool pop3c_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		*error_r = "pop3c_cmd_timeout must not be 0";
 		return FALSE;
 	}
-	if (pop3c_settings_parse_features(set, error_r) < 0)
+	if (pop3c_client_settings_parse_features(set, error_r) < 0)
 		return FALSE;
 	return TRUE;
 }
 /* </settings checks> */
 
-const struct setting_parser_info pop3c_setting_parser_info = {
-	.name = "pop3c",
+const struct setting_parser_info pop3c_client_setting_parser_info = {
+	.name = "pop3-client",
 
-	.defines = pop3c_setting_defines,
-	.defaults = &pop3c_default_settings,
+	.defines = pop3c_client_setting_defines,
+	.defaults = &pop3c_client_default_settings,
 
-	.struct_size = sizeof(struct pop3c_settings),
-	.pool_offset1 = 1 + offsetof(struct pop3c_settings, pool),
+	.struct_size = sizeof(struct pop3c_client_settings),
+	.pool_offset1 = 1 + offsetof(struct pop3c_client_settings, pool),
 
-	.check_func = pop3c_settings_check
+	.check_func = pop3c_client_settings_check
 };

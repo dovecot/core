@@ -41,7 +41,7 @@ pop3c_storage_create(struct mail_storage *_storage,
 {
 	struct pop3c_storage *storage = POP3C_STORAGE(_storage);
 
-	if (settings_get(_storage->event, &pop3c_setting_parser_info, 0,
+	if (settings_get(_storage->event, &pop3c_client_setting_parser_info, 0,
 			 &storage->set, error_r) < 0)
 		return -1;
 
@@ -70,10 +70,10 @@ static void pop3c_storage_destroy(struct mail_storage *_storage)
 
 static struct pop3c_client *
 pop3c_client_create_from_set(struct mail_storage *storage,
-			     const struct pop3c_settings *set)
+			     const struct pop3c_client_settings *set)
 {
 	struct pop3c_parameters params = {};
-	struct pop3c_client_settings client_set;
+	struct pop3c_client_internal_settings client_set;
 	string_t *str;
 
 	str = t_str_new(128);
@@ -299,7 +299,7 @@ struct mail_storage pop3c_storage = {
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_NO_ROOT |
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS,
 	.event_category = &event_category_pop3c,
-	.set_info = &pop3c_setting_parser_info,
+	.set_info = &pop3c_client_setting_parser_info,
 
 	.v = {
 		.alloc = pop3c_storage_alloc,

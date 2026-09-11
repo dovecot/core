@@ -18,7 +18,6 @@
 #include "dns-lookup.h"
 #include "pop3-protocol.h"
 #include "pop3c-client.h"
-#include "pop3c-settings.h"
 
 #include <unistd.h>
 
@@ -76,7 +75,7 @@ struct pop3c_client_cmd {
 struct pop3c_client {
 	pool_t pool;
 	struct event *event;
-	struct pop3c_client_settings set;
+	struct pop3c_client_internal_settings set;
 	struct pop3c_parameters params;
 	struct ip_addr ip;
 
@@ -110,7 +109,7 @@ static int pop3c_client_ssl_init(struct pop3c_client *client);
 static void pop3c_client_input(struct pop3c_client *client);
 
 struct pop3c_client *
-pop3c_client_init(const struct pop3c_client_settings *set,
+pop3c_client_init(const struct pop3c_client_internal_settings *set,
 		  const struct pop3c_parameters *params,
 		  struct event *event_parent)
 {
@@ -343,7 +342,7 @@ static void pop3c_client_starttls(struct pop3c_client *client)
 
 static void pop3c_client_authenticate1(struct pop3c_client *client)
 {
-	const struct pop3c_client_settings *set = &client->set;
+	const struct pop3c_client_internal_settings *set = &client->set;
 
 	if (set->master_user == NULL) {
 		e_debug(client->event,
@@ -369,7 +368,7 @@ static void pop3c_client_authenticate1(struct pop3c_client *client)
 static const char *
 pop3c_client_get_sasl_plain_request(struct pop3c_client *client)
 {
-	const struct pop3c_client_settings *set = &client->set;
+	const struct pop3c_client_internal_settings *set = &client->set;
 	string_t *in, *out;
 
 	in = t_str_new(128);

@@ -16,11 +16,11 @@ AM_CPPFLAGS = \
 
 libpop3_client_la_SOURCES = \
 	pop3c-client.c \
-	pop3c-settings.c
+	pop3c-client-settings.c
 
 headers = \
 	pop3c-client.h \
-	pop3c-settings.h
+	pop3c-client-settings.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)

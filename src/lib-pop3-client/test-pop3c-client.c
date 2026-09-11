@@ -209,13 +209,13 @@ test_run_client(test_client_init_t *client_test, const char *temp_path_prefix)
 
 	e_debug(client_event, "PID=%s", my_pid);
 
-	const struct pop3c_settings *set =
+	const struct pop3c_client_settings *set =
 		settings_get_or_fatal(test_set.event,
-				      &pop3c_setting_parser_info);
+				      &pop3c_client_setting_parser_info);
 	i_assert(set->pop3c_host[0] != '\0');
 	i_assert(set->pop3c_password[0] != '\0');
 
-	struct pop3c_client_settings pop3_set = {
+	struct pop3c_client_internal_settings pop3_set = {
 		.host = set->pop3c_host,
 		.port = set->pop3c_port,
 		.username = set->pop3c_user,

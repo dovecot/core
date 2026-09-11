@@ -7,7 +7,7 @@
 
 struct pop3c_storage {
 	struct mail_storage storage;
-	const struct pop3c_settings *set;
+	const struct pop3c_client_settings *set;
 };
 
 struct pop3c_mailbox {
