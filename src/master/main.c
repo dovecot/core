@@ -626,8 +626,11 @@ static void main_deinit(void)
 	i_unlink(pidfile_path);
 	i_free(pidfile_path);
 
-	service_anvil_global_deinit();
+	/* Destroy the remaining processes before the anvil's global fds are
+	   closed. The anvil service's status fd points to them, and its io is
+	   removed when the last anvil process is destroyed. */
 	service_pids_deinit();
+	service_anvil_global_deinit();
 	/* notify systemd that we are done */
 	i_sd_notify(0, "STATUS=Dovecot stopped");
 
