@@ -354,12 +354,20 @@ service_process_setup_environment(struct service *service, unsigned int uid,
 
 static void service_process_status_timeout(struct service_process *process)
 {
-	e_error(process->service->event,
+	struct service *service = process->service;
+	const char *stopped_str = service->monitor_stopped ?
+		", service was stopped (config reload or doveadm service stop)" : "";
+
+	/* The process age is normally the same as the timeout, but it can be
+	   longer if the master process itself was blocked, e.g. because the
+	   system was heavily overloaded. */
+	e_error(service->event,
 		"Initial status notification not received in %d "
-		"seconds, killing the process",
-		SERVICE_FIRST_STATUS_TIMEOUT_SECS);
+		"seconds, killing the process (pid=%s, age=%"PRIdTIME_T" secs%s)",
+		SERVICE_FIRST_STATUS_TIMEOUT_SECS, dec2str(process->pid),
+		ioloop_time - process->create_time, stopped_str);
 	if (kill(process->pid, SIGKILL) < 0 && errno != ESRCH) {
-		e_error(process->service->event, "kill(%s, SIGKILL) failed: %m",
+		e_error(service->event, "kill(%s, SIGKILL) failed: %m",
 			dec2str(process->pid));
 	}
 	timeout_remove(&process->to_status);
