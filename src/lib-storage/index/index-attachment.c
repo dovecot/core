@@ -15,6 +15,7 @@
 #include "istream-attachment-extractor.h"
 #include "mail-user.h"
 #include "index-mail.h"
+#include "index-storage.h"
 #include "index-attachment.h"
 
 enum mail_attachment_decode_option {
@@ -222,6 +223,8 @@ int index_attachment_save_continue(struct mail_save_context *ctx)
 	} while (ret != -1);
 
 	if (attach->input->stream_errno != 0) {
+		if (index_storage_save_too_large(ctx, attach->input))
+			return -1;
 		mail_set_critical(ctx->dest_mail, "read(%s) failed: %s",
 					  i_stream_get_name(attach->input),
 					  i_stream_get_error(attach->input));

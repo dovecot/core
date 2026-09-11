@@ -191,6 +191,10 @@ int index_storage_expunged_sync_begin(struct mailbox *box,
 				      enum mail_index_sync_flags flags);
 void index_storage_expunging_deinit(struct mailbox *box);
 
+/* If the input stream failed because the mail is larger than the maximum
+   allowed size, set MAIL_ERROR_TOOBIG and return TRUE. */
+bool index_storage_save_too_large(struct mail_save_context *ctx,
+				  struct istream *input);
 int index_storage_save_continue(struct mail_save_context *ctx,
 				struct istream *input,
 				struct mail *cache_dest_mail);

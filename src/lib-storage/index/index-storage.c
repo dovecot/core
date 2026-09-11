@@ -1224,6 +1224,31 @@ int index_storage_expunged_sync_begin(struct mailbox *box,
 	return 1;
 }
 
+bool index_storage_save_too_large(struct mail_save_context *ctx,
+				  struct istream *input)
+{
+	struct mailbox *box = ctx->transaction->box;
+
+	if (input->stream_errno != EFBIG)
+		return FALSE;
+
+	/* The mail is larger than the maximum allowed size (e.g.
+	   quota_mail_size), so the saving was aborted on purpose. This isn't
+	   an internal error, so don't log it as critical.
+
+	   EFBIG is never a syscall error here: it's set by whoever wrapped
+	   the input stream to abort the save, together with an error string
+	   that is meant to be shown to the client (e.g. "Mail size is larger
+	   than the maximum size allowed by server configuration"). Sending
+	   it as-is keeps the error the same as when the mail size is already
+	   known before the save begins. */
+	e_debug(box->event, "save: Aborted saving too large mail: %s",
+		i_stream_get_error(input));
+	mail_storage_set_error(box->storage, MAIL_ERROR_TOOBIG,
+			       i_stream_get_error(input));
+	return TRUE;
+}
+
 int index_storage_save_continue(struct mail_save_context *ctx,
 				struct istream *input,
 				struct mail *cache_dest_mail)
@@ -1259,6 +1284,8 @@ int index_storage_save_continue(struct mail_save_context *ctx,
 	} while (i_stream_read(input) > 0);
 
 	if (input->stream_errno != 0) {
+		if (index_storage_save_too_large(ctx, input))
+			return -1;
 		if (!ctx->copying_or_moving &&
 		    (input->stream_errno == EPIPE ||
 		     input->stream_errno == ECONNRESET ||

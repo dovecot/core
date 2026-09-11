@@ -1222,7 +1222,12 @@ index_mail_parse_body_finish(struct index_mail *mail,
 			 (parser_input->stream_errno == ECONNRESET ||
 			  parser_input->stream_errno == ECONNABORTED))
 			ret = -1;
-		else {
+		else if (parser_input->stream_errno == EFBIG) {
+			/* The mail was larger than the maximum allowed size
+			   (e.g. quota_mail_size), so the saving was aborted
+			   on purpose. The caller reports the error. */
+			ret = -1;
+		} else {
 			index_mail_stream_log_failure_for(mail, parser_input);
 			ret = -1;
 		}
