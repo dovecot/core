@@ -210,6 +210,11 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 	storage_class = mail_storage_autodetect(ns, mail_set, root_path_override,
 						inbox_path_override);
 	if (storage_class != NULL) {
+		/* The returned paths may point into mail_set, which is freed
+		   here. The caller uses them only within the same data stack
+		   frame. */
+		*root_path_override = t_strdup(*root_path_override);
+		*inbox_path_override = t_strdup(*inbox_path_override);
 		settings_free(mail_set);
 		return storage_class;
 	}
