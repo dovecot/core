@@ -964,9 +964,10 @@ static void master_service_error(struct master_service *service)
 
 static void master_status_error(struct master_service *service)
 {
-	/* status fd is a write-only pipe, so if we're here it means the
-	   master wants us to die (or died itself). don't die until all
-	   service connections are finished. */
+	/* This is an error for MASTER_DEAD_FD, which is the write side of a
+	   pipe whose read side is held by the master. So if we're here it
+	   means the master wants us to die (or died itself). Don't die until
+	   all service connections are finished. */
 	io_remove(&service->io_status_error);
 
 	/* the log fd may also be closed already, don't die when trying to
