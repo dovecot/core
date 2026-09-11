@@ -65,6 +65,7 @@ o_stream_failure_at_sendv(struct ostream_private *stream,
 			iov_dup_count = i+1;
 			break;
 		}
+		bytes_until_failure -= iov_dup[i].iov_len;
 	}
 	ret = o_stream_sendv(stream->parent, iov_dup, iov_dup_count);
 	i_free(iov_dup);

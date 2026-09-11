@@ -8,6 +8,29 @@
 #define TEST_DATA_LENGTH 128
 #define TEST_ERRMSG "test-ostream-failure-at error triggered"
 
+static void test_ostream_failure_at_iovec(const unsigned char *test_data)
+{
+	struct const_iovec iov[3];
+	struct ostream *output, *buf_output;
+	buffer_t *buf = t_buffer_create(256);
+	unsigned int i;
+
+	/* the failure offset must be tracked across all of the iovecs */
+	for (i = 0; i < N_ELEMENTS(iov); i++) {
+		iov[i].iov_base = test_data + i*2;
+		iov[i].iov_len = 2;
+	}
+	buf_output = o_stream_create_buffer(buf);
+	output = o_stream_create_failure_at(buf_output, 5, TEST_ERRMSG);
+
+	test_assert(o_stream_sendv(output, iov, N_ELEMENTS(iov)) == 5);
+	test_assert(buf->used == 5);
+	test_assert(memcmp(buf->data, test_data, 5) == 0);
+
+	o_stream_destroy(&output);
+	o_stream_destroy(&buf_output);
+}
+
 void test_ostream_failure_at(void)
 {
 	unsigned char test_data[TEST_DATA_LENGTH];
@@ -48,5 +71,7 @@ void test_ostream_failure_at(void)
 		    strcmp(o_stream_get_error(output), TEST_ERRMSG) == 0);
 	o_stream_destroy(&output);
 	o_stream_destroy(&buf_output);
+
+	test_ostream_failure_at_iovec(test_data);
 	test_end();
 }
