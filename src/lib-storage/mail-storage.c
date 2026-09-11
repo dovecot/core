@@ -160,18 +160,22 @@ mail_storage_autodetect(const struct mail_namespace *ns,
 			const char **inbox_path_override)
 {
 	struct mail_storage *const *classes;
-	const char *root_path, *inbox_path = NULL;
+	const char *root_path, *inbox_path;
 	unsigned int i, count;
 
 	classes = array_get(&mail_storage_classes, &count);
 	for (i = 0; i < count; i++) {
-		if (classes[i]->v.autodetect != NULL) {
-			if (classes[i]->v.autodetect(ns, mail_set,
-						     &root_path, &inbox_path)) {
-				*root_path_override = root_path;
-				*inbox_path_override = inbox_path;
-				return classes[i];
-			}
+		if (classes[i]->v.autodetect == NULL)
+			continue;
+
+		/* Don't leave anything set by a previous class that ended up
+		   returning FALSE. */
+		root_path = inbox_path = NULL;
+		if (classes[i]->v.autodetect(ns, mail_set,
+					     &root_path, &inbox_path)) {
+			*root_path_override = root_path;
+			*inbox_path_override = inbox_path;
+			return classes[i];
 		}
 	}
 	return NULL;
