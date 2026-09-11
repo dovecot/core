@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "istream.h"
+#include "istream-failure-at.h"
 #include "settings.h"
 #include "mail-search-build.h"
 #include "mail-storage-private.h"
@@ -246,6 +247,14 @@ void quota_mail_allocated(struct mail *_mail)
 	MODULE_CONTEXT_SET_SELF(mail, quota_mail_module, qmail);
 }
 
+/* Returns TRUE if an already saved mail is being copied or moved. Note that
+   mailbox_save_using_mail(), which LDA/LMTP use to deliver a mail from the raw
+   storage, also sets copying_or_moving even though it's saving a new mail. */
+static bool quota_save_is_copy(struct mail_save_context *ctx)
+{
+	return ctx->copying_or_moving && !ctx->saving;
+}
+
 static int quota_check(struct mail_save_context *ctx)
 {
 	struct mailbox_transaction_context *t = ctx->transaction;
@@ -313,6 +322,29 @@ quota_copy(struct mail_save_context *ctx, struct mail *mail)
 		return 0;
 	}
 	return quota_check(ctx);
+}
+
+/* Limit how much of the mail being saved is read. The mail size isn't always
+   known when the saving begins, e.g. with IMAP APPEND using LITERAL8 or
+   CATENATE, or when saving from a pipe. Without this the whole mail would be
+   written to the storage (or to a temporary file in mail_temp_dir) before
+   quota_save_finish() rejects it. */
+static bool
+quota_save_limit_input(struct mail_save_context *ctx,
+		       struct quota_transaction_context *qt,
+		       struct istream *input, struct istream **limited_input_r)
+{
+	if (qt->set->quota_mail_size == SET_SIZE_UNLIMITED)
+		return FALSE;
+	/* Copying or moving an already saved mail must not fail even if the
+	   mail is larger than the current limit. */
+	if (quota_save_is_copy(ctx))
+		return FALSE;
+
+	*limited_input_r = i_stream_create_failure_at(input,
+		qt->set->quota_mail_size + 1, EFBIG,
+		quota_alloc_result_errstr(QUOTA_ALLOC_RESULT_OVER_MAXSIZE, qt));
+	return TRUE;
 }
 
 static int
@@ -401,7 +433,13 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 				"%s - saving mail anyway", error);
 	}
 
-	return qbox->module_ctx.super.save_begin(ctx, input);
+	struct istream *limited_input;
+	if (!quota_save_limit_input(ctx, qt, input, &limited_input))
+		return qbox->module_ctx.super.save_begin(ctx, input);
+
+	int ret = qbox->module_ctx.super.save_begin(ctx, limited_input);
+	i_stream_unref(&limited_input);
+	return ret;
 }
 
 static int quota_save_finish(struct mail_save_context *ctx)
