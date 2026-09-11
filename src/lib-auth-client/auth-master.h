@@ -104,6 +104,14 @@ struct auth_user_info {
 	bool debug;
 };
 
+/* Returns TRUE if a key=value pair is acceptable as a forward field: a
+   non-empty key without '=' or control characters, and a value (may be
+   NULL) whose only control characters are the ones tabescape round-trips. */
+bool auth_forward_field_is_valid(const char *key, const char *value);
+/* Same check for a "key=value" or "key" line as produced by
+   p_strsplit_tabescaped(). */
+bool auth_forward_field_line_is_valid(const char *line);
+
 /*
  * PassDB
  */

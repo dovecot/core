@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "lib-signals.h"
+#include "abnf.h"
 #include "array.h"
 #include "hash.h"
 #include "ioloop.h"
@@ -712,6 +713,35 @@ static const char *const *args_hide_passwords(const char *const *args)
 	}
 	array_append_zero(&new_args);
 	return array_front(&new_args);
+}
+
+/* TAB, CR and LF are plausible in real passdb values (tab-separated or
+   multi-line data), so keep accepting them to avoid breaking existing
+   setups. No other control character has a legitimate use.
+   Don't replace with abnf_contains_ascii_ctrl(): it would reject TAB. */
+static bool auth_forward_value_is_invalid_char(char c)
+{
+	return abnf_is_ascii_ctrl(c) && !abnf_is_htab(c) &&
+		!abnf_is_cr(c) && !abnf_is_lf(c);
+}
+
+bool auth_forward_field_is_valid(const char *key, const char *value)
+{
+	if (key[0] == '\0' || strchr(key, '=') != NULL ||
+	    abnf_contains_ascii_ctrl(key))
+		return FALSE;
+	return value == NULL ||
+		!abnf_contains(value, auth_forward_value_is_invalid_char);
+}
+
+bool auth_forward_field_line_is_valid(const char *line)
+{
+	const char *value = strchr(line, '=');
+
+	if (value == NULL)
+		return auth_forward_field_is_valid(line, NULL);
+	return auth_forward_field_is_valid(t_strdup_until(line, value),
+					   value + 1);
 }
 
 void auth_user_info_export(string_t *str, const struct auth_user_info *info)
