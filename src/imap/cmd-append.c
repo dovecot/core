@@ -1051,11 +1051,22 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 	}
 
 	if (ctx->save_ctx == NULL) {
-		/* saving has already failed, we're just eating away the
-		   literal */
-		(void)i_stream_read(ctx->litinput);
-		i_stream_skip(ctx->litinput,
-			      i_stream_get_data_size(ctx->litinput));
+		/* Saving has already failed, we're just eating away the
+		   literal. With CATENATE the literal is also a link in the
+		   chain stream, which may still have data buffered from it
+		   that its reader never consumed. Skip via the chain stream
+		   then, so that its internal state stays consistent. */
+		struct istream *input =
+			ctx->catenate ? ctx->input : ctx->litinput;
+
+		/* Read and skip everything that is already available. The
+		   chain stream doesn't mark the client's input stream as
+		   pending, so this must not stop while there is more to
+		   read. */
+		do {
+			i_stream_skip(input, i_stream_get_data_size(input));
+		} while (i_stream_read(input) > 0);
+		i_stream_skip(input, i_stream_get_data_size(input));
 	}
 
 	if (ctx->litinput->eof || client->input->closed) {
