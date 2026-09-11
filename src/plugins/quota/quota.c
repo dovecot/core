@@ -1140,8 +1140,12 @@ quota_try_alloc(struct quota_transaction_context *ctx,
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;
 	}
 
-	if (ctx->no_quota_updates)
+	if (ctx->no_quota_updates &&
+	    ctx->set->quota_mail_size == SET_SIZE_UNLIMITED) {
+		/* Nothing is being tracked and there is no mail size limit
+		   to check either. */
 		return QUOTA_ALLOC_RESULT_OK;
+	}
 
 	if (quota_get_mail_size(ctx, mail, &size) < 0) {
 		enum mail_error err;
@@ -1177,6 +1181,8 @@ quota_try_alloc(struct quota_transaction_context *ctx,
 				 overruns_r, error_r);
 	if (ret != QUOTA_ALLOC_RESULT_OK)
 		return ret;
+	if (ctx->no_quota_updates)
+		return QUOTA_ALLOC_RESULT_OK;
 	/* with quota_try_alloc() we want to keep track of how many bytes
 	   we've been adding/removing, so disable auto_updating=TRUE
 	   optimization. this of course doesn't work perfectly if
