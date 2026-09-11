@@ -537,6 +537,17 @@ static int mbox_save_body_input(struct mbox_save_context *ctx)
 	return 0;
 }
 
+static int mbox_save_read_error(struct mbox_save_context *ctx)
+{
+	if (!index_storage_save_too_large(&ctx->ctx, ctx->input)) {
+		e_error(ctx->ctx.dest_mail->box->event, "read(%s) failed: %s",
+			i_stream_get_name(ctx->input),
+			i_stream_get_error(ctx->input));
+	}
+	ctx->failed = TRUE;
+	return -1;
+}
+
 static int mbox_save_body(struct mbox_save_context *ctx)
 {
 	ssize_t ret;
@@ -550,6 +561,8 @@ static int mbox_save_body(struct mbox_save_context *ctx)
 		if (ret == 0)
 			return 0;
 	}
+	if (ctx->input->stream_errno != 0)
+		return mbox_save_read_error(ctx);
 
 	i_assert(ctx->last_char == '\n');
 	return 0;
@@ -573,7 +586,6 @@ static int mbox_save_finish_headers(struct mbox_save_context *ctx)
 int mbox_save_continue(struct mail_save_context *_ctx)
 {
 	struct mbox_save_context *ctx = MBOX_SAVECTX(_ctx);
-	struct event *event = _ctx->dest_mail->box->event;
 	const unsigned char *data;
 	size_t i, size;
 	ssize_t ret;
@@ -619,13 +631,8 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 	}
 	if (ret == 0)
 		return 0;
-	if (ctx->input->stream_errno != 0) {
-		e_error(event, "read(%s) failed: %s",
-			i_stream_get_name(ctx->input),
-			i_stream_get_error(ctx->input));
-		ctx->failed = TRUE;
-		return -1;
-	}
+	if (ctx->input->stream_errno != 0)
+		return mbox_save_read_error(ctx);
 
 	i_assert(ctx->last_char == '\n');
 
