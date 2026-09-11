@@ -1038,6 +1038,8 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 
 	if (ctx->save_ctx != NULL) {
 		while (ctx->litinput->v_offset != ctx->literal_size) {
+			uoff_t prev_offset = ctx->litinput->v_offset;
+
 			ret = i_stream_read(ctx->litinput);
 			if (mailbox_save_continue(ctx->save_ctx) < 0) {
 				/* we still have to finish reading the message
@@ -1045,6 +1047,11 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 				mailbox_save_cancel(&ctx->save_ctx);
 				break;
 			}
+			/* -2 means that the input buffer is full. The save
+			   above must then have consumed something from it,
+			   otherwise this loop would never finish. */
+			i_assert(ret != -2 ||
+				 ctx->litinput->v_offset > prev_offset);
 			if (ret == -1 || ret == 0)
 				break;
 		}
