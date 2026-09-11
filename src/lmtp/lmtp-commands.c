@@ -2,6 +2,7 @@
 
 #include "lmtp-common.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "strescape.h"
 #include "istream.h"
 #include "istream-concat.h"
@@ -13,6 +14,7 @@
 #include "smtp-address.h"
 #include "mail-deliver.h"
 #include "mail-error.h"
+#include "auth-master.h"
 #include "lmtp-recipient.h"
 #include "lmtp-proxy.h"
 #include "lmtp-local.h"
@@ -85,6 +87,20 @@ cmd_rcpt_handle_forward_fields(struct smtp_server_cmd_ctx *cmd,
 	}
 
 	char **fields = p_strsplit_tabescaped(rcpt->pool, str_c(xforward));
+	unsigned int i, j;
+	for (i = j = 0; fields[i] != NULL; i++) {
+		if (auth_forward_field_line_is_valid(fields[i])) {
+			fields[j++] = fields[i];
+			continue;
+		}
+		/* lmtp-proxy builds this parameter from passdb forward_*
+		   values: drop only the bad field, so a stray control byte in
+		   a passdb value does not bounce the mail */
+		e_warning(rcpt->event, "Ignoring invalid "
+			  LMTP_RCPT_FORWARD_PARAMETER" field: %s",
+			  str_sanitize(t_strcut(fields[i], '='), 64));
+	}
+	fields[j] = NULL;
 	lrcpt->forward_fields = (const char *const *)fields;
 	return 0;
 }
