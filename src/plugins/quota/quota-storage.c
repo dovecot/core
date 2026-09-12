@@ -163,7 +163,8 @@ quota_get_status(struct mailbox *box, enum mailbox_status_items items,
 		qt = quota_transaction_begin(box);
 		const char *error;
 		enum quota_alloc_result qret =
-			quota_test_alloc(qt, 0, NULL, 0, NULL, &error);
+			quota_test_alloc(qt, 0, NULL, 0,
+					 QUOTA_ALLOC_FLAGS_NONE, NULL, &error);
 		if (qret != QUOTA_ALLOC_RESULT_OK) {
 			quota_set_storage_error(qt, box, qret, error);
 			ret = -1;
@@ -265,7 +266,11 @@ static int quota_check(struct mail_save_context *ctx)
 		return 0;
 
 	const char *error;
-	ret = quota_try_alloc(qt, ctx->dest_mail, ctx->expunged_mail,
+	/* An already saved mail must stay copyable and movable even if it's
+	   larger than quota_mail_size. */
+	enum quota_alloc_flags flags = !quota_save_is_copy(ctx) ?
+		QUOTA_ALLOC_FLAGS_NONE : QUOTA_ALLOC_FLAG_NO_MAIL_SIZE_CHECK;
+	ret = quota_try_alloc(qt, ctx->dest_mail, ctx->expunged_mail, flags,
 			      NULL, &error);
 	switch (ret) {
 	case QUOTA_ALLOC_RESULT_OK:
@@ -356,8 +361,8 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 	const char *error;
 	uoff_t size;
 
-	if (!ctx->moving && i_stream_get_size(input, TRUE, &size) > 0 &&
-	    !qt->failed) {
+	if (!ctx->copying_or_moving &&
+	    i_stream_get_size(input, TRUE, &size) > 0 && !qt->failed) {
 		struct mailbox *expunged_box = NULL;
 		uoff_t expunged_size = 0;
 
@@ -393,7 +398,7 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 
 		enum quota_alloc_result qret =
 			quota_test_alloc(qt, size, expunged_box, expunged_size,
-					 NULL, &error);
+					 QUOTA_ALLOC_FLAGS_NONE, NULL, &error);
 		switch (qret) {
 		case QUOTA_ALLOC_RESULT_OK:
 			/* Great, there is space. */

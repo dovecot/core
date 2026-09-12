@@ -1123,6 +1123,7 @@ static void quota_alloc_with_size(struct quota_transaction_context *ctx,
 enum quota_alloc_result
 quota_try_alloc(struct quota_transaction_context *ctx,
 		struct mail *mail, struct mail *expunged_mail,
+		enum quota_alloc_flags flags,
 		const struct quota_overrun **overruns_r, const char **error_r)
 {
 	struct mailbox *expunged_box = (expunged_mail == NULL ? NULL :
@@ -1178,10 +1179,11 @@ quota_try_alloc(struct quota_transaction_context *ctx,
 
 	enum quota_alloc_result ret =
 		quota_test_alloc(ctx, size, expunged_box, expunged_size,
-				 overruns_r, error_r);
+				 flags, overruns_r, error_r);
 	if (ret != QUOTA_ALLOC_RESULT_OK)
 		return ret;
-	if (ctx->no_quota_updates)
+	if ((flags & QUOTA_ALLOC_FLAG_TEST_ONLY) != 0 ||
+	    ctx->no_quota_updates)
 		return QUOTA_ALLOC_RESULT_OK;
 	/* with quota_try_alloc() we want to keep track of how many bytes
 	   we've been adding/removing, so disable auto_updating=TRUE
@@ -1222,6 +1224,7 @@ quota_try_alloc(struct quota_transaction_context *ctx,
 enum quota_alloc_result
 quota_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
 		 struct mailbox *expunged_box, uoff_t expunged_size,
+		 enum quota_alloc_flags flags,
 		 const struct quota_overrun **overruns_r, const char **error_r)
 {
 	if (overruns_r != NULL)
@@ -1240,7 +1243,8 @@ quota_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
 	}
 
 	uoff_t max_size = ctx->set->quota_mail_size;
-	if (max_size > 0 && size > max_size) {
+	if ((flags & QUOTA_ALLOC_FLAG_NO_MAIL_SIZE_CHECK) == 0 &&
+	    max_size > 0 && size > max_size) {
 		*error_r = t_strdup_printf(
 			"Requested allocation size %"PRIuUOFF_T" exceeds max "
 			"mail size %"PRIuUOFF_T, size, max_size);

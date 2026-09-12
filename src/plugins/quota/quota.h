@@ -50,6 +50,16 @@ enum quota_alloc_result {
 	QUOTA_ALLOC_RESULT_BACKGROUND_CALC,
 };
 
+enum quota_alloc_flags {
+	QUOTA_ALLOC_FLAGS_NONE = 0,
+	/* An already saved mail is being copied or moved. quota_mail_size
+	   applies only to newly saved mails, so don't check it. */
+	QUOTA_ALLOC_FLAG_NO_MAIL_SIZE_CHECK = BIT(0),
+	/* Only check whether the mail would fit, don't allocate anything.
+	   Ignored by quota_test_alloc(), which never allocates. */
+	QUOTA_ALLOC_FLAG_TEST_ONLY = BIT(1),
+};
+
 /* Anything <= QUOTA_GET_RESULT_INTERNAL_ERROR is an error. */
 enum quota_get_result {
 	/* Ongoing background quota calculation */
@@ -128,11 +138,13 @@ void quota_transaction_rollback(struct quota_transaction_context **ctx);
 enum quota_alloc_result
 quota_try_alloc(struct quota_transaction_context *ctx,
 		struct mail *mail, struct mail *expunged_mail,
+		enum quota_alloc_flags flags,
 		const struct quota_overrun **overruns_r, const char **error_r);
 /* Like quota_try_alloc(), but don't actually allocate anything. */
 enum quota_alloc_result
 quota_test_alloc(struct quota_transaction_context *ctx, uoff_t size,
 		 struct mailbox *expunged_box, uoff_t expunged_size,
+		 enum quota_alloc_flags flags,
 		 const struct quota_overrun **overruns_r, const char **error_r)
 	ATTR_NULL(3);
 /* Update quota by allocating/freeing space used by mail. */
