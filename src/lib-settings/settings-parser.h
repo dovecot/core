@@ -251,10 +251,6 @@ void *settings_parser_get_set(const struct setting_parser_context *ctx);
 /* Return the last error. */
 const char *settings_parser_get_error(struct setting_parser_context *ctx);
 
-/* Returns pointer to value for a key, or NULL if not found. */
-const void *
-settings_parse_get_value(struct setting_parser_context *ctx,
-			 const char **key, enum setting_type *type_r);
 /* Parse key/value pair. Returns 1 if OK, 0 if key is unknown, -1 if error. */
 int settings_parse_keyvalue(struct setting_parser_context *ctx,
 			    const char *key, const char *value);

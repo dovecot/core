@@ -946,28 +946,6 @@ bool settings_parse_list_has_key(struct setting_parser_context *ctx,
 	return FALSE;
 }
 
-const void *
-settings_parse_get_value(struct setting_parser_context *ctx,
-			 const char **key, enum setting_type *type_r)
-{
-	const struct setting_define *def;
-
-	if (!settings_find_key(ctx, *key, TRUE, &def))
-		return NULL;
-
-	while (def->type == SET_ALIAS) {
-		i_assert(def != ctx->info->defines);
-		def--;
-		/* Replace the key with the unaliased key. We assume here that
-		   lists don't have aliases, because the key replacement
-		   would only need to replace the key prefix then. */
-		i_assert(def->type != SET_STRLIST && def->type != SET_BOOLLIST);
-		*key = def->key;
-	}
-	*type_r = def->type;
-	return PTR_OFFSET(ctx->set_struct, def->offset);
-}
-
 bool settings_check(struct event *event, const struct setting_parser_info *info,
 		    pool_t pool, void *set, const char **error_r)
 {
