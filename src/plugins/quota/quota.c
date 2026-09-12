@@ -1132,6 +1132,12 @@ quota_try_alloc(struct quota_transaction_context *ctx,
 	const char *error;
 	enum quota_get_result error_res;
 
+	/* Checking without allocating and allocating without checking are
+	   opposites. */
+	i_assert((flags & (QUOTA_ALLOC_FLAG_TEST_ONLY |
+			   QUOTA_ALLOC_FLAG_ALLOC_ONLY)) !=
+		 (QUOTA_ALLOC_FLAG_TEST_ONLY | QUOTA_ALLOC_FLAG_ALLOC_ONLY));
+
 	if (overruns_r != NULL)
 		*overruns_r = NULL;
 
@@ -1177,13 +1183,17 @@ quota_try_alloc(struct quota_transaction_context *ctx,
 		}
 	}
 
-	enum quota_alloc_result ret =
-		quota_test_alloc(ctx, size, expunged_box, expunged_size,
-				 flags, overruns_r, error_r);
-	if (ret != QUOTA_ALLOC_RESULT_OK)
-		return ret;
-	if ((flags & QUOTA_ALLOC_FLAG_TEST_ONLY) != 0 ||
-	    ctx->no_quota_updates)
+	if ((flags & QUOTA_ALLOC_FLAG_ALLOC_ONLY) == 0) {
+		enum quota_alloc_result ret =
+			quota_test_alloc(ctx, size, expunged_box,
+					 expunged_size, flags, overruns_r,
+					 error_r);
+		if (ret != QUOTA_ALLOC_RESULT_OK)
+			return ret;
+		if ((flags & QUOTA_ALLOC_FLAG_TEST_ONLY) != 0)
+			return QUOTA_ALLOC_RESULT_OK;
+	}
+	if (ctx->no_quota_updates)
 		return QUOTA_ALLOC_RESULT_OK;
 	/* with quota_try_alloc() we want to keep track of how many bytes
 	   we've been adding/removing, so disable auto_updating=TRUE

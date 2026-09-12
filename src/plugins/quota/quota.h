@@ -58,6 +58,12 @@ enum quota_alloc_flags {
 	/* Only check whether the mail would fit, don't allocate anything.
 	   Ignored by quota_test_alloc(), which never allocates. */
 	QUOTA_ALLOC_FLAG_TEST_ONLY = BIT(1),
+	/* The opposite of QUOTA_ALLOC_FLAG_TEST_ONLY: allocate without
+	   checking the limits, so the allocation can't fail. Used when the
+	   mail is already stored and the limits were already checked, where
+	   failing would only leave the mail unaccounted for. Ignored by
+	   quota_test_alloc(), which only checks. */
+	QUOTA_ALLOC_FLAG_ALLOC_ONLY = BIT(2),
 };
 
 /* Anything <= QUOTA_GET_RESULT_INTERNAL_ERROR is an error. */

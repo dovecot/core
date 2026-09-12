@@ -256,7 +256,8 @@ static bool quota_save_is_copy(struct mail_save_context *ctx)
 	return ctx->copying_or_moving && !ctx->saving;
 }
 
-static int quota_check(struct mail_save_context *ctx)
+static int quota_check_mail(struct mail_save_context *ctx, struct mail *mail,
+			    enum quota_alloc_flags flags)
 {
 	struct mailbox_transaction_context *t = ctx->transaction;
 	struct quota_transaction_context *qt = QUOTA_CONTEXT_REQUIRE(t);
@@ -268,9 +269,9 @@ static int quota_check(struct mail_save_context *ctx)
 	const char *error;
 	/* An already saved mail must stay copyable and movable even if it's
 	   larger than quota_mail_size. */
-	enum quota_alloc_flags flags = !quota_save_is_copy(ctx) ?
-		QUOTA_ALLOC_FLAGS_NONE : QUOTA_ALLOC_FLAG_NO_MAIL_SIZE_CHECK;
-	ret = quota_try_alloc(qt, ctx->dest_mail, ctx->expunged_mail, flags,
+	if (quota_save_is_copy(ctx))
+		flags |= QUOTA_ALLOC_FLAG_NO_MAIL_SIZE_CHECK;
+	ret = quota_try_alloc(qt, mail, ctx->expunged_mail, flags,
 			      NULL, &error);
 	switch (ret) {
 	case QUOTA_ALLOC_RESULT_OK:
@@ -292,6 +293,11 @@ static int quota_check(struct mail_save_context *ctx)
 		quota_set_storage_error(qt, t->box, ret, error);
 		return -1;
 	}
+}
+
+static int quota_check(struct mail_save_context *ctx)
+{
+	return quota_check_mail(ctx, ctx->dest_mail, QUOTA_ALLOC_FLAGS_NONE);
 }
 
 static int
@@ -318,6 +324,19 @@ quota_copy(struct mail_save_context *ctx, struct mail *mail)
 		}
 	}
 
+	/* Check the quota already before the mail is copied, using the source
+	   mail's size. Checking it only afterwards would mean failing after
+	   the backend has already added the mail to the transaction, which
+	   nothing undoes: the caller is told that the copy failed, but a
+	   caller that commits the transaction anyway - doveadm copy does, on
+	   purpose - commits the mail as well. Nothing is allocated here, so
+	   the allocation below still uses the size of the mail that was
+	   actually stored. */
+	if (quota_check_mail(ctx, mail, QUOTA_ALLOC_FLAG_TEST_ONLY) < 0) {
+		mailbox_save_cancel(&ctx);
+		return -1;
+	}
+
 	if (qbox->module_ctx.super.copy(ctx, mail) < 0)
 		return -1;
 
@@ -326,7 +345,14 @@ quota_copy(struct mail_save_context *ctx, struct mail *mail)
 		   quota */
 		return 0;
 	}
-	return quota_check(ctx);
+	/* The mail is now stored, so account for its actual size. The limits
+	   were already checked above - checking them again could only fail a
+	   copy that has already happened, which nothing undoes. It would also
+	   run the test_alloc plugins (trash) a second time. Without the check
+	   this can't return an over-quota failure at all; the size lookup can
+	   still fail, but that is only logged. */
+	return quota_check_mail(ctx, ctx->dest_mail,
+				QUOTA_ALLOC_FLAG_ALLOC_ONLY);
 }
 
 /* Limit how much of the mail being saved is read. The mail size isn't always
@@ -361,6 +387,8 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 	const char *error;
 	uoff_t size;
 
+	/* Copies and mailbox_save_using_mail() deliveries were already checked
+	   by quota_copy() before the copy was started. */
 	if (!ctx->copying_or_moving &&
 	    i_stream_get_size(input, TRUE, &size) > 0 && !qt->failed) {
 		struct mailbox *expunged_box = NULL;
