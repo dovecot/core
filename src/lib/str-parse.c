@@ -148,12 +148,10 @@ int str_parse_get_size(const char *str, uoff_t *bytes_r,
 	return 0;
 }
 
-int str_parse_get_bool(const char *value, bool *result_r,
-		       const char **error_r)
+int str_parse_get_bool_strict(const char *value, bool *result_r,
+			      const char **error_r)
 {
-	/* FIXME: eventually we'd want to support only yes/no */
-	if (strcasecmp(value, "yes") == 0 ||
-	    strcasecmp(value, "y") == 0 || strcmp(value, "1") == 0)
+	if (strcasecmp(value, "yes") == 0)
 		*result_r = TRUE;
 	else if (strcasecmp(value, "no") == 0)
 		*result_r = FALSE;
@@ -164,4 +162,14 @@ int str_parse_get_bool(const char *value, bool *result_r,
 	}
 
 	return 0;
+}
+
+int str_parse_get_bool(const char *value, bool *result_r,
+		       const char **error_r)
+{
+	if (strcasecmp(value, "y") == 0 || strcmp(value, "1") == 0) {
+		*result_r = TRUE;
+		return 0;
+	}
+	return str_parse_get_bool_strict(value, result_r, error_r);
 }

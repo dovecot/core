@@ -202,8 +202,70 @@ static void test_str_parse_get_size(void)
 	test_end();
 }
 
+static void test_str_parse_get_bool(void)
+{
+	test_begin("str_parse_get_bool()");
+
+	static const struct {
+		const char *input;
+		bool output;
+		bool strict_valid;
+	} tests[] = {
+		{ "yes", TRUE, TRUE },
+		{ "YES", TRUE, TRUE },
+		{ "Yes", TRUE, TRUE },
+		{ "no", FALSE, TRUE },
+		{ "NO", FALSE, TRUE },
+		/* The legacy values are accepted only by the non-strict
+		   parser. */
+		{ "y", TRUE, FALSE },
+		{ "Y", TRUE, FALSE },
+		{ "1", TRUE, FALSE },
+	};
+	static const char *const errors[] = {
+		"", "n", "0", "2", "true", "false", "yes ", "y1",
+	};
+	unsigned int i;
+	const char *error;
+	bool value;
+
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		error = NULL;
+		test_assert_idx(str_parse_get_bool(tests[i].input, &value,
+						   &error) == 0, i);
+		test_assert_idx(value == tests[i].output, i);
+		test_assert_idx(error == NULL, i);
+
+		error = NULL;
+		if (tests[i].strict_valid) {
+			test_assert_idx(str_parse_get_bool_strict(
+				tests[i].input, &value, &error) == 0, i);
+			test_assert_idx(value == tests[i].output, i);
+			test_assert_idx(error == NULL, i);
+		} else {
+			test_assert_idx(str_parse_get_bool_strict(
+				tests[i].input, &value, &error) < 0, i);
+			test_assert_idx(error != NULL, i);
+		}
+	}
+	for (i = 0; i < N_ELEMENTS(errors); i++) {
+		error = NULL;
+		test_assert_idx(str_parse_get_bool(errors[i], &value,
+						   &error) < 0, i);
+		test_assert_idx(error != NULL, i);
+
+		error = NULL;
+		test_assert_idx(str_parse_get_bool_strict(errors[i], &value,
+							  &error) < 0, i);
+		test_assert_idx(error != NULL, i);
+	}
+
+	test_end();
+}
+
 void test_str_parse(void)
 {
 	test_str_parse_get_interval();
 	test_str_parse_get_size();
+	test_str_parse_get_bool();
 }
