@@ -710,7 +710,6 @@ void client_create_side_channel_output(struct client *client)
 	i_assert(client->side_channel_output == NULL);
 	client->side_channel_output =
 		o_stream_multiplex_add_channel(client->multiplex_output, 1);
-	o_stream_set_no_error_handling(client->side_channel_output, TRUE);
 }
 
 static bool
