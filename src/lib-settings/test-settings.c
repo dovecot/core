@@ -59,11 +59,13 @@ static const struct setting_parser_info test2_fruit_setting_parser_info = {
 
 static struct setting_define test2_setting_defines[] = {
 	DEF(STR, title),
+	{ .type = SET_ALIAS, .key = "test2_title_alias" },
 
 	{ .type = SET_FILTER_ARRAY, .key = "test2_fruit",
 	   .offset = offsetof(struct test2_settings, fruits),
 	   .filter_array_field_name = "test2_fruit_name" },
 	DEF(STRLIST, attrs),
+	{ .type = SET_ALIAS, .key = "test2_attrs_alias" },
 	SETTING_DEFINE_LIST_END
 };
 
@@ -119,7 +121,11 @@ static void test_settings_get_scenario(
 	int ret;
 
 	/* Modified like this only for testing; normally this is all const */
-	test2_setting_defines[1].filter_array_order = order;
+	unsigned int fruit_idx;
+	if (!setting_parser_info_find_key(&test2_setting_parser_info,
+					  "test2_fruit", &fruit_idx))
+		i_unreached();
+	test2_setting_defines[fruit_idx].filter_array_order = order;
 
 	test_begin(t_strdup_printf("settings_get - %s", scenario_name));
 
@@ -667,6 +673,41 @@ static void test_settings_path_expand_no_home(void)
 	test_end();
 }
 
+static void test_settings_alias(void)
+{
+	test_begin("settings_get - alias");
+
+	struct settings_root *set_root = settings_root_init();
+	/* alias of a plain setting */
+	settings_root_override(set_root, "test2_title_alias", "aliased title",
+			       SETTINGS_OVERRIDE_TYPE_DEFAULT);
+	/* alias of a list setting, with a list key suffix */
+	settings_root_override(set_root, "test2_attrs_alias/k1", "v1",
+			       SETTINGS_OVERRIDE_TYPE_DEFAULT);
+
+	struct event *event = event_create(NULL);
+	event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
+
+	struct test2_settings *set;
+	const char *error;
+	test_assert(settings_get(event, &test2_setting_parser_info, 0,
+				 &set, &error) == 0);
+	test_assert_strcmp(set->title, "aliased title");
+
+	unsigned int count;
+	const char *const *attrs = array_get(&set->attrs, &count);
+	test_assert(count == 2);
+	if (count == 2) {
+		test_assert_strcmp(attrs[0], "k1");
+		test_assert_strcmp(attrs[1], "v1");
+	}
+	settings_free(set);
+
+	event_unref(&event);
+	settings_root_deinit(&set_root);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -677,6 +718,7 @@ int main(void)
 		test_settings_empty_default,
 		test_settings_path_expand,
 		test_settings_path_expand_no_home,
+		test_settings_alias,
 		NULL
 	};
 	return test_run(test_functions);

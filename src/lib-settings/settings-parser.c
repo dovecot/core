@@ -146,12 +146,14 @@ bool setting_parser_info_find_key(const struct setting_parser_info *info,
 			/* full setting */
 			*idx_r = setting_parser_info_unalias(info, i);
 			return TRUE;
-		} else if (suffix[0] == '/' &&
-			   (info->defines[i].type == SET_STRLIST ||
-			    info->defines[i].type == SET_BOOLLIST)) {
-			/* strlist key */
-			*idx_r = i;
-			return TRUE;
+		} else if (suffix[0] == '/') {
+			/* strlist key - the alias may point to a list */
+			unsigned int idx = setting_parser_info_unalias(info, i);
+			if (info->defines[idx].type == SET_STRLIST ||
+			    info->defines[idx].type == SET_BOOLLIST) {
+				*idx_r = idx;
+				return TRUE;
+			}
 		}
 	}
 	return FALSE;
