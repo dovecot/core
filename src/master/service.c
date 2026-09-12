@@ -719,6 +719,9 @@ static void service_kill(struct service *service, bool kicked)
 	bool first_kill;
 
 	first_kill = !service->kill_sigterm_sent;
+	/* The uninitialized processes couldn't be signalled, but they get
+	   their SIGTERM from service_status_input_one() as soon as their
+	   initial status notification arrives. */
 	service->kill_sigterm_sent = TRUE;
 
 	signal_count = service_signal(service,

@@ -234,7 +234,26 @@ service_status_input_one(struct service *service,
 	timeout_remove(&process->to_idle_kill);
 
 	/* first status notification */
-	timeout_remove(&process->to_status);
+	if (process->to_status != NULL) {
+		timeout_remove(&process->to_status);
+		if (service->kill_sigterm_sent) {
+			/* The service was killed while this process was still
+			   uninitialized, so it was skipped and only the next
+			   escalation would have reached it - with a SIGKILL.
+			   Send the SIGTERM now that the process can handle
+			   it. */
+			if (kill(process->pid, SIGTERM) == 0) {
+				e_debug(service->event,
+					"Sent delayed SIGTERM to %s process %s",
+					service->set->name,
+					dec2str(process->pid));
+			} else if (errno != ESRCH) {
+				e_error(service->event,
+					"kill(%s, SIGTERM) failed: %m",
+					dec2str(process->pid));
+			}
+		}
+	}
 
 	if (status->available_count == UINT_MAX) {
 		/* restart_request_count reached. If this is a service with
