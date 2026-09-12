@@ -121,6 +121,10 @@ struct client *client_create(int fd_in, int fd_out,
 	client->input = i_stream_create_fd(fd_in,
 					   set->imap_max_line_length);
 	client->output = o_stream_create_fd(fd_out, SIZE_MAX);
+	/* Disable the error handling before wrapping the ostream, so that the
+	   wrapper inherits it. Closing the wrapper closes the fd ostream as
+	   well, and that would panic if it still had unsent data. */
+	o_stream_set_no_error_handling(client->output, TRUE);
 	if ((flags & CLIENT_CREATE_FLAG_MULTIPLEX_OUTPUT) != 0) {
 		client->multiplex_output =
 			o_stream_create_multiplex(client->output, SIZE_MAX,
@@ -128,7 +132,6 @@ struct client *client_create(int fd_in, int fd_out,
 		o_stream_unref(&client->output);
 		client->output = client->multiplex_output;
 	}
-	o_stream_set_no_error_handling(client->output, TRUE);
 	i_stream_set_name(client->input, "<imap client>");
 	o_stream_set_name(client->output, "<imap client>");
 
