@@ -33,6 +33,12 @@ extern const struct setting_parser_info client_auth_setting_parser_info;
 const struct client_auth_settings *
 client_auth_settings_ref(pool_t pool, const struct client_auth_settings *set);
 
+/* Compares the client auth settings, including the per-mechanism settings, of
+   the two events. Returns 1 if they are equal, 0 if they are not and -1 if
+   looking up the settings failed. */
+int client_auth_settings_equal(struct event *event1, struct event *event2,
+			       const char **error_r);
+
 static inline bool
 client_auth_settings_mechanism_configured(const struct client_auth_settings *set)
 {

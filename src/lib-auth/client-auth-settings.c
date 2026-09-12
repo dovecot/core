@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str-sanitize.h"
+#include "settings.h"
 #include "settings-parser.h"
 
 #include "client-auth-settings.h"
@@ -76,4 +77,61 @@ client_auth_settings_ref(pool_t pool, const struct client_auth_settings *set)
 		set_new->password = p_strdup(pool, set->password);
 
 	return set_new;
+}
+
+int client_auth_settings_equal(struct event *event1, struct event *event2,
+			       const char **error_r)
+{
+	const struct client_auth_settings *set1, *set2;
+	int ret = 1;
+
+	if (settings_get(event1, &client_auth_setting_parser_info, 0,
+			 &set1, error_r) < 0)
+		return -1;
+	if (settings_get(event2, &client_auth_setting_parser_info, 0,
+			 &set2, error_r) < 0) {
+		settings_free(set1);
+		return -1;
+	}
+
+	if (!settings_equal(&client_auth_setting_parser_info, set1, set2, NULL))
+		ret = 0;
+
+	if (ret > 0 && !array_is_empty(&set1->mechanisms)) {
+		/* Compare also the per-mechanism settings. The mechanism lists
+		   themselves are already known to be equal. */
+		const char *mech_name;
+
+		array_foreach_elem(&set1->mechanisms, mech_name) {
+			const struct client_auth_settings *mech_set1;
+			const struct client_auth_settings *mech_set2;
+
+			if (settings_get_filter(event1,
+					CLIENT_AUTH_SETTINGS_FILTER, mech_name,
+					&client_auth_setting_parser_info, 0,
+					&mech_set1, error_r) < 0) {
+				ret = -1;
+				break;
+			}
+			if (settings_get_filter(event2,
+					CLIENT_AUTH_SETTINGS_FILTER, mech_name,
+					&client_auth_setting_parser_info, 0,
+					&mech_set2, error_r) < 0) {
+				settings_free(mech_set1);
+				ret = -1;
+				break;
+			}
+			if (!settings_equal(&client_auth_setting_parser_info,
+					    mech_set1, mech_set2, NULL))
+				ret = 0;
+			settings_free(mech_set1);
+			settings_free(mech_set2);
+			if (ret == 0)
+				break;
+		}
+	}
+
+	settings_free(set1);
+	settings_free(set2);
+	return ret;
 }

@@ -9,7 +9,8 @@ AM_CPPFLAGS = \
 	$(LIBSODIUM_CFLAGS) \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
-	-I$(top_srcdir)/src/lib-settings
+	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-var-expand
 
 libauth_la_SOURCES = \
 	auth-digest.c \
