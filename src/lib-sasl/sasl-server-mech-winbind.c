@@ -114,9 +114,22 @@ static void winbind_helper_kill_now(struct winbind_helper *helper)
 	if (kill(helper->pid, SIGKILL) < 0) {
 		e_error(helper->event,
 			"Failed to send SIGKILL signal to helper");
-	} else if (waitpid(helper->pid, NULL, 0) < 0) {
-		e_error(helper->event,
-			"waitpid(%d) failed: %m", helper->pid);
+	} else {
+		/* SIGKILL was delivered, so the helper is already dying -
+		   this wait doesn't depend on anything the helper does. The
+		   SIGTERM, SIGQUIT and SIGALRM handlers don't use SA_RESTART,
+		   so any of them can interrupt the wait. ECHILD means
+		   child-wait's SIGCHLD handler reaped the helper first, which
+		   isn't an error either. */
+		while (waitpid(helper->pid, NULL, 0) < 0) {
+			if (errno == EINTR)
+				continue;
+			if (errno != ECHILD) {
+				e_error(helper->event,
+					"waitpid(%d) failed: %m", helper->pid);
+			}
+			break;
+		}
 	}
 	winbind_helper_terminated(helper);
 }
