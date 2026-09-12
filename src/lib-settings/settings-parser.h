@@ -244,6 +244,11 @@ setting_parser_info_get_define_count(const struct setting_parser_info *info);
    alias, the primary key's index is returned. */
 bool setting_parser_info_find_key(const struct setting_parser_info *info,
 				  const char *key, unsigned int *idx_r);
+/* If defines[idx] is a SET_ALIAS, returns the index of the setting definition
+   it refers to. Otherwise returns idx. */
+unsigned int
+setting_parser_info_unalias(const struct setting_parser_info *info,
+			    unsigned int idx);
 
 /* Returns the current settings. */
 void *settings_parser_get_set(const struct setting_parser_context *ctx);

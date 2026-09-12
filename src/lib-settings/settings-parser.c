@@ -125,6 +125,15 @@ setting_parser_info_get_define_count(const struct setting_parser_info *info)
 	return count;
 }
 
+unsigned int
+setting_parser_info_unalias(const struct setting_parser_info *info,
+			    unsigned int idx)
+{
+	while (idx > 0 && info->defines[idx].type == SET_ALIAS)
+		idx--;
+	return idx;
+}
+
 bool setting_parser_info_find_key(const struct setting_parser_info *info,
 				  const char *key, unsigned int *idx_r)
 {
@@ -135,9 +144,7 @@ bool setting_parser_info_find_key(const struct setting_parser_info *info,
 			; /* mismatch */
 		else if (suffix[0] == '\0') {
 			/* full setting */
-			while (i > 0 && info->defines[i].type == SET_ALIAS)
-				i--;
-			*idx_r = i;
+			*idx_r = setting_parser_info_unalias(info, i);
 			return TRUE;
 		} else if (suffix[0] == '/' &&
 			   (info->defines[i].type == SET_STRLIST ||
