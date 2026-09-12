@@ -389,9 +389,25 @@ program_client_local_kill_now(struct program_client_local *plclient)
 	if (kill(plclient->pid, SIGKILL) < 0) {
 		e_error(pclient->event,
 			"Failed to send SIGKILL signal to program");
-	} else if (waitpid(plclient->pid, &plclient->status, 0) < 0) {
-		e_error(pclient->event, "waitpid(%d) failed: %m",
-			plclient->pid);
+	} else {
+		/* SIGKILL was delivered, so the program is already dying -
+		   this wait doesn't depend on anything the program does.
+		   The SIGTERM, SIGQUIT and SIGALRM handlers don't use
+		   SA_RESTART, so any of them can interrupt the wait. Retry,
+		   because the caller needs the exit status: without it the
+		   killed program would look like it exited successfully.
+		   ECHILD means child-wait's SIGCHLD handler reaped the
+		   program first, which isn't an error either. */
+		while (waitpid(plclient->pid, &plclient->status, 0) < 0) {
+			if (errno == EINTR)
+				continue;
+			if (errno != ECHILD) {
+				e_error(pclient->event,
+					"waitpid(%d) failed: %m",
+					plclient->pid);
+			}
+			break;
+		}
 	}
 }
 
