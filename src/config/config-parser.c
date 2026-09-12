@@ -619,7 +619,7 @@ settings_value_check(struct config_parser_context *ctx,
 		bool b;
 		if ((ret = settings_value_check_common(ctx, value)) <= 0)
 			return ret;
-		if (str_parse_get_bool(value, &b, &error) < 0) {
+		if (str_parse_get_bool_strict(value, &b, &error) < 0) {
 			ctx->error = p_strdup(ctx->pool, error);
 			return -1;
 		}
@@ -877,7 +877,8 @@ static int config_apply_boollist(struct config_parser_context *ctx,
 		if (prefixed_value[0] == CONFIG_VALUE_PREFIX_EXPANDED &&
 		    setting_value_can_check(prefixed_value + 1,
 					    ctx->expand_values) &&
-		    str_parse_get_bool(prefixed_value + 1, &b, &error) < 0) {
+		    str_parse_get_bool_strict(prefixed_value + 1, &b,
+					      &error) < 0) {
 			ctx->error = p_strdup(ctx->pool, error);
 			return -1;
 		}
