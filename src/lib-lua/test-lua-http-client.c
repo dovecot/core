@@ -342,6 +342,148 @@ static bool test_client_second_post(void)
 	return TRUE;
 }
 
+/*
+ * Large payload
+ */
+
+#define TEST_LARGE_PAYLOAD_SIZE (4*1024*1024)
+
+/* server */
+
+struct _large_payload_sctx {
+	struct timeout *to;
+	bool serviced:1;
+};
+
+static int test_server_large_payload_init(struct server_connection *conn)
+{
+	struct _large_payload_sctx *ctx;
+
+	ctx = p_new(conn->pool, struct _large_payload_sctx, 1);
+	conn->context = ctx;
+	return 0;
+}
+
+static void
+test_server_large_payload_disconnect(struct server_connection *conn)
+{
+	struct _large_payload_sctx *ctx = conn->context;
+
+	timeout_remove(&ctx->to);
+	server_connection_deinit(&conn);
+}
+
+static void test_server_large_payload_send(struct server_connection *conn)
+{
+	unsigned char filler[4096];
+	size_t filler_size = TEST_LARGE_PAYLOAD_SIZE -
+		strlen("BEGIN") - strlen("END");
+	size_t sent;
+
+	o_stream_nsend_str(conn->conn.output,
+		t_strdup_printf("HTTP/1.1 200 OK\r\n"
+				"Content-Length: %u\r\n"
+				"\r\n"
+				"BEGIN", TEST_LARGE_PAYLOAD_SIZE));
+
+	memset(filler, 'x', sizeof(filler));
+	for (sent = 0; sent < filler_size; ) {
+		size_t size = I_MIN(sizeof(filler), filler_size - sent);
+
+		o_stream_nsend(conn->conn.output, filler, size);
+		sent += size;
+	}
+
+	o_stream_nsend_str(conn->conn.output, "END");
+}
+
+static void test_server_large_payload_input(struct server_connection *conn)
+{
+	struct _large_payload_sctx *ctx = conn->context;
+	const char *line;
+
+	if (ctx->serviced) {
+		/* Wait for disconnect or beginning of next request */
+		ssize_t sret = i_stream_read(conn->conn.input);
+		if (sret > 0 || conn->conn.input->eof)
+			server_connection_deinit(&conn);
+		return;
+	}
+
+	/* Wait for the end of the request headers */
+	while ((line = i_stream_read_next_line(conn->conn.input)) != NULL) {
+		if (*line == '\0')
+			break;
+	}
+
+	if (conn->conn.input->stream_errno != 0) {
+		i_fatal("server: Stream error: %s",
+			i_stream_get_error(conn->conn.input));
+	}
+	if (line == NULL) {
+		if (conn->conn.input->eof)
+			server_connection_deinit(&conn);
+		return;
+	}
+
+	test_server_large_payload_send(conn);
+
+	ctx->serviced = TRUE;
+	ctx->to = timeout_add(
+		5000, test_server_large_payload_disconnect, conn);
+}
+
+static void test_server_large_payload_deinit(struct server_connection *conn)
+{
+	struct _large_payload_sctx *ctx = conn->context;
+
+	timeout_remove(&ctx->to);
+}
+
+static void test_server_large_payload(unsigned int index)
+{
+	test_server_init = test_server_large_payload_init;
+	test_server_input = test_server_large_payload_input;
+	test_server_deinit = test_server_large_payload_deinit;
+	test_server_run(index);
+}
+
+/* client */
+
+static bool test_client_large_payload(void)
+{
+	struct dlua_script *script;
+	const char *error;
+
+	if (dlua_script_create_file(
+		TEST_LUA_SCRIPT_DIR "/test-lua-http-client.lua",
+		&script, client_event, &error) < 0)
+		i_fatal("dlua_script_create_file() failed: %s", error);
+
+	dlua_dovecot_register(script);
+	if (dlua_script_init(script, &error) < 0)
+		i_fatal("dlua_script_init() failed: %s", error);
+
+	lua_pushstring(script->L,
+		t_strdup_printf("http://hosta:%u/large-payload",
+				bind_ports[0]));
+	lua_pushinteger(script->L, TEST_LARGE_PAYLOAD_SIZE);
+	if (dlua_pcall(script->L, "http_request_large_payload", 2, 1,
+		       &error) < 0)
+		i_fatal("dlua_pcall() failed: %s", error);
+
+	test_assert(lua_isinteger(script->L, -1));
+	if (lua_isinteger(script->L, -1))
+		test_assert(lua_tointeger(script->L, -1) == 0);
+
+	lua_pop(script->L, 1);
+	i_assert(lua_gettop(script->L) == 0);
+
+	dlua_script_unref(&script);
+
+	return TRUE;
+}
+
 /* test */
 
 static void test_simple_post(void)
@@ -377,6 +519,16 @@ static void test_second_post(void)
 			       test_dns_simple_post);
 	test_end();
 
+}
+
+static void test_large_payload(void)
+{
+	test_begin("large payload");
+	test_server_ssl = FALSE;
+	test_run_client_server(test_client_large_payload,
+			       test_server_large_payload, 1,
+			       test_dns_simple_post);
+	test_end();
 }
 
 static void test_bad_settings(void)
@@ -500,6 +652,7 @@ static void test_set_no_event(void)
 static void (*const test_functions[])(void) = {
 	test_simple_post,
 	test_second_post,
+	test_large_payload,
 	test_bad_settings,
 	test_set_event,
 	test_set_no_event,

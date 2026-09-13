@@ -98,3 +98,28 @@ function test_http_request_set_no_event(event, url)
   request:set_payload("some+foolish+payload+for+funsies\r\n", true)
   return request:get_event()
 end
+
+function http_request_large_payload(url, expect_len)
+  local request = http_client:request {
+    url = url,
+    method = "GET"
+  }
+  local response = request:submit()
+
+  if response:status() ~= 200 then
+    return -1
+  end
+
+  local payload = response:payload()
+  if #payload ~= expect_len then
+    return -2
+  end
+  if payload:sub(1, 5) ~= "BEGIN" or payload:sub(-3) ~= "END" then
+    return -3
+  end
+  -- everything between the markers must be filler
+  if payload:find("[^x]", 6) ~= expect_len - 2 then
+    return -4
+  end
+  return 0
+end
