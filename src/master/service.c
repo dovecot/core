@@ -28,6 +28,8 @@
 HASH_TABLE_TYPE(pid_process) service_pids;
 ARRAY_TYPE(service_list) service_lists;
 
+static unsigned int service_list_generation = 0;
+
 static struct service_listener *
 service_create_file_listener(struct service *service,
 			     enum service_listener_type type,
@@ -526,6 +528,7 @@ int services_create(const struct master_settings *set,
 	}
 	pool_ref(set->pool);
 
+	(*services_r)->generation = ++service_list_generation;
 	array_insert(&service_lists, 0, services_r, 1);
 	return 0;
 }

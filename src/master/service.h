@@ -178,6 +178,8 @@ ARRAY_DEFINE_TYPE(service_list, struct service_list *);
 struct service_list {
 	pool_t pool;
 	int refcount;
+	/* Increases by one for each configuration reload. */
+	unsigned int generation;
 	/* Kills the old generation's processes that a reload doesn't
 	   preserve. */
 	struct timeout *to_kill;

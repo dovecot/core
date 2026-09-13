@@ -23,7 +23,7 @@ master_client_service_status_output(string_t *str,
 				    const struct service *service)
 {
 	str_append_tabescaped(str, service->set->name);
-	str_printfa(str, "\t%u\t%u\t%u\t%u\t%u\t%ld\t%u\t%ld\t%c\t%c\t%c\t%"PRIu64"\n",
+	str_printfa(str, "\t%u\t%u\t%u\t%u\t%u\t%ld\t%u\t%ld\t%c\t%c\t%c\t%"PRIu64"\t%u\n",
 		    service->process_count, service->process_avail,
 		    service->process_limit, service->client_limit,
 		    (service->to_throttle == NULL ?
@@ -34,19 +34,38 @@ master_client_service_status_output(string_t *str,
 		    service->listen_pending ? 'y' : 'n',
 		    service->listening ? 'y' : 'n',
 		    service->doveadm_stop ? 'y' : 'n',
-		    service->process_count_total);
+		    service->process_count_total,
+		    service->list->generation);
+}
+
+static void
+master_client_service_status_list(struct master_client *client,
+				  struct service_list *service_list,
+				  string_t *str)
+{
+	struct service *service;
+
+	array_foreach_elem(&service_list->services, service) {
+		str_truncate(str, 0);
+		master_client_service_status_output(str, service);
+		o_stream_nsend(client->conn.output,
+			       str_data(str), str_len(str));
+	}
 }
 
 static int
-master_client_service_status(struct master_client *client)
+master_client_service_status(struct master_client *client,
+			     const char *const *args)
 {
-	struct service *service;
+	struct service_list *service_list;
 	string_t *str = t_str_new(128);
 
-	array_foreach_elem(&services->services, service) {
-		str_truncate(str, 0);
-		master_client_service_status_output(str, service);
-		o_stream_nsend(client->conn.output, str_data(str), str_len(str));
+	if (args[0] != NULL && strcmp(args[0], "all-generations") == 0) {
+		array_foreach_elem(&service_lists, service_list)
+			master_client_service_status_list(client, service_list,
+							  str);
+	} else {
+		master_client_service_status_list(client, services, str);
 	}
 	o_stream_nsend_str(client->conn.output, "\n");
 	return 1;
@@ -57,11 +76,12 @@ master_client_process_output(string_t *str,
 			     const struct service_process *process)
 {
 	str_append_tabescaped(str, process->service->set->name);
-	str_printfa(str, "\t%lu\t%u\t%u\t%ld\t%ld\t%ld\n",
+	str_printfa(str, "\t%lu\t%u\t%u\t%ld\t%ld\t%ld\t%u\n",
 		    (unsigned long)process->pid, process->available_count,
 		    process->total_count, (long)process->idle_start,
 		    (long)process->last_status_update,
-		    (long)process->last_kill_sent);
+		    (long)process->last_kill_sent,
+		    process->service->list->generation);
 }
 
 static void
@@ -206,7 +226,7 @@ master_client_input_args(struct connection *conn, const char *const *args)
 	args++;
 
 	if (strcmp(cmd, "SERVICE-STATUS") == 0)
-		return master_client_service_status(client);
+		return master_client_service_status(client, args);
 	if (strcmp(cmd, "PROCESS-STATUS") == 0)
 		return master_client_process_status(client, args);
 	if (strcmp(cmd, "ERROR-LOG") == 0)

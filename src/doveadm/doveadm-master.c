@@ -194,14 +194,21 @@ static void cmd_service_stop(struct doveadm_cmd_context *cctx)
 
 static void cmd_service_status(struct doveadm_cmd_context *cctx)
 {
+	static const char *const all_args[] = { "all-generations", NULL };
 	const char *line, *const *services;
+	const char *const *args = NULL;
 	unsigned int fields_count;
+	bool all_generations;
 
 	if (!doveadm_cmd_param_array(cctx, "service", &services))
 		services = NULL;
+	if (!doveadm_cmd_param_bool(cctx, "all-generations", &all_generations))
+		all_generations = FALSE;
+	if (all_generations)
+		args = all_args;
 
 	struct istream *input =
-		master_service_send_cmd_or_fatal("SERVICE-STATUS");
+		master_service_send_cmd_with_args("SERVICE-STATUS", args);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_PAGER);
 	doveadm_print_header_simple("name");
@@ -217,6 +224,7 @@ static void cmd_service_status(struct doveadm_cmd_context *cctx)
 	doveadm_print_header_simple("listening");
 	doveadm_print_header_simple("doveadm_stop");
 	doveadm_print_header_simple("process_total");
+	doveadm_print_header_simple("generation");
 	fields_count = doveadm_print_get_headers_count();
 
 	alarm(5);
@@ -247,6 +255,7 @@ static void cmd_service_status(struct doveadm_cmd_context *cctx)
 static void cmd_process_status(struct doveadm_cmd_context *cctx)
 {
 	const char *line, *const *services;
+	unsigned int fields_count;
 
 	if (!doveadm_cmd_param_array(cctx, "service", &services))
 		services = NULL;
@@ -262,6 +271,8 @@ static void cmd_process_status(struct doveadm_cmd_context *cctx)
 	doveadm_print_header_simple("idle_start");
 	doveadm_print_header_simple("last_status_update");
 	doveadm_print_header_simple("last_kill_sent");
+	doveadm_print_header_simple("generation");
+	fields_count = doveadm_print_get_headers_count();
 
 	alarm(5);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
@@ -269,10 +280,11 @@ static void cmd_process_status(struct doveadm_cmd_context *cctx)
 			break;
 		T_BEGIN {
 			const char *const *args = t_strsplit_tabescaped(line);
-			if (str_array_length(args) >= 7) {
-				for (unsigned int i = 0; i < 7; i++)
-					doveadm_print(args[i]);
-			}
+			unsigned int i;
+
+			for (i = 0; i < fields_count && args[i] != NULL; i++)
+				doveadm_print(args[i]);
+			doveadm_print_empty(fields_count - i);
 		} T_END;
 	}
 	if (line == NULL) {
@@ -313,8 +325,9 @@ DOVEADM_CMD_PARAMS_END
 struct doveadm_cmd_ver2 doveadm_cmd_service_status_ver2 = {
 	.cmd = cmd_service_status,
 	.name = "service status",
-	.usage = "[<service> [...]]",
+	.usage = "[-a] [<service> [...]]",
 DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "all-generations", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('\0', "service", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
