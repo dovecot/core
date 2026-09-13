@@ -21,6 +21,9 @@ extern int global_config_fd;
 extern struct service_list *services;
 extern bool startup_finished;
 
+/* Reload the configuration. Returns 0 on success, -1 on error. */
+int master_settings_reload(const char **error_r);
+
 void process_exec(const char *cmd) ATTR_NORETURN;
 
 int get_uidgid(const char *user, uid_t *uid_r, gid_t *gid_r,

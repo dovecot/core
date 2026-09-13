@@ -385,9 +385,7 @@ static void instance_update(const struct master_settings *set)
 	instance_update_now(instances);
 }
 
-static void
-sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
-		    void *context ATTR_UNUSED)
+static int master_settings_reload_int(const char **error_r)
 {
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
@@ -396,19 +394,14 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	struct service *service;
 	const char *error;
 
-	i_sd_notify(0, "RELOADING=1");
-	i_warning("SIGHUP received - reloading configuration");
-
 	/* see if hostname changed */
 	hostpid_init();
 
 	if (services->config->process_avail == 0) {
 		/* we can't reload config if there's no config process. */
 		if (service_process_create(services->config, -1, NULL) == NULL) {
-			i_error("Can't reload configuration because "
-				"we couldn't create a config process");
-			i_sd_notify(0, "READY=1");
-			return;
+			*error_r = "Can't reload configuration because we couldn't create a config process";
+			return -1;
 		}
 	}
 
@@ -419,18 +412,13 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	input.reload_config = TRUE;
 	input.return_config_fd = TRUE;
 	if (master_service_settings_read(master_service, &input,
-					 &output, &error) < 0) {
-		i_error("%s", error);
-		i_sd_notify(0, "READY=1");
-		return;
-	}
+					 &output, error_r) < 0)
+		return -1;
 	if (settings_get(master_service_get_event(master_service),
 			 &master_setting_parser_info, 0,
-			 &set, &error) < 0) {
+			 &set, error_r) < 0) {
 		i_close_fd(&output.config_fd);
-		i_error("%s", error);
-		i_sd_notify(0, "READY=1");
-		return;
+		return -1;
 	}
 	i_close_fd(&global_config_fd);
 	global_config_fd = output.config_fd;
@@ -438,10 +426,9 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 
 	if (services_create(set, &new_services, &error) < 0) {
 		/* new configuration is invalid, keep the old */
-		i_error("Config reload failed: %s", error);
-		i_sd_notify(0, "READY=1");
+		*error_r = t_strdup_printf("Config reload failed: %s", error);
 		settings_free(set);
-		return;
+		return -1;
 	}
 	settings_free(set);
 	new_services->config->config_file_path =
@@ -452,8 +439,8 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	services_monitor_stop(services, FALSE);
 	if (services_listen_using(new_services, services) < 0) {
 		services_monitor_start(services);
-		i_sd_notify(0, "READY=1");
-		return;
+		*error_r = "Failed to move listeners to the new configuration";
+		return -1;
 	}
 	/* The new generation's listeners exist now, so the old stats process
 	   can hand its writer clients over: they find the stats-writer socket
@@ -473,7 +460,26 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 
 	services = new_services;
         services_monitor_start(services);
+	return 0;
+}
+
+int master_settings_reload(const char **error_r)
+{
+	i_sd_notify(0, "RELOADING=1");
+	int ret = master_settings_reload_int(error_r);
 	i_sd_notify(0, "READY=1");
+	return ret;
+}
+
+static void
+sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
+		    void *context ATTR_UNUSED)
+{
+	const char *error;
+
+	i_warning("SIGHUP received - reloading configuration");
+	if (master_settings_reload(&error) < 0)
+		i_error("%s", error);
 }
 
 static void
