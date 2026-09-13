@@ -89,11 +89,6 @@ static void cmd_stop(struct doveadm_cmd_context *cctx)
 	doveadm_master_send_signal(SIGTERM, cctx->event);
 }
 
-static void cmd_reload(struct doveadm_cmd_context *cctx)
-{
-	doveadm_master_send_signal(SIGHUP, cctx->event);
-}
-
 int master_service_send_cmd(const char *cmd, struct istream **input_r,
 			    const char **error_r)
 {
@@ -167,6 +162,22 @@ static void master_service_send_cmd_reply(struct doveadm_cmd_context *cctx,
 	}
 	alarm(0);
 	i_stream_destroy(&input);
+}
+
+static void cmd_reload(struct doveadm_cmd_context *cctx)
+{
+	const char *kick_timeout;
+
+	if (!doveadm_cmd_param_str(cctx, "kick-timeout", &kick_timeout)) {
+		/* Sending a signal also works with older masters. */
+		doveadm_master_send_signal(SIGHUP, cctx->event);
+		return;
+	}
+	const char *const args[] = { kick_timeout, NULL };
+
+	master_service_send_cmd_reply(cctx,
+		master_service_send_cmd_with_args("RELOAD", args),
+		EX_TEMPFAIL);
 }
 
 static void cmd_service_stop(struct doveadm_cmd_context *cctx)
@@ -284,8 +295,9 @@ DOVEADM_CMD_PARAMS_END
 struct doveadm_cmd_ver2 doveadm_cmd_reload_ver2 = {
         .cmd = cmd_reload,
         .name = "reload",
-        .usage = "",
+        .usage = "[--kick-timeout <time>]",
 DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('\0', "kick-timeout", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAMS_END
 };
 

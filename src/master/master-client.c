@@ -6,6 +6,8 @@
 #include "strescape.h"
 #include "ostream.h"
 #include "connection.h"
+#include "settings-parser.h"
+#include "str-parse.h"
 #include "log-error-buffer.h"
 #include "service.h"
 #include "service-process.h"
@@ -145,6 +147,49 @@ master_client_stop(struct master_client *client, const char *const *args)
 }
 
 static int
+master_client_reload(struct master_client *client, const char *const *args)
+{
+	unsigned int kick_timeout_secs = 0;
+	bool replace_timeout = FALSE;
+	const char *error, *timeout_str;
+
+	if (args[0] != NULL && args[1] != NULL) {
+		o_stream_nsend_str(client->conn.output,
+				   "-Too many parameters\n");
+		return 1;
+	}
+	if (args[0] != NULL) {
+		if (settings_value_is_unlimited(args[0]))
+			kick_timeout_secs = SET_TIME_INFINITE;
+		else if (str_parse_get_interval(args[0], &kick_timeout_secs,
+						&error) < 0) {
+			o_stream_nsend_str(client->conn.output, t_strdup_printf(
+				"-Invalid kick timeout: %s\n", error));
+			return 1;
+		}
+		replace_timeout = TRUE;
+	}
+
+	if (!replace_timeout)
+		timeout_str = "service_shutdown_clients_timeout";
+	else if (kick_timeout_secs == SET_TIME_INFINITE)
+		timeout_str = "infinite";
+	else
+		timeout_str = t_strdup_printf("%u secs", kick_timeout_secs);
+	i_warning("Reloading configuration (kick timeout: %s)", timeout_str);
+
+	if (master_settings_reload(replace_timeout, kick_timeout_secs,
+				   &error) < 0) {
+		i_error("%s", error);
+		o_stream_nsend_str(client->conn.output,
+			t_strdup_printf("-%s\n", error));
+	} else {
+		o_stream_nsend_str(client->conn.output, "+\n");
+	}
+	return 1;
+}
+
+static int
 master_client_input_args(struct connection *conn, const char *const *args)
 {
 	struct master_client *client = (struct master_client *)conn;
@@ -164,6 +209,8 @@ master_client_input_args(struct connection *conn, const char *const *args)
 		return master_client_send_errors(client);
 	if (strcmp(cmd, "STOP") == 0)
 		return master_client_stop(client, args);
+	if (strcmp(cmd, "RELOAD") == 0)
+		return master_client_reload(client, args);
 	e_error(conn->event, "Unknown command: %s", cmd);
 	return -1;
 }

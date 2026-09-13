@@ -385,7 +385,9 @@ static void instance_update(const struct master_settings *set)
 	instance_update_now(instances);
 }
 
-static int master_settings_reload_int(const char **error_r)
+static int master_settings_reload_int(bool replace_timeout,
+				      unsigned int kick_timeout_secs,
+				      const char **error_r)
 {
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
@@ -456,17 +458,20 @@ static int master_settings_reload_int(const char **error_r)
 		while (service->idle_processes_head != NULL)
 			service_process_destroy(service->idle_processes_head);
 	}
-	services_destroy(services, FALSE);
+	services_destroy(services, FALSE, replace_timeout, kick_timeout_secs);
 
 	services = new_services;
         services_monitor_start(services);
 	return 0;
 }
 
-int master_settings_reload(const char **error_r)
+int master_settings_reload(bool replace_timeout,
+			   unsigned int kick_timeout_secs,
+			   const char **error_r)
 {
 	i_sd_notify(0, "RELOADING=1");
-	int ret = master_settings_reload_int(error_r);
+	int ret = master_settings_reload_int(replace_timeout,
+					     kick_timeout_secs, error_r);
 	i_sd_notify(0, "READY=1");
 	return ret;
 }
@@ -478,7 +483,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	const char *error;
 
 	i_warning("SIGHUP received - reloading configuration");
-	if (master_settings_reload(&error) < 0)
+	if (master_settings_reload(FALSE, 0, &error) < 0)
 		i_error("%s", error);
 }
 
@@ -632,7 +637,7 @@ static void main_deinit(void)
 
 	/* kill services and wait for them to die before unlinking pid file */
 	master_alive_pipe_close();
-	services_destroy(services, TRUE);
+	services_destroy(services, TRUE, FALSE, 0);
 
 	i_unlink(pidfile_path);
 	i_free(pidfile_path);

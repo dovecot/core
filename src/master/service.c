@@ -835,13 +835,21 @@ static void services_kick(struct service_list *service_list)
 	}
 }
 
-void services_destroy(struct service_list *service_list, bool wait)
+void services_destroy(struct service_list *service_list, bool wait,
+		      bool replace_timeout, unsigned int kick_timeout_secs)
 {
+	struct service *service;
+
 	/* make sure we log if child processes died unexpectedly */
 	service_list->destroying = TRUE;
 	services_monitor_reap_children();
 
 	services_monitor_stop(service_list, wait);
+
+	if (replace_timeout) {
+		array_foreach_elem(&service_list->services, service)
+			service->shutdown_clients_timeout = kick_timeout_secs;
+	}
 
 	if (service_list->refcount > 1) {
 		/* Kill the processes that are still around when the timeout

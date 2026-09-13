@@ -100,7 +100,8 @@ struct service {
 	/* Kill idling processes after this many seconds. */
 	unsigned int idle_kill_interval;
 	/* How long this service's processes may keep serving their existing
-	   clients after a configuration reload replaced them. */
+	   clients after a configuration reload replaced them. Overridden by
+	   services_destroy(). */
 	unsigned int shutdown_clients_timeout;
 	/* set->vsz_limit or set->master_set->default_client_limit */
 	uoff_t vsz_limit;
@@ -210,8 +211,13 @@ extern HASH_TABLE_TYPE(pid_process) service_pids;
 int services_create(const struct master_settings *set,
 		    struct service_list **services_r, const char **error_r);
 
-/* Destroy services */
-void services_destroy(struct service_list *service_list, bool wait);
+/* Destroy services. If replace_timeout is TRUE, kick_timeout_secs overrides
+   the services' shutdown_clients_timeout setting: it's how long the old
+   generation's client-facing processes may keep their clients, where 0
+   disconnects them immediately and SET_TIME_INFINITE never disconnects
+   them. */
+void services_destroy(struct service_list *service_list, bool wait,
+		      bool replace_timeout, unsigned int kick_timeout_secs);
 
 void service_list_ref(struct service_list *service_list);
 void service_list_unref(struct service_list *service_list);

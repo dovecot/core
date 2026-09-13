@@ -21,8 +21,13 @@ extern int global_config_fd;
 extern struct service_list *services;
 extern bool startup_finished;
 
-/* Reload the configuration. Returns 0 on success, -1 on error. */
-int master_settings_reload(const char **error_r);
+/* Reload the configuration. If replace_timeout is TRUE, kick_timeout_secs
+   overrides the services' shutdown_clients_timeout setting for how long the
+   old generation's client-facing processes may keep their clients.
+   Returns 0 on success, -1 on error. */
+int master_settings_reload(bool replace_timeout,
+			   unsigned int kick_timeout_secs,
+			   const char **error_r);
 
 void process_exec(const char *cmd) ATTR_NORETURN;
 
