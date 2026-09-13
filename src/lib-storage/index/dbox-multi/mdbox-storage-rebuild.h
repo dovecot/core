@@ -12,6 +12,8 @@ enum mdbox_rebuild_reason {
 	MDBOX_REBUILD_REASON_FORCED = BIT(3),
 };
 
+/* Rebuild the storage. Returns 1 if the rebuild was run, 0 if it was skipped
+   because this process has the mailbox list index locked, -1 on error. */
 int mdbox_storage_rebuild(struct mdbox_storage *storage,
 			  struct mailbox *fscked_box,
 			  enum mdbox_rebuild_reason reason);

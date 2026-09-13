@@ -298,16 +298,19 @@ retry:
 		mailbox_list_index_set_index_error(list);
 		return -1;
 	}
+	ilist->index_locked = TRUE;
 	mailbox_list_index_reset(ilist);
 
 	/* re-parse mailbox list now that it's refreshed and locked */
 	if (mailbox_list_index_parse(list, view, TRUE) < 0) {
 		mail_index_sync_rollback(&index_sync_ctx);
+		ilist->index_locked = FALSE;
 		return -1;
 	}
 	if (ilist->call_corruption_callback && !fix_attempted) {
 		/* unlock and resync the index */
 		mail_index_sync_rollback(&index_sync_ctx);
+		ilist->index_locked = FALSE;
 		if (mailbox_list_index_handle_corruption(list) < 0)
 			return -1;
 		fix_attempted = TRUE;
@@ -513,6 +516,7 @@ int mailbox_list_index_sync_end(struct mailbox_list_index_sync_context **_sync_c
 		ret = -1;
 	}
 	sync_ctx->ilist->syncing = FALSE;
+	sync_ctx->ilist->index_locked = FALSE;
 	sync_ctx->ilist->sync_ctx = NULL;
 	i_free(sync_ctx);
 	return ret;

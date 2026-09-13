@@ -1583,6 +1583,13 @@ static struct mail_storage_hooks mailbox_list_index_hooks = {
 	.mailbox_allocated = mailbox_list_index_mailbox_allocated
 };
 
+bool mailbox_list_index_is_locked(struct mailbox_list *list)
+{
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+
+	return ilist != NULL && ilist->index_locked;
+}
+
 void mailbox_list_index_init(void); /* called in mailbox-list-register.c */
 
 void mailbox_list_index_init(void)

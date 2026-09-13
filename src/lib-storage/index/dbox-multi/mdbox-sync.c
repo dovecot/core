@@ -341,7 +341,7 @@ int mdbox_sync(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags)
 	struct mdbox_sync_context *sync_ctx;
 	struct mdbox_map_atomic_context *atomic;
 	enum mdbox_rebuild_reason rebuild_reason = 0;
-	bool corrupted, storage_rebuilt = FALSE;
+	bool corrupted, storage_rebuilt = FALSE, rebuild_skipped = FALSE;
 	int ret;
 
 	if (mbox->storage->corrupted_reason != NULL)
@@ -366,12 +366,18 @@ int mdbox_sync(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags)
 		rebuild_reason |= MDBOX_REBUILD_REASON_FORCED;
 	}
 	if (rebuild_reason != 0) {
-		if (mdbox_storage_rebuild(mbox->storage, &mbox->box,
-					  rebuild_reason) < 0)
+		ret = mdbox_storage_rebuild(mbox->storage, &mbox->box,
+					    rebuild_reason);
+		if (ret < 0)
 			return -1;
-		mailbox_recent_flags_reset(&mbox->box);
-		storage_rebuilt = TRUE;
-		flags |= MDBOX_SYNC_FLAG_FORCE;
+		if (ret > 0) {
+			mailbox_recent_flags_reset(&mbox->box);
+			storage_rebuilt = TRUE;
+			flags |= MDBOX_SYNC_FLAG_FORCE;
+		} else {
+			/* the rebuild couldn't be done now */
+			rebuild_skipped = TRUE;
+		}
 	}
 
 	atomic = mdbox_map_atomic_begin(mbox->storage->map);
@@ -381,6 +387,16 @@ int mdbox_sync(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags)
 		if (storage_rebuilt) {
 			mailbox_set_critical(&mbox->box,
 				"mdbox: Storage keeps breaking: %s",
+				mbox->storage->corrupted_reason);
+			(void)mdbox_map_atomic_finish(&atomic);
+			return -1;
+		}
+
+		if (rebuild_skipped) {
+			/* Retrying wouldn't do anything differently, because
+			   the rebuild is skipped again. */
+			mailbox_set_critical(&mbox->box,
+				"mdbox: Storage is corrupted, but it can't be rebuilt now: %s",
 				mbox->storage->corrupted_reason);
 			(void)mdbox_map_atomic_finish(&atomic);
 			return -1;

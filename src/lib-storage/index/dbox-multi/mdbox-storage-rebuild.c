@@ -1075,6 +1075,25 @@ int mdbox_storage_rebuild(struct mdbox_storage *storage,
 	   that another process can't rebuild the storage at the same time and
 	   restore them a second time. */
 	list = mdbox_rebuild_get_default_list(storage);
+	if (list != NULL && mailbox_list_index_is_locked(list)) {
+		/* The mailbox list is locked before the mailbox list index, so
+		   waiting for it while this process has the list index locked
+		   would deadlock. This happens e.g. when the list index sync
+		   opens a mailbox for looking up its GUID and closing it wants
+		   to rebuild the storage. The storage stays marked corrupted in
+		   this process, so the rebuild is done the next time this
+		   process attempts it. */
+		if ((reason & MDBOX_REBUILD_REASON_FORCED) != 0) {
+			/* The caller explicitly asked for a rebuild, so
+			   silently skipping it would look like success. */
+			mail_storage_set_critical(&storage->storage.storage,
+				"mdbox rebuild: Can't rebuild storage while the mailbox list index is locked");
+			return -1;
+		}
+		e_debug(storage->storage.storage.event,
+			"Skipping storage rebuild: mailbox list index is locked");
+		return 0;
+	}
 	if (list != NULL && mailbox_list_lock(list) < 0) {
 		mail_storage_copy_list_error(&storage->storage.storage, list);
 		return -1;
@@ -1091,7 +1110,7 @@ int mdbox_storage_rebuild(struct mdbox_storage *storage,
 
 	if (list != NULL)
 		mailbox_list_unlock(list);
-	return ret;
+	return ret < 0 ? -1 : 1;
 }
 
 int mdbox_storage_rebuild_deferred(struct mdbox_storage *storage)
@@ -1107,5 +1126,7 @@ int mdbox_storage_rebuild_deferred(struct mdbox_storage *storage)
 		   would do, and a nested rebuild isn't possible. */
 		return 0;
 	}
-	return mdbox_storage_rebuild(storage, NULL, MDBOX_REBUILD_REASON_FORCED);
+	if (mdbox_storage_rebuild(storage, NULL, MDBOX_REBUILD_REASON_FORCED) < 0)
+		return -1;
+	return 0;
 }

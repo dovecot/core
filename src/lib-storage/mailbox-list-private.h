@@ -273,6 +273,10 @@ mailbox_list_iter_autocreate_filter(struct mailbox_list_iterate_context *ctx,
 
 int mailbox_list_lock(struct mailbox_list *list);
 void mailbox_list_unlock(struct mailbox_list *list);
+/* Returns TRUE while this process has the mailbox list index's transaction log
+   locked. The mailbox list is always locked before the list index, so the
+   mailbox list lock must not be waited for while this returns TRUE. */
+bool mailbox_list_index_is_locked(struct mailbox_list *list);
 
 /* Like mailbox_list_mailbox(), but additionally reports whether the ACL
    plugin determined that the session does not hold the LOOKUP right on the

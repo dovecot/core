@@ -167,6 +167,8 @@ struct mailbox_list_index {
 	bool pending_init:1;
 	bool opened:1;
 	bool syncing:1;
+	/* The list index's transaction log is locked by this process. */
+	bool index_locked:1;
 	bool updating_status:1;
 	bool has_backing_store:1;
 	bool index_last_check_changed:1;
