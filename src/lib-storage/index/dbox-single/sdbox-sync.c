@@ -107,15 +107,8 @@ static int sdbox_sync_index(struct sdbox_sync_context *ctx)
 
 	hdr = mail_index_get_header(ctx->sync_view);
 	if (hdr->uid_validity == 0) {
-		/* newly created index file */
-		if (hdr->next_uid == 1) {
-			/* could be just a race condition where we opened the
-			   mailbox between mkdir and index creation. fix this
-			   silently. */
-			if (sdbox_mailbox_create_indexes(box, NULL, ctx->trans) < 0)
-				return -1;
-			return 1;
-		}
+		/* The mailbox indexes are created by sdbox_sync_begin() before
+		   the sync begins, so the index is broken. */
 		sdbox_set_mailbox_corrupted(box,
 			"sdbox: Broken index: missing UIDVALIDITY");
 		return 0;
@@ -194,7 +187,7 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 	enum mail_index_sync_flags sync_flags;
 	unsigned int i;
 	int ret;
-	bool rebuild, force_rebuild;
+	bool rebuild, force_rebuild, index_created = FALSE;
 
 	force_rebuild = (flags & SDBOX_SYNC_FLAG_FORCE_REBUILD) != 0;
 	rebuild = force_rebuild ||
@@ -215,7 +208,7 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 	/* don't write unnecessary dirty flag updates */
 	sync_flags |= MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES;
 
-	for (i = 0;; i++) {
+	for (i = 0;;) {
 		ret = index_storage_expunged_sync_begin(&mbox->box,
 				&ctx->index_sync_ctx, &ctx->sync_view,
 				&ctx->trans, sync_flags);
@@ -230,6 +223,29 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 			return ret;
 		}
 
+		hdr = mail_index_get_header(ctx->sync_view);
+		if (!rebuild && !index_created && hdr->uid_validity == 0 &&
+		    hdr->next_uid == 1) {
+			/* The mailbox indexes aren't created yet, e.g. the
+			   mailbox was opened between the mkdir and the index
+			   creation. Create them before the mailbox index is
+			   locked, so that they are committed before the mails
+			   that are saved within this sync. Otherwise other
+			   processes could see the saved mails before the
+			   UIDVALIDITY and fsck the mailbox index. A rebuild
+			   creates them as well, so it's not needed then. */
+			mail_index_sync_rollback(&ctx->index_sync_ctx);
+			index_storage_expunging_deinit(&ctx->mbox->box);
+
+			index_created = TRUE;
+			if (dbox_mailbox_create_indexes(&mbox->box, NULL) < 0) {
+				array_free(&ctx->expunged_uids);
+				i_free(ctx);
+				return -1;
+			}
+			continue;
+		}
+
 		if (rebuild)
 			ret = 0;
 		else {
@@ -240,7 +256,7 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 		/* failure. keep the index locked while we're doing a
 		   rebuild. */
 		if (ret == 0) {
-			if (i >= SDBOX_REBUILD_COUNT) {
+			if (i++ >= SDBOX_REBUILD_COUNT) {
 				mailbox_set_critical(&ctx->mbox->box,
 					"sdbox: Index keeps breaking");
 				ret = -1;
