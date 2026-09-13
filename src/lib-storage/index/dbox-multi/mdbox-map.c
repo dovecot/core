@@ -178,10 +178,12 @@ static int mdbox_map_open_internal(struct mdbox_map *map, bool create_missing)
 	if (mail_index_get_header(map->view)->uid_validity == 0) {
 		if (mdbox_map_generate_uid_validity(map) < 0) {
 			mail_storage_set_index_error(MAP_STORAGE(map), map->index);
+			mail_index_view_close(&map->view);
 			mail_index_close(map->index);
 			return -1;
 		}
 		if (mdbox_map_refresh(map) < 0) {
+			mail_index_view_close(&map->view);
 			mail_index_close(map->index);
 			return -1;
 		}
