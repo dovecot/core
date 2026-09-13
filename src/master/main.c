@@ -441,6 +441,7 @@ static int master_settings_reload_int(bool replace_timeout,
 	services_monitor_stop(services, FALSE);
 	if (services_listen_using(new_services, services) < 0) {
 		services_monitor_start(services);
+		services_destroy(new_services, FALSE, FALSE, 0);
 		*error_r = "Failed to move listeners to the new configuration";
 		return -1;
 	}
