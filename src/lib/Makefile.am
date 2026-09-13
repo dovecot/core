@@ -489,6 +489,7 @@ test_lib_SOURCES = \
 	test-fd-util.c \
 	test-file-cache.c \
 	test-file-create-locked.c \
+	test-file-lock.c \
 	test-guid.c \
 	test-hash.c \
 	test-hash-format.c \

@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "istream.h"
+#include "lib-signals.h"
 #include "file-lock.h"
 #include "file-dotlock.h"
 #include "time-util.h"
@@ -11,6 +12,11 @@
 #ifdef HAVE_FLOCK
 #  include <sys/file.h>
 #endif
+
+/* How long to keep retrying a non-blocking locking that is interrupted by
+   signals. The locking itself doesn't wait, so this is just a safeguard
+   against a repeating signal turning it into an endless loop. */
+#define FILE_LOCK_EINTR_MAX_RETRY_SECS 10
 
 struct file_lock {
 	struct file_lock_settings set;
@@ -151,11 +157,40 @@ const char *file_lock_find(int lock_fd, enum file_lock_method lock_method,
 static bool err_is_lock_timeout(time_t started, unsigned int timeout_secs)
 {
 	/* if EINTR took at least timeout_secs-1 number of seconds,
-	   assume it was the alarm. otherwise log EINTR failure.
-	   (We most likely don't want to retry EINTR since a signal
-	   means somebody wants us to stop blocking). */
+	   assume it was the alarm. Other EINTRs are handled by
+	   err_is_lock_eintr_retry(). */
 	return errno == EINTR &&
 		(unsigned long)(time(NULL) - started + 1) >= timeout_secs;
+}
+
+static bool err_is_lock_eintr_retry(time_t started, unsigned int timeout_secs,
+				    unsigned int term_counter)
+{
+	unsigned int secs_used;
+	time_t now;
+
+	if (!lib_signals_eintr_retry(term_counter)) {
+		/* Either it wasn't EINTR at all, or a termination signal was
+		   received and somebody wants us to stop blocking. */
+		return FALSE;
+	}
+	now = time(NULL);
+	secs_used = now <= started ? 0 : (unsigned int)(now - started);
+	if (timeout_secs == 0) {
+		/* Non-blocking locking. The locking itself doesn't wait, so
+		   the retries should finish immediately. Stop retrying if a
+		   repeating signal keeps interrupting them anyway. */
+		return secs_used < FILE_LOCK_EINTR_MAX_RETRY_SECS;
+	}
+	if (secs_used + 1 >= timeout_secs) {
+		/* The alarm() timeout was reached - see
+		   err_is_lock_timeout(). */
+		return FALSE;
+	}
+	/* Keep waiting for the lock for the rest of the timeout, and restore
+	   the alarm() that was already used up by the signal. */
+	alarm(timeout_secs - secs_used);
+	return TRUE;
 }
 
 static int file_lock_do(int fd, const char *path, int lock_type,
@@ -163,6 +198,7 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 			unsigned int timeout_secs, const char **error_r)
 {
 	const char *lock_type_str;
+	unsigned int term_counter = signal_term_counter;
 	time_t started = time(NULL);
 	int ret;
 
@@ -185,7 +221,12 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 		fl.l_start = 0;
 		fl.l_len = 0;
 
-		ret = fcntl(fd, timeout_secs != 0 ? F_SETLKW : F_SETLK, &fl);
+		do {
+			ret = fcntl(fd, timeout_secs != 0 ?
+				    F_SETLKW : F_SETLK, &fl);
+		} while (ret < 0 &&
+			 err_is_lock_eintr_retry(started, timeout_secs,
+						 term_counter));
 		if (timeout_secs != 0) {
 			alarm(0);
 			file_lock_wait_end(path);
@@ -212,6 +253,14 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 				file_lock_find(fd, set->lock_method,
 					       lock_type));
 			return 0;
+		}
+		if (errno == EINTR) {
+			*error_r = t_strdup_printf(
+				"fcntl(%s, %s, %s) locking failed: "
+				"Interrupted by a termination signal",
+				path, lock_type_str,
+				timeout_secs == 0 ? "F_SETLK" : "F_SETLKW");
+			return -1;
 		}
 		*error_r = t_strdup_printf("fcntl(%s, %s, %s) locking failed: %m",
 			path, lock_type_str, timeout_secs == 0 ? "F_SETLK" : "F_SETLKW");
@@ -242,7 +291,11 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 			break;
 		}
 
-		ret = flock(fd, operation);
+		do {
+			ret = flock(fd, operation);
+		} while (ret < 0 &&
+			 err_is_lock_eintr_retry(started, timeout_secs,
+						 term_counter));
 		if (timeout_secs != 0) {
 			alarm(0);
 			file_lock_wait_end(path);
@@ -266,6 +319,13 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 				file_lock_find(fd, set->lock_method,
 					       lock_type));
 			return 0;
+		}
+		if (errno == EINTR) {
+			*error_r = t_strdup_printf(
+				"flock(%s, %s) failed: "
+				"Interrupted by a termination signal",
+				path, lock_type_str);
+			return -1;
 		}
 		*error_r = t_strdup_printf("flock(%s, %s) failed: %m",
 					   path, lock_type_str);
