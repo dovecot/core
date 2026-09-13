@@ -106,8 +106,6 @@ static int dbox_file_parse_header(struct dbox_file *file, const char *line)
 	}
 	line += 2;
 
-	file->msg_header_size = 0;
-
 	for (tmp = t_strsplit(line, " "); *tmp != NULL; tmp++) {
 		uintmax_t time;
 		key = **tmp;
@@ -144,6 +142,12 @@ static int dbox_file_read_header(struct dbox_file *file)
 	const char *line;
 	unsigned int hdr_size;
 	int ret;
+
+	/* Reset the sizes already here, so that they aren't left over from an
+	   earlier successful parsing of the same file. A missing file header
+	   size means that the header wasn't parsed successfully. */
+	file->file_header_size = 0;
+	file->msg_header_size = 0;
 
 	i_stream_seek(file->input, 0);
 	line = i_stream_read_next_line(file->input);
@@ -204,8 +208,15 @@ static int dbox_file_open_full(struct dbox_file *file, bool try_altpath,
 	int ret, fd;
 
 	*notfound_r = FALSE;
-	if (file->input != NULL)
-		return 1;
+	if (file->input != NULL) {
+		if (file->file_header_size != 0)
+			return 1;
+		/* Already open, but the file header was broken when it was
+		   read. mdbox keeps the files open in a cache, so this is
+		   visible also to the next opener. Reread the header, so that
+		   the caller gets the same error as the first opener. */
+		dbox_file_close(file);
+	}
 
 	if (file->fd == -1) {
 		T_BEGIN {
@@ -225,7 +236,15 @@ static int dbox_file_open_full(struct dbox_file *file, bool try_altpath,
 	file->input = i_stream_create_fd_autoclose(&fd, DBOX_READ_BLOCK_SIZE);
 	i_stream_set_name(file->input, file->cur_path);
 	i_stream_set_init_buffer_size(file->input, DBOX_READ_BLOCK_SIZE);
-	return dbox_file_read_header(file);
+	ret = dbox_file_read_header(file);
+	if (ret < 0) {
+		/* Reading the file header failed with an I/O error, which may
+		   be temporary. Close the file, so that the next open reads
+		   the header again instead of finding the file cached with an
+		   unknown message header size. */
+		dbox_file_close(file);
+	}
+	return ret;
 }
 
 int dbox_file_open(struct dbox_file *file, bool *deleted_r)
@@ -356,6 +375,12 @@ int dbox_file_read_mail_header(struct dbox_file *file, uoff_t *physical_size_r)
 	const unsigned char *data;
 	size_t size;
 	int ret;
+
+	if (file->msg_header_size == 0) {
+		/* the file header wasn't read successfully */
+		dbox_file_set_corrupted(file, "Missing message header size");
+		return 0;
+	}
 
 	ret = i_stream_read_bytes(file->input, &data, &size,
 				  file->msg_header_size);
