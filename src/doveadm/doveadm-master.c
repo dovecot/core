@@ -225,6 +225,7 @@ static void cmd_service_status(struct doveadm_cmd_context *cctx)
 	doveadm_print_header_simple("doveadm_stop");
 	doveadm_print_header_simple("process_total");
 	doveadm_print_header_simple("generation");
+	doveadm_print_header_simple("kill_time");
 	fields_count = doveadm_print_get_headers_count();
 
 	alarm(5);
@@ -272,6 +273,7 @@ static void cmd_process_status(struct doveadm_cmd_context *cctx)
 	doveadm_print_header_simple("last_status_update");
 	doveadm_print_header_simple("last_kill_sent");
 	doveadm_print_header_simple("generation");
+	doveadm_print_header_simple("kill_time");
 	fields_count = doveadm_print_get_headers_count();
 
 	alarm(5);

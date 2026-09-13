@@ -143,6 +143,8 @@ struct service {
 	/* Disconnects the clients of this service's preserved processes once
 	   shutdown_clients_timeout has passed since the reload. */
 	struct timeout *to_kick;
+	/* Time when to_kick fires next, or 0 if it isn't armed. */
+	time_t kick_time;
 
 	/* prefork processes up to process_min_avail if there's time */
 	struct timeout *to_prefork;
@@ -183,6 +185,8 @@ struct service_list {
 	/* Kills the old generation's processes that a reload doesn't
 	   preserve. */
 	struct timeout *to_kill;
+	/* Time when to_kill fires next, or 0 if it isn't armed. */
+	time_t kill_time;
 	unsigned int fork_counter;
 	struct event *event;
 
@@ -226,6 +230,10 @@ int services_create(const struct master_settings *set,
    them. */
 void services_destroy(struct service_list *service_list, bool wait,
 		      bool replace_timeout, unsigned int kick_timeout_secs);
+
+/* Returns the time when the master will next signal this service's old
+   generation processes, or 0 if it isn't going to. */
+time_t service_get_kill_time(const struct service *service);
 
 void service_list_ref(struct service_list *service_list);
 void service_list_unref(struct service_list *service_list);

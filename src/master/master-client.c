@@ -23,7 +23,7 @@ master_client_service_status_output(string_t *str,
 				    const struct service *service)
 {
 	str_append_tabescaped(str, service->set->name);
-	str_printfa(str, "\t%u\t%u\t%u\t%u\t%u\t%ld\t%u\t%ld\t%c\t%c\t%c\t%"PRIu64"\t%u\n",
+	str_printfa(str, "\t%u\t%u\t%u\t%u\t%u\t%ld\t%u\t%ld\t%c\t%c\t%c\t%"PRIu64"\t%u\t%ld\n",
 		    service->process_count, service->process_avail,
 		    service->process_limit, service->client_limit,
 		    (service->to_throttle == NULL ?
@@ -35,7 +35,8 @@ master_client_service_status_output(string_t *str,
 		    service->listening ? 'y' : 'n',
 		    service->doveadm_stop ? 'y' : 'n',
 		    service->process_count_total,
-		    service->list->generation);
+		    service->list->generation,
+		    (long)service_get_kill_time(service));
 }
 
 static void
@@ -76,12 +77,13 @@ master_client_process_output(string_t *str,
 			     const struct service_process *process)
 {
 	str_append_tabescaped(str, process->service->set->name);
-	str_printfa(str, "\t%lu\t%u\t%u\t%ld\t%ld\t%ld\t%u\n",
+	str_printfa(str, "\t%lu\t%u\t%u\t%ld\t%ld\t%ld\t%u\t%ld\n",
 		    (unsigned long)process->pid, process->available_count,
 		    process->total_count, (long)process->idle_start,
 		    (long)process->last_status_update,
 		    (long)process->last_kill_sent,
-		    process->service->list->generation);
+		    process->service->list->generation,
+		    (long)service_get_kill_time(process->service));
 }
 
 static void

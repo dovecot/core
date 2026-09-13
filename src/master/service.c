@@ -674,6 +674,19 @@ static bool service_is_preserved(const struct service *service)
 		service_type_is_preserved(service->type);
 }
 
+time_t service_get_kill_time(const struct service *service)
+{
+	if (service->type == SERVICE_TYPE_LOG) {
+		/* The log service stops by itself once the rest of the old
+		   generation is gone. Only the escalation kills it. */
+		return service->list->kill_time;
+	}
+	/* A preserved service is skipped by the service list's kill, so only
+	   its own kick can stop it. */
+	return service_is_preserved(service) ? service->kick_time :
+		service->list->kill_time;
+}
+
 /* Returns the number of processes the old generation still has, excluding
    the log service. */
 static unsigned int
@@ -769,6 +782,7 @@ static void service_kick_timeout(struct service *service)
 		   keep the service list alive, so stop the repeating kick
 		   here - there is nothing left to kill. */
 		timeout_remove(&service->to_kick);
+		service->kick_time = 0;
 		return;
 	}
 	if (!service->kill_sigterm_sent) {
@@ -779,6 +793,7 @@ static void service_kick_timeout(struct service *service)
 			timeout_add(SERVICE_DIE_TIMEOUT_MSECS,
 				    service_kick_timeout, service);
 	}
+	service->kick_time = ioloop_time + SERVICE_DIE_TIMEOUT_MSECS / 1000;
 	service_kill(service, TRUE);
 }
 
@@ -797,6 +812,8 @@ static void services_kill(struct service_list *service_list)
 
 static void services_kill_timeout(struct service_list *service_list)
 {
+	service_list->kill_time =
+		ioloop_time + SERVICE_DIE_TIMEOUT_MSECS / 1000;
 	services_kill(service_list);
 	/* The log process normally stops by itself once the rest of the
 	   generation is gone and it has written out their last log messages.
@@ -838,6 +855,7 @@ static void services_kick(struct service_list *service_list)
 		msecs = secs < UINT_MAX / 1000 ? secs * 1000 : UINT_MAX;
 		service->to_kick = timeout_add(msecs, service_kick_timeout,
 					       service);
+		service->kick_time = ioloop_time + secs;
 	}
 }
 
@@ -865,6 +883,8 @@ void services_destroy(struct service_list *service_list, bool wait,
 		service_list->to_kill =
 			timeout_add(SERVICE_DIE_TIMEOUT_MSECS,
 				    services_kill_timeout, service_list);
+		service_list->kill_time =
+			ioloop_time + SERVICE_DIE_TIMEOUT_MSECS / 1000;
 		if (!wait) {
 			/* Reload: disconnect the clients of the services that
 			   aren't preserved now, and the preserved ones once
