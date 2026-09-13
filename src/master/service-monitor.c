@@ -342,6 +342,24 @@ static void service_log_drop_warning(struct service *service)
 	}
 }
 
+static void service_drop_warning_timeout(struct service *service)
+{
+	/* The warning is cancelled when a process reports that it became
+	   available again. The ioloop runs timeouts before I/Os, so such a
+	   status update may already be waiting to be read - especially if the
+	   ioloop was delayed past this timeout's deadline. Read the pending
+	   status updates first, so a client that just reconnects to a busy
+	   service doesn't cause a warning about a limit that isn't really
+	   being reached. */
+	if (service->status_fd[0] != -1)
+		service_status_input(service);
+	if (service->to_drop_warning == NULL) {
+		/* a process became available - this was a false alarm */
+		return;
+	}
+	service_log_drop_warning(service);
+}
+
 static void service_monitor_throttle(struct service *service)
 {
 	if (service->to_throttle != NULL || service->list->destroying)
@@ -413,7 +431,8 @@ static void service_drop_connections(struct service_listener *l)
 		    service->type == SERVICE_TYPE_WORKER) {
 			service->to_drop_warning =
 				timeout_add_short(SERVICE_LOG_DROP_WARNING_DELAY_MSECS,
-						  service_log_drop_warning, service);
+						  service_drop_warning_timeout,
+						  service);
 		}
 	} else {
 		/* this has been happening for a while now. just accept and
