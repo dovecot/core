@@ -63,6 +63,11 @@ static bool ioloop_switched = FALSE;
 
 static void signal_read(void *context);
 
+bool lib_signals_eintr_retry(unsigned int term_counter)
+{
+	return errno == EINTR && term_counter == signal_term_counter;
+}
+
 const char *lib_signal_code_to_str(int signo, int sicode)
 {
 	/* common */

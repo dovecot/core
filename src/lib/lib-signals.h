@@ -28,6 +28,14 @@ typedef void signal_handler_t(const siginfo_t *si, void *context);
    isn't atomic, so you shouldn't heavily rely on its actual value. */
 extern volatile unsigned int signal_term_counter;
 
+/* Returns TRUE if a syscall that just failed should be retried, because it
+   failed with EINTR that was caused by a signal that isn't trying to stop the
+   process, e.g. SIGCHLD. term_counter must be the signal_term_counter value
+   that was read before the syscall was started. Returns FALSE if errno isn't
+   EINTR, or if a termination signal was received, since the caller is then
+   expected to stop what it was doing. Doesn't change errno. */
+bool lib_signals_eintr_retry(unsigned int term_counter);
+
 /* Convert si_code to string */
 const char *lib_signal_code_to_str(int signo, int sicode);
 
