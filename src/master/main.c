@@ -648,6 +648,7 @@ static void main_deinit(void)
 	   removed when the last anvil process is destroyed. */
 	service_pids_deinit();
 	service_anvil_global_deinit();
+	service_lists_deinit();
 	/* notify systemd that we are done */
 	i_sd_notify(0, "STATUS=Dovecot stopped");
 
@@ -972,6 +973,7 @@ int main(int argc, char *argv[])
 	/* create service structures from settings. if there are any errors in
 	   service configuration we'll catch it here. */
 	service_pids_init();
+	service_lists_init();
 	service_anvil_global_init();
 	if (services_create(set, &services, &error) < 0)
 		i_fatal("%s", error);

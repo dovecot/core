@@ -83,16 +83,20 @@ static int
 master_client_process_status(struct master_client *client,
 			     const char *const *args)
 {
+	struct service_list *service_list;
 	struct service *service;
 	string_t *str = t_str_new(128);
 
-	array_foreach_elem(&services->services, service) {
-		if (args[0] != NULL && !str_array_find(args, service->set->name))
-			continue;
-		master_client_process_status_list(client,
-			service->busy_processes, str);
-		master_client_process_status_list(client,
-			service->idle_processes_head, str);
+	array_foreach_elem(&service_lists, service_list) {
+		array_foreach_elem(&service_list->services, service) {
+			if (args[0] != NULL &&
+			    !str_array_find(args, service->set->name))
+				continue;
+			master_client_process_status_list(client,
+				service->busy_processes, str);
+			master_client_process_status_list(client,
+				service->idle_processes_head, str);
+		}
 	}
 	o_stream_nsend_str(client->conn.output, "\n");
 	return 1;

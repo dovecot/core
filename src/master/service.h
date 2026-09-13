@@ -173,6 +173,8 @@ struct service {
 	bool kill_sigterm_sent:1;
 };
 
+ARRAY_DEFINE_TYPE(service_list, struct service_list *);
+
 struct service_list {
 	pool_t pool;
 	int refcount;
@@ -206,6 +208,10 @@ struct service_list {
 
 HASH_TABLE_DEFINE_TYPE(pid_process, void *, struct service_process *);
 extern HASH_TABLE_TYPE(pid_process) service_pids;
+/* All the service lists that still have processes, newest generation first.
+   The first one is the current generation, the rest are waiting for their
+   preserved processes to stop. */
+extern ARRAY_TYPE(service_list) service_lists;
 
 /* Create all services from settings */
 int services_create(const struct master_settings *set,
@@ -256,5 +262,8 @@ unsigned int service_active_process_count(struct service *service);
 
 void service_pids_init(void);
 void service_pids_deinit(void);
+
+void service_lists_init(void);
+void service_lists_deinit(void);
 
 #endif

@@ -26,6 +26,7 @@
 #define SERVICE_LOGIN_NOTIFY_MIN_INTERVAL_SECS 2
 
 HASH_TABLE_TYPE(pid_process) service_pids;
+ARRAY_TYPE(service_list) service_lists;
 
 static struct service_listener *
 service_create_file_listener(struct service *service,
@@ -524,6 +525,8 @@ int services_create(const struct master_settings *set,
 		return -1;
 	}
 	pool_ref(set->pool);
+
+	array_insert(&service_lists, 0, services_r, 1);
 	return 0;
 }
 
@@ -884,10 +887,16 @@ void service_list_unref(struct service_list *service_list)
 {
 	struct service *service;
 	struct service_listener *listener;
+	unsigned int idx;
 
 	i_assert(service_list->refcount > 0);
 	if (--service_list->refcount > 0)
 		return;
+
+	if (array_lsearch_ptr_idx(&service_lists, service_list, &idx))
+		array_delete(&service_lists, idx, 1);
+	else
+		i_unreached();
 
 	array_foreach_elem(&service_list->services, service) {
 		i_assert(service->busy_processes == NULL);
@@ -970,6 +979,17 @@ void services_throttle_time_sensitives(struct service_list *list,
 		if (service->type == SERVICE_TYPE_UNKNOWN)
 			service_throttle(service, msecs);
 	}
+}
+
+void service_lists_init(void)
+{
+	i_array_init(&service_lists, 4);
+}
+
+void service_lists_deinit(void)
+{
+	i_assert(array_count(&service_lists) == 0);
+	array_free(&service_lists);
 }
 
 void service_pids_init(void)
