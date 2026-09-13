@@ -382,6 +382,7 @@ int mdbox_sync(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags)
 			mailbox_set_critical(&mbox->box,
 				"mdbox: Storage keeps breaking: %s",
 				mbox->storage->corrupted_reason);
+			(void)mdbox_map_atomic_finish(&atomic);
 			return -1;
 		}
 
