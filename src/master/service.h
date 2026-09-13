@@ -139,7 +139,7 @@ struct service {
 	struct timeout *to_drop_warning;
 	/* next time to try to kill idling processes */
 	struct timeout *to_idle;
-	/* Disconnects the clients of this service's old processes once
+	/* Disconnects the clients of this service's preserved processes once
 	   shutdown_clients_timeout has passed since the reload. */
 	struct timeout *to_kick;
 
@@ -175,8 +175,8 @@ struct service {
 struct service_list {
 	pool_t pool;
 	int refcount;
-	/* Kills the old generation's log service once the rest of it is
-	   gone. */
+	/* Kills the old generation's processes that a reload doesn't
+	   preserve. */
 	struct timeout *to_kill;
 	unsigned int fork_counter;
 	struct event *event;

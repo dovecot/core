@@ -634,6 +634,40 @@ void service_login_notify(struct service *service, bool all_processes_full)
 	}
 }
 
+/* Returns TRUE if a config reload preserves the processes of this type of
+   service with their clients, instead of killing them together with the rest
+   of the old generation. */
+static bool service_type_is_preserved(enum service_type type)
+{
+	switch (type) {
+	case SERVICE_TYPE_LOGIN:
+	case SERVICE_TYPE_CLIENT:
+		return TRUE;
+	case SERVICE_TYPE_ANVIL:
+		/* anvil is moved to the new service list, so it has no old
+		   processes to kill. */
+		return TRUE;
+	case SERVICE_TYPE_LOG:
+		/* The log service is handled separately: it must outlive the
+		   rest of the old generation. */
+		i_unreached();
+	case SERVICE_TYPE_UNKNOWN:
+	case SERVICE_TYPE_CONFIG:
+	case SERVICE_TYPE_STARTUP:
+	case SERVICE_TYPE_WORKER:
+		return FALSE;
+	}
+	i_unreached();
+}
+
+/* Returns TRUE if the reload keeps this service's processes and their clients
+   running, instead of killing them together with the internal services. */
+static bool service_is_preserved(const struct service *service)
+{
+	return service->shutdown_clients_timeout != 0 &&
+		service_type_is_preserved(service->type);
+}
+
 /* Returns the number of processes the old generation still has, excluding
    the log service. */
 static unsigned int
@@ -675,9 +709,10 @@ static void services_kill_log(struct service_list *service_list)
 			     &uninitialized_count);
 }
 
-/* Sends SIGTERM to the service's remaining old processes, or SIGKILL if they
-   were already sent a SIGTERM. */
-static void service_kill(struct service *service)
+/* Sends SIGTERM to the service's remaining processes, or SIGKILL if they were
+   already sent a SIGTERM. kicked is TRUE when the processes were preserved
+   until now and shutdown_clients_timeout expired. */
+static void service_kill(struct service *service, bool kicked)
 {
 	unsigned int uninitialized_count, signal_count;
 	string_t *str;
@@ -693,22 +728,29 @@ static void service_kill(struct service *service)
 		return;
 
 	str = t_str_new(128);
-	if (first_kill) {
-		/* This is the intended kick, not processes failing to die. */
-		str_printfa(str, "Disconnecting clients from %u old processes",
-			    signal_count);
-	} else {
+	if (!first_kill) {
 		str_printfa(str, "Processes aren't dying after reload, "
 			    "sent SIGKILL to %u processes", signal_count);
+	} else if (!service_type_is_preserved(service->type)) {
+		/* The first kill is the intended one, not processes failing
+		   to die. */
+		str_printfa(str, "Stopping %u old processes", signal_count);
+	} else {
+		str_printfa(str, "Disconnecting clients from %u old processes",
+			    signal_count);
+		if (kicked)
+			str_append(str, " after shutdown_clients_timeout");
 	}
 	if (uninitialized_count > 0) {
 		str_printfa(str, " (%u processes still uninitialized)",
 			    uninitialized_count);
 	}
-	if (first_kill)
-		e_debug(service->event, "%s", str_c(str));
-	else
+	if (!first_kill)
 		e_warning(service->event, "%s", str_c(str));
+	else if (kicked)
+		e_info(service->event, "%s", str_c(str));
+	else
+		e_debug(service->event, "%s", str_c(str));
 }
 
 static void service_kick_timeout(struct service *service)
@@ -728,11 +770,25 @@ static void service_kick_timeout(struct service *service)
 			timeout_add(SERVICE_DIE_TIMEOUT_MSECS,
 				    service_kick_timeout, service);
 	}
-	service_kill(service);
+	service_kill(service, TRUE);
+}
+
+/* Kills the old generation's processes that the reload doesn't preserve. */
+static void services_kill(struct service_list *service_list)
+{
+	struct service *service;
+
+	array_foreach_elem(&service_list->services, service) {
+		if (service->type == SERVICE_TYPE_LOG ||
+		    service_is_preserved(service))
+			continue;
+		service_kill(service, FALSE);
+	}
 }
 
 static void services_kill_timeout(struct service_list *service_list)
 {
+	services_kill(service_list);
 	/* The log process normally stops by itself once the rest of the
 	   generation is gone and it has written out their last log messages.
 	   Kill it only if it's still around at the escalation timeout, since
@@ -741,9 +797,9 @@ static void services_kill_timeout(struct service_list *service_list)
 	services_kill_log(service_list);
 }
 
-/* Disconnects the clients of each service's old processes: immediately if its
-   shutdown_clients_timeout is 0, otherwise once the timeout has passed. The
-   kill escalates to SIGKILL from there on. */
+/* Disconnects the clients of the old processes: immediately for the services
+   whose shutdown_clients_timeout is 0, and once the timeout has passed for the
+   preserved services. The rest are left to the service list's kill. */
 static void services_kick(struct service_list *service_list)
 {
 	struct service *service;
@@ -754,18 +810,23 @@ static void services_kick(struct service_list *service_list)
 			continue;
 
 		secs = service->shutdown_clients_timeout;
+		if (secs == 0) {
+			/* Disconnect the clients now, whether or not the
+			   processes are the kind that could be preserved. The
+			   service list's kill escalates from here on. */
+			service_kill(service, FALSE);
+			continue;
+		}
+		if (!service_type_is_preserved(service->type)) {
+			/* Killed by the service list's kill timeout. */
+			continue;
+		}
 		if (secs == SET_TIME_INFINITE) {
 			/* The clients are never disconnected. The processes
 			   stop once their last client is gone. */
 			continue;
 		}
-		if (secs == 0) {
-			/* Disconnect the clients now. */
-			service_kill(service);
-			msecs = SERVICE_DIE_TIMEOUT_MSECS;
-		} else {
-			msecs = secs < UINT_MAX / 1000 ? secs * 1000 : UINT_MAX;
-		}
+		msecs = secs < UINT_MAX / 1000 ? secs * 1000 : UINT_MAX;
 		service->to_kick = timeout_add(msecs, service_kick_timeout,
 					       service);
 	}
@@ -780,18 +841,20 @@ void services_destroy(struct service_list *service_list, bool wait)
 	services_monitor_stop(service_list, wait);
 
 	if (service_list->refcount > 1) {
-		/* Kill the log service once the rest of the generation is
-		   gone, and escalate to SIGKILL from there on. */
+		/* Kill the processes that are still around when the timeout
+		   expires, and escalate to SIGKILL from there on. This only
+		   covers the services that aren't preserved - the preserved
+		   ones are killed by their own to_kick. */
 		service_list->to_kill =
 			timeout_add(SERVICE_DIE_TIMEOUT_MSECS,
 				    services_kill_timeout, service_list);
 		if (!wait) {
-			/* Reload: disconnect the clients now, or once the
-			   service's shutdown_clients_timeout expires. When the
-			   master itself is stopping (wait=TRUE) the processes
-			   are stopped by services_monitor_stop() and they
-			   enforce shutdown_clients_timeout themselves
-			   afterwards. */
+			/* Reload: disconnect the clients of the services that
+			   aren't preserved now, and the preserved ones once
+			   their timeout expires. When the master itself is
+			   stopping (wait=TRUE) the processes are stopped by
+			   services_monitor_stop() and they enforce
+			   shutdown_clients_timeout themselves afterwards. */
 			services_kick(service_list);
 		}
 	}
