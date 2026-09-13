@@ -468,15 +468,27 @@ static bool test_client_large_payload(void)
 		t_strdup_printf("http://hosta:%u/large-payload",
 				bind_ports[0]));
 	lua_pushinteger(script->L, TEST_LARGE_PAYLOAD_SIZE);
-	if (dlua_pcall(script->L, "http_request_large_payload", 2, 1,
+	if (dlua_pcall(script->L, "http_request_large_payload", 2, 2,
 		       &error) < 0)
 		i_fatal("dlua_pcall() failed: %s", error);
 
-	test_assert(lua_isinteger(script->L, -1));
-	if (lua_isinteger(script->L, -1))
-		test_assert(lua_tointeger(script->L, -1) == 0);
+	i_assert(lua_gettop(script->L) == 2);
 
-	lua_pop(script->L, 1);
+	test_assert(lua_isinteger(script->L, 1));
+	if (lua_isinteger(script->L, 1))
+		test_assert(lua_tointeger(script->L, 1) == 0);
+
+	/* The payload must not be allocated from the response's alloconly
+	   pool. Growing the buffer there would leave all the intermediate
+	   allocations behind, wasting several times the payload size. */
+	test_assert(lua_istable(script->L, 2));
+	if (lua_istable(script->L, 2)) {
+		size_t alloc_size =
+			dlua_http_response_get_pool_alloc_size(script->L, 2);
+		test_assert(alloc_size < 64*1024);
+	}
+
+	lua_pop(script->L, 2);
 	i_assert(lua_gettop(script->L) == 0);
 
 	dlua_script_unref(&script);

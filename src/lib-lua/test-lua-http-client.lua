@@ -121,5 +121,7 @@ function http_request_large_payload(url, expect_len)
   if payload:find("[^x]", 6) ~= expect_len - 2 then
     return -4
   end
-  return 0
+  -- the response is returned so that the caller can check how much memory
+  -- its pool used
+  return 0, response
 end

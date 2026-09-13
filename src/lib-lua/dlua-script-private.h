@@ -103,6 +103,10 @@ void dlua_get_dovecot(lua_State *L);
 /* register 'http' methods to 'dovecot' */
 void dlua_dovecot_http_register(struct dlua_script *script);
 
+/* Returns the number of bytes allocated by the HTTP response's pool. Used by
+   unit tests to verify that the response payload isn't allocated from it. */
+size_t dlua_http_response_get_pool_alloc_size(lua_State *L, int arg);
+
 /* register 'file' methods to 'dovecot' */
 void dlua_dovecot_io_register(struct dlua_script *script);
 

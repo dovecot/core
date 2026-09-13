@@ -206,6 +206,7 @@ static int dlua_http_resp_gc(lua_State *L)
 {
 	struct dlua_http_response **_resp = lua_touserdata(L, 1);
 	array_free(&(*_resp)->headers);
+	str_free(&(*_resp)->payload);
 	pool_unref(&(*_resp)->pool);
 	return 0;
 }
@@ -362,7 +363,11 @@ dlua_http_request_callback(const struct http_response *response, lua_State *L)
 	resp->location = p_strdup(resp->pool, response->location);
 	resp->date = response->date;
 	resp->retry_after = response->retry_after;
-	resp->payload = str_new(resp->pool, 528);
+	/* The payload is appended to in small pieces as it's being read, so
+	   it must not be allocated from the alloconly pool. Growing a buffer
+	   there leaves all the intermediate allocations behind, which wastes
+	   several times the payload size for large payloads. */
+	resp->payload = str_new(default_pool, 1024);
 	resp->event = script->event;
 	p_array_init(&resp->headers, resp->pool, 2);
 
@@ -386,6 +391,12 @@ dlua_http_request_callback(const struct http_response *response, lua_State *L)
 	}
 
 	dlua_push_http_response(L, resp);
+}
+
+size_t dlua_http_response_get_pool_alloc_size(lua_State *L, int arg)
+{
+	const struct dlua_http_response *resp = dlua_check_http_response(L, arg);
+	return pool_alloconly_get_total_alloc_size(resp->pool);
 }
 
 static int dlua_http_request_new(lua_State *L)
