@@ -43,6 +43,10 @@ struct dbox_storage_vfuncs {
 	/* open the mail and return its file/offset */
 	int (*mail_open)(struct dbox_mail *mail, uoff_t *offset_r,
 			 struct dbox_file **file_r);
+	/* Called before the mailbox index is locked for creating the mailbox
+	   indexes. Can be used for taking the locks that must be acquired
+	   before the mailbox index. */
+	int (*mailbox_create_indexes_prepare)(struct mailbox *box);
 	/* create/update mailbox indexes */
 	int (*mailbox_create_indexes)(struct mailbox *box,
 				      const struct mailbox_update *update,

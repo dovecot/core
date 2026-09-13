@@ -399,6 +399,13 @@ int dbox_mailbox_create_indexes(struct mailbox *box,
 	struct mail_index_transaction *trans;
 	int ret;
 
+	/* Take the locks that must be acquired before the mailbox index.
+	   With mdbox this opens the map index, which must always be locked
+	   before the mailbox index. */
+	if (storage->v.mailbox_create_indexes_prepare != NULL &&
+	    storage->v.mailbox_create_indexes_prepare(box) < 0)
+		return -1;
+
 	/* use syncing as a lock */
 	ret = mail_index_sync_begin(box->index, &sync_ctx, &view, &trans, 0);
 	if (ret <= 0) {
