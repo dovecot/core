@@ -318,12 +318,12 @@ struct mailbox mdbox_deleted_mailbox = {
 };
 
 struct dbox_storage_vfuncs mdbox_deleted_dbox_storage_vfuncs = {
-	mdbox_file_unrefed,
-	mdbox_file_create_fd,
-	mdbox_mail_file_set,
-	mdbox_mail_open,
-	mdbox_deleted_mailbox_create_indexes,
-	mdbox_get_attachment_path_suffix,
-	mdbox_set_mailbox_corrupted,
-	mdbox_set_file_corrupted
+	.file_unrefed = mdbox_file_unrefed,
+	.file_create_fd = mdbox_file_create_fd,
+	.mail_file_set = mdbox_mail_file_set,
+	.mail_open = mdbox_mail_open,
+	.mailbox_create_indexes = mdbox_deleted_mailbox_create_indexes,
+	.get_attachment_path_suffix = mdbox_get_attachment_path_suffix,
+	.set_mailbox_corrupted = mdbox_set_mailbox_corrupted,
+	.set_file_corrupted = mdbox_set_file_corrupted,
 };
