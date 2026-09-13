@@ -142,15 +142,8 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 
 	hdr = mail_index_get_header(ctx->sync_view);
 	if (hdr->uid_validity == 0) {
-		/* newly created index file */
-		if (hdr->next_uid == 1) {
-			/* could be just a race condition where we opened the
-			   mailbox between mkdir and index creation. fix this
-			   silently. */
-			if (mdbox_mailbox_create_indexes(box, NULL, ctx->trans) < 0)
-				return -1;
-			return 1;
-		}
+		/* The mailbox indexes are created by mdbox_sync_try_begin()
+		   before the sync begins, so the index is broken. */
 		mdbox_set_mailbox_corrupted(box, "Broken index: missing UIDVALIDITY");
 		return 0;
 	}
@@ -210,6 +203,28 @@ static int mdbox_sync_try_begin(struct mdbox_sync_context *ctx,
 	}
 	if (ret <= 0)
 		return ret; /* error / nothing to do */
+
+	const struct mail_index_header *hdr =
+		mail_index_get_header(ctx->sync_view);
+	if (!ctx->index_created && hdr->uid_validity == 0 &&
+	    hdr->next_uid == 1) {
+		/* The mailbox indexes aren't created yet, e.g. the mailbox was
+		   opened between the mkdir and the index creation. Create them
+		   before the mailbox index is locked: creating them locks the
+		   map, which must be locked first, and the indexes are
+		   committed while the index isn't being synced, so the created
+		   UIDVALIDITY and mdbox header become visible to this process
+		   as well. */
+		mail_index_sync_set_reason(ctx->index_sync_ctx,
+					   "mdbox index creation");
+		mail_index_sync_rollback(&ctx->index_sync_ctx);
+		index_storage_expunging_deinit(&ctx->mbox->box);
+
+		ctx->index_created = TRUE;
+		if (dbox_mailbox_create_indexes(&mbox->box, NULL) < 0)
+			return -1;
+		return mdbox_sync_try_begin(ctx, sync_flags);
+	}
 
 	if (!mdbox_map_atomic_is_locked(ctx->atomic) &&
 	    mail_index_sync_has_expunges(ctx->index_sync_ctx)) {
