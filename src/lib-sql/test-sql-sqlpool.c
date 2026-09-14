@@ -60,6 +60,104 @@ static void test_sqlpool_init(struct test_sqlpool *ts, const char *filter_name)
 	ts->conndb->state = SQL_DB_STATE_BUSY;
 }
 
+struct test_sqlpool_commit_ctx {
+	bool got_first;
+	bool got_second;
+};
+
+static void
+test_sqlpool_commit_first_callback(const struct sql_commit_result *result,
+				   struct test_sqlpool_commit_ctx *ctx)
+{
+	test_assert(result->error == NULL);
+	ctx->got_first = TRUE;
+}
+
+static void
+test_sqlpool_commit_second_callback(const struct sql_commit_result *result,
+				    struct test_sqlpool_commit_ctx *ctx)
+{
+	test_assert(result->error == NULL);
+	ctx->got_second = TRUE;
+}
+
+/* A transaction commit queued because the sqlpool's only connection wasn't
+   ready must not be the only request that a later connection-ready state
+   change resumes: whatever is queued behind it must run too, rather than
+   sit until the request timeout. This is the driver_sqlpool_commit_callback()
+   drain. */
+static void test_sql_sqlpool_commit_queue_drain(void)
+{
+	test_begin("sqlpool commit queue drain");
+
+	struct ioloop *ioloop = io_loop_create();
+	struct test_sqlpool ts;
+	test_sqlpool_init(&ts, "test_sqlpool_commit_queue_drain");
+
+	struct test_sqlpool_commit_ctx ctx = { FALSE, FALSE };
+
+	/* both transactions must queue instead of committing right away */
+	struct sql_transaction_context *t1 = sql_transaction_begin(ts.pool);
+	sql_transaction_commit(&t1, test_sqlpool_commit_first_callback, &ctx);
+	struct sql_transaction_context *t2 = sql_transaction_begin(ts.pool);
+	sql_transaction_commit(&t2, test_sqlpool_commit_second_callback, &ctx);
+	test_assert(!ctx.got_first && !ctx.got_second);
+
+	/* connection becomes idle: must drain the whole queue, not just
+	   the request this state change directly dispatches */
+	sql_db_set_state(ts.conndb, SQL_DB_STATE_IDLE);
+
+	test_assert(ctx.got_first);
+	test_assert(ctx.got_second);
+
+	sql_unref(&ts.pool);
+	io_loop_destroy(&ioloop);
+
+	test_end();
+}
+
+/* driver_sqlpool_transaction_commit_s() (the synchronous commit path) has
+   the same missing-drain gap the two async completion paths above were
+   fixed for: once it's done with the connection, whatever else is queued
+   behind it must still get to run.
+
+   The sync path never goes through sql_db_set_state(), so unlike the
+   test above, the connection here is made ready with a direct field
+   write instead of sql_db_set_state(): that's what leaves it ready
+   without sqlpool_state_changed() ever running to drain the queue
+   itself, which is exactly the condition this drain call exists for. */
+static void test_sql_sqlpool_commit_s_queue_drain(void)
+{
+	test_begin("sqlpool sync commit queue drain");
+
+	struct ioloop *ioloop = io_loop_create();
+	struct test_sqlpool ts;
+	test_sqlpool_init(&ts, "test_sqlpool_commit_s_queue_drain");
+
+	struct test_sqlpool_commit_ctx ctx = { FALSE, FALSE };
+
+	/* queues: no ready connection yet */
+	struct sql_transaction_context *t1 = sql_transaction_begin(ts.pool);
+	sql_transaction_commit(&t1, test_sqlpool_commit_first_callback, &ctx);
+	test_assert(!ctx.got_first);
+
+	ts.conndb->state = SQL_DB_STATE_IDLE;
+	test_assert(!ctx.got_first);
+
+	struct sql_transaction_context *t2 = sql_transaction_begin(ts.pool);
+	const char *error = NULL;
+	test_assert(sql_transaction_commit_s(&t2, &error) == 0);
+	test_assert(error == NULL);
+
+	/* the sync commit's own drain call must have resumed t1 */
+	test_assert(ctx.got_first);
+
+	sql_unref(&ts.pool);
+	io_loop_destroy(&ioloop);
+
+	test_end();
+}
+
 struct test_sqlpool_stmt_ctx {
 	bool got_a;
 	bool got_b;
@@ -83,11 +181,8 @@ test_sqlpool_stmt_b_callback(struct sql_result *result,
 	sql_result_unref(result);
 }
 
-/* A statement queued because the sqlpool's only connection wasn't ready
-   must not be the only request that a later connection-ready state change
-   resumes: whatever is queued behind it must run too, rather than sit
-   until the request timeout. This is the
-   driver_sqlpool_statement_query_callback() drain. */
+/* Same as above, for a statement queued via driver_sqlpool_statement_query():
+   this is the driver_sqlpool_statement_query_callback() drain. */
 static void test_sql_sqlpool_statement_queue_drain(void)
 {
 	test_begin("sqlpool statement queue drain");
@@ -235,6 +330,8 @@ static void test_sql_sqlpool_statement_scan_error(void)
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
+		test_sql_sqlpool_commit_queue_drain,
+		test_sql_sqlpool_commit_s_queue_drain,
 		test_sql_sqlpool_statement_queue_drain,
 		test_sql_sqlpool_update_stmt_no_connection,
 		test_sql_sqlpool_statement_scan_error,

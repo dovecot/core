@@ -83,6 +83,10 @@ struct sqlpool_transaction_context {
 	sql_commit_callback_t *callback;
 	void *context;
 
+	/* connection the commit was sent to, captured so the commit
+	   callback can resume the next queued request on it. */
+	struct sql_db *conndb;
+
 	pool_t query_pool;
 	struct sqlpool_request *commit_request;
 };
@@ -282,6 +286,7 @@ sqlpool_request_handle_transaction(struct sql_db *conndb,
 	struct sql_transaction_context *conn_trans;
 
 	sqlpool_request_free(&trans->commit_request);
+	trans->conndb = conndb;
 	conn_trans = driver_sqlpool_new_conn_trans(trans, conndb);
 	sql_transaction_commit(&conn_trans,
 			       driver_sqlpool_commit_callback, trans);
@@ -925,8 +930,13 @@ static void
 driver_sqlpool_commit_callback(const struct sql_commit_result *result,
 			       struct sqlpool_transaction_context *ctx)
 {
+	struct sqlpool_db *db = (struct sqlpool_db *)ctx->ctx.db;
+	struct sql_db *conndb = ctx->conndb;
+
 	ctx->callback(result, ctx->context);
 	driver_sqlpool_transaction_free(ctx);
+
+	sqlpool_request_send_next(db, conndb);
 }
 
 static void
@@ -960,6 +970,7 @@ driver_sqlpool_transaction_commit_s(struct sql_transaction_context *_ctx,
         struct sqlpool_db *db = (struct sqlpool_db *)_ctx->db;
 	const struct sqlpool_connection *conn;
 	struct sql_transaction_context *conn_trans;
+	struct sql_db *conndb;
 	int ret;
 
 	*error_r = NULL;
@@ -969,10 +980,16 @@ driver_sqlpool_transaction_commit_s(struct sql_transaction_context *_ctx,
 		driver_sqlpool_transaction_free(ctx);
 		return -1;
 	}
+	conndb = conn->db;
 
-	conn_trans = driver_sqlpool_new_conn_trans(ctx, conn->db);
+	conn_trans = driver_sqlpool_new_conn_trans(ctx, conndb);
 	ret = sql_transaction_commit_s(&conn_trans, error_r);
 	driver_sqlpool_transaction_free(ctx);
+
+	/* this connection is free again - resume whatever is queued behind
+	   it, the same as the async commit and statement-query completions
+	   already do. */
+	sqlpool_request_send_next(db, conndb);
 	return ret;
 }
 
