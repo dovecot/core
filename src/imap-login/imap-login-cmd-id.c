@@ -90,14 +90,10 @@ static bool
 cmd_id_x_session_id(struct imap_id_params *params,
 		    const char *key ATTR_UNUSED, const char *value)
 {
-	if (*value == '\0')
+	if (!auth_session_id_is_valid(value))
 		return FALSE;
-	if (strlen(value) <= LOGIN_MAX_SESSION_ID_LEN) {
-		params->session_id =
-			p_strdup_empty(params->pool, value);
-		return TRUE;
-	}
-	return FALSE;
+	params->session_id = p_strdup(params->pool, value);
+	return TRUE;
 }
 
 static bool
