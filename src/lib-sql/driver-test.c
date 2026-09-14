@@ -335,7 +335,9 @@ static void
 driver_test_transaction_commit(struct sql_transaction_context *ctx,
 				sql_commit_callback_t *callback, void *context)
 {
-	struct sql_commit_result res;
+	/* driver_test_transaction_commit_s() only sets *error_r on failure,
+	   so res.error must start out NULL for the success case. */
+	struct sql_commit_result res = { .error = NULL };
 	res.error_type = driver_test_transaction_commit_s(ctx, &res.error);
 	callback(&res, context);
 }
