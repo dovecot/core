@@ -8,7 +8,10 @@
 
 struct pop3c_storage {
 	struct mail_storage storage;
+	struct event *list_event;
 	const struct pop3c_settings *set;
+
+	bool disabled:1;
 };
 
 struct pop3c_mailbox {

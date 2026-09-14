@@ -27,8 +27,14 @@ enum pop3c_client_ssl_mode {
 	POP3C_CLIENT_SSL_MODE_STARTTLS
 };
 
+enum pop3c_parameter_flags {
+	POP3C_PARAMETER_CLIENT_DISABLED = BIT(1),
+};
+
 struct pop3c_parameters {
 	const char *temp_path_prefix;
+
+	enum pop3c_parameter_flags flags;
 };
 
 typedef void pop3c_login_callback_t(enum pop3c_command_state state,
@@ -40,6 +46,9 @@ int pop3c_client_init(const struct pop3c_parameters *params,
 		      struct event *event_parent,
 		      struct pop3c_client **client_r, const char **error_r);
 void pop3c_client_deinit(struct pop3c_client **client);
+
+int pop3c_client_settings_match(struct event *event1, struct event *event2,
+				const char **error_r);
 
 void pop3c_client_login(struct pop3c_client *client,
 			pop3c_login_callback_t *callback, void *context);

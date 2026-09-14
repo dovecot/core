@@ -162,6 +162,7 @@ int pop3c_client_init(const struct pop3c_parameters *params,
 
 	client->params.temp_path_prefix =
 		p_strdup(pool, params->temp_path_prefix);
+	client->params.flags = params->flags;
 
 	event_set_append_log_prefix(client->event, t_strdup_printf(
 		"pop3c(%s:%u): ", client->set->pop3c_host, client->set->pop3c_port));
@@ -285,6 +286,72 @@ void pop3c_client_deinit(struct pop3c_client **_client)
 	pool_unref(&client->pool);
 }
 
+int pop3c_client_settings_match(struct event *event1, struct event *event2,
+				const char **error_r)
+{
+	const struct pop3c_client_settings *pop3c_set1, *pop3c_set2;
+	bool have_ssl = FALSE;
+	const struct ssl_settings *ssl_set1 = NULL, *ssl_set2 = NULL;
+	struct event *event1f, *event2f;
+	int ret = 1;
+
+	/* Look up the settings exactly like pop3c_client_init() does, so also
+	   the settings inside the pop3c { } filter are seen. */
+	event1f = event_create(event1);
+	settings_event_add_filter_name(event1f, POP3C_SETTINGS_FILTER);
+	event2f = event_create(event2);
+	settings_event_add_filter_name(event2f, POP3C_SETTINGS_FILTER);
+
+	if (settings_get(event1f, &pop3c_client_setting_parser_info, 0,
+			 &pop3c_set1, error_r) < 0) {
+		event_unref(&event1f);
+		event_unref(&event2f);
+		return -1;
+	}
+	if (settings_get(event2f, &pop3c_client_setting_parser_info, 0,
+			 &pop3c_set2, error_r) < 0) {
+		settings_free(pop3c_set1);
+		event_unref(&event1f);
+		event_unref(&event2f);
+		return -1;
+	}
+	if (*pop3c_set1->pop3c_host == '\0' ||
+	    *pop3c_set2->pop3c_host == '\0') {
+		/* Never match a disabled client */
+		ret = 0;
+	} else if (!settings_equal(&pop3c_client_setting_parser_info,
+			    pop3c_set1, pop3c_set2, NULL)) {
+		ret = 0;
+	}
+	have_ssl = (strcmp(pop3c_set1->pop3c_ssl, "no") != 0);
+	settings_free(pop3c_set1);
+	settings_free(pop3c_set2);
+
+	if (ret > 0 && have_ssl) {
+		/* pop3c_ssl is not "no", so compare also the SSL settings. */
+		if (ssl_client_settings_get(event1f, &ssl_set1, error_r) < 0)
+			ret = -1;
+		else if (ssl_client_settings_get(event2f, &ssl_set2, error_r) < 0)
+			ret = -1;
+
+		if (ret > 0 &&
+		    !settings_equal(&ssl_setting_parser_info,
+				    ssl_set1, ssl_set2, NULL))
+			ret = 0;
+		settings_free(ssl_set1);
+		settings_free(ssl_set2);
+	}
+	if (ret > 0) {
+		/* The authentication settings are used only when the
+		   mailbox/connection is created, so they must be compared here
+		   as well. */
+		ret = client_auth_settings_equal(event1f, event2f, error_r);
+	}
+	event_unref(&event1f);
+	event_unref(&event2f);
+	return ret;
+}
+
 static void pop3c_client_ioloop_changed(struct pop3c_client *client)
 {
 	if (client->to != NULL)
@@ -349,6 +416,14 @@ void pop3c_client_wait_one(struct pop3c_client *client)
 	i_assert(array_count(&client->commands) > 0 ||
 		 (client->state != POP3C_CLIENT_STATE_DISCONNECTED &&
 		  client->state != POP3C_CLIENT_STATE_DONE));
+
+	if (*client->set->pop3c_host == '\0' ||
+	    HAS_ANY_BITS(client->params.flags,
+			 POP3C_PARAMETER_CLIENT_DISABLED)) {
+		e_error(client->event, "pop3c host is empty");
+		pop3c_client_disconnect(client);
+		return;
+	}
 
 	ioloop = io_loop_create();
 	pop3c_client_ioloop_changed(client);
