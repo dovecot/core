@@ -15,6 +15,7 @@
 #include "client.h"
 #include "client-authenticate.h"
 #include "auth-client.h"
+#include "auth-master.h"
 #include "pop3-proxy.h"
 
 #include <ctype.h>
@@ -65,7 +66,9 @@ static bool cmd_xclient(struct pop3_client *client, const char *args)
 			else
 				client->common.local_port = local_port;
 		} else if (str_begins_icase(*tmp, "SESSION=", &value)) {
-			if (strlen(value) <= LOGIN_MAX_SESSION_ID_LEN) {
+			if (!auth_session_id_is_valid(value))
+				args_ok = FALSE;
+			else {
 				client->common.session_id =
 					p_strdup(client->common.pool, value);
 			}
