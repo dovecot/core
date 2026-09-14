@@ -57,9 +57,6 @@ struct imapc_storage_client {
 
 	struct imapc_client *client;
 	const struct imapc_settings *set;
-	/* Client SSL settings, or NULL if imapc_ssl=no. Used only for
-	   checking whether an existing storage can be reused. */
-	const struct ssl_settings *ssl_set;
 
 	ARRAY(struct imapc_storage_event_callback) untagged_callbacks;
 

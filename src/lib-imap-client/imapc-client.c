@@ -32,6 +32,7 @@ int imapc_client_init(const struct imapc_parameters *params,
 {
 	struct event *event;
 	struct imapc_settings *set;
+	const struct ssl_settings *ssl_set = NULL;
 	struct dsasl_client *sasl_client;
 	struct imapc_client *client;
 	pool_t pool;
@@ -47,6 +48,12 @@ int imapc_client_init(const struct imapc_parameters *params,
 
 	if (settings_get(event, &imapc_setting_parser_info, 0,
 			 &set, error_r) < 0) {
+		event_unref(&event);
+		return -1;
+	}
+	if (strcmp(set->imapc_ssl, "no") != 0 &&
+	    ssl_client_settings_get(event, &ssl_set, error_r) < 0) {
+		settings_free(set);
 		event_unref(&event);
 		return -1;
 	}
@@ -85,6 +92,7 @@ int imapc_client_init(const struct imapc_parameters *params,
 	client->untagged_callback = default_untagged_callback;
 	client->event = event;
 	client->set = set;
+	client->ssl_set = ssl_set;
 	client->sasl_client = sasl_client;
 
 	client->params.session_id_prefix =
@@ -125,6 +133,7 @@ void imapc_client_unref(struct imapc_client **_client)
 		return;
 
 	settings_free(client->set);
+	settings_free(client->ssl_set);
 
 	dsasl_client_unref(&client->sasl_client);
 	event_unref(&client->event);
@@ -153,6 +162,36 @@ void imapc_client_deinit(struct imapc_client **_client)
 
 	imapc_client_disconnect(client);
 	imapc_client_unref(_client);
+}
+
+int imapc_client_settings_match(struct imapc_client *client,
+				struct event *event_other,
+				const char **error_r)
+{
+	const struct imapc_settings *imapc_set;
+	const struct ssl_settings *ssl_set;
+	bool match;
+
+	if (settings_get(event_other, &imapc_setting_parser_info, 0,
+			 &imapc_set, error_r) < 0) {
+		/* The error is reported when the new storage is created. */
+		return -1;
+	}
+	match = settings_equal(&imapc_setting_parser_info, client->set,
+			       imapc_set, NULL);
+	settings_free(imapc_set);
+	if (!match || client->ssl_set == NULL) {
+		/* Either the settings differ, or imapc_ssl=no in both of them
+		   and there are no SSL settings to compare. */
+		return (match ? 1 : 0);
+	}
+
+	if (ssl_client_settings_get(event_other, &ssl_set, error_r) < 0)
+		return -1;
+	match = settings_equal(&ssl_setting_parser_info,
+			       client->ssl_set, ssl_set, NULL);
+	settings_free(ssl_set);
+	return (match ? 1 : 0);
 }
 
 void imapc_client_register_untagged(struct imapc_client *client,

@@ -113,6 +113,10 @@ int imapc_client_init(const struct imapc_parameters *params,
 void imapc_client_disconnect(struct imapc_client *client);
 void imapc_client_deinit(struct imapc_client **client);
 
+int imapc_client_settings_match(struct imapc_client *client,
+				struct event *event_other,
+				const char **error_r);
+
 /* Set login callback, must be set before calling other commands.
    This is called only for the first login, not for any reconnects or if there
    are multiple connections created. */

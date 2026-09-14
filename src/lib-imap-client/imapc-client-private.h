@@ -26,6 +26,11 @@ struct imapc_client {
 	const struct imapc_settings *set;
 	struct imapc_parameters params;
 	enum imapc_client_ssl_mode ssl_mode;
+	/* Client SSL settings, or NULL if imapc_ssl=no. Used only for
+	   checking matching settings between clients, which is used in
+	   lib-storage to determine whether an existing imapc storage can be
+	   reused. */
+	const struct ssl_settings *ssl_set;
 
 	imapc_untagged_callback_t *untagged_callback;
 	void *untagged_context;

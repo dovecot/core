@@ -335,17 +335,11 @@ int imapc_storage_client_create(struct mailbox_list *list,
 	struct imapc_client *imap_client;
 	struct imapc_storage_client *client;
 	struct imapc_parameters params = {};
-	const struct ssl_settings *ssl_set = NULL;
 	string_t *str;
 
 	if (settings_get(list_event, &imapc_setting_parser_info, 0,
 			 &imapc_set, error_r) < 0)
 		return -1;
-	if (strcmp(imapc_set->imapc_ssl, "no") != 0 &&
-	    ssl_client_settings_get(list_event, &ssl_set, error_r) < 0) {
-		settings_free(imapc_set);
-		return -1;
-	}
 
 	if ((ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0 ||
 	    *imapc_set->imapc_host == '\0')
@@ -368,7 +362,6 @@ int imapc_storage_client_create(struct mailbox_list *list,
 	client = i_new(struct imapc_storage_client, 1);
 	client->refcount = 1;
 	client->set = imapc_set;
-	client->ssl_set = ssl_set;
 	client->disabled =
 		HAS_ALL_BITS(params.flags, IMAPC_PARAMETER_CLIENT_DISABLED);
 	i_array_init(&client->untagged_callbacks, 16);
@@ -400,7 +393,6 @@ void imapc_storage_client_unref(struct imapc_storage_client **_client)
 		return;
 	imapc_client_deinit(&client->client);
 	settings_free(client->set);
-	settings_free(client->ssl_set);
 	array_foreach_modifiable(&client->untagged_callbacks, cb)
 		i_free(cb->name);
 	array_free(&client->untagged_callbacks);
@@ -412,10 +404,7 @@ static bool
 imapc_storage_match(struct mail_storage *_storage, struct mailbox_list *list)
 {
 	struct imapc_storage *storage = IMAPC_STORAGE(_storage);
-	const struct imapc_settings *imapc_set;
-	const struct ssl_settings *ssl_set;
 	const char *error;
-	bool match;
 
 	if (storage->client->disabled ||
 	    HAS_ANY_BITS(list->ns->flags, NAMESPACE_FLAG_UNUSABLE)) {
@@ -423,26 +412,12 @@ imapc_storage_match(struct mail_storage *_storage, struct mailbox_list *list)
 		   with a namespace that must not access the remote. */
 		return FALSE;
 	}
-	if (settings_get(list->event, &imapc_setting_parser_info, 0,
-			 &imapc_set, &error) < 0) {
-		/* The error is reported when the new storage is created. */
+	if (imapc_client_settings_match(storage->client->client, list->event,
+					&error) <= 0) {
+		/* Any error is reported when the new storage is created. */
 		return FALSE;
 	}
-	match = settings_equal(&imapc_setting_parser_info, storage->client->set,
-			       imapc_set, NULL);
-	settings_free(imapc_set);
-	if (!match || storage->client->ssl_set == NULL) {
-		/* Either the settings differ, or imapc_ssl=no in both of them
-		   and there are no SSL settings to compare. */
-		return match;
-	}
-
-	if (ssl_client_settings_get(list->event, &ssl_set, &error) < 0)
-		return FALSE;
-	match = settings_equal(&ssl_setting_parser_info,
-			       storage->client->ssl_set, ssl_set, NULL);
-	settings_free(ssl_set);
-	return match;
+	return TRUE;
 }
 
 static int
