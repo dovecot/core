@@ -54,7 +54,12 @@ cmd_xclient_recheck(struct smtp_server_cmd_ctx *cmd,
 		    struct smtp_proxy_data *proxy_data ATTR_UNUSED)
 {
 	struct smtp_server_connection *conn = cmd->conn;
+	struct smtp_server_command *command = cmd->cmd;
 
+	/* the XCLIENT callback may already have rejected the command; don't
+	   overwrite its reply with the success greeting */
+	if (smtp_server_command_is_replied(command))
+		return;
 	/* all preceding commands have finished and now the transaction state is
 	   clear. This provides the opportunity to re-check the protocol state */
 	if (!cmd_xclient_check_state(cmd))
