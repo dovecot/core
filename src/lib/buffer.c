@@ -16,8 +16,6 @@
    default builds are unchanged. */
 #if defined(__has_attribute) && __has_attribute(sized_by)
 #  define ATTR_SIZED_BY(member) __attribute__((sized_by(member)))
-#elif defined(__has_attribute) && __has_attribute(__sized_by__)
-#  define ATTR_SIZED_BY(member) __attribute__((__sized_by__(member)))
 #else
 #  define ATTR_SIZED_BY(member)
 #endif
