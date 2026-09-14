@@ -134,15 +134,6 @@ default_write(const struct failure_context *ctx,
 		break;
 	}
 
-	const char *p;
-	while ((p = strchr(str_c(data), '\n')) != NULL) {
-		size_t line_len = p - str_c(data) + 1;
-		if (log_fd_write(fd, str_data(data), line_len) < 0)
-			return -1;
-		/* delete the written line, not including the log prefix */
-		str_delete(data, prefix_len, line_len - prefix_len);
-	}
-
 	str_append_c(data, '\n');
 	return log_fd_write(fd, str_data(data), str_len(data));
 }
@@ -203,16 +194,6 @@ syslog_write(const struct failure_context *ctx,
 	case LOG_TYPE_OPTION:
 		i_unreached();
 	}
-	char *p;
-	while ((p = strchr(str_c_modifiable(data) + prefix_len, '\n')) != NULL) {
-		size_t line_len = p - str_c_modifiable(data) + 1;
-		*p = '\0';
-		syslog(level, "%s", str_c(data));
-		/* delete the written line, not including the log prefix */
-		i_assert(line_len > prefix_len);
-		str_delete(data, prefix_len, line_len - prefix_len);
-	}
-
 	syslog(level, "%s", str_c(data));
 	return 0;
 }
@@ -257,8 +238,8 @@ internal_write(const struct failure_context *ctx,
 	str_vprintfa(data, format, args);
 	log_message_sanitize(data, prefix_len);
 
-	if (str_len(data)+1 <= PIPE_BUF && strchr(str_c(data), '\n') == NULL) {
-		/* fast path: Log line is short enough and has no LFs */
+	if (str_len(data)+1 <= PIPE_BUF) {
+		/* fast path: Log line is short enough */
 		str_append_c(data, '\n');
 		return log_fd_write(STDERR_FILENO,
 				    str_data(data), str_len(data));
@@ -839,21 +820,12 @@ static int internal_send_split(string_t *full_str, size_t prefix_len)
 	while (pos < str_len(full_str)) {
 		str_truncate(str, prefix_len);
 		const char *text = str_c(full_str) + pos;
-		const char *lf = strchr(text, '\n');
-		size_t line_len;
-		if (lf == NULL || (size_t)(lf - text) > max_text_len) {
-			str_append_max(str, text, max_text_len);
-			str_append_c(str, '\n');
-			line_len = max_text_len;
-		} else {
-			/* write up to and including the LF */
-			line_len = lf - text + 1;
-			str_append_data(str, text, line_len);
-		}
+		str_append_max(str, text, max_text_len);
+		str_append_c(str, '\n');
 		if (log_fd_write(STDERR_FILENO,
 				 str_data(str), str_len(str)) < 0)
 			return -1;
-		pos += line_len;
+		pos += max_text_len;
 	}
 	return 0;
 }
