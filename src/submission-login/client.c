@@ -232,6 +232,15 @@ client_connection_cmd_xclient(void *context,
 
 	/* validate everything before applying anything, so a rejected
 	   XCLIENT leaves the connection state untouched */
+	if (data->session != NULL) {
+		/* lib-smtp checked only the characters: the length limit
+		   applies where the ID enters from a client */
+		if (!auth_session_id_is_valid(data->session)) {
+			smtp_server_reply(cmd, 501, "5.5.4",
+					  "Invalid SESSION parameter");
+			return;
+		}
+	}
 	for (i = 0; i < data->extra_fields_count; i++) {
 		const char *name = data->extra_fields[i].name;
 		const char *value = data->extra_fields[i].value;
