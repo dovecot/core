@@ -6,6 +6,7 @@
 #include "connection.h"
 #include "smtp-syntax.h"
 #include "smtp-reply.h"
+#include "auth-master.h"
 
 #include "smtp-server-private.h"
 
@@ -209,6 +210,15 @@ void smtp_server_cmd_xclient(struct smtp_server_cmd_ctx *cmd,
 		} else if (strcmp(param.keyword, "SESSION") == 0) {
 			if (strcasecmp(param.value, "[UNAVAILABLE]") == 0)
 				continue;
+			/* No length limit here: lmtp appends ":P<n>" per
+			   proxy hop and ":R<n>" per extra recipient, so a
+			   session ID that was accepted by the first hop
+			   must still be accepted by the next ones. */
+			if (!auth_session_id_chars_valid(param.value)) {
+				smtp_server_reply(cmd, 501, "5.5.4",
+						  "Invalid SESSION parameter");
+				return;
+			}
 			proxy_data->session = p_strdup(cmd->pool, param.value);
 		} else if (strcmp(param.keyword, "CLIENT-TRANSPORT") == 0) {
 			if (strcasecmp(param.value, "[UNAVAILABLE]") == 0)

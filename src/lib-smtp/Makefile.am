@@ -114,8 +114,8 @@ test_libs = \
 	../lib-dns/libdns.la \
 	../lib-mail/libmail.la \
 	../lib-charset/libcharset.la \
-	../lib-master/libmaster.la \
 	../lib-auth-client/libauth-client.la \
+	../lib-master/libmaster.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \
 	../lib-dns/libdns.la \
@@ -140,8 +140,8 @@ test_deps = \
 	../lib-dns/libdns.la \
 	../lib-mail/libmail.la \
 	../lib-charset/libcharset.la \
-	../lib-master/libmaster.la \
 	../lib-auth-client/libauth-client.la \
+	../lib-master/libmaster.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \
 	../lib-dns/libdns.la \
