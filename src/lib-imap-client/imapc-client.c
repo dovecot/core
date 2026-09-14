@@ -593,6 +593,11 @@ bool imapc_client_mailbox_is_opened(struct imapc_client_mailbox *box)
 	return TRUE;
 }
 
+const char *imapc_client_get_host(struct imapc_client *client)
+{
+	return client->set->imapc_host;
+}
+
 static bool
 imapc_client_get_any_capabilities(struct imapc_client *client,
 				  enum imapc_capability *capabilities_r)
