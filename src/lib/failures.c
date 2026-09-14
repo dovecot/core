@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
+#include "abnf.h"
 #include "ioloop.h"
 #include "str.h"
 #include "hostpid.h"
@@ -71,10 +72,40 @@ static bool log_fd_can_close(int fd)
 	return fd != STDOUT_FILENO && fd != STDERR_FILENO;
 }
 
+static const char *
+log_prefix_sanitize_pos(const char *str, unsigned int *type_pos_r)
+{
+	i_assert(*type_pos_r <= strlen(str));
+
+	if (!abnf_contains_ascii_ctrl(str))
+		return str;
+
+	string_t *dst = t_str_new(strlen(str) + 16);
+	if (*type_pos_r != 0) {
+		str_append_ctrl_escaped(dst, t_strndup(str, *type_pos_r),
+					abnf_is_ascii_ctrl);
+		str += *type_pos_r;
+		*type_pos_r = str_len(dst);
+	}
+	str_append_ctrl_escaped(dst, str, abnf_is_ascii_ctrl);
+	return str_c(dst);
+}
+
 static const char *log_prefix_sanitize(const char *str)
 {
-	/* we really only care about LFs, which can break everything. */
-	return t_str_replace(str, '\n', ' ');
+	unsigned int type_pos = 0;
+	return log_prefix_sanitize_pos(str, &type_pos);
+}
+
+static void log_message_sanitize(string_t *str, size_t body_pos)
+{
+	const char *body = str_c(str) + body_pos;
+	if (!abnf_contains_ascii_ctrl(body))
+		return;
+
+	body = t_strdup(body);
+	str_truncate(str, body_pos);
+	str_append_log_escaped(str, body);
 }
 
 static int ATTR_FORMAT(2, 0)
@@ -88,6 +119,7 @@ default_write(const struct failure_context *ctx,
 
 	/* make sure there's no %n in there and fix %m */
 	str_vprintfa(data, printf_format_fix(format), args);
+	log_message_sanitize(data, prefix_len);
 
 	int fd;
 	switch (ctx->type) {
@@ -147,6 +179,7 @@ syslog_write(const struct failure_context *ctx,
 	}
 	size_t prefix_len = str_len(data);
 	str_vprintfa(data, format, args);
+	log_message_sanitize(data, prefix_len);
 
 	int level = LOG_ERR;
 	switch (ctx->type) {
@@ -195,11 +228,14 @@ internal_write(const struct failure_context *ctx,
 {
 	string_t *data;
 	unsigned char log_type = ctx->type + 1;
+	const char *prefix = NULL;
+	unsigned int type_pos = ctx->log_prefix_type_pos;
 
 	if (ctx->log_prefix != NULL) {
 		log_type |= LOG_TYPE_FLAG_DISABLE_LOG_PREFIX;
-		if (ctx->log_prefix_type_pos != 0)
+		if (type_pos != 0)
 			log_type |= LOG_TYPE_FLAG_PREFIX_LEN;
+		prefix = log_prefix_sanitize_pos(ctx->log_prefix, &type_pos);
 	} else if (!log_prefix_sent && log_prefix != NULL) {
 		if (i_failure_send_option_forced("prefix", log_prefix) < 0) {
 			/* Failed to write log prefix. The log message writing
@@ -213,12 +249,13 @@ internal_write(const struct failure_context *ctx,
 	data = t_str_new(128);
 	str_printfa(data, "\001%c%s ", log_type, my_pid);
 	if ((log_type & LOG_TYPE_FLAG_PREFIX_LEN) != 0)
-		str_printfa(data, "%u ", ctx->log_prefix_type_pos);
-	if (ctx->log_prefix != NULL)
-		str_append(data, log_prefix_sanitize(ctx->log_prefix));
+		str_printfa(data, "%u ", type_pos);
+	if (prefix != NULL)
+		str_append(data, prefix);
 	size_t prefix_len = str_len(data);
 
 	str_vprintfa(data, format, args);
+	log_message_sanitize(data, prefix_len);
 
 	if (str_len(data)+1 <= PIPE_BUF && strchr(str_c(data), '\n') == NULL) {
 		/* fast path: Log line is short enough and has no LFs */
@@ -345,11 +382,12 @@ static void log_prefix_add(const struct failure_context *ctx, string_t *str)
 		str_append(str, log_prefix_sanitize(ctx->log_prefix));
 		str_append(str, failure_log_type_prefixes[ctx->type]);
 	} else {
-		const char *prefix = log_prefix_sanitize(ctx->log_prefix);
-		i_assert(ctx->log_prefix_type_pos <= strlen(prefix));
-		str_append_data(str, prefix, ctx->log_prefix_type_pos);
+		unsigned int type_pos = ctx->log_prefix_type_pos;
+		const char *prefix =
+			log_prefix_sanitize_pos(ctx->log_prefix, &type_pos);
+		str_append_data(str, prefix, type_pos);
 		str_append(str, failure_log_type_prefixes[ctx->type]);
-		str_append(str, prefix + ctx->log_prefix_type_pos);
+		str_append(str, prefix + type_pos);
 	}
 }
 

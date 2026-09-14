@@ -89,6 +89,29 @@ internal_line_match(const char *line, const char *prefix, const char *text)
 	return strcmp(line, text) == 0;
 }
 
+static bool
+internal_line_match_pos(const char *line, unsigned int type_pos,
+			const char *prefix, const char *text)
+{
+	if (line == NULL)
+		return FALSE;
+
+	if (line[0] != '\001')
+		return FALSE;
+	uint8_t type = (uint8_t)line[1];
+	if (type != ((LOG_TYPE_DEBUG+1) | 0x80 | 0x40))
+		return FALSE;
+	line += 2;
+
+	if (!str_begins(line, t_strdup_printf("123 %u ", type_pos), &line))
+		return FALSE;
+
+	if (!str_begins(line, prefix, &line))
+		return FALSE;
+
+	return strcmp(line, text) == 0;
+}
+
 static void test_internal_split(void)
 {
 	int fd[2];
@@ -165,10 +188,95 @@ static void test_internal_split(void)
 	test_end();
 }
 
+static void test_internal_sanitize(void)
+{
+	int fd[2];
+
+	test_begin("sanitizing control characters in internal log lines");
+
+	if (pipe(fd) < 0)
+		i_fatal("pipe() failed: %m");
+	switch (fork()) {
+	case (pid_t)-1:
+		i_fatal("fork() failed: %m");
+	case 0:
+		/* child - log writer */
+		if (dup2(fd[1], STDERR_FILENO) < 0)
+			i_fatal("dup2() failed: %m");
+		i_close_fd(&fd[0]);
+		i_close_fd(&fd[1]);
+
+		struct failure_context ctx = {
+			.type = LOG_TYPE_DEBUG,
+			.log_prefix = "clean: ",
+		};
+
+		i_set_failure_internal();
+		my_pid = "123";
+		/* nothing to sanitize */
+		i_log_type(&ctx, "plain\ttext");
+		/* CR, LF, ESC and DEL in the message body are escaped,
+		   TAB is kept */
+		i_log_type(&ctx, "a\rb\nc\033d\te\177f");
+		/* the same in the prefix, where TAB is escaped too */
+		ctx.log_prefix = "p\rq\nr\033s\tt\177u: ";
+		i_log_type(&ctx, "text");
+		/* format arguments are sanitized as well */
+		i_log_type(&ctx, "%s", "arg\r\n");
+		/* the log type position moves along with the escaping */
+		ctx.log_prefix = "imap(us\033er): ";
+		ctx.log_prefix_type_pos = 13;
+		i_log_type(&ctx, "text");
+		ctx.log_prefix_type_pos = 7;
+		i_log_type(&ctx, "text");
+		test_exit(0);
+	default:
+		/* parent - log reader */
+		i_close_fd(&fd[1]);
+		break;
+	}
+
+	alarm(10);
+	struct istream *input = i_stream_create_fd(fd[0], SIZE_MAX);
+
+	const char *line = i_stream_read_next_line(input);
+	test_assert(internal_line_match(line, "clean: ", "plain\ttext"));
+
+	line = i_stream_read_next_line(input);
+	test_assert(internal_line_match(line, "clean: ",
+		"a<0x0D>b<0x0A>c<0x1B>d\te<0x7F>f"));
+
+	line = i_stream_read_next_line(input);
+	test_assert(internal_line_match(line,
+		"p<0x0D>q<0x0A>r<0x1B>s<0x09>t<0x7F>u: ", "text"));
+
+	line = i_stream_read_next_line(input);
+	test_assert(internal_line_match(line,
+		"p<0x0D>q<0x0A>r<0x1B>s<0x09>t<0x7F>u: ", "arg<0x0D><0x0A>"));
+
+	line = i_stream_read_next_line(input);
+	test_assert(internal_line_match_pos(line, 18,
+		"imap(us<0x1B>er): ", "text"));
+
+	line = i_stream_read_next_line(input);
+	test_assert(internal_line_match_pos(line, 7,
+		"imap(us<0x1B>er): ", "text"));
+
+	/* no extra lines were produced by the embedded LFs */
+	line = i_stream_read_next_line(input);
+	test_assert(line == NULL);
+
+	i_stream_unref(&input);
+	alarm(0);
+
+	test_end();
+}
+
 void test_failures(void)
 {
 	test_get_set_handlers();
 	test_expected();
 	test_expected_str();
 	test_internal_split();
+	test_internal_sanitize();
 }
