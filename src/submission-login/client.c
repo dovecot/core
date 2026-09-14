@@ -230,6 +230,21 @@ client_connection_cmd_xclient(void *context,
 
 	struct submission_client *client = context;
 
+	/* validate everything before applying anything, so a rejected
+	   XCLIENT leaves the connection state untouched */
+	for (i = 0; i < data->extra_fields_count; i++) {
+		const char *name = data->extra_fields[i].name;
+		const char *value = data->extra_fields[i].value;
+
+		if (strcasecmp(name, "FORWARD") == 0) {
+			if (!client_forward_decode_base64(&client->common, value)) {
+				smtp_server_reply(cmd, 501, "5.5.4",
+						  "Invalid FORWARD parameter");
+				return;
+			}
+		}
+	}
+
 	if (data->source_ip.family != 0)
 		client->common.ip = data->source_ip;
 	if (data->source_port != 0)
@@ -253,18 +268,6 @@ client_connection_cmd_xclient(void *context,
 		client->common.end_client_tls_secured =
 			str_begins_with(data->client_transport,
 					CLIENT_TRANSPORT_TLS);
-	}
-
-	for (i = 0; i < data->extra_fields_count; i++) {
-		const char *name = data->extra_fields[i].name;
-		const char *value = data->extra_fields[i].value;
-
-		if (strcasecmp(name, "FORWARD") == 0) {
-			if (!client_forward_decode_base64(&client->common, value)) {
-				smtp_server_reply(cmd, 501, "5.5.4",
-						  "Invalid FORWARD parameter");
-			}
-		}
 	}
 
 	const char *error;
