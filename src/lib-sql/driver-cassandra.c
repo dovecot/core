@@ -1629,6 +1629,8 @@ driver_cassandra_init_cluster(struct cassandra_db *db, const char **error_r)
 	return 0;
 }
 
+/* Takes ownership of set and ssl_set: both are freed before returning on
+   every failure path, and transferred into *db_r on success. */
 static int
 driver_cassandra_init_from_set(struct event *event_parent,
 			       const struct cassandra_settings *set,
@@ -1640,10 +1642,14 @@ driver_cassandra_init_from_set(struct event *event_parent,
 
 	if (array_is_empty(&set->hosts)) {
 		*error_r = "cassandra_hosts is empty";
+		settings_free(set);
+		settings_free(ssl_set);
 		return -1;
 	}
 	if (set->keyspace[0] == '\0') {
 		*error_r = "cassandra_keyspace is empty";
+		settings_free(set);
+		settings_free(ssl_set);
 		return -1;
 	}
 
