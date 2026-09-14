@@ -234,6 +234,49 @@ static void test_auth_forward_field_line_is_valid(void)
 	test_end();
 }
 
+static void test_auth_session_id_is_valid(void)
+{
+	static const struct {
+		const char *session_id;
+		bool chars_valid;
+		bool valid;
+	} tests[] = {
+		{ "abc", TRUE, TRUE },
+		{ "kLmN0pQr/sT+uVw=", TRUE, TRUE },
+		{ "!#$%&'()*+,-./:;<=>?@[]^_`{|}~", TRUE, TRUE },
+		/* exactly AUTH_MAX_SESSION_ID_LEN bytes */
+		{ "0123456789012345678901234567890123456789"
+		  "012345678901234567890123", TRUE, TRUE },
+		/* one byte too long: only the length-limited check fails */
+		{ "0123456789012345678901234567890123456789"
+		  "0123456789012345678901234", TRUE, FALSE },
+		/* a 64-byte ID after two LMTP proxy hops */
+		{ "0123456789012345678901234567890123456789"
+		  "012345678901234567890123:P1:P1", TRUE, FALSE },
+		{ "", FALSE, FALSE },
+		{ "a b", FALSE, FALSE },
+		{ "a\tb", FALSE, FALSE },
+		{ "a\rb", FALSE, FALSE },
+		{ "a\nb", FALSE, FALSE },
+		{ "\033[2J", FALSE, FALSE },
+		{ "a\177", FALSE, FALSE },
+		/* IMAP quoted-specials */
+		{ "a\"b", FALSE, FALSE },
+		{ "a\\b", FALSE, FALSE },
+		{ "\303\244", FALSE, FALSE },
+	};
+
+	test_begin("auth_session_id_is_valid()");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		test_assert_idx(auth_session_id_chars_valid(
+					tests[i].session_id) ==
+				tests[i].chars_valid, i);
+		test_assert_idx(auth_session_id_is_valid(tests[i].session_id) ==
+				tests[i].valid, i);
+	}
+	test_end();
+}
+
 /*
  * Connection refused
  */
@@ -1479,6 +1522,7 @@ static void (*const test_functions[])(void) = {
 	test_auth_user_info_export,
 	test_auth_forward_field_is_valid,
 	test_auth_forward_field_line_is_valid,
+	test_auth_session_id_is_valid,
 	test_connection_refused,
 	test_connection_timed_out,
 	test_bad_version,

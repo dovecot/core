@@ -744,6 +744,26 @@ bool auth_forward_field_line_is_valid(const char *line)
 					   value + 1);
 }
 
+static bool auth_session_id_is_valid_char(char ch)
+{
+	/* DQUOTE and backslash are IMAP quoted-specials. Reject them so the
+	   session ID can be forwarded as-is by every protocol. */
+	return abnf_is_ascii_visible_char(ch) &&
+	       !abnf_is_dquote(ch) && ch != '\\';
+}
+
+bool auth_session_id_chars_valid(const char *session_id)
+{
+	return session_id[0] != '\0' &&
+	       abnf_is_only(session_id, auth_session_id_is_valid_char);
+}
+
+bool auth_session_id_is_valid(const char *session_id)
+{
+	return strlen(session_id) <= AUTH_MAX_SESSION_ID_LEN &&
+	       auth_session_id_chars_valid(session_id);
+}
+
 void auth_user_info_export(string_t *str, const struct auth_user_info *info)
 {
 	const char *const *fieldp;

@@ -7,8 +7,9 @@ struct module;
 #include "login-proxy.h"
 #include "sasl-proxy.h"
 #include "login-client.h"
+#include "auth-master.h"
 
-#define LOGIN_MAX_SESSION_ID_LEN 64
+#define LOGIN_MAX_SESSION_ID_LEN AUTH_MAX_SESSION_ID_LEN
 #define LOGIN_MAX_MASTER_PREFIX_LEN 128
 #define LOGIN_MAX_CLIENT_ID_LEN 256
 
