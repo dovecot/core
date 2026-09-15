@@ -1993,6 +1993,7 @@ imapc_connection_dns_callback(const struct dns_lookup_result *result,
 
 void imapc_connection_connect(struct imapc_connection *conn)
 {
+	struct imapc_client *client = conn->client;
 	struct ip_addr ip;
 
 	if (conn->fd != -1 || conn->dns_lookup != NULL)
@@ -2023,7 +2024,9 @@ void imapc_connection_connect(struct imapc_connection *conn)
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_CONNECTING);
 	if (conn->ips_count > 0) {
 		/* do nothing */
-	} else if (HAS_ANY_BITS(conn->client->params.flags, IMAPC_PARAMETER_CLIENT_DISABLED)) {
+	} else if (*client->set->imapc_host == '\0' ||
+		   HAS_ANY_BITS(conn->client->params.flags,
+				IMAPC_PARAMETER_CLIENT_DISABLED)) {
 		e_error(conn->event, "imapc host is empty");
 		imapc_connection_set_disconnected(conn);
 		return;

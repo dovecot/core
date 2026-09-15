@@ -208,10 +208,14 @@ int imapc_client_settings_match(struct imapc_client *client,
 		event_unref(&event);
 		return -1;
 	}
-	if (!settings_equal(&imapc_setting_parser_info, client->set,
-			    imapc_set, NULL))
+	if (*client->set->imapc_host == '\0' ||
+	    *imapc_set->imapc_host == '\0') {
+		/* Never match a disabled client */
 		ret = 0;
-	else {
+	} else if (!settings_equal(&imapc_setting_parser_info,
+				   client->set, imapc_set, NULL)) {
+		ret = 0;
+	} else {
 		/* The client translated its deprecated settings into
 		   client_auth settings, so the same must be done here before
 		   they are compared. */
