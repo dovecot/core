@@ -23,6 +23,7 @@ static void doveadm_print_server_flush(void);
 
 static void doveadm_print_server_init(void)
 {
+	i_zero(&ctx);
 	ctx.str = str_new(default_pool, 256);
 }
 
