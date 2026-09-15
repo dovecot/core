@@ -742,6 +742,11 @@ static void services_monitor_wait(struct service_list *service_list)
 		array_foreach_elem(&service_list->services, service) {
 			if (service->status_fd[0] != -1)
 				service_status_input(service);
+			if (service->stop_pipe_fd[0] != -1) {
+				/* Not told to stop yet, so don't wait for it
+				   either - see services_monitor_stop(). */
+				continue;
+			}
 			if (service->process_avail > 0)
 				finished = FALSE;
 		}
@@ -806,13 +811,8 @@ service_list_processes_close_listeners(struct service_list *service_list)
 	return ret;
 }
 
-static void services_monitor_wait_and_kill(struct service_list *service_list)
+static void services_monitor_kill_listeners(struct service_list *service_list)
 {
-	/* we've notified all children that they should stop.
-	   now wait for the children to either die or to tell that
-	   they're no longer listening for new connections. */
-	services_monitor_wait(service_list);
-
 	/* Even if the waiting stopped early because all the process_avail==0,
 	   it can mean that there are processes that have the listener socket
 	   open (just not actively being listened to). We'll need to make sure
@@ -831,11 +831,35 @@ void services_monitor_stop(struct service_list *service_list, bool wait)
 {
 	struct service *service;
 
-	array_foreach_elem(&service_list->services, service)
+	array_foreach_elem(&service_list->services, service) {
+		if (wait && service == service_list->stats) {
+			/* The master itself is stopping, so this generation
+			   isn't being replaced by another one: there is no new
+			   stats process for the other processes to switch to,
+			   like a configuration reload gives them. They log
+			   events while they are deinitializing, so tell the
+			   stats process to stop only after they are gone. The
+			   log process keeps running even longer, until its fds
+			   are closed, so their last log messages are written
+			   out as well. */
+			continue;
+		}
 		service_monitor_close_stop_pipe(service);
+	}
 
-	if (wait)
-		services_monitor_wait_and_kill(service_list);
+	if (wait) {
+		/* Wait for the children to either die or to tell that they're
+		   no longer listening for new connections. */
+		services_monitor_wait(service_list);
+		if (service_list->stats != NULL) {
+			/* Nobody is logging events anymore, so the stats
+			   process can stop as well. It stops on its own once
+			   its clients have disconnected, so don't wait for
+			   it - that would just delay the shutdown. */
+			service_monitor_close_stop_pipe(service_list->stats);
+		}
+		services_monitor_kill_listeners(service_list);
+	}
 
 	io_remove(&service_list->io_master);
 

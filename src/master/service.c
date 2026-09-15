@@ -486,6 +486,12 @@ services_create_real(const struct master_settings *set, pool_t pool,
 			service_list->anvil = service;
 			break;
 		default:
+			if (strcmp(service->set->name, SERVICE_NAME_STATS) == 0) {
+				/* Needs to outlive the rest of the generation
+				   when everything is stopping - see
+				   services_monitor_stop(). */
+				service_list->stats = service;
+			}
 			break;
 		}
 

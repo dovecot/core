@@ -11,6 +11,9 @@
 #define SERVICE_STARTUP_FAILURE_THROTTLE_MIN_MSECS (2*1000)
 #define SERVICE_STARTUP_FAILURE_THROTTLE_MAX_MSECS (60*1000)
 
+/* stats service's name */
+#define SERVICE_NAME_STATS "stats"
+
 enum service_listener_type {
 	SERVICE_LISTENER_UNIX,
 	SERVICE_LISTENER_FIFO,
@@ -172,6 +175,7 @@ struct service_list {
 	struct service *config;
 	struct service *log;
 	struct service *anvil;
+	struct service *stats;
 
 	struct file_listener_settings master_listener_set;
 	struct io *io_master;
