@@ -130,6 +130,9 @@ struct mysql_db {
 
 	MYSQL *mysql;
 	unsigned int next_query_connection;
+
+	/* mysql_real_connect() has been called without mysql_close() */
+	bool connection_opened:1;
 };
 
 struct mysql_result {
@@ -266,6 +269,7 @@ static int driver_mysql_connect(struct sql_db *_db)
 #endif
 	/* CLIENT_MULTI_RESULTS allows the use of stored procedures */
 	start_time = time(NULL);
+	db->connection_opened = TRUE;
 	failed = mysql_real_connect(db->mysql, host,
 		db->set->user[0] == '\0' ? NULL : db->set->user,
 		db->set->password[0] == '\0' ? NULL : db->set->password,
@@ -299,6 +303,15 @@ static int driver_mysql_connect(struct sql_db *_db)
 static void driver_mysql_disconnect(struct sql_db *_db)
 {
 	struct mysql_db *db = container_of(_db, struct mysql_db, api);
+	bool was_opened = db->connection_opened;
+
+	/* mysql_close() must run unconditionally, not just when a
+	   connection was actually opened: reinitializing the handle below
+	   allocates fresh state inside it that needs its own mysql_close()
+	   before the next reinit or before the handle is discarded, even
+	   if that reinit'd handle never went on to attempt a real
+	   connection. Only the "a connection actually finished" bookkeeping
+	   below is conditional on was_opened. */
 	if (db->mysql != NULL) {
 		mysql_close(db->mysql);
 		if (!_db->no_reconnect) {
@@ -308,6 +321,11 @@ static void driver_mysql_disconnect(struct sql_db *_db)
 		}
 	}
 	sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
+
+	if (was_opened) {
+		db->connection_opened = FALSE;
+		sql_connection_log_finished(_db);
+	}
 }
 
 static struct mysql_db_cache *
@@ -441,7 +459,6 @@ static void driver_mysql_deinit_v(struct sql_db *_db)
 
 	driver_mysql_disconnect(_db);
 
-	sql_connection_log_finished(_db);
 	settings_free(db->set);
 	settings_free(db->ssl_set);
 	event_unref(&_db->event);
