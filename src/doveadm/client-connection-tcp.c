@@ -196,6 +196,11 @@ doveadm_cmd_server_run_ver2(struct client_connection_tcp *conn,
 	i_getopt_reset();
 	if (doveadm_cmdline_run(argc, argv, cctx) < 0)
 		doveadm_exit_code = EX_USAGE;
+	/* Any print output still buffered by the print driver must reach the
+	   client before the "+"/"-" reply line. The client stops reading
+	   print rows at the reply line and would otherwise silently discard
+	   the trailing rows. */
+	doveadm_print_flush();
 	doveadm_cmd_server_post(conn, cctx);
 	doveadm_cmd_context_finished(cctx);
 }
