@@ -355,29 +355,6 @@ int imapc_storage_client_create(struct mailbox_list *list,
 		   it's a bug. */
 		params.flags |= IMAPC_PARAMETER_CLIENT_DISABLED;
 
-	if (!array_is_empty(&imapc_set->imapc_sasl_mechanisms)) {
-		const char *mech_name;
-		array_foreach_elem(&imapc_set->imapc_sasl_mechanisms, mech_name) {
-			const struct dsasl_client_mech *mech =
-				dsasl_client_mech_find(mech_name);
-			if (mech == NULL) {
-				*error_r =
-					t_strdup_printf("imapc_sasl_mechanism: "
-							"'%s' is not supported",
-							mech_name);
-				settings_free(imapc_set);
-				settings_free(ssl_set);
-				return -1;
-			} else if (dsasl_client_mech_uses_password(mech) &&
-				   *imapc_set->imapc_password == '\0') {
-				*error_r = "Missing imapc_password";
-				settings_free(imapc_set);
-				settings_free(ssl_set);
-				return -1;
-			}
-		}
-	}
-
 	if ((imapc_set->parsed_features & IMAPC_FEATURE_SEND_ID) != 0)
 		params.session_id_prefix = ns->user->session_id;
 

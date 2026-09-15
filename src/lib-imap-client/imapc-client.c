@@ -6,6 +6,7 @@
 #include "ioloop.h"
 #include "safe-mkstemp.h"
 #include "settings.h"
+#include "dsasl-client.h"
 #include "imapc-msgmap.h"
 #include "imapc-connection.h"
 #include "imapc-client-private.h"
@@ -46,6 +47,30 @@ int imapc_client_init(const struct imapc_parameters *params,
 			 &set, error_r) < 0) {
 		event_unref(&event);
 		return -1;
+	}
+
+	if (!array_is_empty(&set->imapc_sasl_mechanisms)) {
+		const char *mech_name;
+		array_foreach_elem(&set->imapc_sasl_mechanisms, mech_name) {
+			const struct dsasl_client_mech *mech =
+				dsasl_client_mech_find(mech_name);
+			if (mech == NULL) {
+				*error_r = t_strdup_printf(
+					"imapc_sasl_mechanism: "
+					"'%s' mechanism is not supported",
+					mech_name);
+				settings_free(set);
+				event_unref(&event);
+				return -1;
+			}
+			if (dsasl_client_mech_uses_password(mech) &&
+				  *set->imapc_password == '\0') {
+				*error_r = "Missing imapc_password";
+				settings_free(set);
+				event_unref(&event);
+				return -1;
+			}
+		}
 	}
 
 	pool = pool_alloconly_create("imapc client", 1024);
