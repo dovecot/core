@@ -1230,7 +1230,12 @@ client_var_expand_func_passdb(const char *field_name, const char **value_r,
 		if (strncmp(client->auth_passdb_args[i], field_name,
 			    field_name_len) == 0 &&
 		    client->auth_passdb_args[i][field_name_len] == '=') {
-			*value_r = client->auth_passdb_args[i] + field_name_len+1;
+			/* passdb fields may carry the control characters
+			   tabescape round-trips (TAB, CR, LF) and
+			   anything a passdb returns; never expand them raw */
+			*value_r = str_sanitize(
+				client->auth_passdb_args[i] + field_name_len + 1,
+				SIZE_MAX);
 			break;
 		}
 	}

@@ -244,6 +244,34 @@ static void test_real_remote_ip_expansion(void)
 	test_end();
 }
 
+static void test_passdb_field_expansion(void)
+{
+	/* %{passdb:...} must not expand control characters raw: forwarded
+	   fields may legitimately carry TAB/CR/LF and the value can land
+	   in any var-expanded login setting, not only in log lines. */
+	test_begin("passdb_field_expansion");
+
+	test_setting_override("login_log_format_elements",
+			      "fwd=<%{passdb:forward_k}> plain=<%{passdb:x}>");
+
+	struct master_service_connection *conn = test_connection_create();
+	struct client *client = test_client_create(conn);
+	const char *const passdb_args[] = {
+		"forward_k=a\tb\rc\nd\001e\033[2Jf",
+		"x=plain",
+		NULL
+	};
+	client->auth_passdb_args = passdb_args;
+
+	test_expect_error_string(
+		"passdb_test: fwd=<a?b?c?d?e?[2Jf>, plain=<plain>");
+	e_error(client->event, "passdb_test");
+	client->auth_passdb_args = NULL;
+	client_unref(&client);
+
+	test_end();
+}
+
 static void test_settings_init(void)
 {
 	struct event *event = master_service_get_event(master_service);
@@ -269,6 +297,7 @@ int main(int argc, char **argv)
 		test_client_is_trusted,
 		test_client_is_secured,
 		test_real_remote_ip_expansion,
+		test_passdb_field_expansion,
 		NULL
 	};
 	login_binary = &test_login_binary;
