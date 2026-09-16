@@ -35,7 +35,23 @@ static void client_connected(struct master_service_connection *conn)
 
 static void stats_die(void)
 {
-	/* just wait for existing stats clients to disconnect from us */
+	/* Every Dovecot process keeps a writer connection open for as long as
+	   it runs, so waiting for all of them would keep this process around
+	   for as long as the oldest process it serves - and all of their
+	   events would be invisible to the new stats process until then.
+
+	   So just tell them that we're stopping: the ones that keep running
+	   switch to the stats process that replaces us right away, without
+	   losing any events in between, and disconnect us as they go. The
+	   ones that the same reload is replacing are already deinitializing
+	   and never read the command, so keep serving them - the events they
+	   log on the way out would be lost otherwise. They disconnect when
+	   they exit.
+
+	   The reader and HTTP clients are single requests, so just wait for
+	   them to finish. The die timeout stops us in case somebody doesn't
+	   disconnect. */
+	client_writers_send_reconnect();
 }
 
 static void main_preinit(void)
@@ -91,6 +107,9 @@ int main(int argc, char *argv[])
 	if (master_service_settings_read_simple(master_service, &error) < 0)
 		i_fatal("%s", error);
 	master_service_init_log(master_service);
+	/* Don't keep serving the existing clients for as long as they live
+	   after the master tells us to stop - see stats_die(). */
+	master_service_set_die_with_master(master_service, TRUE);
 	master_service_set_die_callback(master_service, stats_die);
 
 	main_preinit();

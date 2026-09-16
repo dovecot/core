@@ -280,7 +280,7 @@ static void service_status_input(struct service *service)
 		   wouldn't do it while there are still processes running,
 		   which would cause this callback to be called in a loop. */
 		service_monitor_close_status_fd(service);
-		service_monitor_stop(service);
+		service_monitor_stop(service, TRUE);
 		return;
 	}
 
@@ -689,7 +689,7 @@ void service_monitor_close_status_fd(struct service *service)
 	}
 }
 
-void service_monitor_stop(struct service *service)
+void service_monitor_stop(struct service *service, bool close_stop_pipe)
 {
 	service->monitor_stopped = TRUE;
 
@@ -701,7 +701,8 @@ void service_monitor_stop(struct service *service)
 	if (service->process_count == 0)
 		service_monitor_close_status_fd(service);
 
-	service_monitor_close_stop_pipe(service);
+	if (close_stop_pipe)
+		service_monitor_close_stop_pipe(service);
 	if (service->login_notify_fd != -1) {
 		if (close(service->login_notify_fd) < 0) {
 			e_error(service->event,
@@ -721,7 +722,7 @@ void service_monitor_stop_close(struct service *service)
 {
 	struct service_listener *l;
 
-	service_monitor_stop(service);
+	service_monitor_stop(service, TRUE);
 
 	array_foreach_elem(&service->listeners, l)
 		i_close_fd(&l->fd);
@@ -827,21 +828,24 @@ static void services_monitor_kill_listeners(struct service_list *service_list)
 	}
 }
 
+/* Tells the stats process to stop. This is done separately from the rest of
+   the generation, because its clients switch over to a new stats process as
+   soon as they are told to: the new generation's stats-writer listener has to
+   exist before that happens. */
+void services_monitor_stop_stats(struct service_list *service_list)
+{
+	if (service_list->stats != NULL)
+		service_monitor_close_stop_pipe(service_list->stats);
+}
+
 void services_monitor_stop(struct service_list *service_list, bool wait)
 {
 	struct service *service;
 
 	array_foreach_elem(&service_list->services, service) {
-		if (wait && service == service_list->stats) {
-			/* The master itself is stopping, so this generation
-			   isn't being replaced by another one: there is no new
-			   stats process for the other processes to switch to,
-			   like a configuration reload gives them. They log
-			   events while they are deinitializing, so tell the
-			   stats process to stop only after they are gone. The
-			   log process keeps running even longer, until its fds
-			   are closed, so their last log messages are written
-			   out as well. */
+		if (service == service_list->stats) {
+			/* Stopped separately - see
+			   services_monitor_stop_stats(). */
 			continue;
 		}
 		service_monitor_close_stop_pipe(service);
@@ -851,20 +855,26 @@ void services_monitor_stop(struct service_list *service_list, bool wait)
 		/* Wait for the children to either die or to tell that they're
 		   no longer listening for new connections. */
 		services_monitor_wait(service_list);
-		if (service_list->stats != NULL) {
-			/* Nobody is logging events anymore, so the stats
-			   process can stop as well. It stops on its own once
-			   its clients have disconnected, so don't wait for
-			   it - that would just delay the shutdown. */
-			service_monitor_close_stop_pipe(service_list->stats);
-		}
+		/* The master itself is stopping, so this generation isn't
+		   being replaced by another one: there is no new stats process
+		   for the other processes to switch to, like a configuration
+		   reload gives them. They log events while they are
+		   deinitializing, so the stats process is told to stop only
+		   now that they are gone. It stops on its own once its clients
+		   have disconnected, so don't wait for it - that would just
+		   delay the shutdown. The log process keeps running even
+		   longer, until its fds are closed, so their last log messages
+		   are written out as well. */
+		services_monitor_stop_stats(service_list);
 		services_monitor_kill_listeners(service_list);
 	}
 
 	io_remove(&service_list->io_master);
 
-	array_foreach_elem(&service_list->services, service)
-		service_monitor_stop(service);
+	array_foreach_elem(&service_list->services, service) {
+		service_monitor_stop(service,
+				     service != service_list->stats);
+	}
 
 	services_log_deinit(service_list);
 }

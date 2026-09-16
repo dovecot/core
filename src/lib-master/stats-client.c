@@ -33,6 +33,7 @@ static struct connection_list *stats_clients;
 struct event_filter **stats_event_filter = NULL;
 
 static int stats_client_connect(struct stats_client *client, bool reconnect);
+static void stats_client_reconnect(struct stats_client *client);
 
 static int
 client_handshake_filter(const char *const *args, struct event_filter **filter_r,
@@ -83,11 +84,34 @@ stats_client_handshake(struct stats_client *client, const char *const *args)
 	return 1;
 }
 
+/* Reconnect to the stats process that replaces the one we're connected to.
+   The old process is still serving us while this is done, so the events in
+   between aren't sent to a process that is going away, and the previous
+   handshake's filter keeps being used until the new one arrives. */
+static void stats_client_switch(struct stats_client *client)
+{
+	struct event *event;
+
+	/* after reconnection the IDs need to be re-sent */
+	for (event = events_get_head(); event != NULL; event = event->next)
+		event->sent_to_stats_id = 0;
+
+	connection_disconnect(&client->conn);
+	stats_client_reconnect(client);
+}
+
 static int
 stats_client_input_args(struct connection *conn, const char *const *args)
 {
 	struct stats_client *client = (struct stats_client *)conn;
 
+	if (strcmp(args[0], "RECONNECT") == 0) {
+		/* The stats process is stopping. Switch to the one that
+		   replaces it, so that the events in between aren't sent to a
+		   process that is going away. */
+		stats_client_switch(client);
+		return 1;
+	}
 	return stats_client_handshake(client, args);
 
 }
@@ -143,7 +167,7 @@ static const struct connection_settings stats_client_set = {
 	.service_name_in = "stats-server",
 	.service_name_out = "stats-client",
 	.major_version = 4,
-	.minor_version = 0,
+	.minor_version = 1,
 
 	.input_max_size = SIZE_MAX,
 	.output_max_size = SIZE_MAX,

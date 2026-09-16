@@ -329,7 +329,7 @@ static struct connection_settings client_set = {
 	.service_name_in = "stats-client",
 	.service_name_out = "stats-server",
 	.major_version = 4,
-	.minor_version = 0,
+	.minor_version = 1,
 
 	.input_max_size = 1024*128, /* "big enough" */
 	.output_max_size = SIZE_MAX,
@@ -360,6 +360,21 @@ void client_writer_update_connections(void)
 	to_update_clients = timeout_add(STATS_UPDATE_CLIENTS_DELAY_MSECS,
 					client_writer_update_connections_internal,
 					NULL);
+}
+
+void client_writers_send_reconnect(void)
+{
+	struct connection *conn;
+
+	for (conn = writer_clients->connections; conn != NULL; conn = conn->next) {
+		if (conn->minor_version < 1) {
+			/* The client doesn't know the command. It reconnects
+			   once we disconnect it. */
+			continue;
+		}
+		o_stream_nsend_str(conn->output, "RECONNECT\n");
+		(void)o_stream_flush(conn->output);
+	}
 }
 
 void client_writers_init(void)

@@ -455,6 +455,11 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 		i_sd_notify(0, "READY=1");
 		return;
 	}
+	/* The new generation's listeners exist now, so the old stats process
+	   can hand its writer clients over: they find the stats-writer socket
+	   in place when they reconnect, even though the process behind it
+	   isn't started yet. */
+	services_monitor_stop_stats(services);
 
 	/* anvil never dies. it just gets moved to the new services list */
 	service = service_lookup_type(services, SERVICE_TYPE_ANVIL);
