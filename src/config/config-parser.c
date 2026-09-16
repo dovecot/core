@@ -716,10 +716,13 @@ settings_value_check(struct config_parser_context *ctx,
 	case SET_STR:
 	case SET_PATH_FILE:
 	case SET_PATH_DIR:
+	case SET_STR_NOVARS:
+		/* STR_NOVARS values still hold var-expand templates - they're
+		   just not expanded by the generic settings lookup code, so
+		   the templates need to be verified here just like for the
+		   other string types. */
 		if (settings_value_check_vars(ctx, value) < 0)
 			return -1;
-		break;
-	case SET_STR_NOVARS:
 		break;
 	case SET_ENUM:
 		/* get the available values from default string */

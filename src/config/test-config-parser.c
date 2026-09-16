@@ -32,6 +32,7 @@ struct test_settings {
 	const char *protocols;
 	const char *at_group_name;
 	const char *key_file;
+	const char *key_novars;
 	ARRAY_TYPE(const_string) key_strlist;
 };
 
@@ -50,6 +51,7 @@ static const struct setting_define test_settings_defs[] = {
 	SETTING_DEFINE_STRUCT_STR("protocols", protocols, struct test_settings),
 	SETTING_DEFINE_STRUCT_STR("@group_name", at_group_name, struct test_settings),
 	SETTING_DEFINE_STRUCT_FILE("key_file", key_file, struct test_settings),
+	SETTING_DEFINE_STRUCT_STR_NOVARS("key_novars", key_novars, struct test_settings),
 	SETTING_DEFINE_STRUCT_STRLIST("key_strlist", key_strlist, struct test_settings),
 	SETTING_DEFINE_LIST_END
 };
@@ -69,6 +71,7 @@ static const struct test_settings test_settings_defaults = {
 	.protocols = "pop3",
 	.at_group_name = "",
 	.key_file = "",
+	.key_novars = "",
 };
 
 const struct setting_parser_info test_settings_info = {
@@ -534,6 +537,52 @@ static void test_config_parser_heredoc_in_strlist(void)
 	test_end();
 }
 
+static void test_config_parser_str_novars_var_expand(void)
+{
+	struct config_parsed *config;
+	const char *error = NULL;
+	const char *config_file = test_dir_prepend(TEST_CONFIG_FILE);
+
+	test_begin("config_parse_file - STR_NOVARS var-expand syntax is checked");
+	write_config_file(
+"dovecot_config_version = "DOVECOT_CONFIG_VERSION"\n"
+"key_novars = %{unclosed\n"
+	);
+	test_assert(config_parse_file(config_file,
+				      CONFIG_PARSE_FLAG_EXPAND_VALUES |
+				      CONFIG_PARSE_FLAG_NO_DEFAULTS,
+				      NULL, &config, &error) < 0);
+	test_assert(error != NULL);
+	if (error != NULL) {
+		test_assert(strstr(error, "key_novars") != NULL);
+		test_assert(strstr(error, "syntax error") != NULL);
+	}
+	if (config != NULL)
+		config_parsed_free(&config);
+	config_parser_deinit();
+	i_unlink_if_exists(config_file);
+	test_end();
+
+	/* a valid var-expand template must still be accepted */
+	test_begin("config_parse_file - STR_NOVARS valid var-expand is accepted");
+	write_config_file(
+"dovecot_config_version = "DOVECOT_CONFIG_VERSION"\n"
+"key_novars = %{user | lower}\n"
+	);
+	error = NULL;
+	test_assert(config_parse_file(config_file,
+				      CONFIG_PARSE_FLAG_EXPAND_VALUES |
+				      CONFIG_PARSE_FLAG_NO_DEFAULTS,
+				      NULL, &config, &error) == 1);
+	if (error != NULL)
+		i_error("config_parse_file(): %s", error);
+	if (config != NULL)
+		config_parsed_free(&config);
+	config_parser_deinit();
+	i_unlink_if_exists(config_file);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -543,6 +592,7 @@ int main(void)
 		test_config_parser_set_file_export_value,
 		test_config_parser_set_file_inline_export,
 		test_config_parser_heredoc_in_strlist,
+		test_config_parser_str_novars_var_expand,
 		NULL
 	};
 
