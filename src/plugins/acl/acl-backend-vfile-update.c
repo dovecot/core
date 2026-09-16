@@ -181,7 +181,7 @@ acl_backend_vfile_update_write(struct acl_object *aclobj,
 
 static void acl_backend_vfile_update_cache(struct acl_object *_aclobj, int fd)
 {
-	struct acl_backend_vfile_validity *validity;
+	struct acl_backend_vfile_validity *old_validity, validity;
 	struct stat st;
 
 	if (fstat(fd, &st) < 0) {
@@ -190,12 +190,19 @@ static void acl_backend_vfile_update_cache(struct acl_object *_aclobj, int fd)
 		return;
 	}
 
-	validity = acl_cache_get_validity(_aclobj->backend->cache,
-					  _aclobj->name);
-	i_assert(validity != NULL);
-	validity->local_validity.last_read_time = ioloop_time;
-	validity->local_validity.last_mtime = st.st_mtime;
-	validity->local_validity.last_size = st.st_size;
+	/* the cache entry may not exist - the mask rebuild flushes it and
+	   re-adds it only when some of the rights match the current user */
+	old_validity = acl_cache_get_validity(_aclobj->backend->cache,
+					      _aclobj->name);
+	if (old_validity != NULL)
+		validity = *old_validity;
+	else
+		i_zero(&validity);
+	validity.local_validity.last_read_time = ioloop_time;
+	validity.local_validity.last_mtime = st.st_mtime;
+	validity.local_validity.last_size = st.st_size;
+	acl_cache_set_validity(_aclobj->backend->cache, _aclobj->name,
+			       &validity);
 }
 
 int acl_backend_vfile_object_update(struct acl_object *_aclobj,
@@ -253,6 +260,12 @@ int acl_backend_vfile_object_update(struct acl_object *_aclobj,
 		if (utime(path, &ut) < 0)
 			e_error(event, "utime(%s) failed: %m", path);
 	}
+	/* The mask in the process-wide ACL cache was rebuilt from the file
+	   as it was before this update. Rebuild it from the updated rights,
+	   so this process sees its own change also while the cached validity
+	   is still within acl_cache_ttl. The rebuild flushes the cached
+	   validity, so update it afterwards. */
+	acl_object_rebuild_cache(_aclobj);
 	acl_backend_vfile_update_cache(_aclobj, fd);
 	if (file_dotlock_replace(&dotlock, 0) < 0) {
 		acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
