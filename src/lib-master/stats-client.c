@@ -33,7 +33,7 @@ struct stats_client {
 static struct connection_list *stats_clients;
 struct event_filter **stats_event_filter = NULL;
 
-static void stats_client_connect(struct stats_client *client, bool reconnect);
+static int stats_client_connect(struct stats_client *client, bool reconnect);
 
 static int
 client_handshake_filter(const char *const *args, struct event_filter **filter_r,
@@ -97,7 +97,13 @@ stats_client_input_args(struct connection *conn, const char *const *args)
 static void stats_client_reconnect(struct stats_client *client)
 {
 	timeout_remove(&client->to_reconnect);
-	stats_client_connect(client, TRUE);
+	if (stats_client_connect(client, TRUE) < 0) {
+		/* The destroy callback isn't called for a connection that was
+		   never established, so keep retrying from here. */
+		client->to_reconnect =
+			timeout_add(STATS_CLIENT_RECONNECT_INTERVAL_MSECS,
+				    stats_client_reconnect, client);
+	}
 }
 
 static void stats_client_destroy(struct connection *conn)
@@ -396,22 +402,25 @@ static void stats_client_send_registered_categories(struct stats_client *client)
 
 /* reconnect is TRUE when the stats process we were connected to went away,
    e.g. because a configuration reload replaced it. */
-static void stats_client_connect(struct stats_client *client, bool reconnect)
+static int stats_client_connect(struct stats_client *client, bool reconnect)
 {
 	if (connection_client_connect(&client->conn) == 0) {
 		/* read the handshake so the global debug filter is updated */
 		stats_client_send_registered_categories(client);
 		if (!client->handshake_received_at_least_once)
 			stats_client_wait(client, STATS_CLIENT_HANDSHAKE_WAIT);
-	} else if ((!client->silent_errors && !reconnect) ||
-		   (errno != ENOENT && errno != ECONNREFUSED &&
-		    !ENOACCESS(errno))) {
+		return 0;
+	}
+
+	if ((!client->silent_errors && !reconnect) ||
+	    (errno != ENOENT && errno != ECONNREFUSED && !ENOACCESS(errno))) {
 		e_error(client->conn.event,
 			"net_connect_unix(%s) failed: %m", client->conn.name);
 	} else {
 		e_debug(client->conn.event,
 			"net_connect_unix(%s) failed: %m", client->conn.name);
 	}
+	return -1;
 }
 
 struct stats_client *stats_client_init(const char *path, bool silent_errors)
@@ -424,7 +433,7 @@ struct stats_client *stats_client_init(const char *path, bool silent_errors)
 	client = i_new(struct stats_client, 1);
 	client->silent_errors = silent_errors;
 	connection_init_client_unix(stats_clients, &client->conn, path);
-	stats_client_connect(client, FALSE);
+	(void)stats_client_connect(client, FALSE);
 	return client;
 }
 
