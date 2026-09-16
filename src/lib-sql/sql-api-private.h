@@ -217,6 +217,19 @@ struct sql_statement {
 	const char *query_template;
 	ARRAY_TYPE(const_string) args;
 	ARRAY(bool) args_need_escaping;
+	/* Byte offsets of the bind placeholders in query_template, in
+	   order. Filled once by sql_statement_init_fields(); consumers use
+	   these and never scan the template themselves. */
+	ARRAY_TYPE(uint) placeholders;
+	/* Set by sql_statement_init_fields() when query_template contains a
+	   construct sql_template_scan() cannot locate placeholders in
+	   reliably. Checked by sql_statement_query(), sql_statement_query_s(),
+	   sql_update_stmt() and sql_update_stmt_get_rows() before a driver
+	   ever sees the statement, so no driver - whether it binds natively
+	   or renders placeholders into the query text from the (possibly
+	   only partially filled) offsets array above - can execute a
+	   template the scan rejected. */
+	const char *template_scan_error;
 
 	/* Tell the driver to not log this query with expanded values.
 	   This works only for prepared statements. */
@@ -282,6 +295,84 @@ void sql_transaction_add_query(struct sql_transaction_context *ctx, pool_t pool,
 const char *sql_statement_get_log_query(struct sql_statement *stmt);
 int sql_statement_get_query(struct sql_statement *stmt,
 			    const char **query_r, const char **error_r);
+
+/* Append the byte offset of every bind placeholder found in
+   query_template to offsets_r, in order, and return TRUE. A placeholder
+   is any '?' outside a single/double-quoted or backtick-quoted string;
+   a '?' still inside an unterminated string at the end of the template
+   is not counted. This is the only place in lib-sql that decides which
+   '?' is a placeholder - everything else consumes the result via
+   struct sql_statement.placeholders or sql_template_placeholder_count().
+
+   Returns FALSE with *error_r set, and *offsets_r only partially
+   filled, if query_template contains a construct placeholders cannot be
+   located in reliably. Each of the following can hide a real
+   placeholder while counting an unrelated '?' as one instead, leaving
+   the total unchanged from what it would be if nothing were wrong -
+   db-sql's placeholder-count check compares only that total against
+   the number of %{variable} substitutions, so it cannot catch either
+   case; refusing to scan past the construct is the only way to:
+
+     - a backslash inside a '...'-quoted string. Its meaning as a quote
+       escape differs by SQL dialect (mysql's backslash escapes the
+       following quote; PostgreSQL's standard-conforming string treats
+       it as a literal character and closes right at the next quote):
+       getting that wrong moves where the string ends, which can both
+       count a literal '?' still inside this string and lose a real one
+       past it, to a reopened, unterminated string.
+     - any unquoted comment introducer ("--", "/ *", "//", "#") or an
+       unquoted dollar-quote open tag (PostgreSQL dollar-quoting,
+       "$$...$$" or "$tag$...$tag$"). This scanner has no state for a
+       comment body or a dollar-quoted string body, so it cannot skip
+       over one - only refusing the introducer is safe. The
+       dollar-quote case is a concrete instance of the same hazard as
+       the backslash above: dollar-quoting exists specifically to
+       hold a literal quote character without escaping it (e.g.
+       "$$it's ?$$"), and a raw quote inside it opens this scanner's
+       own SQUOTE tracking, which then runs past the dollar-quoted
+       string's real end looking for a closing quote and swallows
+       whatever real placeholder comes next.
+       "a = $$x?y's$$ AND b = ?" scans as one placeholder - the phantom
+       inside "x?y", not the real one after "b = ", which the runaway
+       string ate - the same equal-total mismatch as the backslash case
+       (see the test corpus).
+
+   An unquoted '$' followed by a digit, at the same identifier boundary
+   as the dollar-quote case above, is rejected for a different reason:
+   it is a PostgreSQL positional parameter ($1, $2, ...), not something
+   this scanner miscounts. Left unrejected, it would pass through
+   unchanged into a query that also uses '?' placeholders, and
+   PostgreSQL binds it as an ordinary parameter reference - silently
+   reading whatever bind value ends up in that slot instead of erroring
+   out.
+
+   A quoted identifier's own dialect-specific syntax is not tracked as
+   a state and is not rejected: sqlite's '[ident]' and a PostgreSQL
+   array subscript like 'array[?]' use the same '[' ']' characters for
+   unrelated things, and the only in-tree use is the array subscript,
+   where the '?' really is a placeholder (see the test corpus). A '?'
+   inside a literal '[ident]' is therefore just an extra phantom,
+   caught the same way as any other overcount below - unless '[ident]'
+   itself contains a raw quote character, which would swallow a
+   following real placeholder exactly like the dollar-quote case above.
+   That residual case is left uncaught: rejecting '[' would also reject
+   'array[?]', a real placeholder already relied on.
+
+   Everything that remains after the above only ever changes the total
+   placeholder count, never relocates a real placeholder while leaving
+   the count the same, so a mismatch is always caught: every backend
+   that binds placeholders natively (mysql, PostgreSQL, sqlite)
+   validates its own placeholder count independently of this scan.
+   Cassandra's non-prepared statement path - the only consumer that
+   renders bind values into the query text using these offsets directly
+   - has no comment or dollar-quoting syntax left to trigger a mismatch,
+   since both are rejected above. CQL does have bracket syntax
+   (m['key'] collection element access), but a well-formed CQL bracket
+   expression closes an embedded quote by doubling it, the same
+   convention this scanner's SQUOTE state already handles, so it cannot
+   leave the unbalanced quote the '[ident]' hazard above depends on. */
+bool sql_template_scan(const char *query_template,
+		       ARRAY_TYPE(uint) *offsets_r, const char **error_r);
 
 void sql_connection_log_finished(struct sql_db *db);
 struct event_passthrough *

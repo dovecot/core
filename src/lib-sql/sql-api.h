@@ -143,6 +143,15 @@ struct sql_prepared_statement *
 sql_prepared_statement_init(struct sql_db *db, const char *query_template);
 void sql_prepared_statement_unref(struct sql_prepared_statement **prep_stmt);
 
+/* Return TRUE with *count_r set to the number of bind placeholders
+   sql_statement_init() would find in query_template - see
+   sql_template_scan() in sql-api-private.h for what counts as one and
+   for what makes a template unscannable. Returns FALSE with *error_r
+   set if it is unscannable. */
+bool sql_template_placeholder_count(const char *query_template,
+				    unsigned int *count_r,
+				    const char **error_r);
+
 struct sql_statement *
 sql_statement_init(struct sql_db *db, const char *query_template);
 struct sql_statement *

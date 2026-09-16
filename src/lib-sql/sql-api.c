@@ -11,6 +11,7 @@
 #include "settings-parser.h"
 #include "sql-api-private.h"
 
+#include <ctype.h>
 #include <time.h>
 
 struct sql_query_result_delayed {
@@ -399,21 +400,216 @@ const char *sql_statement_get_log_query(struct sql_statement *stmt)
 	return query;
 }
 
+/* Scanner states: SQUOTE/DQUOTE/BACKTICK track a quoted string or quoted
+   identifier. A '?' is a bind placeholder only in CODE. This is a skip
+   lexer, not a full SQL lexer: it recognizes no keywords, numbers or
+   operators, and its only output is placeholder offsets. A backslash
+   inside a '...'-quoted string, any unquoted comment introducer ('--',
+   '/ *', '//', '#'), an unquoted dollar-quote open tag ('$$' or
+   '$tag$') and an unquoted '$' followed by a digit (a PostgreSQL
+   positional parameter, '$1') are constructs it refuses to guess at
+   and rejects at scan time instead - see sql_template_scan()'s
+   declaration for why each one is unsafe to guess at. There is
+   therefore no comment or dollar-quote state to be in: entering either
+   is itself the error. Everything else - a quoted identifier's own
+   dialect-specific syntax, such as sqlite's '[ident]', and a '$' that
+   is not a dollar-quote open tag, such as one inside a mysql
+   identifier - is simply scanned as CODE; see the declaration for the
+   one residual case that is not fully safe either. */
+enum sql_template_scan_state {
+	SQL_TEMPLATE_SCAN_CODE = 0,
+	SQL_TEMPLATE_SCAN_SQUOTE,
+	SQL_TEMPLATE_SCAN_DQUOTE,
+	SQL_TEMPLATE_SCAN_BACKTICK,
+};
+
+/* Returns TRUE if query_template[i] (a '$') is not itself a
+   continuation of a preceding identifier, i.e. it could open a
+   PostgreSQL dollar-quote or positional parameter rather than just
+   being part of an unquoted identifier such as mysql's "my$col". Both
+   mysql and PostgreSQL allow '$' anywhere in an unquoted identifier,
+   including doubled or repeated ("a$$b", "a$tag$b" are each a single
+   identifier there), and identifier matching is greedy, so neither
+   ever falls into dollar-quote state mid-identifier.
+
+   This check is deliberately ASCII-only, unlike the tag itself (see
+   sql_template_scan_is_dollar_quote()): a byte with the high bit set
+   before the '$' is treated as a boundary, not as an identifier
+   character, even though it may be one in mysql or PostgreSQL.
+   Treating it as a boundary only ever rejects a construct that was
+   actually just part of an identifier, never the reverse - the
+   direction that would hide a real placeholder.
+
+   This is judged from a single preceding character, not a full token
+   classification, so a '$' right after a bare digit run is also
+   treated as identifier continuation, the same as after a letter -
+   unlike a real SQL lexer, which would still treat it as a boundary
+   there, since digits alone lex as a number, not an identifier. A
+   number literal directly abutting a dollar-quoted string or
+   positional parameter, with no operator between them, is already a
+   syntax error in every dialect this file supports, so no valid query
+   is affected by treating it the same as an identifier. */
+static bool
+sql_template_dollar_at_boundary(const char *query_template, unsigned int i)
+{
+	if (i == 0)
+		return TRUE;
+	char prev = query_template[i - 1];
+	return !i_isalnum(prev) && prev != '_' && prev != '$';
+}
+
+/* Returns TRUE if query_template[i] (a '$' at an identifier boundary,
+   per sql_template_dollar_at_boundary()) opens a PostgreSQL
+   dollar-quoted string - "$$" or "$tag$", where tag follows the rules
+   for an unquoted identifier, including the non-ASCII letters that
+   rule allows. */
+static bool
+sql_template_scan_is_dollar_quote(const char *query_template, unsigned int i)
+{
+	unsigned int j = i + 1;
+	if (query_template[j] == '$')
+		return TRUE;
+	if (!i_isalpha(query_template[j]) && query_template[j] != '_' &&
+	    ((unsigned char)query_template[j] & 0x80) == 0)
+		return FALSE;
+	for (j++; i_isalnum(query_template[j]) || query_template[j] == '_' ||
+	     ((unsigned char)query_template[j] & 0x80) != 0; j++) ;
+	return query_template[j] == '$';
+}
+
+bool sql_template_scan(const char *query_template,
+		       ARRAY_TYPE(uint) *offsets_r, const char **error_r)
+{
+	enum sql_template_scan_state state = SQL_TEMPLATE_SCAN_CODE;
+
+	for (unsigned int i = 0; query_template[i] != '\0'; i++) {
+		char c = query_template[i];
+
+		switch (state) {
+		case SQL_TEMPLATE_SCAN_CODE:
+			if (c == '\'')
+				state = SQL_TEMPLATE_SCAN_SQUOTE;
+			else if (c == '"')
+				state = SQL_TEMPLATE_SCAN_DQUOTE;
+			else if (c == '`')
+				state = SQL_TEMPLATE_SCAN_BACKTICK;
+			else if (c == '?') {
+				array_push_back(offsets_r, &i);
+			} else if (c == '#' ||
+				  (c == '-' && query_template[i+1] == '-') ||
+				  (c == '/' && (query_template[i+1] == '*' ||
+						query_template[i+1] == '/'))) {
+				const char *what = c == '#' ? "'#'" :
+					c == '-' ? "'--'" :
+					query_template[i+1] == '*' ? "'/*'" : "'//'";
+				/* No offset: it would be into this generated
+				   template, after %{variable} substitutions
+				   have already collapsed to '?', not into the
+				   admin's own query text - a wrong number is
+				   worse than none. */
+				*error_r = t_strdup_printf(
+					"query template has a %s comment "
+					"outside a quoted string - comments "
+					"are not allowed in a query template; "
+					"bind placeholders after it cannot be "
+					"located reliably", what);
+				return FALSE;
+			} else if (c == '$' &&
+				  sql_template_dollar_at_boundary(query_template, i) &&
+				  i_isdigit(query_template[i+1])) {
+				*error_r = "query template has a '$' followed "
+					"by a digit outside a quoted string - "
+					"that is a PostgreSQL positional "
+					"parameter ($1, $2, ...), not a bind "
+					"placeholder; use '?' placeholders "
+					"instead";
+				return FALSE;
+			} else if (c == '$' &&
+				  sql_template_dollar_at_boundary(query_template, i) &&
+				  sql_template_scan_is_dollar_quote(query_template, i)) {
+				*error_r = "query template has a dollar-quoted "
+					"string outside a quoted string - a "
+					"dollar-quoted string is not allowed in "
+					"a query template; bind placeholders "
+					"after it cannot be located reliably";
+				return FALSE;
+			}
+			break;
+		case SQL_TEMPLATE_SCAN_SQUOTE:
+			if (c == '\\') {
+				/* Whether this escapes the next character
+				   (mysql, PostgreSQL's E'...') or is just a
+				   literal backslash (standard-conforming
+				   string) decides whether the string closes
+				   at the next quote or keeps going - and
+				   getting that wrong can both hide a real
+				   placeholder inside the reopened string and
+				   count a literal '?' still inside this one,
+				   changing offsets without changing the
+				   total count, so a mismatch check would not
+				   catch it. Escape a quote with '' (a
+				   doubled single quote), which every one of
+				   these dialects treats the same way,
+				   instead of '\''. */
+				*error_r = "query template has a backslash "
+					"inside a '...'-quoted string - bind "
+					"placeholders after it cannot be "
+					"located reliably; escape a quote as "
+					"'' (a doubled single quote), not \\'";
+				return FALSE;
+			}
+			if (c == '\'')
+				state = SQL_TEMPLATE_SCAN_CODE;
+			break;
+		case SQL_TEMPLATE_SCAN_DQUOTE:
+			if (c == '"')
+				state = SQL_TEMPLATE_SCAN_CODE;
+			break;
+		case SQL_TEMPLATE_SCAN_BACKTICK:
+			if (c == '`')
+				state = SQL_TEMPLATE_SCAN_CODE;
+			break;
+		}
+	}
+	return TRUE;
+}
+
+bool sql_template_placeholder_count(const char *query_template,
+				    unsigned int *count_r,
+				    const char **error_r)
+{
+	ARRAY_TYPE(uint) offsets;
+
+	t_array_init(&offsets, 4);
+	if (!sql_template_scan(query_template, &offsets, error_r))
+		return FALSE;
+	*count_r = array_count(&offsets);
+	return TRUE;
+}
+
 int sql_statement_get_query(struct sql_statement *stmt,
 			    const char **query_r, const char **error_r)
 {
+	if (stmt->template_scan_error != NULL) {
+		*error_r = stmt->template_scan_error;
+		return -1;
+	}
+
 	string_t *query = str_new(default_pool, 128);
 	const char *const *args;
 	const bool *need_escaping_flags;
-	unsigned int args_count, need_escaping_count, arg_pos = 0;
-	const char *p0, *p1;
+	const unsigned int *offsets;
+	unsigned int args_count, need_escaping_count, offset_count;
+	unsigned int prev = 0;
 
 	args = array_get(&stmt->args, &args_count);
 	need_escaping_flags = array_get(&stmt->args_need_escaping, &need_escaping_count);
-	p0 = stmt->query_template;
-	while ((p1 = strchr(p0, '?')) != NULL) {
-		/* append until ? */
-		str_append_max(query, p0, (p1 - p0));
+	offsets = array_get(&stmt->placeholders, &offset_count);
+	for (unsigned int arg_pos = 0; arg_pos < offset_count; arg_pos++) {
+		unsigned int off = offsets[arg_pos];
+
+		/* append until the placeholder */
+		str_append_data(query, stmt->query_template + prev, off - prev);
 		if (arg_pos >= args_count ||
 		    args[arg_pos] == NULL) {
 			i_panic("lib-sql: Missing bind for arg #%u in statement: %s",
@@ -443,12 +639,11 @@ int sql_statement_get_query(struct sql_statement *stmt,
 		} else {
 			str_append(query, args[arg_pos]);
 		}
-		arg_pos++;
-		p0 = p1 + 1;
+		prev = off + 1;
 	}
-	str_append(query, p0);
+	str_append(query, stmt->query_template + prev);
 
-	if (arg_pos != args_count) {
+	if (offset_count != args_count) {
 		i_panic("lib-sql: Too many bind args (%u) for statement: %s",
 			args_count, stmt->query_template);
 	}
@@ -541,6 +736,11 @@ sql_statement_init_fields(struct sql_statement *stmt, struct sql_db *db)
 	stmt->db = db;
 	p_array_init(&stmt->args, stmt->pool, 8);
 	p_array_init(&stmt->args_need_escaping, stmt->pool, 8);
+	p_array_init(&stmt->placeholders, stmt->pool, 4);
+
+	const char *error;
+	if (!sql_template_scan(stmt->query_template, &stmt->placeholders, &error))
+		stmt->template_scan_error = p_strdup(stmt->pool, error);
 }
 
 struct sql_statement *
@@ -568,6 +768,12 @@ sql_statement_init_prepared(struct sql_prepared_statement *prep_stmt)
 	if (prep_stmt->db->v.statement_init_prepared == NULL)
 		return default_sql_statement_init_prepared(prep_stmt);
 
+	/* sql_statement_init_fields() scans the template here too, even
+	   though a backend that binds a prepared statement natively (e.g.
+	   Cassandra, by index) never reads the resulting offsets: an
+	   unparseable construct is still rejected, and stmt->query_template
+	   must already be set by the backend's statement_init_prepared for
+	   the scan to have anything to scan. */
 	stmt = prep_stmt->db->v.statement_init_prepared(prep_stmt);
 	sql_statement_init_fields(stmt, prep_stmt->db);
 	return stmt;
@@ -661,7 +867,25 @@ void sql_statement_query(struct sql_statement **_stmt,
 	*_stmt = NULL;
 
 	T_BEGIN {
-		if (stmt->db->v.statement_query != NULL)
+		if (stmt->template_scan_error != NULL) {
+			/* An unscannable template must never reach a
+			   driver: one that binds natively (mysql, pgsql,
+			   sqlite) would execute it without ever consulting
+			   stmt->placeholders, and one that renders offsets
+			   into the query text (cassandra) would consume the
+			   partial offset array the failed scan left behind.
+			   Fail via sql_statement_abort(), not a raw
+			   pool_unref(): a pooled driver's statement_init()
+			   (sqlpool) has already created its own nested
+			   per-connection statement, and only the vfunc chain
+			   sql_statement_abort() walks knows how to free
+			   that too. */
+			struct sql_db *db = stmt->db;
+			struct sql_result *result =
+				sql_result_new_error(stmt->template_scan_error);
+			sql_statement_abort(&stmt);
+			sql_query_callback_delayed(db, result, callback, context);
+		} else if (stmt->db->v.statement_query != NULL)
 			stmt->db->v.statement_query(stmt, callback, context);
 		else if (stmt->db->v.statement_query_s != NULL) {
 			struct sql_db *db = stmt->db;
@@ -685,7 +909,10 @@ struct sql_result *sql_statement_query_s(struct sql_statement **_stmt)
 
 	*_stmt = NULL;
 	T_BEGIN {
-		if (stmt->db->v.statement_query_s != NULL)
+		if (stmt->template_scan_error != NULL) {
+			result = sql_result_new_error(stmt->template_scan_error);
+			sql_statement_abort(&stmt);
+		} else if (stmt->db->v.statement_query_s != NULL)
 			result = stmt->db->v.statement_query_s(stmt);
 		else
 			result = default_sql_statement_query_s(stmt);
@@ -1021,7 +1248,11 @@ void sql_update_stmt(struct sql_transaction_context *ctx,
 
 	*_stmt = NULL;
 	T_BEGIN {
-		if (ctx->db->v.update_stmt != NULL)
+		if (stmt->template_scan_error != NULL) {
+			if (ctx->failed_error == NULL)
+				ctx->failed_error = i_strdup(stmt->template_scan_error);
+			sql_statement_abort(&stmt);
+		} else if (ctx->db->v.update_stmt != NULL)
 			ctx->db->v.update_stmt(ctx, stmt, NULL);
 		else
 			default_sql_update_stmt(ctx, stmt, NULL);
@@ -1042,7 +1273,11 @@ void sql_update_stmt_get_rows(struct sql_transaction_context *ctx,
 
 	*_stmt = NULL;
 	T_BEGIN {
-		if (ctx->db->v.update_stmt != NULL)
+		if (stmt->template_scan_error != NULL) {
+			if (ctx->failed_error == NULL)
+				ctx->failed_error = i_strdup(stmt->template_scan_error);
+			sql_statement_abort(&stmt);
+		} else if (ctx->db->v.update_stmt != NULL)
 			ctx->db->v.update_stmt(ctx, stmt, affected_rows);
 		else
 			default_sql_update_stmt(ctx, stmt, affected_rows);
