@@ -115,6 +115,15 @@ mech_gssapi_gs1_init(struct gssapi_sasl_session *gsession, gss_buffer_t in_buf,
 	string_t *principal_name;
 	gss_buffer_desc namebuf;
 
+	if (msession->params.protocol == NULL) {
+		*error_r = "protocol not set";
+		return -1;
+	}
+	if (msession->params.host == NULL) {
+		*error_r = "host not set";
+		return -1;
+	}
+
 	gsession->gss_ctx = GSS_C_NO_CONTEXT;
 	gsession->gss_principal = GSS_C_NO_NAME;
 
