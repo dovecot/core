@@ -1056,6 +1056,10 @@ imapc_connection_send_authenticate(struct imapc_connection *conn,
 		imapc_command_sendf(cmd, "AUTHENTICATE %1s", mech_name);
 		return;
 	}
+	if (*init_resp == '\0') {
+		imapc_command_sendf(cmd, "AUTHENTICATE %1s =", mech_name);
+		return;
+	}
 
 	imapc_command_sendf(cmd, "AUTHENTICATE %1s %1s",
 			    mech_name, init_resp);
@@ -1154,6 +1158,10 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 			};
 			imapc_auth_failed(conn, &reply, error);
 			imapc_connection_disconnect(conn);
+			return;
+		}
+		if (sasl_output_len == 0) {
+			imapc_connection_send_authenticate(conn, mech_name, "");
 			return;
 		}
 
