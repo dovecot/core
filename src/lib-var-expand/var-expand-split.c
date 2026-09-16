@@ -26,6 +26,27 @@ void var_expand_program_template(pool_t pool, const struct var_expand_program *p
 	*template_r = str_c(dest);
 }
 
+void var_expand_program_pieces(pool_t pool, const struct var_expand_program *program,
+			       ARRAY_TYPE(const_string) *literals_r,
+			       ARRAY_TYPE(const_expansion_program) *parts_r)
+{
+	string_t *dest = str_new(pool, 32);
+	while (program != NULL) {
+		if (program->only_literal) {
+			const char *literal = program->first->params->value.str;
+			str_append(dest, literal);
+		} else {
+			const char *literal = p_strdup(pool, str_c(dest));
+			array_push_back(literals_r, &literal);
+			array_push_back(parts_r, &program);
+			str_truncate(dest, 0);
+		}
+		program = program->next;
+	}
+	const char *literal = p_strdup(pool, str_c(dest));
+	array_push_back(literals_r, &literal);
+}
+
 void var_expand_program_split(pool_t pool, const struct var_expand_program *program,
 			      const char *placeholder, const char *sep,
 			      const char *const **template_r,

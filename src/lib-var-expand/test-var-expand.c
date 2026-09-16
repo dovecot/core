@@ -1452,6 +1452,55 @@ static void test_var_expand_split(void)
 	test_end();
 }
 
+static void test_var_expand_pieces_case(const char *prog,
+					const char *const *expected_literals,
+					unsigned int expected_parts)
+{
+	pool_t pool = pool_datastack_create();
+	struct var_expand_program *program;
+	const char *error;
+
+	test_assert(var_expand_program_create(prog, &program, &error) == 0);
+
+	ARRAY_TYPE(const_string) literals;
+	ARRAY_TYPE(const_expansion_program) parts;
+	t_array_init(&literals, 4);
+	t_array_init(&parts, 4);
+	var_expand_program_pieces(pool, program, &literals, &parts);
+
+	test_assert_ucmp(array_count(&parts), ==, expected_parts);
+	test_assert_ucmp(array_count(&literals), ==, expected_parts + 1);
+	for (unsigned int i = 0; i < expected_parts + 1 &&
+	     i < array_count(&literals); i++) {
+		const char *const *lit = array_idx(&literals, i);
+		test_assert_strcmp(*lit, expected_literals[i]);
+	}
+
+	var_expand_program_free(&program);
+}
+
+static void test_var_expand_pieces(void)
+{
+	test_begin("var_expand_split_pieces");
+
+	test_var_expand_pieces_case(
+		"ssh -l %{user} -- %{host} doveadm dsync-server -u%{user}",
+		(const char *const []) {
+			"ssh -l ", " -- ", " doveadm dsync-server -u", ""
+		}, 3);
+	test_var_expand_pieces_case("%{a}",
+		(const char *const []) { "", "" }, 1);
+	test_var_expand_pieces_case("lit",
+		(const char *const []) { "lit" }, 0);
+	/* "%%{" escapes a literal "%{" so it cannot be mistaken for the
+	   start of a variable; the escaped "%{" and the following literal
+	   text are merged into a single literal piece */
+	test_var_expand_pieces_case("%{a}%%{b}",
+		(const char *const []) { "", "%{b}" }, 1);
+
+	test_end();
+}
+
 static void test_var_expand_timestamp(void)
 {
 	test_begin("var_expand(timestamp)");
@@ -1653,6 +1702,7 @@ int main(int argc, char *const argv[])
 		test_var_expand_timestamp,
 		test_var_expand_export_import,
 		test_var_expand_split,
+		test_var_expand_pieces,
 		test_var_expand_to_string,
 		test_var_expand_bench,
 		NULL
