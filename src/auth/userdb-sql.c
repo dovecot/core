@@ -39,8 +39,8 @@ struct userdb_sql_settings {
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type("userdb_sql_"#name, name, struct userdb_sql_settings)
 static const struct setting_define userdb_sql_setting_defines[] = {
-	DEF(STR, query),
-	DEF(STR, iterate_query),
+	DEF(STR_NOVARS, query),
+	DEF(STR_NOVARS, iterate_query),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -111,13 +111,6 @@ static void sql_query_callback(struct sql_result *sql_result,
 	i_free(sql_request);
 }
 
-static int userdb_sql_escape(const char *str, const char **output_r,
-			     void *context, const char **error_r)
-{
-	struct sql_db *db = context;
-	return sql_escape_string(db, str, output_r, error_r);
-}
-
 static void userdb_sql_lookup(struct auth_request *auth_request,
 			      userdb_callback_t *callback)
 {
@@ -125,17 +118,22 @@ static void userdb_sql_lookup(struct auth_request *auth_request,
 	struct sql_userdb_module *module =
 		container_of(_module, struct sql_userdb_module, module);
 	struct userdb_sql_request *sql_request;
+	struct sql_statement *stmt;
 	const struct userdb_sql_settings *set;
 	const char *error;
 
-	const struct settings_get_params params = {
-		.escape_func = userdb_sql_escape,
-		.escape_context = module->db,
-	};
-	if (settings_get_params(authdb_event(auth_request),
-				&userdb_sql_setting_parser_info, &params,
-				&set, &error) < 0) {
+	if (settings_get(authdb_event(auth_request),
+			 &userdb_sql_setting_parser_info, 0,
+			 &set, &error) < 0) {
 		e_error(authdb_event(auth_request), "%s", error);
+		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
+		return;
+	}
+
+	if (db_sql_create_statement(module->db, set->query, auth_request,
+				    &stmt, &error) < 0) {
+		e_error(authdb_event(auth_request), "%s", error);
+		settings_free(set);
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 		return;
 	}
@@ -145,9 +143,10 @@ static void userdb_sql_lookup(struct auth_request *auth_request,
 	sql_request->callback = callback;
 	sql_request->auth_request = auth_request;
 
-	e_debug(authdb_event(auth_request), "%s", set->query);
+	e_debug(authdb_event(auth_request),
+		"userdb_sql_query: %s", sql_statement_get_log_query(stmt));
 
-	sql_query(module->db, set->query, sql_query_callback, sql_request);
+	sql_statement_query(&stmt, sql_query_callback, sql_request);
 	settings_free(set);
 }
 
@@ -180,13 +179,9 @@ userdb_sql_iterate_init(struct auth_request *auth_request,
 	ctx->ctx.context = context;
 	auth_request_ref(auth_request);
 
-	const struct settings_get_params params = {
-		.escape_func = userdb_sql_escape,
-		.escape_context = module->db,
-	};
-	if (settings_get_params(authdb_event(auth_request),
-				&userdb_sql_setting_parser_info, &params,
-				&set, &error) < 0) {
+	if (settings_get(authdb_event(auth_request),
+			 &userdb_sql_setting_parser_info, 0,
+			 &set, &error) < 0) {
 		e_error(authdb_event(auth_request), "%s", error);
 		ctx->ctx.failed = TRUE;
 		return &ctx->ctx;
@@ -197,9 +192,19 @@ userdb_sql_iterate_init(struct auth_request *auth_request,
 			"userdb_sql_iterate_query is empty");
 		ctx->ctx.failed = TRUE;
 	} else {
-		ctx->query_sent = TRUE;
-		sql_query(module->db, set->iterate_query, sql_iter_query_callback, ctx);
-		e_debug(authdb_event(auth_request), "%s", set->iterate_query);
+		struct sql_statement *stmt;
+		if (db_sql_create_statement(module->db, set->iterate_query,
+					    auth_request, &stmt, &error) < 0) {
+			e_error(authdb_event(auth_request), "User iteration failed: %s",
+				error);
+			ctx->ctx.failed = TRUE;
+		} else {
+			ctx->query_sent = TRUE;
+			e_debug(authdb_event(auth_request),
+				"userdb_sql_iterate_query: %s",
+				sql_statement_get_log_query(stmt));
+			sql_statement_query(&stmt, sql_iter_query_callback, ctx);
+		}
 	}
 	settings_free(set);
 	return &ctx->ctx;
