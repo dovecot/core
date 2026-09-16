@@ -101,8 +101,11 @@ static const char *get_log_prefix(struct auth_request *auth_request)
 		str_append(str, my_pid);
 		str_append(str,">");
 	}
-	if (auth_request->fields.session_id != NULL)
-	        str_printfa(str, "<%s>", auth_request->fields.session_id);
+	if (auth_request->fields.session_id != NULL) {
+		str_append_c(str, '<');
+		str_sanitize_append(str, auth_request->fields.session_id, SIZE_MAX);
+		str_append_c(str, '>');
+	}
 	if (worker)
 		str_printfa(str, ": request [%u]", auth_request->id);
 	str_append(str, ": ");
