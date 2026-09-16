@@ -194,6 +194,7 @@ static bool mail_search_args_merge_time(struct mail_search_simplify_ctx *ctx,
 {
 	struct mail_search_simplify_prev_arg mask;
 	struct mail_search_arg **prev_argp, *prev_arg;
+	bool and_merge;
 
 	mail_search_arg_get_base_mask(args, &mask);
 	mask.bin_mask.match_not = args->match_not;
@@ -206,9 +207,15 @@ static bool mail_search_args_merge_time(struct mail_search_simplify_ctx *ctx,
 	}
 
 	prev_arg = *prev_argp;
+	/* Both args have the same match_not, since it is part of the lookup
+	   mask. Negating both args swaps AND and OR:
+	   NOT a AND NOT b == NOT (a OR b)
+	   NOT a OR NOT b == NOT (a AND b)
+	   So the bound to keep depends on both parent_and and match_not. */
+	and_merge = ctx->parent_and != args->match_not;
 	switch (args->type) {
 	case SEARCH_BEFORE:
-		if (ctx->parent_and) {
+		if (and_merge) {
 			if (prev_arg->value.time < args->value.time) {
 				/* prev_arg < 5 AND arg < 10 */
 			} else {
@@ -229,7 +236,7 @@ static bool mail_search_args_merge_time(struct mail_search_simplify_ctx *ctx,
 			return TRUE;
 		return FALSE;
 	case SEARCH_SINCE:
-		if (ctx->parent_and) {
+		if (and_merge) {
 			if (prev_arg->value.time < args->value.time) {
 				/* prev_arg >= 5 AND arg >= 10 */
 				prev_arg->value.time = args->value.time;
@@ -256,6 +263,7 @@ static bool mail_search_args_merge_size(struct mail_search_simplify_ctx *ctx,
 {
 	struct mail_search_simplify_prev_arg mask;
 	struct mail_search_arg **prev_argp, *prev_arg;
+	bool and_merge;
 
 	mail_search_arg_get_base_mask(args, &mask);
 	mask.bin_mask.match_not = args->match_not;
@@ -267,9 +275,15 @@ static bool mail_search_args_merge_size(struct mail_search_simplify_ctx *ctx,
 	}
 
 	prev_arg = *prev_argp;
+	/* Both args have the same match_not, since it is part of the lookup
+	   mask. Negating both args swaps AND and OR:
+	   NOT a AND NOT b == NOT (a OR b)
+	   NOT a OR NOT b == NOT (a AND b)
+	   So the bound to keep depends on both parent_and and match_not. */
+	and_merge = ctx->parent_and != args->match_not;
 	switch (args->type) {
 	case SEARCH_SMALLER:
-		if (ctx->parent_and) {
+		if (and_merge) {
 			if (prev_arg->value.size < args->value.size) {
 				/* prev_arg < 5 AND arg < 10 */
 			} else {
@@ -286,7 +300,7 @@ static bool mail_search_args_merge_size(struct mail_search_simplify_ctx *ctx,
 		}
 		return TRUE;
 	case SEARCH_LARGER:
-		if (ctx->parent_and) {
+		if (and_merge) {
 			if (prev_arg->value.size < args->value.size) {
 				/* prev_arg >= 5 AND arg >= 10 */
 				prev_arg->value.size = args->value.size;
