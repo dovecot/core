@@ -126,6 +126,7 @@ static const struct {
 	{ "NOT SINCE 01-Aug-2014 NOT SINCE 02-Aug-2014", "NOT SINCE \"01-Aug-2014\"" },
 	{ "OR NOT SINCE 01-Aug-2014 NOT SINCE 02-Aug-2014", "NOT SINCE \"02-Aug-2014\"" },
 	{ "NOT ( SINCE 01-Aug-2014 SINCE 02-Aug-2014 )", "NOT SINCE \"02-Aug-2014\"" },
+	{ "OR ( SINCE 01-Aug-2014 SINCE 02-Aug-2014 ) NOT ( SINCE 01-Aug-2014 SINCE 02-Aug-2014 )", "OR SINCE \"02-Aug-2014\" NOT SINCE \"02-Aug-2014\"" },
 	{ "SENTSINCE 03-Aug-2014 SENTSINCE 01-Aug-2014 SENTSINCE 02-Aug-2014", "SENTSINCE \"03-Aug-2014\"" },
 	{ "SENTSINCE 03-Aug-2014 SINCE 01-Aug-2014 SENTSINCE 02-Aug-2014", "SENTSINCE \"03-Aug-2014\" SINCE \"01-Aug-2014\"" },
 
@@ -146,6 +147,7 @@ static const struct {
 	{ "NOT LARGER 1 NOT LARGER 2", "NOT LARGER 1" },
 	{ "OR NOT LARGER 1 NOT LARGER 2", "NOT LARGER 2" },
 	{ "NOT ( LARGER 1 LARGER 2 )", "NOT LARGER 2" },
+	{ "OR ( LARGER 1 LARGER 2 ) NOT ( LARGER 1 LARGER 2 )", "OR LARGER 2 NOT LARGER 2" },
 
 	{ "SUBJECT foo SUBJECT foo", "SUBJECT foo" },
 	{ "SUBJECT foo NOT SUBJECT foo", "NOT ALL" },
@@ -199,6 +201,16 @@ static const struct {
 	{ "OR ( TEXT unique1 TEXT common1 ) ( TEXT common1 TEXT unique2 TEXT unique3 )", "OR TEXT unique1 (TEXT unique2 TEXT unique3) TEXT common1" },
 	{ "OR ( TEXT common1 TEXT common2 TEXT unique1 ) ( TEXT common1 TEXT common2 TEXT unique2 )", "OR TEXT unique1 TEXT unique2 TEXT common2 TEXT common1" },
 	{ "OR ( TEXT common1 TEXT common2 TEXT unique1 TEXT unique2 ) ( TEXT common1 TEXT common2 TEXT unique3 TEXT unique4 )", "OR (TEXT unique1 TEXT unique2) (TEXT unique3 TEXT unique4) TEXT common2 TEXT common1" },
+
+	/* NOT (SUB) must be converted with De Morgan before dropping redundant
+	   args or extracting common args */
+	{ "OR ( TEXT foo TEXT bar ) NOT ( TEXT foo TEXT bar )", "OR (TEXT foo TEXT bar) OR NOT TEXT foo NOT TEXT bar" },
+	{ "OR TEXT foo NOT ( TEXT foo TEXT baz )", "ALL" },
+	{ "OR ( TEXT foo TEXT bar ) NOT ( TEXT foo TEXT baz )", "OR (TEXT foo TEXT bar) OR NOT TEXT foo NOT TEXT baz" },
+	{ "OR NOT ( TEXT foo TEXT bar ) ( TEXT foo TEXT bar TEXT baz )", "OR NOT TEXT foo OR NOT TEXT bar (TEXT foo TEXT bar TEXT baz)" },
+	{ "OR NOT ( TEXT foo TEXT bar ) NOT ( TEXT foo TEXT bar TEXT baz )", "OR NOT TEXT foo OR NOT TEXT bar NOT TEXT baz" },
+	{ "OR TEXT x ( ( OR TEXT foo TEXT bar ) NOT ( OR TEXT foo TEXT baz ) )", "OR TEXT x (OR TEXT foo TEXT bar NOT TEXT foo NOT TEXT baz)" },
+	{ "( OR TEXT x ( OR TEXT foo TEXT bar ) ) ( OR TEXT x NOT ( OR TEXT foo TEXT baz ) )", "OR (OR TEXT foo TEXT bar NOT TEXT foo NOT TEXT baz) TEXT x" },
 
 	/* non-matching cases */
 	{ "OR ( TEXT unique1 TEXT unique2 ) TEXT unique3", "OR (TEXT unique1 TEXT unique2) TEXT unique3" },

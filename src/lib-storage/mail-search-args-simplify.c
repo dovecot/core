@@ -562,6 +562,22 @@ mail_search_args_simplify_extract_common(struct mail_search_args *all_args,
 	return TRUE;
 }
 
+static void mail_search_arg_simplify_not_sub(struct mail_search_arg *arg)
+{
+	struct mail_search_arg *sub;
+
+	if (!arg->match_not ||
+	    (arg->type != SEARCH_SUB && arg->type != SEARCH_OR))
+		return;
+
+	/* neg(p and q and ..) == neg(p) or neg(q) or ..
+	   neg(p or q or ..) == neg(p) and neg(q) and .. */
+	arg->type = arg->type == SEARCH_SUB ? SEARCH_OR : SEARCH_SUB;
+	arg->match_not = FALSE;
+	for (sub = arg->value.subargs; sub != NULL; sub = sub->next)
+		sub->match_not = !sub->match_not;
+}
+
 static bool
 mail_search_args_simplify_sub(struct mail_search_args *all_args, pool_t pool,
 			      struct mail_search_arg **argsp, bool parent_and)
@@ -581,19 +597,7 @@ mail_search_args_simplify_sub(struct mail_search_args *all_args, pool_t pool,
 	while (*argsp != NULL) {
 		struct mail_search_arg *args = *argsp;
 
-		if (args->match_not && (args->type == SEARCH_SUB ||
-					args->type == SEARCH_OR)) {
-			/* neg(p and q and ..) == neg(p) or neg(q) or ..
-			   neg(p or q or ..) == neg(p) and neg(q) and .. */
-			args->type = args->type == SEARCH_SUB ?
-				SEARCH_OR : SEARCH_SUB;
-			args->match_not = FALSE;
-			sub = args->value.subargs;
-			do {
-				sub->match_not = !sub->match_not;
-				sub = sub->next;
-			} while (sub != NULL);
-		}
+		mail_search_arg_simplify_not_sub(args);
 
 		if ((args->type == SEARCH_SUB && parent_and) ||
 		    (args->type == SEARCH_OR && !parent_and) ||
@@ -618,6 +622,13 @@ mail_search_args_simplify_sub(struct mail_search_args *all_args, pool_t pool,
 			if (args->type != SEARCH_INTHREAD) {
 				bool and_arg = args->type == SEARCH_SUB;
 
+				/* Negated SUB/OR subargs must be converted
+				   before looking for redundant or common
+				   subargs. Otherwise NOT (p AND q) would be
+				   treated as (p AND q). */
+				for (sub = args->value.subargs; sub != NULL;
+				     sub = sub->next)
+					mail_search_arg_simplify_not_sub(sub);
 				if (mail_search_args_simplify_drop_redundant_args(all_args, &args->value.subargs, and_arg))
 					ctx.removals = TRUE;
 				if (mail_search_args_simplify_extract_common(all_args, &args->value.subargs, pool, and_arg))
