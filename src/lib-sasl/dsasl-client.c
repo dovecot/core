@@ -165,6 +165,75 @@ dsasl_client_require_mech(struct dsasl_client *client, const char *mech_name,
 	return -1;
 }
 
+static int
+dsasl_client_mech_require_password(const struct dsasl_client_mech *mech,
+				   const struct client_auth_settings *mech_set,
+				   const char **error_r)
+{
+	if (dsasl_client_mech_uses_password(mech) &&
+	    *mech_set->password == '\0') {
+		*error_r = "Missing client_auth_password";
+		return -1;
+	}
+	return 0;
+}
+
+int dsasl_client_check_settings(struct dsasl_client *client,
+				const char **error_r)
+{
+	const struct client_auth_settings *set;
+	const char *mech_name;
+
+	if (settings_get(client->event, &client_auth_setting_parser_info, 0,
+			 &set, error_r) < 0)
+		return -1;
+
+	if (array_is_empty(&set->mechanisms)) {
+		const struct dsasl_client_mech *mech;
+
+		if (*set->mechanism == '\0') {
+			settings_free(set);
+			return 0;
+		}
+
+		/* Mechanism set explicitly */
+		if (dsasl_client_check_mech_name(set->mechanism,
+						 error_r) < 0 ||
+		    dsasl_client_require_mech(client, set->mechanism,
+					      &mech, error_r) < 0 ||
+		    dsasl_client_mech_require_password(mech, set,
+						       error_r) < 0) {
+			settings_free(set);
+			return -1;
+		}
+		settings_free(set);
+		return 0;
+	}
+
+	array_foreach_elem(&set->mechanisms, mech_name) {
+		const struct client_auth_settings *mech_set = NULL;
+		const struct dsasl_client_mech *mech;
+
+		if (dsasl_client_check_mech_name(mech_name, error_r) < 0 ||
+		    settings_get_filter(client->event,
+					CLIENT_AUTH_SETTINGS_FILTER, mech_name,
+					&client_auth_setting_parser_info, 0,
+					&mech_set, error_r) < 0 ||
+		    dsasl_client_require_mech(client, mech_name,
+					      &mech, error_r) < 0 ||
+		    dsasl_client_mech_require_password(mech, mech_set,
+						       error_r) < 0) {
+			settings_free(set);
+			settings_free(mech_set);
+			return -1;
+		}
+		settings_free(mech_set);
+	}
+
+	settings_free(set);
+	return 0;
+}
+
 /*
  * Session
  */

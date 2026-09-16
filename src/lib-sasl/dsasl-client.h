@@ -54,6 +54,9 @@ dsasl_client_mech_find(struct dsasl_client *client, const char *name);
 const char *dsasl_client_mech_get_name(const struct dsasl_client_mech *mech);
 bool dsasl_client_mech_uses_password(const struct dsasl_client_mech *mech);
 
+int dsasl_client_check_settings(struct dsasl_client *client,
+				const char **error_r);
+
 void dsasl_client_init_gssapi(struct dsasl_client *client);
 
 /*
