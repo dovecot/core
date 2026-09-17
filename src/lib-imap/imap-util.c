@@ -108,7 +108,8 @@ static void imap_write_simple_arg(string_t *dest, const struct imap_arg *arg)
 	}
 }
 
-/* Writes args until IMAP_ARG_EOL.
+/* Writes args until IMAP_ARG_EOL, using write_simple_arg() for all the
+   non-list args.
 
    The list nesting depth is limited only by the input line length, so the
    lists must be walked iteratively. struct imap_arg.parent can't be used to
@@ -117,7 +118,10 @@ static void imap_write_simple_arg(string_t *dest, const struct imap_arg *arg)
    allocated from the data stack either, because callers such as
    imap_args_to_str() write to a string_t that is itself allocated from the
    data stack. */
-static void imap_write_args_real(string_t *dest, const struct imap_arg *args)
+static void
+imap_write_args_real(string_t *dest, const struct imap_arg *args,
+		     void (*write_simple_arg)(string_t *dest,
+					      const struct imap_arg *arg))
 {
 	/* the lists whose contents are currently being written,
 	   innermost last */
@@ -155,7 +159,7 @@ static void imap_write_args_real(string_t *dest, const struct imap_arg *args)
 			first = TRUE;
 			continue;
 		}
-		imap_write_simple_arg(dest, args);
+		write_simple_arg(dest, args);
 		args++;
 	}
 	if (array_is_created(&list_stack))
@@ -175,7 +179,7 @@ void imap_write_arg(string_t *dest, const struct imap_arg *arg)
 
 void imap_write_args(string_t *dest, const struct imap_arg *args)
 {
-	imap_write_args_real(dest, args);
+	imap_write_args_real(dest, args, imap_write_simple_arg);
 }
 
 static void imap_human_args_fix_control_chars(char *str)
@@ -188,61 +192,54 @@ static void imap_human_args_fix_control_chars(char *str)
 	}
 }
 
+static void
+imap_write_simple_arg_for_human(string_t *dest, const struct imap_arg *arg)
+{
+	switch (arg->type) {
+	case IMAP_ARG_NIL:
+		str_append(dest, "NIL");
+		break;
+	case IMAP_ARG_ATOM:
+		/* atom has only printable us-ascii chars */
+		str_append(dest, imap_arg_as_astring(arg));
+		break;
+	case IMAP_ARG_STRING:
+	case IMAP_ARG_LITERAL: {
+		const char *strarg = imap_arg_as_astring(arg);
+
+		if (strpbrk(strarg, "\r\n") != NULL) {
+			str_printfa(dest, "<%zu byte multi-line literal>",
+				    strlen(strarg));
+			break;
+		}
+		strarg = str_escape(strarg);
+
+		str_append_c(dest, '"');
+		size_t start_pos = str_len(dest);
+		/* append only valid UTF-8 chars */
+		if (uni_utf8_get_valid_data((const unsigned char *)strarg,
+					    strlen(strarg), dest))
+			str_append(dest, strarg);
+		/* replace all control chars */
+		imap_human_args_fix_control_chars(
+			str_c_modifiable(dest) + start_pos);
+		str_append_c(dest, '"');
+		break;
+	}
+	case IMAP_ARG_LITERAL_SIZE:
+	case IMAP_ARG_LITERAL_SIZE_NONSYNC:
+		str_printfa(dest, "<%"PRIuUOFF_T" byte literal>",
+			    imap_arg_as_literal_size(arg));
+		break;
+	case IMAP_ARG_LIST:
+	case IMAP_ARG_EOL:
+		i_unreached();
+	}
+}
+
 void imap_write_args_for_human(string_t *dest, const struct imap_arg *args)
 {
-	bool first = TRUE;
-
-	for (; !IMAP_ARG_IS_EOL(args); args++) {
-		if (first)
-			first = FALSE;
-		else
-			str_append_c(dest, ' ');
-
-		switch (args->type) {
-		case IMAP_ARG_NIL:
-			str_append(dest, "NIL");
-			break;
-		case IMAP_ARG_ATOM:
-			/* atom has only printable us-ascii chars */
-			str_append(dest, imap_arg_as_astring(args));
-			break;
-		case IMAP_ARG_STRING:
-		case IMAP_ARG_LITERAL: {
-			const char *strarg = imap_arg_as_astring(args);
-
-			if (strpbrk(strarg, "\r\n") != NULL) {
-				str_printfa(dest, "<%zu byte multi-line literal>",
-					    strlen(strarg));
-				break;
-			}
-			strarg = str_escape(strarg);
-
-			str_append_c(dest, '"');
-			size_t start_pos = str_len(dest);
-			/* append only valid UTF-8 chars */
-			if (uni_utf8_get_valid_data((const unsigned char *)strarg,
-						    strlen(strarg), dest))
-				str_append(dest, strarg);
-			/* replace all control chars */
-			imap_human_args_fix_control_chars(
-				str_c_modifiable(dest) + start_pos);
-			str_append_c(dest, '"');
-			break;
-		}
-		case IMAP_ARG_LIST:
-			str_append_c(dest, '(');
-			imap_write_args_for_human(dest, imap_arg_as_list(args));
-			str_append_c(dest, ')');
-			break;
-		case IMAP_ARG_LITERAL_SIZE:
-		case IMAP_ARG_LITERAL_SIZE_NONSYNC:
-			str_printfa(dest, "<%"PRIuUOFF_T" byte literal>",
-				    imap_arg_as_literal_size(args));
-			break;
-		case IMAP_ARG_EOL:
-			i_unreached();
-		}
-	}
+	imap_write_args_real(dest, args, imap_write_simple_arg_for_human);
 }
 
 const char *imap_args_to_str(const struct imap_arg *args)

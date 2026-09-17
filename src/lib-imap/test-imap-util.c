@@ -210,6 +210,10 @@ static void test_imap_write_args_deep_nesting(void)
 	str_truncate(str, 0);
 	imap_write_arg(str, &args[0]);
 	test_assert_strcmp(str_c(str), str_c(expected));
+
+	str_truncate(str, 0);
+	imap_write_args_for_human(str, args);
+	test_assert_strcmp(str_c(str), str_c(expected));
 	if (stack_limited)
 		(void)setrlimit(RLIMIT_STACK, &old_rlimit);
 
