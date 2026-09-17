@@ -111,6 +111,7 @@ struct cassandra_settings {
 	bool debug_queries;
 	bool log_retries;
 	bool latency_aware_routing;
+	bool logged_batches;
 
 	const char *read_consistency;
 	const char *write_consistency;
@@ -169,6 +170,7 @@ static const struct setting_define cassandra_setting_defines[] = {
 	DEF(BOOL, debug_queries),
 	DEF(BOOL, log_retries),
 	DEF(BOOL, latency_aware_routing),
+	DEF(BOOL, logged_batches),
 
 	DEF(STR, read_consistency),
 	DEF(STR, write_consistency),
@@ -206,6 +208,7 @@ static struct cassandra_settings cassandra_default_settings = {
 	.debug_queries = FALSE,
 	.log_retries = FALSE,
 	.latency_aware_routing = FALSE,
+	.logged_batches = TRUE,
 
 	.read_consistency = "local-quorum",
 	.write_consistency = "local-quorum",
@@ -2258,7 +2261,8 @@ static void cassandra_transaction_finish(struct cassandra_transaction_context *c
 	switch (result_type) {
 	case CASSANDRA_RESULT_TYPE_BATCH: {
 		struct cassandra_sql_statement *stmt;
-		cass_result->batch_unlogged = ctx->ctx.non_atomic;
+		cass_result->batch_unlogged = ctx->ctx.non_atomic ||
+			!db->set->logged_batches;
 		cass_result->batch = cass_batch_new(cass_result->batch_unlogged ?
 						    CASS_BATCH_TYPE_UNLOGGED :
 						    CASS_BATCH_TYPE_LOGGED);
