@@ -16,7 +16,7 @@ enum dict_protocol_cmd {
 	DICT_PROTOCOL_CMD_ITERATE = 'I', /* <flags> <path> */
 
 	DICT_PROTOCOL_CMD_BEGIN = 'B', /* <id> <user> <expire secs> */
-	DICT_PROTOCOL_CMD_COMMIT = 'C', /* <id> */
+	DICT_PROTOCOL_CMD_COMMIT = 'C', /* <id> [<flags>] */
 	DICT_PROTOCOL_CMD_ROLLBACK = 'R', /* <id> */
 
 	DICT_PROTOCOL_CMD_SET = 'S', /* <id> <key> <value> */
@@ -25,6 +25,9 @@ enum dict_protocol_cmd {
 	DICT_PROTOCOL_CMD_TIMESTAMP = 'T', /* <id> <secs> <nsecs> */
 	DICT_PROTOCOL_CMD_HIDE_LOG_VALUES = 'V', /* <id> <hide_log_values> */
 };
+
+/* COMMIT flags */
+#define DICT_PROTOCOL_COMMIT_FLAG_NON_ATOMIC "non-atomic"
 
 enum dict_protocol_reply {
 	DICT_PROTOCOL_REPLY_ERROR = -1,

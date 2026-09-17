@@ -1310,8 +1310,13 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 	DLLIST_REMOVE(&dict->transactions, ctx);
 
 	if (str_len(ctx->queries) > 0 && ctx->error == NULL) {
-		str_printfa(ctx->queries, "%c%u\n", DICT_PROTOCOL_CMD_COMMIT,
+		str_printfa(ctx->queries, "%c%u", DICT_PROTOCOL_CMD_COMMIT,
 			    ctx->id);
+		if (_ctx->non_atomic) {
+			str_append(ctx->queries,
+				   "\t"DICT_PROTOCOL_COMMIT_FLAG_NON_ATOMIC);
+		}
+		str_append_c(ctx->queries, '\n');
 		cmd = client_dict_cmd_init(dict, str_c(ctx->queries));
 		cmd->trans = ctx;
 		cmd->retry_errors = ctx->can_retry;

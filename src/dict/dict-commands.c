@@ -523,7 +523,9 @@ static int
 cmd_commit(struct dict_connection_cmd *cmd, const char *const *args)
 {
 	struct dict_connection_transaction *trans;
+	unsigned int i;
 
+	/* <id> [<flags>] */
 	if (dict_connection_transaction_lookup_parse(cmd->conn, args[0], &trans) < 0)
 		return -1;
 	cmd->trans_id = trans->id;
@@ -535,6 +537,15 @@ cmd_commit(struct dict_connection_cmd *cmd, const char *const *args)
 	else {
 		event_set_append_log_prefix(cmd->event, t_strdup_printf(
 			"COMMIT (user %s): ", trans->ctx->set.username));
+	}
+
+	for (i = 1; args[i] != NULL; i++) {
+		if (strcmp(args[i], DICT_PROTOCOL_COMMIT_FLAG_NON_ATOMIC) == 0)
+			dict_transaction_set_non_atomic(trans->ctx);
+		else {
+			e_error(cmd->event, "Unknown flag: %s", args[i]);
+			return -1;
+		}
 	}
 
 	dict_connection_cmd_async(cmd);
