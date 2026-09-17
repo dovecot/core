@@ -89,12 +89,88 @@ bool test_stats_callback(struct event *event,
 		return TRUE;
 
 	recurse_back = TRUE;
-	if (stats_metrics != NULL) {
+	/* conn_list is NULL in the tests that create their own connections. */
+	if (stats_metrics != NULL && conn_list != NULL) {
 		test_write_one(event);
 	}
 	recurse_back = FALSE;
 
 	return TRUE;
+}
+
+static bool reconnect_received = FALSE;
+static struct timeout *to_send_reconnect = NULL;
+
+static void test_reconnect_timeout(struct ioloop *loop)
+{
+	io_loop_stop(loop);
+}
+
+static void test_send_reconnect(void *context ATTR_UNUSED)
+{
+	timeout_remove(&to_send_reconnect);
+	client_writers_send_reconnect();
+}
+
+static int test_reconnect_input_args(struct connection *conn,
+				     const char *const *args)
+{
+	if (strcmp(args[0], "FILTER") == 0) {
+		/* The handshake finished. Tell the clients to switch over to
+		   the stats process that replaces this one - but only once
+		   this connection's own handshake has been read, so that its
+		   minor version is known. */
+		to_send_reconnect = timeout_add_short(10, test_send_reconnect,
+						      NULL);
+		return 1;
+	}
+	test_assert_strcmp(args[0], "RECONNECT");
+	reconnect_received = TRUE;
+	io_loop_stop(conn->ioloop);
+	return 1;
+}
+
+static const struct connection_vfuncs reconnect_vfuncs = {
+	.input_args = test_reconnect_input_args,
+	.destroy = test_writer_server_destroy,
+};
+
+static void
+test_writer_reconnect(unsigned int minor_version, bool expect_reconnect)
+{
+	struct connection_settings set = client_set;
+	struct connection_list *list;
+	struct ioloop *loop;
+	struct timeout *to;
+	int fds[2];
+
+	set.minor_version = minor_version;
+	test_assert(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
+
+	struct connection *conn = i_new(struct connection, 1);
+
+	loop = io_loop_create();
+	list = connection_list_init(&set, &reconnect_vfuncs);
+
+	client_writer_create(fds[1]);
+	connection_init_client_fd(list, conn, "stats", fds[0], fds[0]);
+
+	reconnect_received = FALSE;
+	to = timeout_add_short(100, test_reconnect_timeout, loop);
+	io_loop_run(loop);
+	timeout_remove(&to);
+	timeout_remove(&to_send_reconnect);
+	test_assert(reconnect_received == expect_reconnect);
+
+	/* Disconnect and let the client-writer notice it. */
+	connection_deinit(conn);
+	i_free(conn);
+	to = timeout_add_short(100, test_reconnect_timeout, loop);
+	io_loop_run(loop);
+	timeout_remove(&to);
+
+	io_loop_destroy(&loop);
+	connection_list_deinit(&list);
 }
 
 static const char *const settings_blob_1[] = {
@@ -132,6 +208,25 @@ static void test_client_writer(void)
 	test_end();
 }
 
+static void test_client_writer_reconnect(void)
+{
+	test_begin("client writer reconnect");
+
+	test_stats_init(settings_blob_1);
+	client_writers_init();
+
+	/* The client knows the RECONNECT command. */
+	test_writer_reconnect(1, TRUE);
+	/* An older client doesn't - it just keeps going until the stats
+	   process disconnects it. */
+	test_writer_reconnect(0, FALSE);
+
+	test_stats_deinit();
+	client_writers_deinit();
+
+	test_end();
+}
+
 int main(void) {
 	/* fake master service to pretend destroying
 	   connections. */
@@ -142,6 +237,7 @@ int main(void) {
 	};
 	void (*const test_functions[])(void) = {
 		test_client_writer,
+		test_client_writer_reconnect,
 		NULL
 	};
 
