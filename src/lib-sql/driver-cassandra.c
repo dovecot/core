@@ -316,6 +316,7 @@ struct cassandra_result {
 	bool query_sent:1;
 	bool finished:1;
 	bool paging_continues:1;
+	bool batch_unlogged:1;
 };
 
 struct cassandra_transaction_context {
@@ -1193,7 +1194,8 @@ static void driver_cassandra_log_result(struct cassandra_result *result,
 	i_gettimeofday(&now);
 
 	string_t *str = t_str_new(128);
-	str_printfa(str, "Finished %squery '%s' (",
+	str_printfa(str, "Finished %s%squery '%s' (",
+		    result->batch_unlogged ? "unlogged " : "",
 		    cassandra_result_type_prefixes[result->type],
 		    result->log_query);
 	if (result->timestamp != 0)
@@ -2256,7 +2258,8 @@ static void cassandra_transaction_finish(struct cassandra_transaction_context *c
 	switch (result_type) {
 	case CASSANDRA_RESULT_TYPE_BATCH: {
 		struct cassandra_sql_statement *stmt;
-		cass_result->batch = cass_batch_new(ctx->ctx.non_atomic ?
+		cass_result->batch_unlogged = ctx->ctx.non_atomic;
+		cass_result->batch = cass_batch_new(cass_result->batch_unlogged ?
 						    CASS_BATCH_TYPE_UNLOGGED :
 						    CASS_BATCH_TYPE_LOGGED);
 		array_foreach_elem(&ctx->statements, stmt) {
