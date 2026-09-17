@@ -195,7 +195,7 @@ seq_range_array_add_range_internal(ARRAY_TYPE(seq_range) *array,
 		if (seq2 > data[idx1].seq2) {
 			/* merge */
 			if (idx2 == count ||
-			    data[idx2].seq1 > seq2+1)
+			    (seq2 < (uint32_t)-1 && data[idx2].seq1 > seq2+1))
 				idx2--;
 			if (seq2 >= data[idx2].seq2) {
 				data[idx1].seq2 = seq2;

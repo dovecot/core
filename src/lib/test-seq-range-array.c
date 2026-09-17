@@ -43,6 +43,7 @@ static void test_seq_range_array_add_boundaries(void)
 static void test_seq_range_array_add_merge(void)
 {
 	ARRAY_TYPE(seq_range) range;
+	const struct seq_range *r;
 
 	test_begin("seq_range_array_add() merging");
 	t_array_init(&range, 8);
@@ -55,6 +56,19 @@ static void test_seq_range_array_add_merge(void)
 	test_assert(array_count(&range) == 1);
 	seq_range_array_add_range(&range, 1, (uint32_t)-1);
 	test_assert(array_count(&range) == 1);
+
+	/* a range ending at the last sequence must merge the existing
+	   ranges up to and including the last sequence */
+	array_clear(&range);
+	seq_range_array_add(&range, 2);
+	seq_range_array_add(&range, (uint32_t)-1);
+	seq_range_array_add(&range, 14);
+	seq_range_array_add_range(&range, 5, (uint32_t)-1);
+	test_assert(array_count(&range) == 2);
+	r = array_idx(&range, 0);
+	test_assert(r->seq1 == 2 && r->seq2 == 2);
+	r = array_idx(&range, 1);
+	test_assert(r->seq1 == 5 && r->seq2 == (uint32_t)-1);
 	test_end();
 }
 
