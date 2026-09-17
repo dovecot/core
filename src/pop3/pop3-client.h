@@ -120,10 +120,12 @@ extern struct client *pop3_clients;
 extern unsigned int pop3_client_count;
 
 /* Create new client with specified input/output handles. socket specifies
-   if the handle is a socket. */
+   if the handle is a socket. input_buf contains the input that the login
+   process had already read from the client, or NULL if there is none. */
 struct client *client_create(int fd_in, int fd_out,
 			     struct event *event, struct mail_user *user,
-			     const struct pop3_settings *set);
+			     const struct pop3_settings *set,
+			     const buffer_t *input_buf);
 void client_create_finish(struct client *client);
 /* Prepend data that was already read from the client to client->input. */
 void client_add_istream_prefix(struct client *client,

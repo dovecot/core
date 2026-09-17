@@ -83,12 +83,9 @@ static void pop3_die(void)
 	clients_destroy_all();
 }
 
-static void client_add_input(struct client *client, const buffer_t *buf)
+static void client_handle_initial_input(struct client *client)
 {
 	struct ostream *output;
-
-	if (buf != NULL && buf->used > 0)
-		client_add_istream_prefix(client, buf->data, buf->used);
 
 	output = client->output;
 	o_stream_ref(output);
@@ -100,8 +97,8 @@ static void client_add_input(struct client *client, const buffer_t *buf)
 
 static int
 client_create_from_input(const struct mail_storage_service_input *input,
-			 int fd_in, int fd_out, struct client **client_r,
-			 const char **error_r)
+			 int fd_in, int fd_out, const buffer_t *input_buf,
+			 struct client **client_r, const char **error_r)
 {
 	const char *lookup_error_str =
 		"-ERR [SYS/TEMP] "MAIL_ERRSTR_CRITICAL_MSG"\r\n";
@@ -148,7 +145,8 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	if (set->verbose_proctitle)
 		verbose_proctitle = TRUE;
 
-	*client_r = client_create(fd_in, fd_out, event, mail_user, set);
+	*client_r = client_create(fd_in, fd_out, event, mail_user, set,
+				  input_buf);
 	event_unref(&event);
 	return 0;
 }
@@ -260,7 +258,7 @@ static void main_stdio_run(const char *username)
 		i_fatal("USER environment missing");
 
 	if (client_create_from_input(&input, STDIN_FILENO, STDOUT_FILENO,
-				     &client, &error) < 0)
+				     NULL, &client, &error) < 0)
 		i_fatal("%s", error);
 	client_create_finish(client);
 
@@ -293,7 +291,7 @@ login_request_finished(const struct login_server_request *login_client,
 	buffer_create_from_const_data(&input_buf, login_client->data,
 				      login_client->auth_req.data_size);
 	if (client_create_from_input(&input, login_client->fd, login_client->fd,
-				     &client, &error) < 0) {
+				     &input_buf, &client, &error) < 0) {
 		int fd = login_client->fd;
 
 		i_error("%s", error);
@@ -301,7 +299,7 @@ login_request_finished(const struct login_server_request *login_client,
 		master_service_client_connection_destroyed(master_service);
 		return;
 	}
-	client_add_input(client, &input_buf);
+	client_handle_initial_input(client);
 	client_create_finish(client);
 
 	client_init_session(client);
