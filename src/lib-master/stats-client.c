@@ -25,7 +25,6 @@ struct stats_client {
 	struct ioloop *ioloop;
 	struct timeout *to_reconnect;
 	struct timeval wait_started;
-	bool handshaked;
 	bool handshake_received_at_least_once;
 	bool silent_errors;
 };
@@ -68,7 +67,6 @@ stats_client_handshake(struct stats_client *client, const char *const *args)
 			error, t_strarray_join(args, "\t"));
 		return -1;
 	}
-	client->handshaked = TRUE;
 	client->handshake_received_at_least_once = TRUE;
 	if (client->ioloop != NULL)
 		io_loop_stop(client->ioloop);
@@ -116,7 +114,6 @@ static void stats_client_destroy(struct connection *conn)
 	for (event = events_get_head(); event != NULL; event = event->next)
 		event->sent_to_stats_id = 0;
 
-	client->handshaked = FALSE;
 	connection_disconnect(conn);
 	if (client->ioloop != NULL) {
 		/* waiting for stats handshake to finish */
@@ -227,8 +224,13 @@ stats_client_send_event(struct stats_client *client, struct event *event,
 {
 	static int recursion = 0;
 
-	if (!client->handshaked)
+	if (client->filter == NULL) {
+		/* The initial handshake hasn't finished yet. After a
+		   reconnection the previous handshake's filter keeps being
+		   used until the new one arrives, so that the events in
+		   between aren't lost. */
 		return;
+	}
 
 	if (event->sending_name == NULL) {
 		/* At least for now don't even try to send unnamed events.
@@ -450,7 +452,6 @@ stats_client_init_unittest(buffer_t *buf, const char *filter)
 	client->conn.output = o_stream_create_buffer(buf);
 	connection_init_client_unix(stats_clients, &client->conn, "(unit test)");
 	o_stream_set_no_error_handling(client->conn.output, TRUE);
-	client->handshaked = TRUE;
 
 	client->filter = event_filter_create();
 	if (!event_filter_import(client->filter, filter, &error))
