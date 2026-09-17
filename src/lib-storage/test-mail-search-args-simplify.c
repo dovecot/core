@@ -234,6 +234,11 @@ static const struct {
 	{ "( OR BODY x BODY y ) ( OR BODY y BODY x ) BODY x", "BODY x" },
 	{ "( OR BODY a OR BODY b BODY c ) ( OR BODY c OR BODY b BODY a )", "OR BODY a OR BODY b BODY c" },
 
+	/* extracted common args must stay initialized */
+	{ "( OR KEYWORD k1 BODY x ) ( OR KEYWORD k1 BODY y )", "OR (BODY x BODY y) KEYWORD k1" },
+	{ "OR ( KEYWORD k1 BODY x ) ( KEYWORD k1 BODY y )", "OR BODY x BODY y KEYWORD k1" },
+	{ "OR ( KEYWORD k1 ( TEXT d TEXT e ) ) ( KEYWORD k1 TEXT d TEXT e )", "TEXT d TEXT e KEYWORD k1" },
+
 	/* one of the args is entirely the common arg */
 	{ "OR UID 2:5 ( OR OR BODY a BODY b ( BODY s1 BODY s2 ) OR BODY a BODY b )", "OR UID 2:5 OR BODY a BODY b" },
 	{ "OR BODY q ( ( OR BODY a BODY b ) OR BODY b BODY a )", "OR BODY q OR BODY a BODY b" },

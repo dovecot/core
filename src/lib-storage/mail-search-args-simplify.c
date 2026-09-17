@@ -357,7 +357,10 @@ mail_search_args_remove_equal(struct mail_search_args *all_args,
 
 	for (argp = argsp; (*argp) != NULL; ) {
 		if (mail_search_arg_one_equals(*argp, wanted_arg)) {
-			if (all_args->init_refcount > 0)
+			/* wanted_arg itself is only unlinked from the list -
+			   the caller keeps using it, so it must stay
+			   initialized. */
+			if (all_args->init_refcount > 0 && *argp != wanted_arg)
 				mail_search_arg_one_deinit(*argp);
 			*argp = (*argp)->next;
 			found = TRUE;
