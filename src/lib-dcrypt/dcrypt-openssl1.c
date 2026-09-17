@@ -1452,7 +1452,7 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 		}
 
 		/* get us secret value to use for key/iv generation */
-		if (EVP_PKEY_base_id((EVP_PKEY*)dec_key) == EVP_PKEY_RSA) {
+		if (dcrypt_key_type_private(dec_key) == DCRYPT_KEY_RSA) {
 			if (!dcrypt_openssl_rsa_decrypt(dec_key,
 				peer_key->data, peer_key->used, secret,
 				DCRYPT_PADDING_RSA_PKCS1_OAEP, error_r))
