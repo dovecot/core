@@ -173,6 +173,24 @@ test_index_SOURCES = index/test-index.c
 test_index_LDADD = libstorage.la $(LIBDOVECOT)
 test_index_DEPENDENCIES = libstorage.la $(LIBDOVECOT_DEPS)
 
+fuzz_programs =
+
+if USE_FUZZER
+fuzz_programs += fuzz-mail-search-args-simplify
+
+nodist_EXTRA_fuzz_mail_search_args_simplify_SOURCES = force-cxx-linking.cxx
+
+fuzz_mail_search_args_simplify_CPPFLAGS = $(FUZZER_CPPFLAGS)
+fuzz_mail_search_args_simplify_LDFLAGS = $(FUZZER_LDFLAGS)
+fuzz_mail_search_args_simplify_SOURCES = fuzz-mail-search-args-simplify.c
+fuzz_mail_search_args_simplify_LDADD = libstorage.la $(LIBDOVECOT)
+fuzz_mail_search_args_simplify_DEPENDENCIES = libstorage.la $(LIBDOVECOT_DEPS)
+endif
+
+noinst_PROGRAMS += $(fuzz_programs)
+
+EXTRA_DIST = fuzz-mail-search-args-simplify.dict
+
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 noinst_HEADERS = $(test_headers)
