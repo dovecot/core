@@ -653,11 +653,23 @@ driver_sqlpool_append_request(struct sqlpool_db *db,
 }
 
 static void
+driver_sqlpool_request_retry(struct sqlpool_db *db,
+			     struct sqlpool_request *request)
+{
+	const struct sqlpool_connection *conn;
+
+	driver_sqlpool_prepend_request(db, request);
+	if (driver_sqlpool_get_connection(db, request->host_idx, &conn)) {
+		request->host_idx = conn->host_idx;
+		sqlpool_request_send_next(db, conn->db);
+	}
+}
+
+static void
 driver_sqlpool_query_callback(struct sql_result *result,
 			      struct sqlpool_request *request)
 {
 	struct sqlpool_db *db = request->db;
-	const struct sqlpool_connection *conn = NULL;
 	struct sql_db *conndb;
 
 	if (result->failed_try_retry &&
@@ -665,13 +677,7 @@ driver_sqlpool_query_callback(struct sql_result *result,
 		e_warning(db->api.event, "Query failed, retrying: %s",
 			  sql_result_get_error(result));
 		request->retry_count++;
-		driver_sqlpool_prepend_request(db, request);
-
-		if (driver_sqlpool_get_connection(request->db,
-						  request->host_idx, &conn)) {
-			request->host_idx = conn->host_idx;
-			sqlpool_request_send_next(db, conn->db);
-		}
+		driver_sqlpool_request_retry(db, request);
 	} else {
 		if (result->failed) {
 			e_error(db->api.event, "Query failed, aborting: %s",
