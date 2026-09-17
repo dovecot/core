@@ -179,8 +179,9 @@ void mail_search_args_init(struct mail_search_args *args,
 {
 	i_assert(args->init_refcount <= args->refcount);
 
-	if (args->init_refcount++ > 0) {
+	if (args->init_refcount > 0) {
 		i_assert(args->box == box);
+		args->init_refcount++;
 		return;
 	}
 
@@ -191,8 +192,11 @@ void mail_search_args_init(struct mail_search_args *args,
 		mail_search_arg_change_sets(args, args->args,
 					    search_saved_uidset);
 	}
+	/* Simplify before marking the args initialized, since the simplifier
+	   deinitializes the args that it drops if init_refcount > 0. */
 	if (!args->simplified)
 		mail_search_args_simplify(args);
+	args->init_refcount++;
 	mail_search_arg_init(args, args->args);
 }
 
