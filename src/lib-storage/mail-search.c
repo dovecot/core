@@ -218,11 +218,13 @@ void mail_search_arg_one_deinit(struct mail_search_arg *arg)
 		imap_match_deinit(&arg->initialized.mailbox_glob);
 		break;
 	case SEARCH_INTHREAD:
-		i_assert(arg->initialized.search_args->refcount > 0);
-		if (arg->value.search_result != NULL)
-			mailbox_search_result_free(&arg->value.search_result);
-		arg->initialized.search_args->refcount--;
-		arg->initialized.search_args->box = NULL;
+		if (arg->initialized.search_args != NULL) {
+			i_assert(arg->initialized.search_args->refcount > 0);
+			if (arg->value.search_result != NULL)
+				mailbox_search_result_free(&arg->value.search_result);
+			arg->initialized.search_args->refcount--;
+			arg->initialized.search_args->box = NULL;
+		}
 		/* fall through */
 	case SEARCH_SUB:
 	case SEARCH_OR:

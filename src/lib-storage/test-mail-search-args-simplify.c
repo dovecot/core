@@ -333,6 +333,46 @@ static void test_mail_search_args_simplify(void)
 	test_end();
 }
 
+static const struct {
+	const char *input;
+	const char *output;
+} uninit_tests[] = {
+	/* mail_search_args_init() simplifies the args before it initializes
+	   them, but with init_refcount already set. Dropping an uninitialized
+	   INTHREAD arg must not crash. */
+	{ "OR ( INTHREAD REFS BODY x BODY y ) ( INTHREAD REFS BODY x BODY y BODY z )", "INTHREAD REFS (BODY x) BODY y" },
+	{ "OR ( INTHREAD REFS BODY x BODY y ) ( INTHREAD REFS BODY x BODY z )", "OR BODY y BODY z INTHREAD REFS (BODY x)" },
+};
+
+static void test_mail_search_args_simplify_uninitialized(void)
+{
+	struct mail_search_args *args;
+	struct mail_storage_settings set = { .mail_max_keyword_length = 100 };
+	struct mail_storage storage = { .set = &set };
+	struct mailbox box = { .opened = TRUE, .storage = &storage };
+	string_t *str = t_str_new(256);
+	const char *error;
+	unsigned int i;
+
+	test_begin("mail search args simplify uninitialized");
+	box.index = mail_index_alloc(NULL, NULL, "dovecot.index.");
+	for (i = 0; i < N_ELEMENTS(uninit_tests); i++) {
+		args = test_build_search_args(uninit_tests[i].input);
+		mail_search_args_init(args, &box, FALSE, NULL);
+
+		str_truncate(str, 0);
+		test_assert(mail_search_args_to_imap(str, args->args, FALSE,
+						     &error));
+		test_assert_idx(strcmp(str_c(str), uninit_tests[i].output) == 0, i);
+
+		test_assert_idx(test_search_args_are_initialized(args->args), i);
+		mail_search_args_deinit(args);
+		mail_search_args_unref(&args);
+	}
+	mail_index_free(&box.index);
+	test_end();
+}
+
 static void test_mail_search_args_simplify_empty_lists(void)
 {
 	struct mail_search_args *args;
@@ -351,6 +391,7 @@ int main(void)
 	static void (*const test_functions[])(void) = {
 		mail_storage_init,
 		test_mail_search_args_simplify,
+		test_mail_search_args_simplify_uninitialized,
 		test_mail_search_args_simplify_empty_lists,
 		mail_storage_deinit,
 		NULL
