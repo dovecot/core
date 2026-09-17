@@ -103,7 +103,7 @@ test_imap_utf7_LDADD = imap-utf7.lo $(test_libs)
 test_imap_utf7_DEPENDENCIES = $(test_deps)
 
 test_imap_util_SOURCES = test-imap-util.c
-test_imap_util_LDADD = imap-util.lo imap-arg.lo $(test_libs)
+test_imap_util_LDADD = imap-util.lo imap-arg.lo imap-parser.lo $(test_libs)
 test_imap_util_DEPENDENCIES = $(test_deps)
 
 if USE_FUZZER

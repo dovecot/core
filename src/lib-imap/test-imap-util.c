@@ -1,9 +1,12 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
+#include "array.h"
+#include "istream.h"
 #include "str.h"
 #include "mail-types.h"
 #include "imap-arg.h"
+#include "imap-parser.h"
 #include "imap-util.h"
 #include "test-common.h"
 
@@ -68,6 +71,81 @@ static void test_imap_write_arg(void)
 	test_end();
 }
 
+static void
+test_imap_write_args_input(const char *input, const char *output,
+			   const char *human_output)
+{
+	struct istream *is;
+	struct imap_parser *parser;
+	const struct imap_arg *args;
+	string_t *str = t_str_new(256);
+	const char *line = t_strconcat(input, "\r\n", NULL);
+
+	is = i_stream_create_from_data(line, strlen(line));
+	parser = imap_parser_create(is, NULL, SIZE_MAX, NULL);
+	(void)i_stream_read(is);
+	test_assert(imap_parser_read_args(parser, 0, 0, &args) > 0);
+
+	imap_write_args(str, args);
+	test_assert_strcmp(str_c(str), output);
+
+	str_truncate(str, 0);
+	imap_write_args_for_human(str, args);
+	test_assert_strcmp(str_c(str), human_output);
+
+	imap_parser_unref(&parser);
+	i_stream_unref(&is);
+}
+
+static void test_imap_write_args(void)
+{
+	static const struct {
+		const char *input;
+		const char *output;
+		const char *human_output;
+	} tests[] = {
+		{ "foo", "foo", "foo" },
+		{ "foo bar baz", "foo bar baz", "foo bar baz" },
+		{ "NIL", "NIL", "NIL" },
+		{ "\"foo bar\"", "\"foo bar\"", "\"foo bar\"" },
+		{ "\"a\\\\b\\\"c\"", "\"a\\\\b\\\"c\"", "\"a\\\\b\\\"c\"" },
+		{ "()", "()", "()" },
+		{ "(foo)", "(foo)", "(foo)" },
+		{ "(foo bar)", "(foo bar)", "(foo bar)" },
+		{ "(())", "(())", "(())" },
+		{ "(() ())", "(() ())", "(() ())" },
+		{ "(foo) bar", "(foo) bar", "(foo) bar" },
+		{ "foo (bar)", "foo (bar)", "foo (bar)" },
+		{ "a (b (c d) e) f", "a (b (c d) e) f", "a (b (c d) e) f" },
+		{ "(((a b) c) d) e", "(((a b) c) d) e", "(((a b) c) d) e" },
+		{ "(a (\"b\" (NIL)))", "(a (\"b\" (NIL)))", "(a (\"b\" (NIL)))" },
+		/* lists with more than LIST_INIT_COUNT (7) args get their array
+		   reallocated by imap-parser */
+		{ "((x)) a b c d e f g h", "((x)) a b c d e f g h",
+		  "((x)) a b c d e f g h" },
+		{ "(((x)) a b c d e f g h) y", "(((x)) a b c d e f g h) y",
+		  "(((x)) a b c d e f g h) y" },
+		{ "(a b c d e f g h ((x)) i) y", "(a b c d e f g h ((x)) i) y",
+		  "(a b c d e f g h ((x)) i) y" },
+		{ "((\"text\" \"plain\" (\"charset\" \"utf-8\") NIL NIL \"7bit\" 10 1 NIL NIL NIL NIL)(\"text\" \"html\" (\"charset\" \"utf-8\") NIL NIL \"7bit\" 20 2 NIL NIL NIL NIL) \"alternative\" (\"boundary\" \"b\") NIL NIL NIL)",
+		  "((\"text\" \"plain\" (\"charset\" \"utf-8\") NIL NIL \"7bit\" 10 1 NIL NIL NIL NIL) (\"text\" \"html\" (\"charset\" \"utf-8\") NIL NIL \"7bit\" 20 2 NIL NIL NIL NIL) \"alternative\" (\"boundary\" \"b\") NIL NIL NIL)",
+		  "((\"text\" \"plain\" (\"charset\" \"utf-8\") NIL NIL \"7bit\" 10 1 NIL NIL NIL NIL) (\"text\" \"html\" (\"charset\" \"utf-8\") NIL NIL \"7bit\" 20 2 NIL NIL NIL NIL) \"alternative\" (\"boundary\" \"b\") NIL NIL NIL)" },
+		/* literals are returned as strings, and the human-readable
+		   output hides multi-line, control and non-UTF-8 chars */
+		{ "a {3}\r\nfoo b", "a \"foo\" b", "a \"foo\" b" },
+		{ "a {4}\r\nx\r\ny b", "a \"x\r\ny\" b",
+		  "a <4 byte multi-line literal> b" },
+		{ "({3}\r\nx\x01y)", "(\"x\x01y\")", "(\"x?y\")" },
+	};
+
+	test_begin("imap_write_args");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) T_BEGIN {
+		test_imap_write_args_input(tests[i].input, tests[i].output,
+					   tests[i].human_output);
+	} T_END;
+	test_end();
+}
+
 static void test_imap_write_capabilities(void)
 {
 	ARRAY_TYPE(const_string) capabilities;
@@ -89,6 +167,7 @@ int main(void)
 	static void (*const test_functions[])(void) = {
 		test_imap_parse_system_flag,
 		test_imap_write_arg,
+		test_imap_write_args,
 		test_imap_write_capabilities,
 		NULL
 	};
