@@ -463,6 +463,19 @@ static void test_mail_search_args_nested_inthreads_limit(void)
 	test_end();
 }
 
+static void test_mail_search_args_inthread_algorithm(void)
+{
+	test_begin("mail search args inthread algorithm");
+	test_assert(!test_search_args_build_fails("INTHREAD REFS BODY a", ""));
+	test_assert(!test_search_args_build_fails("INTHREAD REFERENCES BODY a", ""));
+	/* mail_thread_finish() can't do ORDEREDSUBJECT */
+	test_assert(test_search_args_build_fails("INTHREAD ORDEREDSUBJECT BODY a",
+						 "INTHREAD doesn't support ORDEREDSUBJECT"));
+	test_assert(test_search_args_build_fails("INTHREAD BOGUS BODY a",
+						 "Unknown thread algorithm"));
+	test_end();
+}
+
 static void test_mail_search_args_simplify_empty_lists(void)
 {
 	struct mail_search_args *args;
@@ -483,6 +496,7 @@ int main(void)
 		test_mail_search_args_simplify,
 		test_mail_search_args_simplify_uninitialized,
 		test_mail_search_args_nested_inthreads_limit,
+		test_mail_search_args_inthread_algorithm,
 		test_mail_search_args_simplify_empty_lists,
 		mail_storage_deinit,
 		NULL

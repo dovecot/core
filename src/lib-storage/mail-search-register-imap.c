@@ -508,6 +508,14 @@ imap_search_inthread(struct mail_search_build_context *ctx)
 		ctx->_error = "Unknown thread algorithm";
 		return NULL;
 	}
+	if (thread_type == MAIL_THREAD_ORDEREDSUBJECT) {
+		/* Searching threads uses mail_thread_finish(), which
+		   implements only REFERENCES and REFS. The THREAD command
+		   has its own ORDEREDSUBJECT implementation, which can't be
+		   used here. */
+		ctx->_error = "INTHREAD doesn't support ORDEREDSUBJECT";
+		return NULL;
+	}
 
 	sarg = mail_search_build_new(ctx, SEARCH_INTHREAD);
 	sarg->value.thread_type = thread_type;

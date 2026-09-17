@@ -58,7 +58,6 @@ static const struct {
 	{ "MODSEQ /flags/\\Seen priv 0", NULL },
 	{ "MODSEQ /flags/\\Seen shared 0", NULL },
 	{ "INTHREAD REFERENCES seen", "INTHREAD REFERENCES (SEEN)" },
-	{ "INTHREAD ORDEREDSUBJECT seen", "INTHREAD ORDEREDSUBJECT (SEEN)" },
 	{ "INTHREAD REFS seen", "INTHREAD REFS (SEEN)" },
 	{ "INTHREAD REFS ( OR text foo OR keyword bar seen )",
 	  "INTHREAD REFS ((OR TEXT foo OR KEYWORD bar SEEN))" },
