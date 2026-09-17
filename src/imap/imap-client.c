@@ -95,8 +95,9 @@ imap_unset_capability(struct settings_instance *set_instance, const char *capabi
 			  "no", SETTINGS_OVERRIDE_TYPE_CODE);
 }
 
-void client_add_istream_prefix(struct client *client,
-			       const unsigned char *data, size_t size)
+static void
+client_add_istream_prefix(struct client *client,
+			  const unsigned char *data, size_t size)
 {
 	i_assert(client->io == NULL);
 
