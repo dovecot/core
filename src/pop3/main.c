@@ -3,8 +3,6 @@
 #include "pop3-common.h"
 #include "ioloop.h"
 #include "buffer.h"
-#include "istream.h"
-#include "istream-concat.h"
 #include "ostream.h"
 #include "path-util.h"
 #include "str.h"
@@ -89,18 +87,8 @@ static void client_add_input(struct client *client, const buffer_t *buf)
 {
 	struct ostream *output;
 
-	if (buf != NULL && buf->used > 0) {
-		struct istream *inputs[] = {
-			i_stream_create_copy_from_data(buf->data, buf->used),
-			client->input,
-			NULL
-		};
-		client->input = i_stream_create_concat(inputs);
-		i_stream_copy_fd(client->input, inputs[1]);
-		i_stream_unref(&inputs[0]);
-		i_stream_unref(&inputs[1]);
-		i_stream_set_input_pending(client->input, TRUE);
-	}
+	if (buf != NULL && buf->used > 0)
+		client_add_istream_prefix(client, buf->data, buf->used);
 
 	output = client->output;
 	o_stream_ref(output);

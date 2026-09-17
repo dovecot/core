@@ -6,6 +6,7 @@
 #include "net.h"
 #include "iostream.h"
 #include "istream.h"
+#include "istream-concat.h"
 #include "ostream.h"
 #include "iostream-rawlog.h"
 #include "str-sanitize.h"
@@ -384,6 +385,22 @@ int pop3_lock_session(struct client *client)
 				    pop3_lock_session_refresh, client);
 	}
 	return ret;
+}
+
+void client_add_istream_prefix(struct client *client,
+			       const unsigned char *data, size_t size)
+{
+	struct istream *inputs[] = {
+		i_stream_create_copy_from_data(data, size),
+		client->input,
+		NULL
+	};
+	client->input = i_stream_create_concat(inputs);
+	i_stream_copy_fd(client->input, inputs[1]);
+	i_stream_unref(&inputs[0]);
+	i_stream_unref(&inputs[1]);
+
+	i_stream_set_input_pending(client->input, TRUE);
 }
 
 struct client *client_create(int fd_in, int fd_out,
