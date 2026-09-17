@@ -421,7 +421,9 @@ mail_search_args_simplify_drop_redundant_args_real(struct mail_search_args *all_
 	bool changed = FALSE;
 
 	ARRAY(const struct mail_search_arg *) candidates;
+	ARRAY(const struct mail_search_arg *) dropped;
 	t_array_init(&candidates, 1);
+	t_array_init(&dropped, 1);
 
 	child_subargs_type = and_arg ? SEARCH_OR : SEARCH_SUB;
 	for (arg = *argsp; arg != NULL; arg = arg->next) {
@@ -443,6 +445,13 @@ mail_search_args_simplify_drop_redundant_args_real(struct mail_search_args *all_
 
 	const struct mail_search_arg *candidate;
 	array_foreach_elem(&candidates, candidate) {
+		if (array_lsearch_ptr(&dropped, candidate) != NULL) {
+			/* The arg that contained this candidate was itself
+			   dropped as redundant. Two args can contain each
+			   other's subargs (e.g. "(a OR b) AND (b OR a)"), so
+			   continuing here would drop all of them. */
+			continue;
+		}
 		/* if there are any args that include the candidate - EXCEPT the
 		   one that originally contained it - drop the arg, since it is
 		   redundant. (non-SUB duplicates are dropped elsewhere.) */
@@ -451,6 +460,10 @@ mail_search_args_simplify_drop_redundant_args_real(struct mail_search_args *all_
 			   (*argp)->type == child_subargs_type &&
 			   (*argp)->value.subargs != candidate &&
 			   mail_search_args_have_all_equal(*argp, candidate)) {
+				const struct mail_search_arg *subargs =
+					(*argp)->value.subargs;
+
+				array_push_back(&dropped, &subargs);
 				if (all_args->init_refcount > 0)
 					mail_search_arg_one_deinit(*argp);
 				*argp = (*argp)->next;

@@ -227,6 +227,13 @@ static const struct {
 	{ "TEXT common1 ( OR TEXT unique1 TEXT common1 ) ( OR TEXT unique3 TEXT common1 )", "TEXT common1" },
 	{ "OR ( TEXT common1 ( OR TEXT unique1 TEXT common1 ) ) TEXT unique1", "OR TEXT common1 TEXT unique1" },
 
+	/* args that are redundant with each other: only one is dropped */
+	{ "( OR BODY x BODY y ) ( OR BODY y BODY x )", "OR BODY x BODY y" },
+	{ "OR ( BODY x BODY y ) ( BODY y BODY x )", "BODY x BODY y" },
+	{ "TEXT z ( OR BODY x BODY y ) ( OR BODY y BODY x )", "TEXT z OR BODY x BODY y" },
+	{ "( OR BODY x BODY y ) ( OR BODY y BODY x ) BODY x", "BODY x" },
+	{ "( OR BODY a OR BODY b BODY c ) ( OR BODY c OR BODY b BODY a )", "OR BODY a OR BODY b BODY c" },
+
 	/* SUB: extract common OR */
 	{ "( OR TEXT common1 TEXT unique1 ) ( OR TEXT common1 TEXT unique2 )", "OR (TEXT unique1 TEXT unique2) TEXT common1" },
 	{ "( OR TEXT unique1 TEXT common1 ) ( OR TEXT unique2 TEXT common1 )", "OR (TEXT unique1 TEXT unique2) TEXT common1" },
@@ -342,6 +349,7 @@ static const struct {
 	   INTHREAD arg must not crash. */
 	{ "OR ( INTHREAD REFS BODY x BODY y ) ( INTHREAD REFS BODY x BODY y BODY z )", "INTHREAD REFS (BODY x) BODY y" },
 	{ "OR ( INTHREAD REFS BODY x BODY y ) ( INTHREAD REFS BODY x BODY z )", "OR BODY y BODY z INTHREAD REFS (BODY x)" },
+	{ "( OR INTHREAD REFS BODY x BODY y ) ( OR BODY y INTHREAD REFS BODY x )", "OR INTHREAD REFS (BODY x) BODY y" },
 };
 
 static void test_mail_search_args_simplify_uninitialized(void)
