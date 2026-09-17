@@ -23,7 +23,11 @@ struct search_mimepart_context {
 
 	string_t *buf;
 
+	/* absolute depth of mime_part, and its index among its siblings */
 	unsigned int depth, index;
+	/* absolute depth of the part the innermost CHILD key is being
+	   evaluated for, 0 outside CHILD. DEPTH keys are relative to it. */
+	unsigned int child_depth;
 	ARRAY(struct search_mimepart_stack) stack;
 };
 
@@ -44,7 +48,14 @@ static int search_arg_mime_parent_match(struct search_mimepart_context *mpctx,
 	}
 
 	/* PARENT <mpart-key>: matches if this part's parent matches the
-	   mpart-key (subargs). */
+	   mpart-key (subargs). The top-level part has no parent, so it can
+	   never match. Its depth is 0 and the stack lookup below would
+	   underflow. */
+	if (part->parent == NULL) {
+		i_assert(mpctx->depth == 0);
+		return 0;
+	}
+	i_assert(mpctx->depth > 0);
 
 	prev_depth = mpctx->depth;
 	prev_index = mpctx->index;
@@ -69,7 +80,7 @@ static int search_arg_mime_child_match(struct search_mimepart_context *mpctx,
 				       struct mail_search_mime_arg *args)
 {
 	struct message_part *part, *prev_part;
-	unsigned int prev_depth, prev_index, depth;
+	unsigned int prev_depth, prev_index, prev_child_depth, depth;
 	struct search_mimepart_stack *level;
 	int ret = 0;
 
@@ -86,7 +97,10 @@ static int search_arg_mime_child_match(struct search_mimepart_context *mpctx,
 	prev_part = part;
 	prev_depth = mpctx->depth;
 	prev_index = mpctx->index;
+	prev_child_depth = mpctx->child_depth;
 
+	/* DEPTH keys inside the mpart-key are relative to this part */
+	mpctx->child_depth = prev_depth;
 	depth = mpctx->depth;
 	T_BEGIN {
 		ARRAY(struct search_mimepart_stack) prev_stack;
@@ -111,7 +125,7 @@ static int search_arg_mime_child_match(struct search_mimepart_context *mpctx,
 			mpctx->mime_part = part;
 			mail_search_mime_args_reset(args->value.subargs, TRUE);
 
-			mpctx->depth = depth - prev_depth;
+			mpctx->depth = depth;
 			mpctx->index = level->index;
 			if ((ret=mail_search_mime_args_foreach
 				(args->value.subargs, search_mime_arg, mpctx)) != 0)
@@ -147,7 +161,32 @@ static int search_arg_mime_child_match(struct search_mimepart_context *mpctx,
 	mpctx->mime_part = prev_part;
 	mpctx->index = prev_index;
 	mpctx->depth = prev_depth;
+	mpctx->child_depth = prev_child_depth;
 	return ret;
+}
+
+static int search_arg_mime_depth_match(struct search_mimepart_context *mpctx,
+				       struct mail_search_mime_arg *arg)
+{
+	unsigned int depth;
+
+	/* DEPTH is relative to the part the innermost CHILD key is being
+	   evaluated for. PARENT can climb above that part, and such parts
+	   have no depth in this context, so they never match. */
+	if (mpctx->depth < mpctx->child_depth)
+		return 0;
+	depth = mpctx->depth - mpctx->child_depth;
+
+	switch (arg->type) {
+	case SEARCH_MIME_DEPTH_EQUAL:
+		return (depth == arg->value.number ? 1 : 0);
+	case SEARCH_MIME_DEPTH_MIN:
+		return (depth >= arg->value.number ? 1 : 0);
+	case SEARCH_MIME_DEPTH_MAX:
+		return (depth <= arg->value.number ? 1 : 0);
+	default:
+		i_unreached();
+	}
 }
 
 static int
@@ -436,11 +475,9 @@ static int search_mime_arg_match(struct search_mimepart_context *mpctx,
 			arg->value.str, data->envelope->message_id);
 
 	case SEARCH_MIME_DEPTH_EQUAL:
-		return (mpctx->depth == arg->value.number ? 1 : 0);
 	case SEARCH_MIME_DEPTH_MIN:
-		return (mpctx->depth >= arg->value.number ? 1 : 0);
 	case SEARCH_MIME_DEPTH_MAX:
-		return (mpctx->depth <= arg->value.number ? 1 : 0);
+		return search_arg_mime_depth_match(mpctx, arg);
 	case SEARCH_MIME_INDEX:
 		return (mpctx->index == arg->value.number ? 1 : 0);
 
