@@ -49,7 +49,8 @@ pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
 	test-event-stats \
-	test-master-service-settings
+	test-master-service-settings \
+	test-stats-client
 
 test_deps = \
 	libmaster.la \
@@ -69,6 +70,10 @@ test_libs = \
 test_event_stats_SOURCES = test-event-stats.c
 test_event_stats_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_event_stats_DEPENDENCIES = $(test_deps)
+
+test_stats_client_SOURCES = test-stats-client.c
+test_stats_client_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
+test_stats_client_DEPENDENCIES = $(test_deps)
 
 test_master_service_settings_SOURCES = test-master-service-settings.c
 test_master_service_settings_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
