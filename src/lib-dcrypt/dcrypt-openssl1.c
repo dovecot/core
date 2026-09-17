@@ -2864,12 +2864,13 @@ dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key,
 	int nid = EVP_PKEY_base_id(pkey);
 	/* convert key to private key value */
 	if (nid == EVP_PKEY_RSA) {
-		unsigned char *ptr;
+		unsigned char *ptr = NULL;
 		RSA *rsa = EVP_PKEY_get0_RSA(pkey);
 		int len = i2d_RSAPrivateKey(rsa, &ptr);
 		if (len < 1)
 			return dcrypt_openssl_error(error_r);
 		buffer_append(buf, ptr, len);
+		OPENSSL_clear_free(ptr, len);
 #ifdef HAVE_X25519
 	} else if (IS_XD_CURVE(nid)) {
 		unsigned char tmp[128];

@@ -643,6 +643,41 @@ static void test_store_load_v2_key_encrypted(void)
 	test_end();
 }
 
+static void test_store_load_v2_rsa_key(void)
+{
+	test_begin("test_store_load_v2_rsa_key");
+
+	struct dcrypt_keypair rsa;
+	struct dcrypt_private_key *loaded = NULL;
+	const char *error = NULL;
+	string_t *dest = t_str_new(4096);
+	buffer_t *id1 = t_buffer_create(32);
+	buffer_t *id2 = t_buffer_create(32);
+
+	bool ok = dcrypt_keypair_generate(&rsa, DCRYPT_KEY_RSA, 1024, NULL,
+					  &error);
+	if (!ok)
+		i_fatal("%s", error);
+
+	test_assert(dcrypt_key_store_private(rsa.priv, DCRYPT_FORMAT_DOVECOT,
+					     NULL, dest, NULL, NULL, &error));
+	test_assert(dcrypt_key_load_private(&loaded, str_c(dest), NULL, NULL,
+					    &error));
+	if (loaded != NULL) {
+		test_assert(dcrypt_key_id_private(rsa.priv, SN_sha256, id1,
+						  &error));
+		test_assert(dcrypt_key_id_private(loaded, SN_sha256, id2,
+						  &error));
+		test_assert(id1->used == 32 && id2->used == 32);
+		test_assert_strcmp(binary_to_hex(id1->data, id1->used),
+				   binary_to_hex(id2->data, id2->used));
+		dcrypt_key_unref_private(&loaded);
+	}
+
+	dcrypt_keypair_unref(&rsa);
+	test_end();
+}
+
 static void test_get_info_v2_key(void)
 {
 	test_begin("test_get_info_v2_key");
@@ -2333,6 +2368,7 @@ int main(void)
 		test_load_v2_key,
 		test_load_v2_public_key,
 		test_store_load_v2_key_encrypted,
+		test_store_load_v2_rsa_key,
 		test_get_info_v2_key,
 		test_gen_and_get_info_rsa_pem,
 		test_get_info_rsa_private_key,

@@ -3063,11 +3063,12 @@ dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key,
 
 	/* convert key to private key value */
 	if (EVP_PKEY_base_id(pkey) == EVP_PKEY_RSA) {
-		unsigned char *ptr;
+		unsigned char *ptr = NULL;
 		int len = i2d_PrivateKey(pkey, &ptr);
 		if (len < 1)
 			return dcrypt_openssl_error(error_r);
 		buffer_append(buf, ptr, len);
+		OPENSSL_clear_free(ptr, len);
 	} else if (EVP_PKEY_base_id(pkey) == EVP_PKEY_EC) {
 		unsigned char *ptr;
 		BIGNUM *pk = NULL;
