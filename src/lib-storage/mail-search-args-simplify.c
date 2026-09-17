@@ -531,12 +531,15 @@ mail_search_args_simplify_extract_common(struct mail_search_args *all_args,
 		return FALSE;
 
 	for (sub_arg = arg->value.subargs; sub_arg != NULL; sub_arg = sub_next) {
+		bool whole_arg_matched = FALSE;
+
 		sub_next = sub_arg->next;
 
 		/* check if sub_arg is found from all the args */
 		for (arg = *argsp; arg != NULL; arg = arg->next) {
 			if (mail_search_arg_one_equals(arg, sub_arg)) {
 				/* the whole arg matches */
+				whole_arg_matched = TRUE;
 			} else if (arg->type == child_subargs_type &&
 				   mail_search_args_have_equal(arg->value.subargs, sub_arg)) {
 				/* exists as subarg */
@@ -546,6 +549,26 @@ mail_search_args_simplify_extract_common(struct mail_search_args *all_args,
 		}
 		if (arg != NULL)
 			continue;
+
+		if (whole_arg_matched) {
+			/* One of the args is exactly sub_arg and all the other
+			   args contain it, so the remaining args reduce to
+			   sub_arg alone:
+			   (a OR b) AND a == a
+			   (a AND b) OR a == a
+			   The already extracted common args still apply:
+			   (c OR a OR b) AND (c OR a) == c OR a
+			   Stop here - extracting more args would use a list
+			   that this arg was already removed from. */
+			mail_search_args_remove_equal(all_args, argsp, sub_arg,
+						      TRUE);
+			if (all_args->init_refcount > 0)
+				mail_search_arg_deinit(*argsp);
+			*argsp = NULL;
+			sub_arg->next = common_args;
+			common_args = sub_arg;
+			break;
+		}
 
 		/* extract the arg and put it to common_args */
 		mail_search_args_remove_equal(all_args, argsp, sub_arg, TRUE);

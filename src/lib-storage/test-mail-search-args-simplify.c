@@ -234,6 +234,12 @@ static const struct {
 	{ "( OR BODY x BODY y ) ( OR BODY y BODY x ) BODY x", "BODY x" },
 	{ "( OR BODY a OR BODY b BODY c ) ( OR BODY c OR BODY b BODY a )", "OR BODY a OR BODY b BODY c" },
 
+	/* one of the args is entirely the common arg */
+	{ "OR UID 2:5 ( OR OR BODY a BODY b ( BODY s1 BODY s2 ) OR BODY a BODY b )", "OR UID 2:5 OR BODY a BODY b" },
+	{ "OR BODY q ( ( OR BODY a BODY b ) OR BODY b BODY a )", "OR BODY q OR BODY a BODY b" },
+	/* .. and the already extracted common args are kept */
+	{ "OR ( TEXT c ( TEXT d TEXT e ) ) ( TEXT c TEXT d TEXT e )", "TEXT d TEXT e TEXT c" },
+
 	/* SUB: extract common OR */
 	{ "( OR TEXT common1 TEXT unique1 ) ( OR TEXT common1 TEXT unique2 )", "OR (TEXT unique1 TEXT unique2) TEXT common1" },
 	{ "( OR TEXT unique1 TEXT common1 ) ( OR TEXT unique2 TEXT common1 )", "OR (TEXT unique1 TEXT unique2) TEXT common1" },
