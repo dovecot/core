@@ -617,6 +617,24 @@ static void mail_search_arg_simplify_not_sub(struct mail_search_arg *arg)
 		sub->match_not = !sub->match_not;
 }
 
+static void
+mail_search_args_simplify_keep_only(struct mail_search_simplify_ctx *ctx,
+				    struct mail_search_arg **all_argsp,
+				    struct mail_search_arg *arg)
+{
+	struct mail_search_arg *arg2;
+
+	if (ctx->initialized) {
+		for (arg2 = *all_argsp; arg2 != NULL; arg2 = arg2->next) {
+			if (arg2 != arg)
+				mail_search_arg_one_deinit(arg2);
+		}
+	}
+	*all_argsp = arg;
+	arg->next = NULL;
+	ctx->removals = TRUE;
+}
+
 static bool
 mail_search_args_simplify_sub(struct mail_search_args *all_args, pool_t pool,
 			      struct mail_search_arg **argsp, bool parent_and)
@@ -700,9 +718,8 @@ mail_search_args_simplify_sub(struct mail_search_args *all_args, pool_t pool,
 			/* .. AND NOT ALL ..
 			   .. OR ALL ..
 			   The other args are irrelevant -> drop them */
-			*all_argsp = args;
-			args->next = NULL;
-			ctx.removals = TRUE;
+			mail_search_args_simplify_keep_only(&ctx, all_argsp,
+							    args);
 			break;
 		}
 		case SEARCH_FLAGS:

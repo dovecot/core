@@ -18,6 +18,9 @@ static const struct {
 	{ "ALL NOT ALL TEXT foo", "NOT ALL" },
 	{ "OR ALL NOT ALL", "ALL" },
 	{ "OR ALL OR NOT ALL TEXT foo", "ALL" },
+	/* the dropped args must be deinitialized (checked by valgrind) */
+	{ "OR ALL KEYWORD k1", "ALL" },
+	{ "NOT ALL KEYWORD k1", "NOT ALL" },
 	{ "OR ALL OR TEXT foo TEXT bar", "ALL" },
 	{ "OR TEXT FOO ( ALL NOT ALL )", "TEXT FOO" },
 	{ "TEXT FOO OR ALL NOT ALL", "TEXT FOO" },
@@ -361,6 +364,9 @@ static const struct {
 	{ "OR ( INTHREAD REFS BODY x BODY y ) ( INTHREAD REFS BODY x BODY y BODY z )", "INTHREAD REFS (BODY x) BODY y" },
 	{ "OR ( INTHREAD REFS BODY x BODY y ) ( INTHREAD REFS BODY x BODY z )", "OR BODY y BODY z INTHREAD REFS (BODY x)" },
 	{ "( OR INTHREAD REFS BODY x BODY y ) ( OR BODY y INTHREAD REFS BODY x )", "OR INTHREAD REFS (BODY x) BODY y" },
+	/* dropped by ALL */
+	{ "OR ALL INTHREAD REFS BODY x", "ALL" },
+	{ "NOT ALL INTHREAD REFS BODY x", "NOT ALL" },
 };
 
 static void test_mail_search_args_simplify_uninitialized(void)
