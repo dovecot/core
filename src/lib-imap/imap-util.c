@@ -130,7 +130,7 @@ static void imap_human_args_fix_control_chars(char *str)
 	size_t i;
 
 	for (i = 0; str[i] != '\0'; i++) {
-		if (str[i] < 0x20 || str[i] == 0x7f)
+		if ((unsigned char)str[i] < 0x20 || str[i] == 0x7f)
 			str[i] = '?';
 	}
 }

@@ -136,6 +136,8 @@ static void test_imap_write_args(void)
 		{ "a {4}\r\nx\r\ny b", "a \"x\r\ny\" b",
 		  "a <4 byte multi-line literal> b" },
 		{ "({3}\r\nx\x01y)", "(\"x\x01y\")", "(\"x?y\")" },
+		{ "({3}\r\nx\xffy)", "(\"x\xffy\")", "(\"x\xef\xbf\xbdy\")" },
+		{ "\"x\xc3\xa4y\"", "\"x\xc3\xa4y\"", "\"x\xc3\xa4y\"" },
 	};
 
 	test_begin("imap_write_args");
