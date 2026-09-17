@@ -146,8 +146,15 @@ driver_sqlpool_new_conn_trans(struct sqlpool_transaction_context *trans,
 	   queries to the list) */
 	conn_trans->head = trans->ctx.head;
 	conn_trans->tail = trans->ctx.tail;
-	for (query = conn_trans->head; query != NULL; query = query->next)
+	for (query = conn_trans->head; query != NULL; query = query->next) {
 		query->trans = conn_trans;
+		if (query->stmt != NULL && query->stmt->db != trans->ctx.db) {
+			/* Already a real backend statement - point it at
+			   whichever connection this transaction ended up
+			   using. */
+			query->stmt->db = conndb;
+		}
+	}
 	return conn_trans;
 }
 
