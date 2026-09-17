@@ -155,11 +155,15 @@ test_libs = \
 	$(noinst_LTLIBRARIES) \
 	../lib-dovecot/libdovecot.la
 
-test_programs = test-sql
+test_programs = test-sql test-sql-sqlpool
 
 test_sql_SOURCES = test-sql.c
 test_sql_LDADD =  $(test_libs) $(DLLIB)
 test_sql_DEPENDENCIES = $(test_libs)
+
+test_sql_sqlpool_SOURCES = test-sql-sqlpool.c
+test_sql_sqlpool_LDADD = $(test_libs) $(DLLIB)
+test_sql_sqlpool_DEPENDENCIES = $(test_libs)
 
 if BUILD_SQLITE
 test_programs += test-sql-sqlite

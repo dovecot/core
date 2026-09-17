@@ -18,6 +18,11 @@ struct test_driver_result {
 	struct test_driver_result_set *result;
 };
 
+/* Exposed for tests that need to hand a specific test driver to a caller
+   expecting a struct sql_db pointer directly - e.g. sqlpool, whose driver
+   argument is not looked up by name. */
+extern const struct sql_db driver_test_mysql_db;
+
 void sql_driver_test_register(void);
 void sql_driver_test_unregister(void);
 

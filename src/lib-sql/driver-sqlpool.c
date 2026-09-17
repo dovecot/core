@@ -48,6 +48,8 @@ struct sqlpool_db {
 	struct timeout *request_to;
 };
 
+struct sqlpool_statement;
+
 struct sqlpool_request {
 	struct sqlpool_request *prev, *next;
 
@@ -66,6 +68,13 @@ struct sqlpool_request {
 
 	/* b) transaction waiters */
 	struct sqlpool_transaction_context *trans;
+
+	/* c) statement queries waiting for a connection: replayed onto a
+	   fresh statement once one is available, so the query is never
+	   rendered to plain text. Owns the reference on pool_stmt->api.pool
+	   until it is handed off to a struct sqlpool_statement_query or
+	   released on abort. */
+	struct sqlpool_statement *pool_stmt;
 };
 
 struct sqlpool_transaction_context {
@@ -76,6 +85,67 @@ struct sqlpool_transaction_context {
 
 	pool_t query_pool;
 	struct sqlpool_request *commit_request;
+};
+
+enum sqlpool_bind_type {
+	SQLPOOL_BIND_STR,
+	SQLPOOL_BIND_BINARY,
+	SQLPOOL_BIND_INT64,
+	SQLPOOL_BIND_DOUBLE,
+	SQLPOOL_BIND_UUID,
+};
+
+/* One bind call recorded exactly as it was forwarded to the backend
+   statement, so it can be replayed onto a fresh statement on a retry
+   without ever rendering the query to plain text. */
+struct sqlpool_bind {
+	enum sqlpool_bind_type type;
+	unsigned int column_idx;
+
+	/* STR only. */
+	const char *value_str;
+	const void *value_binary;
+	size_t value_len;
+	int64_t value_int64;
+	double value_double;
+	guid_128_t value_uuid;
+};
+
+struct sqlpool_statement {
+	struct sql_statement api;
+	struct sql_statement *stmt;
+	/* index of the host stmt was created on, recorded instead of a
+	   pointer because array_append_space() can move db->all_connections
+	   on a later sqlpool_add_connection() - only the index is safe to
+	   read after statement_init() has returned. */
+	unsigned int host_idx;
+
+	/* binds recorded as they are forwarded to stmt, and the
+	   no_log_expanded_values flag, which stmt itself may never have
+	   received if it was still NULL when set - replayed onto a fresh
+	   statement by sqlpool_statement_replay_binds(). */
+	ARRAY(struct sqlpool_bind) binds;
+	bool no_log_expanded_values;
+	/* bind column indexes marked no-log via the per-field setter,
+	   replayed the same way as no_log_expanded_values. */
+	ARRAY(unsigned int) no_log_field_idxs;
+};
+
+/* Tracks an in-flight asynchronous statement query so its callback can
+   retry on another host: once the backend statement has been executed,
+   its pool is gone, so a retry builds a fresh statement on the new
+   connection and replays pool_stmt's recorded binds onto it, keeping the
+   query template and its typed bind values out of plain text throughout.
+   pool_stmt is released (pool_unref()'d) exactly once, when the query
+   finally completes or is aborted with no more retries left. */
+struct sqlpool_statement_query {
+	struct sqlpool_db *db;
+	struct sqlpool_statement *pool_stmt;
+	sql_query_callback_t *callback;
+	void *context;
+
+	unsigned int host_idx;
+	unsigned int retry_count;
 };
 
 extern struct sql_db driver_sqlpool_db;
@@ -90,6 +160,22 @@ static void
 driver_sqlpool_commit_callback(const struct sql_commit_result *result,
 			       struct sqlpool_transaction_context *ctx);
 static void driver_sqlpool_deinit(struct sql_db *_db);
+static const struct sqlpool_connection *
+sqlpool_find_connection(struct sqlpool_db *db, struct sql_db *conndb);
+static void
+sqlpool_statement_query_on(struct sqlpool_db *db,
+			   const struct sqlpool_connection *conn,
+			   struct sqlpool_statement *pool_stmt,
+			   sql_query_callback_t *callback, void *context,
+			   unsigned int retry_count);
+static void
+driver_sqlpool_statement_query_callback(struct sql_result *result,
+					struct sqlpool_statement_query *query);
+static void
+driver_sqlpool_transaction_free(struct sqlpool_transaction_context *ctx);
+static void
+sqlpool_statement_replay_binds(const struct sqlpool_statement *pool_stmt,
+			       struct sql_statement *stmt);
 
 static struct sqlpool_request * ATTR_NULL(2)
 sqlpool_request_new(struct sqlpool_db *db, const char *query)
@@ -101,6 +187,16 @@ sqlpool_request_new(struct sqlpool_db *db, const char *query)
 	request->created = time(NULL);
 	request->query = i_strdup(query);
 	request->event = event_create(db->api.event);
+	return request;
+}
+
+static struct sqlpool_request *
+sqlpool_request_new_stmt(struct sqlpool_db *db,
+			 struct sqlpool_statement *pool_stmt)
+{
+	struct sqlpool_request *request = sqlpool_request_new(db, NULL);
+
+	request->pool_stmt = pool_stmt;
 	return request;
 }
 
@@ -126,6 +222,8 @@ sqlpool_request_abort(struct sqlpool_request **_request)
 
 	if (request->callback != NULL)
 		request->callback(&sql_not_connected_result, request->context);
+	if (request->pool_stmt != NULL)
+		pool_unref(&request->pool_stmt->api.pool);
 
 	i_assert(request->prev != NULL ||
 		 request->db->requests_head == request);
@@ -148,12 +246,31 @@ driver_sqlpool_new_conn_trans(struct sqlpool_transaction_context *trans,
 	conn_trans->tail = trans->ctx.tail;
 	for (query = conn_trans->head; query != NULL; query = query->next) {
 		query->trans = conn_trans;
-		if (query->stmt != NULL && query->stmt->db != trans->ctx.db) {
+		if (query->stmt == NULL)
+			continue;
+		if (query->stmt->db != trans->ctx.db) {
 			/* Already a real backend statement - point it at
 			   whichever connection this transaction ended up
 			   using. */
 			query->stmt->db = conndb;
+			continue;
 		}
+		/* driver_sqlpool_update_stmt() deferred this one: no
+		   connection was available when its binds were recorded, so
+		   query->stmt is still the sqlpool wrapper (its .db is still
+		   our own db, never a real connection's). Build the real
+		   statement now that conndb is known, and replay the
+		   recorded binds onto it, the same as the async query path's
+		   sqlpool_statement_query_on() does. */
+		struct sqlpool_statement *pool_stmt =
+			container_of(query->stmt, struct sqlpool_statement, api);
+		i_assert(pool_stmt->stmt == NULL);
+		struct sql_statement *stmt =
+			sql_statement_init(conndb, pool_stmt->api.query_template);
+		sqlpool_statement_replay_binds(pool_stmt, stmt);
+		pool_add_external_ref(trans->query_pool, stmt->pool);
+		pool_unref(&stmt->pool);
+		query->stmt = stmt;
 	}
 	return conn_trans;
 }
@@ -187,6 +304,14 @@ sqlpool_request_send_next(struct sqlpool_db *db, struct sql_db *conndb)
 			  driver_sqlpool_query_callback, request);
 	} else if (request->trans != NULL) {
 		sqlpool_request_handle_transaction(conndb, request->trans);
+	} else if (request->pool_stmt != NULL) {
+		const struct sqlpool_connection *conn =
+			sqlpool_find_connection(db, conndb);
+		sqlpool_statement_query_on(db, conn, request->pool_stmt,
+					   request->callback, request->context,
+					   request->retry_count);
+		request->pool_stmt = NULL;
+		sqlpool_request_free(&request);
 	} else {
 		i_unreached();
 	}
@@ -320,6 +445,18 @@ sqlpool_add_new_connection(struct sqlpool_db *db)
 		return NULL;
 	else
 		return sqlpool_add_connection(db, host, host_idx);
+}
+
+static const struct sqlpool_connection *
+sqlpool_find_connection(struct sqlpool_db *db, struct sql_db *conndb)
+{
+	const struct sqlpool_connection *conn;
+
+	array_foreach(&db->all_connections, conn) {
+		if (conn->db == conndb)
+			return conn;
+	}
+	i_unreached();
 }
 
 static const struct sqlpool_connection *
@@ -622,6 +759,17 @@ static void driver_sqlpool_timeout(struct sqlpool_db *db)
 	                        "(no free connections for %u secs)",
 				request->query, duration,
 				(unsigned int)(ioloop_time - request->created));
+		} else if (request->pool_stmt != NULL) {
+			struct event_passthrough *e =
+				sql_query_finished_event(&db->api, request->event,
+							 request->pool_stmt->api.query_template,
+							 FALSE, &duration)->
+				add_str("error", "Query timed out");
+			e_error(e->event(),
+				SQL_QUERY_FINISHED_FMT": Query timed out "
+	                        "(no free connections for %"PRIdTIME_T" secs)",
+				request->pool_stmt->api.query_template, duration,
+				ioloop_time - request->created);
 		} else {
 			e_error(event_create_passthrough(request->event)->
 					add_str("error", "Timed out")->
@@ -878,6 +1026,396 @@ static void driver_sqlpool_wait(struct sql_db *_db)
 		sql_wait(conn->db);
 }
 
+static struct sql_statement *
+driver_sqlpool_statement_init(struct sql_db *_db, const char *query_template)
+{
+	struct sqlpool_db *db = container_of(_db, struct sqlpool_db, api);
+	pool_t pool = pool_alloconly_create("sqlpool statement", 256);
+	struct sqlpool_statement *pool_stmt =
+		p_new(pool, struct sqlpool_statement, 1);
+	pool_stmt->api.pool = pool;
+	pool_stmt->api.query_template = p_strdup(pool, query_template);
+	p_array_init(&pool_stmt->binds, pool, 8);
+
+	const struct sqlpool_connection *conn;
+	if (driver_sqlpool_get_connection(db, UINT_MAX, &conn)) {
+		pool_stmt->host_idx = conn->host_idx;
+		pool_stmt->stmt = sql_statement_init(conn->db, query_template);
+	}
+	return &pool_stmt->api;
+}
+
+static void driver_sqlpool_statement_abort(struct sql_statement *_stmt)
+{
+	struct sqlpool_statement *pool_stmt =
+		container_of(_stmt, struct sqlpool_statement, api);
+
+	/* sql_statement_abort() already unrefs _stmt->pool (i.e.
+	   pool_stmt->api.pool) after this hook returns, so this must not
+	   unref it again here. */
+	if (pool_stmt->stmt != NULL)
+		sql_statement_abort(&pool_stmt->stmt);
+}
+
+static void
+driver_sqlpool_statement_bind_str(struct sql_statement *_stmt,
+				  unsigned int column_idx, const char *value)
+{
+	struct sqlpool_statement *pool_stmt =
+		container_of(_stmt, struct sqlpool_statement, api);
+	struct sqlpool_bind *bind = array_append_space(&pool_stmt->binds);
+	bind->type = SQLPOOL_BIND_STR;
+	bind->column_idx = column_idx;
+	bind->value_str = p_strdup(pool_stmt->api.pool, value);
+
+	if (pool_stmt->stmt == NULL)
+		return;
+	sql_statement_bind_str(pool_stmt->stmt, column_idx, value);
+}
+
+static void
+driver_sqlpool_statement_bind_uuid(struct sql_statement *_stmt,
+				   unsigned int column_idx,
+				   const guid_128_t value)
+{
+	struct sqlpool_statement *pool_stmt =
+		container_of(_stmt, struct sqlpool_statement, api);
+	struct sqlpool_bind *bind = array_append_space(&pool_stmt->binds);
+	bind->type = SQLPOOL_BIND_UUID;
+	bind->column_idx = column_idx;
+	guid_128_copy(bind->value_uuid, value);
+
+	if (pool_stmt->stmt == NULL)
+		return;
+	sql_statement_bind_uuid(pool_stmt->stmt, column_idx, value);
+}
+
+static void
+driver_sqlpool_statement_bind_binary(struct sql_statement *_stmt,
+				     unsigned int column_idx,
+				     const void *value, size_t value_len)
+{
+	struct sqlpool_statement *pool_stmt =
+		container_of(_stmt, struct sqlpool_statement, api);
+	struct sqlpool_bind *bind = array_append_space(&pool_stmt->binds);
+	bind->type = SQLPOOL_BIND_BINARY;
+	bind->column_idx = column_idx;
+	bind->value_binary = value_len == 0 ? "" :
+		p_memdup(pool_stmt->api.pool, value, value_len);
+	bind->value_len = value_len;
+
+	if (pool_stmt->stmt == NULL)
+		return;
+	sql_statement_bind_binary(pool_stmt->stmt, column_idx, value, value_len);
+}
+
+static void
+driver_sqlpool_statement_bind_int64(struct sql_statement *_stmt,
+				    unsigned int column_idx, int64_t value)
+{
+	struct sqlpool_statement *pool_stmt =
+		container_of(_stmt, struct sqlpool_statement, api);
+	struct sqlpool_bind *bind = array_append_space(&pool_stmt->binds);
+	bind->type = SQLPOOL_BIND_INT64;
+	bind->column_idx = column_idx;
+	bind->value_int64 = value;
+
+	if (pool_stmt->stmt == NULL)
+		return;
+	sql_statement_bind_int64(pool_stmt->stmt, column_idx, value);
+}
+
+static void
+driver_sqlpool_statement_bind_double(struct sql_statement *_stmt,
+				     unsigned int column_idx, double value)
+{
+	struct sqlpool_statement *pool_stmt =
+		container_of(_stmt, struct sqlpool_statement, api);
+	struct sqlpool_bind *bind = array_append_space(&pool_stmt->binds);
+	bind->type = SQLPOOL_BIND_DOUBLE;
+	bind->column_idx = column_idx;
+	bind->value_double = value;
+
+	if (pool_stmt->stmt == NULL)
+		return;
+	sql_statement_bind_double(pool_stmt->stmt, column_idx, value);
+}
+
+/* Replays every bind recorded on pool_stmt onto stmt (a freshly created
+   statement on a, possibly different, connection), so a retry never has
+   to render the query to plain text to carry its bind values across. */
+static void
+sqlpool_statement_replay_binds(const struct sqlpool_statement *pool_stmt,
+			       struct sql_statement *stmt)
+{
+	const struct sqlpool_bind *bind;
+
+	array_foreach(&pool_stmt->binds, bind) {
+		switch (bind->type) {
+		case SQLPOOL_BIND_STR:
+			sql_statement_bind_str(stmt, bind->column_idx,
+					       bind->value_str);
+			break;
+		case SQLPOOL_BIND_BINARY:
+			sql_statement_bind_binary(stmt, bind->column_idx,
+						  bind->value_binary,
+						  bind->value_len);
+			break;
+		case SQLPOOL_BIND_INT64:
+			sql_statement_bind_int64(stmt, bind->column_idx,
+						 bind->value_int64);
+			break;
+		case SQLPOOL_BIND_DOUBLE:
+			sql_statement_bind_double(stmt, bind->column_idx,
+						  bind->value_double);
+			break;
+		case SQLPOOL_BIND_UUID:
+			sql_statement_bind_uuid(stmt, bind->column_idx,
+						bind->value_uuid);
+			break;
+		}
+	}
+	sql_statement_set_no_log_expanded_values(
+		stmt, pool_stmt->no_log_expanded_values);
+	if (array_is_created(&pool_stmt->no_log_field_idxs)) {
+		const unsigned int *column_idx;
+		array_foreach(&pool_stmt->no_log_field_idxs, column_idx)
+			sql_statement_set_no_log_expanded_value_field(
+				stmt, *column_idx);
+	}
+}
+
+static void
+driver_sqlpool_statement_set_no_log_expanded_values(struct sql_statement *_stmt,
+						     bool no_expand)
+{
+	struct sqlpool_statement *pool_stmt =
+		container_of(_stmt, struct sqlpool_statement, api);
+	pool_stmt->no_log_expanded_values = no_expand;
+
+	if (pool_stmt->stmt == NULL)
+		return;
+	sql_statement_set_no_log_expanded_values(pool_stmt->stmt, no_expand);
+}
+
+static void
+driver_sqlpool_statement_set_no_log_expanded_value_field(
+	struct sql_statement *_stmt, unsigned int column_idx)
+{
+	struct sqlpool_statement *pool_stmt =
+		container_of(_stmt, struct sqlpool_statement, api);
+	if (!array_is_created(&pool_stmt->no_log_field_idxs)) {
+		p_array_init(&pool_stmt->no_log_field_idxs,
+			    pool_stmt->api.pool, 1);
+	}
+	array_push_back(&pool_stmt->no_log_field_idxs, &column_idx);
+	pool_stmt->no_log_expanded_values = FALSE;
+
+	if (pool_stmt->stmt == NULL)
+		return;
+	sql_statement_set_no_log_expanded_value_field(pool_stmt->stmt,
+						       column_idx);
+}
+
+static struct sql_result *
+driver_sqlpool_statement_query_s(struct sql_statement *_stmt)
+{
+	struct sqlpool_statement *pool_stmt =
+		container_of(_stmt, struct sqlpool_statement, api);
+	struct sqlpool_db *db = container_of(_stmt->db, struct sqlpool_db, api);
+	struct sql_result *res;
+
+	if (pool_stmt->stmt != NULL)
+		res = sql_statement_query_s(&pool_stmt->stmt);
+	else {
+		/* No connection was available when the statement was
+		   created. Try one now and build a real statement on it
+		   instead of falling back to default_sql_statement_query_s(),
+		   which would render the query to plain text. */
+		const struct sqlpool_connection *conn;
+		if (!driver_sqlpool_get_sync_connection(db, &conn)) {
+			pool_unref(&_stmt->pool);
+			sql_not_connected_result.refcount++;
+			return &sql_not_connected_result;
+		}
+		struct sql_statement *stmt =
+			sql_statement_init(conn->db, pool_stmt->api.query_template);
+		sqlpool_statement_replay_binds(pool_stmt, stmt);
+		res = sql_statement_query_s(&stmt);
+	}
+
+	if (res->failed_try_retry) {
+		/* The backend statement's pool is gone now -
+		   sql_statement_query_s() already freed it whether the
+		   query succeeded or not. Build a fresh statement on the
+		   new connection and replay pool_stmt's recorded binds onto
+		   it, the same as the async path does, instead of ever
+		   rendering the query to plain text. Retries a single time
+		   without avoiding the host that just failed, matching
+		   driver_sqlpool_query_s(). */
+		const struct sqlpool_connection *conn;
+		if (driver_sqlpool_get_sync_connection(db, &conn)) {
+			sql_result_unref(res);
+			struct sql_statement *stmt =
+				sql_statement_init(conn->db,
+						   pool_stmt->api.query_template);
+			sqlpool_statement_replay_binds(pool_stmt, stmt);
+			res = sql_statement_query_s(&stmt);
+		}
+	}
+	pool_unref(&_stmt->pool);
+	return res;
+}
+
+/* Builds a fresh statement on conn, replays pool_stmt's recorded binds
+   onto it, and issues it - used both for the very first attempt when no
+   connection was available at statement_init() time, and for a retry
+   after a connection failure. Takes over pool_stmt's single pool
+   reference; the caller must not touch pool_stmt again. */
+static void
+sqlpool_statement_query_on(struct sqlpool_db *db,
+			   const struct sqlpool_connection *conn,
+			   struct sqlpool_statement *pool_stmt,
+			   sql_query_callback_t *callback, void *context,
+			   unsigned int retry_count)
+{
+	struct sql_statement *stmt =
+		sql_statement_init(conn->db, pool_stmt->api.query_template);
+	sqlpool_statement_replay_binds(pool_stmt, stmt);
+
+	struct sqlpool_statement_query *query =
+		i_new(struct sqlpool_statement_query, 1);
+	query->db = db;
+	query->pool_stmt = pool_stmt;
+	query->callback = callback;
+	query->context = context;
+	query->host_idx = conn->host_idx;
+	query->retry_count = retry_count;
+
+	sql_statement_query(&stmt, driver_sqlpool_statement_query_callback, query);
+}
+
+/* Queues a statement for a connection instead of sending it immediately -
+   used for the very first attempt when no connection is available at
+   statement_init() time, always at retry_count 0. A later retry after a
+   connection failure goes through driver_sqlpool_request_retry() instead,
+   which preserves the accumulated retry_count. */
+static void
+sqlpool_statement_send(struct sqlpool_db *db, struct sqlpool_statement *pool_stmt,
+		       sql_query_callback_t *callback, void *context)
+{
+	const struct sqlpool_connection *conn;
+
+	if (!driver_sqlpool_get_connection(db, UINT_MAX, &conn)) {
+		struct sqlpool_request *request =
+			sqlpool_request_new_stmt(db, pool_stmt);
+		request->callback = callback;
+		request->context = context;
+		driver_sqlpool_append_request(db, request);
+		return;
+	}
+	sqlpool_statement_query_on(db, conn, pool_stmt, callback, context, 0);
+}
+
+static void
+driver_sqlpool_statement_query_callback(struct sql_result *result,
+					struct sqlpool_statement_query *query)
+{
+	struct sqlpool_db *db = query->db;
+
+	if (result->failed_try_retry &&
+	    query->retry_count < array_count(&db->hosts)) {
+		e_warning(db->api.event, "Query failed, retrying: %s",
+			  sql_result_get_error(result));
+
+		struct sqlpool_request *request =
+			sqlpool_request_new_stmt(db, query->pool_stmt);
+		request->callback = query->callback;
+		request->context = query->context;
+		request->retry_count = query->retry_count + 1;
+		request->host_idx = query->host_idx;
+
+		i_free(query);
+
+		driver_sqlpool_request_retry(db, request);
+		return;
+	}
+
+	sql_query_callback_t *callback = query->callback;
+	void *cb_context = query->context;
+	struct sqlpool_statement *pool_stmt = query->pool_stmt;
+	struct sql_db *conndb = result->db;
+
+	i_free(query);
+
+	if (callback != NULL)
+		callback(result, cb_context);
+	pool_unref(&pool_stmt->api.pool);
+
+	sqlpool_request_send_next(db, conndb);
+}
+
+static void
+driver_sqlpool_statement_query(struct sql_statement *_stmt,
+			       sql_query_callback_t *callback, void *context)
+{
+	struct sqlpool_statement *pool_stmt =
+		container_of(_stmt, struct sqlpool_statement, api);
+	struct sqlpool_db *db = container_of(_stmt->db, struct sqlpool_db, api);
+
+	if (pool_stmt->stmt == NULL) {
+		/* No connection was available when the statement was
+		   created. Queue it exactly like a retry after a connection
+		   failure - once a connection is ready, a real backend
+		   statement is built from the recorded binds, so the query
+		   is never rendered to plain text here either. */
+		sqlpool_statement_send(db, pool_stmt, callback, context);
+		return;
+	}
+
+	struct sqlpool_statement_query *query =
+		i_new(struct sqlpool_statement_query, 1);
+	query->db = db;
+	query->pool_stmt = pool_stmt;
+	query->callback = callback;
+	query->context = context;
+	query->host_idx = pool_stmt->host_idx;
+
+	sql_statement_query(&pool_stmt->stmt,
+			    driver_sqlpool_statement_query_callback, query);
+}
+
+static void
+driver_sqlpool_update_stmt(struct sql_transaction_context *_ctx,
+			   struct sql_statement *_stmt,
+			   unsigned int *affected_rows)
+{
+	struct sqlpool_transaction_context *ctx =
+		container_of(_ctx, struct sqlpool_transaction_context, ctx);
+	struct sqlpool_statement *pool_stmt =
+		container_of(_stmt, struct sqlpool_statement, api);
+
+	if (pool_stmt->stmt == NULL) {
+		/* No connection was available when the statement was
+		   created. Defer building the real backend statement until
+		   driver_sqlpool_new_conn_trans() knows which connection the
+		   transaction will use, instead of rendering the query (and
+		   its bind values) to plain text via default_sql_update_stmt()
+		   now. _stmt (the sqlpool wrapper, with its recorded binds)
+		   is what gets resolved there. */
+		pool_add_external_ref(ctx->query_pool, _stmt->pool);
+		sql_transaction_add_stmt(&ctx->ctx, ctx->query_pool,
+					 _stmt, affected_rows);
+		pool_unref(&_stmt->pool);
+		return;
+	}
+	pool_add_external_ref(ctx->query_pool, pool_stmt->stmt->pool);
+	pool_unref(&pool_stmt->stmt->pool);
+	sql_transaction_add_stmt(&ctx->ctx, ctx->query_pool,
+				 pool_stmt->stmt, affected_rows);
+	pool_unref(&_stmt->pool);
+}
+
 struct sql_db driver_sqlpool_db = {
 	"",
 
@@ -900,5 +1438,21 @@ struct sql_db driver_sqlpool_db = {
 		.update = driver_sqlpool_update,
 
 		.escape_blob = driver_sqlpool_escape_blob,
+
+		.statement_init = driver_sqlpool_statement_init,
+		.statement_abort = driver_sqlpool_statement_abort,
+		.statement_bind_str = driver_sqlpool_statement_bind_str,
+		.statement_bind_uuid = driver_sqlpool_statement_bind_uuid,
+		.statement_bind_int64 = driver_sqlpool_statement_bind_int64,
+		.statement_bind_binary = driver_sqlpool_statement_bind_binary,
+		.statement_bind_double = driver_sqlpool_statement_bind_double,
+		.statement_set_no_log_expanded_values =
+			driver_sqlpool_statement_set_no_log_expanded_values,
+		.statement_set_no_log_expanded_value_field =
+			driver_sqlpool_statement_set_no_log_expanded_value_field,
+		.statement_query_s = driver_sqlpool_statement_query_s,
+		.statement_query = driver_sqlpool_statement_query,
+
+		.update_stmt = driver_sqlpool_update_stmt,
 	}
 };
