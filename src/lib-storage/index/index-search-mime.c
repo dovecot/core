@@ -524,6 +524,9 @@ static int search_arg_mime_parts_match(struct search_mimepart_context *mpctx,
 	struct search_mimepart_stack *level;
 	int ret;
 
+	/* a previous MIMEPART key may have returned in the middle of the
+	   walk, leaving its levels behind */
+	array_clear(&mpctx->stack);
 	level = array_append_space(&mpctx->stack);
 	level->index = 1;
 
