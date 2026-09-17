@@ -38,6 +38,7 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 			     const struct imap_logout_stats *stats,
 			     int fd_in, int fd_out,
 			     enum client_create_flags flags,
+			     const buffer_t *input_buf,
 			     struct client **client_r, const char **error_r);
 
 #endif

@@ -47,6 +47,7 @@ int client_create_from_input(const struct mail_storage_service_input *input ATTR
 			     const struct imap_logout_stats *stats ATTR_UNUSED,
 			     int fd_in ATTR_UNUSED, int fd_out ATTR_UNUSED,
 			     enum client_create_flags flags ATTR_UNUSED,
+			     const buffer_t *input_buf ATTR_UNUSED,
 			     struct client **client_r ATTR_UNUSED,
 			     const char **error_r ATTR_UNUSED) { return -1; }
 
@@ -201,7 +202,8 @@ static void test_imap_client_hibernate(void)
 	struct event *event = event_create(NULL);
 	int client_fd = dup(dev_null_fd);
 	client = client_create(client_fd, client_fd, 0, event, mail_user,
-			       imap_setting_parser_info.defaults, &smtp_set);
+			       imap_setting_parser_info.defaults, &smtp_set,
+			       NULL);
 	ctx.client = client;
 
 	/* can't hibernate without IDLE */

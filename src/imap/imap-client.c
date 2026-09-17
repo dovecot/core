@@ -2,6 +2,7 @@
 
 #include "imap-common.h"
 #include "ioloop.h"
+#include "buffer.h"
 #include "llist.h"
 #include "str.h"
 #include "hostpid.h"
@@ -116,7 +117,8 @@ struct client *client_create(int fd_in, int fd_out,
 			     enum client_create_flags flags,
 			     struct event *event, struct mail_user *user,
 			     const struct imap_settings *set,
-			     const struct smtp_submit_settings *smtp_set)
+			     const struct smtp_submit_settings *smtp_set,
+			     const buffer_t *input_buf)
 {
 	struct client *client;
 	pool_t pool;
@@ -154,6 +156,15 @@ struct client *client_create(int fd_in, int fd_out,
 	o_stream_set_name(client->output, "<imap client>");
 
 	o_stream_set_flush_callback(client->output, client_output, client);
+
+	/* Prepend the input that the login or the imap-hibernate process had
+	   already read. This must happen before hook_client_created(), so that
+	   plugins wrapping client->input also see the commands that the client
+	   pipelined with the authentication. */
+	if (input_buf != NULL && input_buf->used > 0) {
+		client_add_istream_prefix(client, input_buf->data,
+					  input_buf->used);
+	}
 
 	p_array_init(&client->module_contexts, client->pool, 5);
 	client->last_input = ioloop_time;

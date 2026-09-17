@@ -22,6 +22,7 @@ int client_create_from_input(const struct mail_storage_service_input *input ATTR
 			     const struct imap_logout_stats *stats ATTR_UNUSED,
 			     int fd_in ATTR_UNUSED, int fd_out ATTR_UNUSED,
 			     enum client_create_flags flags ATTR_UNUSED,
+			     const buffer_t *input_buf ATTR_UNUSED,
 			     struct client **client_r ATTR_UNUSED,
 			     const char **error_r ATTR_UNUSED) { return -1; }
 

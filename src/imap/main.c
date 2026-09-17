@@ -2,7 +2,7 @@
 
 #include "imap-common.h"
 #include "ioloop.h"
-#include "istream.h"
+#include "buffer.h"
 #include "ostream.h"
 #include "path-util.h"
 #include "str.h"
@@ -221,6 +221,7 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 			     const struct imap_logout_stats *stats,
 			     int fd_in, int fd_out,
 			     enum client_create_flags flags,
+			     const buffer_t *input_buf,
 			     struct client **client_r, const char **error_r)
 {
 	struct mail_storage_service_input service_input;
@@ -271,7 +272,7 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 		verbose_proctitle = TRUE;
 
 	client = client_create(fd_in, fd_out, flags,
-			       event, mail_user, imap_set, smtp_set);
+			       event, mail_user, imap_set, smtp_set, input_buf);
 	client->userdb_fields = input->userdb_fields == NULL ? NULL :
 		p_strarray_dup(client->pool, input->userdb_fields);
 	/* For imap_logout_format statistics: */
@@ -298,7 +299,7 @@ static void main_stdio_run(const char *username)
 		i_fatal("USER environment missing");
 
 	if (client_create_from_input(&input, NULL, STDIN_FILENO, STDOUT_FILENO,
-				     0, &client, &error) < 0)
+				     0, NULL, &client, &error) < 0)
 		i_fatal("%s", error);
 
 	client_create_finish_io(client);
@@ -323,6 +324,7 @@ login_request_finished(const struct login_server_request *request,
 	enum login_request_flags flags = request->auth_req.flags;
 	enum client_create_flags create_flags = 0;
 	const char *error;
+	buffer_t input_buf;
 
 	i_zero(&input);
 	input.service = "imap";
@@ -341,9 +343,12 @@ login_request_finished(const struct login_server_request *request,
 	client_parse_imap_login_request(request->data,
 					request->auth_req.data_size,
 					&imap_request);
+	buffer_create_from_const_data(&input_buf, imap_request.input,
+				      imap_request.input_size);
 
 	if (client_create_from_input(&input, NULL, request->fd, request->fd,
-				     create_flags, &client, &error) < 0) {
+				     create_flags, &input_buf,
+				     &client, &error) < 0) {
 		int fd = request->fd;
 		struct ostream *output =
 			o_stream_create_fd_autoclose(&fd, IO_BLOCK_SIZE);
@@ -357,10 +362,6 @@ login_request_finished(const struct login_server_request *request,
 	}
 	if ((flags & LOGIN_REQUEST_FLAG_TLS_COMPRESSION) != 0)
 		client->tls_compression = TRUE;
-	if (imap_request.input_size > 0) {
-		client_add_istream_prefix(client, imap_request.input,
-					  imap_request.input_size);
-	}
 
 	/* The order here is important:
 	   1. Finish setting up rawlog, so all input/output is written there.

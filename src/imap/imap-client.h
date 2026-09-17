@@ -285,12 +285,15 @@ extern unsigned int imap_feature_qresync;
 extern unsigned int imap_feature_utf8accept;
 
 /* Create new client with specified input/output handles. socket specifies
-   if the handle is a socket. */
+   if the handle is a socket. input_buf contains the input that the login or
+   the imap-hibernate process had already read from the client, or NULL if
+   there is none. */
 struct client *client_create(int fd_in, int fd_out,
 			     enum client_create_flags flags,
 			     struct event *event, struct mail_user *user,
 			     const struct imap_settings *set,
-			     const struct smtp_submit_settings *smtp_set);
+			     const struct smtp_submit_settings *smtp_set,
+			     const buffer_t *input_buf);
 void client_create_finish_io(struct client *client);
 /* Finish creating the client. Returns 0 if ok, -1 if there's an error. */
 int client_create_finish(struct client *client, const char **error_r);
