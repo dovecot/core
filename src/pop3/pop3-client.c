@@ -388,8 +388,9 @@ int pop3_lock_session(struct client *client)
 	return ret;
 }
 
-void client_add_istream_prefix(struct client *client,
-			       const unsigned char *data, size_t size)
+static void
+client_add_istream_prefix(struct client *client,
+			  const unsigned char *data, size_t size)
 {
 	struct istream *inputs[] = {
 		i_stream_create_copy_from_data(data, size),
