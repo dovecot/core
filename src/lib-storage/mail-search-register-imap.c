@@ -513,6 +513,11 @@ imap_search_inthread(struct mail_search_build_context *ctx)
 	sarg->value.thread_type = thread_type;
 	if (mail_search_build_key(ctx, sarg, &sarg->value.subargs) < 0)
 		return NULL;
+	if (mail_search_args_count_inthreads(sarg->value.subargs) >
+	    MAIL_SEARCH_MAX_NESTED_INTHREADS) {
+		ctx->_error = "Too many nested INTHREADs";
+		return NULL;
+	}
 	return sarg;
 }
 

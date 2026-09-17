@@ -200,6 +200,27 @@ void mail_search_args_init(struct mail_search_args *args,
 	mail_search_arg_init(args, args->args);
 }
 
+unsigned int mail_search_args_count_inthreads(const struct mail_search_arg *args)
+{
+	const struct mail_search_arg *arg;
+	unsigned int count = 0;
+
+	for (arg = args; arg != NULL; arg = arg->next) {
+		switch (arg->type) {
+		case SEARCH_INTHREAD:
+			count++;
+			/* fall through */
+		case SEARCH_SUB:
+		case SEARCH_OR:
+			count += mail_search_args_count_inthreads(arg->value.subargs);
+			break;
+		default:
+			break;
+		}
+	}
+	return count;
+}
+
 void mail_search_arg_deinit(struct mail_search_arg *arg)
 {
 	for (; arg != NULL; arg = arg->next)

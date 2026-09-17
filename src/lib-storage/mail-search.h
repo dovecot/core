@@ -50,6 +50,10 @@ enum mail_search_arg_type {
 	SEARCH_MIMEPART
 };
 
+/* Maximum number of INTHREADs inside another INTHREAD's search key. Each
+   of them doubles the search args when the INTHREADs are unnested. */
+#define MAIL_SEARCH_MAX_NESTED_INTHREADS 4
+
 enum mail_search_date_type {
 	MAIL_SEARCH_DATE_TYPE_SENT = 1,
 	MAIL_SEARCH_DATE_TYPE_RECEIVED,
@@ -204,6 +208,8 @@ void mail_search_arg_init(struct mail_search_args *args,
 void mail_search_args_deinit(struct mail_search_args *args);
 /* Free arg and its siblings and children. */
 void mail_search_arg_deinit(struct mail_search_arg *arg);
+/* Returns the number of INTHREAD args in args, including the nested ones. */
+unsigned int mail_search_args_count_inthreads(const struct mail_search_arg *args);
 /* Free arg and its children, but not its siblings. */
 void mail_search_arg_one_deinit(struct mail_search_arg *arg);
 /* Convert sequence sets in args to UIDs. */

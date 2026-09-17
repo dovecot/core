@@ -278,6 +278,26 @@ static const struct {
 	/* negated INTHREAD */
 	{ "NOT INTHREAD REFS BODY x", "NOT INTHREAD REFS (BODY x)" },
 	{ "TEXT a NOT INTHREAD REFS BODY x", "TEXT a NOT INTHREAD REFS (BODY x)" },
+	{ "NOT INTHREAD REFS ( BODY x OR BODY y BODY z )", "NOT INTHREAD REFS (BODY x OR BODY y BODY z)" },
+
+	/* INTHREAD's search key is kept as it is */
+	{ "INTHREAD REFS ( TEXT w OR BODY a BODY b )", "INTHREAD REFS (TEXT w OR BODY a BODY b)" },
+	{ "INTHREAD REFS ( OR BODY a BODY b TEXT w )", "INTHREAD REFS (OR BODY a BODY b TEXT w)" },
+	{ "INTHREAD REFS ( TEXT w OR BODY a BODY b TEXT x )", "INTHREAD REFS (TEXT w OR BODY a BODY b TEXT x)" },
+	{ "INTHREAD REFS ALL", "ALL" },
+	{ "INTHREAD REFS NOT ALL", "NOT ALL" },
+	{ "NOT INTHREAD REFS NOT ALL", "ALL" },
+
+	/* nested INTHREADs are moved out of the outer INTHREAD */
+	{ "INTHREAD REFS INTHREAD REFS BODY a", "INTHREAD REFS (BODY a)" },
+	{ "INTHREAD REFS NOT INTHREAD REFS BODY a", "NOT INTHREAD REFS (BODY a)" },
+	{ "INTHREAD REFS ( TEXT w INTHREAD REFS BODY a )", "INTHREAD REFS (BODY a) INTHREAD REFS (TEXT w)" },
+	{ "INTHREAD REFS ( INTHREAD REFS BODY a INTHREAD REFS BODY b )", "INTHREAD REFS (BODY a) INTHREAD REFS (BODY b)" },
+	{ "INTHREAD REFS ( TEXT w INTHREAD REFS ( BODY a INTHREAD REFS BODY b ) )", "INTHREAD REFS (BODY b) INTHREAD REFS (BODY a) INTHREAD REFS (TEXT w)" },
+	{ "INTHREAD REFS OR TEXT w INTHREAD REFS BODY a", "OR INTHREAD REFS (BODY a) (NOT INTHREAD REFS (BODY a) INTHREAD REFS (TEXT w))" },
+	{ "INTHREAD REFS ( TEXT w OR BODY a INTHREAD REFS BODY b )", "OR (INTHREAD REFS (BODY b) INTHREAD REFS (TEXT w)) (NOT INTHREAD REFS (BODY b) INTHREAD REFS (TEXT w BODY a))" },
+	{ "NOT INTHREAD REFS ( TEXT w INTHREAD REFS BODY a )", "OR NOT INTHREAD REFS (BODY a) NOT INTHREAD REFS (TEXT w)" },
+	{ "INTHREAD REFS ( KEYWORD k1 INTHREAD REFS KEYWORD k2 )", "INTHREAD REFS (KEYWORD k2) INTHREAD REFS (KEYWORD k1)" },
 };
 
 static struct mail_search_args *
@@ -376,6 +396,9 @@ static const struct {
 	{ "NOT ALL INTHREAD REFS BODY x", "NOT ALL" },
 	/* negated INTHREAD */
 	{ "NOT INTHREAD REFS BODY x", "NOT INTHREAD REFS (BODY x)" },
+	/* nested INTHREADs */
+	{ "INTHREAD REFS ( TEXT w INTHREAD REFS BODY a )", "INTHREAD REFS (BODY a) INTHREAD REFS (TEXT w)" },
+	{ "NOT INTHREAD REFS ( KEYWORD k1 INTHREAD REFS KEYWORD k2 )", "OR NOT INTHREAD REFS (KEYWORD k2) NOT INTHREAD REFS (KEYWORD k1)" },
 };
 
 static void test_mail_search_args_simplify_uninitialized(void)
@@ -407,6 +430,39 @@ static void test_mail_search_args_simplify_uninitialized(void)
 	test_end();
 }
 
+static bool
+test_search_args_build_fails(const char *args, const char *error_prefix)
+{
+	struct mail_search_parser *parser;
+	struct mail_search_args *sargs;
+	const char *error, *charset = "UTF-8";
+	int ret;
+
+	parser = mail_search_parser_init_cmdline(t_strsplit(args, " "));
+	ret = mail_search_build(mail_search_register_get_imap4rev1(),
+				parser, &charset, &sargs, &error);
+	mail_search_parser_deinit(&parser);
+	if (ret == 0) {
+		mail_search_args_unref(&sargs);
+		return FALSE;
+	}
+	return str_begins_with(error, error_prefix);
+}
+
+static void test_mail_search_args_nested_inthreads_limit(void)
+{
+	test_begin("mail search args nested inthreads limit");
+	test_assert(!test_search_args_build_fails(
+		"INTHREAD REFS ( INTHREAD REFS BODY a INTHREAD REFS BODY b INTHREAD REFS BODY c INTHREAD REFS BODY d )", ""));
+	test_assert(test_search_args_build_fails(
+		"INTHREAD REFS ( INTHREAD REFS BODY a INTHREAD REFS BODY b INTHREAD REFS BODY c INTHREAD REFS BODY d INTHREAD REFS BODY e )",
+		"Too many nested INTHREADs"));
+	test_assert(test_search_args_build_fails(
+		"INTHREAD REFS INTHREAD REFS INTHREAD REFS INTHREAD REFS INTHREAD REFS INTHREAD REFS BODY a",
+		"Too many nested INTHREADs"));
+	test_end();
+}
+
 static void test_mail_search_args_simplify_empty_lists(void)
 {
 	struct mail_search_args *args;
@@ -426,6 +482,7 @@ int main(void)
 		mail_storage_init,
 		test_mail_search_args_simplify,
 		test_mail_search_args_simplify_uninitialized,
+		test_mail_search_args_nested_inthreads_limit,
 		test_mail_search_args_simplify_empty_lists,
 		mail_storage_deinit,
 		NULL
