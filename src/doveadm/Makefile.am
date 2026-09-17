@@ -194,6 +194,7 @@ noinst_HEADERS = \
 
 test_programs = \
 	test-doveadm-cmd \
+	test-doveadm-print-server \
 	test-doveadm-util
 
 test_libs = $(LIBDOVECOT)
@@ -202,6 +203,13 @@ test_deps = $(noinst_LTLIBRARIES) $(LIBDOVECOT_DEPS)
 test_doveadm_cmd_SOURCES = doveadm-cmd-parse.c test-doveadm-cmd-parse.c
 test_doveadm_cmd_LDADD = $(test_libs) $(MODULE_LIBS)
 test_doveadm_cmd_DEPENDENCIES = $(test_deps)
+
+test_doveadm_print_server_SOURCES = \
+	doveadm-print.c \
+	doveadm-print-server.c \
+	test-doveadm-print-server.c
+test_doveadm_print_server_LDADD = $(test_libs) $(MODULE_LIBS)
+test_doveadm_print_server_DEPENDENCIES = $(test_deps)
 
 test_doveadm_util_SOURCES = doveadm-util.c test-doveadm-util.c
 test_doveadm_util_LDADD = $(test_libs) $(MODULE_LIBS)
