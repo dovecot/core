@@ -94,6 +94,24 @@ imap_unset_capability(struct settings_instance *set_instance, const char *capabi
 			  "no", SETTINGS_OVERRIDE_TYPE_CODE);
 }
 
+void client_add_istream_prefix(struct client *client,
+			       const unsigned char *data, size_t size)
+{
+	i_assert(client->io == NULL);
+
+	struct istream *inputs[] = {
+		i_stream_create_copy_from_data(data, size),
+		client->input,
+		NULL
+	};
+	client->input = i_stream_create_concat(inputs);
+	i_stream_copy_fd(client->input, inputs[1]);
+	i_stream_unref(&inputs[0]);
+	i_stream_unref(&inputs[1]);
+
+	i_stream_set_input_pending(client->input, TRUE);
+}
+
 struct client *client_create(int fd_in, int fd_out,
 			     enum client_create_flags flags,
 			     struct event *event, struct mail_user *user,
@@ -254,24 +272,6 @@ int client_create_finish(struct client *client, const char **error_r)
 					      &imap_storage_callbacks, client);
 	client->v.init(client);
 	return 0;
-}
-
-void client_add_istream_prefix(struct client *client,
-			       const unsigned char *data, size_t size)
-{
-	i_assert(client->io == NULL);
-
-	struct istream *inputs[] = {
-		i_stream_create_copy_from_data(data, size),
-		client->input,
-		NULL
-	};
-	client->input = i_stream_create_concat(inputs);
-	i_stream_copy_fd(client->input, inputs[1]);
-	i_stream_unref(&inputs[0]);
-	i_stream_unref(&inputs[1]);
-
-	i_stream_set_input_pending(client->input, TRUE);
 }
 
 static void client_default_init(struct client *client ATTR_UNUSED)
