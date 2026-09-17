@@ -274,6 +274,10 @@ static const struct {
 	{ "( OR BODY z BODY y ) ( OR BODY z BODY w ) BODY x BODY y BODY w",  "BODY x BODY y BODY w" },
 
 	{ "subject y", "SUBJECT y"},
+
+	/* negated INTHREAD */
+	{ "NOT INTHREAD REFS BODY x", "NOT INTHREAD REFS (BODY x)" },
+	{ "TEXT a NOT INTHREAD REFS BODY x", "TEXT a NOT INTHREAD REFS (BODY x)" },
 };
 
 static struct mail_search_args *
@@ -309,6 +313,9 @@ static bool test_search_args_are_initialized(struct mail_search_arg *arg)
 				return FALSE;
 			break;
 		case SEARCH_INTHREAD:
+			if (arg->initialized.search_args == NULL)
+				return FALSE;
+			/* fall through */
 		case SEARCH_SUB:
 		case SEARCH_OR:
 			if (!test_search_args_are_initialized(arg->value.subargs))
@@ -367,6 +374,8 @@ static const struct {
 	/* dropped by ALL */
 	{ "OR ALL INTHREAD REFS BODY x", "ALL" },
 	{ "NOT ALL INTHREAD REFS BODY x", "NOT ALL" },
+	/* negated INTHREAD */
+	{ "NOT INTHREAD REFS BODY x", "NOT INTHREAD REFS (BODY x)" },
 };
 
 static void test_mail_search_args_simplify_uninitialized(void)

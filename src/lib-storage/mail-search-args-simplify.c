@@ -674,7 +674,10 @@ mail_search_args_simplify_sub(struct mail_search_args *all_args, pool_t pool,
 		if (args->type == SEARCH_SUB ||
 		    args->type == SEARCH_OR ||
 		    args->type == SEARCH_INTHREAD) {
-			i_assert(!args->match_not);
+			/* Negated SUB/OR args were converted with De Morgan's
+			   law above. INTHREAD can be negated. */
+			i_assert(args->type == SEARCH_INTHREAD ||
+				 !args->match_not);
 
 			if (args->type != SEARCH_INTHREAD) {
 				bool and_arg = args->type == SEARCH_SUB;
