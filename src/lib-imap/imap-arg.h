@@ -47,6 +47,10 @@ enum imap_arg_type {
 ARRAY_DEFINE_TYPE(imap_arg_list, struct imap_arg);
 struct imap_arg {
 	enum imap_arg_type type;
+	/* Parent list arg, or NULL for a toplevel arg. This is valid only
+	   while the parent list is still being parsed: it points into the
+	   grandparent's list array, which imap-parser reallocates when more
+	   args are added to it after the parent list has been closed. */
         struct imap_arg *parent; /* always of type IMAP_ARG_LIST */
 
 	/* Set when _data.str is set */

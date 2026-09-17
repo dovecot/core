@@ -74,7 +74,7 @@ void imap_write_seq_range(string_t *dest, const ARRAY_TYPE(seq_range) *array)
 	}
 }
 
-void imap_write_arg(string_t *dest, const struct imap_arg *arg)
+static void imap_write_simple_arg(string_t *dest, const struct imap_arg *arg)
 {
 	switch (arg->type) {
 	case IMAP_ARG_NIL:
@@ -97,32 +97,85 @@ void imap_write_arg(string_t *dest, const struct imap_arg *arg)
 		str_append(dest, strarg);
 		break;
 	}
-	case IMAP_ARG_LIST:
-		str_append_c(dest, '(');
-		imap_write_args(dest, imap_arg_as_list(arg));
-		str_append_c(dest, ')');
-		break;
 	case IMAP_ARG_LITERAL_SIZE:
 	case IMAP_ARG_LITERAL_SIZE_NONSYNC:
 		str_printfa(dest, "<%"PRIuUOFF_T" byte literal>",
 			    imap_arg_as_literal_size(arg));
 		break;
+	case IMAP_ARG_LIST:
 	case IMAP_ARG_EOL:
 		i_unreached();
 	}
 }
 
-void imap_write_args(string_t *dest, const struct imap_arg *args)
+/* Writes args until IMAP_ARG_EOL.
+
+   The list nesting depth is limited only by the input line length, so the
+   lists must be walked iteratively. struct imap_arg.parent can't be used to
+   get back to the parent list, because it may point to a stale copy of the
+   parent (see imap-arg.h). The stack of the currently open lists can't be
+   allocated from the data stack either, because callers such as
+   imap_args_to_str() write to a string_t that is itself allocated from the
+   data stack. */
+static void imap_write_args_real(string_t *dest, const struct imap_arg *args)
 {
+	/* the lists whose contents are currently being written,
+	   innermost last */
+	ARRAY(const struct imap_arg *) list_stack = ARRAY_INIT;
+	const struct imap_arg *list_arg;
 	bool first = TRUE;
 
-	for (; !IMAP_ARG_IS_EOL(args); args++) {
+	for (;;) {
+		if (IMAP_ARG_IS_EOL(args)) {
+			if (array_is_empty(&list_stack)) {
+				/* end of the toplevel args */
+				break;
+			}
+			/* end of a list - continue after the list arg in the
+			   parent list */
+			str_append_c(dest, ')');
+			list_arg = *array_back(&list_stack);
+			array_pop_back(&list_stack);
+			args = list_arg + 1;
+			first = FALSE;
+			continue;
+		}
 		if (first)
 			first = FALSE;
 		else
 			str_append_c(dest, ' ');
-		imap_write_arg(dest, args);
+
+		if (args->type == IMAP_ARG_LIST) {
+			/* start writing the list's contents */
+			str_append_c(dest, '(');
+			if (!array_is_created(&list_stack))
+				i_array_init(&list_stack, 8);
+			array_push_back(&list_stack, &args);
+			args = imap_arg_as_list(args);
+			first = TRUE;
+			continue;
+		}
+		imap_write_simple_arg(dest, args);
+		args++;
 	}
+	if (array_is_created(&list_stack))
+		array_free(&list_stack);
+}
+
+void imap_write_arg(string_t *dest, const struct imap_arg *arg)
+{
+	if (arg->type != IMAP_ARG_LIST)
+		imap_write_simple_arg(dest, arg);
+	else {
+		str_append_c(dest, '(');
+		imap_write_args(dest, imap_arg_as_list(arg));
+		str_append_c(dest, ')');
+	}
+}
+
+void imap_write_args(string_t *dest, const struct imap_arg *args)
+{
+	imap_write_args_real(dest, args);
 }
 
 static void imap_human_args_fix_control_chars(char *str)
