@@ -270,6 +270,57 @@ auth_channel_bind_callback(const char *type, void *context,
 	return 0;
 }
 
+static void cmd_auth_init_sasl_client(struct authtest_input *input)
+{
+	struct client_auth_settings sasl_set;
+	struct dsasl_client_parameters sasl_params;
+	const char *error;
+	int ret;
+
+	i_zero(&sasl_set);
+	sasl_set.mechanism = input->mechanism;
+	if (input->master_user == NULL)
+		sasl_set.authid = input->username;
+	else {
+		sasl_set.authid = input->master_user;
+		sasl_set.authzid = input->username;
+	}
+	sasl_set.password = input->password;
+
+	i_zero(&sasl_params);
+	/* Translate to SASL/GSSAPI/Kerberos service name (IANA-registered) */
+	if (strcasecmp(input->info.protocol, "POP3") == 0)
+		sasl_params.protocol = "pop";
+	else if (strcasecmp(input->info.protocol, "Submission") == 0 ||
+		 strcasecmp(input->info.protocol, "LMTP") == 0)
+		sasl_params.protocol = "smtp";
+	else
+		sasl_params.protocol = input->info.protocol;
+
+	if (input->info.local_name != NULL)
+		sasl_params.host = input->info.local_name;
+	else if (input->info.local_ip.family != 0)
+		sasl_params.host = net_ip2addr(&input->info.local_ip);
+	else
+		sasl_params.host = "localhost";
+	sasl_params.port = input->info.local_port;
+
+	ret = dsasl_client_session_create(input->sasl_client, input->event,
+					  &sasl_params, &sasl_set,
+					  &input->sasl_session, &error);
+	if (ret <= 0)
+		i_fatal("Failed to initialize SASL client session: %s", error);
+
+	dsasl_client_session_enable_channel_binding(
+		input->sasl_session, SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3,
+		auth_channel_bind_callback, input);
+}
+
+static void cmd_auth_deinit_sasl_client(struct authtest_input *input)
+{
+	dsasl_client_session_destroy(&input->sasl_session);
+}
+
 static void auth_connected(struct auth_client *client,
 			   const char *connect_error, void *context)
 {
@@ -324,57 +375,6 @@ static void auth_connected(struct auth_client *client,
 
 	auth_client_request_enable_channel_binding(
 		input->request, auth_channel_bind_callback, input);
-}
-
-static void cmd_auth_init_sasl_client(struct authtest_input *input)
-{
-	struct client_auth_settings sasl_set;
-	struct dsasl_client_parameters sasl_params;
-	const char *error;
-	int ret;
-
-	i_zero(&sasl_set);
-	sasl_set.mechanism = input->mechanism;
-	if (input->master_user == NULL)
-		sasl_set.authid = input->username;
-	else {
-		sasl_set.authid = input->master_user;
-		sasl_set.authzid = input->username;
-	}
-	sasl_set.password = input->password;
-
-	i_zero(&sasl_params);
-	/* Translate to SASL/GSSAPI/Kerberos service name (IANA-registered) */
-	if (strcasecmp(input->info.protocol, "POP3") == 0)
-		sasl_params.protocol = "pop";
-	else if (strcasecmp(input->info.protocol, "Submission") == 0 ||
-		 strcasecmp(input->info.protocol, "LMTP") == 0)
-		sasl_params.protocol = "smtp";
-	else
-		sasl_params.protocol = input->info.protocol;
-
-	if (input->info.local_name != NULL)
-		sasl_params.host = input->info.local_name;
-	else if (input->info.local_ip.family != 0)
-		sasl_params.host = net_ip2addr(&input->info.local_ip);
-	else
-		sasl_params.host = "localhost";
-	sasl_params.port = input->info.local_port;
-
-	ret = dsasl_client_session_create(input->sasl_client, input->event,
-					  &sasl_params, &sasl_set,
-					  &input->sasl_session, &error);
-	if (ret <= 0)
-		i_fatal("Failed to initialize SASL client session: %s", error);
-
-	dsasl_client_session_enable_channel_binding(
-		input->sasl_session, SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3,
-		auth_channel_bind_callback, input);
-}
-
-static void cmd_auth_deinit_sasl_client(struct authtest_input *input)
-{
-	dsasl_client_session_destroy(&input->sasl_session);
 }
 
 static void
