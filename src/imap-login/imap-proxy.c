@@ -46,14 +46,14 @@ static void proxy_write_id(struct imap_client *client, string_t *str)
 	}
 	if (!client->common.proxy_no_multiplex)
 		str_append(str, "\"x-multiplex\" \"0\" ");
-	str_printfa(str, "\"x-session-id\" \"%s\" "
-		    "\"x-originating-ip\" \"%s\" "
+	str_append(str, "\"x-session-id\" ");
+	imap_append_quoted(str, client_get_session_id(&client->common), 0);
+	str_printfa(str, " \"x-originating-ip\" \"%s\" "
 		    "\"x-originating-port\" \"%u\" "
 		    "\"x-connected-ip\" \"%s\" "
 		    "\"x-connected-port\" \"%u\" "
 		    "\"x-proxy-ttl\" \"%u\" "
 		    "\"x-client-transport\" \"%s\"",
-		    client_get_session_id(&client->common),
 		    net_ip2addr(&client->common.ip),
 		    client->common.remote_port,
 		    net_ip2addr(&client->common.local_ip),
