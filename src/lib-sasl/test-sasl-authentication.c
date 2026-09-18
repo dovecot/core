@@ -722,7 +722,7 @@ static const struct test_sasl success_tests[] = {
 		.server = {
 			.authid = "user@EXAMPLE.COM",
 			.authzid = "",
-			.password = "",
+			.password = "frop",
 		},
 	},
 	/* XOAUTH2 */
@@ -1450,7 +1450,7 @@ static const struct test_sasl bad_creds_tests[] = {
 		.server = {
 			.authid = "user@EXAMPLE.COM",
 			.authzid = "",
-			.password = "",
+			.password = "frop",
 		},
 		.client = {
 			.authid = "userb@EXAMPLE.COM",
