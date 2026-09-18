@@ -270,7 +270,9 @@ auth_channel_bind_callback(const char *type, void *context,
 	return 0;
 }
 
-static void cmd_auth_init_sasl_client(struct authtest_input *input)
+static void
+cmd_auth_init_sasl_client(struct authtest_input *input,
+			  const char *const *server_mechanisms)
 {
 	struct client_auth_settings sasl_set;
 	struct dsasl_client_parameters sasl_params;
@@ -304,6 +306,7 @@ static void cmd_auth_init_sasl_client(struct authtest_input *input)
 	else
 		sasl_params.host = "localhost";
 	sasl_params.port = input->info.local_port;
+	sasl_params.server_mechanisms = server_mechanisms;
 
 	ret = dsasl_client_session_create(input->sasl_client, input->event,
 					  &sasl_params, &sasl_set,
@@ -337,7 +340,8 @@ static void auth_connected(struct auth_client *client,
 		i_fatal("Couldn't connect to auth socket: %s", connect_error);
 	}
 
-	cmd_auth_init_sasl_client(input);
+	cmd_auth_init_sasl_client(input,
+				  auth_client_get_available_mech_names(client));
 
 	const char *mech =
 		dsasl_client_session_get_mech_name(input->sasl_session);
@@ -390,8 +394,6 @@ cmd_auth_input(const char *auth_socket_path, struct authtest_input *input)
 		auth_socket_path = t_strconcat(doveadm_settings->base_dir,
 					       "/auth-client", NULL);
 	}
-
-	cmd_auth_init_sasl_client(input);
 
 	client = auth_client_init(auth_socket_path, getpid(),
 				  auth_want_log_debug());
