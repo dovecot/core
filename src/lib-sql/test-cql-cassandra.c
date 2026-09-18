@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "settings.h"
+#include "sleep.h"
 #include "test-common.h"
 #include "sql-api-private.h"
 
@@ -15,6 +16,11 @@ static const char *test_cassandra_port = "9042";
 static const char *test_cassandra_user = "";
 static const char *test_cassandra_password = "";
 static const char *test_cassandra_keyspace = "dovecot_test";
+/* Set once the first test can't reach the server, so later tests that
+   need the same live connection skip instead of cascading through
+   asserts or blocking in driver_cassandra_close_drain()'s close
+   timeout against a dead one. */
+static bool test_cassandra_unreachable = FALSE;
 
 /* driver-cassandra doesn't connect with a default keyspace (it uses plain
    cass_session_connect(), not cass_session_connect_keyspace()), so every
@@ -190,6 +196,7 @@ static void test_sql_cassandra(void)
 		   or fields. */
 		i_error("test-cql-cassandra: cannot reach the cassandra "
 			"server: %s", error);
+		test_cassandra_unreachable = TRUE;
 		sql_unref(&sql);
 		driver_cassandra_deinit();
 		sql_drivers_deinit_without_drivers();
@@ -404,6 +411,18 @@ static void test_sql_cassandra(void)
 	sql_statement_bind_str(abort_stmt, 0, "aborted");
 	sql_statement_abort(&abort_stmt);
 
+	/* disconnect + reconnect: closing must actually close the
+	   Cassandra session, not just mark the connection disconnected
+	   locally - a session cass_session_connect() was called on but
+	   never explicitly closed cannot be connected again;
+	   cass_session_connect() fails with "Already connecting, closing,
+	   or connected". */
+	sql_disconnect(sql);
+	cursor = sql_query_s(sql, t_strdup_printf(
+		"SELECT foo FROM %s", test_cassandra_tbl_bar));
+	test_assert(sql_result_next_row(cursor) != SQL_RESULT_NEXT_ERROR);
+	sql_result_unref(cursor);
+
 	sql_unref(&sql);
 	driver_cassandra_deinit();
 	sql_drivers_deinit_without_drivers();
@@ -411,6 +430,320 @@ static void test_sql_cassandra(void)
 	io_loop_destroy(&ioloop);
 	i_free(test_cassandra_tbl_bar);
 	i_free(test_cassandra_tbl_test2);
+
+	test_end();
+}
+
+static void
+test_cassandra_close_drain_query_callback(struct sql_result *result ATTR_UNUSED,
+					   void *context ATTR_UNUSED)
+{
+}
+
+static struct sql_db *
+test_cassandra_close_drain_connect(struct settings_simple *set)
+{
+	struct sql_db *sql = NULL;
+	const char *error = NULL;
+
+	settings_simple_init(set, (const char *const []) {
+		"sql_driver", "cassandra",
+		"cassandra_hosts", test_cassandra_host,
+		"cassandra_port", test_cassandra_port,
+		"cassandra_keyspace", test_cassandra_keyspace,
+		"cassandra_user", test_cassandra_user,
+		"cassandra_password", test_cassandra_password,
+		"cassandra_read_consistency", "one",
+		"cassandra_write_consistency", "one",
+		"cassandra_delete_consistency", "one",
+		/* sql_disconnect()'s drain force-completes thousands of
+		   queries that were never pumped, so under valgrind each one
+		   legitimately exceeds the default 5s warn threshold. These
+		   tests make no assertion about query latency. */
+		"cassandra_warn_timeout", "10m",
+		NULL,
+	});
+	if (sql_init_auto(set->event, &sql, &error) <= 0)
+		i_fatal("%s", error);
+	test_assert(sql != NULL && error == NULL);
+
+	/* force a real connection to exist before the caller fires its own
+	   batch of queries, so sql_disconnect() has an actual session to
+	   close. */
+	struct sql_result *warm = sql_query_s(sql,
+		"SELECT keyspace_name FROM system_schema.keyspaces LIMIT 1");
+	test_assert(sql_result_next_row(warm) != SQL_RESULT_NEXT_ERROR);
+	sql_result_unref(warm);
+	return sql;
+}
+
+/* Reproduces the close/drain race directly: fire many async queries
+   without ever pumping the ioloop, so every one of them still has a live
+   CassFuture with a registered callback when sql_disconnect() runs right
+   after. cass_session_close() forces every one of those to complete
+   concurrently with driver_cassandra_close()'s own force-completion loop -
+   a drain that doesn't actually wait for every registered callback to
+   finish orphans cassandra_callback entries and trips deinit_v's
+   i_assert(array_count(&db->callbacks) == 0), under ASan typically as a
+   use-after-free on a force-completed cassandra_result instead. */
+static void test_sql_cassandra_close_drain(void)
+{
+	if (test_cassandra_unreachable) {
+		i_info("test-cql-cassandra: close drain test skipped "
+		       "(cassandra server unreachable)");
+		return;
+	}
+
+	test_begin("test sql cassandra close drain");
+
+	struct ioloop *ioloop = io_loop_create();
+	settings_info_register(&cassandra_setting_parser_info);
+	sql_drivers_init_without_drivers();
+	driver_cassandra_init();
+
+	struct settings_simple set;
+	struct sql_db *sql = test_cassandra_close_drain_connect(&set);
+
+	for (unsigned int i = 0; i < 200; i++) {
+		sql_query(sql,
+			  "SELECT keyspace_name FROM system_schema.keyspaces LIMIT 1",
+			  test_cassandra_close_drain_query_callback, NULL);
+	}
+	sql_disconnect(sql);
+
+	sql_unref(&sql);
+	driver_cassandra_deinit();
+	sql_drivers_deinit_without_drivers();
+	settings_simple_deinit(&set);
+	io_loop_destroy(&ioloop);
+
+	test_end();
+}
+
+/* Forces driver_cassandra_future_callback()'s main-thread-immediate branch:
+   cass_future_set_callback() runs its callback synchronously, on the
+   calling thread, whenever the future is already set at that point.
+   cpp-driver's per-I/O-thread request queue defaults to 8192 entries
+   (CASS_DEFAULT_QUEUE_SIZE_IO, constants.hpp) and cassandra_io_thread_count
+   itself defaults to 1; firing well past that without pumping the ioloop
+   makes cass_session_execute() reject the excess synchronously
+   (CASS_ERROR_LIB_REQUEST_QUEUE_FULL, set on the future before this
+   function ever attaches a callback to it). 50000 queries is well over
+   six times the queue size, so tens of thousands of them reliably take
+   this branch.
+
+   That branch arms its callback as a zero-timeout on whatever ioloop is
+   current at the time - here, the ioloop this test never pumps between
+   firing these queries and calling sql_disconnect() below. A Dovecot
+   timeout, unlike an io, doesn't move when current_ioloop later changes,
+   so driver_cassandra_close_drain()'s freshly created ioloop must migrate
+   it explicitly or the callback can never be dispatched and the drain
+   times out for no real reason - a distinct hole from the one array_count()
+   gating on db->callbacks has (that one detaches the callback from the
+   array before the zero-timeout runs, so the array can read empty with a
+   callback still queued). This test guards both: fails on the deinit
+   assert or an ASan report against either hole, passes against a drain
+   that keeps db->callbacks accurate until the callback actually runs and
+   migrates every pending timeout onto its own ioloop. */
+static void test_sql_cassandra_close_drain_immediate(void)
+{
+	if (test_cassandra_unreachable) {
+		i_info("test-cql-cassandra: close drain immediate branch "
+		       "test skipped (cassandra server unreachable)");
+		return;
+	}
+
+	test_begin("test sql cassandra close drain immediate branch");
+
+	struct ioloop *ioloop = io_loop_create();
+	settings_info_register(&cassandra_setting_parser_info);
+	sql_drivers_init_without_drivers();
+	driver_cassandra_init();
+
+	struct settings_simple set;
+	struct sql_db *sql = test_cassandra_close_drain_connect(&set);
+
+	for (unsigned int i = 0; i < 50000; i++) {
+		sql_query(sql,
+			  "SELECT keyspace_name FROM system_schema.keyspaces LIMIT 1",
+			  test_cassandra_close_drain_query_callback, NULL);
+	}
+	sql_disconnect(sql);
+
+	sql_unref(&sql);
+	driver_cassandra_deinit();
+	sql_drivers_deinit_without_drivers();
+	settings_simple_deinit(&set);
+	io_loop_destroy(&ioloop);
+
+	test_end();
+}
+
+/* Reproduces the close-during-connect race directly: sql_connect() then
+   sql_disconnect() without ever pumping our ioloop in between, so the id
+   the connect future's callback writes into db->fd_pipe sits unread
+   until driver_cassandra_close()'s drain starts servicing that pipe -
+   the callback is dispatched during the drain, concurrently with the
+   close future cass_session_close() just registered. cpp-driver gives
+   no ordering guarantee between the two, so the connect can resolve
+   successfully while the drain is still waiting on the close future.
+   A short real-time sleep after sql_connect() gives the connect a
+   chance to actually finish on the wire before sql_disconnect() runs;
+   without it, closing a session cass_session_connect() has barely just
+   been called on tends to make cpp-driver never resolve either future,
+   which only exercises driver_cassandra_close_timeout()'s abandon path,
+   not this race.
+
+   Without connect_callback() gating its success branch on db->closing,
+   and driver_cassandra_close() re-asserting DISCONNECTED after the
+   drain, that success flips the db to SQL_DB_STATE_IDLE against a
+   session that cass_session_close() just tore down (pipe fds gone too)
+   - SQL_DB_IS_READY() then reads true and a later sql_query() skips
+   sql_connect() entirely, running into the dead session instead of
+   reconnecting. */
+static void test_sql_cassandra_close_during_connect(void)
+{
+	if (test_cassandra_unreachable) {
+		i_info("test-cql-cassandra: close during connect test "
+		       "skipped (cassandra server unreachable)");
+		return;
+	}
+
+	test_begin("test sql cassandra close during connect");
+
+	struct ioloop *ioloop = io_loop_create();
+	settings_info_register(&cassandra_setting_parser_info);
+	sql_drivers_init_without_drivers();
+	driver_cassandra_init();
+
+	struct settings_simple set;
+	struct sql_db *sql = NULL;
+	const char *error = NULL;
+
+	settings_simple_init(&set, (const char *const []) {
+		"sql_driver", "cassandra",
+		"cassandra_hosts", test_cassandra_host,
+		"cassandra_port", test_cassandra_port,
+		"cassandra_keyspace", test_cassandra_keyspace,
+		"cassandra_user", test_cassandra_user,
+		"cassandra_password", test_cassandra_password,
+		"cassandra_read_consistency", "one",
+		"cassandra_write_consistency", "one",
+		"cassandra_delete_consistency", "one",
+		NULL,
+	});
+	if (sql_init_auto(set.event, &sql, &error) <= 0)
+		i_fatal("%s", error);
+	test_assert(sql != NULL && error == NULL);
+
+	test_assert(sql_connect(sql) == 0);
+	i_sleep_msecs(200);
+	sql_disconnect(sql);
+
+	test_assert(!SQL_DB_IS_READY(sql));
+
+	/* a later query must reconnect rather than use the dead session */
+	struct sql_result *result = sql_query_s(sql,
+		"SELECT keyspace_name FROM system_schema.keyspaces LIMIT 1");
+	test_assert(sql_result_next_row(result) != SQL_RESULT_NEXT_ERROR);
+	sql_result_unref(result);
+
+	sql_unref(&sql);
+	driver_cassandra_deinit();
+	sql_drivers_deinit_without_drivers();
+	settings_simple_deinit(&set);
+	io_loop_destroy(&ioloop);
+
+	test_end();
+}
+
+/* Guards against a self-deadlock: connect_callback()'s failure branch calls
+   driver_cassandra_close() synchronously from inside the connect future's
+   own dispatch, which then blocks in driver_cassandra_close_drain() until
+   db->callbacks_pending reaches 0. An implementation that keeps the connect
+   future's own slot counted until cb->callback() returns can never observe
+   0 there - that return can't happen until the drain it is blocked in
+   finishes - so the drain always runs out its close timeout, abandoning
+   the connection (db->broken) and leaking the session, its pipe fds and
+   the db itself.
+
+   Uses an unlistened low port (connection refused) rather than a bad TLS
+   certificate to reach the same failed-connect path without a certificate
+   setup. The connect and request timeouts are shortened so the deadlock,
+   if present, is bounded by a couple of seconds -
+   driver_cassandra_close_timeout_msecs() is connect_timeout +
+   request_timeout with the default execution_retry_times of 0 - instead
+   of the default 65.
+
+   test_expect_error_string() allows exactly the one expected "Couldn't
+   connect to Cassandra" log line per attempt; it is not what catches
+   the deadlock. A drain whose wait never sees callbacks_pending reach 0
+   runs out its close timeout with sql_query_s()'s own sync ioloop still
+   live around it, leaving current_ioloop out of sync with what
+   sql_query_s()'s driver_cassandra_sync_deinit() expects to tear down.
+   Its io_loop_destroy() call then aborts the process with "assertion
+   failed: (ioloop == current_ioloop)" before either query's error
+   handling runs, which is what actually fails this test on a
+   regression. sql->last_connect_error is checked directly
+   (test-cql-cassandra.c includes sql-api-private.h) to confirm the db
+   was not left in the abandoned state that driver_cassandra_connect()
+   refuses to reconnect on. */
+static void test_sql_cassandra_close_during_failed_connect(void)
+{
+	test_begin("test sql cassandra close during failed connect");
+
+	struct ioloop *ioloop = io_loop_create();
+	settings_info_register(&cassandra_setting_parser_info);
+	sql_drivers_init_without_drivers();
+	driver_cassandra_init();
+
+	struct settings_simple set;
+	struct sql_db *sql = NULL;
+	const char *error = NULL;
+
+	settings_simple_init(&set, (const char *const []) {
+		"sql_driver", "cassandra",
+		"cassandra_hosts", "127.0.0.1",
+		"cassandra_port", "1",
+		"cassandra_keyspace", test_cassandra_keyspace,
+		"cassandra_connect_timeout", "1s",
+		"cassandra_request_timeout", "1s",
+		"cassandra_read_consistency", "one",
+		"cassandra_write_consistency", "one",
+		"cassandra_delete_consistency", "one",
+		NULL,
+	});
+	if (sql_init_auto(set.event, &sql, &error) <= 0)
+		i_fatal("%s", error);
+	test_assert(sql != NULL && error == NULL);
+
+	test_expect_error_string("Couldn't connect to Cassandra");
+	struct sql_result *result = sql_query_s(sql,
+		"SELECT keyspace_name FROM system_schema.keyspaces LIMIT 1");
+	test_assert(sql_result_next_row(result) == SQL_RESULT_NEXT_ERROR);
+	sql_result_unref(result);
+	test_expect_no_more_errors();
+	test_assert(!SQL_DB_IS_READY(sql));
+	test_assert(sql->last_connect_error != NULL &&
+		    strstr(sql->last_connect_error, "abandoned") == NULL);
+
+	/* a second attempt on the same db must fail the same clean way, not
+	   with driver_cassandra_connect()'s "session was abandoned" refusal -
+	   proving db->broken was never set by the first attempt. */
+	test_expect_error_string("Couldn't connect to Cassandra");
+	result = sql_query_s(sql,
+		"SELECT keyspace_name FROM system_schema.keyspaces LIMIT 1");
+	test_assert(sql_result_next_row(result) == SQL_RESULT_NEXT_ERROR);
+	sql_result_unref(result);
+	test_expect_no_more_errors();
+	test_assert(sql->last_connect_error != NULL &&
+		    strstr(sql->last_connect_error, "abandoned") == NULL);
+
+	sql_unref(&sql);
+	driver_cassandra_deinit();
+	sql_drivers_deinit_without_drivers();
+	settings_simple_deinit(&set);
+	io_loop_destroy(&ioloop);
 
 	test_end();
 }
@@ -448,6 +781,10 @@ int main(int argc, char *argv[]) {
 
 	static void (*const test_functions[])(void) = {
 		test_sql_cassandra,
+		test_sql_cassandra_close_drain,
+		test_sql_cassandra_close_drain_immediate,
+		test_sql_cassandra_close_during_connect,
+		test_sql_cassandra_close_during_failed_connect,
 		NULL
 	};
 	return test_run(test_functions);

@@ -358,6 +358,16 @@ struct cassandra_db {
 	unsigned int pipe_gen;
 	ARRAY(struct cassandra_sql_prepared_statement *) pending_prepares;
 	ARRAY(struct cassandra_callback *) callbacks;
+	/* Number of futures registered via driver_cassandra_set_callback()
+	   whose dispatch (cassandra_callback_run()) hasn't happened yet.
+	   Incremented there, decremented in cassandra_callback_run() right
+	   after it removes the entry from db->callbacks - the two stay in
+	   lockstep at every point either is observed. This, rather than
+	   array_count(&db->callbacks) directly, is what
+	   driver_cassandra_close_drain() waits for: the array exists for
+	   id lookup and for the drain's io_loop_move_timeout_to() migration
+	   pass, not as the gate itself. */
+	unsigned int callbacks_pending;
 	ARRAY(struct cassandra_result *) results;
 	unsigned int callback_ids;
 
@@ -379,6 +389,11 @@ struct cassandra_db {
 	   new work from being started on a session that's going away -
 	   see the db->closing checks below. */
 	bool closing:1;
+	/* TRUE once driver_cassandra_close_drain() has given up waiting for
+	   callbacks_pending to reach 0. The session, its two pipe fds and
+	   the db itself are then deliberately leaked - see
+	   driver_cassandra_close_timeout(). */
+	bool broken:1;
 };
 
 struct cassandra_result {
@@ -527,6 +542,10 @@ prepare_finish_pending_statements(struct cassandra_sql_prepared_statement *prep_
 static void driver_cassandra_result_send_query(struct cassandra_result *result);
 static void driver_cassandra_send_queries(struct cassandra_db *db);
 static void result_finish(struct cassandra_result *result);
+static void
+driver_cassandra_set_callback(CassFuture *future, struct cassandra_db *db,
+			      driver_cassandra_callback_t *callback,
+			      void *context);
 
 static void log_one_line(const CassLogMessage *message,
 			 enum log_type log_type, const char *log_level_str,
@@ -783,6 +802,103 @@ static void driver_cassandra_set_state(struct cassandra_db *db,
 		io_loop_set_current(db->ioloop);
 }
 
+static unsigned int
+driver_cassandra_close_timeout_msecs(struct cassandra_db *db)
+{
+	/* If the cpp-driver honours its own settings, every future
+	   registered while connected must complete within this bound: a
+	   connect future within connect_timeout_msecs, a request future
+	   within request_timeout_msecs, plus whatever speculative execution
+	   adds on top of that (up to execution_retry_times retries, each
+	   waiting up to execution_retry_interval_msecs before it starts).
+	   Exceeding this sum means the driver has violated its own
+	   contract, not that the bound is wrong - so this isn't derived
+	   from any measured close duration. */
+	return db->set->connect_timeout_msecs + db->set->request_timeout_msecs +
+		db->set->execution_retry_times *
+		db->set->execution_retry_interval_msecs;
+}
+
+static void driver_cassandra_close_timeout(struct cassandra_db *db)
+{
+	db->broken = TRUE;
+	e_error(db->api.event,
+		"Timed out waiting for Cassandra session close to finish "
+		"(%u callback(s) still pending, %u still registered) - "
+		"abandoning this connection",
+		db->callbacks_pending, array_count(&db->callbacks));
+	if (db->ioloop != NULL)
+		io_loop_stop(db->ioloop);
+}
+
+/* Registered via driver_cassandra_set_callback() like any other callback,
+   so it always runs from cassandra_callback_run() - never synchronously
+   from inside driver_cassandra_future_callback(), the raw CassFutureCallback.
+   It has nothing to do: cassandra_callback_run() already removed this
+   entry from db->callbacks and decremented callbacks_pending before
+   calling it, and frees the future afterwards. Must not touch
+   db->session - it stays alive until driver_cassandra_deinit_v(), long
+   after this. */
+static void close_callback(CassFuture *future ATTR_UNUSED,
+			   void *context ATTR_UNUSED)
+{
+}
+
+/* Waits for every future registered while this db was connected to be
+   fully dispatched (db->callbacks_pending == 0), servicing db->io_pipe the
+   whole time. This runs its own ioloop rather than pumping db->ioloop or
+   current_ioloop directly: driver_cassandra_close() can be reached from
+   inside driver_cassandra_sync_query()'s own io_loop_run(db->ioloop), and
+   io_loop_run() asserts !ioloop->iolooping - recursing into an already
+   running loop would panic there. */
+static void driver_cassandra_close_drain(struct cassandra_db *db)
+{
+	struct ioloop *prev_ioloop = current_ioloop;
+	struct ioloop *prev_db_ioloop = db->ioloop;
+	struct ioloop *prev_orig_ioloop = db->orig_ioloop;
+	struct cassandra_callback *cb;
+	struct timeout *to;
+
+	db->ioloop = io_loop_create();
+	/* driver_cassandra_set_state() reads db->orig_ioloop whenever
+	   db->ioloop != NULL, and this function is about to call it. */
+	db->orig_ioloop = prev_ioloop;
+	db->io_pipe = io_loop_move_io(&db->io_pipe);
+	/* A callback that took the main-thread-immediate branch in
+	   driver_cassandra_future_callback() before this point has its
+	   cb->to armed on prev_ioloop - a timeout is bound to its creating
+	   ioloop just like the io moved above. This function never runs
+	   prev_ioloop again, so that timeout must be moved here explicitly
+	   or callbacks_pending never reaches 0 and every close times out.
+	   io_loop_move_timeout_to() is a no-op for a NULL cb->to (the
+	   normal case - a callback waiting on a pipe id has none) or one
+	   already on this ioloop. */
+	array_foreach_elem(&db->callbacks, cb)
+		cb->to = io_loop_move_timeout_to(db->ioloop, &cb->to);
+	to = timeout_add(driver_cassandra_close_timeout_msecs(db),
+			 driver_cassandra_close_timeout, db);
+	/* Blocking here is bounded by the timeout just armed above, and this
+	   only runs on disconnect, deinit and connection-failure paths -
+	   never while a session is otherwise handling queries - so it is
+	   not on a hot path. */
+	while (db->callbacks_pending > 0 && !db->broken)
+		io_loop_run(db->ioloop);
+	timeout_remove(&to);
+
+	/* On the db->broken path (the close timeout fired), callbacks whose
+	   cb->to was moved onto db->ioloop above are still armed here - the
+	   loop above exited without ever dispatching them. */
+	array_foreach_elem(&db->callbacks, cb)
+		timeout_remove(&cb->to);
+
+	io_loop_set_current(prev_ioloop);
+	db->io_pipe = io_loop_move_io(&db->io_pipe);
+	io_loop_set_current(db->ioloop);
+	io_loop_destroy(&db->ioloop);
+	db->ioloop = prev_db_ioloop;
+	db->orig_ioloop = prev_orig_ioloop;
+}
+
 static void driver_cassandra_close(struct cassandra_db *db, const char *error)
 {
 	struct cassandra_sql_prepared_statement *prep_stmt;
@@ -791,14 +907,50 @@ static void driver_cassandra_close(struct cassandra_db *db, const char *error)
 	if (db->closing)
 		return;
 	db->closing = TRUE;
+	bool was_connected = db->api.state != SQL_DB_STATE_DISCONNECTED;
+
+	driver_cassandra_set_state(db, SQL_DB_STATE_DISCONNECTED);
+
+	if (was_connected) {
+		/* cass_session_connect() was called for this session, so it
+		   must be matched with a close before the session can be
+		   connected again - otherwise a later cass_session_connect()
+		   fails with "Already connecting, closing, or connected".
+		   The close future is registered through the ordinary
+		   set_callback path and waited on by
+		   driver_cassandra_close_drain(), which keeps servicing
+		   db->io_pipe - deliberately not cass_future_wait():
+		   cass_session_close() forces every in-flight request to
+		   complete right away, and fd_pipe is only 64 KiB, so a
+		   driver thread blocked writing a callback id into a full,
+		   unserviced pipe would hang the wait forever. */
+		CassFuture *future = cass_session_close(db->session);
+		driver_cassandra_set_callback(future, db, close_callback, db);
+		driver_cassandra_close_drain(db);
+		/* A future registered before this close started - most
+		   notably a connect future still pending from an earlier
+		   cass_session_connect() - can resolve during the drain and
+		   flip db->api.state again (connect_callback() has its own
+		   db->closing gate, but nothing stops some other future's
+		   callback from doing the same). Re-assert DISCONNECTED so
+		   SQL_DB_IS_READY() can't come out true against a session
+		   that cass_session_close() just tore down, which would
+		   make a later sql_query() skip sql_connect() entirely and
+		   run into the closed session. */
+		driver_cassandra_set_state(db, SQL_DB_STATE_DISCONNECTED);
+	}
 
 	io_remove(&db->io_pipe);
-	if (db->fd_pipe[0] != -1) {
+	if (!db->broken && db->fd_pipe[0] != -1) {
+		/* On the broken/abandoned path the fds are left open and
+		   unwatched on purpose (see driver_cassandra_close_timeout())
+		   - closing them here would let a stray driver thread still
+		   holding fd_pipe[1] write into an unrelated, later-reused
+		   fd. */
 		db->pipe_gen++;
 		i_close_fd(&db->fd_pipe[0]);
 		i_close_fd(&db->fd_pipe[1]);
 	}
-	driver_cassandra_set_state(db, SQL_DB_STATE_DISCONNECTED);
 
 	/* A callback invoked below (result_finish() or a prepare finishing)
 	   runs synchronously and may itself start new work on this db - the
@@ -807,7 +959,11 @@ static void driver_cassandra_close(struct cassandra_db *db, const char *error)
 	   loops until neither array is refilled. Without this, e.g. a
 	   result callback that prepares a new statement during the results
 	   loop below would leave an entry on pending_prepares that nothing
-	   drains, tripping deinit_v's array_count() assert. */
+	   drains, tripping deinit_v's array_count() assert. This is safe to
+	   run unconditionally, including on the broken path: every future
+	   that could still touch one of these results or prepares either
+	   already ran (callbacks_pending == 0) or is now orphaned into a
+	   pipe nobody reads. */
 	do {
 		array_foreach_elem(&db->pending_prepares, prep_stmt) {
 			prep_stmt->pending = FALSE;
@@ -864,6 +1020,27 @@ static void cassandra_callback_run(struct cassandra_callback *cb)
 		i_unreached();
 	array_delete(&db->callbacks, idx, 1);
 	timeout_remove(&cb->to);
+
+	/* Decrement before running the callback, not after: cb->callback()
+	   may itself call driver_cassandra_close() (e.g. a failed connect),
+	   which registers a close future and blocks in
+	   driver_cassandra_close_drain() until callbacks_pending reaches 0.
+	   This slot is already fully dispatched by this point, so counting
+	   it as still pending until cb->callback() returns would make a
+	   nested close wait on a slot that can only clear once that same
+	   nested close finishes - a deadlock. */
+	i_assert(db->callbacks_pending > 0);
+	if (--db->callbacks_pending == 0 && db->closing && db->ioloop != NULL) {
+		/* driver_cassandra_close_drain() is waiting for this - wake
+		   it the same way result_finish() already wakes it for a
+		   normal query result. Without this, a callback that isn't
+		   a query result (the session-close future itself, or a
+		   prepare with nothing left pending) could be the one that
+		   brings callbacks_pending to 0, and the drain would sit in
+		   io_loop_run() until its timeout instead of noticing. */
+		io_loop_stop(db->ioloop);
+	}
+
 	T_BEGIN {
 		cb->callback(cb->future, cb->context);
 	} T_END;
@@ -871,18 +1048,37 @@ static void cassandra_callback_run(struct cassandra_callback *cb)
 	i_free(cb);
 }
 
+/* This is the raw CassFutureCallback for every future registered through
+   driver_cassandra_set_callback() - including the session-close future.
+   Nothing reached synchronously from here may call any cass_future_*
+   accessor (cass_future_wait(), cass_future_error_code(), ...) on "future":
+   the cpp-driver only marks a future ready and broadcasts to waiters after
+   its callback returns (Future::internal_set(), CPP-987), so a callback
+   waiting on its own future would deadlock waiting for a broadcast that
+   can't happen until it returns. This function only ever writes an id to
+   the pipe or arms a zero-timeout; the actual work, including every
+   cass_future_* accessor, happens later from cassandra_callback_run(),
+   safely outside this stack. */
 static void driver_cassandra_future_callback(CassFuture *future ATTR_UNUSED,
 					     void *context)
 {
 	struct cassandra_callback *cb = context;
 
 	if (pthread_equal(pthread_self(), main_thread_id) != 0) {
-		/* Called immediately from the main thread - deferred to a
-		   zero-timeout rather than run right here, since this may
-		   be called from inside cass_session_execute(), still on
-		   the stack of whatever loop queued this request. cb stays
-		   in db->callbacks - see cassandra_callback_find() above -
-		   until the timeout actually runs it. */
+		/* Called immediately from the main thread - e.g. the future
+		   was already resolved when driver_cassandra_set_callback()
+		   attached this callback to it, such as a request rejected
+		   synchronously with CASS_ERROR_LIB_REQUEST_QUEUE_FULL.
+		   Deferred to a zero-timeout rather than run right here:
+		   this may be called from inside cass_session_execute(),
+		   still on the stack of whatever loop queued this request,
+		   and running cb->callback() synchronously here could
+		   re-enter that same, not reentrant-safe code (e.g. a
+		   result callback that queries the same db again while
+		   driver_cassandra_send_queries() is still iterating
+		   db->results). cb stays in db->callbacks - see
+		   cassandra_callback_find() above - until the timeout
+		   actually runs it. */
 		cb->to = timeout_add_short(0, cassandra_callback_run, cb);
 		return;
 	}
@@ -960,6 +1156,7 @@ driver_cassandra_set_callback(CassFuture *future, struct cassandra_db *db,
 	cb->db = db;
 
 	array_push_back(&db->callbacks, &cb);
+	db->callbacks_pending++;
 	cb->id = ++db->callback_ids;
 	if (cb->id == 0)
 		cb->id = ++db->callback_ids;
@@ -989,6 +1186,21 @@ static void connect_callback(CassFuture *future, void *context)
 		driver_cassandra_close(db, "Couldn't connect to Cassandra");
 		return;
 	}
+	if (db->closing) {
+		/* This connect was still in flight when
+		   driver_cassandra_close() ran cass_session_close() on the
+		   same session - cpp-driver gives no guarantee about which
+		   of the two futures resolves first. Leave state and the
+		   pending-work queues alone: driver_cassandra_close()
+		   re-asserts DISCONNECTED once its drain finishes, and
+		   db->ioloop here is that drain's own loop, not a
+		   driver_cassandra_sync_init() wait, so stopping it would
+		   just be a spurious wakeup. */
+		i_free(db->api.last_connect_error);
+		db->api.last_connect_error =
+			i_strdup("Connection closed while connecting");
+		return;
+	}
 	driver_cassandra_set_state(db, SQL_DB_STATE_IDLE);
 	if (db->ioloop != NULL) {
 		/* driver_cassandra_sync_init() waiting for connection to
@@ -1015,6 +1227,18 @@ static int driver_cassandra_connect(struct sql_db *_db)
 	   ever be starting a fresh connect while driver_cassandra_close()
 	   is still tearing this db down. */
 	i_assert(!db->closing);
+
+	if (db->broken) {
+		/* A previous close's drain timed out with Cassandra
+		   callbacks still registered against this session. It stays
+		   in cassandra_db_cache (nothing ever removes an entry), so
+		   refuse to reconnect on it rather than risk a stray driver
+		   thread still holding a reference to it. */
+		i_free(db->api.last_connect_error);
+		db->api.last_connect_error =
+			i_strdup("Session abandoned after close timeout");
+		return -1;
+	}
 
 	if (pipe(db->fd_pipe) < 0) {
 		e_error(_db->event, "pipe() failed: %m");
@@ -1518,7 +1742,18 @@ static void driver_cassandra_deinit_v(struct sql_db *_db)
 
 	driver_cassandra_close(db, "Deinitialized");
 
+	if (db->broken) {
+		/* The close drain above (or an earlier sql_disconnect())
+		   timed out with Cassandra callbacks still registered
+		   against a closed session. Freeing db->session or
+		   db->cluster here would race whatever driver thread
+		   eventually delivers those - leak the db, its session and
+		   its two pipe fds instead. */
+		return;
+	}
+
 	i_assert(array_count(&db->callbacks) == 0);
+	i_assert(db->callbacks_pending == 0);
 	array_free(&db->callbacks);
 	i_assert(array_count(&db->results) == 0);
 	array_free(&db->results);
