@@ -842,25 +842,27 @@ static void driver_cassandra_log_error(struct cassandra_db *db,
 }
 
 static struct cassandra_callback *
-cassandra_callback_detach(struct cassandra_db *db, unsigned int id)
+cassandra_callback_find(struct cassandra_db *db, unsigned int id)
 {
-	struct cassandra_callback *cb, *const *cbp;
+	struct cassandra_callback *cb;
 
 	/* usually there are only a few callbacks, so don't bother with using
 	   a hash table */
-	array_foreach(&db->callbacks, cbp) {
-		cb = *cbp;
-		if (cb->id == id) {
-			array_delete(&db->callbacks,
-				     array_foreach_idx(&db->callbacks, cbp), 1);
+	array_foreach_elem(&db->callbacks, cb) {
+		if (cb->id == id)
 			return cb;
-		}
 	}
 	return NULL;
 }
 
 static void cassandra_callback_run(struct cassandra_callback *cb)
 {
+	struct cassandra_db *db = cb->db;
+	unsigned int idx;
+
+	if (!array_lsearch_ptr_idx(&db->callbacks, cb, &idx))
+		i_unreached();
+	array_delete(&db->callbacks, idx, 1);
 	timeout_remove(&cb->to);
 	T_BEGIN {
 		cb->callback(cb->future, cb->context);
@@ -875,8 +877,12 @@ static void driver_cassandra_future_callback(CassFuture *future ATTR_UNUSED,
 	struct cassandra_callback *cb = context;
 
 	if (pthread_equal(pthread_self(), main_thread_id) != 0) {
-		/* called immediately from the main thread. */
-		cassandra_callback_detach(cb->db, cb->id);
+		/* Called immediately from the main thread - deferred to a
+		   zero-timeout rather than run right here, since this may
+		   be called from inside cass_session_execute(), still on
+		   the stack of whatever loop queued this request. cb stays
+		   in db->callbacks - see cassandra_callback_find() above -
+		   until the timeout actually runs it. */
 		cb->to = timeout_add_short(0, cassandra_callback_run, cb);
 		return;
 	}
@@ -899,7 +905,7 @@ static void driver_cassandra_input_id(struct cassandra_db *db, unsigned int id)
 {
 	struct cassandra_callback *cb;
 
-	cb = cassandra_callback_detach(db, id);
+	cb = cassandra_callback_find(db, id);
 	if (cb == NULL)
 		i_panic("cassandra: Received unknown ID %u", id);
 	cassandra_callback_run(cb);
