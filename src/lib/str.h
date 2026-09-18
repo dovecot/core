@@ -29,6 +29,13 @@ static inline size_t str_len(const string_t *str)
 /* Append NUL-terminated string. If the trailing NUL isn't found earlier,
    append a maximum of max_len characters. */
 void str_append_max(string_t *str, const char *cstr, size_t max_len);
+/* Append NUL-terminated string, replacing every character for which
+   is_unsafe() returns TRUE with <0xNN>. */
+void str_append_ctrl_escaped(string_t *str, const char *cstr,
+			     bool (*is_unsafe)(char));
+/* Append NUL-terminated string for a log line: every ASCII control
+   character except HTAB is replaced with <0xNN>. */
+void str_append_log_escaped(string_t *str, const char *cstr);
 
 static inline void str_append(string_t *str, const char *cstr)
 {

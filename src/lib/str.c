@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
+#include "abnf.h"
 #include "buffer.h"
 #include "printf-format-fix.h"
 #include "unichar.h"
@@ -83,6 +84,27 @@ void str_append_max(string_t *str, const char *cstr, size_t max_len)
 	else
 		len = p - (const char *)cstr;
 	buffer_append(str, cstr, len);
+}
+
+void str_append_ctrl_escaped(string_t *str, const char *cstr,
+			     bool (*is_unsafe)(char))
+{
+	for (; *cstr != '\0'; cstr++) {
+		if (is_unsafe(*cstr))
+			str_printfa(str, "<0x%02X>", (unsigned char)*cstr);
+		else
+			str_append_c(str, *cstr);
+	}
+}
+
+static bool str_is_log_unsafe_char(char ch)
+{
+	return abnf_is_ascii_ctrl(ch) && !abnf_is_htab(ch);
+}
+
+void str_append_log_escaped(string_t *str, const char *cstr)
+{
+	str_append_ctrl_escaped(str, cstr, str_is_log_unsafe_char);
 }
 
 void str_printfa(string_t *str, const char *fmt, ...)

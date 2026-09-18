@@ -110,6 +110,72 @@ static void test_str_append_max(void)
 	test_end();
 }
 
+static bool test_str_is_ctrl(char ch)
+{
+	return (unsigned char)ch <= 0x1f || ch == 0x7f;
+}
+
+static bool test_str_is_upper(char ch)
+{
+	return ch >= 'A' && ch <= 'Z';
+}
+
+static bool test_str_is_high(char ch)
+{
+	return (unsigned char)ch >= 0x80;
+}
+
+static void test_str_append_ctrl_escaped(void)
+{
+	string_t *str = t_str_new(64);
+
+	test_begin("str_append_ctrl_escaped()");
+
+	/* empty input appends nothing */
+	str_append_ctrl_escaped(str, "", test_str_is_ctrl);
+	test_assert(str_len(str) == 0);
+
+	/* nothing to escape: copied verbatim */
+	str_append_ctrl_escaped(str, "plain text", test_str_is_ctrl);
+	test_assert_strcmp(str_c(str), "plain text");
+	str_truncate(str, 0);
+
+	/* appends after existing content */
+	str_append(str, "pre:");
+	str_append_ctrl_escaped(str, "a\nb", test_str_is_ctrl);
+	test_assert_strcmp(str_c(str), "pre:a<0x0A>b");
+	str_truncate(str, 0);
+
+	/* SOH, CR, LF, ESC, TAB, DEL, all escaped as <0xNN> */
+	str_append_ctrl_escaped(str, "\001\r\n\033\t\177", test_str_is_ctrl);
+	test_assert_strcmp(str_c(str),
+			   "<0x01><0x0D><0x0A><0x1B><0x09><0x7F>");
+	str_truncate(str, 0);
+
+	/* bytes >= 0x80 are not control characters and are kept */
+	str_append_ctrl_escaped(str, "\x80\xff", test_str_is_ctrl);
+	test_assert_strcmp(str_c(str), "\x80\xff");
+	str_truncate(str, 0);
+
+	/* a flagged byte >= 0x80 is printed as one byte, not sign-extended */
+	str_append_ctrl_escaped(str, "\x80\xff", test_str_is_high);
+	test_assert_strcmp(str_c(str), "<0x80><0xFF>");
+	str_truncate(str, 0);
+
+	/* predicate decides what is unsafe, not the function */
+	str_append_ctrl_escaped(str, "aBc\nD", test_str_is_upper);
+	test_assert_strcmp(str_c(str), "a<0x42>c\n<0x44>");
+	str_truncate(str, 0);
+
+	/* log variant: SOH, CR, LF, ESC, DEL escaped; TAB kept */
+	str_append_log_escaped(str, "a\001\r\n\033\t\177b");
+	test_assert_strcmp(str_c(str),
+			   "a<0x01><0x0D><0x0A><0x1B>\t<0x7F>b");
+	str_truncate(str, 0);
+
+	test_end();
+}
+
 static void test_str_truncate(void)
 {
 	string_t *str = t_str_new(8);
@@ -177,6 +243,7 @@ void test_str(void)
 	test_str_insert();
 	test_str_delete();
 	test_str_append_max();
+	test_str_append_ctrl_escaped();
 	test_str_truncate();
 	test_str_truncate_utf8();
 }
