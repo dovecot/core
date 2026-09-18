@@ -325,8 +325,6 @@ static void auth_connected(struct auth_client *client,
 			   const char *connect_error, void *context)
 {
 	struct authtest_input *input = context;
-	const char *mech =
-		dsasl_client_session_get_mech_name(input->sasl_session);
 	struct auth_request_info info;
 	const unsigned char *sasl_output;
 	size_t sasl_output_len;
@@ -338,6 +336,12 @@ static void auth_connected(struct auth_client *client,
 			return;
 		i_fatal("Couldn't connect to auth socket: %s", connect_error);
 	}
+
+	cmd_auth_init_sasl_client(input);
+
+	const char *mech =
+		dsasl_client_session_get_mech_name(input->sasl_session);
+
 	if (auth_client_find_mech(client, mech) == NULL)
 		i_fatal("SASL mechanism '%s' not supported by server", mech);
 
@@ -696,8 +700,6 @@ static void cmd_auth_login(struct doveadm_cmd_context *cctx)
 		auth_cmd_help(cctx);
 	if (!doveadm_cmd_param_str(cctx, "password", &input.password))
 		input.password = t_askpass("Password: ");
-
-	cmd_auth_init_sasl_client(&input);
 
 	input.event = event_create(cctx->event);
 	event_set_append_log_prefix(input.event,
