@@ -116,6 +116,8 @@ void auth_client_set_connect_notify(struct auth_client *client,
 const struct auth_mech_desc *
 auth_client_get_available_mechs(struct auth_client *client,
 				unsigned int *mech_count);
+const char *const *
+auth_client_get_available_mech_names(struct auth_client *client);
 const struct auth_mech_desc *
 auth_client_find_mech(struct auth_client *client, const char *name);
 

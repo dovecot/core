@@ -94,6 +94,25 @@ auth_client_get_available_mechs(struct auth_client *client,
 	return array_get(&client->available_auth_mechs, mech_count);
 }
 
+const char *const *
+auth_client_get_available_mech_names(struct auth_client *client)
+{
+	unsigned int mech_count, i;
+	const struct auth_mech_desc *mech_descs =
+		auth_client_get_available_mechs(client, &mech_count);
+	ARRAY_TYPE(const_string) names;
+
+	t_array_init(&names, mech_count);
+	for (i = 0; i < mech_count; i++) {
+		const char *name = mech_descs[i].name;
+
+		array_append(&names, &name, 1);
+	}
+	array_append_zero(&names);
+
+	return array_idx(&names, 0);
+}
+
 const struct auth_mech_desc *
 auth_client_find_mech(struct auth_client *client, const char *name)
 {
