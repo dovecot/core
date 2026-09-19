@@ -243,6 +243,10 @@ static void lazy_expunge_mail_expunge_move(struct mail *_mail,
 	if (mailbox_move(&save_ctx, _mail) < 0 && !_mail->expunged)
 		lazy_expunge_set_error(lt, lt->dest_box->storage);
 	mmail->recursing = FALSE;
+	/* The destination mailbox's copy hook may have set this. Clear it, so
+	   the next mail using this struct mail isn't treated as being moved
+	   and expunged without being copied. */
+	mmail->moving = FALSE;
 }
 
 static void lazy_expunge_mail_expunge(struct mail *_mail)
