@@ -161,6 +161,9 @@ struct service {
 	bool monitor_stopped:1;
 	/* service was stopped via doveadm */
 	bool doveadm_stop:1;
+	/* the old generation's processes were already sent a SIGTERM, so the
+	   next kill escalates to SIGKILL */
+	bool kill_sigterm_sent:1;
 };
 
 struct service_list {

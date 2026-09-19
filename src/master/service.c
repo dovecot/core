@@ -674,22 +674,47 @@ static void services_kill_log(struct service_list *service_list)
 			     &uninitialized_count);
 }
 
+/* Sends SIGTERM to the service's remaining old processes, or SIGKILL if they
+   were already sent a SIGTERM. */
+static void service_kill(struct service *service)
+{
+	unsigned int uninitialized_count, signal_count;
+	string_t *str;
+	bool first_kill;
+
+	first_kill = !service->kill_sigterm_sent;
+	service->kill_sigterm_sent = TRUE;
+
+	signal_count = service_signal(service,
+				      first_kill ? SIGTERM : SIGKILL,
+				      first_kill, &uninitialized_count);
+	if (signal_count == 0)
+		return;
+
+	str = t_str_new(128);
+	if (first_kill) {
+		/* This is the intended kick, not processes failing to die. */
+		str_printfa(str, "Disconnecting clients from %u old processes",
+			    signal_count);
+	} else {
+		str_printfa(str, "Processes aren't dying after reload, "
+			    "sent SIGKILL to %u processes", signal_count);
+	}
+	if (uninitialized_count > 0) {
+		str_printfa(str, " (%u processes still uninitialized)",
+			    uninitialized_count);
+	}
+	if (first_kill)
+		e_debug(service->event, "%s", str_c(str));
+	else
+		e_warning(service->event, "%s", str_c(str));
+}
+
 static void services_kill_timeout(struct service_list *service_list)
 {
 	struct service *service;
-	unsigned int service_uninitialized, uninitialized_count = 0;
-	unsigned int signal_count = 0;
-	bool first_kill;
-	int sig;
 
-	first_kill = !service_list->sigterm_sent;
-	if (!service_list->sigterm_sent)
-		sig = SIGTERM;
-	else
-		sig = SIGKILL;
-	service_list->sigterm_sent = TRUE;
-
-	if (first_kill && service_list->kill_timeout_secs > 0) {
+	if (!service_list->sigterm_sent && service_list->kill_timeout_secs > 0) {
 		/* The first timeout was the configured kick. Escalate at the
 		   normal interval from now on. */
 		timeout_remove(&service_list->to_kill);
@@ -697,38 +722,13 @@ static void services_kill_timeout(struct service_list *service_list)
 			timeout_add(SERVICE_DIE_TIMEOUT_MSECS,
 				    services_kill_timeout, service_list);
 	}
+	service_list->sigterm_sent = TRUE;
 
 	array_foreach_elem(&service_list->services, service) {
-		if (service->type == SERVICE_TYPE_LOG)
-			continue;
-		signal_count += service_signal(service, sig, first_kill,
-					       &service_uninitialized);
-		uninitialized_count += service_uninitialized;
+		if (service->type != SERVICE_TYPE_LOG)
+			service_kill(service);
 	}
 	services_kill_log(service_list);
-	if (signal_count == 0)
-		return;
-
-	string_t *str = t_str_new(128);
-	if (first_kill) {
-		/* This is the intended kick, not processes failing to die. */
-		str_printfa(str, "Disconnecting clients from %u old processes.",
-			    signal_count);
-		if (uninitialized_count > 0) {
-			str_printfa(str, " (%u processes still uninitialized)",
-				    uninitialized_count);
-		}
-		e_debug(service_list->event, "%s", str_c(str));
-		return;
-	}
-	str_printfa(str, "Processes aren't dying after reload, "
-		    "sent %s to %u processes.",
-		    sig == SIGTERM ? "SIGTERM" : "SIGKILL", signal_count);
-	if (uninitialized_count > 0) {
-		str_printfa(str, " (%u processes still uninitialized)",
-			    uninitialized_count);
-	}
-	e_warning(service_list->event, "%s", str_c(str));
 }
 
 /* Returns the longest service_shutdown_clients_timeout of the services, which
