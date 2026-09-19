@@ -15,6 +15,18 @@
 	MODULE_CONTEXT(obj, lazy_expunge_mail_module)
 #define LAZY_EXPUNGE_MAIL_CONTEXT_REQUIRE(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, lazy_expunge_mail_module)
+#define LAZY_EXPUNGE_USER_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, lazy_expunge_mail_user_module)
+
+struct lazy_expunge_mail_user {
+	union mail_user_module_context module_ctx;
+
+	/* refcount ID => number of instances of the mail that the user's
+	   currently open transactions are expunging. The storage's refcount
+	   isn't updated before the transactions are committed, so the
+	   in-flight expunges need to be tracked here. */
+	HASH_TABLE(char *, void *) refcount_ids;
+};
 
 struct lazy_expunge_mail {
 	union mail_module_context module_ctx;
@@ -33,8 +45,9 @@ struct lazy_expunge_transaction {
 	struct mailbox *dest_box;
 	struct mailbox_transaction_context *dest_trans;
 
-	pool_t pool;
-	HASH_TABLE(const char *, void *) guids;
+	/* refcount IDs added by this transaction to
+	   lazy_expunge_mail_user.refcount_ids */
+	ARRAY(char *) refcount_ids;
 
 	char *delayed_errstr;
 	char *delayed_internal_errstr;
@@ -47,6 +60,8 @@ static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mail_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mail_module,
 				  &mail_module_register);
+static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mail_user_module,
+				  &mail_user_module_register);
 
 static struct mailbox *
 mailbox_open_or_create(struct mail_user *user, const char *lazy_expunge_mailbox,
@@ -93,28 +108,65 @@ mailbox_open_or_create(struct mail_user *user, const char *lazy_expunge_mailbox,
 }
 
 static unsigned int
-lazy_expunge_count_in_transaction(struct lazy_expunge_transaction *lt,
-				  const char *guid)
+lazy_expunge_refcount_id_add(struct mail_user *user,
+			     struct lazy_expunge_transaction *lt,
+			     const char *refcount_id)
 {
-	void *refcountp;
-	unsigned int refcount;
+	struct lazy_expunge_mail_user *luser =
+		LAZY_EXPUNGE_USER_CONTEXT_REQUIRE(user);
+	char *key;
+	void *value;
+	unsigned int count;
 
-	if (lt->pool == NULL) {
-		lt->pool = pool_alloconly_create("lazy expunge transaction",
-						 1024);
-		hash_table_create(&lt->guids, lt->pool, 0, str_hash, strcmp);
+	if (!hash_table_is_created(luser->refcount_ids)) {
+		hash_table_create(&luser->refcount_ids, default_pool, 0,
+				  str_hash, strcmp);
 	}
-
-	refcountp = hash_table_lookup(lt->guids, guid);
-	refcount = POINTER_CAST_TO(refcountp, unsigned int) + 1;
-	refcountp = POINTER_CAST(refcount);
-	if (refcount == 1) {
-		guid = p_strdup(lt->pool, guid);
-		hash_table_insert(lt->guids, guid, refcountp);
+	if (hash_table_lookup_full(luser->refcount_ids, refcount_id,
+				   &key, &value)) {
+		count = POINTER_CAST_TO(value, unsigned int);
+		hash_table_update(luser->refcount_ids, key,
+				  POINTER_CAST(count + 1));
 	} else {
-		hash_table_update(lt->guids, guid, refcountp);
+		count = 0;
+		key = i_strdup(refcount_id);
+		hash_table_insert(luser->refcount_ids, key, POINTER_CAST(1U));
 	}
-	return refcount-1;
+
+	/* The key stays valid until the last transaction using it removes
+	   it, so it can be used directly here. */
+	if (!array_is_created(&lt->refcount_ids))
+		i_array_init(&lt->refcount_ids, 4);
+	array_push_back(&lt->refcount_ids, &key);
+	return count;
+}
+
+static void
+lazy_expunge_refcount_ids_remove(struct mail_user *user,
+				 struct lazy_expunge_transaction *lt)
+{
+	struct lazy_expunge_mail_user *luser =
+		LAZY_EXPUNGE_USER_CONTEXT_REQUIRE(user);
+	char *key;
+
+	if (!array_is_created(&lt->refcount_ids))
+		return;
+
+	array_foreach_elem(&lt->refcount_ids, key) {
+		unsigned int count = POINTER_CAST_TO(
+			hash_table_lookup(luser->refcount_ids, key),
+			unsigned int);
+
+		i_assert(count > 0);
+		if (--count > 0) {
+			hash_table_update(luser->refcount_ids, key,
+					  POINTER_CAST(count));
+		} else {
+			hash_table_remove(luser->refcount_ids, key);
+			i_free(key);
+		}
+	}
+	array_free(&lt->refcount_ids);
 }
 
 static int lazy_expunge_mail_is_last_instance(struct mail *_mail)
@@ -174,7 +226,8 @@ static int lazy_expunge_mail_is_last_instance(struct mail *_mail)
 				"lazy_expunge: Message unexpectedly has no refcount ID");
 			return -1;
 		}
-		refcount -= lazy_expunge_count_in_transaction(lt, value);
+		refcount -= lazy_expunge_refcount_id_add(
+			_mail->box->storage->user, lt, value);
 	}
 	return refcount <= 1 ? 1 : 0;
 }
@@ -349,14 +402,14 @@ lazy_expunge_transaction_begin(struct mailbox *box,
 	return t;
 }
 
-static void lazy_expunge_transaction_free(struct lazy_expunge_transaction *lt)
+static void lazy_expunge_transaction_free(struct mail_user *user,
+					  struct lazy_expunge_transaction *lt)
 {
 	if (lt->dest_trans != NULL)
 		mailbox_transaction_rollback(&lt->dest_trans);
 	if (lt->dest_box != NULL)
 		mailbox_free(&lt->dest_box);
-	hash_table_destroy(&lt->guids);
-	pool_unref(&lt->pool);
+	lazy_expunge_refcount_ids_remove(user, lt);
 	i_free(lt->delayed_errstr);
 	i_free(lt->delayed_internal_errstr);
 	i_free(lt);
@@ -369,6 +422,7 @@ lazy_expunge_transaction_commit(struct mailbox_transaction_context *ctx,
 	struct lazy_expunge_mailbox *lbox =
 		LAZY_EXPUNGE_CONTEXT_REQUIRE(ctx->box);
 	struct lazy_expunge_transaction *lt = LAZY_EXPUNGE_CONTEXT_REQUIRE(ctx);
+	struct mail_user *user = ctx->box->storage->user;
 	int ret;
 
 	if (lt->dest_trans != NULL && lt->delayed_error == MAIL_ERROR_NONE) {
@@ -391,7 +445,7 @@ lazy_expunge_transaction_commit(struct mailbox_transaction_context *ctx,
 		lbox->module_ctx.super.transaction_rollback(ctx);
 		ret = -1;
 	}
-	lazy_expunge_transaction_free(lt);
+	lazy_expunge_transaction_free(user, lt);
 	return ret;
 }
 
@@ -401,9 +455,10 @@ lazy_expunge_transaction_rollback(struct mailbox_transaction_context *ctx)
 	struct lazy_expunge_mailbox *lbox =
 		LAZY_EXPUNGE_CONTEXT_REQUIRE(ctx->box);
 	struct lazy_expunge_transaction *lt = LAZY_EXPUNGE_CONTEXT_REQUIRE(ctx);
+	struct mail_user *user = ctx->box->storage->user;
 
 	lbox->module_ctx.super.transaction_rollback(ctx);
-	lazy_expunge_transaction_free(lt);
+	lazy_expunge_transaction_free(user, lt);
 }
 
 static void lazy_expunge_mail_allocated(struct mail *_mail)
@@ -434,6 +489,12 @@ static void lazy_expunge_mailbox_allocated(struct mailbox *box)
 	if (box->list->ns->type != MAIL_NAMESPACE_TYPE_PRIVATE ||
 	    (box->flags & MAILBOX_FLAG_DELETE_UNSAFE) != 0)
 		return;
+	if (box->virtual_vfuncs != NULL) {
+		/* Virtual mailbox - the expunges are handled by the backend
+		   mailboxes. Handling them here as well would process each
+		   mail twice. */
+		return;
+	}
 
 	lbox = p_new(box->pool, struct lazy_expunge_mailbox, 1);
 	lbox->module_ctx.super = *v;
@@ -459,7 +520,32 @@ static void lazy_expunge_mailbox_allocated(struct mailbox *box)
 	}
 }
 
+static void lazy_expunge_mail_user_deinit(struct mail_user *user)
+{
+	struct lazy_expunge_mail_user *luser =
+		LAZY_EXPUNGE_USER_CONTEXT_REQUIRE(user);
+
+	if (hash_table_is_created(luser->refcount_ids)) {
+		i_assert(hash_table_count(luser->refcount_ids) == 0);
+		hash_table_destroy(&luser->refcount_ids);
+	}
+	luser->module_ctx.super.deinit(user);
+}
+
+static void lazy_expunge_mail_user_created(struct mail_user *user)
+{
+	struct mail_user_vfuncs *v = user->vlast;
+	struct lazy_expunge_mail_user *luser;
+
+	luser = p_new(user->pool, struct lazy_expunge_mail_user, 1);
+	luser->module_ctx.super = *v;
+	user->vlast = &luser->module_ctx.super;
+	v->deinit = lazy_expunge_mail_user_deinit;
+	MODULE_CONTEXT_SET(user, lazy_expunge_mail_user_module, luser);
+}
+
 static struct mail_storage_hooks lazy_expunge_mail_storage_hooks = {
+	.mail_user_created = lazy_expunge_mail_user_created,
 	.mailbox_allocated = lazy_expunge_mailbox_allocated,
 	.mail_allocated = lazy_expunge_mail_allocated
 };
