@@ -126,6 +126,7 @@ int pop3c_client_init(const struct pop3c_parameters *params,
 {
 	struct event *event;
 	struct pop3c_client_settings *set;
+	struct dsasl_client *sasl_client;
 	struct pop3c_client *client;
 	pool_t pool;
 
@@ -144,12 +145,20 @@ int pop3c_client_init(const struct pop3c_parameters *params,
 		return -1;
 	}
 
+	sasl_client = dsasl_client_create(event);
+	if (dsasl_client_check_settings(sasl_client, error_r) < 0) {
+		dsasl_client_unref(&sasl_client);
+		settings_free(set);
+		event_unref(&event);
+		return -1;
+	}
+
 	pool = pool_alloconly_create("pop3c client", 1024);
 	client = p_new(pool, struct pop3c_client, 1);
 	client->pool = pool;
 	client->event = event;
 	client->set = set;
-	client->sasl_client = dsasl_client_create(event);
+	client->sasl_client = sasl_client;
 
 	client->params.temp_path_prefix =
 		p_strdup(pool, params->temp_path_prefix);
