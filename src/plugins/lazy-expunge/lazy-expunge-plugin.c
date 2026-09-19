@@ -306,10 +306,11 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 {
 	struct lazy_expunge_transaction *lt =
 		LAZY_EXPUNGE_CONTEXT_REQUIRE(_mail->transaction);
+	struct lazy_expunge_mailbox *lbox =
+		LAZY_EXPUNGE_CONTEXT_REQUIRE(_mail->box);
 	struct mail_private *mail = (struct mail_private *)_mail;
 	struct lazy_expunge_mail *mmail =
 		LAZY_EXPUNGE_MAIL_CONTEXT_REQUIRE(mail);
-	struct mail *real_mail;
 	bool moving = mmail->moving;
 	int ret;
 
@@ -323,24 +324,16 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 	/* Clear this in case the mail is used for non-move later on. */
 	mmail->moving = FALSE;
 
-	/* don't copy the mail if we're expunging from lazy_expunge
-	   mailbox (even if it's via a virtual mailbox) */
-	if (mail_get_backend_mail(_mail, &real_mail) < 0) {
-		lazy_expunge_set_error(lt, _mail->box->storage);
-		return;
-	}
-	struct lazy_expunge_mailbox *real_lbox =
-		LAZY_EXPUNGE_CONTEXT_REQUIRE(real_mail->box);
-
-	if (real_lbox->set->lazy_expunge_mailbox[0] == '\0' ||
-	    strcmp(real_mail->box->vname, real_lbox->set->lazy_expunge_mailbox) == 0) {
+	/* don't copy the mail if we're expunging from lazy_expunge mailbox */
+	if (lbox->set->lazy_expunge_mailbox[0] == '\0' ||
+	    strcmp(_mail->box->vname, lbox->set->lazy_expunge_mailbox) == 0) {
 		mmail->module_ctx.super.expunge(_mail);
 		return;
 	}
 
 	struct event_reason *reason =
 		event_reason_begin("lazy_expunge:expunge");
-	if (!real_lbox->set->lazy_expunge_only_last_instance)
+	if (!lbox->set->lazy_expunge_only_last_instance)
 		ret = 1;
 	else {
 		/* we want to copy only the last instance of the mail to
@@ -355,7 +348,7 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 		}
 	}
 	if (ret > 0)
-		lazy_expunge_mail_expunge_move(_mail, real_lbox->set->lazy_expunge_mailbox);
+		lazy_expunge_mail_expunge_move(_mail, lbox->set->lazy_expunge_mailbox);
 	event_reason_end(&reason);
 
 	if (ret == 0) {
