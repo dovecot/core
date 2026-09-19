@@ -633,9 +633,50 @@ void service_login_notify(struct service *service, bool all_processes_full)
 	}
 }
 
+/* Returns the number of processes the old generation still has, excluding
+   the log service. */
+static unsigned int
+service_list_non_log_process_count(struct service_list *service_list)
+{
+	struct service *service;
+	unsigned int count = 0;
+
+	array_foreach_elem(&service_list->services, service) {
+		if (service->type != SERVICE_TYPE_LOG)
+			count += service->process_count;
+	}
+	return count;
+}
+
+/* Sends SIGTERM to the old log service, or SIGKILL if it was already sent a
+   SIGTERM. Does nothing while the generation still has other processes. */
+static void services_kill_log(struct service_list *service_list)
+{
+	struct service *log_service =
+		service_lookup_type(service_list, SERVICE_TYPE_LOG);
+	unsigned int uninitialized_count;
+	bool first_kill;
+	int sig;
+
+	if (log_service == NULL) {
+		/* log service doesn't exist - shouldn't really happen */
+		return;
+	}
+	if (service_list_non_log_process_count(service_list) > 0) {
+		/* kill log service later so the last remaining processes
+		   can still have a chance of logging something */
+		return;
+	}
+	first_kill = !service_list->sigterm_sent_to_log;
+	sig = first_kill ? SIGTERM : SIGKILL;
+	service_list->sigterm_sent_to_log = TRUE;
+	(void)service_signal(log_service, sig, first_kill,
+			     &uninitialized_count);
+}
+
 static void services_kill_timeout(struct service_list *service_list)
 {
-	struct service *service, *log_service;
+	struct service *service;
 	unsigned int service_uninitialized, uninitialized_count = 0;
 	unsigned int signal_count = 0;
 	bool first_kill;
@@ -657,31 +698,14 @@ static void services_kill_timeout(struct service_list *service_list)
 				    services_kill_timeout, service_list);
 	}
 
-	log_service = NULL;
 	array_foreach_elem(&service_list->services, service) {
 		if (service->type == SERVICE_TYPE_LOG)
-			log_service = service;
-		else {
-			signal_count += service_signal(service, sig, first_kill,
-						       &service_uninitialized);
-			uninitialized_count += service_uninitialized;
-		}
-	}
-	if (log_service == NULL) {
-		/* log service doesn't exist - shouldn't really happen */
-	} else if (signal_count > 0 || uninitialized_count > 0) {
-		/* kill log service later so the last remaining processes
-		   can still have a chance of logging something */
-	} else {
-		if (!service_list->sigterm_sent_to_log)
-			sig = SIGTERM;
-		else
-			sig = SIGKILL;
-		service_list->sigterm_sent_to_log = TRUE;
-		signal_count += service_signal(log_service, sig, first_kill,
+			continue;
+		signal_count += service_signal(service, sig, first_kill,
 					       &service_uninitialized);
 		uninitialized_count += service_uninitialized;
 	}
+	services_kill_log(service_list);
 	if (signal_count == 0)
 		return;
 
