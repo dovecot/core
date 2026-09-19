@@ -357,7 +357,12 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 	i_stream_seek(sstream->fd_input, stream->istream.v_offset);
 	ret = i_stream_read_memarea(sstream->fd_input);
 	if (ret <= 0) {
-		stream->istream.eof = sstream->fd_input->eof;
+		/* The temp file holds only what has been read from the inputs
+		   so far. Reaching its end is EOF for this stream only once
+		   the inputs are finished as well; otherwise the next read
+		   appends to the temp file and continues. */
+		stream->istream.eof = sstream->fd_input->eof &&
+			sstream->cur_input == NULL;
 		stream->istream.stream_errno =
 			sstream->fd_input->stream_errno;
 	} else {
