@@ -145,15 +145,12 @@ master_service_send_cmd_with_args(const char *cmd, const char *const *args)
 	return master_service_send_cmd_or_fatal(str_c(str));
 }
 
-static void cmd_service_stop(struct doveadm_cmd_context *cctx)
+/* error_exit_code is used when the master replies with an error. */
+static void master_service_send_cmd_reply(struct doveadm_cmd_context *cctx,
+					  struct istream *input,
+					  int error_exit_code)
 {
-	const char *line, *const *services;
-
-	if (!doveadm_cmd_param_array(cctx, "service", &services))
-		i_fatal("service parameter missing");
-
-	struct istream *input =
-		master_service_send_cmd_with_args("STOP", services);
+	const char *line;
 
 	alarm(5);
 	if ((line = i_stream_read_next_line(input)) == NULL) {
@@ -161,7 +158,7 @@ static void cmd_service_stop(struct doveadm_cmd_context *cctx)
 			i_stream_get_error(input));
 		doveadm_exit_code = EX_TEMPFAIL;
 	} else if (line[0] == '-') {
-		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
+		doveadm_exit_code = error_exit_code;
 		e_error(cctx->event, "%s", line+1);
 	} else if (line[0] != '+') {
 		e_error(cctx->event, "Unexpected input from %s: %s",
@@ -170,6 +167,18 @@ static void cmd_service_stop(struct doveadm_cmd_context *cctx)
 	}
 	alarm(0);
 	i_stream_destroy(&input);
+}
+
+static void cmd_service_stop(struct doveadm_cmd_context *cctx)
+{
+	const char *const *services;
+
+	if (!doveadm_cmd_param_array(cctx, "service", &services))
+		i_fatal("service parameter missing");
+
+	master_service_send_cmd_reply(cctx,
+		master_service_send_cmd_with_args("STOP", services),
+		DOVEADM_EX_NOTFOUND);
 }
 
 static void cmd_service_status(struct doveadm_cmd_context *cctx)
