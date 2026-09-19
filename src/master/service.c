@@ -711,40 +711,64 @@ static void service_kill(struct service *service)
 		e_warning(service->event, "%s", str_c(str));
 }
 
-static void services_kill_timeout(struct service_list *service_list)
+static void service_kick_timeout(struct service *service)
 {
-	struct service *service;
-
-	if (!service_list->sigterm_sent && service_list->kill_timeout_secs > 0) {
+	if (service->process_count == 0) {
+		/* The last process is gone. The generation's other services
+		   keep the service list alive, so stop the repeating kick
+		   here - there is nothing left to kill. */
+		timeout_remove(&service->to_kick);
+		return;
+	}
+	if (!service->kill_sigterm_sent) {
 		/* The first timeout was the configured kick. Escalate at the
 		   normal interval from now on. */
-		timeout_remove(&service_list->to_kill);
-		service_list->to_kill =
+		timeout_remove(&service->to_kick);
+		service->to_kick =
 			timeout_add(SERVICE_DIE_TIMEOUT_MSECS,
-				    services_kill_timeout, service_list);
+				    service_kick_timeout, service);
 	}
-	service_list->sigterm_sent = TRUE;
+	service_kill(service);
+}
 
-	array_foreach_elem(&service_list->services, service) {
-		if (service->type != SERVICE_TYPE_LOG)
-			service_kill(service);
-	}
+static void services_kill_timeout(struct service_list *service_list)
+{
+	/* The log process normally stops by itself once the rest of the
+	   generation is gone and it has written out their last log messages.
+	   Kill it only if it's still around at the escalation timeout, since
+	   killing it throws away the log input that hasn't been written
+	   yet. */
 	services_kill_log(service_list);
 }
 
-/* Returns the longest service_shutdown_clients_timeout of the services, which
-   is how long the generation's processes may be kept around. */
-static unsigned int
-services_get_shutdown_clients_timeout(struct service_list *service_list)
+/* Disconnects the clients of each service's old processes: immediately if its
+   shutdown_clients_timeout is 0, otherwise once the timeout has passed. The
+   kill escalates to SIGKILL from there on. */
+static void services_kick(struct service_list *service_list)
 {
 	struct service *service;
-	unsigned int max_secs = 0;
+	unsigned int secs, msecs;
 
 	array_foreach_elem(&service_list->services, service) {
-		if (service->set->shutdown_clients_timeout > max_secs)
-			max_secs = service->set->shutdown_clients_timeout;
+		if (service->type == SERVICE_TYPE_LOG)
+			continue;
+
+		secs = service->shutdown_clients_timeout;
+		if (secs == SET_TIME_INFINITE) {
+			/* The clients are never disconnected. The processes
+			   stop once their last client is gone. */
+			continue;
+		}
+		if (secs == 0) {
+			/* Disconnect the clients now. */
+			service_kill(service);
+			msecs = SERVICE_DIE_TIMEOUT_MSECS;
+		} else {
+			msecs = secs < UINT_MAX / 1000 ? secs * 1000 : UINT_MAX;
+		}
+		service->to_kick = timeout_add(msecs, service_kick_timeout,
+					       service);
 	}
-	return max_secs;
 }
 
 void services_destroy(struct service_list *service_list, bool wait)
@@ -755,23 +779,20 @@ void services_destroy(struct service_list *service_list, bool wait)
 
 	services_monitor_stop(service_list, wait);
 
-	service_list->kill_timeout_secs =
-		services_get_shutdown_clients_timeout(service_list);
-	if (service_list->refcount > 1 &&
-	    service_list->kill_timeout_secs != SET_TIME_INFINITE) {
-		unsigned int secs = service_list->kill_timeout_secs;
-		unsigned int msecs = secs == 0 ? SERVICE_DIE_TIMEOUT_MSECS :
-			(secs < UINT_MAX / 1000 ? secs * 1000 : UINT_MAX);
-
-		/* Kill the processes that are still around when the timeout
-		   expires, and escalate to SIGKILL from there on. */
+	if (service_list->refcount > 1) {
+		/* Kill the log service once the rest of the generation is
+		   gone, and escalate to SIGKILL from there on. */
 		service_list->to_kill =
-			timeout_add(msecs, services_kill_timeout, service_list);
-		if (secs == 0 && !wait) {
-			/* Reload: disconnect all the clients now. When the
+			timeout_add(SERVICE_DIE_TIMEOUT_MSECS,
+				    services_kill_timeout, service_list);
+		if (!wait) {
+			/* Reload: disconnect the clients now, or once the
+			   service's shutdown_clients_timeout expires. When the
 			   master itself is stopping (wait=TRUE) the processes
-			   are stopped by services_monitor_stop() instead. */
-			services_kill_timeout(service_list);
+			   are stopped by services_monitor_stop() and they
+			   enforce shutdown_clients_timeout themselves
+			   afterwards. */
+			services_kick(service_list);
 		}
 	}
 
@@ -802,6 +823,7 @@ void service_list_unref(struct service_list *service_list)
 		i_assert(service->process_avail == 0);
 		array_foreach_elem(&service->listeners, listener)
 			i_close_fd(&listener->fd);
+		timeout_remove(&service->to_kick);
 		event_unref(&service->event);
 	}
 	i_close_fd(&service_list->master_fd);
