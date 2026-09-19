@@ -99,6 +99,9 @@ struct service {
 	unsigned int client_limit;
 	/* Kill idling processes after this many seconds. */
 	unsigned int idle_kill_interval;
+	/* How long this service's processes may keep serving their existing
+	   clients after a configuration reload replaced them. */
+	unsigned int shutdown_clients_timeout;
 	/* set->vsz_limit or set->master_set->default_client_limit */
 	uoff_t vsz_limit;
 
