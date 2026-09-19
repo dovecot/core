@@ -373,10 +373,16 @@ static int lazy_expunge_copy(struct mail_save_context *ctx, struct mail *_mail)
 	struct lazy_expunge_mailbox *lbox =
 		LAZY_EXPUNGE_CONTEXT_REQUIRE(ctx->transaction->box);
 	struct lazy_expunge_mail *mmail = LAZY_EXPUNGE_MAIL_CONTEXT(mail);
+	bool moving = ctx->moving;
+	int ret;
 
-	if (mmail != NULL)
-		mmail->moving = ctx->moving;
-	return lbox->module_ctx.super.copy(ctx, _mail);
+	ret = lbox->module_ctx.super.copy(ctx, _mail);
+	/* mailbox_move() expunges the mail only if the copy succeeded. If it
+	   failed, don't leave the flag set for the next mail that might be
+	   using the same struct mail. */
+	if (ret == 0 && mmail != NULL)
+		mmail->moving = moving;
+	return ret;
 }
 
 static struct mailbox_transaction_context *
