@@ -242,6 +242,28 @@ static void test_server_simple_post_deinit(struct server_connection *conn)
 	timeout_remove(&ctx->to);
 }
 
+static void test_server_never_reply_input(struct server_connection *conn)
+{
+	const char *line;
+
+	/* Read the request, but never answer it, so that the client's
+	   request timeout is the only thing that ends the request. */
+	while ((line = i_stream_read_next_line(conn->conn.input)) != NULL) {
+		if (strcmp(line, "some+foolish+payload+for+funsies") == 0)
+			break;
+	}
+	if (conn->conn.input->eof)
+		server_connection_deinit(&conn);
+}
+
+static void test_server_never_reply(unsigned int index)
+{
+	test_server_init = test_server_simple_post_init;
+	test_server_input = test_server_never_reply_input;
+	test_server_deinit = test_server_simple_post_deinit;
+	test_server_run(index);
+}
+
 static void test_server_simple_post(unsigned int index)
 {
 	test_server_init = test_server_simple_post_init;
@@ -594,6 +616,112 @@ static void test_bad_settings(void)
 	test_end();
 }
 
+/* Errors raised by luaL_argerror() are prefixed with the script path and the
+   line number. Drop everything up to and including it, so that the test
+   doesn't depend on the exact line. */
+static const char *test_lua_error_strip_location(const char *error)
+{
+	const char *p = strstr(error, ".lua:");
+
+	if (p == NULL)
+		return error;
+	p = strchr(p + 5, ':');
+	return p == NULL ? error : p + 2;
+}
+
+static bool test_client_request_timeout(void)
+{
+	struct dlua_script *script;
+	const char *error;
+
+	if (dlua_script_create_file(
+		TEST_LUA_SCRIPT_DIR "/test-lua-http-client.lua",
+		&script, client_event, &error) < 0)
+		i_fatal("dlua_script_create_file() failed: %s", error);
+
+	dlua_dovecot_register(script);
+	if (dlua_script_init(script, &error) < 0)
+		i_fatal("dlua_script_init() failed: %s", error);
+
+	lua_pushstring(script->L,
+		       t_strdup_printf("http://hosta:%u/timeout-post",
+				       bind_ports[0]));
+	if (dlua_pcall(script->L, "test_request_timeout", 1, 2, &error) < 0)
+		i_fatal("dlua_pcall() failed: %s", error);
+
+	test_assert(lua_isinteger(script->L, -2));
+	test_assert(lua_tointeger(script->L, -2) ==
+		    HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT);
+	/* the reason is followed by the request's timing statistics */
+	test_assert(str_begins_with(lua_tostring(script->L, -1),
+				    "Absolute request timeout expired"));
+	lua_pop(script->L, 2);
+	i_assert(lua_gettop(script->L) == 0);
+
+	dlua_script_unref(&script);
+
+	return TRUE;
+}
+
+static void test_request_timeout(void)
+{
+	test_begin("request timeout");
+	test_server_ssl = FALSE;
+	test_run_client_server(test_client_request_timeout,
+			       test_server_never_reply, 1,
+			       test_dns_simple_post);
+	test_end();
+}
+
+static void test_request_settings(void)
+{
+	struct dlua_script *script;
+	const char *error;
+	const char *const url = "http://localhost/";
+
+	test_begin("request settings");
+
+	if (dlua_script_create_file(
+		TEST_LUA_SCRIPT_DIR "/test-lua-http-client.lua",
+		&script, common_event, &error) < 0)
+		i_fatal("dlua_script_create_file() failed: %s", error);
+
+	dlua_dovecot_register(script);
+	if (dlua_script_init(script, &error) < 0)
+		i_fatal("dlua_script_init() failed: %s", error);
+
+	lua_pushstring(script->L, url);
+	test_assert(dlua_pcall(script->L, "test_request_set_timeouts",
+			       1, 0, &error) == 0);
+
+	lua_pushstring(script->L, url);
+	test_assert(dlua_pcall(script->L, "test_request_invalid_timeout",
+			       1, 0, &error) < 0);
+	error = test_lua_error_strip_location(t_strcut(error, '\n'));
+	test_assert_strcmp(error,
+		"bad argument #1 to 'set_timeout' (Invalid time interval: cow)");
+
+	lua_pushstring(script->L, url);
+	test_assert(dlua_pcall(script->L,
+			       "test_request_invalid_absolute_timeout",
+			       1, 0, &error) < 0);
+	error = test_lua_error_strip_location(t_strcut(error, '\n'));
+	test_assert_strcmp(error,
+		"bad argument #1 to 'set_absolute_timeout' "
+		"(Time interval '10' is missing units (add e.g. 's' for seconds))");
+
+	lua_pushstring(script->L, url);
+	test_assert(dlua_pcall(script->L, "test_request_invalid_max_attempts",
+			       1, 0, &error) < 0);
+	error = test_lua_error_strip_location(t_strcut(error, '\n'));
+	test_assert_strcmp(error,
+		"bad argument #1 to 'set_max_attempts' (Must be 1..4294967295)");
+
+	dlua_script_unref(&script);
+
+	test_end();
+}
+
 static void test_set_event(void)
 {
 	struct dlua_script *script;
@@ -666,6 +794,8 @@ static void (*const test_functions[])(void) = {
 	test_second_post,
 	test_large_payload,
 	test_bad_settings,
+	test_request_settings,
+	test_request_timeout,
 	test_set_event,
 	test_set_no_event,
 	NULL

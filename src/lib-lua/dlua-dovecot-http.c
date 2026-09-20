@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
+#include "str-parse.h"
 #include "dlua-script-private.h"
 #include "http-url.h"
 #include "http-client.h"
@@ -106,6 +107,52 @@ static int dlua_http_request_set_payload(lua_State *L)
 	return 0;
 }
 
+/* Overrides the client's request_timeout setting */
+static int dlua_http_request_set_timeout(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 2);
+
+	struct http_client_request *req = dlua_check_http_request(L, 1);
+	const char *value = luaL_checkstring(L, 2);
+	const char *error;
+	unsigned int msecs;
+
+	if (str_parse_get_interval_msecs(value, &msecs, &error) < 0)
+		return luaL_argerror(L, 2, error);
+	http_client_request_set_attempt_timeout_msecs(req, msecs);
+	return 0;
+}
+
+/* Overrides the client's request_absolute_timeout setting */
+static int dlua_http_request_set_absolute_timeout(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 2);
+
+	struct http_client_request *req = dlua_check_http_request(L, 1);
+	const char *value = luaL_checkstring(L, 2);
+	const char *error;
+	unsigned int msecs;
+
+	if (str_parse_get_interval_msecs(value, &msecs, &error) < 0)
+		return luaL_argerror(L, 2, error);
+	http_client_request_set_timeout_msecs(req, msecs);
+	return 0;
+}
+
+/* Overrides the client's request_max_attempts setting */
+static int dlua_http_request_set_max_attempts(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 2);
+
+	struct http_client_request *req = dlua_check_http_request(L, 1);
+	lua_Integer max_attempts = luaL_checkinteger(L, 2);
+
+	if (max_attempts < 1 || max_attempts > UINT_MAX)
+		return luaL_argerror(L, 2, "Must be 1..4294967295");
+	http_client_request_set_max_attempts(req, max_attempts);
+	return 0;
+}
+
 static int dlua_http_request_submit(lua_State *L)
 {
 	DLUA_REQUIRE_ARGS(L, 1);
@@ -152,6 +199,9 @@ static luaL_Reg lua_dovecot_http_request_methods[] = {
 	{ "add_header", dlua_http_request_add_header },
 	{ "remove_header", dlua_http_request_remove_header },
 	{ "set_payload", dlua_http_request_set_payload },
+	{ "set_timeout", dlua_http_request_set_timeout },
+	{ "set_absolute_timeout", dlua_http_request_set_absolute_timeout },
+	{ "set_max_attempts", dlua_http_request_set_max_attempts },
 	{ "submit", dlua_http_request_submit },
 	{ "set_event", dlua_http_request_set_event },
 	{ "get_event", dlua_http_request_get_event },

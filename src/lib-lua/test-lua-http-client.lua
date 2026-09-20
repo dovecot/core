@@ -125,3 +125,54 @@ function http_request_large_payload(url, expect_len)
   -- its pool used
   return 0, response
 end
+
+function test_request_set_timeouts(url)
+  local request = http_client:request {
+    url = url,
+    method = "POST"
+  }
+  request:set_timeout("2s")
+  request:set_absolute_timeout("10s")
+  request:set_max_attempts(1)
+  return 0
+end
+
+function test_request_invalid_timeout(url)
+  local request = http_client:request {
+    url = url,
+    method = "POST"
+  }
+  request:set_timeout("cow")
+  return 0
+end
+
+function test_request_invalid_absolute_timeout(url)
+  local request = http_client:request {
+    url = url,
+    method = "POST"
+  }
+  request:set_absolute_timeout("10")
+  return 0
+end
+
+function test_request_invalid_max_attempts(url)
+  local request = http_client:request {
+    url = url,
+    method = "POST"
+  }
+  request:set_max_attempts(0)
+  return 0
+end
+
+function test_request_timeout(url)
+  local request = http_client:request {
+    url = url,
+    method = "POST"
+  }
+  -- much shorter than the client's request_absolute_timeout
+  request:set_absolute_timeout("100ms")
+  request:add_header("Content-Type", "application/x-www-form-urlencoded")
+  request:set_payload("some+foolish+payload+for+funsies\r\n", true)
+  local response = request:submit()
+  return response:status(), response:reason()
+end
