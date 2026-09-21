@@ -4,11 +4,13 @@
 #include "array.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "path-util.h"
 #include "istream.h"
 #include "file-lock-proc.h"
 
 #include <unistd.h>
 #include <fcntl.h>
+#include <dirent.h>
 #include <sys/stat.h>
 
 /* Maximum number of locks parsed from /proc/locks. This is just a sanity
@@ -19,6 +21,10 @@
 #define PROC_LOCKS_MAX_LINE_LEN 512
 /* Maximum number of lock holders described in the returned string. */
 #define PROC_LOCKS_MAX_REPORT_COUNT 10
+/* Maximum number of lock waiters followed while looking for a deadlock. */
+#define PROC_LOCKS_MAX_DEADLOCK_DEPTH 16
+
+ARRAY_DEFINE_TYPE(proc_lock_p, const struct proc_lock *);
 
 static int proc_lock_parse_id(const char *str, unsigned int *id_r)
 {
@@ -199,6 +205,61 @@ static bool proc_lock_match_node(const struct proc_lock *lock,
 		lock->ino == st->st_ino;
 }
 
+static const struct proc_lock *
+proc_locks_find_holder(const ARRAY_TYPE(proc_lock) *locks, unsigned int id)
+{
+	const struct proc_lock *lock;
+
+	/* The kernel writes a waiting lock request with the id of the lock
+	   that is blocking it. */
+	array_foreach(locks, lock) {
+		if (lock->id == id && !lock->waiter)
+			return lock;
+	}
+	return NULL;
+}
+
+static bool
+proc_locks_walk_waiters(const ARRAY_TYPE(proc_lock) *locks, pid_t pid,
+			pid_t target_pid, unsigned int depth,
+			ARRAY_TYPE(proc_lock_link) *chain)
+{
+	const struct proc_lock *waiter, *holder;
+	struct proc_lock_link link;
+
+	if (depth >= PROC_LOCKS_MAX_DEADLOCK_DEPTH)
+		return FALSE;
+
+	array_foreach(locks, waiter) {
+		if (!waiter->waiter || waiter->pid != pid)
+			continue;
+		holder = proc_locks_find_holder(locks, waiter->id);
+		if (holder == NULL || holder->pid <= 0)
+			continue;
+
+		link.waiter = waiter;
+		link.holder = holder;
+		array_push_back(chain, &link);
+		if (holder->pid == target_pid)
+			return TRUE;
+		/* holder->pid == pid would be a deadlock within that process
+		   alone - not the one we're looking for. */
+		if (holder->pid != pid &&
+		    proc_locks_walk_waiters(locks, holder->pid, target_pid,
+					    depth + 1, chain))
+			return TRUE;
+		array_delete(chain, array_count(chain) - 1, 1);
+	}
+	return FALSE;
+}
+
+bool file_lock_proc_find_deadlock(const ARRAY_TYPE(proc_lock) *locks,
+				  pid_t pid, pid_t target_pid,
+				  ARRAY_TYPE(proc_lock_link) *chain)
+{
+	return proc_locks_walk_waiters(locks, pid, target_pid, 0, chain);
+}
+
 /* Returns the process name from /proc/<pid>/comm, or NULL if it can't be
    read. */
 static const char *proc_lock_get_process_name(pid_t pid)
@@ -228,8 +289,93 @@ static void proc_lock_append_pid(string_t *str, pid_t pid)
 	str_printfa(str, "pid %ld", (long)pid);
 	if (name != NULL && name[0] != '\0')
 		str_printfa(str, " (%s)", str_sanitize(name, 32));
-	if (pid == getpid())
-		str_append(str, " (BUG: this is our own process)");
+}
+
+/* Returns the path of the file that pid has locked, or NULL if it can't be
+   found. This requires being able to read the other process's /proc/<pid>/fd,
+   which typically works only within the same UID. */
+static const char *
+proc_lock_find_path(pid_t pid, const struct proc_lock *lock)
+{
+	const char *dir_path, *dest, *error;
+	const struct dirent *d;
+	struct stat st;
+	string_t *path;
+	size_t prefix_len;
+	DIR *dir;
+
+	if (pid <= 0)
+		return NULL;
+	dir_path = t_strdup_printf("/proc/%ld/fd", (long)pid);
+	dir = opendir(dir_path);
+	if (dir == NULL)
+		return NULL;
+
+	path = t_str_new(64);
+	str_printfa(path, "%s/", dir_path);
+	prefix_len = str_len(path);
+
+	dest = NULL;
+	for (errno = 0; dest == NULL && (d = readdir(dir)) != NULL; errno = 0) {
+		if (d->d_name[0] == '.')
+			continue;
+		str_truncate(path, prefix_len);
+		str_append(path, d->d_name);
+		if (stat(str_c(path), &st) < 0 ||
+		    !proc_lock_match_node(lock, &st))
+			continue;
+		if (t_readlink(str_c(path), &dest, &error) < 0)
+			dest = NULL;
+	}
+	if (errno != 0)
+		i_error("readdir(%s) failed: %m", dir_path);
+	if (closedir(dir) < 0)
+		i_error("closedir(%s) failed: %m", dir_path);
+	return dest;
+}
+
+static void
+proc_lock_append_file(string_t *str, pid_t pid, const struct proc_lock *lock)
+{
+	const char *path = proc_lock_find_path(pid, lock);
+
+	if (path != NULL)
+		str_append(str, str_sanitize(path, 256));
+	else {
+		str_printfa(str, "device %02x:%02x inode %llu",
+			    lock->dev_major, lock->dev_minor,
+			    (unsigned long long)lock->ino);
+	}
+}
+
+static void
+proc_locks_append_deadlock(string_t *str,
+			   const ARRAY_TYPE(proc_lock_link) *chain,
+			   int lock_fd, int lock_type,
+			   const struct proc_lock *holder)
+{
+	const struct proc_lock_link *link;
+	const char *path, *error;
+
+	str_append(str, " - Possible deadlock: ");
+	proc_lock_append_pid(str, getpid());
+	str_printfa(str, " is waiting for a %s lock on ",
+		    lock_type == F_RDLCK ? "READ" : "WRITE");
+	if (t_readlink(t_strdup_printf("/proc/self/fd/%d", lock_fd),
+		       &path, &error) == 0)
+		str_append(str, str_sanitize(path, 256));
+	else
+		proc_lock_append_file(str, getpid(), holder);
+	str_append(str, " held by ");
+	proc_lock_append_pid(str, holder->pid);
+
+	array_foreach(chain, link) {
+		str_printfa(str, ", which is waiting for a %s lock on ",
+			    link->waiter->write ? "WRITE" : "READ");
+		proc_lock_append_file(str, link->waiter->pid, link->waiter);
+		str_append(str, " held by ");
+		proc_lock_append_pid(str, link->holder->pid);
+	}
 }
 
 static bool
@@ -254,6 +400,8 @@ proc_lock_append_description(string_t *str, const struct proc_lock *lock)
 	if (lock->pid > 0) {
 		str_printfa(str, "%s lock held by ", type);
 		proc_lock_append_pid(str, lock->pid);
+		if (lock->pid == getpid())
+			str_append(str, " (BUG: this is our own process)");
 	} else if (lock->pid == 0) {
 		/* The kernel writes 0 if the owner isn't visible in our PID
 		   namespace, or if the owner process is already gone. */
@@ -269,6 +417,48 @@ proc_lock_append_description(string_t *str, const struct proc_lock *lock)
 	}
 }
 
+static void
+proc_locks_append_holders(string_t *str,
+			  const ARRAY_TYPE(proc_lock_p) *holders)
+{
+	const struct proc_lock *lock;
+	unsigned int count = 0;
+
+	array_foreach_elem(holders, lock) {
+		if (count == PROC_LOCKS_MAX_REPORT_COUNT) {
+			str_append(str, ", ...");
+			break;
+		}
+		str_append(str, count == 0 ? " (" : ", ");
+		proc_lock_append_description(str, lock);
+		count++;
+	}
+	str_append_c(str, ')');
+}
+
+static void
+proc_locks_append_any_deadlock(string_t *str,
+			       const ARRAY_TYPE(proc_lock) *locks,
+			       const ARRAY_TYPE(proc_lock_p) *holders,
+			       int lock_fd, int lock_type)
+{
+	ARRAY_TYPE(proc_lock_link) chain;
+	const struct proc_lock *holder;
+
+	t_array_init(&chain, 8);
+	array_foreach_elem(holders, holder) {
+		if (holder->pid <= 0)
+			continue;
+		array_clear(&chain);
+		if (file_lock_proc_find_deadlock(locks, holder->pid, getpid(),
+						 &chain)) {
+			proc_locks_append_deadlock(str, &chain, lock_fd,
+						   lock_type, holder);
+			break;
+		}
+	}
+}
+
 const char *file_lock_proc_find(int lock_fd ATTR_UNUSED,
 				enum file_lock_method lock_method ATTR_UNUSED,
 				int lock_type ATTR_UNUSED,
@@ -280,10 +470,10 @@ const char *file_lock_proc_find(int lock_fd ATTR_UNUSED,
 #ifdef __linux__
 	static bool have_proc_locks = TRUE;
 	ARRAY_TYPE(proc_lock) locks;
+	ARRAY_TYPE(proc_lock_p) holders;
 	const struct proc_lock *lock;
 	struct stat st;
 	string_t *str;
-	unsigned int count = 0;
 	uoff_t end = len == 0 ? UOFF_T_MAX : start + len - 1;
 
 	if (!have_proc_locks)
@@ -298,23 +488,22 @@ const char *file_lock_proc_find(int lock_fd ATTR_UNUSED,
 		return "";
 	}
 
-	str = t_str_new(64);
+	t_array_init(&holders, 8);
 	array_foreach(&locks, lock) {
-		if (!proc_lock_conflicts(lock, &st, lock_method, lock_type,
-					 start, end))
-			continue;
-		if (count == PROC_LOCKS_MAX_REPORT_COUNT) {
-			str_append(str, ", ...");
-			break;
-		}
-		str_append(str, count == 0 ? " (" : ", ");
-		proc_lock_append_description(str, lock);
-		count++;
+		if (proc_lock_conflicts(lock, &st, lock_method, lock_type,
+					start, end))
+			array_push_back(&holders, &lock);
 	}
-	array_free(&locks);
-	if (count == 0)
+	if (array_count(&holders) == 0) {
+		array_free(&locks);
 		return "";
-	str_append_c(str, ')');
+	}
+
+	str = t_str_new(128);
+	proc_locks_append_holders(str, &holders);
+	proc_locks_append_any_deadlock(str, &locks, &holders,
+				       lock_fd, lock_type);
+	array_free(&locks);
 	return str_c(str);
 #else
 	return "";

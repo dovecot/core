@@ -117,8 +117,68 @@ static void test_file_lock_proc_parse(void)
 	test_end();
 }
 
+static const char *test_proc_locks_deadlock_input =
+/* pid 100 holds file A, pid 200 is waiting for it */
+"1: FLOCK  ADVISORY  WRITE 100 00:01:10 0 EOF\n"
+"1: -> FLOCK  ADVISORY  WRITE 200 00:01:10 0 EOF\n"
+/* pid 200 holds file B, pid 300 is waiting for it */
+"2: FLOCK  ADVISORY  WRITE 200 00:01:20 0 EOF\n"
+"2: -> FLOCK  ADVISORY  WRITE 300 00:01:20 0 EOF\n"
+/* pid 300 holds file C, pid 100 is waiting for it */
+"3: FLOCK  ADVISORY  WRITE 300 00:01:30 0 EOF\n"
+"3: -> FLOCK  ADVISORY  WRITE 100 00:01:30 0 EOF\n"
+/* pid 400 holds file D and isn't waiting for anything */
+"4: FLOCK  ADVISORY  WRITE 400 00:01:40 0 EOF\n";
+
+static void test_file_lock_proc_find_deadlock(void)
+{
+	const char *data = test_proc_locks_deadlock_input;
+	ARRAY_TYPE(proc_lock) locks;
+	ARRAY_TYPE(proc_lock_link) chain;
+	struct istream *input;
+	const struct proc_lock_link *link;
+
+	test_begin("file_lock_proc_find_deadlock()");
+
+	input = i_stream_create_from_data(data, strlen(data));
+	t_array_init(&locks, 16);
+	test_assert(file_lock_proc_parse(input, &locks) == 0);
+	i_stream_destroy(&input);
+	test_assert(array_count(&locks) == 7);
+
+	/* pid 200 is directly blocking pid 100 */
+	t_array_init(&chain, 8);
+	test_assert(file_lock_proc_find_deadlock(&locks, 200, 100, &chain));
+	test_assert(array_count(&chain) == 1);
+	link = array_idx(&chain, 0);
+	test_assert(link->waiter->pid == 200 && link->waiter->ino == 10);
+	test_assert(link->holder->pid == 100);
+
+	/* pid 300 blocks pid 100 via pid 200 */
+	array_clear(&chain);
+	test_assert(file_lock_proc_find_deadlock(&locks, 300, 100, &chain));
+	test_assert(array_count(&chain) == 2);
+	link = array_idx(&chain, 0);
+	test_assert(link->waiter->pid == 300 && link->holder->pid == 200);
+	link = array_idx(&chain, 1);
+	test_assert(link->waiter->pid == 200 && link->holder->pid == 100);
+
+	/* pid 400 isn't waiting for anything */
+	array_clear(&chain);
+	test_assert(!file_lock_proc_find_deadlock(&locks, 400, 100, &chain));
+	test_assert(array_count(&chain) == 0);
+
+	/* nothing is blocking a pid that isn't in the list */
+	array_clear(&chain);
+	test_assert(!file_lock_proc_find_deadlock(&locks, 300, 999, &chain));
+	test_assert(array_count(&chain) == 0);
+
+	test_end();
+}
+
 void test_file_lock_proc(void)
 {
 	test_file_lock_proc_parse_line();
 	test_file_lock_proc_parse();
+	test_file_lock_proc_find_deadlock();
 }

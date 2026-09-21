@@ -43,12 +43,29 @@ struct proc_lock {
 };
 ARRAY_DEFINE_TYPE(proc_lock, struct proc_lock);
 
+struct proc_lock_link {
+	/* A lock request that isn't granted yet. */
+	const struct proc_lock *waiter;
+	/* The lock that is blocking the request. */
+	const struct proc_lock *holder;
+};
+ARRAY_DEFINE_TYPE(proc_lock_link, struct proc_lock_link);
+
 /* Parse a single /proc/locks line. Returns 0 on success, or -1 if the line
    isn't a lock this API knows how to describe. */
 int file_lock_proc_parse_line(const char *line, struct proc_lock *lock_r);
 /* Parse /proc/locks content from input, appending each successfully parsed
    line to locks. Returns 0 on success, or -1 if reading input failed. */
 int file_lock_proc_parse(struct istream *input, ARRAY_TYPE(proc_lock) *locks);
+
+/* Follow the lock waiters starting from pid, looking for a lock that is held
+   by target_pid. If such a chain exists, target_pid can't make progress
+   until pid does and vice versa, i.e. it's a deadlock. Returns TRUE if a
+   chain was found and fills it to chain, which must be initialized by the
+   caller. */
+bool file_lock_proc_find_deadlock(const ARRAY_TYPE(proc_lock) *locks,
+				  pid_t pid, pid_t target_pid,
+				  ARRAY_TYPE(proc_lock_link) *chain);
 
 /* Returns human-readable string containing the process that has the file
    currently locked, based on the Linux /proc/locks file. Returns "" if
