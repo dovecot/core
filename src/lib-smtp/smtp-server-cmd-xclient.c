@@ -248,7 +248,10 @@ void smtp_server_cmd_xclient(struct smtp_server_cmd_ctx *cmd,
 			&proxy_data->extra_fields_count);
 	}
 
-	smtp_server_command_input_lock(cmd);
+	/* The connection state is reset once this command completes, so
+	   commands pipelined behind it must not be handled before that:
+	   the reset would wipe the pending_*_cmds counters they increment. */
+	smtp_server_command_pipeline_block(cmd);
 
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_NEXT,
 				     cmd_xclient_recheck, proxy_data);
