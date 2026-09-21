@@ -22,7 +22,7 @@ const char *file_lock_proc_find(int lock_fd ATTR_UNUSED)
 	int fd;
 
 	if (!have_proc_locks)
-		return NULL;
+		return "";
 
 	if (fstat(lock_fd, &st) < 0)
 		return "";
