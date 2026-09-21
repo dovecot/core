@@ -42,6 +42,19 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
 #define IO_POLL_INPUT (POLLIN | POLLPRI | IO_POLL_ERROR)
 #define IO_POLL_OUTPUT (POLLOUT | IO_POLL_ERROR)
 
+static int io_condition_to_poll_events(enum io_condition condition)
+{
+	int events = 0;
+
+	if ((condition & IO_READ) != 0)
+		events |= IO_POLL_INPUT;
+	if ((condition & IO_WRITE) != 0)
+		events |= IO_POLL_OUTPUT;
+	if ((condition & IO_ERROR) != 0)
+		events |= IO_POLL_ERROR;
+	return events;
+}
+
 void io_loop_handle_add(struct io_file *io)
 {
 	struct ioloop_handler_context *ctx = io->io.ioloop->handler_context;
@@ -85,12 +98,7 @@ void io_loop_handle_add(struct io_file *io)
 	}
 
 	old_events = ctx->fds[index].events;
-	if ((condition & IO_READ) != 0)
-		ctx->fds[index].events |= IO_POLL_INPUT;
-        if ((condition & IO_WRITE) != 0)
-		ctx->fds[index].events |= IO_POLL_OUTPUT;
-	if ((condition & IO_ERROR) != 0)
-		ctx->fds[index].events |= IO_POLL_ERROR;
+	ctx->fds[index].events |= io_condition_to_poll_events(condition);
 	i_assert(ctx->fds[index].events != old_events);
 }
 
