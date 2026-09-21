@@ -1,6 +1,8 @@
 #ifndef FILE_LOCK_PROC_H
 #define FILE_LOCK_PROC_H
 
+#include "file-lock.h"
+
 struct istream;
 
 enum proc_lock_class {
@@ -50,7 +52,9 @@ int file_lock_proc_parse(struct istream *input, ARRAY_TYPE(proc_lock) *locks);
 
 /* Returns human-readable string containing the process that has the file
    currently locked, based on the Linux /proc/locks file. Returns "" if
-   unknown or if /proc/locks can't be used, otherwise " (string)". */
-const char *file_lock_proc_find(int lock_fd);
+   unknown or if /proc/locks can't be used, otherwise " (string)". Only
+   locks that could have blocked a lock_method lock are reported. */
+const char *file_lock_proc_find(int lock_fd,
+				enum file_lock_method lock_method);
 
 #endif

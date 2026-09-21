@@ -154,6 +154,24 @@ static int proc_locks_read(ARRAY_TYPE(proc_lock) *locks)
 	return ret;
 }
 
+static bool
+proc_lock_class_matches(enum proc_lock_class lock_class,
+			enum file_lock_method lock_method)
+{
+	switch (lock_method) {
+	case FILE_LOCK_METHOD_FCNTL:
+		/* OFD locks conflict with POSIX record locks */
+		return lock_class == PROC_LOCK_CLASS_POSIX ||
+			lock_class == PROC_LOCK_CLASS_OFD;
+	case FILE_LOCK_METHOD_FLOCK:
+		return lock_class == PROC_LOCK_CLASS_FLOCK;
+	case FILE_LOCK_METHOD_DOTLOCK:
+		/* dotlocks don't show up in /proc/locks */
+		break;
+	}
+	return FALSE;
+}
+
 static bool proc_lock_match_node(const struct proc_lock *lock,
 				 const struct stat *st)
 {
@@ -162,7 +180,19 @@ static bool proc_lock_match_node(const struct proc_lock *lock,
 		lock->ino == st->st_ino;
 }
 
-const char *file_lock_proc_find(int lock_fd ATTR_UNUSED)
+static bool
+proc_lock_conflicts(const struct proc_lock *lock, const struct stat *st,
+		    enum file_lock_method lock_method)
+{
+	if (lock->waiter || lock->pid <= 0)
+		return FALSE;
+
+	return proc_lock_class_matches(lock->lock_class, lock_method) &&
+		proc_lock_match_node(lock, st);
+}
+
+const char *file_lock_proc_find(int lock_fd ATTR_UNUSED,
+				enum file_lock_method lock_method ATTR_UNUSED)
 {
 	/* do anything except Linux support this? don't bother trying it for
 	   OSes we don't know about. */
@@ -186,8 +216,7 @@ const char *file_lock_proc_find(int lock_fd ATTR_UNUSED)
 	}
 
 	array_foreach(&locks, lock) {
-		if (!lock->waiter && lock->pid > 0 &&
-		    proc_lock_match_node(lock, &st)) {
+		if (proc_lock_conflicts(lock, &st, lock_method)) {
 			match = lock;
 			break;
 		}
