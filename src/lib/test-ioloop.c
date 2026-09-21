@@ -272,6 +272,50 @@ static void test_ioloop_find_fd_conditions(void)
 	test_end();
 }
 
+static void test_ioloop_fd_multiple_conditions(void)
+{
+	struct ioloop *ioloop;
+	struct io *io_read, *io_write, *io_error;
+	int fd[2];
+
+	test_begin("ioloop fd multiple conditions");
+
+	ioloop = io_loop_create();
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) < 0)
+		i_fatal("socketpair() failed: %m");
+
+	/* IO_ERROR must be tracked separately from IO_READ and IO_WRITE, even
+	   though it doesn't need anything from the backend that IO_READ and
+	   IO_WRITE wouldn't need as well. */
+	io_read = io_add(fd[0], IO_READ, io_callback, NULL);
+	io_write = io_add(fd[0], IO_WRITE, io_callback, NULL);
+	io_error = io_add(fd[0], IO_ERROR, io_callback, NULL);
+	test_assert(io_loop_find_fd_conditions(ioloop, fd[0]) ==
+		    (IO_READ | IO_WRITE | IO_ERROR));
+
+	io_remove(&io_read);
+	test_assert(io_loop_find_fd_conditions(ioloop, fd[0]) ==
+		    (IO_WRITE | IO_ERROR));
+	io_remove(&io_write);
+	test_assert(io_loop_find_fd_conditions(ioloop, fd[0]) == IO_ERROR);
+	io_remove(&io_error);
+	test_assert(io_loop_find_fd_conditions(ioloop, fd[0]) == 0);
+
+	/* the same, but adding IO_ERROR first */
+	io_error = io_add(fd[0], IO_ERROR, io_callback, NULL);
+	io_read = io_add(fd[0], IO_READ, io_callback, NULL);
+	io_remove(&io_read);
+	test_assert(io_loop_find_fd_conditions(ioloop, fd[0]) == IO_ERROR);
+	io_remove(&io_error);
+	test_assert(io_loop_find_fd_conditions(ioloop, fd[0]) == 0);
+
+	io_loop_destroy(&ioloop);
+	i_close_fd(&fd[0]);
+	i_close_fd(&fd[1]);
+
+	test_end();
+}
+
 static void io_callback_pending_io(void *context ATTR_UNUSED)
 {
 	io_loop_stop(current_ioloop);
@@ -397,6 +441,7 @@ void test_ioloop(void)
 	test_ioloop_zero_timeout();
 	test_ioloop_zero_timeout_recreate();
 	test_ioloop_find_fd_conditions();
+	test_ioloop_fd_multiple_conditions();
 	test_ioloop_pending_io();
 	test_ioloop_fd();
 	test_ioloop_context();

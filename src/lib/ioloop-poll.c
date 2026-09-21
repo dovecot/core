@@ -57,10 +57,11 @@ static int io_condition_to_poll_events(enum io_condition condition)
 
 void io_loop_handle_add(struct io_file *io)
 {
-	struct ioloop_handler_context *ctx = io->io.ioloop->handler_context;
-	enum io_condition condition = io->io.condition;
+	struct ioloop *ioloop = io->io.ioloop;
+	struct ioloop_handler_context *ctx = ioloop->handler_context;
+	enum io_condition condition = io->io.condition, other_conditions;
 	unsigned int old_count;
-	int index, old_events, fd = io->fd;
+	int index, fd = io->fd;
 
 	if ((unsigned int)fd >= ctx->idx_count) {
                 /* grow the fd -> index array */
@@ -97,16 +98,24 @@ void io_loop_handle_add(struct io_file *io)
 		ctx->fds[index].revents = 0;
 	}
 
-	old_events = ctx->fds[index].events;
-	ctx->fds[index].events |= io_condition_to_poll_events(condition);
-	i_assert(ctx->fds[index].events != old_events);
+	/* io isn't in ioloop->io_files yet, so this returns the conditions of
+	   the other IOs for the same fd. The poll() events can't be used for
+	   this check, because IO_ERROR adds only events that IO_READ and
+	   IO_WRITE add as well. */
+	other_conditions = io_loop_find_fd_conditions(ioloop, fd);
+	if ((other_conditions & condition) != 0) {
+		i_panic("io_add(0x%x) called twice fd=%d, callback=%p",
+			condition, fd, (void *)io->io.callback);
+	}
+	ctx->fds[index].events =
+		io_condition_to_poll_events(other_conditions | condition);
 }
 
 void io_loop_handle_remove(struct io_file *io, bool closed ATTR_UNUSED)
 {
-	struct ioloop_handler_context *ctx = io->io.ioloop->handler_context;
-	enum io_condition condition = io->io.condition;
-	int index, fd = io->fd;
+	struct ioloop *ioloop = io->io.ioloop;
+	struct ioloop_handler_context *ctx = ioloop->handler_context;
+	int events, index, fd = io->fd;
 
 	index = ctx->fd_index[fd];
 	i_assert(index >= 0 && (unsigned int) index < ctx->fds_count);
@@ -128,21 +137,20 @@ void io_loop_handle_remove(struct io_file *io, bool closed ATTR_UNUSED)
 #endif
 	i_free(io);
 
-	if ((condition & IO_READ) != 0) {
-		ctx->fds[index].events &= ENUM_NEGATE(POLLIN | POLLPRI);
-		ctx->fds[index].revents &= ENUM_NEGATE(POLLIN | POLLPRI);
-	}
-	if ((condition & IO_WRITE) != 0) {
-		ctx->fds[index].events &= ENUM_NEGATE(POLLOUT);
-		ctx->fds[index].revents &= ENUM_NEGATE(POLLOUT);
+	/* io was already unlinked from ioloop->io_files, so this returns the
+	   conditions of the IOs that are still left for the same fd. */
+	events = io_condition_to_poll_events(
+		io_loop_find_fd_conditions(ioloop, fd));
+	if (events != 0) {
+		/* there are still other IOs for this fd */
+		ctx->fds[index].events = events;
+		ctx->fds[index].revents &= events;
+		return;
 	}
 
-	if ((ctx->fds[index].events & (POLLIN|POLLOUT)) == 0) {
-		/* remove the whole pollfd */
-		ctx->fd_index[ctx->fds[index].fd] = -1;
-		if (--ctx->fds_pos == (unsigned int) index)
-                        return; /* removing last one */
-
+	/* remove the whole pollfd */
+	ctx->fd_index[fd] = -1;
+	if (--ctx->fds_pos != (unsigned int) index) {
                 /* move the last pollfd over the removed one */
 		ctx->fds[index] = ctx->fds[ctx->fds_pos];
 		ctx->fd_index[ctx->fds[index].fd] = index;
