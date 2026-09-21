@@ -420,7 +420,6 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 	const char *const *rights, *name, *path;
 	enum mail_flags private_flags_mask;
 	string_t *str;
-	int ret;
 	bool all_ok = TRUE;
 
 	*retry_r = FALSE;
@@ -462,14 +461,18 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 		return TRUE;
 	}
 
+	bool found = FALSE;
+
 	iter = acl_backend_nonowner_lookups_iter_init(backend);
 	while (acl_backend_nonowner_lookups_iter_next(iter, &name)) {
-		if (strcmp(name, box->name) == 0)
+		if (strcmp(name, box->name) == 0) {
+			found = TRUE;
 			break;
+		}
 	}
-	if ((ret = acl_backend_nonowner_lookups_iter_deinit(&iter))<0)
+	if (acl_backend_nonowner_lookups_iter_deinit(&iter) < 0)
 		i_fatal("ACL non-owner iteration failed");
-	if (ret == 0) {
+	if (!found) {
 		e_error(box->event, "Mailbox not found from dovecot-acl-list, rebuilding");
 		if (acl_backend_nonowner_lookups_rebuild(backend) < 0)
 			i_fatal("dovecot-acl-list rebuilding failed");
