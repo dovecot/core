@@ -203,7 +203,7 @@ proc_lock_conflicts(const struct proc_lock *lock, const struct stat *st,
 		    enum file_lock_method lock_method, int lock_type,
 		    uoff_t start, uoff_t end)
 {
-	if (lock->waiter || lock->pid <= 0)
+	if (lock->waiter)
 		return FALSE;
 
 	return proc_lock_class_matches(lock->lock_class, lock_method) &&
@@ -215,10 +215,26 @@ proc_lock_conflicts(const struct proc_lock *lock, const struct stat *st,
 static void
 proc_lock_append_description(string_t *str, const struct proc_lock *lock)
 {
-	str_printfa(str, "%s lock held by pid %ld",
-		    lock->write ? "WRITE" : "READ", (long)lock->pid);
-	if (lock->pid == getpid())
-		str_append(str, " (BUG: this is our own process)");
+	const char *type = lock->write ? "WRITE" : "READ";
+
+	if (lock->pid > 0) {
+		str_printfa(str, "%s lock held by pid %ld",
+			    type, (long)lock->pid);
+		if (lock->pid == getpid())
+			str_append(str, " (BUG: this is our own process)");
+	} else if (lock->pid == 0) {
+		/* The kernel writes 0 if the owner isn't visible in our PID
+		   namespace, or if the owner process is already gone. */
+		str_printfa(str,
+			    "%s lock held by an unknown process (another PID namespace?)",
+			    type);
+	} else {
+		/* The kernel writes -1 for open file description locks,
+		   which aren't owned by any specific process. */
+		str_printfa(str,
+			    "%s open file description lock held by an unknown process",
+			    type);
+	}
 }
 
 const char *file_lock_proc_find(int lock_fd ATTR_UNUSED,
