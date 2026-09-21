@@ -97,7 +97,7 @@ const char *file_lock_find(int lock_fd, enum file_lock_method lock_method,
 		if (ret[0] != '\0')
 			return ret;
 	}
-	return file_lock_proc_find(lock_fd, lock_method);
+	return file_lock_proc_find(lock_fd, lock_method, lock_type);
 }
 
 static bool err_is_lock_timeout(time_t started, unsigned int timeout_secs)

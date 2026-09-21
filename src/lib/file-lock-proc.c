@@ -172,6 +172,13 @@ proc_lock_class_matches(enum proc_lock_class lock_class,
 	return FALSE;
 }
 
+static bool
+proc_lock_type_conflicts(const struct proc_lock *lock, int lock_type)
+{
+	/* two read locks never conflict with each other */
+	return lock->write || lock_type != F_RDLCK;
+}
+
 static bool proc_lock_match_node(const struct proc_lock *lock,
 				 const struct stat *st)
 {
@@ -182,17 +189,19 @@ static bool proc_lock_match_node(const struct proc_lock *lock,
 
 static bool
 proc_lock_conflicts(const struct proc_lock *lock, const struct stat *st,
-		    enum file_lock_method lock_method)
+		    enum file_lock_method lock_method, int lock_type)
 {
 	if (lock->waiter || lock->pid <= 0)
 		return FALSE;
 
 	return proc_lock_class_matches(lock->lock_class, lock_method) &&
+		proc_lock_type_conflicts(lock, lock_type) &&
 		proc_lock_match_node(lock, st);
 }
 
 const char *file_lock_proc_find(int lock_fd ATTR_UNUSED,
-				enum file_lock_method lock_method ATTR_UNUSED)
+				enum file_lock_method lock_method ATTR_UNUSED,
+				int lock_type ATTR_UNUSED)
 {
 	/* do anything except Linux support this? don't bother trying it for
 	   OSes we don't know about. */
@@ -216,7 +225,7 @@ const char *file_lock_proc_find(int lock_fd ATTR_UNUSED,
 	}
 
 	array_foreach(&locks, lock) {
-		if (proc_lock_conflicts(lock, &st, lock_method)) {
+		if (proc_lock_conflicts(lock, &st, lock_method, lock_type)) {
 			match = lock;
 			break;
 		}
