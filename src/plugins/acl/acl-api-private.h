@@ -17,6 +17,11 @@ struct acl_backend_vfuncs {
 	int (*nonowner_lookups_iter_deinit)
 		(struct acl_mailbox_list_context *ctx);
 	int (*nonowner_lookups_rebuild)(struct acl_backend *backend);
+	/* Optional. NULL if the backend keeps no non-owner lookup list. */
+	int (*nonowner_lookups_rename)(struct acl_backend *backend,
+				       const char *name,
+				       struct acl_backend *dest_backend,
+				       const char *dest_name);
 
 	struct acl_object *(*object_init)(struct acl_backend *backend,
 					  const char *name);

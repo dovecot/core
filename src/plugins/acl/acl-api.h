@@ -49,6 +49,25 @@ acl_backend_nonowner_lookups_iter_deinit(struct acl_mailbox_list_context **ctx);
 
 /* Force a rebuild for nonowner lookups index */
 int acl_backend_nonowner_lookups_rebuild(struct acl_backend *backend);
+/* Keep the nonowner lookup list in step with a renamed or deleted mailbox.
+   Both names are storage names.
+
+   - dest_name == NULL: the mailbox was deleted. Only its own entry is
+     removed; its children are still mailboxes.
+   - dest_backend == backend: the entries of name and its children move to
+     dest_name, replacing any existing entries with the new names.
+   - Otherwise the mailbox was renamed into another namespace (dest_backend
+     is that namespace's backend, or NULL when ACLs are disabled for that
+     namespace). Each backend keeps a list of its own, so the entries of
+     name and its children are removed here. The destination's list gets
+     them when their ACLs are next read there.
+
+   Backends that keep no nonowner lookup list have nothing to do and
+   return 0. */
+int acl_backend_nonowner_lookups_rename(struct acl_backend *backend,
+					const char *name,
+					struct acl_backend *dest_backend,
+					const char *dest_name);
 
 struct acl_object *acl_object_init_from_name(struct acl_backend *backend,
 					     const char *name);

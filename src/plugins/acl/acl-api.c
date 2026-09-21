@@ -253,6 +253,17 @@ int acl_backend_nonowner_lookups_rebuild(struct acl_backend *backend)
 	return backend->v->nonowner_lookups_rebuild(backend);
 }
 
+int acl_backend_nonowner_lookups_rename(struct acl_backend *backend,
+					const char *name,
+					struct acl_backend *dest_backend,
+					const char *dest_name)
+{
+	if (backend->v->nonowner_lookups_rename == NULL)
+		return 0;
+	return backend->v->nonowner_lookups_rename(backend, name,
+						   dest_backend, dest_name);
+}
+
 void acl_object_rights_sort(struct acl_object *aclobj)
 {
 	if (!array_is_created(&aclobj->rights))
