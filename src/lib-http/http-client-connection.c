@@ -314,9 +314,19 @@ void http_client_connection_handle_output_error(
 			t_strdup_printf("write(%s) failed: %s",
 					o_stream_get_name(output),
 					o_stream_get_error(output)));
-	} else {
-		http_client_connection_lost(&conn, "Remote disconnected");
+		return;
 	}
+
+	/* The remote may have sent an early response and disconnected while
+	   the request payload was still being sent. The response can already
+	   be waiting in the input buffer, so don't drop the connection here.
+	   Just stop writing to it and let the input side handle the rest,
+	   exactly like it does when the early response is noticed before the
+	   write fails. The input side closes the connection when it's done,
+	   or reports the lost connection if nothing is left to read. */
+	e_debug(conn->event, "Remote disconnected while sending output");
+	o_stream_unset_flush_callback(output);
+	conn->output_broken = TRUE;
 }
 
 int http_client_connection_check_ready(struct http_client_connection *conn)
