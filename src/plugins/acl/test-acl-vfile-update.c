@@ -6,12 +6,14 @@
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
+#include "strescape.h"
 #include "test-common.h"
 #include "mail-storage.h"
 #include "mailbox-list.h"
 #include "acl-cache.h"
 #include "acl-storage.h"
 #include "acl-backend-vfile.h"
+#include "acl-plugin.h"
 #include "acl-rights-cache.h"
 #include "test-acl-common.h"
 
@@ -20,6 +22,8 @@
 #define TEST_MAILBOX "Test"
 #define TEST_MAILBOX2 "Test2"
 #define TEST_MAILBOX3 "Test3"
+#define TEST_MAILBOX_CHILD TEST_MAILBOX"/child"
+#define TEST_MAILBOX2_CHILD TEST_MAILBOX2"/child"
 #define TEST_UPDATE_ID "user="TEST_ACL_USER
 
 /* NULL-terminated userdb field list */
@@ -489,6 +493,463 @@ static void test_acl_vfile_rights_cache_corrupt(void)
 	test_end();
 }
 
+/* Returns the mtime field of the mailbox's acl-rights.cache line and the
+   number of lines it has, which must never be more than one. The file holds
+   storage names, which differ from vnames on layouts with their own
+   hierarchy separator. */
+static const char *
+test_acl_cache_field(const char *cache_path, const char *vname,
+		     unsigned int field_idx, unsigned int *count_r)
+{
+	const char *cache = test_acl_read_file(cache_path);
+	const char *name = mailbox_list_get_storage_name(test_acl.list, vname);
+	const char *value = NULL;
+
+	*count_r = 0;
+	if (cache == NULL)
+		return NULL;
+
+	for (const char *const *line = t_strsplit(cache, "\n");
+	     *line != NULL; line++) {
+		/* <mtime> TAB <flags> TAB <name> ... */
+		const char *const *fields = t_strsplit_tabescaped(*line);
+
+		if (str_array_length(fields) < 3 ||
+		    strcmp(fields[2], name) != 0)
+			continue;
+		if (*count_r == 0)
+			value = t_strdup(fields[field_idx]);
+		*count_r += 1;
+	}
+	return value;
+}
+
+static const char *
+test_acl_cache_lookup(const char *cache_path, const char *vname,
+		      unsigned int *count_r)
+{
+	return test_acl_cache_field(cache_path, vname, 0, count_r);
+}
+
+static bool test_acl_cache_has(const char *cache_path, const char *vname)
+{
+	unsigned int count;
+
+	(void)test_acl_cache_lookup(cache_path, vname, &count);
+	return count > 0;
+}
+
+static const char *
+test_acl_cache_flags(const char *cache_path, const char *vname)
+{
+	unsigned int count;
+
+	return test_acl_cache_field(cache_path, vname, 1, &count);
+}
+
+/* Replace the flags of the mailbox's cache line, which must have none yet. */
+static void test_acl_cache_set_flags(const char *cache_path, const char *vname,
+				     const char *flags)
+{
+	const char *cache = test_acl_read_file(cache_path);
+	const char *name = mailbox_list_get_storage_name(test_acl.list, vname);
+	const char *old_fields = t_strdup_printf("\t-\t%s\t", name);
+	const char *p = cache == NULL ? NULL : strstr(cache, old_fields);
+
+	i_assert(p != NULL);
+	test_acl_write_file(cache_path,
+		t_strconcat(t_strdup_until(cache, p), "\t", flags, "\t", name,
+			    "\t", p + strlen(old_fields), NULL));
+}
+
+/* Add a line to the cache file, in front of the existing entries. */
+static void
+test_acl_cache_prepend_line(const char *cache_path, const char *line)
+{
+	const char *cache = test_acl_read_file(cache_path);
+	const char *entries = cache == NULL ? NULL : strchr(cache, '\n');
+
+	i_assert(entries != NULL);
+	test_acl_write_file(cache_path,
+			    t_strconcat("V1\n", line, entries + 1, NULL));
+}
+
+static void test_acl_grant_nonowner_lookup(const char *vname)
+{
+	struct acl_object *aclobj = acl_object_init_from_name(test_acl.backend,
+		mailbox_list_get_storage_name(test_acl.list, vname));
+
+	test_assert(test_acl_do_update(aclobj, TEST_UPDATE_ID,
+				       TEST_RIGHTS(MAIL_ACL_LOOKUP,
+						   MAIL_ACL_READ),
+				       ACL_MODIFY_MODE_ADD,
+				       ACL_MODIFY_MODE_ADD) == 0);
+	acl_object_deinit(&aclobj);
+}
+
+static void test_acl_mailbox_rename(const char *src_name, const char *dest_name)
+{
+	struct mailbox *src = mailbox_alloc(test_acl.list, src_name, 0);
+	struct mailbox *dest = mailbox_alloc(test_acl.list, dest_name, 0);
+
+	if (mailbox_rename(src, dest) < 0) {
+		i_fatal("mailbox_rename(%s, %s) failed: %s",
+			src_name, dest_name,
+			mailbox_get_last_internal_error(src, NULL));
+	}
+	mailbox_free(&src);
+	mailbox_free(&dest);
+}
+
+static void test_acl_mailbox_delete(const char *name)
+{
+	struct mailbox *box = mailbox_alloc(test_acl.list, name, 0);
+
+	if (mailbox_delete(box) < 0) {
+		i_fatal("mailbox_delete(%s) failed: %s", name,
+			mailbox_get_last_internal_error(box, NULL));
+	}
+	mailbox_free(&box);
+}
+
+/* Reads acl-rights.cache into the backend that the list hook created, so that
+   its cache is populated and, within acl_cache_ttl, no longer refreshed. */
+static void test_acl_warm_list_backend_cache(void)
+{
+	struct acl_backend *backend =
+		acl_mailbox_list_get_backend(test_acl.list);
+	struct acl_mailbox_list_context *ctx =
+		acl_backend_nonowner_lookups_iter_init(backend);
+	const char *name;
+
+	while (acl_backend_nonowner_lookups_iter_next(ctx, &name)) ;
+	test_assert(acl_backend_nonowner_lookups_iter_deinit(&ctx) >= 0);
+}
+
+static void test_acl_vfile_rights_cache_rename(void)
+{
+	const char *cache_path;
+
+	test_begin("acl vfile rights cache rename");
+	test_acl_user_init_list_hooks(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	cache_path = test_acl_cache_path();
+
+	test_acl_grant_nonowner_lookup(TEST_MAILBOX);
+	test_assert(test_acl_cache_has(cache_path, TEST_MAILBOX));
+
+	test_acl_mailbox_rename(TEST_MAILBOX, TEST_MAILBOX2);
+	test_assert(test_acl_cache_has(cache_path, TEST_MAILBOX2));
+	test_assert(!test_acl_cache_has(cache_path, TEST_MAILBOX));
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* Flags this version doesn't know belong to the mailbox and move with it. */
+static void test_acl_vfile_rights_cache_rename_keeps_flags(void)
+{
+	const char *cache_path;
+
+	test_begin("acl vfile rights cache rename keeps unknown flags");
+	test_acl_user_init_list_hooks(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	cache_path = test_acl_cache_path();
+
+	test_acl_grant_nonowner_lookup(TEST_MAILBOX);
+	test_acl_cache_set_flags(cache_path, TEST_MAILBOX, "xy");
+
+	test_acl_mailbox_rename(TEST_MAILBOX, TEST_MAILBOX2);
+	test_assert_strcmp(test_acl_cache_flags(cache_path, TEST_MAILBOX2),
+			   "xy");
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+static void test_acl_vfile_rights_cache_rename_parent(void)
+{
+	const char *cache_path;
+
+	test_begin("acl vfile rights cache rename parent");
+	test_acl_user_init_list_hooks(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_mailbox_create(TEST_MAILBOX_CHILD);
+	cache_path = test_acl_cache_path();
+
+	/* only the child is shared, the renamed parent itself is not */
+	test_acl_grant_nonowner_lookup(TEST_MAILBOX_CHILD);
+	test_assert(test_acl_cache_has(cache_path, TEST_MAILBOX_CHILD));
+	test_assert(!test_acl_cache_has(cache_path, TEST_MAILBOX));
+
+	test_acl_mailbox_rename(TEST_MAILBOX, TEST_MAILBOX2);
+	test_assert(test_acl_cache_has(cache_path, TEST_MAILBOX2_CHILD));
+	test_assert(!test_acl_cache_has(cache_path, TEST_MAILBOX_CHILD));
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+static void test_acl_vfile_rights_cache_delete(void)
+{
+	const char *cache_path;
+
+	test_begin("acl vfile rights cache delete");
+	test_acl_user_init_list_hooks(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_mailbox_create(TEST_MAILBOX2);
+	cache_path = test_acl_cache_path();
+
+	test_acl_grant_nonowner_lookup(TEST_MAILBOX);
+	test_acl_grant_nonowner_lookup(TEST_MAILBOX2);
+	test_assert(test_acl_cache_has(cache_path, TEST_MAILBOX));
+
+	test_acl_mailbox_delete(TEST_MAILBOX);
+	test_assert(!test_acl_cache_has(cache_path, TEST_MAILBOX));
+	test_assert(test_acl_cache_has(cache_path, TEST_MAILBOX2));
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* Deleting a mailbox leaves its children in place as \NoSelect mailboxes, so
+   their entries have to stay too. */
+static void test_acl_vfile_rights_cache_delete_child(void)
+{
+	const char *cache_path;
+
+	test_begin("acl vfile rights cache delete keeps children");
+	test_acl_user_init_list_hooks(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_mailbox_create(TEST_MAILBOX_CHILD);
+	cache_path = test_acl_cache_path();
+
+	test_acl_grant_nonowner_lookup(TEST_MAILBOX);
+	test_acl_grant_nonowner_lookup(TEST_MAILBOX_CHILD);
+
+	test_acl_mailbox_delete(TEST_MAILBOX);
+	test_assert(!test_acl_cache_has(cache_path, TEST_MAILBOX));
+	test_assert(test_acl_cache_has(cache_path, TEST_MAILBOX_CHILD));
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* The update has to re-read the file under its lock. An entry another process
+   added is invisible to the cached array, and rewriting the file from that
+   array would drop it. */
+static void test_acl_vfile_rights_cache_rename_rereads_file(void)
+{
+	const char *cache_path;
+	unsigned int count;
+
+	test_begin("acl vfile rights cache rename re-reads the file");
+	test_acl_user_init_list_hooks(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	cache_path = test_acl_cache_path();
+
+	test_acl_grant_nonowner_lookup(TEST_MAILBOX);
+	test_acl_warm_list_backend_cache();
+
+	test_acl_write_file(cache_path,
+		t_strconcat(test_acl_read_file(cache_path),
+			    "1\tm\t"TEST_MAILBOX3"\n", NULL));
+
+	test_acl_mailbox_rename(TEST_MAILBOX, TEST_MAILBOX2);
+	test_assert(test_acl_cache_has(cache_path, TEST_MAILBOX2));
+	test_assert(!test_acl_cache_has(cache_path, TEST_MAILBOX));
+	test_assert(null_strcmp(test_acl_cache_lookup(cache_path,
+						    TEST_MAILBOX3, &count),
+				"1.000000") == 0);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* The mtime field describes the mailbox's own dovecot-acl file, which a
+   rename does not touch. Recomputing it would make the next lookup see a
+   mismatch and trigger a full rebuild. */
+static void test_acl_vfile_rights_cache_rename_keeps_mtime(void)
+{
+	const char *cache_path, *mtime;
+	unsigned int count;
+
+	test_begin("acl vfile rights cache rename keeps the entry mtime");
+	test_acl_user_init_list_hooks(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	cache_path = test_acl_cache_path();
+
+	test_acl_grant_nonowner_lookup(TEST_MAILBOX);
+	mtime = test_acl_cache_lookup(cache_path, TEST_MAILBOX, &count);
+	test_assert(mtime != NULL);
+
+	test_acl_mailbox_rename(TEST_MAILBOX, TEST_MAILBOX2);
+	test_assert(null_strcmp(test_acl_cache_lookup(cache_path,
+						    TEST_MAILBOX2, &count),
+				mtime) == 0);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* A delete leaves no entry behind now, but deployments upgrading to this
+   carry dangling entries from before. Renaming onto one has to drop it:
+   the first entry found for a name decides whether a rebuild is needed, so
+   two entries with differing mtimes trigger one. */
+static void test_acl_vfile_rights_cache_rename_onto_dangling(void)
+{
+	const char *cache_path, *mtime;
+	unsigned int count;
+
+	test_begin("acl vfile rights cache rename onto a dangling entry");
+	test_acl_user_init_list_hooks(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	cache_path = test_acl_cache_path();
+
+	test_acl_grant_nonowner_lookup(TEST_MAILBOX);
+	mtime = test_acl_cache_lookup(cache_path, TEST_MAILBOX, &count);
+	test_assert(mtime != NULL);
+
+	test_acl_cache_prepend_line(cache_path, "1\tm\t"TEST_MAILBOX2"\n");
+
+	test_acl_mailbox_rename(TEST_MAILBOX, TEST_MAILBOX2);
+	test_assert(null_strcmp(test_acl_cache_lookup(cache_path,
+						    TEST_MAILBOX2, &count),
+				mtime) == 0);
+	test_assert(count == 1);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* Same as renaming onto a dangling entry, but the dangling entry is a child
+   of the destination. An exact-match drop would leave two entries for it. */
+static void test_acl_vfile_rights_cache_rename_onto_dangling_child(void)
+{
+	const char *cache_path, *mtime;
+	unsigned int count;
+
+	test_begin("acl vfile rights cache rename onto a dangling child entry");
+	test_acl_user_init_list_hooks(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_mailbox_create(TEST_MAILBOX_CHILD);
+	cache_path = test_acl_cache_path();
+
+	test_acl_grant_nonowner_lookup(TEST_MAILBOX_CHILD);
+	mtime = test_acl_cache_lookup(cache_path, TEST_MAILBOX_CHILD, &count);
+	test_assert(mtime != NULL);
+
+	test_acl_cache_prepend_line(cache_path,
+		t_strconcat("1\tm\t",
+			    mailbox_list_get_storage_name(test_acl.list,
+				TEST_MAILBOX2_CHILD), "\n", NULL));
+
+	test_acl_mailbox_rename(TEST_MAILBOX, TEST_MAILBOX2);
+	test_assert(null_strcmp(test_acl_cache_lookup(cache_path,
+						    TEST_MAILBOX2_CHILD,
+						    &count), mtime) == 0);
+	test_assert(count == 1);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* Same as renaming onto a dangling entry, but the destination sorts before
+   the source, so the entry to drop comes before the moved one. */
+static void test_acl_vfile_rights_cache_rename_onto_earlier_dangling(void)
+{
+	const char *cache_path, *mtime;
+	unsigned int count;
+
+	test_begin("acl vfile rights cache rename onto an earlier dangling entry");
+	test_acl_user_init_list_hooks(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX2);
+	cache_path = test_acl_cache_path();
+
+	test_acl_grant_nonowner_lookup(TEST_MAILBOX2);
+	mtime = test_acl_cache_lookup(cache_path, TEST_MAILBOX2, &count);
+	test_assert(mtime != NULL);
+
+	test_acl_cache_prepend_line(cache_path, "1\tm\t"TEST_MAILBOX"\n");
+
+	test_acl_mailbox_rename(TEST_MAILBOX2, TEST_MAILBOX);
+	test_assert(null_strcmp(test_acl_cache_lookup(cache_path,
+						    TEST_MAILBOX, &count),
+				mtime) == 0);
+	test_assert(count == 1);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* imapc keeps a secondary list over the same mail root and delegates its
+   renames to it, so one RENAME can reach the update twice with the same
+   arguments. The second call must not undo the first. */
+static void test_acl_vfile_rights_cache_rename_twice(void)
+{
+	const char *cache_path, *mtime;
+	unsigned int count;
+
+	test_begin("acl vfile rights cache rename applied twice");
+	test_acl_user_init_list_hooks(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	cache_path = test_acl_cache_path();
+
+	test_acl_grant_nonowner_lookup(TEST_MAILBOX);
+	mtime = test_acl_cache_lookup(cache_path, TEST_MAILBOX, &count);
+	test_assert(mtime != NULL);
+
+	test_acl_mailbox_rename(TEST_MAILBOX, TEST_MAILBOX2);
+	test_assert(null_strcmp(test_acl_cache_lookup(cache_path,
+						    TEST_MAILBOX2, &count),
+				mtime) == 0);
+
+	/* the same rename reported a second time */
+	test_assert(acl_backend_nonowner_lookups_rename(test_acl.backend,
+		mailbox_list_get_storage_name(test_acl.list, TEST_MAILBOX),
+		test_acl.backend,
+		mailbox_list_get_storage_name(test_acl.list,
+					      TEST_MAILBOX2)) == 0);
+	test_assert(null_strcmp(test_acl_cache_lookup(cache_path,
+						    TEST_MAILBOX2, &count),
+				mtime) == 0);
+	test_assert(count == 1);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* The destination name can have live children while the destination itself
+   does not exist. On maildir++ a single directory is renamed, so such a
+   rename succeeds, and the children's entries belong to mailboxes the rename
+   never touched. */
+static void test_acl_vfile_rights_cache_rename_dest_child(void)
+{
+	const char *cache_path, *mtime;
+	unsigned int count;
+
+	test_begin("acl vfile rights cache rename keeps a live destination child");
+	test_acl_user_init_list_hooks(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_mailbox_create(TEST_MAILBOX2_CHILD);
+	cache_path = test_acl_cache_path();
+
+	/* only the unrelated destination child is shared */
+	test_acl_grant_nonowner_lookup(TEST_MAILBOX2_CHILD);
+	mtime = test_acl_cache_lookup(cache_path, TEST_MAILBOX2_CHILD, &count);
+	test_assert(mtime != NULL);
+	test_acl_grant_nonowner_lookup(TEST_MAILBOX);
+
+	test_acl_mailbox_rename(TEST_MAILBOX, TEST_MAILBOX2);
+	test_assert(test_acl_cache_has(cache_path, TEST_MAILBOX2));
+	test_assert(null_strcmp(test_acl_cache_lookup(cache_path,
+						    TEST_MAILBOX2_CHILD,
+						    &count), mtime) == 0);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 int main(int argc, char **argv)
 {
 	static void (*const test_functions[])(void) = {
@@ -504,6 +965,18 @@ int main(int argc, char **argv)
 		test_acl_vfile_update_config_rights,
 		test_acl_vfile_rights_cache,
 		test_acl_vfile_rights_cache_corrupt,
+		test_acl_vfile_rights_cache_rename,
+		test_acl_vfile_rights_cache_rename_keeps_flags,
+		test_acl_vfile_rights_cache_rename_parent,
+		test_acl_vfile_rights_cache_delete,
+		test_acl_vfile_rights_cache_delete_child,
+		test_acl_vfile_rights_cache_rename_rereads_file,
+		test_acl_vfile_rights_cache_rename_keeps_mtime,
+		test_acl_vfile_rights_cache_rename_onto_dangling,
+		test_acl_vfile_rights_cache_rename_onto_dangling_child,
+		test_acl_vfile_rights_cache_rename_onto_earlier_dangling,
+		test_acl_vfile_rights_cache_rename_twice,
+		test_acl_vfile_rights_cache_rename_dest_child,
 		NULL
 	};
 	int ret;
