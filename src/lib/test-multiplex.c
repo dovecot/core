@@ -93,9 +93,43 @@ static void setup_channel(struct test_channel *channel,
 	channel->received_alt = buffer_create_dynamic(default_pool, 32768);
 }
 
+static void test_multiplex_finish_all(void)
+{
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(test_channel); i++) {
+		test_assert(o_stream_finish(test_channel[i].out) > 0);
+		test_assert(o_stream_finish(test_channel[i].out_alt) > 0);
+	}
+}
+
+static void test_multiplex_read_all(void)
+{
+	unsigned int i;
+	size_t used;
+	bool progress;
+
+	/* A multiplexed channel is read through the same parent stream as the
+	   other channels, so keep going until none of them has anything
+	   left. */
+	do {
+		progress = FALSE;
+		for (i = 0; i < N_ELEMENTS(test_channel); i++) {
+			used = test_channel[i].received->used;
+			test_istream_multiplex_stream_read(&test_channel[i]);
+			if (test_channel[i].received->used > used)
+				progress = TRUE;
+
+			used = test_channel[i].received_alt->used;
+			test_istream_read_alt(&test_channel[i]);
+			if (test_channel[i].received_alt->used > used)
+				progress = TRUE;
+		}
+	} while (progress);
+}
+
 static void teardown_channel(struct test_channel *channel)
 {
-	test_istream_read_alt(channel);
 	test_assert(memcmp(channel->received->data,
 			   channel->received_alt->data,
 			   channel->received->used) == 0);
@@ -107,10 +141,8 @@ static void teardown_channel(struct test_channel *channel)
 	io_remove(&channel->io);
 	io_remove(&channel->io_alt);
 	i_stream_unref(&channel->in);
-	test_assert(o_stream_finish(channel->out) > 0);
 	o_stream_unref(&channel->out);
 	i_stream_unref(&channel->in_alt);
-	test_assert(o_stream_finish(channel->out_alt) > 0);
 	o_stream_unref(&channel->out_alt);
 	i_close_fd(&channel->fds[0]);
 	i_close_fd(&channel->fds[1]);
@@ -149,6 +181,15 @@ static void test_multiplex_stream(void) {
 	io_loop_run(current_ioloop);
 
 	io_remove(&io);
+
+	/* The ioloop was stopped from a write callback, so data can still be
+	   buffered in the ostreams and unread in the istreams, and the
+	   multiplexed channels' IOs can still be left pending. Flush and read
+	   everything before the channels are compared. The channels must be
+	   read before any of them is torn down, because they all read from
+	   the same parent stream. */
+	test_multiplex_finish_all();
+	test_multiplex_read_all();
 
 	teardown_channel(&test_channel[0]);
 	teardown_channel(&test_channel[1]);
