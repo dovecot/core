@@ -39,6 +39,8 @@ static struct test_server {
 	struct test_client *client;
 	struct program_client *async_client;
 	int listen_fd;
+	unsigned int finished_count;
+	bool stop_when_finished;
 } test_globals;
 
 struct test_client {
@@ -56,6 +58,7 @@ struct test_client {
 		CLIENT_STATE_ARGS,
 		CLIENT_STATE_BODY
 	} state;
+	bool noreply;
 };
 
 static void test_program_client_destroy(struct test_client **_client)
@@ -74,6 +77,9 @@ static void test_program_client_destroy(struct test_client **_client)
 	i_close_fd(&client->fd);
 	pool_unref(&client->pool);
 	test_globals.client = NULL;
+	test_globals.finished_count++;
+	if (test_globals.stop_when_finished)
+		io_loop_stop(test_globals.ioloop);
 }
 
 static int
@@ -93,8 +99,10 @@ test_program_input_handle(struct test_client *client, const char *line)
 			return -1;
 		break;
 	case CLIENT_STATE_VERSION:
-		if (strcmp(line, "noreply") == 0 ||
-		    strcmp(line, "-") == 0)
+		if (strcmp(line, "noreply") == 0) {
+			client->noreply = TRUE;
+			cmp = 0;
+		} else if (strcmp(line, "-") == 0)
 			cmp = 0;
 		test_assert(cmp == 0);
 		if (cmp == 0)
@@ -145,15 +153,10 @@ static void test_program_end(struct test_client *client)
 	test_program_client_destroy(&client);
 }
 
-static void test_program_run(struct test_client *client)
+static void
+test_program_reply(struct test_client *client,
+		   const char *const *args, unsigned int count)
 {
-	const char *const *args;
-	unsigned int count;
-
-	timeout_remove(&test_globals.to);
-
-	args = array_get(&client->args, &count);
-	test_assert(count >= 2);
 	if (strcmp(args[0], "test_program_success") == 0) {
 		/* Return hello world */
 		test_assert(count >= 3);
@@ -165,6 +168,21 @@ static void test_program_run(struct test_client *client)
 	} else if (strcmp(args[0], "test_program_failure") == 0) {
 		o_stream_nsend_str(client->out, "-\n");
 	}
+}
+
+static void test_program_run(struct test_client *client)
+{
+	const char *const *args;
+	unsigned int count;
+
+	timeout_remove(&test_globals.to);
+
+	args = array_get(&client->args, &count);
+	test_assert(count >= 2);
+	/* A noreply client has already disconnected. Don't write to the
+	   closed socket. */
+	if (!client->noreply)
+		test_program_reply(client, args, count);
 	if (count < 3 || strcmp(args[1], "slow_disconnect") != 0)
 		test_program_client_destroy(&client);
 	else {
@@ -277,6 +295,40 @@ static void test_program_async_callback(enum program_client_exit_status result,
 {
 	*ret = (int)result;
 	io_loop_stop(current_ioloop);
+}
+
+struct test_server_wait {
+	unsigned int prev_finished_count;
+	bool timed_out;
+};
+
+static void test_program_server_wait_timeout(struct test_server_wait *wait)
+{
+	wait->timed_out = TRUE;
+	io_loop_stop(test_globals.ioloop);
+}
+
+static void
+test_program_server_wait_finished(unsigned int prev_finished_count)
+{
+	struct test_server_wait wait = {
+		.prev_finished_count = prev_finished_count,
+	};
+	struct timeout *to;
+
+	/* A no_reply program client finishes without waiting for the server,
+	   which may not even have accepted the connection yet. Whether it has
+	   depends on the order in which the ioloop backend calls the I/O
+	   handlers. Run the ioloop until the server has finished handling the
+	   connection, so the next test starts from a clean state. */
+	to = timeout_add(10000, test_program_server_wait_timeout, &wait);
+	test_globals.stop_when_finished = TRUE;
+	while (test_globals.finished_count == prev_finished_count &&
+	       !wait.timed_out)
+		io_loop_run(test_globals.ioloop);
+	test_globals.stop_when_finished = FALSE;
+	timeout_remove(&to);
+	test_assert(!wait.timed_out);
 }
 
 static void test_program_success(void)
@@ -401,6 +453,7 @@ static void test_program_failure(void)
 static void test_program_noreply(void)
 {
 	struct program_client *pc;
+	unsigned int finished_count;
 	int ret;
 
 	const char *const args[] = {
@@ -409,6 +462,7 @@ static void test_program_noreply(void)
 
 	test_begin("test_program_noreply");
 
+	finished_count = test_globals.finished_count;
 	pc_params.no_reply = TRUE;
 	pc = program_client_unix_create(event, TEST_SOCKET, args, &pc_params);
 
@@ -419,6 +473,7 @@ static void test_program_noreply(void)
 	test_assert(ret == 1);
 
 	program_client_destroy(&pc);
+	test_program_server_wait_finished(finished_count);
 
 	test_end();
 }
@@ -426,6 +481,7 @@ static void test_program_noreply(void)
 static void test_program_sync(void)
 {
 	struct program_client *pc;
+	unsigned int finished_count;
 	int ret;
 
 	const char *const args[] = {
@@ -434,13 +490,16 @@ static void test_program_sync(void)
 
 	test_begin("test_program_sync");
 
+	finished_count = test_globals.finished_count;
 	pc_params.no_reply = TRUE;
 	pc = program_client_unix_create(event, TEST_SOCKET, args, &pc_params);
+	/* program_client_run() runs its own ioloop, so the server's listener
+	   isn't handled until the test ioloop is run again below. */
 	ret = program_client_run(pc);
 	test_assert(ret == 1);
 
 	program_client_destroy(&pc);
-	test_program_end(test_globals.client);
+	test_program_server_wait_finished(finished_count);
 
 	test_end();
 }
