@@ -6,6 +6,7 @@
 #include "istream-sized.h"
 #include "istream-hash.h"
 #include "istream-seekable.h"
+#include "istream-chain.h"
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -274,6 +275,79 @@ static void test_istream_seekable_failed_writes(void)
 	test_end();
 }
 
+static void test_istream_seekable_temp_file_end(void)
+{
+	static const unsigned int piece[] = { 440, 376, 3, 14, 5 };
+	unsigned char payload[838];
+	struct istream_chain *chain;
+	struct istream *chain_input, *seekable_input, *input;
+	struct istream *piece_input, *inputs[2];
+	const unsigned char *data;
+	size_t size, done, off;
+	unsigned int i;
+	ssize_t ret;
+
+	test_begin("istream seekable temp file end is not stream end");
+
+	for (i = 0; i < sizeof(payload); i++)
+		payload[i] = (unsigned char)i;
+
+	/* A non-seekable input that hands out its data in pieces. */
+	chain_input = i_stream_create_chain(&chain, IO_BLOCK_SIZE);
+	for (i = 0, off = 0; i < N_ELEMENTS(piece); off += piece[i], i++) {
+		piece_input = i_stream_create_copy_from_data(payload + off,
+							    piece[i]);
+		i_stream_chain_append(chain, piece_input);
+		i_stream_unref(&piece_input);
+	}
+	i_stream_chain_append_eof(chain);
+
+	inputs[0] = chain_input;
+	inputs[1] = NULL;
+	/* Small enough that the stream spills into its temp file. */
+	seekable_input = i_stream_create_seekable(inputs, 463, fd_callback, NULL);
+	i_stream_unref(&chain_input);
+	/* The stream really is this long, so the wrapper is a no-op. It reads
+	   its parent the way the rest of the tree does, and it is what turns
+	   a premature EOF into a visible error. */
+	input = i_stream_create_min_sized(seekable_input, sizeof(payload));
+
+	/* Read 45 bytes from offset 677. The first two pieces end up in the
+	   temp file; the last three are still in the input. */
+	i_stream_seek(input, 677);
+	for (done = 0; done < 45; ) {
+		test_assert(i_stream_read(input) > 0);
+		data = i_stream_get_data(input, &size);
+		if (size == 0)
+			break;
+		if (size > 45 - done)
+			size = 45 - done;
+		done += size;
+		i_stream_skip(input, size);
+	}
+	test_assert(done == 45);
+
+	/* Seek back into the part that is already in the temp file. The temp
+	   file ends before the stream does, which must not be reported as
+	   EOF while the input still has data. */
+	i_stream_seek(input, 604);
+	ret = i_stream_read(input);
+	test_assert(ret > 0);
+	test_assert(!seekable_input->eof);
+	test_assert(input->stream_errno == 0);
+
+	while ((ret = i_stream_read(input)) > 0) ;
+	data = i_stream_get_data(input, &size);
+	test_assert(ret == -1 && input->stream_errno == 0);
+	test_assert(size == sizeof(payload) - 604);
+	test_assert(size == sizeof(payload) - 604 &&
+		    memcmp(data, payload + 604, size) == 0);
+
+	i_stream_unref(&input);
+	i_stream_unref(&seekable_input);
+	test_end();
+}
+
 void test_istream_seekable(void)
 {
 	unsigned int i;
@@ -294,6 +368,7 @@ void test_istream_seekable(void)
 	test_istream_seekable_invalid_read();
 	test_istream_seekable_get_size();
 	test_istream_seekable_failed_writes();
+	test_istream_seekable_temp_file_end();
 
 	i_free(fd_callback_path);
 }
