@@ -167,6 +167,7 @@ liblib_la_SOURCES = \
 	file-copy.c \
 	file-dotlock.c \
 	file-lock.c \
+	file-lock-proc.c \
 	file-set-size.c \
 	guid.c \
 	hash.c \
@@ -342,6 +343,7 @@ headers = \
 	file-copy.h \
 	file-dotlock.h \
 	file-lock.h \
+	file-lock-proc.h \
 	file-set-size.h \
 	fsync-mode.h \
 	guid.h \
