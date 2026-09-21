@@ -92,12 +92,15 @@ const char *file_lock_find(int lock_fd, enum file_lock_method lock_method,
 {
 	const char *ret;
 
-	if (lock_method == FILE_LOCK_METHOD_FCNTL) {
-		ret = file_lock_find_fcntl(lock_fd, lock_type, start, len);
-		if (ret[0] != '\0')
-			return ret;
-	}
-	return file_lock_proc_find(lock_fd, lock_method, lock_type, start, len);
+	/* Prefer /proc/locks, because it can describe the locks in more
+	   detail than F_GETLK. */
+	ret = file_lock_proc_find(lock_fd, lock_method, lock_type, start, len);
+	if (ret[0] != '\0')
+		return ret;
+
+	if (lock_method == FILE_LOCK_METHOD_FCNTL)
+		return file_lock_find_fcntl(lock_fd, lock_type, start, len);
+	return "";
 }
 
 static bool err_is_lock_timeout(time_t started, unsigned int timeout_secs)
