@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
 #include "istream.h"
 #include "file-lock-proc.h"
 
@@ -15,6 +16,8 @@
 #define PROC_LOCKS_MAX_COUNT 100000
 /* Maximum length of a single /proc/locks line. */
 #define PROC_LOCKS_MAX_LINE_LEN 512
+/* Maximum number of lock holders described in the returned string. */
+#define PROC_LOCKS_MAX_REPORT_COUNT 10
 
 static int proc_lock_parse_id(const char *str, unsigned int *id_r)
 {
@@ -209,6 +212,15 @@ proc_lock_conflicts(const struct proc_lock *lock, const struct stat *st,
 		proc_lock_match_node(lock, st);
 }
 
+static void
+proc_lock_append_description(string_t *str, const struct proc_lock *lock)
+{
+	str_printfa(str, "%s lock held by pid %ld",
+		    lock->write ? "WRITE" : "READ", (long)lock->pid);
+	if (lock->pid == getpid())
+		str_append(str, " (BUG: this is our own process)");
+}
+
 const char *file_lock_proc_find(int lock_fd ATTR_UNUSED,
 				enum file_lock_method lock_method ATTR_UNUSED,
 				int lock_type ATTR_UNUSED,
@@ -220,9 +232,10 @@ const char *file_lock_proc_find(int lock_fd ATTR_UNUSED,
 #ifdef __linux__
 	static bool have_proc_locks = TRUE;
 	ARRAY_TYPE(proc_lock) locks;
-	const struct proc_lock *lock, *match = NULL;
+	const struct proc_lock *lock;
 	struct stat st;
-	const char *ret;
+	string_t *str;
+	unsigned int count = 0;
 	uoff_t end = len == 0 ? UOFF_T_MAX : start + len - 1;
 
 	if (!have_proc_locks)
@@ -237,24 +250,24 @@ const char *file_lock_proc_find(int lock_fd ATTR_UNUSED,
 		return "";
 	}
 
+	str = t_str_new(64);
 	array_foreach(&locks, lock) {
-		if (proc_lock_conflicts(lock, &st, lock_method, lock_type,
-					start, end)) {
-			match = lock;
+		if (!proc_lock_conflicts(lock, &st, lock_method, lock_type,
+					 start, end))
+			continue;
+		if (count == PROC_LOCKS_MAX_REPORT_COUNT) {
+			str_append(str, ", ...");
 			break;
 		}
-	}
-	if (match == NULL)
-		ret = "";
-	else if (match->pid == getpid())
-		ret = " (BUG: lock is held by our own process)";
-	else {
-		ret = t_strdup_printf(" (%s lock held by pid %ld)",
-				      match->write ? "WRITE" : "READ",
-				      (long)match->pid);
+		str_append(str, count == 0 ? " (" : ", ");
+		proc_lock_append_description(str, lock);
+		count++;
 	}
 	array_free(&locks);
-	return ret;
+	if (count == 0)
+		return "";
+	str_append_c(str, ')');
+	return str_c(str);
 #else
 	return "";
 #endif
