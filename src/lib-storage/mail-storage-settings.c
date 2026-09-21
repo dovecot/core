@@ -182,7 +182,14 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mail_full_filesystem_access = FALSE,
 	.maildir_stat_dirs = FALSE,
 	.mail_shared_explicit_inbox = FALSE,
+#ifdef DOVECOT_PRO_EDITION
+	/* obox requires flock: fcntl locks are lost whenever any fd to
+	   the file is closed, and metacache reads the index files while
+	   they are locked. */
+	.lock_method = "flock:fcntl:dotlock",
+#else
 	.lock_method = "fcntl:flock:dotlock",
+#endif
 	.pop3_uidl_format = "%{uid | hex(8)}%{uidvalidity | hex(8)}",
 
 	.recipient_delimiter = "+",
