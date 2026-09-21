@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "istream.h"
 #include "file-lock-proc.h"
 
@@ -198,6 +199,39 @@ static bool proc_lock_match_node(const struct proc_lock *lock,
 		lock->ino == st->st_ino;
 }
 
+/* Returns the process name from /proc/<pid>/comm, or NULL if it can't be
+   read. */
+static const char *proc_lock_get_process_name(pid_t pid)
+{
+	char buf[64];
+	const char *path;
+	ssize_t ret;
+	int fd;
+
+	path = t_strdup_printf("/proc/%ld/comm", (long)pid);
+	fd = open(path, O_RDONLY);
+	if (fd == -1)
+		return NULL;
+	ret = read(fd, buf, sizeof(buf) - 1);
+	i_close_fd(&fd);
+	if (ret <= 0)
+		return NULL;
+	buf[ret] = '\0';
+	/* t_strcut() returns buf itself if there is no newline */
+	return t_strdup(t_strcut(buf, '\n'));
+}
+
+static void proc_lock_append_pid(string_t *str, pid_t pid)
+{
+	const char *name = proc_lock_get_process_name(pid);
+
+	str_printfa(str, "pid %ld", (long)pid);
+	if (name != NULL && name[0] != '\0')
+		str_printfa(str, " (%s)", str_sanitize(name, 32));
+	if (pid == getpid())
+		str_append(str, " (BUG: this is our own process)");
+}
+
 static bool
 proc_lock_conflicts(const struct proc_lock *lock, const struct stat *st,
 		    enum file_lock_method lock_method, int lock_type,
@@ -218,10 +252,8 @@ proc_lock_append_description(string_t *str, const struct proc_lock *lock)
 	const char *type = lock->write ? "WRITE" : "READ";
 
 	if (lock->pid > 0) {
-		str_printfa(str, "%s lock held by pid %ld",
-			    type, (long)lock->pid);
-		if (lock->pid == getpid())
-			str_append(str, " (BUG: this is our own process)");
+		str_printfa(str, "%s lock held by ", type);
+		proc_lock_append_pid(str, lock->pid);
 	} else if (lock->pid == 0) {
 		/* The kernel writes 0 if the owner isn't visible in our PID
 		   namespace, or if the owner process is already gone. */
