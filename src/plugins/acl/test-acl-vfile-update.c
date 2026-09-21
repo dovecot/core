@@ -8,7 +8,7 @@
 #include "ioloop.h"
 #include "strescape.h"
 #include "test-common.h"
-#include "mail-storage.h"
+#include "mail-storage-private.h"
 #include "mailbox-list.h"
 #include "acl-cache.h"
 #include "acl-storage.h"
@@ -950,6 +950,45 @@ static void test_acl_vfile_rights_cache_rename_dest_child(void)
 	test_end();
 }
 
+/* "Boxa" + combining diaeresis, which NFC composes into an a-umlaut. */
+#define TEST_MAILBOX_RAW "Boxa\xCC\x88"
+#define TEST_MAILBOX_NFC "Box\xC3\xA4"
+
+/* A mailbox whose name is not NFC is renamed on the next ordinary open, with
+   no user RENAME involved. That rename allocates the mailbox with
+   MAILBOX_FLAG_IGNORE_ACLS, so the plugin's mailbox vfuncs are not installed
+   and only the list vfuncs see it. */
+static void test_acl_vfile_rights_cache_rename_nfc(void)
+{
+	const char *cache_path, *vname_new, *error;
+	struct mailbox *box;
+
+	test_begin("acl vfile rights cache rename for NFC normalization");
+	test_acl_user_init_list_hooks(NULL);
+
+	box = mailbox_alloc(test_acl.list, TEST_MAILBOX_RAW,
+			    MAILBOX_FLAG_RAW_NAME);
+	box->skip_create_name_restrictions = TRUE;
+	if (mailbox_create(box, NULL, FALSE) < 0) {
+		i_fatal("mailbox_create(%s) failed: %s", TEST_MAILBOX_RAW,
+			mailbox_get_last_internal_error(box, NULL));
+	}
+	mailbox_free(&box);
+
+	cache_path = test_acl_cache_path();
+	test_acl_grant_nonowner_lookup(TEST_MAILBOX_RAW);
+	test_assert(test_acl_cache_has(cache_path, TEST_MAILBOX_RAW));
+
+	test_assert(mailbox_rename_nfc_forced(test_acl.list, TEST_MAILBOX_RAW,
+					      TEST_MAILBOX_NFC, &vname_new,
+					      &error) > 0);
+	test_assert(test_acl_cache_has(cache_path, TEST_MAILBOX_NFC));
+	test_assert(!test_acl_cache_has(cache_path, TEST_MAILBOX_RAW));
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 int main(int argc, char **argv)
 {
 	static void (*const test_functions[])(void) = {
@@ -977,6 +1016,7 @@ int main(int argc, char **argv)
 		test_acl_vfile_rights_cache_rename_onto_earlier_dangling,
 		test_acl_vfile_rights_cache_rename_twice,
 		test_acl_vfile_rights_cache_rename_dest_child,
+		test_acl_vfile_rights_cache_rename_nfc,
 		NULL
 	};
 	int ret;
