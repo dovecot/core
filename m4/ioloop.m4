@@ -48,7 +48,6 @@ AC_DEFUN([DOVECOT_IOLOOP], [
   ])
   
   AS_IF([test "$have_ioloop" = "no"], [
-    AC_DEFINE(IOLOOP_SELECT,, [Implement I/O loop with select()])
-    ioloop="select"
+    AC_MSG_ERROR([No usable I/O loop method found (epoll, kqueue or poll)])
   ])
 ])

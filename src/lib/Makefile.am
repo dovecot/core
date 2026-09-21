@@ -195,7 +195,6 @@ liblib_la_SOURCES = \
 	ioloop-notify-inotify.c \
 	ioloop-notify-kqueue.c \
 	ioloop-poll.c \
-	ioloop-select.c \
 	ioloop-epoll.c \
 	ioloop-kqueue.c \
 	lib.c \

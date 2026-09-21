@@ -733,9 +733,6 @@ static void print_build_options(void)
 #ifdef IOLOOP_POLL
 		" ioloop=poll"
 #endif
-#ifdef IOLOOP_SELECT
-		" ioloop=select"
-#endif
 #ifdef IOLOOP_NOTIFY_INOTIFY
 		" notify=inotify"
 #endif
