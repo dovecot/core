@@ -22,12 +22,22 @@ extern const struct acl_backend_vfuncs acl_backend_vfile;
 
 struct test_acl_ctx test_acl;
 
-/* Only the mail_user_created hook is installed. The tests drive the ACL
-   backend directly, and the mailbox hooks would additionally ACL-check the
-   mailbox_create() calls that the tests use for their own setup. */
+/* The default hooks let the tests drive the ACL backend directly without the
+   mailbox hooks also ACL-checking the mailbox_create() calls that the tests
+   use for their own setup. */
 static const struct mail_storage_hooks test_acl_storage_hooks = {
 	.mail_user_created = acl_mail_user_created,
 };
+
+/* Used by tests that need mailbox operations to go through the ACL plugin's
+   mailbox_list vfuncs. mailbox_allocated is left out on purpose: it would
+   additionally ACL-check the operations the tests do for their own setup. */
+static const struct mail_storage_hooks test_acl_list_hooks = {
+	.mail_user_created = acl_mail_user_created,
+	.mailbox_list_created = acl_mailbox_list_created,
+};
+
+static const struct mail_storage_hooks *test_acl_hooks;
 
 void test_acl_common_init(const char *test_name, int *argc, char **argv[])
 {
@@ -50,7 +60,8 @@ void test_acl_common_deinit(void)
 	master_service_deinit(&master_service);
 }
 
-void test_acl_user_init(const char *const *extra_input)
+static void test_acl_user_init_hooks(const char *const *extra_input,
+				     const struct mail_storage_hooks *hooks)
 {
 	const char *const default_input[] = {
 		"acl_driver=vfile",
@@ -64,7 +75,8 @@ void test_acl_user_init(const char *const *extra_input)
 	/* the ACL validity cache compares against ioloop_time, which is only
 	   updated while the ioloop runs */
 	io_loop_time_refresh();
-	mail_storage_hooks_add_internal(&test_acl_storage_hooks);
+	test_acl_hooks = hooks;
+	mail_storage_hooks_add_internal(test_acl_hooks);
 
 	t_array_init(&input, 8);
 	array_append(&input, default_input, N_ELEMENTS(default_input));
@@ -102,11 +114,21 @@ void test_acl_user_init(const char *const *extra_input)
 					       all_mailbox_rights[i]);
 }
 
+void test_acl_user_init(const char *const *extra_input)
+{
+	test_acl_user_init_hooks(extra_input, &test_acl_storage_hooks);
+}
+
+void test_acl_user_init_list_hooks(const char *const *extra_input)
+{
+	test_acl_user_init_hooks(extra_input, &test_acl_list_hooks);
+}
+
 void test_acl_user_deinit(void)
 {
 	acl_backend_deinit(&test_acl.backend);
 	test_mail_storage_deinit_user(test_acl.storage);
-	mail_storage_hooks_remove_internal(&test_acl_storage_hooks);
+	mail_storage_hooks_remove_internal(test_acl_hooks);
 	test_mail_storage_deinit(&test_acl.storage);
 	i_zero(&test_acl);
 }
