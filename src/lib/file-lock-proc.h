@@ -53,10 +53,11 @@ int file_lock_proc_parse(struct istream *input, ARRAY_TYPE(proc_lock) *locks);
 /* Returns human-readable string containing the process that has the file
    currently locked, based on the Linux /proc/locks file. Returns "" if
    unknown or if /proc/locks can't be used, otherwise " (string)". Only
-   locks that could have blocked a lock_method lock of lock_type (F_RDLCK
-   or F_WRLCK) are reported. */
+   locks that could have blocked a lock_method lock of lock_type (F_RDLCK or
+   F_WRLCK) for the byte range [start, start+len) are reported. len=0 means
+   the range extends to the end of the file. */
 const char *file_lock_proc_find(int lock_fd,
 				enum file_lock_method lock_method,
-				int lock_type);
+				int lock_type, uoff_t start, uoff_t len);
 
 #endif

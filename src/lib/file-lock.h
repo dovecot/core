@@ -71,10 +71,12 @@ const char *file_lock_get_path(struct file_lock *lock);
    useful mainly together with file_lock_set_unlink_on_free(). */
 void file_lock_set_path(struct file_lock *lock, const char *path);
 
-/* Returns human-readable string containing the process that has the file
-   currently locked. Returns "" if unknown, otherwise " (string)". */
+/* Returns human-readable string containing the process that has the byte
+   range [start, start+len) of the file currently locked. len=0 means the
+   range extends to the end of the file. Returns "" if unknown, otherwise
+   " (string)". */
 const char *file_lock_find(int lock_fd, enum file_lock_method lock_method,
-			   int lock_type);
+			   int lock_type, uoff_t start, uoff_t len);
 
 /* Track the duration of a lock wait. */
 void file_lock_wait_start(void);

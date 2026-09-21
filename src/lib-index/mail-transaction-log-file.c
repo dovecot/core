@@ -439,7 +439,7 @@ int mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 		"Timeout (%us) while waiting for lock for "
 		"transaction log file %s%s",
 		lock_timeout_secs, file->filepath,
-		file_lock_find(file->fd, index->set.lock_method, F_WRLCK));
+		file_lock_find(file->fd, index->set.lock_method, F_WRLCK, 0, 0));
 	return -1;
 }
 

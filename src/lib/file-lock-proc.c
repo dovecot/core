@@ -179,6 +179,14 @@ proc_lock_type_conflicts(const struct proc_lock *lock, int lock_type)
 	return lock->write || lock_type != F_RDLCK;
 }
 
+static bool
+proc_lock_range_conflicts(const struct proc_lock *lock,
+			  uoff_t start, uoff_t end)
+{
+	/* the ranges are inclusive */
+	return lock->start <= end && start <= lock->end;
+}
+
 static bool proc_lock_match_node(const struct proc_lock *lock,
 				 const struct stat *st)
 {
@@ -189,19 +197,23 @@ static bool proc_lock_match_node(const struct proc_lock *lock,
 
 static bool
 proc_lock_conflicts(const struct proc_lock *lock, const struct stat *st,
-		    enum file_lock_method lock_method, int lock_type)
+		    enum file_lock_method lock_method, int lock_type,
+		    uoff_t start, uoff_t end)
 {
 	if (lock->waiter || lock->pid <= 0)
 		return FALSE;
 
 	return proc_lock_class_matches(lock->lock_class, lock_method) &&
 		proc_lock_type_conflicts(lock, lock_type) &&
+		proc_lock_range_conflicts(lock, start, end) &&
 		proc_lock_match_node(lock, st);
 }
 
 const char *file_lock_proc_find(int lock_fd ATTR_UNUSED,
 				enum file_lock_method lock_method ATTR_UNUSED,
-				int lock_type ATTR_UNUSED)
+				int lock_type ATTR_UNUSED,
+				uoff_t start ATTR_UNUSED,
+				uoff_t len ATTR_UNUSED)
 {
 	/* do anything except Linux support this? don't bother trying it for
 	   OSes we don't know about. */
@@ -211,6 +223,7 @@ const char *file_lock_proc_find(int lock_fd ATTR_UNUSED,
 	const struct proc_lock *lock, *match = NULL;
 	struct stat st;
 	const char *ret;
+	uoff_t end = len == 0 ? UOFF_T_MAX : start + len - 1;
 
 	if (!have_proc_locks)
 		return "";
@@ -225,7 +238,8 @@ const char *file_lock_proc_find(int lock_fd ATTR_UNUSED,
 	}
 
 	array_foreach(&locks, lock) {
-		if (proc_lock_conflicts(lock, &st, lock_method, lock_type)) {
+		if (proc_lock_conflicts(lock, &st, lock_method, lock_type,
+					start, end)) {
 			match = lock;
 			break;
 		}

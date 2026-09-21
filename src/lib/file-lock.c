@@ -70,15 +70,15 @@ int file_try_lock(int fd, const char *path, int lock_type,
 }
 
 static const char *
-file_lock_find_fcntl(int lock_fd, int lock_type)
+file_lock_find_fcntl(int lock_fd, int lock_type, uoff_t start, uoff_t len)
 {
 	struct flock fl;
 
 	i_zero(&fl);
 	fl.l_type = lock_type;
 	fl.l_whence = SEEK_SET;
-	fl.l_start = 0;
-	fl.l_len = 0;
+	fl.l_start = start;
+	fl.l_len = len;
 
 	if (fcntl(lock_fd, F_GETLK, &fl) < 0 ||
 	    fl.l_type == F_UNLCK || fl.l_pid == -1 || fl.l_pid == 0)
@@ -88,16 +88,16 @@ file_lock_find_fcntl(int lock_fd, int lock_type)
 }
 
 const char *file_lock_find(int lock_fd, enum file_lock_method lock_method,
-			   int lock_type)
+			   int lock_type, uoff_t start, uoff_t len)
 {
 	const char *ret;
 
 	if (lock_method == FILE_LOCK_METHOD_FCNTL) {
-		ret = file_lock_find_fcntl(lock_fd, lock_type);
+		ret = file_lock_find_fcntl(lock_fd, lock_type, start, len);
 		if (ret[0] != '\0')
 			return ret;
 	}
-	return file_lock_proc_find(lock_fd, lock_method, lock_type);
+	return file_lock_proc_find(lock_fd, lock_method, lock_type, start, len);
 }
 
 static bool err_is_lock_timeout(time_t started, unsigned int timeout_secs)
@@ -197,7 +197,7 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 				"Timed out after %u seconds%s",
 				path, lock_type_str, timeout_secs,
 				file_lock_find(fd, set->lock_method,
-					       lock_type));
+					       lock_type, 0, 0));
 			return 0;
 		}
 		if (errno == EINTR) {
@@ -213,7 +213,7 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 		if (errno == EDEADLK && !set->allow_deadlock) {
 			i_panic("%s%s", *error_r,
 				file_lock_find(fd, set->lock_method,
-					       lock_type));
+					       lock_type, 0, 0));
 		}
 		return -1;
 	}
@@ -263,7 +263,7 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 				"Timed out after %u seconds%s",
 				path, lock_type_str, timeout_secs,
 				file_lock_find(fd, set->lock_method,
-					       lock_type));
+					       lock_type, 0, 0));
 			return 0;
 		}
 		if (errno == EINTR) {
@@ -278,7 +278,7 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 		if (errno == EDEADLK && !set->allow_deadlock) {
 			i_panic("%s%s", *error_r,
 				file_lock_find(fd, set->lock_method,
-					       lock_type));
+					       lock_type, 0, 0));
 		}
 		return -1;
 #endif
