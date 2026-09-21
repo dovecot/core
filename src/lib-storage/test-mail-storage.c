@@ -415,6 +415,7 @@ test_mailbox_verify_name_driver_slash(const char *driver,
 		"namespace+=subspace",
 		"namespace/subspace/separator=/",
 		"namespace/subspace/prefix=SubSpace/",
+		"namespace/subspace/mail_path=~/subspace",
 		layout_option,
 		NULL
 	};
@@ -445,6 +446,7 @@ test_mailbox_verify_name_driver_dot(const char *driver,
 		"namespace+=subspace",
 		"namespace/subspace/separator=.",
 		"namespace/subspace/prefix=SubSpace.",
+		"namespace/subspace/mail_path=~/subspace",
 		layout_option,
 		NULL
 	};
