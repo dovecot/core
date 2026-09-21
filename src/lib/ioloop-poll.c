@@ -197,6 +197,7 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 			/* io_add_istream() without fd */
 			continue;
 		}
+		i_assert(ctx->fd_index[io->fd] >= 0);
 		pollfd = &ctx->fds[ctx->fd_index[io->fd]];
 		if (pollfd->revents != 0) {
 			if (pollfd->revents & POLLNVAL) {
