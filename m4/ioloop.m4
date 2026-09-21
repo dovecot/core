@@ -42,7 +42,7 @@ AC_DEFUN([DOVECOT_IOLOOP], [
       have_ioloop=yes
     ], [
       AS_IF([test "$ioloop" = "poll"], [
-        AC_MSG_ERROR([pool ioloop requested but poll() is not available])
+        AC_MSG_ERROR([poll ioloop requested but poll() is not available])
       ])
      ])
   ])
