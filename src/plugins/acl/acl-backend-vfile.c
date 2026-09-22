@@ -9,6 +9,7 @@
 #include "mailbox-list-private.h"
 #include "acl-cache.h"
 #include "acl-backend-vfile.h"
+#include "acl-storage.h"
 
 #include <fcntl.h>
 #include <unistd.h>
