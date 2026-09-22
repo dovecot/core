@@ -341,6 +341,11 @@ static void test_acl_vfile_update_no_local_path(void)
 	test_end();
 }
 
+/* An ACL update must rebuild the process-wide rights mask itself:
+   acl_backend_vfile_update_begin() rebuilds it from the pre-update file
+   under the lock, and the updated validity matches the written file, so
+   with a working acl_cache_ttl a stale mask would be undetectable and
+   served for the whole TTL. */
 static void test_acl_vfile_update_config_rights(void)
 {
 	struct acl_object *aclobj;
@@ -370,6 +375,33 @@ static void test_acl_vfile_update_config_rights(void)
 	test_assert_strcmp(test_acl_list(aclobj),
 			   TEST_UPDATE_ID" lookup read, "
 			   "anyone lookup read (global)");
+
+	acl_object_deinit(&aclobj);
+	test_acl_user_deinit();
+	test_end();
+}
+
+static void test_acl_vfile_update_own_change_visible(void)
+{
+	struct acl_object *aclobj;
+
+	test_begin("acl vfile update own change visible");
+	test_acl_user_init(TEST_INPUT("acl_user="TEST_ACL_USER,
+				      "acl_cache_ttl=30s"));
+	test_acl_mailbox_create(TEST_MAILBOX);
+
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	/* prime the rights mask from the pre-update state */
+	test_assert_strcmp(test_acl_my_rights(aclobj), "");
+
+	test_assert(test_acl_do_update(aclobj, TEST_UPDATE_ID,
+				       TEST_RIGHTS(MAIL_ACL_LOOKUP,
+						   MAIL_ACL_READ),
+				       ACL_MODIFY_MODE_ADD,
+				       ACL_MODIFY_MODE_ADD) == 0);
+	/* the process's own change is visible right away, not only after
+	   acl_cache_ttl */
+	test_assert_strcmp(test_acl_my_rights(aclobj), "lookup read");
 
 	acl_object_deinit(&aclobj);
 	test_acl_user_deinit();
@@ -1002,6 +1034,7 @@ int main(int argc, char **argv)
 		test_acl_vfile_update_last_change,
 		test_acl_vfile_update_no_local_path,
 		test_acl_vfile_update_config_rights,
+		test_acl_vfile_update_own_change_visible,
 		test_acl_vfile_rights_cache,
 		test_acl_vfile_rights_cache_corrupt,
 		test_acl_vfile_rights_cache_rename,
