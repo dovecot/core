@@ -38,40 +38,6 @@ acllist_clear(struct acl_backend_vfile *backend, uoff_t file_size)
 	}
 }
 
-static bool acl_list_get_root_dir(struct acl_backend_vfile *backend,
-				  const char **root_dir_r,
-				  enum mailbox_list_path_type *type_r)
-{
-	struct mail_storage *storage;
-	const char *rootdir, *maildir;
-	enum mailbox_list_path_type type;
-
-	if (backend->backend.set->acl_globals_only)
-		return FALSE;
-
-	storage = mailbox_list_get_namespace(backend->backend.list)->storage;
-	type = mail_storage_get_acl_list_path_type(storage);
-	if (!mailbox_list_get_root_path(backend->backend.list, type, &rootdir))
-		return FALSE;
-	*type_r = type;
-
-	if (type == MAILBOX_LIST_PATH_TYPE_DIR &&
-	    mail_storage_is_mailbox_file(storage)) {
-		maildir = mailbox_list_get_root_forced(backend->backend.list,
-						       MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		if (strcmp(maildir, rootdir) == 0) {
-			/* dovecot-acl-list would show up as a mailbox if we
-			   created it to root dir. since we don't really have
-			   any other good alternatives, place it to control
-			   dir */
-			rootdir = mailbox_list_get_root_forced(backend->backend.list,
-					MAILBOX_LIST_PATH_TYPE_CONTROL);
-			*type_r = MAILBOX_LIST_PATH_TYPE_CONTROL;
-		}
-	}
-	*root_dir_r = rootdir;
-	return TRUE;
-}
 
 static bool acl_list_get_path(struct acl_backend_vfile *backend,
 			      const char **path_r)
@@ -79,7 +45,7 @@ static bool acl_list_get_path(struct acl_backend_vfile *backend,
 	enum mailbox_list_path_type type;
 	const char *root_dir;
 
-	if (!acl_list_get_root_dir(backend, &root_dir, &type))
+	if (!acl_backend_get_root_dir(&backend->backend, &root_dir, &type))
 		return FALSE;
 	*path_r = t_strconcat(root_dir, "/"ACLLIST_FILENAME, NULL);
 	return TRUE;
@@ -228,7 +194,7 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 
 	i_assert(!backend->rebuilding_acllist);
 
-	if (!acl_list_get_root_dir(backend, &rootdir, &type))
+	if (!acl_backend_get_root_dir(&backend->backend, &rootdir, &type))
 		return 0;
 
 	ns = mailbox_list_get_namespace(list);

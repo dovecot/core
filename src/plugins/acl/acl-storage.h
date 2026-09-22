@@ -48,6 +48,10 @@ acl_attribute_iter_init(struct mailbox *box, enum mail_attribute_type type,
 const char *acl_attribute_iter_next(struct mailbox_attribute_iter *iter);
 int acl_attribute_iter_deinit(struct mailbox_attribute_iter *iter);
 
+bool acl_backend_get_root_dir(struct acl_backend *backend,
+			      const char **root_dir_r,
+			      enum mailbox_list_path_type *type_r);
+
 enum mailbox_list_path_type
 mail_storage_get_acl_list_path_type(struct mail_storage *storage);
 

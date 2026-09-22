@@ -47,6 +47,47 @@ void acl_mail_user_created(struct mail_user *user)
 	MODULE_CONTEXT_SET(user, acl_user_module, auser);
 }
 
+bool acl_backend_get_root_dir(struct acl_backend *backend,
+			      const char **root_dir_r,
+			      enum mailbox_list_path_type *type_r)
+{
+	struct mail_storage *storage;
+	const char *rootdir, *maildir;
+	enum mailbox_list_path_type type;
+
+	if (backend->set->acl_globals_only)
+		return FALSE;
+
+	storage = mailbox_list_get_namespace(backend->list)->storage;
+	if (storage == NULL) {
+		/* Not known yet - the ACL backend is initialized from the
+		   mailbox_list_created hook, before the namespace's storage
+		   is created. */
+		return FALSE;
+	}
+	type = mail_storage_get_acl_list_path_type(storage);
+	if (!mailbox_list_get_root_path(backend->list, type, &rootdir))
+		return FALSE;
+	*type_r = type;
+
+	if (type == MAILBOX_LIST_PATH_TYPE_DIR &&
+	    mail_storage_is_mailbox_file(storage)) {
+		maildir = mailbox_list_get_root_forced(
+			backend->list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		if (strcmp(maildir, rootdir) == 0) {
+			/* dovecot-acl-list would show up as a mailbox if we
+			   created it to root dir. since we don't really have
+			   any other good alternatives, place it to control
+			   dir */
+			rootdir = mailbox_list_get_root_forced(backend->list,
+					MAILBOX_LIST_PATH_TYPE_CONTROL);
+			*type_r = MAILBOX_LIST_PATH_TYPE_CONTROL;
+		}
+	}
+	*root_dir_r = rootdir;
+	return TRUE;
+}
+
 enum mailbox_list_path_type
 mail_storage_get_acl_list_path_type(struct mail_storage *storage)
 {
