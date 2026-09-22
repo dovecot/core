@@ -37,7 +37,6 @@ libacl_plugin_static_la_SOURCES = \
 	acl-attributes.c \
 	acl-backend.c \
 	acl-backend-vfile.c \
-	acl-backend-vfile-acllist.c \
 	acl-backend-vfile-update.c \
 	acl-cache.c \
 	acl-lookup-dict.c \

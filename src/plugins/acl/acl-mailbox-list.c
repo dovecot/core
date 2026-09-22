@@ -220,7 +220,8 @@ acl_mailbox_list_iter_next_info(struct mailbox_list_iterate_context *_ctx)
 		    mailbox_tree_lookup(ctx->lookup_boxes, info->vname) != NULL)
 			break;
 		e_debug(_ctx->list->event,
-			"acl: Mailbox not in dovecot-acl-list: %s", info->vname);
+			"acl: Mailbox not in the ACL rights cache: %s",
+			info->vname);
 	}
 
 	return info;

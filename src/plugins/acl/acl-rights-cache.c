@@ -1309,11 +1309,20 @@ acl_backend_vfile_nonowner_iter_init(struct acl_backend *_backend)
 		container_of(_backend, struct acl_backend_vfile, backend);
 	struct acl_rights_cache_list_context_vfile *ctx;
 
-	acl_backend_vfile_acllist_refresh(backend);
+	acl_rights_cache_refresh(backend, TRUE);
 
 	ctx = i_new(struct acl_rights_cache_list_context_vfile, 1);
 	ctx->ctx.backend = _backend;
-	backend->iterating_acllist = TRUE;
+	if (acl_rights_cache_file_exists(_backend->rights_cache_file) <= 0 ||
+	    _backend->rights_cache_file->read_failed) {
+		/* There is no cache file (the rebuild failed or was
+		   skipped), or reading it failed, so the nonowner mailboxes
+		   are unknown. Fail the iteration instead of yielding an
+		   empty result - an empty result would make the ACL lookup
+		   dict rebuild remove the user's existing share entries. */
+		ctx->ctx.failed = TRUE;
+	}
+	backend->iterating_aclcache = TRUE;
 	return &ctx->ctx;
 }
 
@@ -1323,22 +1332,33 @@ bool acl_backend_vfile_nonowner_iter_next(struct acl_mailbox_list_context *_ctx,
 	struct acl_rights_cache_list_context_vfile *ctx =
 		container_of(_ctx, struct acl_rights_cache_list_context_vfile,
 			     ctx);
-	struct acl_backend_vfile *backend =
-		container_of(_ctx->backend, struct acl_backend_vfile, backend);
-	const struct acl_backend_vfile_acllist *acllist;
+	struct acl_backend *backend = _ctx->backend;
+	const struct acl_rights_cache_entry *rightslist;
 	unsigned int count;
 
 	if (_ctx->failed)
 		return FALSE;
 
-	acllist = array_get(&backend->acllist, &count);
+	rightslist = array_get(&backend->rights_cache_file->entries,
+			       &count);
 	if (count == 0)
 		_ctx->empty = TRUE;
-	if (ctx->idx == count)
-		return FALSE;
+	while (ctx->idx < count) {
+		const struct acl_rights_cache_entry *entry =
+			&rightslist[ctx->idx++];
 
-	*name_r = acllist[ctx->idx++].name;
-	return TRUE;
+		/* Skip mailboxes whose cached rights don't give any
+		   non-owner the lookup right - they can't be visible in
+		   other users' shared namespaces. An entry with a marker is
+		   returned: it exists exactly because the mailbox has
+		   nonowner lookup rights from configured ACLs. */
+		if (entry->marker ||
+		    acl_rights_cache_entry_has_nonowner_lookups(entry)) {
+			*name_r = entry->name;
+			return TRUE;
+		}
+	}
+	return FALSE;
 }
 
 int
@@ -1348,7 +1368,7 @@ acl_backend_vfile_nonowner_iter_deinit(struct acl_mailbox_list_context *ctx)
 		container_of(ctx->backend, struct acl_backend_vfile, backend);
 	int ret;
 
-	backend->iterating_acllist = FALSE;
+	backend->iterating_aclcache = FALSE;
 	if (ctx->failed)
 		ret = -1;
 	else if (ctx->empty)
@@ -1364,7 +1384,7 @@ int acl_backend_vfile_nonowner_lookups_rebuild(struct acl_backend *_backend)
 	struct acl_backend_vfile *backend =
 		container_of(_backend, struct acl_backend_vfile, backend);
 
-	return acl_backend_vfile_acllist_rebuild(backend);
+	return acl_rights_cache_rebuild(backend);
 }
 
 /* TRUE if name is root or a child of it. */

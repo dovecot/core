@@ -51,10 +51,6 @@ static void acl_backend_vfile_deinit(struct acl_backend *_backend)
 	struct acl_backend_vfile *backend =
 		container_of(_backend, struct acl_backend_vfile, backend);
 
-	if (backend->acllist_pool != NULL) {
-		array_free(&backend->acllist);
-		pool_unref(&backend->acllist_pool);
-	}
 	acl_rights_cache_file_deinit(&_backend->rights_cache_file);
 	pool_unref(&backend->backend.pool);
 }
@@ -247,17 +243,56 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 	const char *line, *error;
 	unsigned int linenum;
 	int fd, ret = 0;
+	bool has_acl_cache_for_mailbox = FALSE;
+	struct acl_backend_vfile *backend_vfile =
+		container_of(aclobj->backend, struct acl_backend_vfile,
+			     backend);
+	/* The storage has a mailbox's files locally only while the mailbox
+	   is open (e.g. obox metacache). At other times the ACL file may be
+	   missing, or be an old copy. */
+	bool file_uncertain =
+		acl_backend_storage_has_cached_files(aclobj->backend);
+	bool file_is_old = FALSE;
+	struct timeval cache_mtime = { 0, 0 };
+
+	/* The owner's own ACL reads create a missing cache, so it exists
+	   before the first ACL change - e.g. right after an upgrade, when
+	   the grantees would otherwise see nothing. A shared namespace never
+	   rebuilds the owner's cache. */
+	acl_rights_cache_refresh(backend_vfile,
+		mailbox_list_get_namespace(aclobj->backend->list)->type !=
+		MAIL_NAMESPACE_TYPE_SHARED);
+	has_acl_cache_for_mailbox = acl_rights_cache_file_have_any(
+		aclobj->backend->rights_cache_file, aclobj->name, NULL);
 
 	fd = nfs_safe_open(path, O_RDONLY);
+	if (fd != -1 && file_uncertain && fstat(fd, &st) == 0 &&
+	    acl_rights_cache_file_get_mtime(aclobj->backend->rights_cache_file,
+					    aclobj->name, &cache_mtime) &&
+	    (cache_mtime.tv_sec > st.st_mtime ||
+	     (cache_mtime.tv_sec == st.st_mtime &&
+	      (unsigned long)cache_mtime.tv_usec > ST_MTIME_NSEC(st) / 1000))) {
+		/* Only with MAIL_STORAGE_CLASS_FLAG_CACHED_FILES (e.g. obox):
+		   the cache entry is from a newer ACL file, changed on another
+		   server, so this file is an old copy. Handle it like an ACL
+		   file that isn't locally available. */
+		e_debug(event, "acl vfile: file %s is older than its rights cache entry", path);
+		i_close_fd(&fd);
+		file_is_old = TRUE;
+	}
 	if (fd == -1) {
-		if (errno == ENOENT || errno == ENOTDIR) {
-			e_debug(event, "acl vfile: file %s not found", path);
+		if (file_is_old || errno == ENOENT || errno == ENOTDIR) {
+			if (!file_is_old)
+				e_debug(event, "acl vfile: file %s not found", path);
 			validity->last_mtime = ACL_VFILE_VALIDITY_MTIME_NOTFOUND;
 		} else if (ENOACCESS(errno)) {
 			e_debug(event, "acl vfile: no access to file %s", path);
 
 			acl_object_remove_all_access(aclobj);
 			validity->last_mtime = ACL_VFILE_VALIDITY_MTIME_NOACCESS;
+			/* The ACL file exists but isn't readable. The cached
+			   rights must not override this. */
+			has_acl_cache_for_mailbox = FALSE;
 		} else {
 			e_error(event, "open(%s) failed: %m", path);
 			return -1;
@@ -265,6 +300,57 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 
 		validity->last_size = 0;
 		validity->last_read_time = ioloop_time;
+		if (!has_acl_cache_for_mailbox) {
+			e_debug(event, "No acl-cache for %s found", path);
+			return 1;
+		}
+	}
+
+	if (has_acl_cache_for_mailbox && fd == -1) {
+		/* The mailbox has no local ACL file, but the cache has
+		   rights for it. */
+		if (!file_uncertain) {
+			enum acl_rights_cache_evict_flags flags = 0;
+
+			/* The storage has the mailbox's files locally at all
+			   times: the ACL file was really deleted. */
+			if (acl_object_has_global_nonowner_lookup(aclobj))
+				flags |= ACL_RIGHTS_CACHE_EVICT_KEEP_MARKER;
+			acl_rights_cache_evict(aclobj->backend, aclobj->name,
+					       flags);
+			return 1;
+		}
+		/* The ACL file may just not be locally available now. If the
+		   mailbox still exists in the mailbox list, use the cached
+		   rights. If the mailbox is gone, evict the cache entry. */
+		const char *vname =
+			mailbox_list_get_vname(aclobj->backend->list,
+					       aclobj->name);
+		struct mailbox *box =
+			mailbox_alloc(aclobj->backend->list, vname,
+				      MAILBOX_FLAG_IGNORE_ACLS |
+				      MAILBOX_FLAG_RAW_NAME);
+		enum mailbox_existence existence;
+		bool found_mailbox;
+
+		if (mailbox_exists(box, FALSE, &existence) < 0) {
+			/* Can't tell whether the mailbox still exists.
+			   Don't touch the cache entry and keep serving the
+			   cached rights. */
+			found_mailbox = TRUE;
+		} else {
+			found_mailbox = existence == MAILBOX_EXISTENCE_SELECT;
+		}
+		mailbox_free(&box);
+		if (found_mailbox) {
+			acl_rights_cache_file_get(
+				aclobj->backend->rights_cache_file,
+				aclobj->name, aclobj->rights_pool,
+				&aclobj->rights);
+		} else {
+			acl_rights_cache_evict(aclobj->backend, aclobj->name,
+					       0);
+		}
 		return 1;
 	}
 
@@ -325,6 +411,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 			ret = 1;
 			validity->last_read_time = ioloop_time;
 			validity->last_mtime = st.st_mtime;
+			validity->last_mtime_usecs = ST_MTIME_NSEC(st) / 1000;
 			validity->last_size = st.st_size;
 		}
 	}
@@ -479,7 +566,7 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 }
 
 int acl_backend_vfile_object_get_mtime(struct acl_object *aclobj,
-				       time_t *mtime_r)
+				       struct timeval *mtime_r)
 {
 	struct acl_backend_vfile_validity *validity;
 
@@ -487,10 +574,12 @@ int acl_backend_vfile_object_get_mtime(struct acl_object *aclobj,
 	if (validity == NULL)
 		return -1;
 
-	if (validity->local_validity.last_mtime != 0)
-		*mtime_r = validity->local_validity.last_mtime;
-	else
-		*mtime_r = 0;
+	if (validity->local_validity.last_mtime != 0) {
+		mtime_r->tv_sec = validity->local_validity.last_mtime;
+		mtime_r->tv_usec = validity->local_validity.last_mtime_usecs;
+	} else {
+		i_zero(mtime_r);
+	}
 	return 0;
 }
 
@@ -498,11 +587,10 @@ static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 {
 	struct acl_object_vfile *aclobj =
 		container_of(_aclobj, struct acl_object_vfile, aclobj);
-	struct acl_backend_vfile *backend =
-		container_of(_aclobj->backend, struct acl_backend_vfile, backend);
 	struct acl_backend_vfile_validity *old_validity;
 	struct acl_backend_vfile_validity validity;
-	time_t mtime;
+	const struct acl_rights *rights;
+	unsigned int count;
 	int ret;
 
 	if (aclobj->failed)
@@ -537,19 +625,28 @@ static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 	i_zero(&validity);
 	if (acl_backend_get_mailbox_acl(_aclobj->backend, _aclobj) < 0)
 		return -1;
+	unsigned int global_rights_count = array_count(&_aclobj->rights);
 
 	if (acl_backend_vfile_read_with_retry(_aclobj, aclobj->local_path,
 					      &validity.local_validity) < 0)
 		return -1;
 
+	/* The rights after global_rights_count came from the ACL file.
+	   Verify the rights cache against them before sorting merges them
+	   with the configuration-provided rights. */
+	rights = array_get(&_aclobj->rights, &count);
+	const struct timeval mtime = {
+		.tv_sec = validity.local_validity.last_mtime,
+		.tv_usec = validity.local_validity.last_mtime_usecs,
+	};
+	acl_rights_cache_verify(_aclobj, rights + global_rights_count,
+				count - global_rights_count, &mtime);
+
 	acl_object_rights_sort(_aclobj);
 	/* update cache only after we've successfully read everything */
 	acl_object_rebuild_cache(_aclobj);
-	acl_cache_set_validity(_aclobj->backend->cache,
-			       _aclobj->name, &validity);
-
-	if (acl_backend_vfile_object_get_mtime(_aclobj, &mtime) == 0)
-		acl_backend_vfile_acllist_verify(backend, _aclobj->name, mtime);
+	acl_cache_set_validity(_aclobj->backend->cache, _aclobj->name,
+			       &validity);
 	return 0;
 }
 

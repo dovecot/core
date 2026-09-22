@@ -75,7 +75,7 @@ bool acl_backend_get_root_dir(struct acl_backend *backend,
 		maildir = mailbox_list_get_root_forced(
 			backend->list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 		if (strcmp(maildir, rootdir) == 0) {
-			/* dovecot-acl-list would show up as a mailbox if we
+			/* acl-rights.cache would show up as a mailbox if we
 			   created it to root dir. since we don't really have
 			   any other good alternatives, place it to control
 			   dir */

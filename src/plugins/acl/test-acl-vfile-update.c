@@ -1,7 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 /* Tests for the vfile ACL backend's write path: acl_object_update() and the
-   dovecot-acl-list file it maintains. */
+   acl-rights.cache file it maintains. */
 
 #include "lib.h"
 #include "array.h"
@@ -10,7 +10,9 @@
 #include "mail-storage.h"
 #include "mailbox-list.h"
 #include "acl-cache.h"
+#include "acl-storage.h"
 #include "acl-backend-vfile.h"
+#include "acl-rights-cache.h"
 #include "test-acl-common.h"
 
 #include <sys/stat.h>
@@ -32,6 +34,16 @@ static void test_acl_update_setup(const char *const *extra_input)
 	test_acl_user_init(extra_input);
 	test_acl_mailbox_create(TEST_MAILBOX);
 	test_acl_path = test_acl_local_path(TEST_MAILBOX);
+}
+
+static const char *test_acl_cache_path(void)
+{
+	const char *root_dir;
+	enum mailbox_list_path_type type;
+
+	if (!acl_backend_get_root_dir(test_acl.backend, &root_dir, &type))
+		i_fatal("acl_backend_get_root_dir() failed");
+	return t_strconcat(root_dir, "/"ACL_RIGHTS_CACHE, NULL);
 }
 
 static int
@@ -325,70 +337,6 @@ static void test_acl_vfile_update_no_local_path(void)
 	test_end();
 }
 
-static void test_acl_vfile_acllist(void)
-{
-	struct acl_backend_vfile *backend;
-	struct acl_mailbox_list_context *ctx;
-	struct acl_object *aclobj;
-	const char *acllist_path, *root_dir, *name;
-	unsigned int count = 0;
-
-	test_begin("acl vfile acllist");
-	test_acl_update_setup(NULL);
-	test_acl_mailbox_create(TEST_MAILBOX2);
-	test_acl_mailbox_create(TEST_MAILBOX3);
-
-	/* Test2 has ACLs, but none of them give a non-owner the lookup
-	   right. Test3 only has an owner entry, whose lookup right doesn't
-	   count either. Neither belongs in dovecot-acl-list. */
-	test_acl_write_file(test_acl_local_path(TEST_MAILBOX2),
-			    TEST_UPDATE_ID" r\n");
-	test_acl_write_file(test_acl_local_path(TEST_MAILBOX3), "owner l\n");
-
-	backend = container_of(test_acl.backend, struct acl_backend_vfile,
-			       backend);
-	if (!mailbox_list_get_root_path(test_acl.list,
-					MAILBOX_LIST_PATH_TYPE_MAILBOX,
-					&root_dir))
-		i_fatal("mailbox_list_get_root_path() failed");
-	acllist_path = t_strconcat(root_dir, "/"ACLLIST_FILENAME, NULL);
-
-	/* granting a non-owner the lookup right rebuilds dovecot-acl-list */
-	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
-	test_assert(test_acl_do_update(aclobj, TEST_UPDATE_ID,
-				       TEST_RIGHTS(MAIL_ACL_LOOKUP,
-						   MAIL_ACL_READ),
-				       ACL_MODIFY_MODE_ADD,
-				       ACL_MODIFY_MODE_ADD) == 0);
-	acl_object_deinit(&aclobj);
-
-	const char *acllist = test_acl_read_file(acllist_path);
-	test_assert(acllist != NULL);
-	test_assert(acllist != NULL &&
-		    strstr(acllist, " "TEST_MAILBOX"\n") != NULL);
-	test_assert(acllist != NULL &&
-		    strstr(acllist, " "TEST_MAILBOX2"\n") == NULL);
-	test_assert(acllist != NULL &&
-		    strstr(acllist, " "TEST_MAILBOX3"\n") == NULL);
-
-	/* and the mailbox shows up in the non-owner lookup iteration */
-	ctx = acl_backend_nonowner_lookups_iter_init(test_acl.backend);
-	while (acl_backend_nonowner_lookups_iter_next(ctx, &name)) {
-		count++;
-		test_assert_strcmp(name, TEST_MAILBOX);
-	}
-	test_assert(acl_backend_nonowner_lookups_iter_deinit(&ctx) == 1);
-	test_assert_cmp(count, ==, 1);
-
-	/* an explicit rebuild produces the same result */
-	test_assert(acl_backend_nonowner_lookups_rebuild(
-			test_acl.backend) == 0);
-	test_assert_cmp(array_count(&backend->acllist), ==, 1);
-
-	test_acl_user_deinit();
-	test_end();
-}
-
 static void test_acl_vfile_update_config_rights(void)
 {
 	struct acl_object *aclobj;
@@ -424,6 +372,123 @@ static void test_acl_vfile_update_config_rights(void)
 	test_end();
 }
 
+static void test_acl_vfile_rights_cache(void)
+{
+	struct acl_mailbox_list_context *ctx;
+	struct acl_object *aclobj;
+	const char *cache_path, *name;
+	unsigned int count = 0;
+
+	test_begin("acl vfile rights cache");
+	test_acl_update_setup(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX2);
+	test_acl_mailbox_create(TEST_MAILBOX3);
+
+	/* Test2 has ACLs, but none of them give a non-owner the lookup
+	   right. Test3 only has an owner entry, whose lookup right doesn't
+	   count either. Both get cached, but neither belongs in the
+	   non-owner lookup iteration. */
+	test_acl_write_file(test_acl_local_path(TEST_MAILBOX2),
+			    TEST_UPDATE_ID" r\n");
+	test_acl_write_file(test_acl_local_path(TEST_MAILBOX3), "owner l\n");
+
+	cache_path = test_acl_cache_path();
+
+	/* the first update creates the rights cache with a full rebuild,
+	   which picks up all mailboxes' ACL files */
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	test_assert(test_acl_do_update(aclobj, TEST_UPDATE_ID,
+				       TEST_RIGHTS(MAIL_ACL_LOOKUP,
+						   MAIL_ACL_READ),
+				       ACL_MODIFY_MODE_ADD,
+				       ACL_MODIFY_MODE_ADD) == 0);
+	acl_object_deinit(&aclobj);
+
+	const char *cache = test_acl_read_file(cache_path);
+	test_assert(cache != NULL);
+	test_assert(cache != NULL &&
+		    strstr(cache, "\t"TEST_MAILBOX"\t") != NULL);
+	test_assert(cache != NULL &&
+		    strstr(cache, "\t"TEST_MAILBOX2"\t") != NULL);
+	test_assert(cache != NULL &&
+		    strstr(cache, "\t"TEST_MAILBOX3"\t") != NULL);
+
+	/* only the mailbox with non-owner lookup rights shows up in the
+	   non-owner lookup iteration */
+	ctx = acl_backend_nonowner_lookups_iter_init(test_acl.backend);
+	while (acl_backend_nonowner_lookups_iter_next(ctx, &name)) {
+		count++;
+		test_assert_strcmp(name, TEST_MAILBOX);
+	}
+	test_assert(acl_backend_nonowner_lookups_iter_deinit(&ctx) == 1);
+	test_assert_cmp(count, ==, 1);
+
+	/* an explicit rebuild produces the same result */
+	test_assert(acl_backend_nonowner_lookups_rebuild(
+			test_acl.backend) == 0);
+	count = 0;
+	ctx = acl_backend_nonowner_lookups_iter_init(test_acl.backend);
+	while (acl_backend_nonowner_lookups_iter_next(ctx, &name)) {
+		count++;
+		test_assert_strcmp(name, TEST_MAILBOX);
+	}
+	test_assert(acl_backend_nonowner_lookups_iter_deinit(&ctx) == 1);
+	test_assert_cmp(count, ==, 1);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+static void test_acl_vfile_rights_cache_corrupt(void)
+{
+	struct acl_mailbox_list_context *ctx;
+	struct acl_object *aclobj;
+	const char *cache_path, *name;
+	unsigned int count = 0;
+
+	test_begin("acl vfile rights cache corrupt");
+	test_acl_update_setup(TEST_INPUT("acl_cache_ttl=0"));
+
+	cache_path = test_acl_cache_path();
+
+	/* the first update creates the rights cache */
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	test_assert(test_acl_do_update(aclobj, TEST_UPDATE_ID,
+				       TEST_RIGHTS(MAIL_ACL_LOOKUP,
+						   MAIL_ACL_READ),
+				       ACL_MODIFY_MODE_ADD,
+				       ACL_MODIFY_MODE_ADD) == 0);
+	acl_object_deinit(&aclobj);
+	test_assert(test_acl_read_file(cache_path) != NULL);
+
+	test_acl_write_file(cache_path, "V1\nbroken\n");
+
+	/* A corrupt cache must not be treated as an authoritative empty
+	   result - that would make the ACL lookup dict rebuild remove the
+	   user's existing share entries. The iteration's refresh notices
+	   the read failure and recovers with a rebuild: one read error
+	   from the refresh, a second from the rebuild's re-read under the
+	   lock. */
+	test_expect_error_string_n_times("Invalid number of fields", 2);
+	ctx = acl_backend_nonowner_lookups_iter_init(test_acl.backend);
+	while (acl_backend_nonowner_lookups_iter_next(ctx, &name)) {
+		count++;
+		test_assert_strcmp(name, TEST_MAILBOX);
+	}
+	test_assert(acl_backend_nonowner_lookups_iter_deinit(&ctx) == 1);
+	test_expect_no_more_errors();
+	test_assert_cmp(count, ==, 1);
+
+	/* the rebuild replaced the corrupt file */
+	const char *cache = test_acl_read_file(cache_path);
+	test_assert(cache != NULL && strstr(cache, "broken") == NULL);
+	test_assert(cache != NULL &&
+		    strstr(cache, "\t"TEST_MAILBOX"\t") != NULL);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 int main(int argc, char **argv)
 {
 	static void (*const test_functions[])(void) = {
@@ -437,7 +502,8 @@ int main(int argc, char **argv)
 		test_acl_vfile_update_last_change,
 		test_acl_vfile_update_no_local_path,
 		test_acl_vfile_update_config_rights,
-		test_acl_vfile_acllist,
+		test_acl_vfile_rights_cache,
+		test_acl_vfile_rights_cache_corrupt,
 		NULL
 	};
 	int ret;

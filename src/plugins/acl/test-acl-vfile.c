@@ -357,8 +357,10 @@ static void test_acl_vfile_parse_error(void)
 
 	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
 	/* an unparseable line makes the whole file unusable rather than
-	   silently granting the rights of the lines before it */
-	test_expect_error_string("line 2: Unknown ID 'bogus'");
+	   silently granting the rights of the lines before it. The error is
+	   logged twice: the first ACL read also tries to create the rights
+	   cache, and that rebuild reads every mailbox's ACL file. */
+	test_expect_error_string_n_times("line 2: Unknown ID 'bogus'", 2);
 	test_assert_strcmp(test_acl_my_rights(aclobj), "<error>");
 	test_expect_no_more_errors();
 	acl_object_deinit(&aclobj);

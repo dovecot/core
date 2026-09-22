@@ -470,16 +470,28 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 			break;
 		}
 	}
-	if (acl_backend_nonowner_lookups_iter_deinit(&iter) < 0)
-		i_fatal("ACL non-owner iteration failed");
+	if (acl_backend_nonowner_lookups_iter_deinit(&iter) < 0) {
+		/* There is no usable rights cache. From a shared namespace
+		   that is normal until the owner's cache has been created,
+		   and so it is for a namespace whose ACL root can't be
+		   written. */
+		if (ns->owner != NULL) {
+			e_error(box->event, "The ACL rights cache of %s is missing or unusable - run doveadm acl recalc -u %s",
+				ns->owner->username, ns->owner->username);
+		} else {
+			e_error(box->event, "The ACL rights cache of namespace %s is missing or unusable",
+				ns->set->name);
+		}
+		return FALSE;
+	}
 	if (!found) {
-		e_error(box->event, "Mailbox not found from dovecot-acl-list, rebuilding");
+		e_error(box->event, "Mailbox not found from the ACL rights cache, rebuilding");
 		if (acl_backend_nonowner_lookups_rebuild(backend) < 0)
-			i_fatal("dovecot-acl-list rebuilding failed");
+			i_fatal("ACL rights cache rebuilding failed");
 		all_ok = FALSE;
 		*retry_r = TRUE;
 	} else {
-		e_info(box->event, "Mailbox found from dovecot-acl-list");
+		e_info(box->event, "Mailbox found from the ACL rights cache");
 	}
 
 	if (ns->type == MAIL_NAMESPACE_TYPE_PUBLIC) {
