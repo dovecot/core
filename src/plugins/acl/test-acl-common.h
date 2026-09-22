@@ -38,6 +38,9 @@ void test_acl_user_init_driver(const char *driver,
    so that mailbox operations go through the ACL plugin's list vfuncs. */
 void test_acl_user_init_list_hooks(const char *const *extra_input);
 void test_acl_user_deinit(void);
+/* Makes the user's storage look like one that has a mailbox's files locally
+   only while the mailbox is open (MAIL_STORAGE_CLASS_FLAG_CACHED_FILES). */
+void test_acl_storage_set_cached_files(void);
 
 /* Creates the mailbox unless it already exists. */
 void test_acl_mailbox_create(const char *name);

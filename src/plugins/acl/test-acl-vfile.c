@@ -10,10 +10,14 @@
 #include "mail-storage.h"
 #include "mailbox-list.h"
 #include "acl-cache.h"
+#include "acl-storage.h"
 #include "acl-backend-vfile.h"
+#include "acl-rights-cache.h"
 #include "test-acl-common.h"
 
 #include <unistd.h>
+#include <utime.h>
+#include <sys/stat.h>
 
 #define TEST_MAILBOX "Test"
 #define TEST_CHILD_MAILBOX "Test/Child"
@@ -473,6 +477,238 @@ static void test_acl_vfile_parent(void)
 	test_end();
 }
 
+static const char *test_acl_cache_path(void)
+{
+	const char *root_dir;
+	enum mailbox_list_path_type type;
+
+	if (!acl_backend_get_root_dir(test_acl.backend, &root_dir, &type))
+		i_fatal("acl_backend_get_root_dir() failed");
+	return t_strconcat(root_dir, "/"ACL_RIGHTS_CACHE, NULL);
+}
+
+/* Create the rights cache with a full rebuild and make sure the mailbox is
+   in it. */
+static void test_acl_rights_cache_seed(void)
+{
+	const char *cache;
+
+	test_assert(acl_backend_nonowner_lookups_rebuild(
+			test_acl.backend) == 0);
+	cache = test_acl_read_file(test_acl_cache_path());
+	test_assert(cache != NULL &&
+		    strstr(cache, "\t"TEST_MAILBOX"\t") != NULL);
+}
+
+/* The storage has the mailboxes' files locally at all times, so a missing
+   ACL file is authoritative: the cached rights must not be served and the
+   entry is evicted. */
+static void test_acl_vfile_read_deleted_file_evicts(void)
+{
+	struct acl_object *aclobj;
+	const char *path, *cache;
+
+	test_begin("acl vfile read deleted ACL file evicts");
+	path = test_acl_setup(TEST_INPUT("acl_cache_ttl=0",
+					 "acl_user="TEST_ACL_USER),
+			      "user="TEST_ACL_USER" lr\n");
+	test_acl_rights_cache_seed();
+
+	i_unlink(path);
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	test_assert_strcmp(test_acl_my_rights(aclobj), "");
+	acl_object_deinit(&aclobj);
+
+	cache = test_acl_read_file(test_acl_cache_path());
+	test_assert(cache != NULL &&
+		    strstr(cache, "\t"TEST_MAILBOX"\t") == NULL &&
+		    strstr(cache, "\t"TEST_MAILBOX"\n") == NULL);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* An unreadable ACL file denies everything. The cached rights must not
+   override that. */
+static void test_acl_vfile_read_eacces_not_cached(void)
+{
+	struct acl_object *aclobj;
+	const char *path;
+
+	test_begin("acl vfile read EACCES not overridden by cache");
+	if (geteuid() == 0) {
+		/* chmod() doesn't stop root */
+		test_end();
+		return;
+	}
+	path = test_acl_setup(TEST_INPUT("acl_cache_ttl=0",
+					 "acl_user="TEST_ACL_USER),
+			      "user="TEST_ACL_USER" lr\n");
+	test_acl_rights_cache_seed();
+
+	if (chmod(path, 0) < 0)
+		i_fatal("chmod(%s) failed: %m", path);
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	test_assert_strcmp(test_acl_my_rights(aclobj), "");
+	acl_object_deinit(&aclobj);
+	if (chmod(path, 0644) < 0)
+		i_fatal("chmod(%s) failed: %m", path);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* Reading a mailbox that has no ACL file must not touch the other
+   mailboxes' cache entries. */
+static void test_acl_vfile_read_no_acl_keeps_cache(void)
+{
+	struct acl_object *aclobj;
+	const char *cache_before;
+
+	test_begin("acl vfile read without ACL file keeps cache");
+	(void)test_acl_setup(TEST_INPUT("acl_cache_ttl=0",
+					"acl_user="TEST_ACL_USER),
+			     "user="TEST_ACL_USER" lr\n");
+	test_acl_mailbox_create(TEST_CHILD_MAILBOX);
+	test_acl_rights_cache_seed();
+	cache_before = t_strdup(test_acl_read_file(test_acl_cache_path()));
+
+	aclobj = acl_object_init_from_name(test_acl.backend,
+		mailbox_list_get_storage_name(test_acl.list,
+					      TEST_CHILD_MAILBOX));
+	(void)test_acl_my_rights(aclobj);
+	acl_object_deinit(&aclobj);
+
+	test_assert_strcmp(test_acl_read_file(test_acl_cache_path()),
+			   cache_before);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* The owner's first ACL read creates a missing cache with a full rebuild,
+   so the cache exists before any ACL change - e.g. after an upgrade. */
+static void test_acl_vfile_read_creates_cache(void)
+{
+	struct acl_object *aclobj;
+	const char *cache;
+
+	test_begin("acl vfile read creates a missing cache");
+	(void)test_acl_setup(TEST_INPUT("acl_cache_ttl=0"),
+			     "user="TEST_ACL_USER" lr\n");
+	test_acl_mailbox_create(TEST_CHILD_MAILBOX);
+	/* the mailbox creation's ACL checks may already have created it */
+	i_unlink_if_exists(test_acl_cache_path());
+
+	/* an ACL read of a mailbox without an ACL file */
+	aclobj = acl_object_init_from_name(test_acl.backend,
+		mailbox_list_get_storage_name(test_acl.list,
+					      TEST_CHILD_MAILBOX));
+	(void)test_acl_my_rights(aclobj);
+	acl_object_deinit(&aclobj);
+
+	cache = test_acl_read_file(test_acl_cache_path());
+	test_assert(cache != NULL &&
+		    strstr(cache, "\t"TEST_MAILBOX"\t") != NULL);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* A rebuild that fails doesn't leave a cache behind. It lists every
+   mailbox, so it must not be retried by each ACL read, only once per
+   acl_cache_ttl. */
+static void test_acl_vfile_read_failed_rebuild_throttled(void)
+{
+	struct acl_object *aclobj;
+	const char *child;
+
+	test_begin("acl vfile read doesn't retry a failed rebuild");
+	(void)test_acl_setup(TEST_INPUT("acl_cache_ttl=30s"),
+			     "user="TEST_ACL_USER" lr\n");
+	test_acl_mailbox_create(TEST_CHILD_MAILBOX);
+	child = mailbox_list_get_storage_name(test_acl.list,
+					      TEST_CHILD_MAILBOX);
+	i_unlink_if_exists(test_acl_cache_path());
+	/* a broken ACL file aborts the rebuild */
+	test_acl_write_file(test_acl_local_path(TEST_MAILBOX),
+			    "b0rken junk here\n");
+
+	test_expect_error_string("ACL file");
+	aclobj = acl_object_init_from_name(test_acl.backend, child);
+	(void)test_acl_my_rights(aclobj);
+	acl_object_deinit(&aclobj);
+	test_expect_no_more_errors();
+	test_assert(test_acl_read_file(test_acl_cache_path()) == NULL);
+
+	/* the next read doesn't try again */
+	aclobj = acl_object_init_from_name(test_acl.backend, child);
+	(void)test_acl_my_rights(aclobj);
+	acl_object_deinit(&aclobj);
+
+	/* but one after acl_cache_ttl does */
+	ioloop_time += 31;
+	test_expect_error_string("ACL file");
+	aclobj = acl_object_init_from_name(test_acl.backend, child);
+	(void)test_acl_my_rights(aclobj);
+	acl_object_deinit(&aclobj);
+	test_expect_no_more_errors();
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+static void test_acl_set_mtime(const char *path, time_t mtime)
+{
+	struct utimbuf ut = { .actime = mtime, .modtime = mtime };
+
+	if (utime(path, &ut) < 0)
+		i_fatal("utime(%s) failed: %m", path);
+}
+
+/* With a storage that has a mailbox's files locally only while the mailbox
+   is open, a local ACL file that is older than the cache entry is an old
+   copy of a mailbox that was changed elsewhere: the cached rights are
+   served. A newer file is used, and the entry follows it. */
+static void test_acl_vfile_read_cached_files_old_file(void)
+{
+	struct acl_object *aclobj;
+	const char *path;
+	struct stat st;
+
+	test_begin("acl vfile read old ACL file with cached files");
+	path = test_acl_setup(TEST_INPUT("acl_cache_ttl=0",
+					 "acl_user="TEST_ACL_USER),
+			      "user="TEST_ACL_USER" lr\n");
+	test_acl_storage_set_cached_files();
+	test_acl_rights_cache_seed();
+	if (stat(path, &st) < 0)
+		i_fatal("stat(%s) failed: %m", path);
+
+	/* other rights in a file that is older than the entry */
+	test_acl_write_file(path, "user="TEST_ACL_USER" lrw\n");
+	test_acl_set_mtime(path, st.st_mtime - 10);
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	test_assert_strcmp(test_acl_my_rights(aclobj), "lookup read");
+	acl_object_deinit(&aclobj);
+
+	/* the same file, now newer than the entry */
+	test_acl_set_mtime(path, st.st_mtime + 10);
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	test_assert_strcmp(test_acl_my_rights(aclobj), "lookup read write");
+	acl_object_deinit(&aclobj);
+
+	/* the entry has the file's rights now: they are served when the
+	   file isn't there */
+	i_unlink(path);
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	test_assert_strcmp(test_acl_my_rights(aclobj), "lookup read write");
+	acl_object_deinit(&aclobj);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 int main(int argc, char **argv)
 {
 	static void (*const test_functions[])(void) = {
@@ -486,6 +722,12 @@ int main(int argc, char **argv)
 		test_acl_vfile_fresh_object_cache,
 		test_acl_vfile_cache_ttl,
 		test_acl_vfile_file_changed,
+		test_acl_vfile_read_deleted_file_evicts,
+		test_acl_vfile_read_eacces_not_cached,
+		test_acl_vfile_read_no_acl_keeps_cache,
+		test_acl_vfile_read_creates_cache,
+		test_acl_vfile_read_failed_rebuild_throttled,
+		test_acl_vfile_read_cached_files_old_file,
 		test_acl_vfile_last_changed,
 		test_acl_vfile_parse_error,
 		test_acl_vfile_defaults_from_inbox,

@@ -8,7 +8,7 @@
 #include "settings.h"
 #include "test-common.h"
 #include "test-dir.h"
-#include "mail-storage.h"
+#include "mail-storage-private.h"
 #include "mail-namespace.h"
 #include "mail-storage-hooks.h"
 #include "acl-plugin.h"
@@ -141,6 +141,14 @@ void test_acl_user_deinit(void)
 	mail_storage_hooks_remove_internal(test_acl_hooks);
 	test_mail_storage_deinit(&test_acl.storage);
 	i_zero(&test_acl);
+}
+
+void test_acl_storage_set_cached_files(void)
+{
+	struct mail_storage *storage =
+		mailbox_list_get_namespace(test_acl.list)->storage;
+
+	storage->class_flags |= MAIL_STORAGE_CLASS_FLAG_CACHED_FILES;
 }
 
 void test_acl_mailbox_create(const char *name)
