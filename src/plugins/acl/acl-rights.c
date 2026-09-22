@@ -517,10 +517,17 @@ void acl_rights_sort(ARRAY_TYPE(acl_rights) *rights, pool_t pool)
 	for (dest = 0, i = 1; i < count; i++) {
 		if (acl_rights_cmp(&_rights[i], &_rights[dest]) == 0) {
 			/* add i's rights to dest and delete i */
-			acl_right_names_merge(pool, &_rights[dest].rights,
-					      _rights[i].rights, FALSE);
-			acl_right_names_merge(pool, &_rights[dest].neg_rights,
-					      _rights[i].neg_rights, FALSE);
+			if (_rights[i].rights != NULL) {
+				acl_right_names_merge(pool,
+						      &_rights[dest].rights,
+						      _rights[i].rights, FALSE);
+			}
+			if (_rights[i].neg_rights != NULL) {
+				acl_right_names_merge(pool,
+						      &_rights[dest].neg_rights,
+						      _rights[i].neg_rights,
+						      FALSE);
+			}
 		} else {
 			if (++dest != i)
 				_rights[dest] = _rights[i];
