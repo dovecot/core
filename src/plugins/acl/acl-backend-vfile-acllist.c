@@ -18,12 +18,6 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-struct acl_mailbox_list_context_vfile {
-	struct acl_mailbox_list_context ctx;
-
-	unsigned int idx;
-};
-
 static void
 acllist_clear(struct acl_backend_vfile *backend, uoff_t file_size)
 {
@@ -328,68 +322,4 @@ void acl_backend_vfile_acllist_verify(struct acl_backend_vfile *backend,
 	acllist = acl_backend_vfile_acllist_find(backend, name);
 	if (acllist != NULL && acllist->mtime != mtime)
 		(void)acl_backend_vfile_acllist_rebuild(backend);
-}
-
-struct acl_mailbox_list_context *
-acl_backend_vfile_nonowner_iter_init(struct acl_backend *_backend)
-{
-	struct acl_backend_vfile *backend =
-		(struct acl_backend_vfile *)_backend;
-	struct acl_mailbox_list_context_vfile *ctx;
-
-	acl_backend_vfile_acllist_refresh(backend);
-
-	ctx = i_new(struct acl_mailbox_list_context_vfile, 1);
-	ctx->ctx.backend = _backend;
-	backend->iterating_acllist = TRUE;
-	return &ctx->ctx;
-}
-
-bool acl_backend_vfile_nonowner_iter_next(struct acl_mailbox_list_context *_ctx,
-					 const char **name_r)
-{
-	struct acl_mailbox_list_context_vfile *ctx =
-		(struct acl_mailbox_list_context_vfile *)_ctx;
-	struct acl_backend_vfile *backend =
-		(struct acl_backend_vfile *)_ctx->backend;
-	const struct acl_backend_vfile_acllist *acllist;
-	unsigned int count;
-
-	if (_ctx->failed)
-		return FALSE;
-
-	acllist = array_get(&backend->acllist, &count);
-	if (count == 0)
-		_ctx->empty = TRUE;
-	if (ctx->idx == count)
-		return FALSE;
-
-	*name_r = acllist[ctx->idx++].name;
-	return TRUE;
-}
-
-int
-acl_backend_vfile_nonowner_iter_deinit(struct acl_mailbox_list_context *ctx)
-{
-	struct acl_backend_vfile *backend =
-		(struct acl_backend_vfile *)ctx->backend;
-	int ret;
-
-	backend->iterating_acllist = FALSE;
-	if (ctx->failed)
-		ret = -1;
-	else if (ctx->empty)
-		ret = 0;
-	else
-		ret = 1;
-	i_free(ctx);
-	return ret;
-}
-
-int acl_backend_vfile_nonowner_lookups_rebuild(struct acl_backend *_backend)
-{
-	struct acl_backend_vfile *backend =
-		(struct acl_backend_vfile *)_backend;
-
-	return acl_backend_vfile_acllist_rebuild(backend);
 }
