@@ -787,7 +787,7 @@ static void test_phrase_with_sibling_next(void)
 	test_begin("phrase with sibling next pointer");
 
 	/* old (v1) args structure */
-	test_backend->flags &= ~FTS_BACKEND_FLAG_SEARCH_ARGS_V2;
+	test_backend->flags &= ENUM_NEGATE(FTS_BACKEND_FLAG_SEARCH_ARGS_V2);
 	test_phrase_with_sibling_next_helper();
 
 	/* SEARCH_ARGS_V2 */
