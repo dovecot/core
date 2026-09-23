@@ -66,6 +66,8 @@ int (*hook_config_parser_end)(struct config_parser_context *ctx,
 
 static ARRAY_TYPE(config_service) services_free_at_deinit = ARRAY_INIT;
 static ARRAY_TYPE(setting_parser_info_p) infos_free_at_deinit = ARRAY_INIT;
+/* Settings infos that were dropped, because their plugin isn't installed */
+static ARRAY_TYPE(setting_parser_info_p) missing_plugin_infos = ARRAY_INIT;
 static string_t *config_import;
 
 static struct config_filter_parser *
@@ -1569,12 +1571,61 @@ config_set_unknown_key_error_str(struct config_parser_context *ctx,
 	}
 }
 
+static const struct setting_parser_info *
+config_missing_plugin_info_find(const char *key)
+{
+	const struct setting_parser_info *info;
+
+	if (!array_is_created(&missing_plugin_infos))
+		return NULL;
+	array_foreach_elem(&missing_plugin_infos, info) {
+		for (unsigned int i = 0; info->defines[i].key != NULL; i++) {
+			if (strcmp(info->defines[i].key, key) == 0)
+				return info;
+		}
+	}
+	return NULL;
+}
+
+static void
+config_append_missing_plugin_hint(string_t *errstr,
+				  const struct config_filter *filter,
+				  const char *key)
+{
+	const struct setting_parser_info *info;
+	const char *keys[3] = { t_strcut(key, '/'), NULL, NULL };
+
+	if (filter->filter_name != NULL) {
+		const char *filter_key = filter_key_skip_group_prefix(
+			t_strcut(filter->filter_name, '/'));
+		keys[1] = t_strdup_printf("%s_%s", filter_key, keys[0]);
+		if (filter->filter_name_array) {
+			keys[2] = t_strdup_printf("%s_%s",
+				t_str_replace(filter->filter_name, '/', '_'),
+				keys[0]);
+		}
+	}
+	for (unsigned int i = 0; i < N_ELEMENTS(keys); i++) {
+		if (keys[i] == NULL)
+			continue;
+		info = config_missing_plugin_info_find(keys[i]);
+		if (info != NULL) {
+			str_printfa(errstr,
+				" (Setting %s requires plugin %s, which isn't installed)",
+				keys[i], config_info_dependency_path(info));
+			return;
+		}
+	}
+}
+
 static void
 config_set_unknown_key_error(struct config_parser_context *ctx, const char *key)
 {
 	string_t *errstr = t_str_new(128);
 
 	config_set_unknown_key_error_str(ctx, key, errstr);
+	config_append_missing_plugin_hint(errstr,
+		&ctx->cur_section->filter_parser->filter, key);
 	ctx->error = p_strdup(ctx->pool, str_c(errstr));
 }
 
@@ -3692,6 +3743,8 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 				str_append_str(errstr, attempts);
 				str_append(errstr, " not found either.)");
 			}
+			config_append_missing_plugin_hint(errstr, cur_filter,
+							  line->key);
 			ctx->error = p_strdup(ctx->pool, str_c(errstr));
 			break;
 		}
@@ -4372,10 +4425,16 @@ static bool config_have_info_dependency(const struct setting_parser_info *info)
 
 void config_parser_add_available_infos(ARRAY_TYPE(setting_parser_info_p) *infos)
 {
-	/* drop any default infos which depend on plugins that don't exist */
+	/* drop any default infos which depend on plugins that don't exist,
+	   but remember them for better unknown setting error messages */
 	for (unsigned int i = 0; all_infos[i] != NULL; i++) {
 		if (config_have_info_dependency(all_infos[i]))
 			array_push_back(infos, &all_infos[i]);
+		else {
+			if (!array_is_created(&missing_plugin_infos))
+				i_array_init(&missing_plugin_infos, 8);
+			array_push_back(&missing_plugin_infos, &all_infos[i]);
+		}
 	}
 }
 
@@ -4482,5 +4541,7 @@ void config_parser_deinit(void)
 		array_free(&services_free_at_deinit);
 	if (array_is_created(&infos_free_at_deinit))
 		array_free(&infos_free_at_deinit);
+	if (array_is_created(&missing_plugin_infos))
+		array_free(&missing_plugin_infos);
 	str_free(&config_import);
 }

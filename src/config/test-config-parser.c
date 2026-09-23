@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "ostream.h"
 #include "service-settings.h"
 #include "settings-parser.h"
@@ -89,6 +90,33 @@ static const struct setting_parser_info *const infos[] = {
 };
 
 const struct setting_parser_info *const *all_infos = infos;
+
+struct test_missing_plugin_settings {
+	pool_t pool;
+	const char *missing_plugin_key;
+};
+
+static const struct setting_define test_missing_plugin_settings_defs[] = {
+	{ .type = SET_FILTER_NAME, .key = "missing_plugin" },
+	SETTING_DEFINE_STRUCT_STR("missing_plugin_key", missing_plugin_key,
+				  struct test_missing_plugin_settings),
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct test_missing_plugin_settings
+test_missing_plugin_settings_defaults = {
+	.missing_plugin_key = "",
+};
+
+static const struct setting_parser_info test_missing_plugin_settings_info = {
+	.name = "test_missing_plugin",
+	.plugin_dependency = "lib99_nonexistent_test_plugin",
+	.defines = test_missing_plugin_settings_defs,
+	.defaults = &test_missing_plugin_settings_defaults,
+
+	.struct_size = sizeof(struct test_missing_plugin_settings),
+	.pool_offset1 = 1 + offsetof(struct test_missing_plugin_settings, pool),
+};
 
 static void write_config_file(const char *contents)
 {
@@ -583,6 +611,62 @@ static void test_config_parser_str_novars_var_expand(void)
 	test_end();
 }
 
+static void test_config_parser_missing_plugin(void)
+{
+	static const struct {
+		const char *config;
+		const char *error;
+	} tests[] = {
+		{ "missing_plugin_key = foo\n",
+		  "Unknown setting: missing_plugin_key (Setting missing_plugin_key requires plugin "MODULEDIR"/lib99_nonexistent_test_plugin"MODULE_SUFFIX", which isn't installed)" },
+		{ "missing_plugin {\n}\n",
+		  "Unknown section name: missing_plugin (Setting missing_plugin requires plugin "MODULEDIR"/lib99_nonexistent_test_plugin"MODULE_SUFFIX", which isn't installed)" },
+		{ "missing_plugin {\n  key = foo\n}\n",
+		  "Unknown section name: missing_plugin (Setting missing_plugin requires plugin "MODULEDIR"/lib99_nonexistent_test_plugin"MODULE_SUFFIX", which isn't installed)" },
+		{ "unknown_key = foo\n",
+		  "Unknown setting: unknown_key" },
+	};
+	static const struct setting_parser_info *const test_infos[] = {
+		&test_settings_info,
+		&test_missing_plugin_settings_info,
+		NULL
+	};
+	const struct setting_parser_info *const *orig_all_infos = all_infos;
+	ARRAY_TYPE(setting_parser_info_p) available_infos;
+	struct config_parsed *config;
+	const char *error;
+	const char *config_file = test_dir_prepend(TEST_CONFIG_FILE);
+
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		test_begin(t_strdup_printf(
+			"config_parse_file - missing plugin hint %u", i));
+		all_infos = test_infos;
+		t_array_init(&available_infos, 4);
+		config_parser_add_available_infos(&available_infos);
+		test_assert(array_count(&available_infos) == 1);
+		array_append_zero(&available_infos);
+		all_infos = array_front(&available_infos);
+
+		write_config_file(t_strconcat(
+			"dovecot_config_version = "DOVECOT_CONFIG_VERSION"\n",
+			tests[i].config, NULL));
+		error = NULL;
+		test_assert_idx(config_parse_file(config_file,
+				CONFIG_PARSE_FLAG_NO_DEFAULTS,
+				NULL, &config, &error) < 0, i);
+		test_assert_idx(error != NULL &&
+				str_ends_with(error, tests[i].error), i);
+		if (error != NULL && !str_ends_with(error, tests[i].error))
+			i_error("config_parse_file(): %s", error);
+		if (config != NULL)
+			config_parsed_free(&config);
+		config_parser_deinit();
+		all_infos = orig_all_infos;
+		i_unlink_if_exists(config_file);
+		test_end();
+	}
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -593,6 +677,7 @@ int main(void)
 		test_config_parser_set_file_inline_export,
 		test_config_parser_heredoc_in_strlist,
 		test_config_parser_str_novars_var_expand,
+		test_config_parser_missing_plugin,
 		NULL
 	};
 

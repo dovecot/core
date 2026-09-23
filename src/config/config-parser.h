@@ -173,7 +173,8 @@ void config_parsed_free(struct config_parsed **config);
 
 void config_parse_load_modules(bool dump_config_import);
 /* Add all_infos to infos, except those that depend on a plugin that isn't
-   installed. */
+   installed. The dropped infos are used to give better error messages for
+   unknown settings. */
 void config_parser_add_available_infos(ARRAY_TYPE(setting_parser_info_p) *infos);
 
 void config_parser_deinit(void);
