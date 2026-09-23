@@ -225,9 +225,11 @@ int services_create(const struct master_settings *set,
 
 /* Destroy services. If replace_timeout is TRUE, kick_timeout_secs overrides
    the services' shutdown_clients_timeout setting: it's how long the old
-   generation's client-facing processes may keep their clients, where 0
+   generations' client-facing processes may keep their clients, where 0
    disconnects them immediately and SET_TIME_INFINITE never disconnects
-   them. */
+   them. The override covers also the generations that earlier reloads left
+   behind, except for the processes whose clients were already
+   disconnected. */
 void services_destroy(struct service_list *service_list, bool wait,
 		      bool replace_timeout, unsigned int kick_timeout_secs);
 

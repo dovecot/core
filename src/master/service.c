@@ -834,6 +834,12 @@ static void services_kick(struct service_list *service_list)
 	array_foreach_elem(&service_list->services, service) {
 		if (service->type == SERVICE_TYPE_LOG)
 			continue;
+		if (service->kill_sigterm_sent) {
+			/* Already kicked by an earlier reload's timeout. Its
+			   escalation continues at its own pace. */
+			continue;
+		}
+		i_assert(service->to_kick == NULL);
 
 		secs = service->shutdown_clients_timeout;
 		if (secs == 0) {
@@ -859,11 +865,49 @@ static void services_kick(struct service_list *service_list)
 	}
 }
 
-void services_destroy(struct service_list *service_list, bool wait,
-		      bool replace_timeout, unsigned int kick_timeout_secs)
+/* Replaces the services' shutdown_clients_timeout with kick_timeout_secs. A
+   pending kick is cancelled, so that services_kick() arms it again with the
+   new timeout. */
+static void
+services_replace_kick_timeout(struct service_list *service_list,
+			      unsigned int kick_timeout_secs)
 {
 	struct service *service;
 
+	array_foreach_elem(&service_list->services, service) {
+		if (service->kill_sigterm_sent) {
+			/* The kick already happened, and to_kick is its
+			   escalation now. Leave it alone. */
+			continue;
+		}
+		service->shutdown_clients_timeout = kick_timeout_secs;
+		timeout_remove(&service->to_kick);
+		service->kick_time = 0;
+	}
+}
+
+/* Applies a reload's kick timeout override to the generations that earlier
+   reloads left behind, so that "doveadm reload --kick-timeout 0" disconnects
+   every preserved client and not just the ones of the generation that this
+   reload retires. */
+static void service_lists_replace_kick_timeout(unsigned int kick_timeout_secs)
+{
+	struct service_list *service_list;
+
+	array_foreach_elem(&service_lists, service_list) {
+		if (!service_list->destroyed) {
+			/* The current or the new generation. The current
+			   one gets the override from services_destroy(). */
+			continue;
+		}
+		services_replace_kick_timeout(service_list, kick_timeout_secs);
+		services_kick(service_list);
+	}
+}
+
+void services_destroy(struct service_list *service_list, bool wait,
+		      bool replace_timeout, unsigned int kick_timeout_secs)
+{
 	/* make sure we log if child processes died unexpectedly */
 	service_list->destroying = TRUE;
 	services_monitor_reap_children();
@@ -871,8 +915,8 @@ void services_destroy(struct service_list *service_list, bool wait,
 	services_monitor_stop(service_list, wait);
 
 	if (replace_timeout) {
-		array_foreach_elem(&service_list->services, service)
-			service->shutdown_clients_timeout = kick_timeout_secs;
+		service_lists_replace_kick_timeout(kick_timeout_secs);
+		services_replace_kick_timeout(service_list, kick_timeout_secs);
 	}
 
 	if (service_list->refcount > 1) {
