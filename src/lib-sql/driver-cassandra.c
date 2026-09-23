@@ -105,6 +105,7 @@ struct cassandra_settings {
 	const char *keyspace;
 	const char *user;
 	const char *password;
+	const char *local_datacenter;
 
 	const char *metrics_path;
 	const char *log_level;
@@ -164,6 +165,7 @@ static const struct setting_define cassandra_setting_defines[] = {
 	DEF(STR, keyspace),
 	DEF(STR, user),
 	DEF(STR, password),
+	DEF(STR, local_datacenter),
 
 	DEF(STR, metrics_path),
 	DEF(ENUM, log_level),
@@ -202,6 +204,7 @@ static struct cassandra_settings cassandra_default_settings = {
 	.keyspace = "",
 	.user = "",
 	.password = "",
+	.local_datacenter = "",
 
 	.metrics_path = "",
 	.log_level = "warn:critical:error:info:debug:trace",
@@ -1030,10 +1033,10 @@ static void driver_cassandra_free_cluster(struct cassandra_db *db)
 }
 
 static int
-driver_cassandra_init_cluster(struct cassandra_db *db,
-			      const char **error_r ATTR_UNUSED)
+driver_cassandra_init_cluster(struct cassandra_db *db, const char **error_r)
 {
 	const struct cassandra_settings *set = db->set;
+	CassError c_err;
 
 	db->timestamp_gen = cass_timestamp_gen_monotonic_new();
 	db->cluster = cass_cluster_new();
@@ -1050,6 +1053,19 @@ driver_cassandra_init_cluster(struct cassandra_db *db,
 	if (set->protocol_version != 0)
 		cass_cluster_set_protocol_version(db->cluster, set->protocol_version);
 	cass_cluster_set_num_threads_io(db->cluster, set->io_thread_count);
+	if (set->local_datacenter[0] != '\0') {
+		/* Keep the driver's default DC-aware policy settings: no
+		   remote DC hosts are used. Only the local DC changes from
+		   being auto-detected to being explicitly configured. */
+		c_err = cass_cluster_set_load_balance_dc_aware(db->cluster,
+			set->local_datacenter, 0, cass_false);
+		if (c_err != CASS_OK) {
+			*error_r = t_strdup_printf(
+				"Invalid cassandra_local_datacenter '%s': %s",
+				set->local_datacenter, cass_error_desc(c_err));
+			return -1;
+		}
+	}
 	if (set->latency_aware_routing)
 		cass_cluster_set_latency_aware_routing(db->cluster, cass_true);
 	cass_cluster_set_connection_heartbeat_interval(db->cluster,
