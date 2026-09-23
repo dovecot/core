@@ -14,6 +14,7 @@
 #include "safe-memset.h"
 #include "settings.h"
 #include "ssl-settings.h"
+#include "dns-lookup.h"
 #include "sql-api-private.h"
 
 #ifdef BUILD_CASSANDRA
@@ -316,6 +317,7 @@ struct cassandra_db {
 
 	const struct cassandra_settings *set;
 	const struct ssl_settings *ssl_set;
+	const struct dns_client_settings *dns_set;
 	char *table_prefix;
 
 	CassCluster *cluster;
@@ -1043,6 +1045,7 @@ static void driver_cassandra_free(struct cassandra_db **_db)
 		cass_ssl_free(db->ssl);
 	settings_free(db->set);
 	settings_free(db->ssl_set);
+	settings_free(db->dns_set);
 	i_free(db);
 }
 
@@ -1095,7 +1098,8 @@ static int driver_cassandra_init_ssl(struct cassandra_db *db, const char **error
 
 static struct cassandra_db *
 driver_cassandra_db_cache_find(const struct cassandra_settings *set,
-			       const struct ssl_settings *ssl_set)
+			       const struct ssl_settings *ssl_set,
+			       const struct dns_client_settings *dns_set)
 {
 	struct cassandra_db *db;
 
@@ -1104,7 +1108,9 @@ driver_cassandra_db_cache_find(const struct cassandra_settings *set,
 				   set, db->set, NULL) &&
 		    (strcmp(set->ssl, "no") == 0 ||
 		     settings_equal(&ssl_setting_parser_info,
-				    ssl_set, db->ssl_set, NULL)))
+				    ssl_set, db->ssl_set, NULL)) &&
+		    settings_equal(&dns_client_setting_parser_info,
+				   dns_set, db->dns_set, NULL))
 			return db;
 	}
 	return NULL;
@@ -1134,6 +1140,8 @@ driver_cassandra_init_cluster(struct cassandra_db *db, const char **error_r)
 	cass_cluster_set_timestamp_gen(db->cluster, db->timestamp_gen);
 	cass_cluster_set_connect_timeout(db->cluster, set->connect_timeout_msecs);
 	cass_cluster_set_request_timeout(db->cluster, set->request_timeout_msecs);
+	cass_cluster_set_resolve_timeout(db->cluster,
+					 db->dns_set->timeout_msecs);
 	cass_cluster_set_contact_points(db->cluster,
 		p_array_const_string_join(unsafe_data_stack_pool,
 					  &set->hosts, ","));
@@ -1234,6 +1242,7 @@ static int
 driver_cassandra_init_from_set(struct event *event_parent,
 			       const struct cassandra_settings *set,
 			       const struct ssl_settings *ssl_set,
+			       const struct dns_client_settings *dns_set,
 			       struct cassandra_db **db_r, const char **error_r)
 {
 	struct cassandra_db *db;
@@ -1251,6 +1260,7 @@ driver_cassandra_init_from_set(struct event *event_parent,
 	db->api = driver_cassandra_db;
 	db->set = set;
 	db->ssl_set = ssl_set;
+	db->dns_set = dns_set;
 	db->fd_pipe[0] = db->fd_pipe[1] = -1;
 	db->api.event = event_create(event_parent);
 	event_add_category(db->api.event, &event_category_cassandra);
@@ -1302,6 +1312,9 @@ driver_cassandra_init_v(struct event *event, struct sql_db **db_r,
 {
 	const struct cassandra_settings *set;
 	const struct ssl_settings *ssl_set = NULL;
+	const struct dns_client_settings *dns_set;
+	struct event *dns_event;
+	int ret;
 
 	if (settings_get(event, &cassandra_setting_parser_info, 0,
 			 &set, error_r) < 0)
@@ -1313,14 +1326,26 @@ driver_cassandra_init_v(struct event *event, struct sql_db **db_r,
 			return -1;
 		}
 	}
+	/* Allow overriding the DNS settings inside cassandra { } filter */
+	dns_event = event_create(event);
+	settings_event_add_filter_name(dns_event, "cassandra");
+	ret = settings_get(dns_event, &dns_client_setting_parser_info, 0,
+			   &dns_set, error_r);
+	event_unref(&dns_event);
+	if (ret < 0) {
+		settings_free(set);
+		settings_free(ssl_set);
+		return -1;
+	}
 
 	struct cassandra_db *db =
-		driver_cassandra_db_cache_find(set, ssl_set);
+		driver_cassandra_db_cache_find(set, ssl_set, dns_set);
 	if (db != NULL) {
 		settings_free(set);
 		settings_free(ssl_set);
+		settings_free(dns_set);
 	} else {
-		if (driver_cassandra_init_from_set(event, set, ssl_set,
+		if (driver_cassandra_init_from_set(event, set, ssl_set, dns_set,
 						   &db, error_r) < 0)
 			return -1;
 		sql_init_common(&db->api);
