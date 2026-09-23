@@ -1017,6 +1017,63 @@ driver_cassandra_db_cache_find(const struct cassandra_settings *set,
 	return NULL;
 }
 
+static void driver_cassandra_free_cluster(struct cassandra_db *db)
+{
+	if (db->cluster != NULL)
+		cass_cluster_free(db->cluster);
+	if (db->default_policy != NULL)
+		cass_retry_policy_free(db->default_policy);
+	if (db->logging_policy != NULL)
+		cass_retry_policy_free(db->logging_policy);
+	if (db->timestamp_gen != NULL)
+		cass_timestamp_gen_free(db->timestamp_gen);
+}
+
+static int
+driver_cassandra_init_cluster(struct cassandra_db *db,
+			      const char **error_r ATTR_UNUSED)
+{
+	const struct cassandra_settings *set = db->set;
+
+	db->timestamp_gen = cass_timestamp_gen_monotonic_new();
+	db->cluster = cass_cluster_new();
+
+	cass_cluster_set_timestamp_gen(db->cluster, db->timestamp_gen);
+	cass_cluster_set_connect_timeout(db->cluster, set->connect_timeout_msecs);
+	cass_cluster_set_request_timeout(db->cluster, set->request_timeout_msecs);
+	cass_cluster_set_contact_points(db->cluster,
+		p_array_const_string_join(unsafe_data_stack_pool,
+					  &set->hosts, ","));
+	if (set->user[0] != '\0' && set->password[0] != '\0')
+		cass_cluster_set_credentials(db->cluster, set->user, set->password);
+	cass_cluster_set_port(db->cluster, set->port);
+	if (set->protocol_version != 0)
+		cass_cluster_set_protocol_version(db->cluster, set->protocol_version);
+	cass_cluster_set_num_threads_io(db->cluster, set->io_thread_count);
+	if (set->latency_aware_routing)
+		cass_cluster_set_latency_aware_routing(db->cluster, cass_true);
+	cass_cluster_set_connection_heartbeat_interval(db->cluster,
+		set->heartbeat_interval_secs);
+	if (set->log_retries) {
+		db->default_policy = cass_retry_policy_default_new();
+		db->logging_policy = cass_retry_policy_logging_new(db->default_policy);
+		cass_cluster_set_retry_policy(db->cluster, db->logging_policy);
+	}
+	cass_cluster_set_connection_idle_timeout(db->cluster,
+						 set->idle_timeout_secs);
+#ifdef HAVE_CASSANDRA_SPECULATIVE_POLICY
+	if (set->execution_retry_times > 0 && set->execution_retry_interval_msecs > 0)
+		cass_cluster_set_constant_speculative_execution_policy(
+			db->cluster, set->execution_retry_interval_msecs,
+			set->execution_retry_times);
+#endif
+	if (set->parsed_use_ssl) {
+		e_debug(db->api.event, "Enabling TLS for cluster");
+		cass_cluster_set_ssl(db->cluster, db->ssl);
+	}
+	return 0;
+}
+
 static int
 driver_cassandra_init_from_set(struct event *event_parent,
 			       const struct cassandra_settings *set,
@@ -1061,41 +1118,10 @@ driver_cassandra_init_from_set(struct event *event_parent,
 		db->api.v.statement_init_prepared = NULL;
 	}
 
-	db->timestamp_gen = cass_timestamp_gen_monotonic_new();
-	db->cluster = cass_cluster_new();
-
-	cass_cluster_set_timestamp_gen(db->cluster, db->timestamp_gen);
-	cass_cluster_set_connect_timeout(db->cluster, set->connect_timeout_msecs);
-	cass_cluster_set_request_timeout(db->cluster, set->request_timeout_msecs);
-	cass_cluster_set_contact_points(db->cluster,
-		p_array_const_string_join(unsafe_data_stack_pool,
-					  &set->hosts, ","));
-	if (set->user[0] != '\0' && set->password[0] != '\0')
-		cass_cluster_set_credentials(db->cluster, set->user, set->password);
-	cass_cluster_set_port(db->cluster, set->port);
-	if (set->protocol_version != 0)
-		cass_cluster_set_protocol_version(db->cluster, set->protocol_version);
-	cass_cluster_set_num_threads_io(db->cluster, set->io_thread_count);
-	if (set->latency_aware_routing)
-		cass_cluster_set_latency_aware_routing(db->cluster, cass_true);
-	cass_cluster_set_connection_heartbeat_interval(db->cluster,
-		set->heartbeat_interval_secs);
-	if (set->log_retries) {
-		db->default_policy = cass_retry_policy_default_new();
-		db->logging_policy = cass_retry_policy_logging_new(db->default_policy);
-		cass_cluster_set_retry_policy(db->cluster, db->logging_policy);
-	}
-	cass_cluster_set_connection_idle_timeout(db->cluster,
-						 set->idle_timeout_secs);
-#ifdef HAVE_CASSANDRA_SPECULATIVE_POLICY
-	if (set->execution_retry_times > 0 && set->execution_retry_interval_msecs > 0)
-		cass_cluster_set_constant_speculative_execution_policy(
-			db->cluster, set->execution_retry_interval_msecs,
-			set->execution_retry_times);
-#endif
-	if (set->parsed_use_ssl) {
-		e_debug(db->api.event, "Enabling TLS for cluster");
-		cass_cluster_set_ssl(db->cluster, db->ssl);
+	if (driver_cassandra_init_cluster(db, error_r) < 0) {
+		driver_cassandra_free_cluster(db);
+		driver_cassandra_free(&db);
+		return -1;
 	}
 	db->session = cass_session_new();
 	if (set->metrics_path[0] != '\0')
@@ -1165,12 +1191,7 @@ static void driver_cassandra_deinit_v(struct sql_db *_db)
 	array_free(&db->pending_prepares);
 
 	cass_session_free(db->session);
-	cass_cluster_free(db->cluster);
-	if (db->default_policy != NULL)
-		cass_retry_policy_free(db->default_policy);
-	if (db->logging_policy != NULL)
-		cass_retry_policy_free(db->logging_policy);
-	cass_timestamp_gen_free(db->timestamp_gen);
+	driver_cassandra_free_cluster(db);
 	timeout_remove(&db->to_metrics);
 	sql_connection_log_finished(_db);
 	driver_cassandra_free(&db);
