@@ -1511,17 +1511,15 @@ config_info_dependency_path(const struct setting_parser_info *info)
 }
 
 static void
-config_set_unknown_key_error(struct config_parser_context *ctx, const char *key)
+config_set_unknown_key_error_str(struct config_parser_context *ctx,
+				 const char *key, string_t *errstr)
 {
-	string_t *errstr = t_str_new(128);
 	str_printfa(errstr, "Unknown setting: %s", key);
 
 	const char *filter_name =
 		ctx->cur_section->filter_parser->filter.filter_name;
-	if (filter_name == NULL) {
-		ctx->error = p_strdup(ctx->pool, str_c(errstr));
+	if (filter_name == NULL)
 		return;
-	}
 	const char *filter_name_key = t_strcut(filter_name, '/');
 	str_printfa(errstr, " (%s_%s", filter_name_key, key);
 	if (ctx->cur_section->filter_parser->filter.filter_name_array) {
@@ -1531,7 +1529,6 @@ config_set_unknown_key_error(struct config_parser_context *ctx, const char *key)
 	str_append(errstr, " not found either.");
 	if (!ctx->cur_section->filter_parser->filter.filter_name_array) {
 		str_append_c(errstr, ')');
-		ctx->error = p_strdup(ctx->pool, str_c(errstr));
 		return;
 	}
 
@@ -1570,6 +1567,14 @@ config_set_unknown_key_error(struct config_parser_context *ctx, const char *key)
 		str_printfa(errstr, " Did you mean one of: %s?)",
 			    str_c(alt_keys));
 	}
+}
+
+static void
+config_set_unknown_key_error(struct config_parser_context *ctx, const char *key)
+{
+	string_t *errstr = t_str_new(128);
+
+	config_set_unknown_key_error_str(ctx, key, errstr);
 	ctx->error = p_strdup(ctx->pool, str_c(errstr));
 }
 
@@ -3681,11 +3686,13 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 		if (config_key == NULL) {
 			if ((ctx->flags & CONFIG_PARSE_FLAG_IGNORE_UNKNOWN) != 0)
 				break;
-			if (attempts != NULL)
-				str_append(attempts, " not found either.)");
-			ctx->error = p_strdup_printf(ctx->pool,
-				"Unknown section name: %s%s", key,
-				attempts == NULL ? "" : str_c(attempts));
+			string_t *errstr = t_str_new(128);
+			str_printfa(errstr, "Unknown section name: %s", key);
+			if (attempts != NULL) {
+				str_append_str(errstr, attempts);
+				str_append(errstr, " not found either.)");
+			}
+			ctx->error = p_strdup(ctx->pool, str_c(errstr));
 			break;
 		}
 
