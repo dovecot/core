@@ -80,7 +80,9 @@ void pop3_refresh_proctitle(void)
 
 static void pop3_die(void)
 {
-	/* do nothing. pop3 connections typically die pretty quick anyway. */
+	/* shutdown_clients_timeout has expired, so disconnect the remaining
+	   clients right away instead of waiting for the die timeout. */
+	clients_destroy_all();
 }
 
 static void client_add_input(struct client *client, const buffer_t *buf)

@@ -102,7 +102,9 @@ void imap_urlauth_refresh_proctitle(void)
 
 static void imap_urlauth_die(void)
 {
-	/* do nothing. imap_urlauth connections typically die pretty quick anyway. */
+	/* shutdown_clients_timeout has expired, so disconnect the remaining
+	   clients right away instead of waiting for the die timeout. */
+	clients_destroy_all();
 }
 
 static int

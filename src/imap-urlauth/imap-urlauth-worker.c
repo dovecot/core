@@ -950,7 +950,14 @@ static const struct connection_settings client_connection_set = {
 
 static void imap_urlauth_worker_die(void)
 {
-	/* do nothing */
+	struct connection *conn, *next;
+
+	/* shutdown_clients_timeout has expired, so disconnect the remaining
+	   clients right away instead of waiting for the die timeout. */
+	for (conn = clist->connections; conn != NULL; conn = next) {
+		next = conn->next; /* client_destroy() frees client & conn */
+		client_destroy(container_of(conn, struct client, conn));
+	}
 }
 
 static void main_stdio_run(const char *access_user,

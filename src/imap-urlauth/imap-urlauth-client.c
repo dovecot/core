@@ -189,7 +189,7 @@ void clients_init(void)
 						  &client_connection_vfuncs);
 }
 
-void clients_deinit(void)
+void clients_destroy_all(void)
 {
 	struct connection *conn, *next;
 
@@ -200,5 +200,10 @@ void clients_deinit(void)
 
 		client_destroy(client, MASTER_SERVICE_SHUTTING_DOWN_MSG);
 	}
+}
+
+void clients_deinit(void)
+{
+	clients_destroy_all();
 	connection_list_deinit(&imap_urlauth_clist);
 }

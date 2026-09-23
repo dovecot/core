@@ -39,6 +39,7 @@ void client_send_line(struct client *client, const char *fmt, ...)
 void client_disconnect(struct client *client, const char *reason);
 
 void clients_init(void);
+void clients_destroy_all(void);
 void clients_deinit(void);
 
 #endif

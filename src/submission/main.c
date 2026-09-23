@@ -96,8 +96,9 @@ void submission_refresh_proctitle(void)
 
 static void submission_die(void)
 {
-	/* do nothing. submission connections typically die pretty quick anyway.
-	 */
+	/* shutdown_clients_timeout has expired, so disconnect the remaining
+	   clients right away instead of waiting for the die timeout. */
+	clients_destroy_all();
 }
 
 static void

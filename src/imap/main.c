@@ -32,8 +32,6 @@
 #define IS_STANDALONE() \
         (getenv(MASTER_IS_PARENT_ENV) == NULL)
 
-#define IMAP_DIE_IDLE_SECS 10
-
 static struct mail_storage_service_ctx *storage_service;
 static struct login_server *login_server = NULL;
 static struct timeout *to_proctitle;
@@ -125,36 +123,13 @@ void imap_refresh_proctitle(void)
 	process_title_set(str_c(title));
 }
 
-static void client_kill_idle(struct client *client)
-{
-	if (client->output_cmd_lock != NULL)
-		return;
-
-	mail_storage_service_io_activate_user(client->user->service_user);
-	client_send_line(client, "* BYE "MASTER_SERVICE_SHUTTING_DOWN_MSG".");
-	client_destroy(client, MASTER_SERVICE_SHUTTING_DOWN_MSG);
-}
-
 static void imap_die(void)
 {
-	struct client *client, *next;
-	time_t last_io, now = time(NULL);
-	time_t stop_timestamp = now - IMAP_DIE_IDLE_SECS;
-	unsigned int stop_msecs;
-
-	for (client = imap_clients; client != NULL; client = next) {
-		next = client->next;
-
-		last_io = I_MAX(client->last_input, client->last_output);
-		if (last_io <= stop_timestamp)
-			client_kill_idle(client);
-		else {
-			timeout_remove(&client->to_idle);
-			stop_msecs = (last_io - stop_timestamp) * 1000;
-			client->to_idle = timeout_add(stop_msecs,
-						      client_kill_idle, client);
-		}
-	}
+	/* shutdown_clients_timeout has expired, or the master process wants
+	   the clients disconnected right away. Either way the waiting is over,
+	   so disconnect also the clients that are in the middle of a
+	   command. */
+	clients_destroy_all();
 }
 
 struct imap_login_request {

@@ -146,11 +146,12 @@ static void login_die(void)
 {
 	shutting_down = TRUE;
 	login_proxy_kill_idle();
-
-	if (!auth_client_is_connected(auth_client)) {
-		/* we don't have auth client, and we might never get one */
-		clients_destroy_all();
-	}
+	/* shutdown_clients_timeout has expired, so abort the logins that are
+	   still in progress instead of letting them finish within the die
+	   timeout. The post-login SSL proxies are left alone: the imap/pop3
+	   process is being stopped as well, and its BYE reaches the client only
+	   if the proxy is still there to forward it. */
+	clients_destroy_all();
 }
 
 static void
