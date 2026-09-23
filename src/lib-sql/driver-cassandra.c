@@ -127,6 +127,7 @@ struct cassandra_settings {
 
 	unsigned int protocol_version;
 	unsigned int io_thread_count;
+	unsigned int connections_per_host;
 	unsigned int heartbeat_interval_secs;
 	unsigned int idle_timeout_secs;
 	unsigned int execution_retry_interval_msecs;
@@ -187,6 +188,7 @@ static const struct setting_define cassandra_setting_defines[] = {
 
 	DEF(UINT, protocol_version),
 	DEF(UINT, io_thread_count),
+	DEF(UINT, connections_per_host),
 	DEF_SECS(heartbeat_interval),
 	DEF_SECS(idle_timeout),
 	DEF_MSECS(execution_retry_interval),
@@ -226,6 +228,7 @@ static struct cassandra_settings cassandra_default_settings = {
 
 	.protocol_version = 0,
 	.io_thread_count = 1,
+	.connections_per_host = 1,
 	.heartbeat_interval_secs = 30,
 	.idle_timeout_secs = 60,
 	.execution_retry_interval_msecs = 0,
@@ -583,6 +586,10 @@ cassandra_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				consistencies[i].set_value);
 			return FALSE;
 		}
+	}
+	if (set->connections_per_host == 0) {
+		*error_r = "cassandra_connections_per_host must not be 0";
+		return FALSE;
 	}
 	if (log_level_parse(set->log_level, &set->parsed_log_level) < 0) {
 		*error_r = t_strdup_printf(
@@ -1053,6 +1060,14 @@ driver_cassandra_init_cluster(struct cassandra_db *db, const char **error_r)
 	if (set->protocol_version != 0)
 		cass_cluster_set_protocol_version(db->cluster, set->protocol_version);
 	cass_cluster_set_num_threads_io(db->cluster, set->io_thread_count);
+	c_err = cass_cluster_set_core_connections_per_host(db->cluster,
+		set->connections_per_host);
+	if (c_err != CASS_OK) {
+		*error_r = t_strdup_printf(
+			"Invalid cassandra_connections_per_host %u: %s",
+			set->connections_per_host, cass_error_desc(c_err));
+		return -1;
+	}
 	if (set->local_datacenter[0] != '\0') {
 		/* Keep the driver's default DC-aware policy settings: no
 		   remote DC hosts are used. Only the local DC changes from
