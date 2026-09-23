@@ -130,6 +130,7 @@ struct cassandra_settings {
 	unsigned int connections_per_host;
 	unsigned int heartbeat_interval_secs;
 	unsigned int idle_timeout_secs;
+	unsigned int tcp_keepalive_secs;
 	unsigned int execution_retry_interval_msecs;
 	unsigned int execution_retry_times;
 	unsigned int page_size;
@@ -195,6 +196,7 @@ static const struct setting_define cassandra_setting_defines[] = {
 	DEF(UINT, connections_per_host),
 	DEF_SECS(heartbeat_interval),
 	DEF_SECS(idle_timeout),
+	DEF_SECS(tcp_keepalive),
 	DEF_MSECS(execution_retry_interval),
 	DEF(UINT, execution_retry_times),
 	DEF(UINT, page_size),
@@ -239,6 +241,7 @@ static struct cassandra_settings cassandra_default_settings = {
 	.connections_per_host = 1,
 	.heartbeat_interval_secs = 30,
 	.idle_timeout_secs = 60,
+	.tcp_keepalive_secs = 0,
 	.execution_retry_interval_msecs = 0,
 	.execution_retry_times = 0,
 	.page_size = 0,
@@ -1126,6 +1129,9 @@ driver_cassandra_init_cluster(struct cassandra_db *db, const char **error_r)
 	}
 	cass_cluster_set_connection_idle_timeout(db->cluster,
 						 set->idle_timeout_secs);
+	cass_cluster_set_tcp_keepalive(db->cluster,
+		set->tcp_keepalive_secs > 0 ? cass_true : cass_false,
+		set->tcp_keepalive_secs);
 #ifdef HAVE_CASSANDRA_SPECULATIVE_POLICY
 	if (set->execution_retry_times > 0 && set->execution_retry_interval_msecs > 0)
 		cass_cluster_set_constant_speculative_execution_policy(
