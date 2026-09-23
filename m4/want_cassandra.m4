@@ -21,6 +21,12 @@ AC_DEFUN([DOVECOT_WANT_CASSANDRA], [
       ])
     ],, $CASSANDRA_LIBS)
 
+    AC_CHECK_LIB(cassandra, cass_cluster_set_application_name, [
+      AC_DEFINE(HAVE_CASSANDRA_APPLICATION_NAME, 1, [
+        Cassandra supports setting application name and version
+      ])
+    ],, $CASSANDRA_LIBS)
+
     AC_CHECK_LIB(cassandra, cass_cluster_set_token_aware_routing_shuffle_replicas, [
       AC_DEFINE(HAVE_CASSANDRA_SHUFFLE_REPLICAS, 1, [
         Cassandra supports disabling token-aware replica shuffling

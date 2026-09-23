@@ -107,6 +107,8 @@ struct cassandra_settings {
 	const char *user;
 	const char *password;
 	const char *local_datacenter;
+	const char *application_name;
+	const char *application_version;
 
 	const char *metrics_path;
 	const char *log_level;
@@ -183,6 +185,8 @@ static const struct setting_define cassandra_setting_defines[] = {
 	DEF(STR, user),
 	DEF(STR, password),
 	DEF(STR, local_datacenter),
+	DEF(STR, application_name),
+	DEF(STR, application_version),
 
 	DEF(STR, metrics_path),
 	DEF(ENUM, log_level),
@@ -237,6 +241,13 @@ static struct cassandra_settings cassandra_default_settings = {
 	.user = "",
 	.password = "",
 	.local_datacenter = "",
+#ifdef HAVE_CASSANDRA_APPLICATION_NAME
+	.application_name = DOVECOT_NAME,
+#else
+	/* Old cpp-driver can't send the application name */
+	.application_name = "",
+#endif
+	.application_version = "",
 
 	.metrics_path = "",
 	.log_level = "warn:critical:error:info:debug:trace",
@@ -646,6 +657,12 @@ cassandra_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		*error_r = "cassandra_connections_per_host must not be 0";
 		return FALSE;
 	}
+#ifndef HAVE_CASSANDRA_APPLICATION_NAME
+	if (set->application_name[0] != '\0') {
+		*error_r = "cassandra_application_name not supported by the cpp-driver version";
+		return FALSE;
+	}
+#endif
 	if (set->request_queue_size == 0) {
 		*error_r = "cassandra_request_queue_size must not be 0";
 		return FALSE;
@@ -1155,6 +1172,15 @@ driver_cassandra_init_cluster(struct cassandra_db *db, const char **error_r)
 	if (set->user[0] != '\0' && set->password[0] != '\0')
 		cass_cluster_set_credentials(db->cluster, set->user, set->password);
 	cass_cluster_set_port(db->cluster, set->port);
+#ifdef HAVE_CASSANDRA_APPLICATION_NAME
+	if (set->application_name[0] != '\0') {
+		cass_cluster_set_application_name(db->cluster,
+						  set->application_name);
+		cass_cluster_set_application_version(db->cluster,
+			set->application_version[0] != '\0' ?
+			set->application_version : PACKAGE_VERSION);
+	}
+#endif
 	if (set->protocol_version != 0)
 		cass_cluster_set_protocol_version(db->cluster, set->protocol_version);
 	cass_cluster_set_num_threads_io(db->cluster, set->io_thread_count);
