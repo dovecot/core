@@ -143,6 +143,12 @@ struct cassandra_settings {
 	unsigned int reconnect_base_delay_msecs;
 	unsigned int reconnect_max_delay_msecs;
 
+	const char *latency_aware_exclusion_threshold;
+	unsigned int latency_aware_scale_msecs;
+	unsigned int latency_aware_retry_period_msecs;
+	unsigned int latency_aware_update_rate_msecs;
+	unsigned int latency_aware_min_measured;
+
 	/* generated: */
 	CassLogLevel parsed_log_level;
 	CassConsistency parsed_read_consistency;
@@ -151,6 +157,7 @@ struct cassandra_settings {
 	CassConsistency parsed_read_fallback_consistency;
 	CassConsistency parsed_write_fallback_consistency;
 	CassConsistency parsed_delete_fallback_consistency;
+	double parsed_latency_aware_exclusion_threshold;
 	bool parsed_use_ssl;
 	CassSslVerifyFlags parsed_ssl_verify_flags;
 };
@@ -211,6 +218,12 @@ static const struct setting_define cassandra_setting_defines[] = {
 	DEF_MSECS(reconnect_base_delay),
 	DEF_MSECS(reconnect_max_delay),
 
+	DEF(STR, latency_aware_exclusion_threshold),
+	DEF_MSECS(latency_aware_scale),
+	DEF_MSECS(latency_aware_retry_period),
+	DEF_MSECS(latency_aware_update_rate),
+	DEF(UINT, latency_aware_min_measured),
+
 	SETTING_DEFINE_LIST_END
 };
 
@@ -267,6 +280,12 @@ static struct cassandra_settings cassandra_default_settings = {
 #endif
 	.reconnect_base_delay_msecs = 2 * 1000,
 	.reconnect_max_delay_msecs = 60 * 1000,
+
+	.latency_aware_exclusion_threshold = "2.0",
+	.latency_aware_scale_msecs = 100,
+	.latency_aware_retry_period_msecs = 10 * 1000,
+	.latency_aware_update_rate_msecs = 100,
+	.latency_aware_min_measured = 50,
 };
 
 const struct setting_parser_info cassandra_setting_parser_info = {
@@ -645,6 +664,16 @@ cassandra_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	}
 #endif
+	/* the negated comparison rejects also NaN */
+	if (str_to_double(set->latency_aware_exclusion_threshold,
+			  &set->parsed_latency_aware_exclusion_threshold) < 0 ||
+	    !(set->parsed_latency_aware_exclusion_threshold >= 1.0)) {
+		*error_r = t_strdup_printf(
+			"Invalid cassandra_latency_aware_exclusion_threshold '%s': "
+			"Must be a number >= 1.0",
+			set->latency_aware_exclusion_threshold);
+		return FALSE;
+	}
 	if (log_level_parse(set->log_level, &set->parsed_log_level) < 0) {
 		*error_r = t_strdup_printf(
 			"Unknown cassandra_log_level: %s", set->log_level);
@@ -1135,8 +1164,15 @@ driver_cassandra_init_cluster(struct cassandra_db *db, const char **error_r)
 			return -1;
 		}
 	}
-	if (set->latency_aware_routing)
+	if (set->latency_aware_routing) {
 		cass_cluster_set_latency_aware_routing(db->cluster, cass_true);
+		cass_cluster_set_latency_aware_routing_settings(db->cluster,
+			set->parsed_latency_aware_exclusion_threshold,
+			set->latency_aware_scale_msecs,
+			set->latency_aware_retry_period_msecs,
+			set->latency_aware_update_rate_msecs,
+			set->latency_aware_min_measured);
+	}
 	cass_cluster_set_token_aware_routing(db->cluster,
 		set->token_aware_routing ? cass_true : cass_false);
 #ifdef HAVE_CASSANDRA_SHUFFLE_REPLICAS
