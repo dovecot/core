@@ -21,6 +21,12 @@ AC_DEFUN([DOVECOT_WANT_CASSANDRA], [
       ])
     ],, $CASSANDRA_LIBS)
 
+    AC_CHECK_LIB(cassandra, cass_cluster_set_token_aware_routing_shuffle_replicas, [
+      AC_DEFINE(HAVE_CASSANDRA_SHUFFLE_REPLICAS, 1, [
+        Cassandra supports disabling token-aware replica shuffling
+      ])
+    ],, $CASSANDRA_LIBS)
+
     AC_CHECK_LIB(cassandra, cass_cluster_set_exponential_reconnect, [
       AC_DEFINE(HAVE_CASSANDRA_RECONNECT_POLICY, 1, [
         Cassandra supports configuring reconnection policy

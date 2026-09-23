@@ -114,6 +114,7 @@ struct cassandra_settings {
 	bool latency_aware_routing;
 	bool logged_batches;
 	bool token_aware_routing;
+	bool token_aware_shuffle_replicas;
 
 	const char *read_consistency;
 	const char *write_consistency;
@@ -181,6 +182,7 @@ static const struct setting_define cassandra_setting_defines[] = {
 	DEF(BOOL, latency_aware_routing),
 	DEF(BOOL, logged_batches),
 	DEF(BOOL, token_aware_routing),
+	DEF(BOOL, token_aware_shuffle_replicas),
 
 	DEF(STR, read_consistency),
 	DEF(STR, write_consistency),
@@ -227,6 +229,12 @@ static struct cassandra_settings cassandra_default_settings = {
 	.latency_aware_routing = FALSE,
 	.logged_batches = TRUE,
 	.token_aware_routing = TRUE,
+#ifdef HAVE_CASSANDRA_SHUFFLE_REPLICAS
+	.token_aware_shuffle_replicas = TRUE,
+#else
+	/* Old cpp-driver doesn't shuffle replicas */
+	.token_aware_shuffle_replicas = FALSE,
+#endif
 
 	.read_consistency = "local-quorum",
 	.write_consistency = "local-quorum",
@@ -631,6 +639,12 @@ cassandra_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 #endif
 	}
+#ifndef HAVE_CASSANDRA_SHUFFLE_REPLICAS
+	if (set->token_aware_shuffle_replicas) {
+		*error_r = "cassandra_token_aware_shuffle_replicas=yes not supported by the cpp-driver version";
+		return FALSE;
+	}
+#endif
 	if (log_level_parse(set->log_level, &set->parsed_log_level) < 0) {
 		*error_r = t_strdup_printf(
 			"Unknown cassandra_log_level: %s", set->log_level);
@@ -1125,6 +1139,10 @@ driver_cassandra_init_cluster(struct cassandra_db *db, const char **error_r)
 		cass_cluster_set_latency_aware_routing(db->cluster, cass_true);
 	cass_cluster_set_token_aware_routing(db->cluster,
 		set->token_aware_routing ? cass_true : cass_false);
+#ifdef HAVE_CASSANDRA_SHUFFLE_REPLICAS
+	cass_cluster_set_token_aware_routing_shuffle_replicas(db->cluster,
+		set->token_aware_shuffle_replicas ? cass_true : cass_false);
+#endif
 	cass_cluster_set_connection_heartbeat_interval(db->cluster,
 		set->heartbeat_interval_secs);
 	if (set->log_retries) {
