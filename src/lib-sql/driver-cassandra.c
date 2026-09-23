@@ -108,6 +108,7 @@ struct cassandra_settings {
 	const char *user;
 	const char *password;
 	const char *local_datacenter;
+	const char *source_ip;
 	const char *application_name;
 	const char *application_version;
 	const char *client_id;
@@ -165,6 +166,7 @@ struct cassandra_settings {
 	CassConsistency parsed_delete_fallback_consistency;
 	double parsed_latency_aware_exclusion_threshold;
 	guid_128_t parsed_client_id;
+	struct ip_addr parsed_source_ip;
 	bool parsed_use_ssl;
 	CassSslVerifyFlags parsed_ssl_verify_flags;
 };
@@ -188,6 +190,7 @@ static const struct setting_define cassandra_setting_defines[] = {
 	DEF(STR, user),
 	DEF(STR, password),
 	DEF(STR, local_datacenter),
+	DEF(STR, source_ip),
 	DEF(STR, application_name),
 	DEF(STR, application_version),
 	DEF(STR, client_id),
@@ -245,6 +248,7 @@ static struct cassandra_settings cassandra_default_settings = {
 	.user = "",
 	.password = "",
 	.local_datacenter = "",
+	.source_ip = "",
 #ifdef HAVE_CASSANDRA_APPLICATION_NAME
 	.application_name = DOVECOT_NAME,
 #else
@@ -679,6 +683,19 @@ cassandra_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		}
 #else
 		*error_r = "cassandra_client_id not supported by the cpp-driver version";
+		return FALSE;
+#endif
+	}
+	if (set->source_ip[0] != '\0') {
+#ifdef HAVE_CASSANDRA_LOCAL_ADDRESS
+		if (net_addr2ip(set->source_ip, &set->parsed_source_ip) < 0) {
+			*error_r = t_strdup_printf(
+				"Invalid cassandra_source_ip '%s': Not an IP address",
+				set->source_ip);
+			return FALSE;
+		}
+#else
+		*error_r = "cassandra_source_ip not supported by the cpp-driver version";
 		return FALSE;
 #endif
 	}
@@ -1191,6 +1208,21 @@ driver_cassandra_init_cluster(struct cassandra_db *db, const char **error_r)
 	if (set->user[0] != '\0' && set->password[0] != '\0')
 		cass_cluster_set_credentials(db->cluster, set->user, set->password);
 	cass_cluster_set_port(db->cluster, set->port);
+#ifdef HAVE_CASSANDRA_LOCAL_ADDRESS
+	if (set->source_ip[0] != '\0') {
+		/* cpp-driver accepts only numeric addresses, so pass the
+		   parsed IP instead of the setting string. This drops e.g.
+		   the [] around an IPv6 address. */
+		c_err = cass_cluster_set_local_address(db->cluster,
+			net_ip2addr(&set->parsed_source_ip));
+		if (c_err != CASS_OK) {
+			*error_r = t_strdup_printf(
+				"Invalid cassandra_source_ip '%s': %s",
+				set->source_ip, cass_error_desc(c_err));
+			return -1;
+		}
+	}
+#endif
 #ifdef HAVE_CASSANDRA_APPLICATION_NAME
 	if (set->application_name[0] != '\0') {
 		cass_cluster_set_application_name(db->cluster,
