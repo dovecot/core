@@ -20,5 +20,11 @@ AC_DEFUN([DOVECOT_WANT_CASSANDRA], [
         Cassandra supports speculative execution policy
       ])
     ],, $CASSANDRA_LIBS)
+
+    AC_CHECK_LIB(cassandra, cass_cluster_set_exponential_reconnect, [
+      AC_DEFINE(HAVE_CASSANDRA_RECONNECT_POLICY, 1, [
+        Cassandra supports configuring reconnection policy
+      ])
+    ],, $CASSANDRA_LIBS)
   ])
 ])

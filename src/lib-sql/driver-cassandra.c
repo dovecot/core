@@ -136,6 +136,10 @@ struct cassandra_settings {
 
 	const char *ssl;
 
+	const char *reconnect_policy;
+	unsigned int reconnect_base_delay_msecs;
+	unsigned int reconnect_max_delay_msecs;
+
 	/* generated: */
 	CassLogLevel parsed_log_level;
 	CassConsistency parsed_read_consistency;
@@ -197,6 +201,10 @@ static const struct setting_define cassandra_setting_defines[] = {
 
 	DEF(ENUM, ssl),
 
+	DEF(ENUM, reconnect_policy),
+	DEF_MSECS(reconnect_base_delay),
+	DEF_MSECS(reconnect_max_delay),
+
 	SETTING_DEFINE_LIST_END
 };
 
@@ -236,6 +244,15 @@ static struct cassandra_settings cassandra_default_settings = {
 	.page_size = 0,
 
 	.ssl = "no:cert-only:cert-ip",
+
+#ifdef HAVE_CASSANDRA_RECONNECT_POLICY
+	.reconnect_policy = "exponential:constant",
+#else
+	/* Old cpp-driver supports only constant delays */
+	.reconnect_policy = "constant:exponential",
+#endif
+	.reconnect_base_delay_msecs = 2 * 1000,
+	.reconnect_max_delay_msecs = 60 * 1000,
 };
 
 const struct setting_parser_info cassandra_setting_parser_info = {
@@ -590,6 +607,23 @@ cassandra_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	if (set->connections_per_host == 0) {
 		*error_r = "cassandra_connections_per_host must not be 0";
 		return FALSE;
+	}
+	if (strcmp(set->reconnect_policy, "exponential") == 0) {
+#ifdef HAVE_CASSANDRA_RECONNECT_POLICY
+		/* cpp-driver requirements */
+		if (set->reconnect_base_delay_msecs <= 1) {
+			*error_r = "cassandra_reconnect_base_delay must be larger than 1 ms with exponential cassandra_reconnect_policy";
+			return FALSE;
+		}
+		if (set->reconnect_max_delay_msecs <
+		    set->reconnect_base_delay_msecs) {
+			*error_r = "cassandra_reconnect_max_delay must not be smaller than cassandra_reconnect_base_delay";
+			return FALSE;
+		}
+#else
+		*error_r = "cassandra_reconnect_policy=exponential not supported by the cpp-driver version";
+		return FALSE;
+#endif
 	}
 	if (log_level_parse(set->log_level, &set->parsed_log_level) < 0) {
 		*error_r = t_strdup_printf(
@@ -1097,6 +1131,32 @@ driver_cassandra_init_cluster(struct cassandra_db *db, const char **error_r)
 		cass_cluster_set_constant_speculative_execution_policy(
 			db->cluster, set->execution_retry_interval_msecs,
 			set->execution_retry_times);
+#endif
+#ifdef HAVE_CASSANDRA_RECONNECT_POLICY
+	if (strcmp(set->reconnect_policy, "constant") == 0) {
+		cass_cluster_set_constant_reconnect(db->cluster,
+			set->reconnect_base_delay_msecs);
+	} else if (strcmp(set->reconnect_policy, "exponential") == 0) {
+		c_err = cass_cluster_set_exponential_reconnect(db->cluster,
+			set->reconnect_base_delay_msecs,
+			set->reconnect_max_delay_msecs);
+		if (c_err != CASS_OK) {
+			*error_r = t_strdup_printf(
+				"Invalid cassandra_reconnect_base_delay=%u ms / "
+				"cassandra_reconnect_max_delay=%u ms: %s",
+				set->reconnect_base_delay_msecs,
+				set->reconnect_max_delay_msecs,
+				cass_error_desc(c_err));
+			return -1;
+		}
+	} else {
+		i_unreached();
+	}
+#else
+	/* Old cpp-driver has only the constant policy */
+	i_assert(strcmp(set->reconnect_policy, "constant") == 0);
+	cass_cluster_set_reconnect_wait_time(db->cluster,
+					     set->reconnect_base_delay_msecs);
 #endif
 	if (set->parsed_use_ssl) {
 		e_debug(db->api.event, "Enabling TLS for cluster");
