@@ -113,6 +113,7 @@ struct cassandra_settings {
 	bool log_retries;
 	bool latency_aware_routing;
 	bool logged_batches;
+	bool token_aware_routing;
 
 	const char *read_consistency;
 	const char *write_consistency;
@@ -179,6 +180,7 @@ static const struct setting_define cassandra_setting_defines[] = {
 	DEF(BOOL, log_retries),
 	DEF(BOOL, latency_aware_routing),
 	DEF(BOOL, logged_batches),
+	DEF(BOOL, token_aware_routing),
 
 	DEF(STR, read_consistency),
 	DEF(STR, write_consistency),
@@ -224,6 +226,7 @@ static struct cassandra_settings cassandra_default_settings = {
 	.log_retries = FALSE,
 	.latency_aware_routing = FALSE,
 	.logged_batches = TRUE,
+	.token_aware_routing = TRUE,
 
 	.read_consistency = "local-quorum",
 	.write_consistency = "local-quorum",
@@ -1120,6 +1123,8 @@ driver_cassandra_init_cluster(struct cassandra_db *db, const char **error_r)
 	}
 	if (set->latency_aware_routing)
 		cass_cluster_set_latency_aware_routing(db->cluster, cass_true);
+	cass_cluster_set_token_aware_routing(db->cluster,
+		set->token_aware_routing ? cass_true : cass_false);
 	cass_cluster_set_connection_heartbeat_interval(db->cluster,
 		set->heartbeat_interval_secs);
 	if (set->log_retries) {
