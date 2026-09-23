@@ -27,6 +27,12 @@ AC_DEFUN([DOVECOT_WANT_CASSANDRA], [
       ])
     ],, $CASSANDRA_LIBS)
 
+    AC_CHECK_LIB(cassandra, cass_cluster_set_client_id, [
+      AC_DEFINE(HAVE_CASSANDRA_CLIENT_ID, 1, [
+        Cassandra supports setting client ID
+      ])
+    ],, $CASSANDRA_LIBS)
+
     AC_CHECK_LIB(cassandra, cass_cluster_set_token_aware_routing_shuffle_replicas, [
       AC_DEFINE(HAVE_CASSANDRA_SHUFFLE_REPLICAS, 1, [
         Cassandra supports disabling token-aware replica shuffling

@@ -5,6 +5,7 @@
 #include "array.h"
 #include "hostpid.h"
 #include "hex-binary.h"
+#include "guid.h"
 #include "str.h"
 #include "str-parse.h"
 #include "ioloop.h"
@@ -109,6 +110,7 @@ struct cassandra_settings {
 	const char *local_datacenter;
 	const char *application_name;
 	const char *application_version;
+	const char *client_id;
 
 	const char *metrics_path;
 	const char *log_level;
@@ -162,6 +164,7 @@ struct cassandra_settings {
 	CassConsistency parsed_write_fallback_consistency;
 	CassConsistency parsed_delete_fallback_consistency;
 	double parsed_latency_aware_exclusion_threshold;
+	guid_128_t parsed_client_id;
 	bool parsed_use_ssl;
 	CassSslVerifyFlags parsed_ssl_verify_flags;
 };
@@ -187,6 +190,7 @@ static const struct setting_define cassandra_setting_defines[] = {
 	DEF(STR, local_datacenter),
 	DEF(STR, application_name),
 	DEF(STR, application_version),
+	DEF(STR, client_id),
 
 	DEF(STR, metrics_path),
 	DEF(ENUM, log_level),
@@ -248,6 +252,7 @@ static struct cassandra_settings cassandra_default_settings = {
 	.application_name = "",
 #endif
 	.application_version = "",
+	.client_id = "",
 
 	.metrics_path = "",
 	.log_level = "warn:critical:error:info:debug:trace",
@@ -663,6 +668,20 @@ cassandra_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	}
 #endif
+	if (set->client_id[0] != '\0') {
+#ifdef HAVE_CASSANDRA_CLIENT_ID
+		if (guid_128_from_uuid_string(set->client_id,
+					      set->parsed_client_id) < 0) {
+			*error_r = t_strdup_printf(
+				"Invalid cassandra_client_id '%s': Not a valid UUID",
+				set->client_id);
+			return FALSE;
+		}
+#else
+		*error_r = "cassandra_client_id not supported by the cpp-driver version";
+		return FALSE;
+#endif
+	}
 	if (set->request_queue_size == 0) {
 		*error_r = "cassandra_request_queue_size must not be 0";
 		return FALSE;
@@ -1179,6 +1198,22 @@ driver_cassandra_init_cluster(struct cassandra_db *db, const char **error_r)
 		cass_cluster_set_application_version(db->cluster,
 			set->application_version[0] != '\0' ?
 			set->application_version : PACKAGE_VERSION);
+	}
+#endif
+#ifdef HAVE_CASSANDRA_CLIENT_ID
+	if (set->client_id[0] != '\0') {
+		CassUuid client_id;
+
+		c_err = cass_uuid_from_string(
+			guid_128_to_uuid_string(set->parsed_client_id,
+						FORMAT_RECORD), &client_id);
+		if (c_err != CASS_OK) {
+			*error_r = t_strdup_printf(
+				"Invalid cassandra_client_id '%s': %s",
+				set->client_id, cass_error_desc(c_err));
+			return -1;
+		}
+		cass_cluster_set_client_id(db->cluster, client_id);
 	}
 #endif
 	if (set->protocol_version != 0)
