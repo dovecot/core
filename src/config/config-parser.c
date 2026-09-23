@@ -55,8 +55,6 @@ struct config_parsed {
 	HASH_TABLE_TYPE(config_key) all_keys;
 };
 
-ARRAY_DEFINE_TYPE(setting_parser_info_p, const struct setting_parser_info *);
-
 static const enum settings_parser_flags settings_parser_flags =
 	SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS;
 
@@ -1503,6 +1501,13 @@ config_key_can_autoprefix(struct config_parser_context *ctx, const char *key)
 	   some cases cause conflicts. For example foo .. { fs .. { .. } }
 	   can fail if there is "foo_fs" named filter also. */
 	return def->type != SET_FILTER_NAME;
+}
+
+static const char *
+config_info_dependency_path(const struct setting_parser_info *info)
+{
+	return t_strconcat(MODULEDIR"/", info->plugin_dependency,
+			   MODULE_SUFFIX, NULL);
 }
 
 static void
@@ -4354,10 +4359,17 @@ static bool config_have_info_dependency(const struct setting_parser_info *info)
 {
 	if (info->plugin_dependency == NULL)
 		return TRUE;
-	const char *path = t_strconcat(MODULEDIR"/", info->plugin_dependency,
-				       MODULE_SUFFIX, NULL);
 	struct stat st;
-	return stat(path, &st) == 0;
+	return stat(config_info_dependency_path(info), &st) == 0;
+}
+
+void config_parser_add_available_infos(ARRAY_TYPE(setting_parser_info_p) *infos)
+{
+	/* drop any default infos which depend on plugins that don't exist */
+	for (unsigned int i = 0; all_infos[i] != NULL; i++) {
+		if (config_have_info_dependency(all_infos[i]))
+			array_push_back(infos, &all_infos[i]);
+	}
 }
 
 static void
@@ -4405,11 +4417,7 @@ void config_parse_load_modules(bool dump_config_import)
 	str_append(config_import, stats_metric_defaults);
 	str_append(config_import, mailbox_defaults);
 	i_array_init(&new_infos, 64);
-	/* drop any default infos which depend on plugins that don't exist */
-	for (i = 0; all_infos[i] != NULL; i++) {
-		if (config_have_info_dependency(all_infos[i]))
-			array_push_back(&new_infos, &all_infos[i]);
-	}
+	config_parser_add_available_infos(&new_infos);
 
 	i_array_init(&new_services, 64);
 	for (m = modules; m != NULL; m = m->next) {

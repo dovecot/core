@@ -20,6 +20,8 @@
 struct config_parsed;
 struct setting_parser_context;
 
+ARRAY_DEFINE_TYPE(setting_parser_info_p, const struct setting_parser_info *);
+
 enum config_parse_flags {
 	CONFIG_PARSE_FLAG_EXPAND_VALUES	= BIT(0),
 	CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS = BIT(1),
@@ -170,6 +172,9 @@ config_parsed_get_paths(const struct config_parsed *config);
 void config_parsed_free(struct config_parsed **config);
 
 void config_parse_load_modules(bool dump_config_import);
+/* Add all_infos to infos, except those that depend on a plugin that isn't
+   installed. */
+void config_parser_add_available_infos(ARRAY_TYPE(setting_parser_info_p) *infos);
 
 void config_parser_deinit(void);
 
