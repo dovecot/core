@@ -131,6 +131,7 @@ struct cassandra_settings {
 	unsigned int protocol_version;
 	unsigned int io_thread_count;
 	unsigned int connections_per_host;
+	unsigned int request_queue_size;
 	unsigned int heartbeat_interval_secs;
 	unsigned int idle_timeout_secs;
 	unsigned int tcp_keepalive_secs;
@@ -206,6 +207,7 @@ static const struct setting_define cassandra_setting_defines[] = {
 	DEF(UINT, protocol_version),
 	DEF(UINT, io_thread_count),
 	DEF(UINT, connections_per_host),
+	DEF(UINT, request_queue_size),
 	DEF_SECS(heartbeat_interval),
 	DEF_SECS(idle_timeout),
 	DEF_SECS(tcp_keepalive),
@@ -264,6 +266,7 @@ static struct cassandra_settings cassandra_default_settings = {
 	.protocol_version = 0,
 	.io_thread_count = 1,
 	.connections_per_host = 1,
+	.request_queue_size = 8192,
 	.heartbeat_interval_secs = 30,
 	.idle_timeout_secs = 60,
 	.tcp_keepalive_secs = 0,
@@ -641,6 +644,10 @@ cassandra_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	}
 	if (set->connections_per_host == 0) {
 		*error_r = "cassandra_connections_per_host must not be 0";
+		return FALSE;
+	}
+	if (set->request_queue_size == 0) {
+		*error_r = "cassandra_request_queue_size must not be 0";
 		return FALSE;
 	}
 	if (strcmp(set->reconnect_policy, "exponential") == 0) {
@@ -1157,6 +1164,14 @@ driver_cassandra_init_cluster(struct cassandra_db *db, const char **error_r)
 		*error_r = t_strdup_printf(
 			"Invalid cassandra_connections_per_host %u: %s",
 			set->connections_per_host, cass_error_desc(c_err));
+		return -1;
+	}
+	c_err = cass_cluster_set_queue_size_io(db->cluster,
+					       set->request_queue_size);
+	if (c_err != CASS_OK) {
+		*error_r = t_strdup_printf(
+			"Invalid cassandra_request_queue_size %u: %s",
+			set->request_queue_size, cass_error_desc(c_err));
 		return -1;
 	}
 	if (set->local_datacenter[0] != '\0') {
