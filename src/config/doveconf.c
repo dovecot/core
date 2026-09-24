@@ -24,6 +24,7 @@
 #include "dovecot-version.h"
 
 #include <ctype.h>
+#include <getopt.h>
 #include <unistd.h>
 #include <sysexits.h>
 
@@ -1136,6 +1137,17 @@ static void failure_exit_callback(int *status)
 	*status = EX_TEMPFAIL;
 }
 
+static void print_help(void)
+{
+	printf(
+"Usage: doveconf [-aCdFhnNPsUwx] [-c <config-file>] [-i <instance-name>]\n"
+"                [-f <filter>] [setting_name ...]\n"
+"       doveconf [-C] [-i <instance-name>] [-c <config-file>]\n"
+"                -F <command> [command args ...]\n"
+"       doveconf -I\n"
+"       doveconf --help\n");
+}
+
 int main(int argc, char *argv[])
 {
 	enum master_service_flags master_service_flags =
@@ -1162,13 +1174,27 @@ int main(int argc, char *argv[])
 		i_set_failure_exit_callback(failure_exit_callback);
 	}
 
+	/* "+" stops option parsing at the first non-option argument, so
+	   "-F <command> <args>" leaves <command>'s args alone. getopt_long()
+	   would otherwise permute argv. */
 	master_service = master_service_init("config", master_service_flags,
-					     &argc, &argv, "aCdf:FhInNPwxsU");
+					     &argc, &argv, "+aCdf:FhInNPwxsU");
+	const struct option longopts[] = {
+		master_service_helpopt,
+		{NULL, 0, NULL, 0},
+	};
+	master_service_register_long_options(master_service, longopts);
 	orig_config_path = t_strdup(master_service_get_config_path(master_service));
 
 	i_set_failure_prefix("doveconf: ");
-	while ((c = master_getopt(master_service)) > 0) {
+	const char *longopt = NULL;
+	while ((c = master_getopt_long(master_service, &longopt)) >= 0) {
 		switch (c) {
+		case 0:
+			i_assert(strcmp(longopt, "help") == 0);
+			print_help();
+			master_service_deinit(&master_service);
+			return 0;
 		case 'a':
 			scope = CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN;
 			break;
@@ -1227,6 +1253,7 @@ int main(int argc, char *argv[])
 			flags |= CONFIG_PARSE_FLAG_EXPAND_VALUES;
 			break;
 		default:
+			fprintf(stderr, "Use doveconf --help for usage.\n");
 			return FATAL_DEFAULT;
 		}
 	}
