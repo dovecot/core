@@ -110,10 +110,17 @@ static struct mailbox_list *imapc_list_alloc(void)
 static int imapc_list_init(struct mailbox_list *_list, const char **error_r)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
+	struct event *event;
 
-	if (imapc_storage_client_create(_list,
-					&list->client, error_r) < 0)
+	event = event_create(_list->event);
+	event_add_category(event, &event_category_imapc);
+
+	if (imapc_storage_client_create(_list, event,
+					&list->client, error_r) < 0) {
+		event_unref(&event);
 		return -1;
+	}
+	list->event = event;
 	list->client->_list = list;
 	list->set = list->client->set;
 
@@ -148,6 +155,7 @@ static void imapc_list_deinit(struct mailbox_list *_list)
 	mailbox_tree_deinit(&list->mailboxes);
 	if (list->tmp_subscriptions != NULL)
 		mailbox_tree_deinit(&list->tmp_subscriptions);
+	event_unref(&list->event);
 	pool_unref(&list->list.pool);
 }
 

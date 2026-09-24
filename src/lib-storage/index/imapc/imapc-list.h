@@ -9,6 +9,7 @@ struct imap_arg;
 
 struct imapc_mailbox_list {
 	struct mailbox_list list;
+	struct event *event;
 	const struct imapc_settings *set; /* points to client->set */
 	struct imapc_storage_client *client;
 	struct mailbox_list *index_list;

@@ -34,7 +34,7 @@ struct imapc_resp_code_map {
 extern struct mail_storage imapc_storage;
 extern struct mailbox imapc_mailbox;
 
-static struct event_category event_category_imapc = {
+struct event_category event_category_imapc = {
 	.name = "imapc",
 	.parent = &event_category_storage,
 };
@@ -326,6 +326,7 @@ static void imapc_storage_client_login(struct imapc_storage_client *client,
 }
 
 int imapc_storage_client_create(struct mailbox_list *list,
+				struct event *list_event,
 				struct imapc_storage_client **client_r,
 				const char **error_r)
 {
@@ -337,11 +338,11 @@ int imapc_storage_client_create(struct mailbox_list *list,
 	const struct ssl_settings *ssl_set = NULL;
 	string_t *str;
 
-	if (settings_get(list->event, &imapc_setting_parser_info, 0,
+	if (settings_get(list_event, &imapc_setting_parser_info, 0,
 			 &imapc_set, error_r) < 0)
 		return -1;
 	if (strcmp(imapc_set->imapc_ssl, "no") != 0 &&
-	    ssl_client_settings_get(list->event, &ssl_set, error_r) < 0) {
+	    ssl_client_settings_get(list_event, &ssl_set, error_r) < 0) {
 		settings_free(imapc_set);
 		return -1;
 	}
@@ -361,7 +362,7 @@ int imapc_storage_client_create(struct mailbox_list *list,
 	mail_user_set_get_temp_prefix(str, ns->user->set);
 	params.temp_path_prefix = str_c(str);
 
-	if (imapc_client_init(&params, list->event, &imap_client, error_r) < 0)
+	if (imapc_client_init(&params, list_event, &imap_client, error_r) < 0)
 		return -1;
 
 	client = i_new(struct imapc_storage_client, 1);
@@ -451,15 +452,25 @@ imapc_storage_create(struct mail_storage *_storage,
 {
 	struct imapc_storage *storage = IMAPC_STORAGE(_storage);
 	struct imapc_mailbox_list *imapc_list = NULL;
+	struct event *list_event;
+
+	list_event = event_create(ns->list->event);
+	event_add_category(list_event, &event_category_imapc);
 
 	if (strcmp(ns->list->name, MAILBOX_LIST_NAME_IMAPC) == 0) {
 		imapc_list = (struct imapc_mailbox_list *)ns->list;
 		storage->client = imapc_list->client;
 		storage->client->refcount++;
 	} else {
-		if (imapc_storage_client_create(ns->list, &storage->client, error_r) < 0)
+		if (imapc_storage_client_create(ns->list, list_event,
+						&storage->client,
+						error_r) < 0) {
+			event_unref(&list_event);
 			return -1;
+		}
 	}
+	event_unref(&list_event);
+
 	storage->client->_storage = storage;
 	storage->set = storage->client->set;
 	p_array_init(&storage->remote_namespaces, _storage->pool, 4);
