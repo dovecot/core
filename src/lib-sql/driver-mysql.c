@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "ioloop.h"
 #include "hex-binary.h"
 #include "str.h"
@@ -133,13 +134,20 @@ struct mysql_db {
 
 struct mysql_result {
 	struct sql_result api;
+	pool_t result_pool;
 
 	MYSQL_RES *result;
+	MYSQL_STMT *stmt;
+	MYSQL_BIND *result_binds;
+	unsigned long *result_lengths;
+	my_bool *result_is_null;
+
 	MYSQL_ROW row;
 	char *error;
 
 	MYSQL_FIELD *fields;
 	unsigned int fields_count;
+	const char **values;
 
 	my_ulonglong affected_rows;
 };
@@ -153,6 +161,12 @@ struct mysql_transaction_context {
 	bool failed:1;
 	bool committed:1;
 	bool commit_started:1;
+};
+
+struct mysql_statement {
+	struct sql_statement api;
+	MYSQL_STMT *stmt;
+	ARRAY(MYSQL_BIND) binds;
 };
 
 struct mysql_db_cache {
@@ -561,9 +575,70 @@ static void driver_mysql_result_free(struct sql_result *_result)
 
 	if (result->result != NULL)
 		mysql_free_result(result->result);
-	event_unref(&_result->event);
+	if (result->stmt != NULL) {
+		mysql_stmt_close(result->stmt);
+		result->stmt = NULL;
+	}
+	i_free(result->result_binds);
+	i_free(result->result_lengths);
+	i_free(result->result_is_null);
+	i_free(result->values);
 	i_free(result->error);
+	event_unref(&_result->event);
+	pool_unref(&result->result_pool);
 	i_free(result);
+}
+
+static int driver_mysql_result_stmt_next_row(struct mysql_result *result)
+{
+	struct mysql_db *db = container_of(result->api.db, struct mysql_db, api);
+
+	if (result->result == NULL) {
+		/* nothing to return */
+		return 0;
+	}
+
+	int ret = mysql_stmt_fetch(result->stmt);
+
+	/* MYSQL_DATA_TRUNCATED: expected with NULL-buffered result binds */
+	if (ret == 0 || ret == MYSQL_DATA_TRUNCATED) {
+		/* prepopulate field information */
+		(void)result->api.v.get_fields_count(&result->api);
+		ret = 1;
+	} else if (ret == MYSQL_NO_DATA) {
+		if (result->result != NULL)
+			mysql_free_result(result->result);
+		result->result = NULL;
+		mysql_stmt_free_result(result->stmt);
+		while ((ret = mysql_stmt_next_result(result->stmt)) == 0)
+			mysql_stmt_free_result(result->stmt);
+		if (ret == -1) {
+			/* successfully looped through all results */
+			ret = 0;
+		}
+	} else {
+		ret = mysql_stmt_errno(result->stmt);
+	}
+
+	switch (ret) {
+	case 0:
+	case 1:
+		break;
+	case CR_OUT_OF_MEMORY:
+		i_fatal_status(FATAL_OUTOFMEM,
+			       "mysql_stmt_fetch(): Out of memory");
+	case CR_SERVER_GONE_ERROR:
+	case CR_SERVER_LOST:
+		sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
+		/* fall-through */
+	default:
+		result->api.failed = TRUE;
+		result->error = i_strdup(mysql_stmt_error(result->stmt));
+		return -1;
+	}
+
+	db->last_success = ioloop_time;
+	return ret;
 }
 
 static int driver_mysql_result_next_row(struct sql_result *_result)
@@ -572,6 +647,13 @@ static int driver_mysql_result_next_row(struct sql_result *_result)
 		container_of(_result, struct mysql_result, api);
 	struct mysql_db *db = container_of(_result->db, struct mysql_db, api);
 	int ret;
+
+	/* clear previously returned results */
+	if (result->result_pool != NULL)
+		p_clear(result->result_pool);
+
+	if (result->stmt != NULL)
+		return driver_mysql_result_stmt_next_row(result);
 
 	if (result->result == NULL) {
 		/* no results */
@@ -649,12 +731,57 @@ static int driver_mysql_result_find_field(struct sql_result *_result,
 	return -1;
 }
 
+static void *
+driver_mysql_stmt_fetch_field(struct mysql_result *result, unsigned int idx,
+			      enum enum_field_types type,
+			      size_t *len_r, bool *is_null_r)
+{
+	/* result_lengths[] and result_is_null[] are already populated by
+	   mysql_stmt_fetch() for the current row - the column definition's
+	   f->length is only the maximum possible width (e.g. 4GB for a
+	   LONGBLOB) and would grossly oversize this allocation. They are
+	   allocated together whenever a successful statement execution
+	   returns result columns, which is the only case this is called
+	   from. */
+	i_assert(result->result_lengths != NULL);
+	size_t len = result->result_lengths[idx];
+	MYSQL_BIND b = {
+		.buffer_type = type,
+		.length = &len,
+	};
+
+	if (result->result_pool == NULL)
+		result->result_pool = pool_alloconly_create("result pool", 256);
+	b.buffer = p_malloc(result->result_pool, len + 1);
+	b.buffer_length = len;
+
+	if (mysql_stmt_fetch_column(result->stmt, &b, idx, 0) != 0)
+		i_panic("mysql_stmt_fetch_column(%u) failed: %s",
+			idx, mysql_stmt_error(result->stmt));
+	((char *)b.buffer)[len] = '\0';
+
+	*len_r = len;
+	*is_null_r = result->result_is_null[idx] != 0;
+	return b.buffer;
+}
+
 static const char *
 driver_mysql_result_get_field_value(struct sql_result *_result,
 				    unsigned int idx)
 {
 	struct mysql_result *result =
 		container_of(_result, struct mysql_result, api);
+	i_assert(idx < result->fields_count);
+
+	if (result->stmt != NULL) {
+		size_t len;
+		bool is_null;
+		char *buf = driver_mysql_stmt_fetch_field(
+			result, idx, MYSQL_TYPE_STRING, &len, &is_null);
+		if (is_null)
+			return NULL;
+		return buf;
+	}
 
 	return (const char *)result->row[idx];
 }
@@ -665,10 +792,20 @@ driver_mysql_result_get_field_value_binary(struct sql_result *_result,
 {
 	struct mysql_result *result =
 		container_of(_result, struct mysql_result, api);
-	unsigned long *lengths;
+	i_assert(idx < result->fields_count);
 
-	lengths = mysql_fetch_lengths(result->result);
+	if (result->stmt != NULL) {
+		bool is_null;
+		void *buf = driver_mysql_stmt_fetch_field(
+			result, idx, MYSQL_TYPE_BLOB, size_r, &is_null);
+		if (is_null) {
+			*size_r = 0;
+			return NULL;
+		}
+		return buf;
+	}
 
+	unsigned long *lengths = mysql_fetch_lengths(result->result);
 	*size_r = lengths[idx];
 	return (const void *)result->row[idx];
 }
@@ -690,6 +827,20 @@ driver_mysql_result_get_values(struct sql_result *_result)
 {
 	struct mysql_result *result =
 		container_of(_result, struct mysql_result, api);
+
+	if (result->stmt != NULL) {
+		if (result->values == NULL) {
+			driver_mysql_result_fetch_fields(result);
+			result->values = i_new(const char *,
+					       result->fields_count);
+		}
+		/* @UNSAFE */
+		for (unsigned int i = 0; i < result->fields_count; i++) {
+			result->values[i] =
+				driver_mysql_result_get_field_value(&result->api, i);
+		}
+		return (const char *const *)result->values;
+	}
 
 	return (const char *const *)result->row;
 }
@@ -729,19 +880,171 @@ driver_mysql_transaction_begin(struct sql_db *db)
 	return &ctx->ctx;
 }
 
+static int
+execute_statement(struct mysql_statement *stmt, struct mysql_result **result_r)
+{
+	struct mysql_db *db = container_of(stmt->api.db, struct mysql_db, api);
+	struct mysql_result *result = i_new(struct mysql_result, 1);
+	const char *query_template = stmt->api.query_template;
+	int ret;
+
+	if (db->api.state == SQL_DB_STATE_DISCONNECTED &&
+	    driver_mysql_connect(&db->api) < 0) {
+		result->api = driver_mysql_error_result;
+		result->error = i_strdup("Not connected to database");
+		ret = -1;
+	} else {
+		stmt->stmt = mysql_stmt_init(db->mysql);
+		if (stmt->stmt == NULL)
+			i_fatal_status(FATAL_OUTOFMEM,
+				       "mysql_stmt_init(): Out of memory");
+		if (mysql_stmt_prepare(stmt->stmt, query_template,
+					strlen(query_template)) != 0) {
+			/* mysql_stmt_prepare() only reports success/failure -
+			   the error code comes from mysql_stmt_errno().
+			   libmysqlclient and MariaDB Connector/C set a
+			   nonzero errno on failure; if one does not, fail
+			   the statement rather than executing an unprepared
+			   one. */
+			ret = mysql_stmt_errno(stmt->stmt);
+			if (ret == CR_OUT_OF_MEMORY) {
+				i_fatal_status(FATAL_OUTOFMEM,
+					       "mysql_stmt_prepare(%s): Out of memory",
+					       query_template);
+			}
+			if (ret == 0) {
+				result->api = driver_mysql_error_result;
+				result->error = i_strdup(
+					"mysql_stmt_prepare() failed without an error code");
+				ret = -1;
+			}
+		} else if (array_count(&stmt->binds) !=
+			   mysql_stmt_param_count(stmt->stmt)) {
+			result->api = driver_mysql_error_result;
+			result->error = i_strdup_printf(
+				"Expected %lu parameters, got %u",
+				mysql_stmt_param_count(stmt->stmt),
+				array_count(&stmt->binds));
+			ret = -1;
+		} else
+			ret = 0;
+	}
+
+	if (ret == 0) {
+		if (array_count(&stmt->binds) > 0) {
+			MYSQL_BIND *binds =
+				array_front_modifiable(&stmt->binds);
+			if (mysql_stmt_bind_param(stmt->stmt, binds) != 0)
+				ret = mysql_stmt_errno(stmt->stmt);
+		}
+		if (ret != 0)
+			; /* binding already failed */
+		else if (mysql_stmt_execute(stmt->stmt) != 0 ||
+			 mysql_stmt_store_result(stmt->stmt) != 0)
+			ret = mysql_stmt_errno(stmt->stmt);
+	}
+
+	switch (ret) {
+	case -1:
+		break;
+	case 0:
+		result->api = driver_mysql_result;
+		result->affected_rows = mysql_stmt_affected_rows(stmt->stmt);
+		result->result = mysql_stmt_result_metadata(stmt->stmt);
+		if (result->result != NULL) {
+			unsigned int count = mysql_num_fields(result->result);
+			result->result_binds = i_new(MYSQL_BIND, count);
+			result->result_lengths = i_new(unsigned long, count);
+			result->result_is_null = i_new(my_bool, count);
+			for (unsigned int i = 0; i < count; i++) {
+				result->result_binds[i].buffer_type =
+					MYSQL_TYPE_STRING;
+				result->result_binds[i].length =
+					&result->result_lengths[i];
+				result->result_binds[i].is_null =
+					&result->result_is_null[i];
+			}
+			if (mysql_stmt_bind_result(stmt->stmt,
+						   result->result_binds) != 0) {
+				result->api = driver_mysql_error_result;
+				result->error = i_strdup(
+					mysql_stmt_error(stmt->stmt));
+				ret = -1;
+			}
+		}
+		break;
+	case CR_OUT_OF_MEMORY:
+		i_fatal_status(FATAL_OUTOFMEM,
+			       "mysql_stmt_execute(%s): Out of memory",
+			       stmt->api.query_template);
+	case CR_SERVER_GONE_ERROR:
+	case CR_SERVER_LOST:
+		sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
+		/* fall-through */
+	default:
+		result->api = driver_mysql_error_result;
+		result->error = i_strdup(mysql_stmt_error(stmt->stmt));
+		break;
+	}
+	result->api.db = &db->api;
+	result->api.refcount = 1;
+	/* Transfer stmt ownership so driver_mysql_result_free() closes it. */
+	result->stmt = stmt->stmt;
+	stmt->stmt = NULL;
+	*result_r = result;
+
+	return ret;
+}
+
+static struct sql_result *
+driver_mysql_execute_stmt(struct mysql_statement *stmt)
+{
+	struct mysql_db *db = container_of(stmt->api.db, struct mysql_db, api);
+	struct mysql_result *result;
+	struct event *event = event_create(db->api.event);
+	const char *query = sql_statement_get_log_query(&stmt->api);
+	int ret = execute_statement(stmt, &result);
+
+	io_loop_time_refresh();
+	int diff;
+	struct event_passthrough *e =
+		sql_query_finished_event(&db->api, event, query,
+					 ret == 0, &diff);
+	if (ret != 0) {
+		e->add_int("error_code", ret);
+		e->add_str("error", result->error);
+		e_debug(e->event(), SQL_QUERY_FINISHED_FMT": %s",
+			query, diff, result->error);
+	} else {
+		e_debug(e->event(), SQL_QUERY_FINISHED_FMT, query, diff);
+	}
+
+	result->api.event = event;
+	pool_unref(&stmt->api.pool);
+	return &result->api;
+}
+
 static int ATTR_NULL(3)
-transaction_send_query(struct mysql_transaction_context *ctx, const char *query,
+transaction_send_query(struct mysql_transaction_context *ctx,
+		       struct sql_transaction_query *query,
 		       unsigned int *affected_rows_r)
 {
 	struct sql_result *_result;
+	struct mysql_statement *stmt;
 	int ret = 0;
 
 	if (ctx->failed)
 		return -1;
 
-	_result = sql_query_s(ctx->ctx.db, query);
+	if (query->stmt != NULL) {
+		stmt = container_of(query->stmt, struct mysql_statement, api);
+		_result = driver_mysql_execute_stmt(stmt);
+	} else
+		_result = sql_query_s(ctx->ctx.db, query->query);
+
 	if (sql_result_next_row(_result) < 0) {
-		ctx->error = sql_result_get_error(_result);
+		ctx->error = p_strdup(ctx->query_pool,
+				      sql_result_get_error(_result));
 		ctx->failed = TRUE;
 		ret = -1;
 	} else if (affected_rows_r != NULL) {
@@ -758,10 +1061,13 @@ transaction_send_query(struct mysql_transaction_context *ctx, const char *query,
 static int driver_mysql_try_commit_s(struct mysql_transaction_context *ctx)
 {
 	struct sql_transaction_context *_ctx = &ctx->ctx;
+	struct sql_transaction_query query = {
+		.query = "BEGIN",
+	};
 	bool multi = _ctx->head != NULL && _ctx->head->next != NULL;
 
 	/* wrap in BEGIN/COMMIT only if transaction has multiple statements. */
-	if (multi && transaction_send_query(ctx, "BEGIN", NULL) < 0) {
+	if (multi && transaction_send_query(ctx, &query, NULL) < 0) {
 		if (_ctx->db->state != SQL_DB_STATE_DISCONNECTED)
 			return -1;
 		/* we got disconnected, retry */
@@ -771,12 +1077,14 @@ static int driver_mysql_try_commit_s(struct mysql_transaction_context *ctx)
 	}
 
 	while (_ctx->head != NULL) {
-		if (transaction_send_query(ctx, _ctx->head->query,
+		if (transaction_send_query(ctx, _ctx->head,
 					   _ctx->head->affected_rows) < 0)
 			return -1;
 		_ctx->head = _ctx->head->next;
 	}
-	if (multi && transaction_send_query(ctx, "COMMIT", NULL) < 0)
+
+	query.query = "COMMIT";
+	if (multi && transaction_send_query(ctx, &query, NULL) < 0)
 		return -1;
 	return 1;
 }
@@ -817,6 +1125,9 @@ driver_mysql_transaction_rollback(struct sql_transaction_context *_ctx)
 {
 	struct mysql_transaction_context *ctx =
 		container_of(_ctx, struct mysql_transaction_context, ctx);
+	struct sql_transaction_query query = {
+		.query = "ROLLBACK",
+	};
 
 	if (ctx->failed) {
 		bool rolledback = FALSE;
@@ -826,7 +1137,7 @@ driver_mysql_transaction_rollback(struct sql_transaction_context *_ctx)
 			   otherwise, transaction_send_query() will return
 			   without trying to send the query. */
 			ctx->failed = FALSE;
-			if (transaction_send_query(ctx, "ROLLBACK", NULL) < 0)
+			if (transaction_send_query(ctx, &query, NULL) < 0)
 				e_debug(event_create_passthrough(_ctx->event)->
 					add_str("error", ctx->error)->event(),
 					"Rollback failed: %s", ctx->error);
@@ -873,6 +1184,120 @@ driver_mysql_escape_blob(struct sql_db *_db ATTR_UNUSED,
 	return str_c(str);
 }
 
+static struct sql_statement *
+driver_mysql_statement_init(struct sql_db *_db, const char *query_template)
+{
+	pool_t pool = pool_alloconly_create("mysql statement", 1024);
+	struct mysql_statement *stmt = p_new(pool, struct mysql_statement, 1);
+	stmt->api.db = _db;
+	stmt->api.pool = pool;
+	stmt->api.query_template = p_strdup(pool, query_template);
+	p_array_init(&stmt->binds, pool, 4);
+	return &stmt->api;
+}
+
+static void driver_mysql_statement_abort(struct sql_statement *_stmt)
+{
+	struct mysql_statement *stmt = container_of(_stmt, struct mysql_statement, api);
+	if (stmt->stmt != NULL)
+		mysql_stmt_close(stmt->stmt);
+}
+
+static void
+driver_mysql_statement_bind_str(struct sql_statement *_stmt,
+				unsigned int column_idx, const char *value)
+{
+	struct mysql_statement *stmt = container_of(_stmt, struct mysql_statement, api);
+	MYSQL_BIND *bind = array_idx_get_space(&stmt->binds, column_idx);
+	my_bool *is_null = p_new(stmt->api.pool, my_bool, 1);
+	*is_null = (value == NULL ? 1 : 0);
+	bind->is_null = is_null;
+	bind->buffer_type = MYSQL_TYPE_STRING;
+	bind->buffer = p_strdup(stmt->api.pool, value);
+	unsigned long *len = p_new(stmt->api.pool, unsigned long, 1);
+	*len = value != NULL ? strlen(value) : 0;
+	bind->buffer_length = *len;
+	bind->length = len;
+}
+
+static void
+driver_mysql_statement_bind_uuid(struct sql_statement *_stmt,
+				 unsigned int column_idx, const guid_128_t value)
+{
+	const char *guid = guid_128_to_uuid_string(value, FORMAT_RECORD);
+	driver_mysql_statement_bind_str(_stmt, column_idx, guid);
+}
+
+static void
+driver_mysql_statement_bind_binary(struct sql_statement *_stmt,
+				   unsigned int column_idx, const void *value,
+				   size_t value_len)
+{
+	struct mysql_statement *stmt = container_of(_stmt, struct mysql_statement, api);
+	i_assert(value != NULL || value_len == 0);
+	MYSQL_BIND *bind = array_idx_get_space(&stmt->binds, column_idx);
+	bind->buffer_type = MYSQL_TYPE_BLOB;
+	/* p_memdup() panics on a zero-size allocation, so a zero-length
+	   value binds the shared empty pointer instead of allocating. */
+	bind->buffer = value_len == 0 ?
+		(void *)uchar_empty_ptr : p_memdup(stmt->api.pool, value, value_len);
+	unsigned long *len = p_new(stmt->api.pool, unsigned long, 1);
+	*len = value_len;
+	bind->buffer_length = *len;
+	bind->length = len;
+}
+
+static void
+driver_mysql_statement_bind_int64(struct sql_statement *_stmt,
+				  unsigned int column_idx, int64_t value)
+{
+	struct mysql_statement *stmt = container_of(_stmt, struct mysql_statement, api);
+	MYSQL_BIND *bind = array_idx_get_space(&stmt->binds, column_idx);
+	bind->buffer_type = MYSQL_TYPE_LONGLONG;
+	bind->buffer = p_memdup(stmt->api.pool, &value, sizeof(value));
+	unsigned long *len = p_new(stmt->api.pool, unsigned long, 1);
+	*len = sizeof(value);
+	bind->buffer_length = *len;
+	bind->length = len;
+}
+
+static void
+driver_mysql_statement_bind_double(struct sql_statement *_stmt,
+				   unsigned int column_idx, double value)
+{
+	struct mysql_statement *stmt = container_of(_stmt, struct mysql_statement, api);
+	MYSQL_BIND *bind = array_idx_get_space(&stmt->binds, column_idx);
+	bind->buffer_type = MYSQL_TYPE_DOUBLE;
+	bind->buffer = p_memdup(stmt->api.pool, &value, sizeof(value));
+	unsigned long *len = p_new(stmt->api.pool, unsigned long, 1);
+	*len = sizeof(value);
+	bind->buffer_length = *len;
+	bind->length = len;
+}
+
+static struct sql_result *
+driver_mysql_statement_query_s(struct sql_statement *_stmt)
+{
+	struct mysql_statement *stmt =
+		container_of(_stmt, struct mysql_statement, api);
+	return driver_mysql_execute_stmt(stmt);
+}
+
+static void driver_mysql_update_stmt(struct sql_transaction_context *_ctx,
+				     struct sql_statement *_stmt,
+				     unsigned int *affected_rows)
+{
+	struct mysql_transaction_context *ctx =
+		container_of(_ctx, struct mysql_transaction_context, ctx);
+
+	/* ensure statement is free'd when transaction is free'd */
+	pool_add_external_ref(ctx->query_pool, _stmt->pool);
+	pool_unref(&_stmt->pool);
+
+	sql_transaction_add_stmt(&ctx->ctx, ctx->query_pool,
+				 _stmt, affected_rows);
+}
+
 const struct sql_db driver_mysql_db = {
 	.name = "mysql",
 	.flags = SQL_DB_FLAG_BLOCKING | SQL_DB_FLAG_POOLED |
@@ -894,6 +1319,18 @@ const struct sql_db driver_mysql_db = {
 		.update = driver_mysql_update,
 
 		.escape_blob = driver_mysql_escape_blob,
+
+		.statement_init = driver_mysql_statement_init,
+		.statement_abort = driver_mysql_statement_abort,
+
+		.statement_bind_str = driver_mysql_statement_bind_str,
+		.statement_bind_binary = driver_mysql_statement_bind_binary,
+		.statement_bind_int64 = driver_mysql_statement_bind_int64,
+		.statement_bind_double = driver_mysql_statement_bind_double,
+		.statement_bind_uuid = driver_mysql_statement_bind_uuid,
+		.statement_query_s = driver_mysql_statement_query_s,
+
+		.update_stmt = driver_mysql_update_stmt,
 	}
 };
 
