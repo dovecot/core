@@ -334,6 +334,7 @@ struct client {
 	bool fd_proxying:1;
 	bool shutting_down:1;
 	bool resource_constraint:1;
+	bool unauthenticated_limit_reached:1;
 	/* Defer calling auth ready callback until TLS handshake has been
 	   finished. */
 	bool defer_auth_ready:1;
@@ -449,6 +450,9 @@ const char *client_proxy_get_state(struct client *client);
 
 void clients_notify_auth_connected(void);
 bool client_destroy_oldest(bool kill, struct timeval *created_r);
+/* Destroy the oldest unauthenticated clients until there are at most limit
+   clients left. */
+void clients_check_unauthenticated_limit(unsigned int limit);
 void clients_destroy_all(void);
 void clients_destroy_all_reason(const char *reason);
 

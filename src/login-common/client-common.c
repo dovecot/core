@@ -37,6 +37,8 @@ struct client *clients = NULL;
 struct client *destroyed_clients = NULL;
 static struct client *last_client = NULL;
 static unsigned int clients_count = 0;
+/* Number of clients in the clients linked list */
+static unsigned int clients_active_count = 0;
 
 static struct client *client_fd_proxies = NULL;
 static unsigned int client_fd_proxies_count = 0;
@@ -387,6 +389,7 @@ int client_init(struct client *client)
 	client->list_type = CLIENT_LIST_TYPE_ACTIVE;
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
+	clients_active_count++;
 
 	client->to_disconnect =
 		timeout_add(CLIENT_LOGIN_TIMEOUT_MSECS,
@@ -511,6 +514,8 @@ void client_destroy(struct client *client, const char *reason)
 	i_assert(!client->fd_proxying);
 	i_assert(client->list_type == CLIENT_LIST_TYPE_ACTIVE);
 	DLLIST_REMOVE(&clients, client);
+	i_assert(clients_active_count > 0);
+	clients_active_count--;
 	client->list_type = CLIENT_LIST_TYPE_DESTROYED;
 	DLLIST_PREPEND(&destroyed_clients, client);
 
@@ -664,18 +669,19 @@ void client_common_default_free(struct client *client ATTR_UNUSED)
 {
 }
 
-static struct client *client_find_oldest_unauthenticated(void)
+static struct client *
+client_find_oldest_unauthenticated(bool prefer_refcount1)
 {
 	struct client *client, *last_refcount_non1 = NULL;
 
 	/* find the last client that hasn't successfully authenticated yet.
 	   this is usually the last client, but don't kill it if it's just
-	   waiting for master to finish its job. Also prefer to kill clients
-	   that can immediately be killed (i.e. refcount=1) */
+	   waiting for master to finish its job. Optionally prefer to kill
+	   clients that can immediately be freed (i.e. refcount=1) */
 	for (client = last_client; client != NULL; client = client->prev) {
 		if (client->master_tag != 0) {
 			/* never kill clients that are just waiting */
-		} else if (client->refcount > 1)
+		} else if (prefer_refcount1 && client->refcount > 1)
 			last_refcount_non1 = client;
 		else
 			return client;
@@ -694,7 +700,7 @@ bool client_destroy_oldest(bool kill, struct timeval *created_r)
 {
 	struct client *client;
 
-	client = client_find_oldest_unauthenticated();
+	client = client_find_oldest_unauthenticated(TRUE);
 	if (client == NULL)
 		return FALSE;
 
@@ -707,6 +713,22 @@ bool client_destroy_oldest(bool kill, struct timeval *created_r)
 	/* return TRUE only if the client was actually freed */
 	i_assert(client->create_finished);
 	return !client_unref(&client);
+}
+
+void clients_check_unauthenticated_limit(unsigned int limit)
+{
+	struct client *client;
+
+	while (clients_active_count > limit) {
+		/* Don't prefer refcount=1 clients here. Otherwise clients
+		   that are e.g. waiting for SASL continuation would never be
+		   killed, and the newest client would be killed instead. */
+		client = client_find_oldest_unauthenticated(FALSE);
+		if (client == NULL)
+			break;
+		client->unauthenticated_limit_reached = TRUE;
+		client_destroy_resource_constraint(client);
+	}
 }
 
 void clients_destroy_all_reason(const char *reason)
@@ -1452,6 +1474,13 @@ bool client_get_extra_disconnect_reason(struct client *client,
 		ioloop_time - client->auth_first_started.tv_sec;
 
 	*event_reason_r = NULL;
+
+	if (client->unauthenticated_limit_reached) {
+		*event_reason_r = "unauthenticated_client_limit";
+		*human_reason_r = "login_unauthenticated_client_limit was hit"
+				 " and this login session was killed.";
+		return TRUE;
+	}
 
 	if (client->ssl_iostream != NULL &&
 	    !ssl_iostream_is_handshaked(client->ssl_iostream)) {

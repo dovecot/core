@@ -195,6 +195,11 @@ client_connected(struct master_service_connection *conn)
 					LOG_TYPE_INFO : LOG_TYPE_WARNING);
 
 	timeout_remove(&auth_client_to);
+
+	/* This may destroy the new client as well, if none of the older
+	   clients can be destroyed. */
+	clients_check_unauthenticated_limit(
+		global_login_settings->login_unauthenticated_client_limit);
 }
 
 static unsigned int

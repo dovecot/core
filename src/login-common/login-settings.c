@@ -44,6 +44,7 @@ static const struct setting_define login_setting_defines[] = {
 	DEF(ENUM, ssl),
 
 	DEF(UINT, mail_max_userip_connections),
+	DEF(UINT, login_unauthenticated_client_limit),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -77,7 +78,8 @@ static const struct login_settings login_default_settings = {
 
 	.ssl = "yes:no:required",
 
-	.mail_max_userip_connections = 10
+	.mail_max_userip_connections = 10,
+	.login_unauthenticated_client_limit = SET_UINT_UNLIMITED,
 };
 
 const struct setting_parser_info login_setting_parser_info = {
@@ -96,6 +98,11 @@ static bool login_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				 const char **error_r)
 {
 	struct login_settings *set = _set;
+
+	if (set->login_unauthenticated_client_limit == 0) {
+		*error_r = "login_unauthenticated_client_limit must not be 0";
+		return FALSE;
+	}
 
 	struct var_expand_program *program;
 	/* Replace any \001, as we are using it for placeholder for elements. */

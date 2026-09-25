@@ -34,6 +34,7 @@ struct login_settings {
 	bool verbose_proctitle;
 
 	unsigned int mail_max_userip_connections;
+	unsigned int login_unauthenticated_client_limit;
 
 	/* generated: */
 	const struct login_log_settings *log_set;
