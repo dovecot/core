@@ -1342,17 +1342,19 @@ const struct sql_result driver_sqlite_result = {
 	}
 };
 
-static int
-driver_sqlite_result_error_next_row(struct sql_result *result ATTR_UNUSED)
-{
-	return -1;
-}
-
 const struct sql_result driver_sqlite_error_result = {
 	.v = {
 		.free = driver_sqlite_result_free,
-		.next_row = driver_sqlite_result_error_next_row,
+		.next_row = sql_result_error_next_row,
 		.get_error = driver_sqlite_result_get_error,
+		.get_fields_count = sql_result_error_get_fields_count,
+		.get_field_name = sql_result_error_get_field_name,
+		.find_field = sql_result_error_find_field,
+		.get_field_value = sql_result_error_get_field_value,
+		.get_field_value_binary = sql_result_error_get_field_value_binary,
+		.find_field_value = sql_result_error_find_field_value,
+		.get_values = sql_result_error_get_values,
+		.more = sql_result_error_more,
 	}
 };
 

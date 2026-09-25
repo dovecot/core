@@ -178,6 +178,12 @@ static void test_sql_sqlite_errors(void)
 
 	result = sql_query_s(sql, "SELCT bogus");
 	test_assert(sql_result_next_row(result) < 0);
+	/* driver_sqlite_error_result's find_field, find_field_value and
+	   get_values must fail cleanly on a failed query, not crash
+	   through a NULL vfunc. */
+	test_assert(sql_result_find_field(result, "x") == -1);
+	test_assert(sql_result_find_field_value(result, "x") == NULL);
+	test_assert(sql_result_get_values(result) == NULL);
 	error = sql_result_get_error(result);
 	test_assert(strstr(error, "syntax error") != NULL);
 	sql_result_unref(result);
