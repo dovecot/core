@@ -40,16 +40,24 @@ struct fts_mailbox_list {
 	struct fts_backend *backend;
 	struct fts_backend_update_context *update_ctx;
 	unsigned int update_ctx_refcount;
+	/* Mailbox keeping a reference to update_ctx between
+	   fts_autoindex=direct commits. */
+	struct fts_mailbox *direct_holder;
 
 	bool failed:1;
+	bool indexing:1;
 };
 
 struct fts_mailbox {
 	union mailbox_module_context module_ctx;
+	struct mailbox *box;
 	const struct fts_settings *set;
 	struct fts_backend_update_context *sync_update_ctx;
 	/* Separate mailbox instance used for fts_autoindex=direct */
 	struct mailbox *direct_box;
+	/* Highest UID indexed by fts_autoindex=direct, which may not
+	   have been flushed to the FTS backend yet. */
+	uint32_t direct_last_indexed_uid;
 };
 
 struct fts_transaction_context {
@@ -117,6 +125,8 @@ static void fts_scores_unref(struct fts_scores **_scores)
 	}
 }
 
+static void fts_mailbox_direct_release(struct fts_mailbox_list *flist);
+
 static void fts_try_build_init(struct mail_search_context *ctx,
 			       struct fts_search_context *fctx)
 {
@@ -182,6 +192,12 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	if (!fbox->set->search ||
 	    !fts_backend_can_lookup(flist->backend, args->args))
 		return ctx;
+
+	if (flist->direct_holder != NULL && !flist->indexing) {
+		/* Flush the fts_autoindex=direct updates, so the search
+		   sees them and the backend can be used for indexing. */
+		fts_mailbox_direct_release(flist);
+	}
 
 	fctx = i_new(struct fts_search_context, 1);
 	fctx->box = t->box;
@@ -514,7 +530,10 @@ static int fts_mail_index(struct mail *_mail)
 	}
 
 	fts_backend_update_set_mailbox(flist->update_ctx, _mail->box);
-	return fts_build_mail(flist->update_ctx, _mail) < 0 ? -1 : 0;
+	flist->indexing = TRUE;
+	int ret = fts_build_mail(flist->update_ctx, _mail);
+	flist->indexing = FALSE;
+	return ret < 0 ? -1 : 0;
 }
 
 static int fts_mail_index_with_reason(struct mail *_mail)
@@ -665,26 +684,74 @@ static void fts_queue_index(struct mailbox *box)
 	i_close_fd(&fd);
 }
 
-static int fts_mailbox_index_direct_box(struct mailbox *box)
+static void fts_mailbox_direct_release(struct fts_mailbox_list *flist)
 {
+	struct fts_mailbox *fbox = flist->direct_holder;
+
+	if (fbox == NULL)
+		return;
+	flist->direct_holder = NULL;
+
+	i_assert(flist->update_ctx_refcount > 0);
+	if (--flist->update_ctx_refcount > 0) {
+		/* someone else is still using the update context */
+		return;
+	}
+	/* The update context is flushed now (or failed). Either way the
+	   FTS backend knows the last indexed UID now. */
+	fbox->direct_last_indexed_uid = 0;
+	struct event_reason *reason = event_reason_begin("fts:index");
+	if (fts_backend_update_deinit(&flist->update_ctx) < 0) {
+		e_error(fbox->box->event,
+			"fts: Failed to flush directly indexed mails - falling back to indexer");
+		fts_queue_index(fbox->box);
+	}
+	event_reason_end(&reason);
+}
+
+static void
+fts_mailbox_direct_hold(struct fts_mailbox_list *flist,
+			struct fts_mailbox *fbox)
+{
+	if (flist->direct_holder == fbox)
+		return;
+	i_assert(flist->direct_holder == NULL);
+	i_assert(flist->update_ctx != NULL);
+
+	flist->update_ctx_refcount++;
+	flist->direct_holder = fbox;
+}
+
+static int fts_mailbox_index_direct_box(struct fts_mailbox *fbox,
+					struct mailbox *box)
+{
+	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT_REQUIRE(box->list);
+	struct fts_transaction_context *ft;
 	struct mailbox_transaction_context *trans;
 	struct mail_search_args *search_args;
 	struct mail_search_context *ctx;
 	struct mailbox_status status;
 	struct mail *mail;
-	uint32_t seq1, seq2, first_uid = 0, last_uid = 0;
+	uint32_t seq1, seq2, first_uid = 0, last_uid = 0, last_indexed_uid;
 	unsigned int count = 0;
 	int ret = 0;
+
+	/* Only a single mailbox can keep the update context open. Flush
+	   another mailbox's pending updates first. */
+	if (flist->direct_holder != fbox)
+		fts_mailbox_direct_release(flist);
 
 	if (mailbox_sync(box, 0) < 0)
 		return -1;
 	if (mailbox_get_status(box, STATUS_UIDNEXT |
 			       STATUS_FTS_LAST_INDEXED_UID, &status) < 0)
 		return -1;
-	if (status.fts_last_indexed_uid >= status.uidnext - 1)
+	last_indexed_uid = I_MAX(status.fts_last_indexed_uid,
+				 fbox->direct_last_indexed_uid);
+	if (last_indexed_uid >= status.uidnext - 1)
 		return 0;
 
-	mailbox_get_seq_range(box, status.fts_last_indexed_uid + 1,
+	mailbox_get_seq_range(box, last_indexed_uid + 1,
 			      (uint32_t)-1, &seq1, &seq2);
 	if (seq1 == 0)
 		return 0;
@@ -709,11 +776,21 @@ static int fts_mailbox_index_direct_box(struct mailbox *box)
 	}
 	if (mailbox_search_deinit(&ctx) < 0)
 		ret = -1;
-	if (ret < 0)
+	if (ret < 0) {
 		mailbox_transaction_rollback(&trans);
-	else if (mailbox_transaction_commit(&trans) < 0)
-		ret = -1;
-	if (ret == 0 && count > 0) {
+		return -1;
+	}
+
+	/* Keep the update context open after the commit, so the following
+	   commits' mails can be added to the same FTS update. It's flushed
+	   when the mailbox is freed, or when expunges need to be handled. */
+	ft = FTS_CONTEXT_REQUIRE(trans);
+	if (ft->precached)
+		fts_mailbox_direct_hold(flist, fbox);
+	if (mailbox_transaction_commit(&trans) < 0)
+		return -1;
+	if (count > 0) {
+		fbox->direct_last_indexed_uid = last_uid;
 		e_debug(box->event, "fts: Indexed %u mails directly (UIDs %u..%u)",
 			count, first_uid, last_uid);
 	}
@@ -723,6 +800,7 @@ static int fts_mailbox_index_direct_box(struct mailbox *box)
 static int fts_mailbox_index_direct(struct mailbox *box)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(box);
+	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT_REQUIRE(box->list);
 	enum mail_error error;
 	const char *errstr;
 
@@ -732,13 +810,18 @@ static int fts_mailbox_index_direct(struct mailbox *box)
 		fbox->direct_box = mailbox_alloc(box->list, box->vname,
 						 MAILBOX_FLAG_IGNORE_ACLS);
 	}
-	if (fts_mailbox_index_direct_box(fbox->direct_box) == 0)
+	if (fts_mailbox_index_direct_box(fbox, fbox->direct_box) == 0)
 		return 0;
 
 	errstr = mailbox_get_last_internal_error(fbox->direct_box, &error);
 	e_error(box->event,
 		"fts: Direct indexing failed - falling back to indexer: %s",
 		errstr);
+	/* Flush whatever was indexed so far, so the indexer doesn't index
+	   the same mails at the same time. */
+	if (flist->direct_holder == fbox)
+		fts_mailbox_direct_release(flist);
+	fbox->direct_last_indexed_uid = 0;
 	return -1;
 }
 
@@ -796,6 +879,12 @@ static void fts_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 		return;
 	}
 
+	if (fbox->sync_update_ctx == NULL && flist->direct_holder != NULL &&
+	    !flist->indexing) {
+		/* Flush fts_autoindex=direct updates, so the update
+		   context can be used for expunges. */
+		fts_mailbox_direct_release(flist);
+	}
 	if (fbox->sync_update_ctx == NULL) {
 		if (fts_backend_is_updating(flist->backend)) {
 			/* FIXME: maildir workaround - we could get here
@@ -897,9 +986,20 @@ static int fts_mailbox_search_next_match_mail(struct mail_search_context *ctx,
 static void fts_mailbox_free(struct mailbox *box)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(box);
+	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT_REQUIRE(box->list);
 
-	if (fbox->direct_box != NULL)
+	if (flist->direct_holder == fbox)
+		fts_mailbox_direct_release(flist);
+	if (fbox->direct_box != NULL) {
+		if (flist->update_ctx != NULL &&
+		    (flist->update_ctx->cur_box == fbox->direct_box ||
+		     flist->update_ctx->backend_box == fbox->direct_box)) {
+			/* someone else is still using the update context -
+			   make sure it doesn't reference the freed mailbox */
+			fts_backend_update_set_mailbox(flist->update_ctx, NULL);
+		}
 		mailbox_free(&fbox->direct_box);
+	}
 	settings_free(fbox->set);
 	fbox->module_ctx.super.free(box);
 }
@@ -922,6 +1022,7 @@ void fts_mailbox_allocated(struct mailbox *box)
 
 	fbox = p_new(box->pool, struct fts_mailbox, 1);
 	fbox->module_ctx.super = *v;
+	fbox->box = box;
 	v->free = fts_mailbox_free;
 	fbox->set = set;
 	box->vlast = &fbox->module_ctx.super;
@@ -946,6 +1047,7 @@ static void fts_mailbox_list_deinit(struct mailbox_list *list)
 {
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT_REQUIRE(list);
 
+	fts_mailbox_direct_release(flist);
 	if (flist->backend != NULL)
 		fts_backend_deinit(&flist->backend);
 	flist->module_ctx.super.deinit(list);
