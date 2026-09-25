@@ -666,11 +666,11 @@ void client_common_default_free(struct client *client ATTR_UNUSED)
 {
 }
 
-bool client_destroy_oldest(bool kill, struct timeval *created_r)
+static struct client *client_find_oldest_unauthenticated(void)
 {
 	struct client *client, *last_refcount_non1 = NULL;
 
-	/* destroy the last client that hasn't successfully authenticated yet.
+	/* find the last client that hasn't successfully authenticated yet.
 	   this is usually the last client, but don't kill it if it's just
 	   waiting for master to finish its job. Also prefer to kill clients
 	   that can immediately be killed (i.e. refcount=1) */
@@ -680,22 +680,32 @@ bool client_destroy_oldest(bool kill, struct timeval *created_r)
 		} else if (client->refcount > 1)
 			last_refcount_non1 = client;
 		else
-			break;
+			return client;
 	}
-	if (client == NULL) {
-		client = last_refcount_non1;
-		if (client == NULL)
-			return FALSE;
-	}
+	return last_refcount_non1;
+}
+
+static void client_destroy_resource_constraint(struct client *client)
+{
+	client_notify_disconnect(client, CLIENT_DISCONNECT_RESOURCE_CONSTRAINT,
+				 "Connection queue full");
+	client_destroy(client, "Connection queue full");
+}
+
+bool client_destroy_oldest(bool kill, struct timeval *created_r)
+{
+	struct client *client;
+
+	client = client_find_oldest_unauthenticated();
+	if (client == NULL)
+		return FALSE;
 
 	*created_r = client->created;
 	if (!kill)
 		return TRUE;
 
-	client_notify_disconnect(client, CLIENT_DISCONNECT_RESOURCE_CONSTRAINT,
-				 "Connection queue full");
 	client_ref(client);
-	client_destroy(client, "Connection queue full");
+	client_destroy_resource_constraint(client);
 	/* return TRUE only if the client was actually freed */
 	i_assert(client->create_finished);
 	return !client_unref(&client);
