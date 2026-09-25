@@ -90,7 +90,8 @@ static struct client *test_client_create(struct master_service_connection *conn)
 	if (fd == -1)
 		i_fatal("dup(%u) failed: %m", dev_null_fd);
 	conn->fd = fd;
-	int ret = client_alloc(fd, conn, &client);
+	int ret = client_alloc(fd, conn,
+			       master_service_get_event(master_service), &client);
 	if (ret < 0)
 		i_fatal("client_alloc() failed");
 	return client;

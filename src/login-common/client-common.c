@@ -260,7 +260,7 @@ static bool application_protocol_equals(const char *proto)
 }
 
 int client_alloc(int fd, const struct master_service_connection *conn,
-		 struct client **client_r)
+		 struct event *event_parent, struct client **client_r)
 {
 	struct client *client;
 	const char *error;
@@ -293,7 +293,7 @@ int client_alloc(int fd, const struct master_service_connection *conn,
 	client->real_remote_port = conn->real_remote_port;
 	client->listener_name = p_strdup(client->pool, conn->name);
 	/* This event must exist before client_is_trusted() is called */
-	client->event = event_create(master_service_get_event(master_service));
+	client->event = event_create(event_parent);
 	event_add_category(client->event, &login_binary->event_category);
 	event_add_ip(client->event, "local_ip", &conn->local_ip);
 	event_add_int(client->event, "local_port", conn->local_port);
@@ -301,8 +301,6 @@ int client_alloc(int fd, const struct master_service_connection *conn,
 	event_add_int(client->event, "remote_port", conn->remote_port);
 	event_add_str(client->event, "protocol", login_binary->protocol);
 	event_add_str(client->event, "service", master_service_get_name(master_service));
-	settings_event_add_list_filter_name(client->event, "service",
-		master_service_get_name(master_service));
 
 	/* Get settings before using log callback */
 	event_set_ptr(client->event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK,
