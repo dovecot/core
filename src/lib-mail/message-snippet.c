@@ -175,11 +175,10 @@ int message_snippet_generate(struct istream *input,
 		}
 		if (!message_decoder_decode_next_block(decoder, &raw_block, &block))
 			continue;
-		if (block.size == 0) {
+		if (raw_block.hdr != NULL)
+			continue;
+		if (raw_block.size == 0) {
 			const char *ct;
-
-			if (block.hdr != NULL)
-				continue;
 
 			/* We already have a snippet, don't look for more in
 			   subsequent parts. */
@@ -204,7 +203,8 @@ int message_snippet_generate(struct istream *input,
 				}
 			} else if (!str_begins_icase_with(ct, "text/"))
 				skip_part = raw_block.part;
-		} else if (!snippet_generate(&ctx, block.data, block.size))
+		} else if (block.size > 0 &&
+			   !snippet_generate(&ctx, block.data, block.size))
 			break;
 	}
 	i_assert(ret != 0);
