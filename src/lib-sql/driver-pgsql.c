@@ -530,14 +530,14 @@ static void result_finish(struct pgsql_result *result)
 		const char *error = result->timeout ? "Timed out" : last_error(db);
 		struct event_passthrough *e =
 			sql_query_finished_event(&db->api, result->api.event,
-						 result->query, TRUE, &duration);
+						 result->query, FALSE, &duration);
 		e->add_str("error", error);
 		e_debug(e->event(), SQL_QUERY_FINISHED_FMT": %s", result->query,
 			duration, error);
 	} else {
 		struct event_passthrough *e =
 			sql_query_finished_event(&db->api, result->api.event,
-						 result->query, FALSE, &duration);
+						 result->query, TRUE, &duration);
 		e_debug(e->event(), SQL_QUERY_FINISHED_FMT,
 			result->query, duration);
 	}
