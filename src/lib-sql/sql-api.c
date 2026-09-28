@@ -579,6 +579,88 @@ bool sql_template_placeholder_count(const char *query_template,
 	return TRUE;
 }
 
+struct sql_statement *
+sql_statement_init_from_var_expand_program(
+	struct sql_db *db, const struct var_expand_program *program,
+	ARRAY_TYPE(const_expansion_program) *parts_r, const char **error_r)
+{
+	pool_t pool = pool_datastack_create();
+	ARRAY_TYPE(const_string) literals;
+	t_array_init(&literals, 8);
+	t_array_init(parts_r, 8);
+	var_expand_program_pieces(pool, program, &literals, parts_r);
+
+	unsigned int part_count = array_count(parts_r);
+	string_t *template = t_str_new(64);
+	bool skip_open_quote = FALSE;
+	for (unsigned int i = 0; i < part_count; i++) {
+		const char *lit = array_idx_elem(&literals, i);
+		const char *next = array_idx_elem(&literals, i + 1);
+		size_t lit_len;
+
+		if (skip_open_quote) {
+			lit++;
+			skip_open_quote = FALSE;
+		}
+		lit_len = strlen(lit);
+		if (lit_len > 0 && lit[lit_len - 1] == '\'' &&
+		    next[0] == '\'' && next[1] != '\'') {
+			str_append_data(template, lit, lit_len - 1);
+			skip_open_quote = TRUE;
+		} else {
+			str_append(template, lit);
+		}
+		str_append_c(template, '?');
+	}
+	const char *tail = array_idx_elem(&literals, part_count);
+	if (skip_open_quote)
+		tail++;
+	str_append(template, tail);
+
+	unsigned int placeholder_count;
+	if (!sql_template_placeholder_count(str_c(template), &placeholder_count,
+					    error_r))
+		return NULL;
+	if (placeholder_count != part_count) {
+		if (part_count == 0) {
+			/* No variable substitutions at all, but the query has
+			   a standalone placeholder anyway, e.g. PostgreSQL's
+			   jsonb ?/?|/?& operators. Every driver treats an
+			   unquoted '?' as a bind parameter, so with nothing
+			   to bind it this would fail at execute time; reject
+			   it up front with a clear error instead. */
+			*error_r = t_strdup_printf(
+				"Query has %u bind placeholder(s) but no "
+				"%%{variable} substitutions - a literal '?' "
+				"(e.g. a PostgreSQL jsonb ?/?|/?& operator) "
+				"cannot be used in this query",
+				placeholder_count);
+		} else if (placeholder_count > part_count) {
+			*error_r = t_strdup_printf(
+				"Query has %u bind placeholder(s) but only "
+				"%u %%{variable} substitution(s) - a literal "
+				"'?' (e.g. a PostgreSQL jsonb ?/?|/?& "
+				"operator) cannot be mixed with %%{variable} "
+				"substitutions in the same query",
+				placeholder_count, part_count);
+		} else {
+			*error_r = t_strdup_printf(
+				"Query has %u bind placeholder(s) but %u "
+				"bind value(s) - a %%{variable} substitution "
+				"must be a standalone bind value, not "
+				"concatenated with other text or embedded in "
+				"a string literal (only single quotes wrapping "
+				"exactly '%%{variable}' are stripped); use "
+				"var-expand's concat filter instead, e.g. "
+				"%%{user | username | concat('@example.com')} "
+				"or %%{user | concat('%%')} for a LIKE prefix",
+				placeholder_count, part_count);
+		}
+		return NULL;
+	}
+	return sql_statement_init(db, str_c(template));
+}
+
 /* tolerant=FALSE is used to build the query that actually executes: a
    template/bind count mismatch means the statement was built wrong, and
    silently executing the wrong query is worse than aborting, so it

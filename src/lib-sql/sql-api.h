@@ -2,8 +2,10 @@
 #define SQL_API_H
 
 #include "guid.h"
+#include "var-expand-split.h"
 
 struct timespec;
+struct var_expand_program;
 
 /* This SQL API is designed to work asynchronously. The underlying drivers
    however may not. */
@@ -151,6 +153,30 @@ void sql_prepared_statement_unref(struct sql_prepared_statement **prep_stmt);
 bool sql_template_placeholder_count(const char *query_template,
 				    unsigned int *count_r,
 				    const char **error_r);
+
+/* Build a query template from program's literal text, turning each
+   variable part into a bind placeholder, and initialize a statement
+   from it. A variable written as '%{var}' - the sole content of a
+   single-quoted literal - has its surrounding quotes stripped so the
+   placeholder ends up unquoted, the same as a bare %{var} would; this
+   looks only at the characters touching the variable, not at SQL quote
+   state, so it can strip wrongly for e.g. an admin's own 'x'%{var} -
+   see the placeholder count check below for what catches that.
+
+   The resulting template's placeholder count is checked against the
+   number of variable substitutions before the statement is created,
+   since a mismatch would otherwise reach an i_panic() in
+   sql_statement_init() on the first lookup that uses this query.
+   Returns NULL with *error_r set if the counts do not match or the
+   template is unscannable (see sql_template_placeholder_count()).
+
+   parts_r is initialized and receives one entry per variable
+   substitution, in bind-index order, for the caller to expand and
+   bind. */
+struct sql_statement *
+sql_statement_init_from_var_expand_program(
+	struct sql_db *db, const struct var_expand_program *program,
+	ARRAY_TYPE(const_expansion_program) *parts_r, const char **error_r);
 
 struct sql_statement *
 sql_statement_init(struct sql_db *db, const char *query_template);
