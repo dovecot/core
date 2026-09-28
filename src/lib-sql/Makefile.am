@@ -179,3 +179,11 @@ test_sql_mysql_LDADD = $(MYSQL_LIB) $(pkglib_LTLIBRARIES) $(test_libs) $(DLLIB)
 test_sql_mysql_DEPENDENCIES = $(MYSQL_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
 test_sql_mysql_CPPFLAGS = $(AM_CPPFLAGS) $(MYSQL_CFLAGS)
 endif
+
+if BUILD_PGSQL
+noinst_PROGRAMS += test-sql-pgsql
+test_sql_pgsql_SOURCES = test-sql-pgsql.c
+test_sql_pgsql_LDADD = $(PGSQL_LIB) $(pkglib_LTLIBRARIES) $(test_libs) $(DLLIB)
+test_sql_pgsql_DEPENDENCIES = $(PGSQL_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
+test_sql_pgsql_CPPFLAGS = $(AM_CPPFLAGS) $(PGSQL_CFLAGS)
+endif
