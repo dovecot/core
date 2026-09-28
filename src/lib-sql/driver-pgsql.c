@@ -852,7 +852,6 @@ static const char *driver_pgsql_result_get_error(struct sql_result *_result)
 		container_of(_result, struct pgsql_result, api);
 	struct pgsql_db *db = container_of(_result->db, struct pgsql_db, api);
 	const char *msg;
-	size_t len;
 
 	i_free_and_null(db->error);
 
@@ -862,14 +861,19 @@ static const char *driver_pgsql_result_get_error(struct sql_result *_result)
 		/* connection error */
 		db->error = i_strdup(last_error(db));
 	} else {
-		msg = PQresultErrorMessage(result->pgres);
+		/* PG_DIAG_MESSAGE_PRIMARY is the first line of
+		   PQresultErrorMessage() without libpq's "ERROR:  " prefix,
+		   and without any DETAIL/HINT/LINE that follow it - exactly
+		   the first-line semantics wanted here, with no string
+		   surgery needed. It is NULL for a result that never went
+		   through the server (e.g. a client-side libpq error), so
+		   fall back to the full message in that case. */
+		msg = PQresultErrorField(result->pgres, PG_DIAG_MESSAGE_PRIMARY);
+		if (msg == NULL)
+			msg = PQresultErrorMessage(result->pgres);
 		if (msg == NULL)
 			return "(no error set)";
-
-		/* Error message should contain trailing \n, we don't want it */
-		len = strlen(msg);
-		db->error = len == 0 || msg[len-1] != '\n' ?
-			i_strdup(msg) : i_strndup(msg, len-1);
+		db->error = i_strdup(msg);
 	}
 	return db->error;
 }
