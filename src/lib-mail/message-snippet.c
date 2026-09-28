@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "buffer.h"
 #include "str.h"
 #include "istream.h"
@@ -21,18 +22,28 @@ enum snippet_state {
 };
 
 struct snippet_data {
+	/* NULL until the first character is added */
 	string_t *snippet;
 	unsigned int chars_left;
 };
 
-struct snippet_context {
-	pool_t pool;
-	struct message_decoder_context *decoder;
+/* Snippet generated for a single MIME part */
+struct snippet_part {
+	const struct message_part *part;
 	struct snippet_data snippet;
 	struct snippet_data quoted_snippet;
-	/* Skip the body of this MIME part, because it's not text */
-	const struct message_part *skip_part;
+};
 
+struct snippet_context {
+	pool_t pool;
+	unsigned int max_snippet_chars;
+	struct message_decoder_context *decoder;
+	/* Snippets of the text parts, in the order they were seen */
+	ARRAY(struct snippet_part *) parts;
+
+	/* State of the MIME part that is currently being processed.
+	   cur=NULL if the part is not a text part. */
+	struct snippet_part *cur;
 	enum snippet_state state;
 	bool add_whitespace;
 	struct mail_html2text *html2text;
@@ -59,7 +70,7 @@ static void snippet_add_content(struct snippet_context *ctx,
 	}
 	if (i_isspace(*data)) {
 		/* skip any leading whitespace */
-		if (str_len(target->snippet) > 0)
+		if (target->snippet != NULL)
 			ctx->add_whitespace = TRUE;
 		if (data[0] == '\n')
 			ctx->state = SNIPPET_STATE_NEWLINE;
@@ -68,6 +79,10 @@ static void snippet_add_content(struct snippet_context *ctx,
 	if (target->chars_left == 0)
 		return;
 	target->chars_left--;
+	if (target->snippet == NULL) {
+		target->snippet =
+			str_new(ctx->pool, ctx->max_snippet_chars);
+	}
 	if (ctx->add_whitespace) {
 		if (target->chars_left == 0) {
 			/* don't add a trailing whitespace */
@@ -85,6 +100,7 @@ static void snippet_add_content(struct snippet_context *ctx,
 static bool snippet_generate(struct snippet_context *ctx,
 			     const unsigned char *data, size_t size)
 {
+	struct snippet_part *cur = ctx->cur;
 	size_t i, count;
 	struct snippet_data *target;
 
@@ -97,9 +113,9 @@ static bool snippet_generate(struct snippet_context *ctx,
 	}
 
 	if (ctx->state == SNIPPET_STATE_QUOTED)
-		target = &ctx->quoted_snippet;
+		target = &cur->quoted_snippet;
 	else
-		target = &ctx->snippet;
+		target = &cur->snippet;
 
 	/* message-decoder should feed us only valid and complete
 	   UTF-8 input */
@@ -111,10 +127,10 @@ static bool snippet_generate(struct snippet_context *ctx,
 			if (data[i] == '>') {
 				ctx->state = SNIPPET_STATE_QUOTED;
 				i++;
-				target = &ctx->quoted_snippet;
+				target = &cur->quoted_snippet;
 			} else {
 				ctx->state = SNIPPET_STATE_NORMAL;
-				target = &ctx->snippet;
+				target = &cur->snippet;
 			}
 			/* fallthrough */
 		case SNIPPET_STATE_NORMAL:
@@ -124,7 +140,7 @@ static bool snippet_generate(struct snippet_context *ctx,
 			/* break here if we have enough non-quoted data,
 			   quoted data does not need to break here as it's
 			   only used if the actual snippet is left empty. */
-			if (ctx->snippet.chars_left == 0)
+			if (cur->snippet.chars_left == 0)
 				return FALSE;
 			break;
 		}
@@ -138,13 +154,20 @@ static void snippet_copy(const char *src, string_t *dst)
 	str_append(dst, src);
 }
 
-static void snippet_append(struct snippet_context *ctx, string_t *snippet)
+static bool snippet_part_has_text(const struct snippet_part *spart)
 {
-	if (ctx->snippet.snippet->used != 0)
-		snippet_copy(str_c(ctx->snippet.snippet), snippet);
-	else if (ctx->quoted_snippet.snippet->used != 0) {
+	return spart->snippet.snippet != NULL ||
+		spart->quoted_snippet.snippet != NULL;
+}
+
+static void
+snippet_part_append(const struct snippet_part *spart, string_t *snippet)
+{
+	if (spart->snippet.snippet != NULL)
+		snippet_copy(str_c(spart->snippet.snippet), snippet);
+	else if (spart->quoted_snippet.snippet != NULL) {
 		str_append_c(snippet, '>');
-		snippet_copy(str_c(ctx->quoted_snippet.snippet), snippet);
+		snippet_copy(str_c(spart->quoted_snippet.snippet), snippet);
 	}
 }
 
@@ -161,31 +184,46 @@ static void
 snippet_part_start(struct snippet_context *ctx,
 		   const struct message_part *part)
 {
+	struct snippet_part *spart;
 	const char *ct;
 
-	ctx->skip_part = NULL;
+	ctx->cur = NULL;
+	mail_html2text_deinit(&ctx->html2text);
 
-	/* end of headers - verify that we can use this
-	   Content-Type. we get here only once, because we
-	   always handle only one non-multipart MIME part. */
+	/* verify that we can use this Content-Type */
 	ct = message_decoder_current_content_type(ctx->decoder);
 	if (ct == NULL)
 		/* text/plain */ ;
 	else if (mail_html2text_content_type_match(ct)) {
-		mail_html2text_deinit(&ctx->html2text);
 		ctx->html2text = mail_html2text_init(0);
 		if (ctx->plain_output == NULL) {
 			ctx->plain_output =
 				buffer_create_dynamic(ctx->pool, 1024);
 		}
 	} else if (!str_begins_icase_with(ct, "text/"))
-		ctx->skip_part = part;
+		return;
+
+	spart = p_new(ctx->pool, struct snippet_part, 1);
+	spart->part = part;
+	spart->snippet.chars_left = ctx->max_snippet_chars;
+	/* -1 for '>' */
+	spart->quoted_snippet.chars_left = ctx->max_snippet_chars - 1;
+	array_push_back(&ctx->parts, &spart);
+
+	ctx->cur = spart;
+	ctx->state = SNIPPET_STATE_NEWLINE;
+	ctx->add_whitespace = FALSE;
 }
 
 static bool snippet_have_text(struct snippet_context *ctx)
 {
-	return ctx->snippet.snippet->used != 0 ||
-		ctx->quoted_snippet.snippet->used != 0;
+	struct snippet_part *spart;
+
+	array_foreach_elem(&ctx->parts, spart) {
+		if (snippet_part_has_text(spart))
+			return TRUE;
+	}
+	return FALSE;
 }
 
 int message_snippet_generate(struct istream *input,
@@ -197,17 +235,18 @@ int message_snippet_generate(struct istream *input,
 	struct message_part *parts;
 	struct message_block raw_block, block;
 	struct snippet_context ctx;
+	struct snippet_part *spart;
 	pool_t pool;
 	int ret;
+
+	i_assert(max_snippet_chars > 0);
 
 	i_zero(&ctx);
 	pool = pool_alloconly_create("message snippet", 2048);
 	ctx.pool = pool;
-	ctx.snippet.snippet = str_new(pool, max_snippet_chars);
-	ctx.snippet.chars_left = max_snippet_chars;
-	ctx.quoted_snippet.snippet = str_new(pool, max_snippet_chars);
-	ctx.quoted_snippet.chars_left = max_snippet_chars - 1; /* -1 for '>' */
+	ctx.max_snippet_chars = max_snippet_chars;
 	ctx.decoder = message_decoder_init(NULL, 0);
+	p_array_init(&ctx.parts, pool, 4);
 
 	parser = message_parser_init(pool_datastack_create(), input, &parser_set);
 	while ((ret = message_parser_parse_next_block(parser, &raw_block)) > 0) {
@@ -230,8 +269,11 @@ int message_snippet_generate(struct istream *input,
 			snippet_part_start(&ctx, raw_block.part);
 			continue;
 		}
-		if (raw_block.part == ctx.skip_part)
+		if (ctx.cur == NULL || ctx.cur->part != raw_block.part) {
+			/* not a text part, or the part's end of headers was
+			   never seen (e.g. truncated header) */
 			continue;
+		}
 		if (!message_decoder_decode_next_block(ctx.decoder, &raw_block,
 						       &block))
 			continue;
@@ -243,7 +285,14 @@ int message_snippet_generate(struct istream *input,
 	message_decoder_deinit(&ctx.decoder);
 	message_parser_deinit(&parser, &parts);
 	mail_html2text_deinit(&ctx.html2text);
-	snippet_append(&ctx, snippet);
+
+	/* use the first part that has a snippet */
+	array_foreach_elem(&ctx.parts, spart) {
+		if (snippet_part_has_text(spart)) {
+			snippet_part_append(spart, snippet);
+			break;
+		}
+	}
 	pool_unref(&pool);
 	return input->stream_errno == 0 ? 0 : -1;
 }
