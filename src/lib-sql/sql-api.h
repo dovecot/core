@@ -161,6 +161,13 @@ void sql_statement_set_timestamp(struct sql_statement *stmt,
 				 const struct timespec *ts);
 void sql_statement_set_no_log_expanded_values(struct sql_statement *stmt,
 					      bool no_expand);
+/* Hide this one column's bind parameter value in the logged query. This
+   also clears the statement's blanket no_log_expanded_values flag, so
+   every other field is then shown expanded, even if no_expand was never
+   explicitly turned off. */
+void sql_statement_set_no_log_expanded_value_field(struct sql_statement *stmt,
+						   unsigned int column_idx);
+const char *sql_statement_get_log_query(struct sql_statement *stmt);
 void sql_statement_bind_str(struct sql_statement *stmt,
 			    unsigned int column_idx, const char *value);
 void sql_statement_bind_binary(struct sql_statement *stmt,

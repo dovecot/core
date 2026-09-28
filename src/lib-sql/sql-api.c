@@ -389,16 +389,6 @@ default_sql_statement_init_prepared(struct sql_prepared_statement *stmt)
 	return sql_statement_init(stmt->db, stmt->query_template);
 }
 
-const char *sql_statement_get_log_query(struct sql_statement *stmt)
-{
-	const char *query, *error;
-	if (stmt->no_log_expanded_values)
-		return stmt->query_template;
-	if (sql_statement_get_query(stmt, &query, &error) < 0)
-		return stmt->query_template;
-	return query;
-}
-
 /* Scanner states: SQUOTE/DQUOTE/BACKTICK track a quoted string or quoted
    identifier. A '?' is a bind placeholder only in CODE. This is a skip
    lexer, not a full SQL lexer: it recognizes no keywords, numbers or
@@ -586,8 +576,18 @@ bool sql_template_placeholder_count(const char *query_template,
 	return TRUE;
 }
 
-int sql_statement_get_query(struct sql_statement *stmt,
-			    const char **query_r, const char **error_r)
+/* tolerant=FALSE is used to build the query that actually executes: a
+   template/bind count mismatch means the statement was built wrong, and
+   silently executing the wrong query is worse than aborting, so it
+   panics exactly as before. tolerant=TRUE is used only to render a
+   statement for logging: it must never abort the process over a
+   mismatch it did not cause, so instead an unbound placeholder is
+   emitted as '?' and any surplus bound args are simply never
+   consumed. */
+static int
+sql_statement_build_query(struct sql_statement *stmt, bool tolerant,
+			  const bool *no_log_fields, unsigned int no_log_count,
+			  const char **query_r, const char **error_r)
 {
 	if (stmt->template_scan_error != NULL) {
 		*error_r = stmt->template_scan_error;
@@ -609,12 +609,16 @@ int sql_statement_get_query(struct sql_statement *stmt,
 
 		/* append until the placeholder */
 		str_append_data(query, stmt->query_template + prev, off - prev);
-		if (arg_pos >= args_count ||
-		    args[arg_pos] == NULL) {
+		bool have_arg = arg_pos < args_count && args[arg_pos] != NULL;
+		if (!have_arg && !tolerant) {
 			i_panic("lib-sql: Missing bind for arg #%u in statement: %s",
 				arg_pos, stmt->query_template);
 		}
-		if (arg_pos < need_escaping_count && need_escaping_flags[arg_pos]) {
+		if (!have_arg) {
+			str_append_c(query, '?');
+		} else if (arg_pos < no_log_count && no_log_fields[arg_pos]) {
+			str_append_c(query, '?');
+		} else if (arg_pos < need_escaping_count && need_escaping_flags[arg_pos]) {
 			const char *escaped;
 
 			/* Escape in a nested data stack frame so the
@@ -642,13 +646,36 @@ int sql_statement_get_query(struct sql_statement *stmt,
 	}
 	str_append(query, stmt->query_template + prev);
 
-	if (offset_count != args_count) {
+	if (offset_count != args_count && !tolerant) {
 		i_panic("lib-sql: Too many bind args (%u) for statement: %s",
 			args_count, stmt->query_template);
 	}
 	*query_r = t_strdup(str_c(query));
 	str_free(&query);
 	return 0;
+}
+
+const char *sql_statement_get_log_query(struct sql_statement *stmt)
+{
+	const char *query, *error;
+	if (stmt->no_log_expanded_values)
+		return stmt->query_template;
+
+	const bool *no_log_fields = NULL;
+	unsigned int no_log_count = 0;
+	if (array_is_created(&stmt->no_log_fields))
+		no_log_fields = array_get(&stmt->no_log_fields, &no_log_count);
+
+	if (sql_statement_build_query(stmt, TRUE, no_log_fields, no_log_count,
+				      &query, &error) < 0)
+		return stmt->query_template;
+	return query;
+}
+
+int sql_statement_get_query(struct sql_statement *stmt,
+			    const char **query_r, const char **error_r)
+{
+	return sql_statement_build_query(stmt, FALSE, NULL, 0, query_r, error_r);
 }
 
 void default_sql_statement_query(struct sql_statement *stmt,
@@ -797,6 +824,26 @@ void sql_statement_set_no_log_expanded_values(struct sql_statement *stmt,
 					      bool no_expand)
 {
 	stmt->no_log_expanded_values = no_expand;
+
+	if (stmt->db->v.statement_set_no_log_expanded_values != NULL) {
+		stmt->db->v.statement_set_no_log_expanded_values(stmt,
+			no_expand);
+	}
+}
+
+void sql_statement_set_no_log_expanded_value_field(struct sql_statement *stmt,
+						    unsigned int column_idx)
+{
+	if (!array_is_created(&stmt->no_log_fields))
+		p_array_init(&stmt->no_log_fields, stmt->pool, column_idx + 1);
+	stmt->no_log_expanded_values = FALSE;
+	bool no_log = TRUE;
+	array_idx_set(&stmt->no_log_fields, column_idx, &no_log);
+
+	if (stmt->db->v.statement_set_no_log_expanded_value_field != NULL) {
+		stmt->db->v.statement_set_no_log_expanded_value_field(stmt,
+			column_idx);
+	}
 }
 
 void sql_statement_bind_str(struct sql_statement *stmt,

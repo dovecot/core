@@ -120,6 +120,10 @@ struct sql_db_vfuncs {
 	void (*statement_abort)(struct sql_statement *stmt);
 	void (*statement_set_timestamp)(struct sql_statement *stmt,
 					const struct timespec *ts);
+	void (*statement_set_no_log_expanded_values)(struct sql_statement *stmt,
+						     bool no_expand);
+	void (*statement_set_no_log_expanded_value_field)(struct sql_statement *stmt,
+							   unsigned int column_idx);
 	void (*statement_bind_str)(struct sql_statement *stmt,
 				   unsigned int column_idx, const char *value);
 	void (*statement_bind_binary)(struct sql_statement *stmt,
@@ -235,6 +239,11 @@ struct sql_statement {
 	/* Tell the driver to not log this query with expanded values.
 	   This works only for prepared statements. */
 	bool no_log_expanded_values;
+	/* Per-field no-log: hide only these bind parameter values when the
+	   query is logged, indexed by bind column. Set only for indexes
+	   that must stay hidden; unset (or unallocated) indexes log
+	   expanded. */
+	ARRAY(bool) no_log_fields;
 };
 
 struct sql_field_map {
@@ -296,7 +305,6 @@ void sql_transaction_add_query(struct sql_transaction_context *ctx, pool_t pool,
 void sql_transaction_add_stmt(struct sql_transaction_context *ctx, pool_t pool,
 			      struct sql_statement *stmt, unsigned int *affected_rows);
 
-const char *sql_statement_get_log_query(struct sql_statement *stmt);
 int sql_statement_get_query(struct sql_statement *stmt,
 			    const char **query_r, const char **error_r);
 

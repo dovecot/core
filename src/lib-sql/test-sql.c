@@ -397,6 +397,60 @@ static void test_sql_stmt_unparseable_template(void)
 	test_end();
 }
 
+static void test_sql_stmt_get_log_query_mismatch(void)
+{
+	test_begin("sql statement get_log_query() arg count mismatch");
+
+	struct sql_db *sql = setup_sql();
+	struct sql_statement *stmt;
+
+	/* equal counts: two placeholders, two bound args */
+	stmt = sql_statement_init(sql, "SELECT foo FROM bar WHERE a = ? AND b = ?");
+	sql_statement_set_no_log_expanded_values(stmt, FALSE);
+	sql_statement_bind_str(stmt, 0, "aval");
+	sql_statement_bind_str(stmt, 1, "bval");
+	test_assert_strcmp(sql_statement_get_log_query(stmt),
+			   "SELECT foo FROM bar WHERE a = 'aval' AND b = 'bval'");
+	sql_statement_abort(&stmt);
+
+	/* more placeholders than bound args: the unbound ones stay as '?'
+	   instead of panicking */
+	stmt = sql_statement_init(sql, "SELECT foo FROM bar WHERE a = ? AND b = ?");
+	sql_statement_set_no_log_expanded_values(stmt, FALSE);
+	sql_statement_bind_str(stmt, 0, "aval");
+	test_assert_strcmp(sql_statement_get_log_query(stmt),
+			   "SELECT foo FROM bar WHERE a = 'aval' AND b = ?");
+	sql_statement_abort(&stmt);
+
+	/* more bound args than placeholders: the surplus args are simply
+	   never consumed, again no panic */
+	stmt = sql_statement_init(sql, "SELECT foo FROM bar WHERE a = ?");
+	sql_statement_set_no_log_expanded_values(stmt, FALSE);
+	sql_statement_bind_str(stmt, 0, "aval");
+	sql_statement_bind_str(stmt, 1, "bval");
+	test_assert_strcmp(sql_statement_get_log_query(stmt),
+			   "SELECT foo FROM bar WHERE a = 'aval'");
+	sql_statement_abort(&stmt);
+
+	/* no placeholders and no bound args: the template is returned
+	   as-is */
+	stmt = sql_statement_init(sql, "SELECT foo FROM bar");
+	sql_statement_set_no_log_expanded_values(stmt, FALSE);
+	test_assert_strcmp(sql_statement_get_log_query(stmt),
+			   "SELECT foo FROM bar");
+	sql_statement_abort(&stmt);
+
+	/* a placeholder with no bound args at all: stays as '?', no panic */
+	stmt = sql_statement_init(sql, "SELECT foo FROM bar WHERE a = ?");
+	sql_statement_set_no_log_expanded_values(stmt, FALSE);
+	test_assert_strcmp(sql_statement_get_log_query(stmt),
+			   "SELECT foo FROM bar WHERE a = ?");
+	sql_statement_abort(&stmt);
+
+	deinit_sql(&sql);
+	test_end();
+}
+
 static void test_sql_stmt_literal_question_mark(void)
 {
 	test_begin("sql statement literal '?' in quoted string");
@@ -551,6 +605,7 @@ int main(void) {
 		test_sql_stmt_prepared_api,
 		test_sql_template_scan,
 		test_sql_stmt_unparseable_template,
+		test_sql_stmt_get_log_query_mismatch,
 		test_sql_stmt_literal_question_mark,
 		test_sql_stmt_arithmetic_placeholder,
 		test_sql_stmt_delimiter_free_placeholder,
