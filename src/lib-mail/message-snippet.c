@@ -190,6 +190,13 @@ snippet_part_start(struct snippet_context *ctx,
 	ctx->cur = NULL;
 	mail_html2text_deinit(&ctx->html2text);
 
+	if ((part->flags & (MESSAGE_PART_FLAG_MULTIPART |
+			    MESSAGE_PART_FLAG_MESSAGE_RFC822)) != 0) {
+		/* The body consists of child parts, which are handled
+		   separately. */
+		return;
+	}
+
 	/* verify that we can use this Content-Type */
 	ct = message_decoder_current_content_type(ctx->decoder);
 	if (ct == NULL)
