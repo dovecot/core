@@ -313,9 +313,12 @@ static int driver_pgsql_connect(struct sql_db *_db)
 	array_push_back(&keywords, &host_str);
 	array_push_back(&values, &db->set->host);
 
-	unsigned int i, count;
-	const char *const *strings =
-		array_get(&db->set->parameters, &count);
+	/* pgsql_parameters is a STRLIST, and array_is_created() may be FALSE
+	   if none was ever set - a bare "host"-only configuration is
+	   legitimate (e.g. peer/trust auth with no explicit user/dbname). */
+	unsigned int i, count = 0;
+	const char *const *strings = !array_is_created(&db->set->parameters) ?
+		NULL : array_get(&db->set->parameters, &count);
 	for (i = 0; i < count; i += 2) {
 		array_push_back(&keywords, &strings[i]);
 		array_push_back(&values, &strings[i + 1]);
