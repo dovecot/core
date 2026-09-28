@@ -34,23 +34,26 @@ struct snippet_part {
 	struct snippet_data quoted_snippet;
 };
 
-struct snippet_context {
+struct message_snippet_context {
 	pool_t pool;
 	unsigned int max_snippet_chars;
 	struct message_decoder_context *decoder;
-	/* Snippets of the text parts, in the order they were seen */
+	/* Snippets of the text parts, in the order they were fed */
 	ARRAY(struct snippet_part *) parts;
 
-	/* State of the MIME part that is currently being processed.
-	   cur=NULL if the part is not a text part. */
+	/* State of the MIME part that is currently being fed. cur=NULL if the
+	   part is not a text part. */
 	struct snippet_part *cur;
 	enum snippet_state state;
 	bool add_whitespace;
+	/* The snippet of the current part is complete. The rest of the part's
+	   body is ignored. */
+	bool cur_finished;
 	struct mail_html2text *html2text;
 	buffer_t *plain_output;
 };
 
-static void snippet_add_content(struct snippet_context *ctx,
+static void snippet_add_content(struct message_snippet_context *ctx,
 				struct snippet_data *target,
 				const unsigned char *data, size_t size,
 				size_t *count_r)
@@ -97,7 +100,7 @@ static void snippet_add_content(struct snippet_context *ctx,
 	str_append_data(target->snippet, data, *count_r);
 }
 
-static bool snippet_generate(struct snippet_context *ctx,
+static bool snippet_generate(struct message_snippet_context *ctx,
 			     const unsigned char *data, size_t size)
 {
 	struct snippet_part *cur = ctx->cur;
@@ -171,6 +174,34 @@ snippet_part_append(const struct snippet_part *spart, string_t *snippet)
 	}
 }
 
+struct message_snippet_context *
+message_snippet_init(unsigned int max_snippet_chars)
+{
+	struct message_snippet_context *ctx;
+	pool_t pool;
+
+	i_assert(max_snippet_chars > 0);
+
+	pool = pool_alloconly_create("message snippet", 2048);
+	ctx = p_new(pool, struct message_snippet_context, 1);
+	ctx->pool = pool;
+	ctx->max_snippet_chars = max_snippet_chars;
+	ctx->decoder = message_decoder_init(NULL, 0);
+	p_array_init(&ctx->parts, pool, 4);
+	return ctx;
+}
+
+void message_snippet_deinit(struct message_snippet_context **_ctx)
+{
+	struct message_snippet_context *ctx = *_ctx;
+
+	*_ctx = NULL;
+
+	message_decoder_deinit(&ctx->decoder);
+	mail_html2text_deinit(&ctx->html2text);
+	pool_unref(&ctx->pool);
+}
+
 static bool snippet_header_is_needed(const struct message_header_line *hdr)
 {
 	/* Only the headers used by message-decoder are needed */
@@ -181,18 +212,19 @@ static bool snippet_header_is_needed(const struct message_header_line *hdr)
 }
 
 static void
-snippet_part_start(struct snippet_context *ctx,
+snippet_part_start(struct message_snippet_context *ctx,
 		   const struct message_part *part)
 {
 	struct snippet_part *spart;
 	const char *ct;
 
 	ctx->cur = NULL;
+	ctx->cur_finished = FALSE;
 	mail_html2text_deinit(&ctx->html2text);
 
 	if ((part->flags & (MESSAGE_PART_FLAG_MULTIPART |
 			    MESSAGE_PART_FLAG_MESSAGE_RFC822)) != 0) {
-		/* The body consists of child parts, which are handled
+		/* The body consists of child parts, which are fed
 		   separately. */
 		return;
 	}
@@ -222,7 +254,54 @@ snippet_part_start(struct snippet_context *ctx,
 	ctx->add_whitespace = FALSE;
 }
 
-static bool snippet_have_text(struct snippet_context *ctx)
+bool message_snippet_more(struct message_snippet_context *ctx,
+			  struct message_block *raw_block)
+{
+	struct message_block block;
+
+	if (raw_block->hdr != NULL) {
+		if (snippet_header_is_needed(raw_block->hdr)) {
+			(void)message_decoder_decode_next_block(
+				ctx->decoder, raw_block, &block);
+		}
+		return TRUE;
+	}
+	if (raw_block->size == 0) {
+		/* end of headers */
+		(void)message_decoder_decode_next_block(ctx->decoder,
+							raw_block, &block);
+		snippet_part_start(ctx, raw_block->part);
+		return TRUE;
+	}
+	if (ctx->cur == NULL || ctx->cur->part != raw_block->part) {
+		/* not a text part, or the part's end of headers was never
+		   seen (e.g. truncated header) */
+		return TRUE;
+	}
+	if (ctx->cur_finished)
+		return FALSE;
+	if (!message_decoder_decode_next_block(ctx->decoder, raw_block, &block))
+		return TRUE;
+	if (block.size > 0 && !snippet_generate(ctx, block.data, block.size))
+		ctx->cur_finished = TRUE;
+	return !ctx->cur_finished;
+}
+
+bool message_snippet_get(struct message_snippet_context *ctx,
+			 const struct message_part *part, string_t *snippet)
+{
+	struct snippet_part *spart;
+
+	array_foreach_elem(&ctx->parts, spart) {
+		if (spart->part == part) {
+			snippet_part_append(spart, snippet);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+static bool snippet_have_text(struct message_snippet_context *ctx)
 {
 	struct snippet_part *spart;
 
@@ -240,66 +319,33 @@ int message_snippet_generate(struct istream *input,
 	const struct message_parser_settings parser_set = { .flags = 0 };
 	struct message_parser_ctx *parser;
 	struct message_part *parts;
-	struct message_block raw_block, block;
-	struct snippet_context ctx;
+	struct message_block raw_block;
+	struct message_snippet_context *ctx;
 	struct snippet_part *spart;
-	pool_t pool;
 	int ret;
 
-	i_assert(max_snippet_chars > 0);
-
-	i_zero(&ctx);
-	pool = pool_alloconly_create("message snippet", 2048);
-	ctx.pool = pool;
-	ctx.max_snippet_chars = max_snippet_chars;
-	ctx.decoder = message_decoder_init(NULL, 0);
-	p_array_init(&ctx.parts, pool, 4);
-
+	ctx = message_snippet_init(max_snippet_chars);
 	parser = message_parser_init(pool_datastack_create(), input, &parser_set);
 	while ((ret = message_parser_parse_next_block(parser, &raw_block)) > 0) {
-		if (raw_block.hdr != NULL) {
-			if (snippet_header_is_needed(raw_block.hdr)) {
-				(void)message_decoder_decode_next_block(
-					ctx.decoder, &raw_block, &block);
-			}
-			continue;
-		}
-		if (raw_block.size == 0) {
+		if (raw_block.hdr == NULL && raw_block.size == 0 &&
+		    snippet_have_text(ctx)) {
 			/* We already have a snippet, don't look for more in
 			   subsequent parts. */
-			if (snippet_have_text(&ctx))
-				break;
-
-			/* end of headers */
-			(void)message_decoder_decode_next_block(
-				ctx.decoder, &raw_block, &block);
-			snippet_part_start(&ctx, raw_block.part);
-			continue;
+			break;
 		}
-		if (ctx.cur == NULL || ctx.cur->part != raw_block.part) {
-			/* not a text part, or the part's end of headers was
-			   never seen (e.g. truncated header) */
-			continue;
-		}
-		if (!message_decoder_decode_next_block(ctx.decoder, &raw_block,
-						       &block))
-			continue;
-		if (block.size > 0 &&
-		    !snippet_generate(&ctx, block.data, block.size))
+		if (!message_snippet_more(ctx, &raw_block))
 			break;
 	}
 	i_assert(ret != 0);
-	message_decoder_deinit(&ctx.decoder);
 	message_parser_deinit(&parser, &parts);
-	mail_html2text_deinit(&ctx.html2text);
 
 	/* use the first part that has a snippet */
-	array_foreach_elem(&ctx.parts, spart) {
+	array_foreach_elem(&ctx->parts, spart) {
 		if (snippet_part_has_text(spart)) {
 			snippet_part_append(spart, snippet);
 			break;
 		}
 	}
-	pool_unref(&pool);
+	message_snippet_deinit(&ctx);
 	return input->stream_errno == 0 ? 0 : -1;
 }
