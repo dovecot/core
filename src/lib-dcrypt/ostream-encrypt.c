@@ -29,7 +29,11 @@
  */
 
 #define IO_STREAM_ENCRYPT_SEED_SIZE 32
-#define IO_STREAM_ENCRYPT_ROUNDS 2048
+/* PBKDF2 rounds for deriving the key encryption key from the key agreement
+   shared secret. The secret is already full-entropy, so key stretching adds
+   no security. The rounds are stored in the header, so decryption works with
+   any value (older versions wrote 2048). */
+#define IO_STREAM_ENCRYPT_ROUNDS 1
 
 struct encrypt_ostream {
 	struct ostream_private ostream;
