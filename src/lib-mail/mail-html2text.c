@@ -42,6 +42,10 @@ struct mail_html2text {
 	buffer_t *input;
 	unsigned int quote_level;
 	bool add_newline;
+	/* Last character written to the output by the previous
+	   mail_html2text_more() call, or '\0' if nothing was written yet.
+	   Used when the caller passes an empty output buffer. */
+	unsigned char last_output_char;
 };
 
 static struct {
@@ -167,13 +171,27 @@ static size_t parse_entity(const unsigned char *data, size_t size,
 	return i + 1 + 1;
 }
 
-static void mail_html2text_add_space(buffer_t *output)
+static void
+mail_html2text_add_space(struct mail_html2text *ht, buffer_t *output)
+{
+	const unsigned char *data = output->data;
+	unsigned char last;
+
+	if (output->used > 0)
+		last = data[output->used-1];
+	else
+		last = ht->last_output_char;
+	if (last != '\0' && last != ' ' && last != '\n')
+		buffer_append_c(output, ' ');
+}
+
+static void
+mail_html2text_output_done(struct mail_html2text *ht, const buffer_t *output)
 {
 	const unsigned char *data = output->data;
 
-	if (output->used > 0 && data[output->used-1] != ' ' &&
-	    data[output->used-1] != '\n')
-		buffer_append_c(output, ' ');
+	if (output->used > 0)
+		ht->last_output_char = data[output->used-1];
 }
 
 static size_t
@@ -218,7 +236,7 @@ parse_data(struct mail_html2text *ht,
 					buffer_append_c(output, '\n');
 				}
 				ht->add_newline = FALSE;
-				mail_html2text_add_space(output);
+				mail_html2text_add_space(ht, output);
 			}
 			break;
 		case HTML_STATE_TAG_DQUOTED:
@@ -262,7 +280,7 @@ parse_data(struct mail_html2text *ht,
 				if (i_memcasecmp(data+i, "</script>", max_len) == 0) {
 					if (max_len < 9)
 						return i;
-					mail_html2text_add_space(output);
+					mail_html2text_add_space(ht, output);
 					ht->state = HTML_STATE_TEXT;
 					i += 8;
 				}
@@ -275,7 +293,7 @@ parse_data(struct mail_html2text *ht,
 				if (i_memcasecmp(data+i, "</style>", max_len) == 0) {
 					if (max_len < 8)
 						return i;
-					mail_html2text_add_space(output);
+					mail_html2text_add_space(ht, output);
 					ht->state = HTML_STATE_TEXT;
 					i += 7;
 				}
@@ -323,8 +341,10 @@ void mail_html2text_more(struct mail_html2text *ht,
 			/* we need to add more data into buffer */
 			data += inc_size;
 			size -= inc_size;
-			if (size == 0)
+			if (size == 0) {
+				mail_html2text_output_done(ht, output);
 				return;
+			}
 		} else if (pos >= buf_orig_size) {
 			/* we parsed forward */
 			data += pos - buf_orig_size;
@@ -339,6 +359,7 @@ void mail_html2text_more(struct mail_html2text *ht,
 	}
 	pos = parse_data(ht, data, size, output);
 	buffer_append(ht->input, data + pos, size - pos);
+	mail_html2text_output_done(ht, output);
 }
 
 void mail_html2text_deinit(struct mail_html2text **_ht)

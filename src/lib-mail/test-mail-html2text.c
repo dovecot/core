@@ -109,11 +109,52 @@ static void test_mail_html2text_random(void)
 	test_end();
 }
 
+static void
+test_mail_html2text_output_reset_one(const char *input, const char *output,
+				     enum mail_html2text_flags flags,
+				     unsigned int idx)
+{
+	string_t *str = t_str_new(128), *out = t_str_new(16);
+	struct mail_html2text *ht;
+	unsigned int i;
+
+	ht = mail_html2text_init(flags);
+	for (i = 0; input[i] != '\0'; i++) {
+		unsigned char c = input[i];
+
+		str_truncate(out, 0);
+		mail_html2text_more(ht, &c, 1, out);
+		str_append_str(str, out);
+	}
+	test_assert_strcmp_idx(str_c(str), output, idx);
+	mail_html2text_deinit(&ht);
+}
+
+static void test_mail_html2text_output_reset(void)
+{
+	unsigned int i;
+
+	/* Feed the input a byte at a time, emptying the output buffer between
+	   the calls (like message-snippet does). The output must be the same
+	   as when it's accumulated into the same buffer. */
+	test_begin("mail_html2text() output buffer reset");
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		test_mail_html2text_output_reset_one(tests[i].input,
+			tests[i].output, MAIL_HTML2TEXT_FLAG_SKIP_QUOTED, i);
+	}
+	for (i = 0; test_blockquote_input[i] != NULL; i++) {
+		test_mail_html2text_output_reset_one(test_blockquote_input[i],
+			test_blockquote_output[i], 0, i);
+	}
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mail_html2text,
 		test_mail_html2text_random,
+		test_mail_html2text_output_reset,
 		NULL
 	};
 	return test_run(test_functions);
