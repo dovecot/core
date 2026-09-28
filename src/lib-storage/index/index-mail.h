@@ -71,6 +71,7 @@ struct index_mail_line {
 };
 
 struct message_header_line;
+struct message_snippet_context;
 
 struct index_mail_data {
 	time_t date, received_date, save_date;
@@ -104,6 +105,7 @@ struct index_mail_data {
 	struct message_size hdr_size, body_size;
 	struct istream *parser_input;
 	struct message_parser_ctx *parser_ctx;
+	struct message_snippet_context *snippet_ctx;
 	int parsing_count;
 	ARRAY_TYPE(keywords) keywords;
 	ARRAY_TYPE(keyword_indexes) keyword_indexes;
@@ -161,6 +163,9 @@ struct index_mail {
 	/* close() is being called from mail_free() */
 	bool freeing:1;
 };
+
+#define BODY_SNIPPET_ALGO_V1 "1"
+#define BODY_SNIPPET_MAX_CHARS 200
 
 #define INDEX_MAIL(s)	container_of(s, struct index_mail, mail.mail)
 

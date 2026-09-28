@@ -9,6 +9,7 @@
 #include "message-part-data.h"
 #include "message-parser.h"
 #include "message-header-decode.h"
+#include "message-snippet.h"
 #include "istream-tee.h"
 #include "istream-header-filter.h"
 #include "imap-envelope.h"
@@ -416,8 +417,13 @@ index_mail_cache_parse_init(struct mail *_mail, struct istream *input)
 	mail->data.save_bodystructure_body = TRUE;
 	/* Don't unnecessarily waste time generating a snippet, since it's
 	   not as cheap as the others to generate. */
-	if (index_mail_want_cache(mail, MAIL_CACHE_BODY_SNIPPET))
+	if (index_mail_want_cache(mail, MAIL_CACHE_BODY_SNIPPET)) {
 		mail->data.save_body_snippet = TRUE;
+		/* Generate the snippet from the parsed blocks, so the saved
+		   mail doesn't need to be read again for it. */
+		mail->data.snippet_ctx =
+			message_snippet_init(BODY_SNIPPET_MAX_CHARS);
+	}
 
 	mail->data.tee_stream = tee_i_stream_create(input);
 	input = tee_i_stream_create_child(mail->data.tee_stream);

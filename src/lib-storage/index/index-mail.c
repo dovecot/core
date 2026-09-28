@@ -23,9 +23,6 @@
 
 #include <fcntl.h>
 
-#define BODY_SNIPPET_ALGO_V1 "1"
-#define BODY_SNIPPET_MAX_CHARS 200
-
 static struct mail_cache_field global_cache_fields[] = {
 	{ .name = "flags",
 	  .type = MAIL_CACHE_FIELD_BITMASK,
@@ -1161,6 +1158,31 @@ static int index_mail_write_body_snippet(struct index_mail *mail)
 	return ret;
 }
 
+static void index_mail_cache_parsed_snippet(struct index_mail *mail)
+{
+	struct message_part *part;
+	string_t *str;
+
+	if (!mail->data.parsed_bodystructure) {
+		/* parsing failed */
+		return;
+	}
+	i_assert(mail->data.parts != NULL);
+
+	part = index_mail_find_first_text_mime_part(mail->data.parts);
+	str = t_str_new(128);
+	str_append(str, BODY_SNIPPET_ALGO_V1);
+	if (part != NULL &&
+	    !message_snippet_get(mail->data.snippet_ctx, part, str)) {
+		/* The snippet wasn't generated for this part, e.g. because it
+		   has child parts. Fall back to reading the mail again with
+		   index_mail_write_body_snippet(). */
+		return;
+	}
+	mail->data.body_snippet = p_strdup(mail->mail.data_pool, str_c(str));
+	mail->data.save_body_snippet = FALSE;
+}
+
 void index_mail_parts_reset(struct index_mail *mail)
 {
 	mail->data.parts = NULL;
@@ -1862,6 +1884,8 @@ static void index_mail_close_streams_full(struct index_mail *mail, bool closing)
 		if (mail->data.save_bodystructure_body)
 			mail->data.save_bodystructure_header = TRUE;
 	}
+	if (data->snippet_ctx != NULL)
+		message_snippet_deinit(&data->snippet_ctx);
 	i_stream_unref(&data->filter_stream);
 	if (data->stream != NULL) {
 		struct istream *orig_stream = data->stream;
@@ -2361,6 +2385,10 @@ void index_mail_cache_parse_continue(struct mail *_mail)
 
 	while (message_parser_parse_next_block(mail->data.parser_ctx,
 					       &block) > 0) {
+		if (mail->data.snippet_ctx != NULL) {
+			(void)message_snippet_more(mail->data.snippet_ctx,
+						   &block);
+		}
 		if (block.size != 0)
 			continue;
 
@@ -2408,6 +2436,12 @@ void index_mail_cache_parse_deinit(struct mail *_mail, time_t received_date,
 	}
 
 	(void)index_mail_parse_body_finish(mail, 0, success);
+
+	if (mail->data.snippet_ctx != NULL) {
+		if (success)
+			index_mail_cache_parsed_snippet(mail);
+		message_snippet_deinit(&mail->data.snippet_ctx);
+	}
 }
 
 static bool
