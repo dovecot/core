@@ -117,6 +117,13 @@ struct pgsql_db_cache {
 	const struct pgsql_settings *set;
 };
 
+struct pgsql_query_params {
+	int count;
+	const char **values;
+	int *lengths;
+	int *formats;
+};
+
 extern const struct sql_db driver_pgsql_db;
 extern const struct sql_result driver_pgsql_result;
 
@@ -479,7 +486,7 @@ static void result_finish(struct pgsql_result *result)
 	/* A statement_timeout cancellation is a PGRES_FATAL_ERROR like any
 	   other, but retrying it - the default for a fatal error - would
 	   double the wall-clock time the caller waits, since a blocking
-	   PQexec() cannot be bounded by anything but the server-side
+	   PQexecParams() cannot be bounded by anything but the server-side
 	   timeout that just fired. SQLSTATE 57014 (query_canceled) is what
 	   the server reports for a cancelled statement; treat it as
 	   non-retryable and record it so sql_result_get_error() can report
@@ -512,7 +519,7 @@ static void result_finish(struct pgsql_result *result)
 	}
 	/* Release connection back to IDLE before invoking callback so that
 	   nested queries (e.g. from dict-sql iterate handlers) can reuse this
-	   connection. The result has been fully buffered by PQexec() and
+	   connection. The result has been fully buffered by PQexecParams and
 	   no longer needs the connection state to be BUSY. */
 	driver_pgsql_set_idle(db);
 	result->api.callback = TRUE;
@@ -524,7 +531,8 @@ static void result_finish(struct pgsql_result *result)
 	result->callback = NULL;
 }
 
-static void do_query(struct pgsql_result *result, const char *query)
+static void do_query(struct pgsql_result *result, const char *query,
+		     const struct pgsql_query_params *params)
 {
 	struct pgsql_db *db =
 		container_of(result->api.db, struct pgsql_db, api);
@@ -533,7 +541,9 @@ static void do_query(struct pgsql_result *result, const char *query)
 
 	sql_db_set_state(&db->api, SQL_DB_STATE_BUSY);
 	result->query = i_strdup(query);
-	result->pgres = PQexec(db->pg, query);
+	result->pgres = PQexecParams(db->pg, query, params->count, NULL,
+				     params->values, params->lengths,
+				     params->formats, 0);
 	result_finish(result);
 }
 
@@ -588,14 +598,17 @@ static struct pgsql_result *new_result(struct sql_db *db)
 static void driver_pgsql_exec(struct sql_db *db, const char *query)
 {
 	struct pgsql_result *result;
+	struct pgsql_query_params params;
+	i_zero(&params);
 
 	result = new_result(db);
-	do_query(result, query);
+	do_query(result, query, &params);
 	sql_result_unref(&result->api);
 }
 
 static struct sql_result *
-driver_pgsql_sync_query(struct pgsql_db *db, const char *query)
+driver_pgsql_sync_query(struct pgsql_db *db, const char *query,
+			struct pgsql_query_params *params)
 {
 	if (db->api.state == SQL_DB_STATE_DISCONNECTED) {
 		if (sql_connect(&db->api) < 0) {
@@ -605,7 +618,7 @@ driver_pgsql_sync_query(struct pgsql_db *db, const char *query)
 	}
 
 	struct pgsql_result *result = new_result(&db->api);
-	do_query(result, query);
+	do_query(result, query, params);
 	return &result->api;
 }
 
@@ -613,8 +626,10 @@ static struct sql_result *
 driver_pgsql_query_s(struct sql_db *_db, const char *query)
 {
 	struct pgsql_db *db = container_of(_db, struct pgsql_db, api);
+	struct pgsql_query_params params;
+	i_zero(&params);
 
-	return driver_pgsql_sync_query(db, query);
+	return driver_pgsql_sync_query(db, query, &params);
 }
 
 static int driver_pgsql_result_next_row(struct sql_result *_result)
@@ -858,8 +873,10 @@ driver_pgsql_transaction_commit_multi(struct pgsql_transaction_context *ctx)
 	struct pgsql_db *db = container_of(ctx->ctx.db, struct pgsql_db, api);
 	struct sql_result *result;
 	struct sql_transaction_query *query;
+	struct pgsql_query_params params;
+	i_zero(&params);
 
-	result = driver_pgsql_sync_query(db, "BEGIN");
+	result = driver_pgsql_sync_query(db, "BEGIN", &params);
 	if (sql_result_next_row(result) < 0) {
 		commit_multi_fail(ctx, result, "BEGIN");
 		return NULL;
@@ -868,7 +885,7 @@ driver_pgsql_transaction_commit_multi(struct pgsql_transaction_context *ctx)
 
 	/* send queries */
 	for (query = ctx->ctx.head; query != NULL; query = query->next) {
-		result = driver_pgsql_sync_query(db, query->query);
+		result = driver_pgsql_sync_query(db, query->query, &params);
 		if (sql_result_next_row(result) < 0) {
 			commit_multi_fail(ctx, result, query->query);
 			break;
@@ -885,7 +902,7 @@ driver_pgsql_transaction_commit_multi(struct pgsql_transaction_context *ctx)
 	}
 
 	return driver_pgsql_sync_query(db, ctx->failed ?
-				       "ROLLBACK" : "COMMIT");
+				       "ROLLBACK" : "COMMIT", &params);
 }
 
 static void
