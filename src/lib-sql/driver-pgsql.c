@@ -527,7 +527,7 @@ static void result_finish(struct pgsql_result *result)
 
 	/* emit event */
 	if (result->api.failed) {
-		const char *error = result->timeout ? "Timed out" : last_error(db);
+		const char *error = result->timeout ? "Timed out" : sql_result_get_error(&result->api);
 		struct event_passthrough *e =
 			sql_query_finished_event(&db->api, result->api.event,
 						 result->query, FALSE, &duration);
