@@ -555,6 +555,95 @@ static void test_load_v2_key(void)
 	test_end();
 }
 
+static void test_load_v2_key_aead(void)
+{
+	/* decrypts the pk-encrypted vectors below */
+	static const char *dec_key_pem =
+		"-----BEGIN PRIVATE KEY-----\n"
+		"MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgtYR"
+		"n7dpbbiXNwb9m\n"
+		"tfzs2chFBJxYPjYC/VIgl/eRmy6hRANCAARW4PGyuZpXiQ17Edz"
+		"nW4iFqhJv3xgR\n"
+		"MqaNffMDQ8zBA6XwRIVyszGlYcWC9ZDSYpL99NnMmpopr7OxLWN+whmm\n"
+		"-----END PRIVATE KEY-----\n";
+	/* all vectors below encrypt the same key, so they share an id */
+	static const char *expected_id =
+		"cb80c7defcb5cda362cc470d311387479c3d6d370bd00f6cc87be34"
+		"bd4fc65d7";
+
+	static const struct {
+		const char *key;
+		const char *password;
+		bool by_key;
+	} vectors[] = {
+		{
+			"2:1.2.840.10045.3.1.7:2:aes-256-gcm:151f2806b58495597"
+			"82b22d142f5ae82:sha256:2048:0e3589d1745dcd633ea9acf2"
+			"a263e6de27f6f44352d1b8ce918f68d5ee02acc33ea134894b44"
+			"e158ff4f7f03295c3cac683ff832ef:cb80c7defcb5cda362cc4"
+			"70d311387479c3d6d370bd00f6cc87be34bd4fc65d7",
+			"password", FALSE
+		}, {
+			"2:1.2.840.10045.3.1.7:2:chacha20-poly1305:a45be1ebb7"
+			"297f7aa175da9b6c3889d6:sha256:2048:fbaa33fd5657fae23"
+			"d87f60cfcf9b8edc09d56c43daf7398804de69473e6725a9a6fc"
+			"b44336c668c2a1b46d0e24fac16a18cc885ed:cb80c7defcb5cd"
+			"a362cc470d311387479c3d6d370bd00f6cc87be34bd4fc65d7",
+			"password", FALSE
+		}, {
+			"2:1.2.840.10045.3.1.7:1:aes-256-gcm:b13f00f885e15b4b"
+			"def0258a8dec7ddc:sha256:2048:bf79a4e9622b3625077e18f"
+			"2e60e291d4270962ee5305308ec2f3621a9bec05c0c40c7cea56"
+			"9448227a6e9b88447353d2a0ea08c3e:04d5e2a536a1b67c8ac4"
+			"8b7e9d8b6099775999f93fab93b9afb23f28568b7cc1f7af1c2d"
+			"03b112f2ab6460949bdc6a13c4e073761e7c1d5e9de49717c11a"
+			"e44c83:11ed3d7a7294f60c601a2f8e8394dc08cc651024de171"
+			"3fd9653fd1255a4c401:cb80c7defcb5cda362cc470d31138747"
+			"9c3d6d370bd00f6cc87be34bd4fc65d7",
+			NULL, TRUE
+		}, {
+			"2:1.2.840.10045.3.1.7:1:chacha20-poly1305:4a6d55a2d3"
+			"deb84686731a29c929ccd4:sha256:2048:3e78c8a0f9971b9d3"
+			"a6b0c1594d4adc5cd6fd42aa522870fe4b52c33f9eff6fffdee4"
+			"c4abd5e4d4d9ea49dd87a51d67efe3f0bb071:043681f7e7d864"
+			"ccf3e9db013c587f91414a2c4f0c3b0c1262cf14949521e632e0"
+			"ce8973849626fc3c32fc462abf5cdacb2e7c468bbac56d96e0c6"
+			"4e52d132bc21:11ed3d7a7294f60c601a2f8e8394dc08cc65102"
+			"4de1713fd9653fd1255a4c401:cb80c7defcb5cda362cc470d31"
+			"1387479c3d6d370bd00f6cc87be34bd4fc65d7",
+			NULL, TRUE
+		}
+	};
+
+	test_begin("test_load_v2_key_aead");
+
+	const char *error = NULL;
+	struct dcrypt_private_key *dec_key = NULL;
+
+	test_assert(dcrypt_key_load_private(&dec_key, dec_key_pem, NULL,
+					    NULL, &error));
+
+	for (unsigned int i = 0; i < N_ELEMENTS(vectors); i++) {
+		struct dcrypt_private_key *priv = NULL;
+		buffer_t *id = t_buffer_create(32);
+
+		test_assert_idx(dcrypt_key_load_private(&priv, vectors[i].key,
+			vectors[i].password,
+			vectors[i].by_key ? dec_key : NULL, &error), i);
+		if (priv != NULL) {
+			test_assert_idx(dcrypt_key_id_private(priv, "sha256",
+							      id, &error), i);
+			test_assert_strcmp_idx(binary_to_hex(id->data, id->used),
+					       expected_id, i);
+			dcrypt_key_unref_private(&priv);
+		}
+	}
+
+	dcrypt_key_unref_private(&dec_key);
+
+	test_end();
+}
+
 static void test_load_v2_public_key(void)
 {
 	struct dcrypt_public_key *pub = NULL;
@@ -2408,6 +2497,7 @@ int main(void)
 		test_load_v1_key,
 		test_load_v1_public_key,
 		test_load_v2_key,
+		test_load_v2_key_aead,
 		test_load_v2_public_key,
 		test_store_load_v2_key_encrypted,
 		test_store_load_v2_rsa_key,
