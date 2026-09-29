@@ -575,7 +575,8 @@ dcrypt_openssl_ctx_sym_final(struct dcrypt_context_symmetric *ctx,
 	if (ec == 1) {
 		buffer_set_used_size(result, buf_used + outl);
 		/* when **ENCRYPTING** recover tag */
-		if (ctx->mode == 1 && ctx->aad != NULL) {
+		const unsigned long flags = EVP_CIPHER_get_flags(ctx->cipher);
+		if (ctx->mode == 1 && (flags & EVP_CIPH_FLAG_AEAD_CIPHER) != 0) {
 			/* tag should be NULL here */
 			i_assert(ctx->tag == NULL);
 			/* openssl claims taglen is always 16, go figure .. */

@@ -196,6 +196,73 @@ static void test_cipher_aead_test_vectors(void)
 	test_end();
 }
 
+static void test_cipher_aead_encrypt_without_aad(void)
+{
+	struct dcrypt_context_symmetric *ctx;
+	const char *error = NULL;
+
+	test_begin("test_cipher_aead_encrypt_without_aad");
+
+	buffer_t *key = t_buffer_create(16);
+	buffer_t *iv = t_buffer_create(16);
+	buffer_t *pt = t_buffer_create(16);
+	buffer_t *res = t_buffer_create(16);
+	buffer_t *tag = t_buffer_create(16);
+
+	hex_to_binary("feffe9928665731c6d6a8f9467308308", key);
+	hex_to_binary("cafebabefacedbaddecaf888", iv);
+	hex_to_binary("d9313225f88406e5a55909c5aff5269a"
+		      "86a7a9531534f7da2e4c303d8a318a72"
+		      "1c3c0c95956809532fcf0e2449a6b525"
+		      "b16aedf5aa0de657ba637b391aafd255", pt);
+
+	if (!dcrypt_ctx_sym_create(SN_aes_128_gcm, DCRYPT_MODE_ENCRYPT,
+				  &ctx, &error)) {
+		test_assert_failed("dcrypt_ctx_sym_create",
+				   __FILE__, __LINE__-1);
+		test_end();
+		return;
+	}
+
+	dcrypt_ctx_sym_set_key(ctx, key->data, key->used);
+	dcrypt_ctx_sym_set_iv(ctx, iv->data, iv->used);
+	test_assert(dcrypt_ctx_sym_init(ctx, &error));
+	test_assert(dcrypt_ctx_sym_update(ctx, pt->data, pt->used, res, &error));
+	test_assert(dcrypt_ctx_sym_final(ctx, res, &error));
+	bool got_tag = dcrypt_ctx_sym_get_tag(ctx, tag);
+	test_assert(got_tag);
+	test_assert(!got_tag || tag->used == 16);
+
+	dcrypt_ctx_sym_destroy(&ctx);
+
+	if (!got_tag) {
+		test_end();
+		return;
+	}
+
+	buffer_t *dec = t_buffer_create(16);
+	if (!dcrypt_ctx_sym_create(SN_aes_128_gcm, DCRYPT_MODE_DECRYPT,
+				  &ctx, &error)) {
+		test_assert_failed("dcrypt_ctx_sym_create",
+				   __FILE__, __LINE__-1);
+		test_end();
+		return;
+	}
+
+	dcrypt_ctx_sym_set_key(ctx, key->data, key->used);
+	dcrypt_ctx_sym_set_iv(ctx, iv->data, iv->used);
+	dcrypt_ctx_sym_set_tag(ctx, tag->data, tag->used);
+	test_assert(dcrypt_ctx_sym_init(ctx, &error));
+	test_assert(dcrypt_ctx_sym_update(ctx,
+		res->data, res->used, dec, &error));
+	test_assert(dcrypt_ctx_sym_final(ctx, dec, &error));
+	test_assert(buffer_cmp(pt, dec) == TRUE);
+
+	dcrypt_ctx_sym_destroy(&ctx);
+
+	test_end();
+}
+
 static void test_hmac_test_vectors(void)
 {
 	test_begin("test_hmac_test_vectors");
@@ -2492,6 +2559,7 @@ int main(void)
 	static void (*const test_functions[])(void) = {
 		test_cipher_test_vectors,
 		test_cipher_aead_test_vectors,
+		test_cipher_aead_encrypt_without_aad,
 		test_hmac_test_vectors,
 		test_load_v1_keys,
 		test_load_v1_key,
