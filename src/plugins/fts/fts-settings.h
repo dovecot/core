@@ -12,6 +12,12 @@ enum fts_decoder {
 	FTS_DECODER_TIKA,
 	FTS_DECODER_SCRIPT,
 };
+
+enum fts_autoindex {
+	FTS_AUTOINDEX_NO,
+	FTS_AUTOINDEX_YES,
+	FTS_AUTOINDEX_DIRECT,
+};
 /* </settings checks> */
 
 struct fts_settings {
@@ -19,6 +25,7 @@ struct fts_settings {
 	ARRAY_TYPE(const_string) fts;
 	ARRAY_TYPE(const_string) header_excludes;
 	ARRAY_TYPE(const_string) header_includes;
+	const char *autoindex;
 	const char *decoder_driver;
 	const char *decoder_script_socket_path;
 	const char *decoder_tika_url;
@@ -29,8 +36,8 @@ struct fts_settings {
 	unsigned int autoindex_max_recent_msgs;
 	unsigned int search_timeout;
 	uoff_t message_max_size;
-	bool autoindex;
 
+	enum fts_autoindex parsed_autoindex;
 	enum fts_decoder parsed_decoder_driver;
 	bool parsed_search_add_missing_body_only;
 };

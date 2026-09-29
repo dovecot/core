@@ -14,7 +14,7 @@ static const struct setting_define fts_setting_defines[] = {
 	{ .type = SET_FILTER_ARRAY, .key = FTS_FILTER,
 	  .offset = offsetof(struct fts_settings, fts),
 	  .filter_array_field_name = "fts_driver", },
-	DEF(BOOL,    autoindex),
+	DEF(ENUM,    autoindex),
 	DEF(UINT,    autoindex_max_recent_msgs),
 	DEF(ENUM,    decoder_driver),
 	DEF(STR,     decoder_script_socket_path),
@@ -35,6 +35,10 @@ static const struct setting_define fts_setting_defines[] = {
 
 #define FTS_SEARCH_ADD_MISSING_BODY_SEARCH_ONLY "body-search-only"
 
+#define FTS_AUTOINDEX_KEYWORD_NO     "no"
+#define FTS_AUTOINDEX_KEYWORD_YES    "yes"
+#define FTS_AUTOINDEX_KEYWORD_DIRECT "direct"
+
 #define FTS_DECODER_KEYWORD_NONE   ""
 #define FTS_DECODER_KEYWORD_TIKA   "tika"
 #define FTS_DECODER_KEYWORD_SCRIPT "script"
@@ -45,7 +49,9 @@ static bool fts_settings_check(void *set, pool_t pool, const char **error_r);
 
 static const struct fts_settings fts_default_settings = {
 	.fts = ARRAY_INIT,
-	.autoindex = FALSE,
+	.autoindex = FTS_AUTOINDEX_KEYWORD_NO
+		     ":"FTS_AUTOINDEX_KEYWORD_YES
+		     ":"FTS_AUTOINDEX_KEYWORD_DIRECT,
 	.autoindex_max_recent_msgs = 0,
 	.decoder_driver = FTS_DECODER_KEYWORD_NONE
 		       ":"FTS_DECODER_KEYWORD_TIKA
@@ -103,6 +109,17 @@ static int fts_settings_parse_enum(struct fts_settings_enum_table *table,
 		if (strcasecmp(key, table->key) == 0)
 			return table->value;
 	i_unreached();
+}
+
+static enum fts_autoindex fts_settings_parse_autoindex(const char *key)
+{
+	static struct fts_settings_enum_table table[] = {
+		{ FTS_AUTOINDEX_KEYWORD_NO,     FTS_AUTOINDEX_NO },
+		{ FTS_AUTOINDEX_KEYWORD_YES,    FTS_AUTOINDEX_YES },
+		{ FTS_AUTOINDEX_KEYWORD_DIRECT, FTS_AUTOINDEX_DIRECT },
+		{ NULL, 0 }
+	};
+	return fts_settings_parse_enum(table, key);
 }
 
 static enum fts_decoder fts_settings_parse_decoder(const char *key)
@@ -163,6 +180,7 @@ static bool fts_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	set->parsed_search_add_missing_body_only =
 		strcmp(set->search_add_missing,
 		       FTS_SEARCH_ADD_MISSING_BODY_SEARCH_ONLY) == 0;
+	set->parsed_autoindex = fts_settings_parse_autoindex(set->autoindex);
 	set->parsed_decoder_driver = fts_settings_parse_decoder(set->decoder_driver);
 	return fts_settings_check_decoder(set, error_r);
 }

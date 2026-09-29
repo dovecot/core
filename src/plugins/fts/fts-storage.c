@@ -48,6 +48,8 @@ struct fts_mailbox {
 	union mailbox_module_context module_ctx;
 	const struct fts_settings *set;
 	struct fts_backend_update_context *sync_update_ctx;
+	/* Separate mailbox instance used for fts_autoindex=direct */
+	struct mailbox *direct_box;
 };
 
 struct fts_transaction_context {
@@ -663,6 +665,83 @@ static void fts_queue_index(struct mailbox *box)
 	i_close_fd(&fd);
 }
 
+static int fts_mailbox_index_direct_box(struct mailbox *box)
+{
+	struct mailbox_transaction_context *trans;
+	struct mail_search_args *search_args;
+	struct mail_search_context *ctx;
+	struct mailbox_status status;
+	struct mail *mail;
+	uint32_t seq1, seq2, first_uid = 0, last_uid = 0;
+	unsigned int count = 0;
+	int ret = 0;
+
+	if (mailbox_sync(box, 0) < 0)
+		return -1;
+	if (mailbox_get_status(box, STATUS_UIDNEXT |
+			       STATUS_FTS_LAST_INDEXED_UID, &status) < 0)
+		return -1;
+	if (status.fts_last_indexed_uid >= status.uidnext - 1)
+		return 0;
+
+	mailbox_get_seq_range(box, status.fts_last_indexed_uid + 1,
+			      (uint32_t)-1, &seq1, &seq2);
+	if (seq1 == 0)
+		return 0;
+
+	trans = mailbox_transaction_begin(box,
+					  MAILBOX_TRANSACTION_FLAG_NO_CACHE_DEC,
+					  "fts direct autoindex");
+	search_args = mail_search_build_init();
+	mail_search_build_add_seqset(search_args, seq1, seq2);
+	ctx = mailbox_search_init(trans, search_args, NULL, 0, NULL);
+	mail_search_args_unref(&search_args);
+
+	while (mailbox_search_next(ctx, &mail)) {
+		if (fts_mail_index_with_reason(mail) < 0) {
+			ret = -1;
+			break;
+		}
+		if (first_uid == 0)
+			first_uid = mail->uid;
+		last_uid = mail->uid;
+		count++;
+	}
+	if (mailbox_search_deinit(&ctx) < 0)
+		ret = -1;
+	if (ret < 0)
+		mailbox_transaction_rollback(&trans);
+	else if (mailbox_transaction_commit(&trans) < 0)
+		ret = -1;
+	if (ret == 0 && count > 0) {
+		e_debug(box->event, "fts: Indexed %u mails directly (UIDs %u..%u)",
+			count, first_uid, last_uid);
+	}
+	return ret;
+}
+
+static int fts_mailbox_index_direct(struct mailbox *box)
+{
+	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(box);
+	enum mail_error error;
+	const char *errstr;
+
+	if (fbox->direct_box == NULL) {
+		/* Use a separate mailbox instance, so the new mails can be
+		   seen without syncing the caller's mailbox view. */
+		fbox->direct_box = mailbox_alloc(box->list, box->vname,
+						 MAILBOX_FLAG_IGNORE_ACLS);
+	}
+	if (fts_mailbox_index_direct_box(fbox->direct_box) == 0)
+		return 0;
+
+	errstr = mailbox_get_last_internal_error(fbox->direct_box, &error);
+	e_error(box->event,
+		"fts: Direct indexing failed - falling back to indexer: %s",
+		errstr);
+	return -1;
+}
+
 static int
 fts_transaction_commit(struct mailbox_transaction_context *t,
 		       struct mail_transaction_commit_changes *changes_r)
@@ -674,7 +753,8 @@ fts_transaction_commit(struct mailbox_transaction_context *t,
 	int ret = 0;
 	const char *error;
 
-	autoindex = ft->mails_saved && fbox->set->autoindex &&
+	autoindex = ft->mails_saved &&
+		fbox->set->parsed_autoindex != FTS_AUTOINDEX_NO &&
 		fbox->set->search;
 
 	if (fts_transaction_end(t, &error) < 0) {
@@ -688,8 +768,14 @@ fts_transaction_commit(struct mailbox_transaction_context *t,
 	if (ret < 0)
 		return -1;
 
-	if (autoindex)
-		fts_queue_index(box);
+	if (!autoindex)
+		return 0;
+	if (fbox->set->parsed_autoindex == FTS_AUTOINDEX_DIRECT &&
+	    box->virtual_vfuncs == NULL) {
+		if (fts_mailbox_index_direct(box) == 0)
+			return 0;
+	}
+	fts_queue_index(box);
 	return 0;
 }
 
@@ -811,6 +897,9 @@ static int fts_mailbox_search_next_match_mail(struct mail_search_context *ctx,
 static void fts_mailbox_free(struct mailbox *box)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(box);
+
+	if (fbox->direct_box != NULL)
+		mailbox_free(&fbox->direct_box);
 	settings_free(fbox->set);
 	fbox->module_ctx.super.free(box);
 }
