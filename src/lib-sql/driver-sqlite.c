@@ -742,7 +742,6 @@ static void driver_sqlite_statement_abort(struct sql_statement *_stmt)
 
 	i_assert(stmt->handle == NULL);
 	i_assert(stmt->prep_stmt == NULL);
-	pool_unref(&stmt->api.pool);
 }
 
 static void driver_sqlite_exec_query(struct sqlite_db *db, const char *query,
@@ -842,6 +841,7 @@ static void driver_sqlite_result_free(struct sql_result *_result)
 	driver_sqlite_result_log(result, result->log_query);
 
 	driver_sqlite_statement_abort(&result->stmt->api);
+	pool_unref(&result->stmt->api.pool);
 	result->stmt = NULL;
 
 	event_unref(&result->api.event);

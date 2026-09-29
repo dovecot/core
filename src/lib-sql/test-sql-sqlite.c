@@ -123,6 +123,17 @@ static void test_sql_sqlite(void)
 	sql_result_unref(cursor);
 	sql_prepared_statement_unref(&prep_stmt);
 
+	/* Aborting a statement must not double-unref its pool. A double
+	   pool_unref() on an alloconly pool frees the arena holding its own
+	   refcount, so the second unref corrupts already-freed memory
+	   without failing any assertion here - only a memory checker such
+	   as valgrind can catch it. This block is that coverage, not an
+	   assertion. */
+	struct sql_statement *abort_stmt =
+		sql_statement_init(sql, "INSERT INTO bar VALUES(?)");
+	sql_statement_bind_str(abort_stmt, 0, "aborted");
+	sql_statement_abort(&abort_stmt);
+
 	sql_unref(&sql);
 	driver_sqlite_deinit();
 	sql_drivers_deinit_without_drivers();
