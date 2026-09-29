@@ -180,10 +180,51 @@ static void test_base32_random(void)
 	test_end();
 }
 
+static void test_base32_decode_str(void)
+{
+	string_t *str;
+	unsigned char buf[10];
+	unsigned int i, j, max;
+	buffer_t *dec;
+
+	str = t_str_new(256);
+
+	test_begin("t_base32_decode_str() with random input");
+	for (i = 0; i < 1000; i++) {
+		max = i_rand_limit(sizeof(buf));
+		for (j = 0; j < max; j++)
+			buf[j] = i_rand_uchar();
+
+		/* Whether or not the encoder padded the output, decoding the
+		   whole string has to give the input back. */
+		T_BEGIN {
+			str_truncate(str, 0);
+			base32_encode(TRUE, buf, max, str);
+			dec = t_base32_decode_str(str_c(str));
+			test_assert(dec->used == max &&
+				    memcmp(buf, dec->data, max) == 0);
+
+			str_truncate(str, 0);
+			base32_encode(FALSE, buf, max, str);
+			dec = t_base32_decode_str(str_c(str));
+			test_assert(dec->used == max &&
+				    memcmp(buf, dec->data, max) == 0);
+
+			str_truncate(str, 0);
+			base32hex_encode(FALSE, buf, max, str);
+			dec = t_base32hex_decode_str(str_c(str));
+			test_assert(dec->used == max &&
+				    memcmp(buf, dec->data, max) == 0);
+		} T_END;
+	}
+	test_end();
+}
+
 void test_base32(void)
 {
 	test_base32_encode();
 	test_base32hex_encode();
 	test_base32_decode();
 	test_base32_random();
+	test_base32_decode_str();
 }
