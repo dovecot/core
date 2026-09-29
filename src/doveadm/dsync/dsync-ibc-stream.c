@@ -1396,7 +1396,7 @@ parse_cache_field(struct dsync_ibc_stream *ibc, struct dsync_mailbox *box,
 		ret = -1;
 		break;
 	}
-	if (value[1] == 'F')
+	if (*value != '\0' && value[1] == 'F')
 		field.decision |= MAIL_CACHE_DECISION_FORCED;
 
 	if (dsync_deserializer_decode_try(decoder, "last_used", &value) &&
