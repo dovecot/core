@@ -515,16 +515,10 @@ static int fts_mail_index(struct mail *_mail)
 	return fts_build_mail(flist->update_ctx, _mail) < 0 ? -1 : 0;
 }
 
-static int fts_mail_precache(struct mail *_mail)
+static int fts_mail_index_with_reason(struct mail *_mail)
 {
-	struct mail_private *mail = (struct mail_private *)_mail;
-	struct fts_mail *fmail = FTS_MAIL_CONTEXT(mail);
 	struct fts_transaction_context *ft = FTS_CONTEXT_REQUIRE(_mail->transaction);
 	int ret;
-
-	i_assert(!fmail->virtual_mail);
-	if (fmail->module_ctx.super.precache(_mail) < 0)
-		return -1;
 
 	i_assert(!ft->indexing);
 	T_BEGIN {
@@ -537,6 +531,17 @@ static int fts_mail_precache(struct mail *_mail)
 		event_reason_end(&reason);
 	} T_END;
 	return ret;
+}
+
+static int fts_mail_precache(struct mail *_mail)
+{
+	struct mail_private *mail = (struct mail_private *)_mail;
+	struct fts_mail *fmail = FTS_MAIL_CONTEXT(mail);
+
+	i_assert(!fmail->virtual_mail);
+	if (fmail->module_ctx.super.precache(_mail) < 0)
+		return -1;
+	return fts_mail_index_with_reason(_mail);
 }
 
 void fts_mail_allocated(struct mail *_mail)
