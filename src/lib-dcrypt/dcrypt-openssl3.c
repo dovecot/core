@@ -1469,8 +1469,6 @@ dcrypt_openssl_cipher_key_dovecot_v2(const char *cipher,
 	/* generate encryption key/iv based on secret/salt */
 	size_t key_data_len = dcrypt_openssl_ctx_sym_get_key_length(dctx) +
 			      dcrypt_openssl_ctx_sym_get_iv_length(dctx);
-	if (aead && mode == DCRYPT_MODE_ENCRYPT)
-		key_data_len += sizeof(tag); /* TAG SIZE */
 	buffer_t *key_data = t_buffer_create(key_data_len);
 
 	res = dcrypt_openssl_pbkdf2(secret->data, secret->used,
@@ -1497,6 +1495,8 @@ dcrypt_openssl_cipher_key_dovecot_v2(const char *cipher,
 
 	size_t input_size = input->used;
 
+	/* v2 AEAD keys use empty AAD; setting AAD here would make
+	   existing keys unreadable */
 	if (res && aead && mode == DCRYPT_MODE_DECRYPT) {
 		if (input_size < sizeof(tag)) {
 			*error_r = "Corrupted data";
@@ -1508,10 +1508,6 @@ dcrypt_openssl_cipher_key_dovecot_v2(const char *cipher,
 			input_size -= sizeof(tag);
 		}
 		dcrypt_openssl_ctx_sym_set_tag(dctx, tag, sizeof(tag));
-	} else if (res && aead && mode == DCRYPT_MODE_ENCRYPT) {
-		size_t pos = dcrypt_openssl_ctx_sym_get_key_length(dctx) +
-			dcrypt_openssl_ctx_sym_get_iv_length(dctx);
-		dcrypt_openssl_ctx_sym_set_aad(dctx, kd + pos, DCRYPT_AEAD_TAG_LEN);
 	}
 
 	if (!res ||
