@@ -127,6 +127,12 @@ static bool snippet_generate(struct snippet_context *ctx,
 	return TRUE;
 }
 
+static void snippet_copy(const char *src, string_t *dst)
+{
+	while (*src != '\0' && i_isspace(*src)) src++;
+	str_append(dst, src);
+}
+
 static bool snippet_header_is_needed(const struct message_header_line *hdr)
 {
 	/* Only the headers used by message-decoder are needed */
@@ -134,12 +140,6 @@ static bool snippet_header_is_needed(const struct message_header_line *hdr)
 		strcasecmp(hdr->name, "Content-Type") == 0) ||
 		(hdr->name_len == 25 &&
 		 strcasecmp(hdr->name, "Content-Transfer-Encoding") == 0);
-}
-
-static void snippet_copy(const char *src, string_t *dst)
-{
-	while (*src != '\0' && i_isspace(*src)) src++;
-	str_append(dst, src);
 }
 
 int message_snippet_generate(struct istream *input,
