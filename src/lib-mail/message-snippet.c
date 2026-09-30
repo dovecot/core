@@ -152,6 +152,12 @@ static bool snippet_header_is_needed(const struct message_header_line *hdr)
 		 strcasecmp(hdr->name, "Content-Transfer-Encoding") == 0);
 }
 
+static bool snippet_have_text(struct snippet_context *ctx)
+{
+	return ctx->snippet.snippet->used != 0 ||
+		ctx->quoted_snippet.snippet->used != 0;
+}
+
 int message_snippet_generate(struct istream *input,
 			     unsigned int max_snippet_chars,
 			     string_t *snippet)
@@ -192,8 +198,7 @@ int message_snippet_generate(struct istream *input,
 
 			/* We already have a snippet, don't look for more in
 			   subsequent parts. */
-			if (ctx.snippet.snippet->used != 0 ||
-			    ctx.quoted_snippet.snippet->used != 0)
+			if (snippet_have_text(&ctx))
 				break;
 
 			skip_part = NULL;
