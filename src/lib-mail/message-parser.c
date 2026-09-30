@@ -820,13 +820,15 @@ int message_parser_deinit_from_parts(struct message_parser_ctx **_ctx,
 
 	if (ctx->hdr_parser_ctx != NULL)
 		message_parse_header_deinit(&ctx->hdr_parser_ctx);
-	if (ctx->part != NULL) {
+	if (ctx->part != NULL && !ctx->preparsed) {
 		/* If the whole message has been parsed, the parts are
 		   usually finished in message_parser_parse_next_block().
 		   However, it's possible that the caller finishes reading
 		   through the istream without calling
 		   message_parser_parse_next_block() afterwards. In that case
-		   we still need to finish these parts. */
+		   we still need to finish these parts. Not for a preparsed
+		   parse: the caller's tree is already finished, and summing
+		   into it again would double-count. */
 		while (ctx->part->parent != NULL)
 			message_part_finish(ctx);
 	}
@@ -863,8 +865,11 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 
 	block_r->part = ctx->part;
 
-	if (ret < 0 && ctx->part != NULL) {
-		/* Successful EOF or unexpected failure */
+	if (ret < 0 && ctx->part != NULL && !ctx->preparsed) {
+		/* Successful EOF or unexpected failure. Only for a parse that
+		   is building the tree: message_part_finish() sums the child
+		   sizes into the parent, and a preparsed tree already has
+		   those sums. */
 		i_assert(ctx->input->eof || ctx->input->closed ||
 			 ctx->input->stream_errno != 0 ||
 			 ctx->broken_reason != NULL);

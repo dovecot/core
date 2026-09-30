@@ -2094,6 +2094,57 @@ static void test_message_parser_preparsed_sibling_overlap(void)
 	test_end();
 }
 
+static unsigned int test_part_count(struct message_part *part)
+{
+	unsigned int count = 0;
+
+	for (; part != NULL; part = part->next)
+		count += 1 + test_part_count(part->children);
+	return count;
+}
+
+static void test_message_parser_preparsed_tree_unchanged(void)
+{
+static const char input_msg[] =
+"Content-Type:multipart/d;boundary=\n"
+"\n"
+"--\n";
+	struct message_parser_ctx *parser;
+	struct istream *input;
+	struct message_part *parts, *parts2;
+	struct message_block block;
+	uoff_t body_size;
+	unsigned int children_count;
+	const char *error;
+	pool_t pool;
+
+	test_begin("message parser preparsed tree unchanged");
+	pool = pool_alloconly_create("message parser", 10240);
+	input = test_istream_create(input_msg);
+
+	parser = message_parser_init(pool, input, &set_empty);
+	while (message_parser_parse_next_block(parser, &block) > 0) ;
+	message_parser_deinit(&parser, &parts);
+
+	body_size = parts->body_size.physical_size;
+	children_count = parts->children_count;
+	test_assert(children_count == test_part_count(parts->children));
+
+	/* Parsing again with the tree must not change the tree. */
+	i_stream_seek(input, 0);
+	parser = message_parser_init_from_parts(parts, input, &set_empty);
+	while (message_parser_parse_next_block(parser, &block) > 0) ;
+	test_assert(message_parser_deinit_from_parts(&parser, &parts2, &error) == 0);
+
+	test_assert(parts->body_size.physical_size == body_size);
+	test_assert(parts->children_count == children_count);
+	test_assert(parts->children_count == test_part_count(parts->children));
+
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -2127,6 +2178,7 @@ int main(void)
 		test_message_parser_preparsed_epilogue_truncated,
 		test_message_parser_preparsed_epilogue_boundary_dashes,
 		test_message_parser_preparsed_epilogue_boundary_long_line,
+		test_message_parser_preparsed_tree_unchanged,
 		NULL
 	};
 	return test_run(test_functions);
