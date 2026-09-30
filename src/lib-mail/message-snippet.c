@@ -133,6 +133,16 @@ static void snippet_copy(const char *src, string_t *dst)
 	str_append(dst, src);
 }
 
+static void snippet_append(struct snippet_context *ctx, string_t *snippet)
+{
+	if (ctx->snippet.snippet->used != 0)
+		snippet_copy(str_c(ctx->snippet.snippet), snippet);
+	else if (ctx->quoted_snippet.snippet->used != 0) {
+		str_append_c(snippet, '>');
+		snippet_copy(str_c(ctx->quoted_snippet.snippet), snippet);
+	}
+}
+
 static bool snippet_header_is_needed(const struct message_header_line *hdr)
 {
 	/* Only the headers used by message-decoder are needed */
@@ -211,12 +221,7 @@ int message_snippet_generate(struct istream *input,
 	message_decoder_deinit(&decoder);
 	message_parser_deinit(&parser, &parts);
 	mail_html2text_deinit(&ctx.html2text);
-	if (ctx.snippet.snippet->used != 0)
-		snippet_copy(str_c(ctx.snippet.snippet), snippet);
-	else if (ctx.quoted_snippet.snippet->used != 0) {
-		str_append_c(snippet, '>');
-		snippet_copy(str_c(ctx.quoted_snippet.snippet), snippet);
-	}
+	snippet_append(&ctx, snippet);
 	pool_unref(&pool);
 	return input->stream_errno == 0 ? 0 : -1;
 }
