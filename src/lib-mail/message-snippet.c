@@ -186,19 +186,13 @@ int message_snippet_generate(struct istream *input,
 
 	parser = message_parser_init(pool_datastack_create(), input, &parser_set);
 	while ((ret = message_parser_parse_next_block(parser, &raw_block)) > 0) {
-		if (raw_block.part == ctx.skip_part)
-			continue;
-		if (raw_block.hdr != NULL &&
-		    !snippet_header_is_needed(raw_block.hdr)) {
-			/* Don't waste time decoding headers that aren't
-			   needed for generating the snippet. */
+		if (raw_block.hdr != NULL) {
+			if (snippet_header_is_needed(raw_block.hdr)) {
+				(void)message_decoder_decode_next_block(
+					ctx.decoder, &raw_block, &block);
+			}
 			continue;
 		}
-		if (!message_decoder_decode_next_block(ctx.decoder, &raw_block,
-						       &block))
-			continue;
-		if (raw_block.hdr != NULL)
-			continue;
 		if (raw_block.size == 0) {
 			const char *ct;
 
@@ -206,6 +200,10 @@ int message_snippet_generate(struct istream *input,
 			   subsequent parts. */
 			if (snippet_have_text(&ctx))
 				break;
+
+			/* end of headers */
+			(void)message_decoder_decode_next_block(
+				ctx.decoder, &raw_block, &block);
 
 			ctx.skip_part = NULL;
 
@@ -224,8 +222,15 @@ int message_snippet_generate(struct istream *input,
 				}
 			} else if (!str_begins_icase_with(ct, "text/"))
 				ctx.skip_part = raw_block.part;
-		} else if (block.size > 0 &&
-			   !snippet_generate(&ctx, block.data, block.size))
+			continue;
+		}
+		if (raw_block.part == ctx.skip_part)
+			continue;
+		if (!message_decoder_decode_next_block(ctx.decoder, &raw_block,
+						       &block))
+			continue;
+		if (block.size > 0 &&
+		    !snippet_generate(&ctx, block.data, block.size))
 			break;
 	}
 	i_assert(ret != 0);
