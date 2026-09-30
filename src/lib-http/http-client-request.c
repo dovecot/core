@@ -984,7 +984,7 @@ static void http_client_request_do_submit(struct http_client_request *req)
 				     req->id, req->method, target);
 
 	/* Update request target */
-	if (req->connect_tunnel || have_proxy)
+	if (req->connect_tunnel || (have_proxy && !req->ssl_tunnel))
 		req->target = p_strdup(req->pool, target);
 
 	if (!have_proxy) {
