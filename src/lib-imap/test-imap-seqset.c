@@ -162,18 +162,27 @@ static void test_imap_seq_set_ordered_parse(void)
 	static const struct {
 		const char *input;
 		const char *output;
+		unsigned int max_size;
 		int ret;
 	} tests[] = {
-		{ "", "", -1 },
-		{ "0", "", -1 },
-		{ "1,", "", -1 },
-		{ "1:", "", -1 },
-		{ ":1", "", -1 },
-		{ "0:1", "", -1 },
-		{ "*", "", -1 },
-		{ "1:*", "", -1 },
-		{ "1", "1", 0 },
-		{ "3:4,1:2,5,700,500:503", "3 4 1 2 5 700 500 501 502 503", 0 },
+		{ "", "", 100, -1 },
+		{ "0", "", 100, -1 },
+		{ "1,", "", 100, -1 },
+		{ "1:", "", 100, -1 },
+		{ ":1", "", 100, -1 },
+		{ "0:1", "", 100, -1 },
+		{ "*", "", 100, -1 },
+		{ "1:*", "", 100, -1 },
+		{ "1", "1", 100, 0 },
+		{ "3:4,1:2,5,700,500:503", "3 4 1 2 5 700 500 501 502 503",
+		  100, 0 },
+		/* ranges expanding beyond max_size are rejected instead of
+		   exhausting memory */
+		{ "1:101", "", 100, -1 },
+		{ "1:50,51:101", "", 100, -1 },
+		{ "99:100", "99 100", 2, 0 },
+		{ "99:101", "", 2, -1 },
+		{ "1:100", "", 0, -1 },
 	};
 	ARRAY_TYPE(uint32_t) dest;
 	string_t *str = t_str_new(64);
@@ -183,7 +192,8 @@ static void test_imap_seq_set_ordered_parse(void)
 	t_array_init(&dest, 8);
 	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
 		array_clear(&dest);
-		int ret = imap_seq_set_ordered_parse(tests[i].input, &dest);
+		int ret = imap_seq_set_ordered_parse(tests[i].input, &dest,
+						     tests[i].max_size);
 		test_assert_idx(ret == tests[i].ret, i);
 		if (ret == 0) {
 			str_truncate(str, 0);

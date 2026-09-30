@@ -90,7 +90,8 @@ int imap_seq_set_nostar_parse(const char *str, ARRAY_TYPE(seq_range) *dest)
 	return 0;
 }
 
-int imap_seq_set_ordered_parse(const char *str, ARRAY_TYPE(uint32_t) *dest)
+int imap_seq_set_ordered_parse(const char *str, ARRAY_TYPE(uint32_t) *dest,
+			       unsigned int max_size)
 {
 	uint32_t seq1, seq2;
 
@@ -109,6 +110,11 @@ int imap_seq_set_ordered_parse(const char *str, ARRAY_TYPE(uint32_t) *dest)
 		if (seq1 > seq2)
 			return -1;
 
+		/* Don't let a huge range (e.g. "1:4294967294") expand into
+		   memory without bounds. */
+		if (seq2 - seq1 >= max_size ||
+		    array_count(dest) >= max_size - (seq2 - seq1))
+			return -1;
 		for (uint32_t seq = seq1; seq <= seq2; seq++)
 			array_push_back(dest, &seq);
 
