@@ -26,8 +26,13 @@ struct snippet_data {
 };
 
 struct snippet_context {
+	pool_t pool;
+	struct message_decoder_context *decoder;
 	struct snippet_data snippet;
 	struct snippet_data quoted_snippet;
+	/* Skip the body of this MIME part, because it's not text */
+	const struct message_part *skip_part;
+
 	enum snippet_state state;
 	bool add_whitespace;
 	struct mail_html2text *html2text;
@@ -165,8 +170,6 @@ int message_snippet_generate(struct istream *input,
 	const struct message_parser_settings parser_set = { .flags = 0 };
 	struct message_parser_ctx *parser;
 	struct message_part *parts;
-	struct message_part *skip_part = NULL;
-	struct message_decoder_context *decoder;
 	struct message_block raw_block, block;
 	struct snippet_context ctx;
 	pool_t pool;
@@ -174,14 +177,16 @@ int message_snippet_generate(struct istream *input,
 
 	i_zero(&ctx);
 	pool = pool_alloconly_create("message snippet", 2048);
+	ctx.pool = pool;
 	ctx.snippet.snippet = str_new(pool, max_snippet_chars);
 	ctx.snippet.chars_left = max_snippet_chars;
 	ctx.quoted_snippet.snippet = str_new(pool, max_snippet_chars);
 	ctx.quoted_snippet.chars_left = max_snippet_chars - 1; /* -1 for '>' */
+	ctx.decoder = message_decoder_init(NULL, 0);
+
 	parser = message_parser_init(pool_datastack_create(), input, &parser_set);
-	decoder = message_decoder_init(NULL, 0);
 	while ((ret = message_parser_parse_next_block(parser, &raw_block)) > 0) {
-		if (raw_block.part == skip_part)
+		if (raw_block.part == ctx.skip_part)
 			continue;
 		if (raw_block.hdr != NULL &&
 		    !snippet_header_is_needed(raw_block.hdr)) {
@@ -189,7 +194,8 @@ int message_snippet_generate(struct istream *input,
 			   needed for generating the snippet. */
 			continue;
 		}
-		if (!message_decoder_decode_next_block(decoder, &raw_block, &block))
+		if (!message_decoder_decode_next_block(ctx.decoder, &raw_block,
+						       &block))
 			continue;
 		if (raw_block.hdr != NULL)
 			continue;
@@ -201,12 +207,12 @@ int message_snippet_generate(struct istream *input,
 			if (snippet_have_text(&ctx))
 				break;
 
-			skip_part = NULL;
+			ctx.skip_part = NULL;
 
 			/* end of headers - verify that we can use this
 			   Content-Type. we get here only once, because we
 			   always handle only one non-multipart MIME part. */
-			ct = message_decoder_current_content_type(decoder);
+			ct = message_decoder_current_content_type(ctx.decoder);
 			if (ct == NULL)
 				/* text/plain */ ;
 			else if (mail_html2text_content_type_match(ct)) {
@@ -217,13 +223,13 @@ int message_snippet_generate(struct istream *input,
 						buffer_create_dynamic(pool, 1024);
 				}
 			} else if (!str_begins_icase_with(ct, "text/"))
-				skip_part = raw_block.part;
+				ctx.skip_part = raw_block.part;
 		} else if (block.size > 0 &&
 			   !snippet_generate(&ctx, block.data, block.size))
 			break;
 	}
 	i_assert(ret != 0);
-	message_decoder_deinit(&decoder);
+	message_decoder_deinit(&ctx.decoder);
 	message_parser_deinit(&parser, &parts);
 	mail_html2text_deinit(&ctx.html2text);
 	snippet_append(&ctx, snippet);
