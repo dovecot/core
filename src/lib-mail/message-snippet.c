@@ -157,6 +157,31 @@ static bool snippet_header_is_needed(const struct message_header_line *hdr)
 		 strcasecmp(hdr->name, "Content-Transfer-Encoding") == 0);
 }
 
+static void
+snippet_part_start(struct snippet_context *ctx,
+		   const struct message_part *part)
+{
+	const char *ct;
+
+	ctx->skip_part = NULL;
+
+	/* end of headers - verify that we can use this
+	   Content-Type. we get here only once, because we
+	   always handle only one non-multipart MIME part. */
+	ct = message_decoder_current_content_type(ctx->decoder);
+	if (ct == NULL)
+		/* text/plain */ ;
+	else if (mail_html2text_content_type_match(ct)) {
+		mail_html2text_deinit(&ctx->html2text);
+		ctx->html2text = mail_html2text_init(0);
+		if (ctx->plain_output == NULL) {
+			ctx->plain_output =
+				buffer_create_dynamic(ctx->pool, 1024);
+		}
+	} else if (!str_begins_icase_with(ct, "text/"))
+		ctx->skip_part = part;
+}
+
 static bool snippet_have_text(struct snippet_context *ctx)
 {
 	return ctx->snippet.snippet->used != 0 ||
@@ -194,8 +219,6 @@ int message_snippet_generate(struct istream *input,
 			continue;
 		}
 		if (raw_block.size == 0) {
-			const char *ct;
-
 			/* We already have a snippet, don't look for more in
 			   subsequent parts. */
 			if (snippet_have_text(&ctx))
@@ -204,24 +227,7 @@ int message_snippet_generate(struct istream *input,
 			/* end of headers */
 			(void)message_decoder_decode_next_block(
 				ctx.decoder, &raw_block, &block);
-
-			ctx.skip_part = NULL;
-
-			/* end of headers - verify that we can use this
-			   Content-Type. we get here only once, because we
-			   always handle only one non-multipart MIME part. */
-			ct = message_decoder_current_content_type(ctx.decoder);
-			if (ct == NULL)
-				/* text/plain */ ;
-			else if (mail_html2text_content_type_match(ct)) {
-				mail_html2text_deinit(&ctx.html2text);
-				ctx.html2text = mail_html2text_init(0);
-				if (ctx.plain_output == NULL) {
-					ctx.plain_output =
-						buffer_create_dynamic(pool, 1024);
-				}
-			} else if (!str_begins_icase_with(ct, "text/"))
-				ctx.skip_part = raw_block.part;
+			snippet_part_start(&ctx, raw_block.part);
 			continue;
 		}
 		if (raw_block.part == ctx.skip_part)
