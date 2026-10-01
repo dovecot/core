@@ -506,21 +506,23 @@ struct mailbox_sort_node {
 	bool seen;
 };
 
-/* Returns vname if the storage name can be used for creating a mailbox, or
-   the lost mailbox name if it can't. A name recovered from a corrupted
+/* Returns NULL if the storage name can be used for creating a mailbox, or
+   the lost mailbox vname if it can't. A name recovered from a corrupted
    mailbox index header must not prevent the mailbox from being recovered at
    all. */
 static const char *
-mail_storage_list_index_get_usable_vname(
+mail_storage_list_index_get_lost_vname_if_unusable(
 	struct mail_storage_list_index_rebuild_ctx *ctx,
 	struct mail_storage_list_index_rebuild_mailbox *rebuild_box,
-	const char *name, const char *vname)
+	const char *name)
 {
 	const char *reason, *lost_vname;
 
 	if (mailbox_list_index_name_is_usable(rebuild_box->list, name, &reason))
-		return vname;
+		return NULL;
 
+	/* The name can't be converted to a vname - it may not even be valid
+	   UTF-8. Log it as the storage name. */
 	lost_vname = t_strconcat(rebuild_box->list->ns->prefix,
 				 get_lost_box_name(ctx, rebuild_box->guid),
 				 NULL);
@@ -528,7 +530,9 @@ mail_storage_list_index_get_usable_vname(
 		  "List rebuild: Mailbox GUID %s has an unusable name "
 		  "%s: %s - recovering it as %s",
 		  guid_128_to_string(rebuild_box->guid),
-		  mailbox_name_sanitize(vname), reason, lost_vname);
+		  mailbox_name_sanitize(t_strconcat(rebuild_box->list->ns->prefix,
+						    name, NULL)),
+		  reason, lost_vname);
 	return lost_vname;
 }
 
@@ -581,16 +585,17 @@ static int mail_storage_list_index_add_missing(struct mail_storage_list_index_re
 			name_recovered = TRUE;
 		}
 
-		const char *orig_vname =
-			mail_storage_list_index_get_vname(box, name,
-							  name_hdr_flags);
-
 		/* The recovered name may still be unusable, e.g. the mailbox
 		   index header is corrupted. Fall back to the lost mailbox
 		   name rather than failing the whole rebuild. */
+		const char *orig_vname = NULL;
 		if (name_recovered) {
-			orig_vname = mail_storage_list_index_get_usable_vname(
-				ctx, box, name, orig_vname);
+			orig_vname = mail_storage_list_index_get_lost_vname_if_unusable(
+				ctx, box, name);
+		}
+		if (orig_vname == NULL) {
+			orig_vname = mail_storage_list_index_get_vname(
+				box, name, name_hdr_flags);
 		}
 
 		const char *vname = orig_vname;
