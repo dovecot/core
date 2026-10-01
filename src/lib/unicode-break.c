@@ -148,51 +148,26 @@ bool unicode_gc_break_cp(struct unicode_gc_break *gcbrk, uint32_t cp,
 	}
 
 	/* GB9c: Do not break within Indic conjuncts.
+	   \p{InCB=Linker} \p{InCB=Extend}* x \p{InCB=Consonant}
 	 */
 	enum {
 		GB9C_STATE_NONE = 0,
-		GB9C_STATE_CONSONANT,
 		GB9C_STATE_LINKER,
 	};
-	switch (gcbrk->gb9c) {
-	case GB9C_STATE_NONE:
-		switch (cp_data->indic_conjunct_break) {
-		case UNICODE_INDIC_CONJUNCT_BREAK_CONSONANT:
-			gcbrk->gb9c = GB9C_STATE_CONSONANT;
-			break;
-		default:
-			break;
-		}
+	switch (cp_data->indic_conjunct_break) {
+	case UNICODE_INDIC_CONJUNCT_BREAK_LINKER:
+		gcbrk->gb9c = GB9C_STATE_LINKER;
 		break;
-	case GB9C_STATE_CONSONANT:
-		switch (cp_data->indic_conjunct_break) {
-		case UNICODE_INDIC_CONJUNCT_BREAK_LINKER:
-			gcbrk->gb9c = GB9C_STATE_LINKER;
-		case UNICODE_INDIC_CONJUNCT_BREAK_CONSONANT:
-		case UNICODE_INDIC_CONJUNCT_BREAK_EXTEND:
-			break;
-		default:
-			gcbrk->gb9c = GB9C_STATE_NONE;
-			break;
-		}
+	case UNICODE_INDIC_CONJUNCT_BREAK_EXTEND:
 		break;
-	case GB9C_STATE_LINKER:
-		switch (cp_data->indic_conjunct_break) {
-		case UNICODE_INDIC_CONJUNCT_BREAK_LINKER:
-		case UNICODE_INDIC_CONJUNCT_BREAK_EXTEND:
-			break;
-		case UNICODE_INDIC_CONJUNCT_BREAK_CONSONANT:
-			if (bstatus < 0)
-				bstatus = 0;
-			gcbrk->gb9c = GB9C_STATE_CONSONANT;
-			break;
-		default:
-			gcbrk->gb9c = GB9C_STATE_NONE;
-			break;
-		}
+	case UNICODE_INDIC_CONJUNCT_BREAK_CONSONANT:
+		if (gcbrk->gb9c == GB9C_STATE_LINKER && bstatus < 0)
+			bstatus = 0;
+		gcbrk->gb9c = GB9C_STATE_NONE;
 		break;
 	default:
-		i_unreached();
+		gcbrk->gb9c = GB9C_STATE_NONE;
+		break;
 	}
 
 	/* GB11: Do not break within emoji ZWJ sequences.
