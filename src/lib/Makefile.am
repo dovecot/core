@@ -14,6 +14,7 @@ BUILT_SOURCES = $(srcdir)/unicode-data-tables.c \
 		event-filter-parser.c \
 		event-filter-parser.h
 
+UCD_VERSION = 18.0.0
 UCD_URL = https://dovecot.org/res
 UCD_DIR = $(srcdir)/ucd
 UCD_ABS_DIR = $(abs_srcdir)/ucd
@@ -46,6 +47,9 @@ EXTRA_DIST = \
 	$(UCD_FILES)
 EXTRA_CLEAN = unicode-data-tables.c
 
+UCD_STAMP = ucd-$(UCD_VERSION).stamp
+CLEANFILES = $(UCD_STAMP)
+
 # Squelch autoconf error about using .[ly] sources but not defining $(LEX)
 # and $(YACC).  Using false here avoids accidental use.
 LEX=/bin/false
@@ -65,6 +69,26 @@ YACC=/bin/false
 # Bison generates both a header and a .c file.  Without the following
 # dependency, anything including the header will race the bison process.
 event-filter-parser.h: event-filter-parser.c
+
+# Remove cached UCD files that are not for UCD_VERSION, so they get downloaded
+# again. UnicodeData.txt has no version header, so it's removed along with the
+# others.
+$(UCD_STAMP):
+	$(AM_V_at)stale=no; \
+	for f in $(UCD_FILES); do \
+		case $$f in */UnicodeData.txt) continue;; esac; \
+		if test -f $$f && ! head -n 10 $$f | \
+		   grep -q -e '-$(UCD_VERSION)\.txt' -e 'Version: $(UCD_VERSION)'; then \
+			stale=yes; \
+		fi; \
+	done; \
+	if test $$stale = yes; then \
+		echo "Removing UCD files not matching version $(UCD_VERSION)"; \
+		rm -f $(UCD_FILES); \
+	fi
+	$(AM_V_at)rm -f ucd-*.stamp && touch $@
+
+$(UCD_FILES): $(UCD_STAMP)
 
 $(UCD_DIR)/CaseFolding.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv --no-use-server-timestamps -O $@ $(UCD_URL)/CaseFolding.txt
