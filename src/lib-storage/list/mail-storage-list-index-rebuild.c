@@ -551,7 +551,9 @@ mail_storage_list_index_get_vname(struct mail_storage_list_index_rebuild_mailbox
 	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
 	    strcmp(name, "INBOX") == 0)
 		return "INBOX";
-	return t_strconcat(ns->prefix, name, NULL);
+	/* The storage name may differ from the vname, e.g. it's mUTF-7 or
+	   has a different hierarchy separator. */
+	return mailbox_list_get_vname(rebuild_box->list, name);
 }
 
 static int mail_storage_list_index_add_missing(struct mail_storage_list_index_rebuild_ctx *ctx)
