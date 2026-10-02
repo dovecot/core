@@ -663,10 +663,13 @@ doveadm_http_server_read_request_v1(struct client_request_http *req)
 	struct http_server_request *http_sreq = req->http_request;
 	const char *error;
 	int ret;
+        const struct json_limits limits = {
+		.max_string_size = 1024*1024U,
+        };
 
 	if (req->json_input == NULL) {
 		req->json_input = json_istream_create_array(
-			req->input, NULL, JSON_PARSER_FLAG_NUMBERS_AS_STRING);
+			req->input, &limits, JSON_PARSER_FLAG_NUMBERS_AS_STRING);
 	}
 
 	if (req->json_output == NULL) {
