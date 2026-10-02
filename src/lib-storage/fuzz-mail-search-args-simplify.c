@@ -174,8 +174,13 @@ static bool fuzz_opaque_match(const struct mail_search_arg *arg,
 	hash = crc32_data_more(hash, &fuzzy, sizeof(fuzzy));
 	if (arg->hdr_field_name != NULL)
 		hash = crc32_str_more(hash, t_str_lcase(arg->hdr_field_name));
-	if (arg->value.str != NULL)
-		hash = crc32_str_more(hash, arg->value.str);
+	if (arg->value.str != NULL) {
+		/* keywords are case-insensitive, like in
+		   mail_search_arg_one_equals() */
+		const char *value = arg->type == SEARCH_KEYWORDS ?
+			t_str_lcase(arg->value.str) : arg->value.str;
+		hash = crc32_str_more(hash, value);
+	}
 	return (fuzz_mix(hash + mail->seq) & 1) != 0;
 }
 
