@@ -672,7 +672,8 @@ get_invalid_setting_error(struct settings_apply_ctx *ctx, const char *prefix,
 
 static int
 settings_var_expand(struct settings_apply_ctx *ctx, unsigned int key_idx,
-		    const char **value, const char **error_r)
+		    const char **value, bool value_from_binary_config,
+		    const char **error_r)
 {
 	struct settings_file file = { NULL, NULL };
 	const char *orig_value = *value;
@@ -742,10 +743,13 @@ settings_var_expand(struct settings_apply_ctx *ctx, unsigned int key_idx,
 	   and since this will be quite often called, just check for
 	   % and run it through var-expand.
 
-	   Most the misses will come from default settings and overrides
-	   that are not processed by config process.
-	*/
-	if (!want_expand && strchr(orig_value, '%') != NULL)
+	   Values from the binary config don't need this check: the config
+	   process already exported a var_expand template for every value
+	   that contains %variables. The misses come from default settings,
+	   overrides and list keys, which are not preprocessed by the config
+	   process. */
+	if (!want_expand && !value_from_binary_config &&
+	    strchr(orig_value, '%') != NULL)
 		want_expand = TRUE;
 
 	if (!want_expand) {
@@ -830,7 +834,10 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 	if (value == orig_ptr)
 		value = orig_value;
 
-	if (settings_var_expand(ctx, key_idx, &value, &error) < 0) {
+	/* The value is from the binary config, unless the setting_apply()
+	   callback replaced it. */
+	if (settings_var_expand(ctx, key_idx, &value, value == orig_value,
+				&error) < 0) {
 		*error_r = t_strdup_printf(
 			"Failed to expand %s setting variables: %s",
 			key, error);
@@ -880,7 +887,8 @@ settings_mmap_apply_defaults(struct settings_apply_ctx *ctx,
 			i_panic("BUG: Failed to apply default setting %s=%s: %s",
 				key, value, error);
 
-		int ret = settings_var_expand(ctx, key_idx, &value, &error);
+		int ret = settings_var_expand(ctx, key_idx, &value, FALSE,
+					      &error);
 		if (ret < 0) {
 			*error_r = t_strdup_printf(
 				"Failed to expand default setting %s=%s variables: %s",
@@ -962,7 +970,9 @@ settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 			   is done before the has_key() check so deduplication
 			   operates on the final key. */
 			const char *error;
-			if (settings_var_expand(ctx, key_idx, &list_key,
+			/* Unlike values, list keys have no exported
+			   var_expand template. */
+			if (settings_var_expand(ctx, key_idx, &list_key, FALSE,
 						&error) < 0) {
 				*error_r = t_strdup_printf(
 					"Failed to expand %s list key variables: %s",
@@ -2362,7 +2372,7 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 				   has_key() so dedup uses the final key. */
 				const char *exp_key = suffix + 1, *error;
 				if (settings_var_expand(ctx, key_idx, &exp_key,
-							&error) < 0) {
+							FALSE, &error) < 0) {
 					*error_r = t_strdup_printf(
 						"Failed to expand default setting %s key variables: %s",
 						key, error);
@@ -2414,7 +2424,8 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			   config process, but we get here with -O parameter
 			   or with SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT. */
 			const char *error;
-			ret = settings_var_expand(ctx, key_idx, &value, &error);
+			ret = settings_var_expand(ctx, key_idx, &value, FALSE,
+						  &error);
 			if (ret < 0) {
 				*error_r = t_strdup_printf(
 					"Failed to expand default setting %s=%s variables: %s",
