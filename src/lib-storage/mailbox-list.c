@@ -181,14 +181,45 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 					     enum mailbox_list_path_type type)
 {
-	if (list->mail_set->unexpanded_mailbox_list_override[type]) {
-		/* set using -o or userdb lookup. */
-		return "";
-	}
-	if (list->mail_set->unexpanded_mailbox_list_path[type] != NULL)
-		return list->mail_set->unexpanded_mailbox_list_path[type];
+	const struct mail_storage_settings *set = list->mail_set;
+	const char *path;
 
-	return "";
+	/* Follow the same fallbacks as mailbox_list_default_get_root_path():
+	   an unset path setting falls back to another path setting. */
+	for (;;) {
+		path = set->unexpanded_mailbox_list_path[type];
+		if (path != NULL && path[0] != '\0') {
+			if (set->unexpanded_mailbox_list_override[type]) {
+				/* set using -o or userdb lookup. */
+				return "";
+			}
+			if (type != MAILBOX_LIST_PATH_TYPE_LIST_INDEX ||
+			    path[0] == '/')
+				return path;
+			/* relative mailbox_list_index_prefix is under the
+			   index directory */
+		}
+		switch (type) {
+		case MAILBOX_LIST_PATH_TYPE_DIR:
+		case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
+		case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
+			return "";
+		case MAILBOX_LIST_PATH_TYPE_MAILBOX:
+		case MAILBOX_LIST_PATH_TYPE_CONTROL:
+		case MAILBOX_LIST_PATH_TYPE_INDEX:
+			type = MAILBOX_LIST_PATH_TYPE_DIR;
+			break;
+		case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
+			type = MAILBOX_LIST_PATH_TYPE_ALT_DIR;
+			break;
+		case MAILBOX_LIST_PATH_TYPE_INDEX_CACHE:
+		case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
+			type = MAILBOX_LIST_PATH_TYPE_INDEX;
+			break;
+		case MAILBOX_LIST_PATH_TYPE_COUNT:
+			i_unreached();
+		}
+	}
 }
 
 static bool need_escape_dirstart(const char *vname, const char *maildir_name)
