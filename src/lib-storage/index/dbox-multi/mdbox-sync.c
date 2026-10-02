@@ -309,8 +309,11 @@ int mdbox_sync_finish(struct mdbox_sync_context **_ctx, bool success)
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
 
-	if (storage->rebuild_list_index)
+	if (storage->rebuild_list_index) {
 		ret = mail_storage_list_index_rebuild_and_set_uncorrupted(storage);
+		if (ret == 0)
+			ret = mdbox_storage_rebuild_deferred(ctx->mbox->storage);
+	}
 
 	i_free(ctx);
 	return ret;
@@ -332,8 +335,21 @@ int mdbox_sync(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags)
 		rebuild_reason |= MDBOX_REBUILD_REASON_MAILBOX_FSCKD;
 	if (mdbox_map_is_fscked(mbox->storage->map))
 		rebuild_reason |= MDBOX_REBUILD_REASON_MAP_FSCKD;
-	if ((flags & MDBOX_SYNC_FLAG_FORCE_REBUILD) != 0)
+	if ((flags & MDBOX_SYNC_FLAG_FORCE_REBUILD) == 0)
+		;
+	else if (mbox->box.storage->rebuilding_list_index) {
+		/* The mailbox list index rebuild force-resyncs the mailboxes
+		   it recovers. Don't rebuild the storage until the list index
+		   rebuild is finished: the storage rebuild uses the list index
+		   to find out which mails are still used, so the mails of the
+		   mailboxes that weren't recovered yet would look lost. They
+		   would be restored to new mailboxes, which take the names of
+		   the actual mailboxes, e.g. Trash would become
+		   "Trash-<random>". */
+		mbox->storage->rebuild_after_list_index_rebuild = TRUE;
+	} else {
 		rebuild_reason |= MDBOX_REBUILD_REASON_FORCED;
+	}
 	if (rebuild_reason != 0) {
 		if (mdbox_storage_rebuild(mbox->storage, &mbox->box,
 					  rebuild_reason) < 0)

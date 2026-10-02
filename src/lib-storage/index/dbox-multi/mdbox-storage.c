@@ -463,6 +463,15 @@ mdbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 	return index_storage_mailbox_update_common(box, update);
 }
 
+static int
+mdbox_list_index_rebuild(struct mail_storage *_storage,
+			 enum mail_storage_list_index_rebuild_reason reason)
+{
+	if (mail_storage_list_index_rebuild(_storage, reason) < 0)
+		return -1;
+	return mdbox_storage_rebuild_deferred(MDBOX_STORAGE(_storage));
+}
+
 struct mail_storage mdbox_storage = {
 	.name = MDBOX_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT |
@@ -479,7 +488,7 @@ struct mail_storage mdbox_storage = {
 		.autodetect = mdbox_storage_autodetect,
 		.mailbox_alloc = mdbox_mailbox_alloc,
 		.purge = mdbox_purge,
-		.list_index_rebuild = mail_storage_list_index_rebuild,
+		.list_index_rebuild = mdbox_list_index_rebuild,
 	}
 };
 

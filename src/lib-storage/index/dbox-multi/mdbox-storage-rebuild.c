@@ -1093,3 +1093,19 @@ int mdbox_storage_rebuild(struct mdbox_storage *storage,
 		mailbox_list_unlock(list);
 	return ret;
 }
+
+int mdbox_storage_rebuild_deferred(struct mdbox_storage *storage)
+{
+	if (!storage->rebuild_after_list_index_rebuild ||
+	    storage->storage.storage.rebuilding_list_index)
+		return 0;
+	storage->rebuild_after_list_index_rebuild = FALSE;
+	if (storage->rebuilding_storage) {
+		/* The list index was rebuilt in the middle of a storage
+		   rebuild, e.g. when it opened a mailbox. The storage rebuild
+		   that is already running does what the deferred rebuild
+		   would do, and a nested rebuild isn't possible. */
+		return 0;
+	}
+	return mdbox_storage_rebuild(storage, NULL, MDBOX_REBUILD_REASON_FORCED);
+}

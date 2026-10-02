@@ -43,6 +43,9 @@ struct mdbox_storage {
 
 	bool rebuilding_storage:1;
 	bool preallocate_space:1;
+	/* A forced storage rebuild was requested while the mailbox list
+	   index was being rebuilt. It's done after the rebuild is finished. */
+	bool rebuild_after_list_index_rebuild:1;
 };
 
 struct mdbox_mail_index_record {
