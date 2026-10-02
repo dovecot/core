@@ -44,11 +44,6 @@
    <32bit: all setting keys size>
    <all setting keys - see below>
 
-   <32bit: event filter strings count>
-   Repeat for "event filter strings count":
-     <NUL-terminated string: event filter string>
-     <32bit: number of named list filter elements>
-
    <0..3 bytes for 32bit alignment>
    <32bit: filter count>
    <32bit: filter strings size>
@@ -462,51 +457,6 @@ config_dump_full_append_filter(string_t *str,
 
 	if (str_len(str) > 0)
 		str_truncate(str, str_len(str) - 5);
-}
-
-static uint32_t
-config_filter_get_name_list_counts(const struct config_filter *filter)
-{
-	uint32_t count = 0;
-	for (; filter != NULL; filter = filter->parent) {
-		if (filter->filter_name_array)
-			count++;
-	}
-	return count;
-}
-
-static void
-config_dump_full_write_filter_strings(struct ostream *output,
-				      struct config_parsed *config)
-{
-	struct config_filter_parser *const *filters =
-		config_parsed_get_filter_parsers(config);
-	unsigned int i, filter_count = 0;
-
-	while (filters[filter_count] != NULL) filter_count++;
-
-	uint32_t filter_count_32 = filter_count;
-	o_stream_nsend(output, &filter_count_32, sizeof(filter_count_32));
-
-	/* the first filter is the global empty filter */
-	uint32_t named_list_filter_count = 0;
-	o_stream_nsend(output, "", 1);
-	o_stream_nsend(output, &named_list_filter_count,
-		       sizeof(named_list_filter_count));
-
-	string_t *str = str_new(default_pool, 128);
-	for (i = 1; i < filter_count; i++) T_BEGIN {
-		str_truncate(str, 0);
-		config_dump_full_append_filter(str, &filters[i]->filter);
-		str_append_c(str, '\0');
-		o_stream_nsend(output, str_data(str), str_len(str));
-
-		named_list_filter_count =
-			config_filter_get_name_list_counts(&filters[i]->filter);
-		o_stream_nsend(output, &named_list_filter_count,
-			       sizeof(named_list_filter_count));
-	} T_END;
-	str_free(&str);
 }
 
 static void
@@ -988,7 +938,6 @@ int config_dump_full(struct config_parsed *config,
 		if (cache_path != NULL)
 			final_path = cache_path;
 		config_dump_full_write_all_keys(output, config);
-		config_dump_full_write_filter_strings(output, config);
 		config_bin_filters_write(output, ctx.filters);
 	}
 

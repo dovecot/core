@@ -409,51 +409,6 @@ settings_read_filter_table(struct settings_mmap *mmap,
 }
 
 static int
-settings_read_filters(struct settings_mmap *mmap, const char *service_name,
-		      enum settings_read_flags flags, size_t *offset,
-		      ARRAY_TYPE(const_string) *protocols, const char **error_r)
-{
-	uint32_t count;
-
-	if (settings_block_read_uint32(mmap, offset, mmap->mmap_size,
-				       "filters count", &count, error_r) < 0)
-		return -1;
-	/* Each filter takes at least 5 bytes (empty string + count) */
-	if (count > (mmap->mmap_size - *offset) / 5) {
-		*error_r = t_strdup_printf(
-			"Filters count %u points outside file "
-			"(offset=%zu, file_size=%zu)",
-			count, *offset, mmap->mmap_size);
-		return -1;
-	}
-
-	/* The event filter strings are no longer used. Skip over them. */
-	for (uint32_t i = 0; i < count; i++) {
-		const char *filter_string;
-		uint32_t named_list_filter_count;
-
-		if (settings_block_read_str(mmap, offset, mmap->mmap_size,
-					    "filter string", &filter_string,
-					    error_r) < 0)
-			return -1;
-		if (settings_block_read_uint32(mmap, offset, mmap->mmap_size,
-					"named list filter element count",
-					&named_list_filter_count, error_r) < 0)
-			return -1;
-	}
-
-	if (settings_read_filter_table(mmap, service_name, flags, offset,
-				       protocols, error_r) < 0)
-		return -1;
-	if (mmap->filters.count != count) {
-		*error_r = t_strdup_printf("Filter count mismatch (%u != %u)",
-			mmap->filters.count, count);
-		return -1;
-	}
-	return 0;
-}
-
-static int
 settings_block_read(struct settings_mmap *mmap, size_t *_offset,
 		    const char **error_r)
 {
@@ -665,8 +620,8 @@ settings_mmap_parse(struct settings_mmap *mmap, const char *service_name,
 		return ret;
 	if (settings_read_all_keys(mmap, &offset, error_r) < 0)
 		return -1;
-	if (settings_read_filters(mmap, service_name, flags, &offset,
-				  &protocols, error_r) < 0)
+	if (settings_read_filter_table(mmap, service_name, flags, &offset,
+				       &protocols, error_r) < 0)
 		return -1;
 
 	do {
