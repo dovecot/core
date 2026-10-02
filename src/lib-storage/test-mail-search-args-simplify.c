@@ -76,6 +76,11 @@ static const struct {
 	{ "OR KEYWORD foo KEYWORD foo", "KEYWORD foo" },
 	{ "NOT KEYWORD foo NOT KEYWORD foo", "NOT KEYWORD foo" },
 
+	/* keywords are case-insensitive */
+	{ "KEYWORD a OR KEYWORD A KEYWORD z", "KEYWORD a" },
+	{ "OR $ OR KEYWORD oR $ OR KEYWORD k22aaaaaaaaaaaaaaaaR!$ OR KEYWORD OR $ OR KEYWORD ka2 1",
+	  "KEYWORD oR OR KEYWORD ka2 1" },
+
 	{ "1:* 1:*", "ALL" },
 	{ "OR 1:5 6:*", "ALL" },
 
