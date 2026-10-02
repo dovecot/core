@@ -10,11 +10,13 @@ AM_CPPFLAGS = \
 
 libsettings_la_SOURCES = \
 	settings.c \
+	settings-bin-filter.c \
 	settings-history.c \
 	settings-parser.c
 
 headers = \
 	settings.h \
+	settings-bin-filter.h \
 	settings-history.h \
 	settings-parser.h \
 	settings-consts.h

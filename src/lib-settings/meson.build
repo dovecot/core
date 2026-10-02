@@ -74,6 +74,7 @@ deps = [dep_lib, dep_var_expand, dep_dns]
 lib_settings = static_library(
   'settings',
   'settings.c',
+  'settings-bin-filter.c',
   'settings-history.c',
   'settings-parser.c',
   settings_history_files,
@@ -88,6 +89,7 @@ dep_settings = declare_dependency(
 
 install_headers(
   'settings.h',
+  'settings-bin-filter.h',
   'settings-history.h',
   'settings-parser.h',
   'settings-consts.h',

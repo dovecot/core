@@ -11,6 +11,7 @@
 #include "mmap-util.h"
 #include "dns-util.h"
 #include "settings.h"
+#include "settings-bin-filter.h"
 #include "var-expand.h"
 
 #include <ctype.h>
@@ -122,6 +123,9 @@ struct settings_mmap {
 
 	struct settings_mmap_event_filter *event_filters;
 	unsigned int event_filters_count;
+
+	/* Filter records directly in the mmap */
+	struct settings_bin_filters filters;
 
 	HASH_TABLE(const char *, struct settings_mmap_block *) blocks;
 };
@@ -287,56 +291,6 @@ settings_block_read_str(struct settings_mmap *mmap,
 }
 
 static bool
-settings_filter_node_match_service(struct event_filter_node *node,
-				   const char *service_name, bool op_not)
-{
-	const char *node_service;
-
-	/* Not perfect logic, but enough for the settings filters */
-	switch (node->op) {
-	case EVENT_FILTER_OP_CMP_EQ:
-		if (node->type == EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT &&
-		    strcmp(node->field.key, SETTINGS_EVENT_FILTER_NAME) == 0 &&
-		    node->field.value_type == EVENT_FIELD_VALUE_TYPE_STR &&
-		    str_begins(node->field.value.str, "service/", &node_service)) {
-			bool match = strcmp(node_service, service_name) == 0;
-			return match != op_not;
-		}
-		break;
-	case EVENT_FILTER_OP_AND:
-		if (!settings_filter_node_match_service(node->children[0],
-							service_name, op_not) ||
-		    !settings_filter_node_match_service(node->children[1],
-							service_name, op_not))
-			return FALSE;
-		break;
-	case EVENT_FILTER_OP_OR:
-		if (!settings_filter_node_match_service(node->children[0],
-							service_name, op_not) &&
-		    !settings_filter_node_match_service(node->children[1],
-							service_name, op_not))
-			return FALSE;
-		break;
-	case EVENT_FILTER_OP_NOT:
-		return settings_filter_node_match_service(node->children[0],
-							  service_name, !op_not);
-	default:
-		break;
-	}
-	return TRUE;
-}
-
-static bool
-settings_filter_match_service(struct event_filter *filter,
-			      const char *service_name)
-{
-	struct event_filter_node *node = event_filter_get_root_node(filter, 0);
-	i_assert(node != NULL);
-	i_assert(event_filter_get_root_node(filter, 1) == NULL);
-	return settings_filter_node_match_service(node, service_name, FALSE);
-}
-
-static bool
 settings_event_filter_node_name_find(struct event_filter_node *node,
 				     const char *filter_name, bool op_not)
 {
@@ -486,6 +440,34 @@ settings_read_all_keys(struct settings_mmap *mmap,
 }
 
 static int
+settings_read_filter_table(struct settings_mmap *mmap,
+			   const char *service_name,
+			   enum settings_read_flags flags, size_t *offset,
+			   ARRAY_TYPE(const_string) *protocols,
+			   const char **error_r)
+{
+	const char *protocol_name =
+		(flags & SETTINGS_READ_NO_PROTOCOL_FILTER) != 0 ? NULL :
+		mmap->root->protocol_name;
+	size_t size;
+
+	if (*offset % sizeof(uint32_t) != 0)
+		*offset += sizeof(uint32_t) - *offset % sizeof(uint32_t);
+	if (*offset > mmap->mmap_size) {
+		*error_r = "Filters area points outside file";
+		return -1;
+	}
+	if (settings_bin_filters_read(&mmap->filters, mmap->pool,
+				      CONST_PTR_OFFSET(mmap->mmap_base, *offset),
+				      mmap->mmap_size - *offset,
+				      protocol_name, service_name, protocols,
+				      &size, error_r) < 0)
+		return -1;
+	*offset += size;
+	return 0;
+}
+
+static int
 settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 		      enum settings_read_flags flags, size_t *offset,
 		      ARRAY_TYPE(const_string) *protocols, const char **error_r)
@@ -509,12 +491,14 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 	mmap->event_filters = mmap->event_filters_count == 0 ? NULL :
 		p_new(mmap->pool, struct settings_mmap_event_filter,
 		      mmap->event_filters_count);
+	const char **filter_strings = mmap->event_filters_count == 0 ? NULL :
+		t_new(const char *, mmap->event_filters_count);
 
 	for (uint32_t i = 0; i < mmap->event_filters_count; i++) {
 		struct settings_mmap_event_filter *filter =
 			&mmap->event_filters[i];
 		if (settings_block_read_str(mmap, offset, mmap->mmap_size,
-					    "filter string", &filter_string,
+					    "filter string", &filter_strings[i],
 					    error_r) < 0)
 			return -1;
 		if (settings_block_read_uint32(mmap, offset, mmap->mmap_size,
@@ -522,11 +506,33 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 					&filter->named_list_filter_count,
 					error_r) < 0)
 			return -1;
+	}
 
+	if (settings_read_filter_table(mmap, service_name, flags, offset,
+				       protocols, error_r) < 0)
+		return -1;
+	if (mmap->filters.count != mmap->event_filters_count) {
+		*error_r = t_strdup_printf("Filter count mismatch (%u != %u)",
+			mmap->filters.count, mmap->event_filters_count);
+		return -1;
+	}
+
+	for (uint32_t i = 0; i < mmap->event_filters_count; i++) {
+		struct settings_mmap_event_filter *filter =
+			&mmap->event_filters[i];
+		filter_string = filter_strings[i];
+
+		if (settings_bin_filters_never(&mmap->filters, i)) {
+			filter->filter = EVENT_FILTER_MATCH_NEVER;
+			continue;
+		}
 		if (filter_string[0] == '\0') {
 			filter->filter = EVENT_FILTER_MATCH_ALWAYS;
 			continue;
 		}
+		filter->is_group =
+			(settings_bin_filters_get(&mmap->filters, i)->flags &
+			 SETTINGS_BIN_FILTER_FLAG_GROUP) != 0;
 
 		struct event_filter *tmp_filter = event_filter_create();
 		if (event_filter_parse_case_sensitive(filter_string,
@@ -537,37 +543,6 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 			event_filter_unref(&tmp_filter);
 			return -1;
 		}
-		bool op_not;
-		const char *value =
-			event_filter_find_field_exact(tmp_filter, "protocol", &op_not);
-		if (value != NULL) {
-			if (op_not)
-				value = t_strconcat("!", value, NULL);
-			if (array_lsearch(protocols, &value, i_strcmp_p) == NULL) {
-				value = t_strdup(value);
-				array_push_back(protocols, &value);
-			}
-
-			if (mmap->root->protocol_name != NULL &&
-			    (strcmp(mmap->root->protocol_name, value) == 0) == op_not &&
-			    (flags & SETTINGS_READ_NO_PROTOCOL_FILTER) == 0) {
-				/* protocol doesn't match */
-				filter->filter = EVENT_FILTER_MATCH_NEVER;
-				event_filter_unref(&tmp_filter);
-				continue;
-			}
-		}
-		if (service_name != NULL &&
-		    !settings_filter_match_service(tmp_filter, service_name)) {
-			/* service name doesn't match */
-			filter->filter = EVENT_FILTER_MATCH_NEVER;
-			event_filter_unref(&tmp_filter);
-			continue;
-		}
-		filter->is_group =
-			event_filter_has_field_prefix(tmp_filter,
-				SETTINGS_EVENT_FILTER_NAME,
-				SETTINGS_INCLUDE_GROUP_PREFIX_S);
 
 		filter->filter = event_filter_create_with_pool(mmap->pool);
 		event_filter_register_cmp(filter->filter, "local_name",

@@ -56,6 +56,7 @@ doveconf_LDADD = \
 doveconf_DEPENDENCIES = $(LIBDOVECOT_DEPS) $(noinst_LTLIBRARIES)
 
 common = \
+	config-bin-filter.c \
 	config-connection.c \
 	config-dump-full.c \
 	config-filter.c \
@@ -76,6 +77,7 @@ doveconf_SOURCES = \
 
 noinst_HEADERS = \
 	all-settings.h \
+	config-bin-filter.h \
 	config-connection.h \
 	config-dump-full.h \
 	default-settings-import.h \

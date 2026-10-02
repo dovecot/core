@@ -10,6 +10,7 @@
 #include "safe-mkstemp.h"
 #include "ostream.h"
 #include "settings.h"
+#include "config-bin-filter.h"
 #include "master-service-settings.h"
 #include "config-parser.h"
 #include "config-request.h"
@@ -48,6 +49,13 @@
      <NUL-terminated string: event filter string>
      <32bit: number of named list filter elements>
 
+   <0..3 bytes for 32bit alignment>
+   <32bit: filter count>
+   <32bit: filter strings size>
+   Repeat for "filter count":
+     <struct settings_bin_filter>
+   <filter strings - see below>
+
    Repeat until "settings full size" is reached:
      <64bit: settings block size>
      <NUL-terminated string: setting block name>
@@ -74,7 +82,7 @@
      Repeat for "filter count":
        <64bit: filter settings offset>
      Repeat for "filter count":
-       <32bit: event filter string index number>
+       <32bit: filter index number>
      <trailing safety NUL>
 
    The order of filters is important in the output. lib-settings applies the
@@ -113,6 +121,25 @@
    <32bit: enum setting_type>
    <32bit: setting blocks count>
      <32bit: setting block name index>
+
+   Filters
+   -------
+
+   Each filter is a fixed size struct settings_bin_filter record (see
+   lib-settings/settings-bin-filter.h). A filter matches when all of its
+   conditions match. A filter without any conditions always matches.
+
+   All offsets in the records are relative to the beginning of the first
+   record, and they point to the filter strings area. 0 means the condition
+   doesn't exist. The filter strings area contains:
+
+   - NUL-terminated strings (protocol, local_name, filter names)
+   - <struct settings_bin_filter_net> for local/remote nets (32bit aligned)
+   - <32bit: filter name relative offset>[filter names count] (32bit aligned)
+
+   Filter names are "key" for named filters, and "key/escaped-value" for
+   named list filters, where escaped-value is settings_section_escape()d.
+   Include groups use "@label/name" filter names.
 
    Groups
    ------
@@ -449,8 +476,8 @@ config_filter_get_name_list_counts(const struct config_filter *filter)
 }
 
 static void
-config_dump_full_write_filters(struct ostream *output,
-			       struct config_parsed *config)
+config_dump_full_write_filter_strings(struct ostream *output,
+				      struct config_parsed *config)
 {
 	struct config_filter_parser *const *filters =
 		config_parsed_get_filter_parsers(config);
@@ -933,6 +960,14 @@ int config_dump_full(struct config_parsed *config,
 
 	o_stream_cork(output);
 
+	struct config_dump_full_context ctx = {
+		.config = config,
+		.dovecot_config_version = dovecot_config_version,
+		.output = output,
+		.dest = dest,
+		.filters = config_parsed_get_filter_parsers(config),
+	};
+
 	if (import_environment_r != NULL) {
 		const char *value =
 			config_parsed_get_setting(config,
@@ -953,16 +988,9 @@ int config_dump_full(struct config_parsed *config,
 		if (cache_path != NULL)
 			final_path = cache_path;
 		config_dump_full_write_all_keys(output, config);
-		config_dump_full_write_filters(output, config);
+		config_dump_full_write_filter_strings(output, config);
+		config_bin_filters_write(output, ctx.filters);
 	}
-
-	struct config_dump_full_context ctx = {
-		.config = config,
-		.dovecot_config_version = dovecot_config_version,
-		.output = output,
-		.dest = dest,
-		.filters = config_parsed_get_filter_parsers(config),
-	};
 
 	/* first filter should be the global one */
 	i_assert(ctx.filters[0] != NULL &&
