@@ -92,7 +92,7 @@ static const struct {
 	       NUM32("\x00") // all keys hash nodes count
 	       NUM32("\x00") // block names count
 	       NUM32("\x01")), // event filter count
-	  "'filter string' points outside area" },
+	  "Filters count 1 points outside file" },
 
 	/* full file size is 7 bytes, which makes the first block size
 	   truncated, since it needs 8 bytes */

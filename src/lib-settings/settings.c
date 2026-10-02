@@ -491,12 +491,20 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 		      ARRAY_TYPE(const_string) *protocols, const char **error_r)
 {
 	const char *filter_string, *error;
+	uint32_t count;
 
 	if (settings_block_read_uint32(mmap, offset, mmap->mmap_size,
-				       "filters count",
-				       &mmap->event_filters_count,
-				       error_r) < 0)
+				       "filters count", &count, error_r) < 0)
 		return -1;
+	/* Each filter takes at least 5 bytes (empty string + count) */
+	if (count > (mmap->mmap_size - *offset) / 5) {
+		*error_r = t_strdup_printf(
+			"Filters count %u points outside file "
+			"(offset=%zu, file_size=%zu)",
+			count, *offset, mmap->mmap_size);
+		return -1;
+	}
+	mmap->event_filters_count = count;
 
 	mmap->event_filters = mmap->event_filters_count == 0 ? NULL :
 		p_new(mmap->pool, struct settings_mmap_event_filter,
