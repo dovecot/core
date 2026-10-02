@@ -36,7 +36,8 @@ struct fuzz_mail {
 static struct fuzz_mail fuzz_mails[FUZZ_MAILS_COUNT];
 static bool fuzz_mails_initialized = FALSE;
 
-static uint32_t fuzz_mix(uint32_t x)
+static uint32_t ATTR_NO_SANITIZE_INTEGER
+fuzz_mix(uint32_t x)
 {
 	x ^= x >> 16;
 	x *= 0x7feb352dU;
@@ -162,8 +163,9 @@ static bool fuzz_args_initialized(const struct mail_search_arg *args)
 /* Opaque predicate: A hash of everything that mail_search_arg_one_equals()
    compares, so that equal args are the same predicate and different args
    are (almost certainly) different predicates. */
-static bool fuzz_opaque_match(const struct mail_search_arg *arg,
-			      const struct fuzz_mail *mail)
+static bool ATTR_NO_SANITIZE_INTEGER
+fuzz_opaque_match(const struct mail_search_arg *arg,
+		  const struct fuzz_mail *mail)
 {
 	unsigned char fuzzy = arg->fuzzy ? 1 : 0;
 	uint32_t hash;
