@@ -3,6 +3,8 @@
 #include "lib.h"
 #include "array.h"
 #include "net.h"
+#include "write-full.h"
+#include "read-full.h"
 #include "ostream.h"
 #include "settings.h"
 #include "settings-parser.h"
@@ -14,6 +16,9 @@
 #include "all-settings.h"
 #include "test-common.h"
 #include "test-dir.h"
+
+#include <sys/stat.h>
+#include <unistd.h>
 
 #define TEST_CONFIG_FILE "config"
 
@@ -568,6 +573,108 @@ static void test_config_dump_full_overrides(void)
 	test_end();
 }
 
+static void test_corrupted_lookups(struct settings_root *root)
+{
+	const struct test_settings *set;
+	const char *error;
+
+	struct event *event = test_event_create(root);
+	if (settings_get(event, &test_settings_info, 0, &set, &error) == 0)
+		settings_free(set);
+	if (settings_try_get_filter(event, "namespace", "inbox",
+				    &test_settings_info, 0,
+				    &set, &error) > 0)
+		settings_free(set);
+	if (settings_try_get_filter(event, "mailbox", "bar",
+				    &test_settings_info, 0,
+				    &set, &error) > 0)
+		settings_free(set);
+
+	struct event *ns_inbox = event_create(event);
+	settings_event_add_list_filter_name(ns_inbox, "namespace", "inbox");
+	if (settings_try_get_filter(ns_inbox, "mailbox", "foo",
+				    &test_settings_info, 0,
+				    &set, &error) > 0)
+		settings_free(set);
+	event_unref(&ns_inbox);
+	event_unref(&event);
+}
+
+static void
+test_corrupted_read(int fd, const unsigned char *data, size_t size,
+		    bool *success_r)
+{
+	const char *const *specific_protocols;
+	const char *error;
+
+	if (ftruncate(fd, 0) < 0)
+		i_fatal("ftruncate() failed: %m");
+	if (pwrite_full(fd, data, size, 0) < 0)
+		i_fatal("pwrite() failed: %m");
+
+	struct settings_root *root = settings_root_init();
+	*success_r = settings_read(root, fd, "(test)", NULL, "imap", 0,
+				   &specific_protocols, &error) >= 0;
+	if (*success_r)
+		test_corrupted_lookups(root);
+	settings_root_deinit(&root);
+}
+
+static void test_config_dump_full_corruption(void)
+{
+	struct stat st;
+	bool success;
+
+	test_begin("config dump full - corrupted binary config");
+	int fd = test_config_dump();
+	if (fstat(fd, &st) < 0)
+		i_fatal("fstat() failed: %m");
+	size_t size = st.st_size;
+	unsigned char *data = i_malloc(size);
+	if (pread_full(fd, data, size, 0) <= 0)
+		i_fatal("pread() failed: %m");
+	i_close_fd(&fd);
+
+	/* the full size is right after the header line */
+	const unsigned char *eol = memchr(data, '\n', size);
+	i_assert(eol != NULL);
+	size_t full_size_offset = eol - data + 1;
+	size_t data_offset = full_size_offset + sizeof(uint64_t);
+	i_assert(data_offset <= size);
+
+	int temp_fd = test_create_temp_fd();
+	unsigned char *copy = i_malloc(size);
+
+	/* The original must be readable */
+	test_corrupted_read(temp_fd, data, size, &success);
+	test_assert(success);
+
+	/* Truncate at each offset. Update the full size, so the reading gets
+	   past the header. */
+	for (size_t len = data_offset; len < size; len++) {
+		uint64_t full_size = len - data_offset;
+		memcpy(copy, data, len);
+		memcpy(copy + full_size_offset, &full_size, sizeof(full_size));
+		test_corrupted_read(temp_fd, copy, len, &success);
+	}
+
+	/* Overwrite each 32bit word with invalid values */
+	static const uint32_t values[] = { 0, 0x7fffffff, 0xffffffff };
+	for (size_t offset = data_offset; offset + sizeof(uint32_t) <= size;
+	     offset += sizeof(uint32_t)) {
+		for (unsigned int i = 0; i < N_ELEMENTS(values); i++) {
+			memcpy(copy, data, size);
+			memcpy(copy + offset, &values[i], sizeof(values[i]));
+			test_corrupted_read(temp_fd, copy, size, &success);
+		}
+	}
+
+	i_close_fd(&temp_fd);
+	i_free(copy);
+	i_free(data);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -578,6 +685,7 @@ int main(void)
 		test_config_dump_full_service,
 		test_config_dump_full_groups,
 		test_config_dump_full_overrides,
+		test_config_dump_full_corruption,
 		NULL
 	};
 
