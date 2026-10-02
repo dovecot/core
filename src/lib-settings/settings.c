@@ -91,6 +91,8 @@ struct settings_mmap_block {
 	const uint64_t *filter_offsets;
 	const uint32_t *filter_indexes;
 
+	struct settings_bin_filter_index filter_index;
+
 	uint32_t settings_count;
 	size_t settings_keys_offset;
 	/* TRUE if settings have been validated against setting_parser_info */
@@ -535,14 +537,21 @@ settings_block_read(struct settings_mmap *mmap, size_t *_offset,
 	offset += sizeof(uint64_t) * block->filter_count;
 	block->filter_indexes = CONST_PTR_OFFSET(mmap->mmap_base, offset);
 	offset += sizeof(uint32_t) * block->filter_count;
-	offset++; /* safety NUL */
-
-	if (offset != block_end_offset) {
+	/* <filter index> - uses the rest of the block, except the trailing
+	   safety NUL */
+	if (offset % sizeof(uint32_t) != 0)
+		offset += sizeof(uint32_t) - offset % sizeof(uint32_t);
+	if (offset >= block_end_offset) {
 		*error_r = t_strdup_printf(
-			"Filter end offset mismatch (%zu != %zu)",
-			offset, block_end_offset);
+			"Filter index points outside block "
+			"(offset=%zu, end_offset=%zu)", offset, block_end_offset);
 		return -1;
 	}
+	if (settings_bin_filter_index_read(&block->filter_index,
+			CONST_PTR_OFFSET(mmap->mmap_base, offset),
+			block_end_offset - 1 - offset, block->filter_count,
+			error_r) < 0)
+		return -1;
 	/* Verify that the filter offsets point to the filters that were just
 	   validated. The filter sizes were already checked above. */
 	offset = filters_offset;

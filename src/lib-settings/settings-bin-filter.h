@@ -60,6 +60,18 @@ struct settings_bin_filters {
 	uint64_t *never;
 };
 
+/* Per settings block filter index read from the binary config. */
+struct settings_bin_filter_index {
+	/* Base for the relative offsets */
+	const unsigned char *base;
+	size_t size;
+	uint32_t hash_count;
+	/* <name offset, list offset> pairs, linear probing */
+	const uint32_t *hash;
+	/* List of filters that have no filter names */
+	const uint32_t *noname_list;
+};
+
 /* Fields of a settings lookup that the filters are matched against. */
 struct settings_bin_filter_lookup {
 	/* Filter names visible to this lookup. The names are added from the
@@ -128,4 +140,11 @@ bool settings_bin_filter_match(const struct settings_bin_filters *filters,
 			       const struct settings_bin_filter *filter,
 			       const struct settings_bin_filter_lookup *lookup);
 
+/* Read and validate the filter index from data, which must be 32bit aligned.
+   The index uses all of data. All the filter indexes in the lists must be
+   below block_filter_count. Returns 0 on success, -1 on error. */
+int settings_bin_filter_index_read(struct settings_bin_filter_index *index_r,
+				   const unsigned char *data, size_t data_size,
+				   uint32_t block_filter_count,
+				   const char **error_r);
 #endif

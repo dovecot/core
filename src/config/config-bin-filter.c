@@ -3,6 +3,8 @@
 #include "lib.h"
 #include "array.h"
 #include "buffer.h"
+#include "hash.h"
+#include "primes.h"
 #include "ostream.h"
 #include "settings.h"
 #include "settings-bin-filter.h"
@@ -66,10 +68,11 @@ config_bin_filters_add_net(struct config_bin_filters *bf,
 static void
 config_bin_filter_fill(struct config_bin_filters *bf,
 		       const struct config_filter *filter,
-		       struct settings_bin_filter *rec_r)
+		       struct settings_bin_filter *rec_r,
+		       const char **primary_name_r)
 {
 	ARRAY_TYPE(const_string) names;
-	const char *name;
+	const char *name, *group_name = NULL;
 
 	i_zero(rec_r);
 	t_array_init(&names, 4);
@@ -114,12 +117,23 @@ config_bin_filter_fill(struct config_bin_filters *bf,
 			array_push_back(&names, &name);
 			rec_r->named_list_filter_count++;
 			if (filter->filter_name[0] ==
-			    SETTINGS_INCLUDE_GROUP_PREFIX)
+			    SETTINGS_INCLUDE_GROUP_PREFIX) {
 				rec_r->flags |= SETTINGS_BIN_FILTER_FLAG_GROUP;
+				group_name = name;
+			}
 		} else if (filter->filter_name != NULL) {
 			array_push_back(&names, &filter->filter_name);
 		}
 	}
+
+	/* The filter is indexed by its primary name: the include group name
+	   for groups, otherwise the innermost filter name. */
+	if (group_name != NULL)
+		*primary_name_r = group_name;
+	else if (array_count(&names) > 0)
+		*primary_name_r = array_idx_elem(&names, 0);
+	else
+		*primary_name_r = NULL;
 
 	if (array_count(&names) == 0)
 		return;
@@ -138,7 +152,8 @@ config_bin_filter_fill(struct config_bin_filters *bf,
 }
 
 void config_bin_filters_write(struct ostream *output,
-			      struct config_filter_parser *const *filters)
+			      struct config_filter_parser *const *filters,
+			      pool_t pool, const char ***primary_names_r)
 {
 	unsigned int i, filter_count = 0;
 
@@ -151,12 +166,16 @@ void config_bin_filters_write(struct ostream *output,
 			sizeof(struct settings_bin_filter) * filter_count),
 		.strings = buffer_create_dynamic(default_pool, 1024),
 	};
+	const char **primary_names = p_new(pool, const char *, filter_count);
 
 	for (i = 0; i < filter_count; i++) T_BEGIN {
 		struct settings_bin_filter rec;
+		const char *primary_name;
 
-		config_bin_filter_fill(&bf, &filters[i]->filter, &rec);
+		config_bin_filter_fill(&bf, &filters[i]->filter,
+				       &rec, &primary_name);
 		buffer_append(bf.records, &rec, sizeof(rec));
+		primary_names[i] = p_strdup(pool, primary_name);
 	} T_END;
 	config_bin_filters_align(&bf);
 
@@ -175,4 +194,127 @@ void config_bin_filters_write(struct ostream *output,
 	o_stream_nsend(output, bf.strings->data, bf.strings->used);
 	buffer_free(&bf.records);
 	buffer_free(&bf.strings);
+	*primary_names_r = primary_names;
+}
+
+struct config_filter_index_entry {
+	const char *name;
+	uint32_t block_filter_idx;
+};
+
+static int
+config_filter_index_entry_cmp(const struct config_filter_index_entry *e1,
+			      const struct config_filter_index_entry *e2)
+{
+	int ret = strcmp(e1->name, e2->name);
+	if (ret != 0)
+		return ret;
+	/* descending order */
+	if (e1->block_filter_idx > e2->block_filter_idx)
+		return -1;
+	if (e1->block_filter_idx < e2->block_filter_idx)
+		return 1;
+	return 0;
+}
+
+static void
+config_filter_index_append_list(buffer_t *buf,
+				const struct config_filter_index_entry *entries,
+				unsigned int count)
+{
+	uint32_t num32 = count;
+	buffer_append(buf, &num32, sizeof(num32));
+	for (unsigned int i = 0; i < count; i++) {
+		num32 = entries[i].block_filter_idx;
+		buffer_append(buf, &num32, sizeof(num32));
+	}
+}
+
+void config_bin_filter_index_write(struct ostream *output,
+				   const char *const *primary_names,
+				   const uint32_t *filter_indexes,
+				   uint32_t filter_count)
+{
+	ARRAY(struct config_filter_index_entry) entries, noname_entries;
+	struct config_filter_index_entry *entry;
+	const struct config_filter_index_entry *ent;
+	unsigned int i, count, names_count = 0;
+	uint32_t num32, hash_table_size = 0;
+
+	t_array_init(&entries, filter_count);
+	t_array_init(&noname_entries, 8);
+	/* Go through the filters in reverse order, so the lists are in
+	   descending order. */
+	for (uint32_t idx = filter_count; idx > 0; ) {
+		idx--;
+		const char *name = primary_names[filter_indexes[idx]];
+		if (name == NULL)
+			entry = array_append_space(&noname_entries);
+		else
+			entry = array_append_space(&entries);
+		entry->name = name;
+		entry->block_filter_idx = idx;
+	}
+	array_sort(&entries, config_filter_index_entry_cmp);
+	ent = array_get(&entries, &count);
+	for (i = 0; i < count; i++) {
+		if (i == 0 || strcmp(ent[i-1].name, ent[i].name) != 0)
+			names_count++;
+	}
+	/* Use linear probing with at most 50% load */
+	if (names_count > 0)
+		hash_table_size = primes_closest(names_count * 2);
+	i_assert(hash_table_size == 0 || hash_table_size > names_count);
+
+	buffer_t *buf = t_buffer_create(256);
+	/* hash table nodes count */
+	buffer_append(buf, &hash_table_size, sizeof(hash_table_size));
+	/* reserve space for the hash table */
+	size_t hash_table_offset = buf->used;
+	buffer_append_zero(buf, sizeof(uint32_t) * 2 * hash_table_size);
+	/* reserve space for the no-name filter list offset */
+	size_t noname_offset = buf->used;
+	buffer_append_zero(buf, sizeof(uint32_t));
+
+	num32 = buf->used;
+	buffer_write(buf, noname_offset, &num32, sizeof(num32));
+	config_filter_index_append_list(buf, array_front(&noname_entries),
+					array_count(&noname_entries));
+
+	for (i = 0; i < count; ) {
+		const char *name = ent[i].name;
+		unsigned int start = i;
+		for (i++; i < count && strcmp(ent[i].name, name) == 0; i++) ;
+
+		uint32_t key_hash = str_stable_hash(name) % hash_table_size;
+		size_t node_offset;
+		uint32_t node[2];
+		for (;;) {
+			node_offset = hash_table_offset +
+				key_hash * sizeof(uint32_t) * 2;
+			memcpy(node, CONST_PTR_OFFSET(buf->data, node_offset),
+			       sizeof(node));
+			if (node[0] == 0)
+				break;
+			key_hash = (key_hash + 1) % hash_table_size;
+		}
+
+		node[0] = buf->used;
+		buffer_append(buf, name, strlen(name) + 1);
+		if (buf->used % sizeof(uint32_t) != 0) {
+			buffer_append_zero(buf, sizeof(uint32_t) -
+					   buf->used % sizeof(uint32_t));
+		}
+		node[1] = buf->used;
+		config_filter_index_append_list(buf, &ent[start], i - start);
+		buffer_write(buf, node_offset, node, sizeof(node));
+	}
+
+	/* 32bit padding */
+	if (output->offset % sizeof(uint32_t) != 0) {
+		uint32_t align = 0;
+		o_stream_nsend(output, &align, sizeof(uint32_t) -
+			       output->offset % sizeof(uint32_t));
+	}
+	o_stream_nsend(output, buf->data, buf->used);
 }

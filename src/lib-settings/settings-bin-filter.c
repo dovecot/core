@@ -444,3 +444,103 @@ bool settings_bin_filter_match(const struct settings_bin_filters *filters,
 	}
 	return TRUE;
 }
+
+/* Check the filter index list at rel_offset. The offset must be after the
+   index header, which ends at header_size. */
+static int
+settings_bin_filter_index_list_check(
+	const struct settings_bin_filter_index *index, uint32_t rel_offset,
+	size_t header_size, uint32_t block_filter_count, const char **error_r)
+{
+	uint32_t count;
+
+	if (rel_offset < header_size || rel_offset % sizeof(uint32_t) != 0 ||
+	    rel_offset >= index->size ||
+	    index->size - rel_offset < sizeof(uint32_t)) {
+		*error_r = t_strdup_printf(
+			"Filter index list offset %u points outside area "
+			"(size=%zu)", rel_offset, index->size);
+		return -1;
+	}
+	memcpy(&count, index->base + rel_offset, sizeof(count));
+	if (count > (index->size - rel_offset - sizeof(uint32_t)) /
+		    sizeof(uint32_t)) {
+		*error_r = t_strdup_printf(
+			"Filter index list count %u points outside area "
+			"(offset=%u, size=%zu)", count, rel_offset,
+			index->size);
+		return -1;
+	}
+	const uint32_t *list = (const void *)
+		(index->base + rel_offset + sizeof(uint32_t));
+	for (uint32_t i = 0; i < count; i++) {
+		if (list[i] >= block_filter_count) {
+			*error_r = t_strdup_printf(
+				"Filter index list has invalid filter index "
+				"%u >= %u", list[i], block_filter_count);
+			return -1;
+		}
+	}
+	return 0;
+}
+
+int settings_bin_filter_index_read(struct settings_bin_filter_index *index_r,
+				   const unsigned char *data, size_t data_size,
+				   uint32_t block_filter_count,
+				   const char **error_r)
+{
+	size_t offset = 0;
+	uint32_t noname_offset;
+
+	i_zero(index_r);
+	index_r->base = data;
+	index_r->size = data_size;
+
+	if (settings_bin_read_uint32(data, data_size, &offset,
+				     "filter index hash nodes count",
+				     &index_r->hash_count, error_r) < 0)
+		return -1;
+	if (index_r->hash_count >
+	    (data_size - offset) / (sizeof(uint32_t) * 2)) {
+		*error_r = t_strdup_printf(
+			"Filter index hash nodes count %u points outside area "
+			"(offset=%zu, size=%zu)",
+			index_r->hash_count, offset, data_size);
+		return -1;
+	}
+	index_r->hash = (const void *)(data + offset);
+	offset += sizeof(uint32_t) * 2 * index_r->hash_count;
+	if (settings_bin_read_uint32(data, data_size, &offset,
+				     "filter index no-name list offset",
+				     &noname_offset, error_r) < 0)
+		return -1;
+	/* the names and lists are after the header */
+	size_t header_size = offset;
+	if (settings_bin_filter_index_list_check(index_r, noname_offset,
+						 header_size,
+						 block_filter_count,
+						 error_r) < 0)
+		return -1;
+	index_r->noname_list = (const void *)(data + noname_offset);
+
+	for (uint32_t i = 0; i < index_r->hash_count; i++) {
+		uint32_t name_offset = index_r->hash[i * 2];
+		uint32_t list_offset = index_r->hash[i * 2 + 1];
+		if (name_offset == 0)
+			continue;
+		if (name_offset < header_size || name_offset >= data_size ||
+		    memchr(data + name_offset, '\0',
+			   data_size - name_offset) == NULL) {
+			*error_r = t_strdup_printf(
+				"Filter index name offset %u points outside "
+				"area (size=%zu)", name_offset, data_size);
+			return -1;
+		}
+		if (settings_bin_filter_index_list_check(index_r, list_offset,
+							 header_size,
+							 block_filter_count,
+							 error_r) < 0)
+			return -1;
+	}
+	return 0;
+}

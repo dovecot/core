@@ -78,6 +78,7 @@
        <64bit: filter settings offset>
      Repeat for "filter count":
        <32bit: filter index number>
+     <filter index - see below>
      <trailing safety NUL>
 
    The order of filters is important in the output. lib-settings applies the
@@ -136,6 +137,38 @@
    named list filters, where escaped-value is settings_section_escape()d.
    Include groups use "@label/name" filter names.
 
+   Filter index
+   ------------
+
+   Each settings block has a hash table of filter names, which is used to
+   quickly find the filters that can match a settings lookup. Each filter in
+   the block is listed exactly once in the index: under its primary name, or
+   in the no-name list if the filter has no names (global, protocol, local,
+   remote and local_name filters). The primary name is the include group name
+   for group filters, otherwise the innermost filter name. Since all of the
+   filter's names must match, a filter can only match a lookup that has the
+   filter's primary name. The hash table uses linear probing and is at most
+   half full, so there is always an empty node to stop the probing.
+
+   The filter index lists are sorted in descending order. lib-settings
+   merges the lists that can match the lookup and applies the filters in the
+   same descending order as without the index.
+
+   The <filter index> contents are (relative offsets are from the beginning
+   of the filter index):
+
+   <0..3 bytes to pad to 32bit offset>
+   <32bit: hash table nodes count>
+   Repeat for "hash table nodes count":
+     <32bit: filter name relative offset, 0 = empty node>
+     <32bit: filter index list relative offset>
+   <32bit: no-name filter index list relative offset>
+   Strings and lists:
+     <NUL-terminated string: filter name>
+     <filter index list (32bit aligned)>:
+       <32bit: count>
+       <32bit: block filter index>[count]
+
    Groups
    ------
 
@@ -167,8 +200,12 @@ struct config_dump_full_context {
 	struct ostream *output;
 	enum config_dump_full_dest dest;
 
+	pool_t pool;
 	struct config_filter_parser *const *filters;
 	uint32_t filter_output_count;
+	/* Primary name for each filter, which is used for indexing it.
+	   NULL if the filter has no names. */
+	const char **filter_primary_names;
 
 	uint32_t *filter_indexes_32;
 	uint64_t *filter_offsets_64;
@@ -912,6 +949,7 @@ int config_dump_full(struct config_parsed *config,
 
 	struct config_dump_full_context ctx = {
 		.config = config,
+		.pool = pool_alloconly_create("config dump full", 1024),
 		.dovecot_config_version = dovecot_config_version,
 		.output = output,
 		.dest = dest,
@@ -938,7 +976,8 @@ int config_dump_full(struct config_parsed *config,
 		if (cache_path != NULL)
 			final_path = cache_path;
 		config_dump_full_write_all_keys(output, config);
-		config_bin_filters_write(output, ctx.filters);
+		config_bin_filters_write(output, ctx.filters, ctx.pool,
+					 &ctx.filter_primary_names);
 	}
 
 	/* first filter should be the global one */
@@ -1067,6 +1106,12 @@ int config_dump_full(struct config_parsed *config,
 			o_stream_nsend(output, ctx.filter_indexes_32,
 				       sizeof(ctx.filter_indexes_32[0]) *
 				       ctx.filter_output_count);
+			T_BEGIN {
+				config_bin_filter_index_write(output,
+					ctx.filter_primary_names,
+					ctx.filter_indexes_32,
+					ctx.filter_output_count);
+			} T_END;
 			/* safety NUL at the end of the block */
 			o_stream_nsend(output, "", 1);
 		}
@@ -1088,6 +1133,7 @@ int config_dump_full(struct config_parsed *config,
 	}
 	bool failed = i < parser_count;
 	config_export_free(&export_ctx);
+	pool_unref(&ctx.pool);
 	str_free(&dump_ctx.delayed_output);
 
 	if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
