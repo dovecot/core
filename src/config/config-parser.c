@@ -7,6 +7,7 @@
 #include "hash.h"
 #include "llist.h"
 #include "strescape.h"
+#include "dns-util.h"
 #include "istream.h"
 #include "module-dir.h"
 #include "version.h"
@@ -1988,6 +1989,25 @@ int config_filter_parse(struct config_filter *filter, pool_t pool,
 				"%s { local_name { .. } } not allowed (use local_name { %s { .. } } instead)",
 				t_strcut(parent->filter_name, '/'),
 				t_strcut(parent->filter_name, '/'));
+		else if (parent->local_name != NULL &&
+			 (strpbrk(value, "*?") != NULL ||
+			  dns_match_wildcard(value, parent->local_name) != 0)) {
+			/* A nested local_name must narrow the outer local_name,
+			   the same way as nested local/remote nets must be
+			   inside each other. The settings filters keep only the
+			   innermost local_name, so an inner name that doesn't
+			   match the outer name would widen the filter instead.
+			   Before this check such a block matched only the
+			   connections matching both names, which was usually
+			   nothing.
+
+			   The inner name must be a plain hostname. There is no
+			   reliable way to check that an inner wildcard is
+			   inside the outer one, e.g. "*.example.com" inside
+			   "?.example.com" passes dns_match_wildcard() but
+			   matches more. */
+			*error_r = "local_name name1 { local_name name2 { .. } } requires name2 to be a hostname matching name1";
+		}
 		else
 			filter->local_name = p_strdup(pool, t_str_lcase(value));
 	} else if (strcmp(key, "remote") == 0) {

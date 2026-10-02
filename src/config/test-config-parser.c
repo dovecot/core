@@ -667,6 +667,85 @@ static void test_config_parser_missing_plugin(void)
 	}
 }
 
+static void test_config_parser_nested_local_name(void)
+{
+	static const struct {
+		const char *config;
+		/* NULL = parsing succeeds */
+		const char *error;
+	} tests[] = {
+		/* the inner name narrows the outer name */
+		{ "local_name *.example.com {\n"
+		  "  local_name imap.example.com {\n"
+		  "    key = foo\n"
+		  "  }\n"
+		  "}\n", NULL },
+		{ "local_name *.example.com {\n"
+		  "  local_name IMAP.EXAMPLE.COM {\n"
+		  "    key = foo\n"
+		  "  }\n"
+		  "}\n", NULL },
+		{ "local_name imap.example.com {\n"
+		  "  local_name imap.example.com {\n"
+		  "    key = foo\n"
+		  "  }\n"
+		  "}\n", NULL },
+		/* the inner name doesn't match the outer name */
+		{ "local_name *.example.com {\n"
+		  "  local_name imap.example.org {\n"
+		  "    key = foo\n"
+		  "  }\n"
+		  "}\n", "requires name2 to be a hostname matching name1" },
+		{ "local_name *.example.com {\n"
+		  "  local_name sub.imap.example.com {\n"
+		  "    key = foo\n"
+		  "  }\n"
+		  "}\n", "requires name2 to be a hostname matching name1" },
+		/* the inner name is a wildcard */
+		{ "local_name *.example.com {\n"
+		  "  local_name *.example.com {\n"
+		  "    key = foo\n"
+		  "  }\n"
+		  "}\n", "requires name2 to be a hostname matching name1" },
+		{ "local_name imap.example.com {\n"
+		  "  local_name *.example.com {\n"
+		  "    key = foo\n"
+		  "  }\n"
+		  "}\n", "requires name2 to be a hostname matching name1" },
+	};
+	struct config_parsed *config;
+	const char *error;
+	const char *config_file = test_dir_prepend(TEST_CONFIG_FILE);
+
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		test_begin(t_strdup_printf(
+			"config_parse_file - nested local_name %u", i));
+		write_config_file(t_strconcat(
+			"dovecot_config_version = "DOVECOT_CONFIG_VERSION"\n",
+			tests[i].config, NULL));
+		error = NULL;
+		config = NULL;
+		int ret = config_parse_file(config_file,
+					    CONFIG_PARSE_FLAG_NO_DEFAULTS,
+					    NULL, &config, &error);
+		if (tests[i].error == NULL) {
+			test_assert_idx(ret == 1, i);
+			if (error != NULL)
+				i_error("config_parse_file(): %s", error);
+		} else {
+			test_assert_idx(ret < 0, i);
+			test_assert_idx(error != NULL &&
+					strstr(error, tests[i].error) != NULL, i);
+			if (error != NULL && strstr(error, tests[i].error) == NULL)
+				i_error("config_parse_file(): %s", error);
+		}
+		if (config != NULL)
+			config_parsed_free(&config);
+		i_unlink_if_exists(config_file);
+		test_end();
+	}
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -678,6 +757,7 @@ int main(void)
 		test_config_parser_heredoc_in_strlist,
 		test_config_parser_str_novars_var_expand,
 		test_config_parser_missing_plugin,
+		test_config_parser_nested_local_name,
 		NULL
 	};
 
