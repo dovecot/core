@@ -578,6 +578,54 @@ index_list_update_name_hdr(struct mailbox *box,
 	(void)mail_index_transaction_commit(&trans);
 }
 
+/* The mailbox's name in the list index is no longer a guess made by a list
+   index rebuild - it matches the name in the mailbox index header. Clear the
+   corrupted name flag. Otherwise any later difference between the names would
+   be handled by renaming the mailbox to the name in the header, instead of
+   updating the header. */
+static void index_list_clear_corrupted_name(struct mailbox *box)
+{
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(box->list);
+	struct mailbox_list_index_sync_context *sync_ctx;
+	struct mailbox_list_index_node *node;
+	uint32_t seq;
+
+	if (ilist->syncing) {
+		/* The list index is already being synced, so it can't be
+		   synced again here. The flag gets cleared when the mailbox is
+		   next opened. */
+		return;
+	}
+
+	node = mailbox_list_index_lookup(box->list, box->name);
+	if (node == NULL ||
+	    (node->flags & MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME) == 0)
+		return;
+
+	if (mailbox_list_index_sync_begin(box->list, &sync_ctx) < 0)
+		return;
+	/* the list index may have been refreshed - look up the node again */
+	node = mailbox_list_index_lookup(box->list, box->name);
+	if (node != NULL &&
+	    (node->flags & MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME) != 0 &&
+	    mail_index_lookup_seq(sync_ctx->view, node->uid, &seq)) {
+		node->flags &= ENUM_NEGATE(MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME);
+		mail_index_update_flags(sync_ctx->trans, seq, MODIFY_REMOVE,
+			(enum mail_flags)MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME);
+	}
+	(void)mailbox_list_index_sync_end(&sync_ctx, TRUE);
+}
+
+/* Keep the mailbox's current name: write it to the mailbox index header and
+   stop treating it as a guessed name. */
+static void
+index_list_keep_name(struct mailbox *box,
+		     const unsigned char *box_zerosep_name, size_t box_name_len)
+{
+	index_list_update_name_hdr(box, box_zerosep_name, box_name_len);
+	index_list_clear_corrupted_name(box);
+}
+
 /* The mailbox's name in the list index is only a guess made while recovering
    a lost mailbox. Rename it to the name stored in the mailbox index header,
    if that name can be used. */
@@ -599,8 +647,7 @@ index_list_recover_name(struct mailbox *box, const unsigned char *name_hdr,
 		   header instead of trying to rename the mailbox to its own
 		   name, which would fail with "already exists" and end up
 		   renaming the mailbox to "<name>-<name>". */
-		index_list_update_name_hdr(box, box_zerosep_name,
-					   box_name_len);
+		index_list_keep_name(box, box_zerosep_name, box_name_len);
 	} else if (mailbox_list_index_name_is_usable(box->list, newname,
 						    &reason)) {
 		if (index_list_rename_corrupted(box, newname) == 0) {
@@ -608,8 +655,8 @@ index_list_recover_name(struct mailbox *box, const unsigned char *name_hdr,
 			   Keep the name it has now, so the rename isn't
 			   retried on every mailbox open and the name doesn't
 			   change on every list index rebuild. */
-			index_list_update_name_hdr(box, box_zerosep_name,
-						   box_name_len);
+			index_list_keep_name(box, box_zerosep_name,
+					     box_name_len);
 		}
 	} else {
 		/* The name in the header can't be used for a mailbox at all.
@@ -621,8 +668,7 @@ index_list_recover_name(struct mailbox *box, const unsigned char *name_hdr,
 			  "Not renaming mailbox to its original name %s (%s) - "
 			  "forgetting the original name",
 			  mailbox_name_sanitize(newname), reason);
-		index_list_update_name_hdr(box, box_zerosep_name,
-					   box_name_len);
+		index_list_keep_name(box, box_zerosep_name, box_name_len);
 	}
 }
 
@@ -672,7 +718,9 @@ static int index_list_mailbox_open(struct mailbox *box)
 	}
 	if (name_hdr_size == box_name_len &&
 	    memcmp(box_zerosep_name, name_hdr, box_name_len) == 0) {
-		/* Same mailbox name */
+		/* Same mailbox name. If the name was recovered by a list
+		   index rebuild, it's now confirmed to be the right one. */
+		index_list_clear_corrupted_name(box);
 	} else if (!mailbox_has_corrupted_name(box)) {
 		/* Mailbox name changed - update */
 		index_list_update_name_hdr(box, box_zerosep_name, box_name_len);
