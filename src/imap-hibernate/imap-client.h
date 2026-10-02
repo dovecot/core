@@ -4,6 +4,8 @@
 #include "net.h"
 #include "imap-stats.h"
 
+struct imap_client;
+
 struct imap_client_state {
 	/* required: */
 	const char *username, *mail_log_prefix;
@@ -34,8 +36,8 @@ struct imap_client_state {
 	bool multiplex_ostream;
 };
 
-struct imap_client *
-imap_client_create(int fd, const struct imap_client_state *state);
+int imap_client_create(int fd, const struct imap_client_state *state,
+		       struct imap_client **client_r, const char **error_r);
 /* Set pointer that is set to NULL when the client is destroyed. */
 void imap_client_set_destroy_ref(struct imap_client *client,
 				 struct imap_client **ref);

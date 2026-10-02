@@ -272,7 +272,11 @@ imap_hibernate_client_input_args(struct connection *conn,
 			"-Failed to parse client input: %s\n", error));
 		return -1;
 	}
-	client->imap_client = imap_client_create(fd, &state);
+	if (imap_client_create(fd, &state, &client->imap_client, &error) < 0) {
+		o_stream_nsend_str(conn->output,
+				   t_strdup_printf("-%s\n", error));
+		return -1;
+	}
 	/* the client can be destroyed already before it's finished, e.g. if
 	   the user is kicked. make sure our pointer is set to NULL then. */
 	imap_client_set_destroy_ref(client->imap_client, &client->imap_client);

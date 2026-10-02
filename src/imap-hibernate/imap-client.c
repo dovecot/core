@@ -635,8 +635,8 @@ userdb_fields_get_alt_usernames(const char *const *userdb_fields)
 	return array_front(&alt_usernames);
 }
 
-struct imap_client *
-imap_client_create(int fd, const struct imap_client_state *state)
+int imap_client_create(int fd, const struct imap_client_state *state,
+		       struct imap_client **client_r, const char **error_r)
 {
 	const struct var_expand_provider funcs[] = {
 		{ "userdb", imap_client_var_expand_func_userdb },
@@ -706,6 +706,7 @@ imap_client_create(int fd, const struct imap_client_state *state)
 		.service_name = master_service_get_name(master_service),
 		.ip = client->state.remote_ip,
 	};
+	int ret = 0;
 	T_BEGIN {
 		/* the imap process sends userdb_fields only if it has any */
 		const char *const *fields = client->state.userdb_fields == NULL ?
@@ -721,20 +722,31 @@ imap_client_create(int fd, const struct imap_client_state *state)
 
 		str = t_str_new(256);
 		if (var_expand(str, state->mail_log_prefix, &params, &error) < 0) {
-			e_error(client->event,
+			*error_r = t_strdup_printf(
 				"Failed to expand mail_log_prefix=%s: %s",
 				state->mail_log_prefix, error);
+			ret = -1;
+		} else {
+			client->log_prefix = p_strdup(pool, str_c(str));
+			/* the ioloop context isn't active for all of the
+			   logging, e.g. when the client is kicked before it's
+			   finished */
+			event_replace_log_prefix(client->event,
+						 client->log_prefix);
+			anvil_session.alt_usernames =
+				userdb_fields_get_alt_usernames(fields);
+			if (master_service_anvil_connect(master_service,
+					&anvil_session, TRUE,
+					client->state.anvil_conn_guid))
+				client->state.anvil_sent = TRUE;
 		}
-		client->log_prefix = p_strdup(pool, str_c(str));
-		/* the ioloop context isn't active for all of the logging,
-		   e.g. when the client is kicked before it's finished */
-		event_replace_log_prefix(client->event, client->log_prefix);
-		anvil_session.alt_usernames =
-			userdb_fields_get_alt_usernames(fields);
-		if (master_service_anvil_connect(master_service, &anvil_session,
-						 TRUE, client->state.anvil_conn_guid))
-			client->state.anvil_sent = TRUE;
-	} T_END;
+	} T_END_PASS_STR_IF(ret < 0, error_r);
+	if (ret < 0) {
+		e_error(client->event, "%s", *error_r);
+		event_unref(&client->event);
+		pool_unref(&pool);
+		return -1;
+	}
 
 	fd_set_nonblock(fd, TRUE); /* it should already be, but be sure */
 	client->fd = fd;
@@ -753,7 +765,8 @@ imap_client_create(int fd, const struct imap_client_state *state)
 
 	p_array_init(&client->notifys, pool, 2);
 	DLLIST_PREPEND(&imap_clients, client);
-	return client;
+	*client_r = client;
+	return 0;
 }
 
 static void imap_client_stop_notify_listening(struct imap_client *client)
