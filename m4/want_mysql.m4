@@ -87,6 +87,8 @@ AC_DEFUN([DOVECOT_WANT_MYSQL], [
     dnl mysql-test programs
     tmp_CPPFLAGS="$CPPFLAGS"
     CPPFLAGS="$MYSQL_CFLAGS"
+    AC_CHECK_TYPES([my_bool],,, [[#include <mysql.h>]])
+
     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
       #include <mysql.h>
     ]], [[

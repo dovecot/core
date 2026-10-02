@@ -27,6 +27,11 @@
 #endif
 #include <errmsg.h>
 
+/* MySQL 8 uses bool, while older MySQL and MariaDB use my_bool. */
+#ifndef HAVE_MY_BOOL
+typedef bool my_bool;
+#endif
+
 #define MYSQL_DEFAULT_READ_TIMEOUT_SECS 30
 #define MYSQL_DEFAULT_WRITE_TIMEOUT_SECS 30
 
