@@ -240,6 +240,17 @@ static const char *test_config =
 "}\n"
 "mailbox bar {\n"
 "  @grp = g2\n"
+"}\n"
+"group @grp2 g3 {\n"
+"  key_group = g3\n"
+"}\n"
+"group @grp2 g4 {\n"
+"  service pop3 {\n"
+"    key_group = g4-pop3\n"
+"  }\n"
+"}\n"
+"named {\n"
+"  @grp2 = g3\n"
 "}\n";
 
 static void write_config_file(const char *contents)
@@ -506,6 +517,9 @@ static void test_config_dump_full_service(void)
 	root = test_settings_read("imap", NULL);
 	event = test_event_create(root);
 	test_key(event, "service", "imap", key_service, "imap");
+	/* group filter that can never match in this process must not stop
+	   applying the other group filters */
+	test_key(event, "named", NULL, key_group, "g3");
 	event_unref(&event);
 	settings_root_deinit(&root);
 

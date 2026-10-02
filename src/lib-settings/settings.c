@@ -1200,7 +1200,8 @@ settings_apply_groups(struct settings_apply_ctx *ctx,
 
 	const struct settings_bin_filters *filters = &mmap->filters;
 	/* All group filters are at the end. When we see a non-group filter,
-	   we can stop. */
+	   we can stop. Note that a group filter can also be one that never
+	   matches in this process. */
 	int ret = 0;
 	for (uint32_t i = block->filter_count; i > 0; ) {
 		i--;
@@ -1213,9 +1214,10 @@ settings_apply_groups(struct settings_apply_ctx *ctx,
 
 		const struct settings_bin_filter *filter =
 			settings_bin_filters_get(filters, event_filter_idx);
-		if ((filter->flags & SETTINGS_BIN_FILTER_FLAG_GROUP) == 0 ||
-		    settings_bin_filters_never(filters, event_filter_idx))
+		if ((filter->flags & SETTINGS_BIN_FILTER_FLAG_GROUP) == 0)
 			break;
+		if (settings_bin_filters_never(filters, event_filter_idx))
+			continue;
 
 		i_assert(i > include_filter_idx);
 		if (settings_bin_filter_match(filters, filter, &ctx->lookup)) {
