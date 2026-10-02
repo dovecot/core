@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "dns-util.h"
 #include "settings.h"
 #include "settings-bin-filter.h"
 
@@ -28,6 +29,26 @@ settings_bin_filter_str(const struct settings_bin_filters *filters,
 	if (rel_offset == 0)
 		return NULL;
 	return (const char *)filters->base + rel_offset;
+}
+
+static void
+settings_bin_filter_net(const struct settings_bin_filters *filters,
+			uint32_t rel_offset, struct ip_addr *ip_r,
+			unsigned int *bits_r)
+{
+	struct settings_bin_filter_net net;
+
+	memcpy(&net, filters->base + rel_offset, sizeof(net));
+	i_zero(ip_r);
+	if (net.family == 4) {
+		ip_r->family = AF_INET;
+		memcpy(&ip_r->u.ip4, net.addr, sizeof(ip_r->u.ip4));
+	} else {
+		ip_r->family = AF_INET6;
+		memcpy(&ip_r->u.ip6, net.addr, sizeof(ip_r->u.ip6));
+		ip_r->scope_id = net.scope_id;
+	}
+	*bits_r = net.bits;
 }
 
 static inline const char *
@@ -288,4 +309,138 @@ int settings_bin_filters_read(struct settings_bin_filters *filters_r,
 	}
 	*size_r = offset + filters_size;
 	return 0;
+}
+
+bool settings_bin_filter_has_name(const struct settings_bin_filters *filters,
+				  const struct settings_bin_filter *filter,
+				  const char *name)
+{
+	for (uint32_t i = 0; i < filter->filter_names_count; i++) {
+		if (strcmp(settings_bin_filter_name(filters, filter, i),
+			   name) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static const char *
+settings_bin_filter_lookup_get_str(struct event *event, const char *key)
+{
+	const struct event_field *field =
+		event_find_field_recursive(event, key);
+
+	if (field == NULL || field->value_type != EVENT_FIELD_VALUE_TYPE_STR ||
+	    field->value.str[0] == '\0')
+		return NULL;
+	return field->value.str;
+}
+
+static bool
+settings_bin_filter_lookup_get_ip(struct event *event, const char *key,
+				  struct ip_addr *ip_r)
+{
+	const struct event_field *field =
+		event_find_field_recursive(event, key);
+
+	if (field == NULL || field->value_type != EVENT_FIELD_VALUE_TYPE_IP)
+		return FALSE;
+	*ip_r = field->value.ip;
+	return TRUE;
+}
+
+static void
+settings_bin_filter_lookup_add_strlist_names(
+	struct settings_bin_filter_lookup *lookup, struct event *event)
+{
+	const struct event_field *field;
+	const char *name;
+
+	for (; event != NULL; event = event_get_parent(event)) {
+		field = event_find_field_nonrecursive(event,
+				SETTINGS_EVENT_FILTER_NAME);
+		if (field == NULL ||
+		    field->value_type != EVENT_FIELD_VALUE_TYPE_STRLIST)
+			continue;
+		array_foreach_elem(&field->value.strlist, name)
+			array_push_back(&lookup->filter_names, &name);
+	}
+}
+
+void
+settings_bin_filter_lookup_init(struct settings_bin_filter_lookup *lookup_r,
+				struct event *event)
+{
+	/* This mirrors how event filters would match the event: the fields
+	   are looked up recursively and the filter names are merged from the
+	   event hierarchy and the global event. */
+	i_zero(lookup_r);
+	t_array_init(&lookup_r->filter_names, 8);
+	lookup_r->protocol =
+		settings_bin_filter_lookup_get_str(event, "protocol");
+	lookup_r->local_name =
+		settings_bin_filter_lookup_get_str(event, "local_name");
+	lookup_r->have_local_ip =
+		settings_bin_filter_lookup_get_ip(event, "local_ip",
+						  &lookup_r->local_ip);
+	lookup_r->have_remote_ip =
+		settings_bin_filter_lookup_get_ip(event, "remote_ip",
+						  &lookup_r->remote_ip);
+	/* settings_get() already copied all the filter names in the event
+	   hierarchy to the lookup event, but check the parents (and the
+	   global event) as well in case they have strlists. */
+	settings_bin_filter_lookup_add_strlist_names(lookup_r, event);
+	settings_bin_filter_lookup_add_strlist_names(lookup_r,
+						     event_get_global());
+}
+
+static bool settings_local_name_cmp(const char *value, const char *wanted_value)
+{
+	return dns_match_wildcard(value, wanted_value) == 0;
+}
+
+bool settings_bin_filter_match(const struct settings_bin_filters *filters,
+			       const struct settings_bin_filter *filter,
+			       const struct settings_bin_filter_lookup *lookup)
+{
+	const char *str;
+	struct ip_addr net;
+	unsigned int bits;
+
+	if (filter->protocol_offset != 0) {
+		str = settings_bin_filter_str(filters, filter->protocol_offset);
+		bool match = lookup->protocol != NULL &&
+			strcmp(str, lookup->protocol) == 0;
+		bool op_not = (filter->flags &
+			       SETTINGS_BIN_FILTER_FLAG_PROTOCOL_NOT) != 0;
+		if (match == op_not)
+			return FALSE;
+	}
+	if (filter->local_name_offset != 0) {
+		str = settings_bin_filter_str(filters,
+					      filter->local_name_offset);
+		if (lookup->local_name == NULL ||
+		    !settings_local_name_cmp(lookup->local_name, str))
+			return FALSE;
+	}
+	if (filter->local_net_offset != 0) {
+		settings_bin_filter_net(filters, filter->local_net_offset,
+					&net, &bits);
+		if (!lookup->have_local_ip ||
+		    !net_is_in_network(&lookup->local_ip, &net, bits))
+			return FALSE;
+	}
+	if (filter->remote_net_offset != 0) {
+		settings_bin_filter_net(filters, filter->remote_net_offset,
+					&net, &bits);
+		if (!lookup->have_remote_ip ||
+		    !net_is_in_network(&lookup->remote_ip, &net, bits))
+			return FALSE;
+	}
+	for (uint32_t i = 0; i < filter->filter_names_count; i++) {
+		str = settings_bin_filter_name(filters, filter, i);
+		if (array_lsearch(&lookup->filter_names, &str,
+				  i_strcmp_p) == NULL)
+			return FALSE;
+	}
+	return TRUE;
 }

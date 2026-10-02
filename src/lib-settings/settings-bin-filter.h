@@ -1,6 +1,10 @@
 #ifndef SETTINGS_BIN_FILTER_H
 #define SETTINGS_BIN_FILTER_H
 
+#include "net.h"
+
+struct event;
+
 /* Settings filter records written to the binary config by the config process
    and read by lib-settings. See ../config/config-dump-full.c for the format
    description. Both sides are always the same build, so these structs are
@@ -56,6 +60,19 @@ struct settings_bin_filters {
 	uint64_t *never;
 };
 
+/* Fields of a settings lookup that the filters are matched against. */
+struct settings_bin_filter_lookup {
+	/* Filter names visible to this lookup. The names are added from the
+	   lookup's own filter, from SETTINGS_EVENT_FILTER_NAME pointers in
+	   the event hierarchy and from the currently applied include
+	   groups. */
+	ARRAY_TYPE(const_string) filter_names;
+	const char *protocol;
+	const char *local_name;
+	struct ip_addr local_ip, remote_ip;
+	bool have_local_ip, have_remote_ip;
+};
+
 /* Read and validate the filter records from the beginning of data. The data
    must be 32bit aligned. If protocol_name or service_name is non-NULL, the
    filters for other protocols/services are marked as never matching. The
@@ -84,5 +101,31 @@ settings_bin_filters_never(const struct settings_bin_filters *filters,
 	i_assert(idx < filters->count);
 	return bit64_get(filters->never, idx);
 }
+
+/* Returns TRUE if the filter has no conditions, i.e. it always matches. */
+static inline bool
+settings_bin_filter_is_always(const struct settings_bin_filter *filter)
+{
+	return filter->protocol_offset == 0 &&
+		filter->local_name_offset == 0 &&
+		filter->local_net_offset == 0 &&
+		filter->remote_net_offset == 0 &&
+		filter->filter_names_count == 0;
+}
+
+/* Returns TRUE if the filter has the given filter name. */
+bool settings_bin_filter_has_name(const struct settings_bin_filters *filters,
+				  const struct settings_bin_filter *filter,
+				  const char *name);
+
+/* Initialize the lookup from the lookup event. The filter_names array is
+   allocated from data stack. */
+void
+settings_bin_filter_lookup_init(struct settings_bin_filter_lookup *lookup_r,
+				struct event *event);
+/* Returns TRUE if the filter matches the lookup. */
+bool settings_bin_filter_match(const struct settings_bin_filters *filters,
+			       const struct settings_bin_filter *filter,
+			       const struct settings_bin_filter_lookup *lookup);
 
 #endif

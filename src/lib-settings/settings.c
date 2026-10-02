@@ -9,7 +9,6 @@
 #include "event-filter-private.h"
 #include "wildcard-match.h"
 #include "mmap-util.h"
-#include "dns-util.h"
 #include "settings.h"
 #include "settings-bin-filter.h"
 #include "var-expand.h"
@@ -98,13 +97,6 @@ struct settings_mmap_block {
 	bool settings_validated;
 };
 
-struct settings_mmap_event_filter {
-	struct event_filter *filter;
-	bool is_group;
-
-	uint32_t named_list_filter_count;
-};
-
 struct settings_mmap {
 	int refcount;
 	pool_t pool;
@@ -120,9 +112,6 @@ struct settings_mmap {
 
 	uint32_t block_names_count;
 	const uint32_t *block_names_rel_offsets;
-
-	struct settings_mmap_event_filter *event_filters;
-	unsigned int event_filters_count;
 
 	/* Filter records directly in the mmap */
 	struct settings_bin_filters filters;
@@ -153,6 +142,7 @@ struct settings_apply_override {
 
 struct settings_apply_ctx {
 	struct event *event;
+	struct settings_bin_filter_lookup lookup;
 	struct settings_root *root;
 	struct settings_instance *instance;
 	const struct setting_parser_info *info;
@@ -194,13 +184,8 @@ static struct event_filter event_filter_match_never, event_filter_match_always;
 
 static int
 settings_instance_override(struct settings_apply_ctx *ctx,
-			   struct settings_mmap_event_filter *filter,
+			   const struct settings_bin_filter *filter,
 			   bool *defaults, const char **error_r);
-
-static bool settings_local_name_cmp(const char *value, const char *wanted_value)
-{
-	return dns_match_wildcard(value, wanted_value) == 0;
-}
 
 static void settings_override_free(struct settings_override *override)
 {
@@ -288,50 +273,6 @@ settings_block_read_str(struct settings_mmap *mmap,
 		return -1;
 	}
 	return 0;
-}
-
-static bool
-settings_event_filter_node_name_find(struct event_filter_node *node,
-				     const char *filter_name, bool op_not)
-{
-	/* Not perfect logic, but enough for the settings filters */
-	switch (node->op) {
-	case EVENT_FILTER_OP_CMP_EQ:
-		if (!op_not &&
-		    node->type == EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT &&
-		    strcmp(node->field.key, SETTINGS_EVENT_FILTER_NAME) == 0 &&
-		    node->field.value_type == EVENT_FIELD_VALUE_TYPE_STR &&
-		    strcmp(node->field.value.str, filter_name) == 0)
-			return TRUE;
-		break;
-	case EVENT_FILTER_OP_AND:
-	case EVENT_FILTER_OP_OR:
-		if (settings_event_filter_node_name_find(node->children[0],
-							 filter_name, op_not))
-			return TRUE;
-		if (settings_event_filter_node_name_find(node->children[1],
-							 filter_name, op_not))
-			return TRUE;
-		break;
-	case EVENT_FILTER_OP_NOT:
-		return settings_event_filter_node_name_find(node->children[0],
-							    filter_name, !op_not);
-	default:
-		break;
-	}
-	return FALSE;
-}
-
-static bool
-settings_event_filter_name_find(struct event_filter *filter,
-				const char *filter_name)
-{
-	/* NOTE: The event filter is using EVENT_FIELD_EXACT, so the value has
-	   already removed wildcard escapes. */
-	struct event_filter_node *node = event_filter_get_root_node(filter, 0);
-	i_assert(node != NULL);
-	i_assert(event_filter_get_root_node(filter, 1) == NULL);
-	return settings_event_filter_node_name_find(node, filter_name, FALSE);
 }
 
 static int
@@ -472,7 +413,6 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 		      enum settings_read_flags flags, size_t *offset,
 		      ARRAY_TYPE(const_string) *protocols, const char **error_r)
 {
-	const char *filter_string, *error;
 	uint32_t count;
 
 	if (settings_block_read_uint32(mmap, offset, mmap->mmap_size,
@@ -486,71 +426,29 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 			count, *offset, mmap->mmap_size);
 		return -1;
 	}
-	mmap->event_filters_count = count;
 
-	mmap->event_filters = mmap->event_filters_count == 0 ? NULL :
-		p_new(mmap->pool, struct settings_mmap_event_filter,
-		      mmap->event_filters_count);
-	const char **filter_strings = mmap->event_filters_count == 0 ? NULL :
-		t_new(const char *, mmap->event_filters_count);
+	/* The event filter strings are no longer used. Skip over them. */
+	for (uint32_t i = 0; i < count; i++) {
+		const char *filter_string;
+		uint32_t named_list_filter_count;
 
-	for (uint32_t i = 0; i < mmap->event_filters_count; i++) {
-		struct settings_mmap_event_filter *filter =
-			&mmap->event_filters[i];
 		if (settings_block_read_str(mmap, offset, mmap->mmap_size,
-					    "filter string", &filter_strings[i],
+					    "filter string", &filter_string,
 					    error_r) < 0)
 			return -1;
 		if (settings_block_read_uint32(mmap, offset, mmap->mmap_size,
 					"named list filter element count",
-					&filter->named_list_filter_count,
-					error_r) < 0)
+					&named_list_filter_count, error_r) < 0)
 			return -1;
 	}
 
 	if (settings_read_filter_table(mmap, service_name, flags, offset,
 				       protocols, error_r) < 0)
 		return -1;
-	if (mmap->filters.count != mmap->event_filters_count) {
+	if (mmap->filters.count != count) {
 		*error_r = t_strdup_printf("Filter count mismatch (%u != %u)",
-			mmap->filters.count, mmap->event_filters_count);
+			mmap->filters.count, count);
 		return -1;
-	}
-
-	for (uint32_t i = 0; i < mmap->event_filters_count; i++) {
-		struct settings_mmap_event_filter *filter =
-			&mmap->event_filters[i];
-		filter_string = filter_strings[i];
-
-		if (settings_bin_filters_never(&mmap->filters, i)) {
-			filter->filter = EVENT_FILTER_MATCH_NEVER;
-			continue;
-		}
-		if (filter_string[0] == '\0') {
-			filter->filter = EVENT_FILTER_MATCH_ALWAYS;
-			continue;
-		}
-		filter->is_group =
-			(settings_bin_filters_get(&mmap->filters, i)->flags &
-			 SETTINGS_BIN_FILTER_FLAG_GROUP) != 0;
-
-		struct event_filter *tmp_filter = event_filter_create();
-		if (event_filter_parse_case_sensitive(filter_string,
-						      tmp_filter, &error) < 0) {
-			*error_r = t_strdup_printf(
-				"Received invalid filter '%s' at index %u: %s",
-				filter_string, i, error);
-			event_filter_unref(&tmp_filter);
-			return -1;
-		}
-
-		filter->filter = event_filter_create_with_pool(mmap->pool);
-		event_filter_register_cmp(filter->filter, "local_name",
-					  settings_local_name_cmp);
-		pool_ref(mmap->pool);
-		event_filter_merge(filter->filter, tmp_filter,
-				   EVENT_FILTER_MERGE_OP_OR);
-		event_filter_unref(&tmp_filter);
 	}
 	return 0;
 }
@@ -1192,9 +1090,9 @@ settings_mmap_get_filter_idx(struct settings_mmap *mmap,
 			     const char **error_r)
 {
 	*event_filter_idx_r = block->filter_indexes[filter_idx];
-	if (*event_filter_idx_r >= mmap->event_filters_count) {
+	if (*event_filter_idx_r >= mmap->filters.count) {
 		*error_r = t_strdup_printf("event filter idx %u >= %u",
-			*event_filter_idx_r, mmap->event_filters_count);
+			*event_filter_idx_r, mmap->filters.count);
 		return -1;
 	}
 	return 0;
@@ -1204,7 +1102,7 @@ static int
 settings_mmap_apply_filter(struct settings_apply_ctx *ctx,
 			   struct settings_mmap_block *block,
 			   uint32_t filter_idx,
-			   struct settings_mmap_event_filter *filter,
+			   const struct settings_bin_filter *filter,
 			   const char **error_r)
 {
 	struct settings_mmap *mmap = ctx->instance->mmap;
@@ -1231,8 +1129,8 @@ settings_mmap_apply_filter(struct settings_apply_ctx *ctx,
 	filter_offset += sizeof(include_count);
 
 	if (ctx->filter_name != NULL && !ctx->seen_filter &&
-	    filter->filter != EVENT_FILTER_MATCH_ALWAYS &&
-	    settings_event_filter_name_find(filter->filter, ctx->filter_name))
+	    settings_bin_filter_has_name(&mmap->filters, filter,
+					 ctx->filter_name))
 		ctx->seen_filter = TRUE;
 
 	array_clear(&ctx->include_groups);
@@ -1249,7 +1147,7 @@ settings_mmap_apply_filter(struct settings_apply_ctx *ctx,
 	}
 	/* Apply overrides specific to this filter before the
 	   filter settings themselves. For base settings the
-	   filter is EVENT_FILTER_MATCH_ALWAYS, which applies
+	   filter has no conditions, which applies
 	   the rest of the overrides that weren't already
 	   handled. This way global setting overrides don't
 	   override named filters' settings, unless the
@@ -1279,36 +1177,28 @@ settings_mmap_apply_filter(struct settings_apply_ctx *ctx,
 	return 0;
 }
 
-static struct event *settings_group_event_create(struct settings_apply_ctx *ctx)
-{
-	struct event *event = event_create(ctx->event);
-	const struct settings_group *include_group;
-	array_foreach(&ctx->include_groups, include_group) {
-		/* Add @<group label>/<group name> to matching filters and
-		   restart the filter processing. */
-		const char *filter_value = t_strdup_printf(
-			SETTINGS_INCLUDE_GROUP_PREFIX_S"%s/%s",
-			include_group->label, include_group->name);
-		event_strlist_append(event, SETTINGS_EVENT_FILTER_NAME,
-				     filter_value);
-	}
-	return event;
-}
-
 static int
 settings_apply_groups(struct settings_apply_ctx *ctx,
 		      struct settings_mmap *mmap,
 		      struct settings_mmap_block *block,
 		      uint32_t include_filter_idx, const char **error_r)
 {
-	struct event *event = NULL;
-	const struct failure_context failure_ctx = {
-		.type = LOG_TYPE_DEBUG,
-	};
+	const struct settings_group *include_group;
 
 	if (array_is_empty(&ctx->include_groups))
 		return 0;
 
+	/* Add @<group label>/<group name> filter names to the lookup and
+	   apply the matching group filters. */
+	unsigned int orig_names_count = array_count(&ctx->lookup.filter_names);
+	array_foreach(&ctx->include_groups, include_group) {
+		const char *filter_name = t_strdup_printf(
+			SETTINGS_INCLUDE_GROUP_PREFIX_S"%s/%s",
+			include_group->label, include_group->name);
+		array_push_back(&ctx->lookup.filter_names, &filter_name);
+	}
+
+	const struct settings_bin_filters *filters = &mmap->filters;
 	/* All group filters are at the end. When we see a non-group filter,
 	   we can stop. */
 	int ret = 0;
@@ -1321,30 +1211,24 @@ settings_apply_groups(struct settings_apply_ctx *ctx,
 			break;
 		}
 
-		if (!mmap->event_filters[event_filter_idx].is_group)
+		const struct settings_bin_filter *filter =
+			settings_bin_filters_get(filters, event_filter_idx);
+		if ((filter->flags & SETTINGS_BIN_FILTER_FLAG_GROUP) == 0 ||
+		    settings_bin_filters_never(filters, event_filter_idx))
 			break;
 
 		i_assert(i > include_filter_idx);
-		struct settings_mmap_event_filter *filter =
-			&mmap->event_filters[event_filter_idx];
-		i_assert(filter->filter != EVENT_FILTER_MATCH_ALWAYS);
-		if (filter->filter == EVENT_FILTER_MATCH_NEVER)
-			continue;
-
-		if (event == NULL) T_BEGIN {
-			event = settings_group_event_create(ctx);
-		} T_END;
-		if (event_filter_match(filter->filter, event, &failure_ctx)) {
+		if (settings_bin_filter_match(filters, filter, &ctx->lookup)) {
 			if (settings_mmap_apply_filter(ctx, block, i,
-						       filter,
-						       error_r) < 0) {
+						       filter, error_r) < 0) {
 				ret = -1;
 				break;
 			}
 		}
 	}
 
-	event_unref(&event);
+	array_delete(&ctx->lookup.filter_names, orig_names_count,
+		     array_count(&ctx->lookup.filter_names) - orig_names_count);
 	return ret;
 }
 
@@ -1368,36 +1252,34 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 		block->settings_validated = TRUE;
 	}
 
-	const struct failure_context failure_ctx = {
-		.type = LOG_TYPE_DEBUG,
-	};
+	settings_bin_filter_lookup_init(&ctx->lookup, ctx->event);
+	const struct settings_bin_filters *filters = &mmap->filters;
 
 	/* Go through the filters in reverse sorted order, so we always set the
 	   setting just once, never overriding anything. A filter for the base
 	   settings is expected to always exist. */
-	struct event *event = ctx->event;
 	for (uint32_t i = block->filter_count; i > 0; ) {
 		i--;
 		uint32_t event_filter_idx;
 		if (settings_mmap_get_filter_idx(mmap, block, i,
 						 &event_filter_idx, error_r) < 0)
 			return -1;
-		struct settings_mmap_event_filter *filter =
-			&mmap->event_filters[event_filter_idx];
-		if (filter->filter == EVENT_FILTER_MATCH_NEVER)
-			;
-		else if (filter->filter == EVENT_FILTER_MATCH_ALWAYS ||
-			 event_filter_match(filter->filter, event, &failure_ctx)) {
-			i_assert(!filter->is_group);
-			if (settings_mmap_apply_filter(ctx, block, i,
-						       filter, error_r) < 0)
-				return -1;
+		if (settings_bin_filters_never(filters, event_filter_idx))
+			continue;
 
-			/* Apply all group includes */
-			if (settings_apply_groups(ctx, mmap, block,
-						  i, error_r) < 0)
-				return -1;
-		}
+		const struct settings_bin_filter *filter =
+			settings_bin_filters_get(filters, event_filter_idx);
+		if (!settings_bin_filter_match(filters, filter, &ctx->lookup))
+			continue;
+
+		i_assert((filter->flags & SETTINGS_BIN_FILTER_FLAG_GROUP) == 0);
+		if (settings_mmap_apply_filter(ctx, block, i,
+					       filter, error_r) < 0)
+			return -1;
+
+		/* Apply all group includes */
+		if (settings_apply_groups(ctx, mmap, block, i, error_r) < 0)
+			return -1;
 	}
 	return ctx->seen_filter ? 1 : 0;
 
@@ -1421,11 +1303,6 @@ static void settings_mmap_unref(struct settings_mmap **_mmap)
 	if (--mmap->refcount > 0)
 		return;
 
-	for (unsigned int i = 0; i < mmap->event_filters_count; i++) {
-		if (mmap->event_filters[i].filter != EVENT_FILTER_MATCH_ALWAYS &&
-		    mmap->event_filters[i].filter != EVENT_FILTER_MATCH_NEVER)
-			event_filter_unref(&mmap->event_filters[i].filter);
-	}
 	hash_table_destroy(&mmap->blocks);
 
 	if (munmap(mmap->mmap_base, mmap->mmap_size) < 0)
@@ -1775,7 +1652,7 @@ settings_apply_override_cmp(const struct settings_apply_override *set1,
 
 static int
 settings_override_cmp_filter_order(const struct settings_override *set,
-				   struct settings_mmap_event_filter *filter)
+				   const struct settings_bin_filter *filter)
 {
 	return (int)set->filter_array_element_count -
 		(int)filter->named_list_filter_count;
@@ -2377,7 +2254,7 @@ settings_include_group_add_or_update(ARRAY_TYPE(settings_group) *include_groups,
 
 static int
 settings_instance_override(struct settings_apply_ctx *ctx,
-			   struct settings_mmap_event_filter *filter,
+			   const struct settings_bin_filter *filter,
 			   bool *defaults, const char **error_r)
 {
 	struct settings_apply_override *override;
@@ -2399,7 +2276,7 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		/* If we're being called while applying filters, only apply
 		   the overrides that have a matching filter. This preserves
 		   the expected order in which settings are applied. */
-		if (filter->filter != EVENT_FILTER_MATCH_ALWAYS &&
+		if (!settings_bin_filter_is_always(filter) &&
 		    settings_override_cmp_filter_order(set, filter) < 0)
 			break;
 
@@ -2673,7 +2550,7 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 	} else {
 		/* No configuration file - apply all overrides */
 		bool defaults = TRUE;
-		struct settings_mmap_event_filter filter = {
+		const struct settings_bin_filter filter = {
 		};
 		ret = settings_instance_override(ctx, &filter,
 						 &defaults, error_r);
