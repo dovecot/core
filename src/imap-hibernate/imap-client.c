@@ -650,22 +650,8 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	i_assert(state->username != NULL);
 	i_assert(state->mail_log_prefix != NULL);
 
-	fd_set_nonblock(fd, TRUE); /* it should already be, but be sure */
-
 	client = p_new(pool, struct imap_client, 1);
 	client->pool = pool;
-	client->fd = fd;
-	client->input = i_stream_create_fd(fd, IMAP_MAX_INBUF);
-	client->output = o_stream_create_fd(fd, IMAP_MAX_OUTBUF);
-	o_stream_set_no_error_handling(client->output, TRUE);
-	if (state->multiplex_ostream) {
-		struct ostream *output =
-			o_stream_create_multiplex(client->output,
-				IMAP_MAX_OUTBUF,
-				OSTREAM_MULTIPLEX_FORMAT_STREAM_CONTINUE);
-		o_stream_unref(&client->output);
-		client->output = output;
-	}
 	client->state.username = p_strdup(pool, state->username);
 	client->state.session_id = p_strdup(pool, state->session_id);
 	client->state.userdb_fields = p_strdup(pool, state->userdb_fields);
@@ -684,7 +670,6 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	client->state.peer_dev = state->peer_dev;
 	client->state.peer_ino = state->peer_ino;
 
-	client->state.tag = i_strdup(state->tag);
 	client->state.logout_stats = state->logout_stats;
 
 	guid_128_copy(client->state.anvil_conn_guid, state->anvil_conn_guid);
@@ -750,6 +735,21 @@ imap_client_create(int fd, const struct imap_client_state *state)
 						 TRUE, client->state.anvil_conn_guid))
 			client->state.anvil_sent = TRUE;
 	} T_END;
+
+	fd_set_nonblock(fd, TRUE); /* it should already be, but be sure */
+	client->fd = fd;
+	client->input = i_stream_create_fd(fd, IMAP_MAX_INBUF);
+	client->output = o_stream_create_fd(fd, IMAP_MAX_OUTBUF);
+	o_stream_set_no_error_handling(client->output, TRUE);
+	if (state->multiplex_ostream) {
+		struct ostream *output =
+			o_stream_create_multiplex(client->output,
+				IMAP_MAX_OUTBUF,
+				OSTREAM_MULTIPLEX_FORMAT_STREAM_CONTINUE);
+		o_stream_unref(&client->output);
+		client->output = output;
+	}
+	client->state.tag = i_strdup(state->tag);
 
 	p_array_init(&client->notifys, pool, 2);
 	DLLIST_PREPEND(&imap_clients, client);
