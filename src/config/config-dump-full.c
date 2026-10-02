@@ -285,30 +285,34 @@ config_dump_full_write_cache_paths(struct ostream *output,
 								    main_path->path);
 }
 
-static bool
-config_dump_keys_hash_try(struct config_parsed *config,
-			  uint32_t key_prefix, unsigned int hash_table_size)
-{
-	const HASH_TABLE_TYPE(config_key) all_keys =
-		config_parsed_get_all_keys(config);
-	const char *name;
-	struct config_parser_key *config_key;
-	bool ret = TRUE;
+/* Number of hash table key prefixes to try for each hash table size before
+   trying a larger size. */
+#define KEYS_HASH_PREFIX_TRIES 128
+/* Knuth's multiplicative hashing constant (TAOCP Vol. 3, section 6.4): the
+   prime closest to 2^32/phi, where phi is the golden ratio. Multiplying by it
+   (mod 2^32) is "Fibonacci hashing". Because the constant is odd, i -> i*K is
+   a bijection, so all the tries get different prefixes. Because phi is the
+   "most irrational" number, i*K/2^32 mod 1 spreads consecutive i as evenly as
+   possible (three-distance theorem), so the prefixes differ in their high bits
+   as well, not only in the low bits like i itself would. */
+#define KEYS_HASH_PREFIX_MULTIPLIER 2654435761U
 
-	bool *table = i_new(bool, hash_table_size);
-	struct hash_iterate_context *iter = hash_table_iterate_init(all_keys);
-	while (hash_table_iterate(iter, all_keys, &name, &config_key)) {
-		uint32_t key_hash = (key_prefix ^ str_stable_hash(name)) %
+static bool
+config_dump_keys_hash_try(const uint32_t *key_hashes, unsigned int keys_count,
+			  uint32_t key_prefix, unsigned int hash_table_size,
+			  bool *table)
+{
+	unsigned int i;
+
+	memset(table, 0, sizeof(table[0]) * hash_table_size);
+	for (i = 0; i < keys_count; i++) {
+		uint32_t key_hash = (key_prefix ^ key_hashes[i]) %
 			hash_table_size;
-		if (table[key_hash]) {
-			ret = FALSE;
-			break;
-		}
+		if (table[key_hash])
+			return FALSE;
 		table[key_hash] = TRUE;
 	}
-	hash_table_iterate_deinit(&iter);
-	i_free(table);
-	return ret;
+	return TRUE;
 }
 
 static unsigned int
@@ -388,30 +392,60 @@ config_dump_keys_hash_table(struct config_parsed *config, buffer_t *buf)
 {
 	const HASH_TABLE_TYPE(config_key) all_keys =
 		config_parsed_get_all_keys(config);
-	unsigned int i, hash_table_size = hash_table_count(all_keys);
+	unsigned int i, keys_count = hash_table_count(all_keys);
+	const char *name;
+	struct config_parser_key *config_key;
+	uint32_t key_prefix = 0;
+
+	/* Hash the keys only once */
+	uint32_t *key_hashes = i_new(uint32_t, keys_count);
+	i = 0;
+	struct hash_iterate_context *iter = hash_table_iterate_init(all_keys);
+	while (hash_table_iterate(iter, all_keys, &name, &config_key))
+		key_hashes[i++] = str_stable_hash(name);
+	hash_table_iterate_deinit(&iter);
+	i_assert(i == keys_count);
 
 	/* Find a hash table where no settings keys have collisions. We can
 	   spend more time here so later settings lookups are more efficient by
-	   not having to handle key collisions. */
+	   not having to handle key collisions.
+
+	   The probability of n randomly hashed keys having no collisions in a
+	   hash table of m nodes is about exp(-n*n/(2*m)). With
+	   KEYS_HASH_PREFIX_TRIES tries per size, sizes below
+	   n*n/(2*ln(KEYS_HASH_PREFIX_TRIES)) ~ n*n/10 practically never
+	   succeed, so don't waste time trying them. */
+	uint64_t min_size = (uint64_t)keys_count * keys_count / 10;
+	unsigned int hash_table_size =
+		primes_closest(min_size < UINT_MAX ? min_size : UINT_MAX);
 	for (;;) {
+		bool *table = i_new(bool, hash_table_size);
 		/* Try a few times to fit the hash table into a smaller node
 		   count by using different key prefixes. Use predictable key
 		   prefixes, so the hash table sizes are also predictable (and
-		   easier to debug) across different runs. */
-		for (i = 0; i < 10; i++) {
-			uint32_t key_prefix = i;
-			if (config_dump_keys_hash_try(config, key_prefix,
-						      hash_table_size)) {
-				config_dump_keys_hash(config, buf,
-					key_prefix, hash_table_size);
-				return;
-			}
+		   easier to debug) across different runs. Prefixes that differ
+		   only in their lowest bits change the hashes only a little, so
+		   mostly the same keys keep colliding - multiply to change all
+		   the bits for each try (see KEYS_HASH_PREFIX_MULTIPLIER). The
+		   multiplication is meant to wrap. */
+		for (i = 0; i < KEYS_HASH_PREFIX_TRIES; i++) {
+			key_prefix = (uint32_t)((uint64_t)i *
+						KEYS_HASH_PREFIX_MULTIPLIER);
+			if (config_dump_keys_hash_try(key_hashes, keys_count,
+						      key_prefix,
+						      hash_table_size, table))
+				break;
 		}
+		i_free(table);
+		if (i < KEYS_HASH_PREFIX_TRIES)
+			break;
 		/* Continue with a larger hash table size until we succeed.
 		   In theory this could cause huge hash table sizes (or even
 		   out of memory), but practically that shouldn't happen. */
 		hash_table_size = primes_closest(hash_table_size + 1);
 	}
+	i_free(key_hashes);
+	config_dump_keys_hash(config, buf, key_prefix, hash_table_size);
 }
 
 static void
