@@ -147,4 +147,11 @@ int settings_bin_filter_index_read(struct settings_bin_filter_index *index_r,
 				   const unsigned char *data, size_t data_size,
 				   uint32_t block_filter_count,
 				   const char **error_r);
+/* Returns the list of block filter indexes (in descending order) for the
+   filter name, or NULL if there are no such filters. The list begins with
+   the count. */
+const uint32_t *
+settings_bin_filter_index_lookup(const struct settings_bin_filter_index *index,
+				 const char *name);
+
 #endif

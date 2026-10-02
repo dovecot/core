@@ -1141,6 +1141,23 @@ settings_mmap_apply_filter(struct settings_apply_ctx *ctx,
 	return 0;
 }
 
+static void
+settings_filter_candidates_append(ARRAY_TYPE(uint32_t) *candidates,
+				  const uint32_t *list)
+{
+	if (list[0] > 0)
+		array_append(candidates, list + 1, list[0]);
+}
+
+static int uint32_cmp_desc(const uint32_t *i1, const uint32_t *i2)
+{
+	if (*i1 > *i2)
+		return -1;
+	if (*i1 < *i2)
+		return 1;
+	return 0;
+}
+
 static int
 settings_apply_groups(struct settings_apply_ctx *ctx,
 		      struct settings_mmap *mmap,
@@ -1163,29 +1180,50 @@ settings_apply_groups(struct settings_apply_ctx *ctx,
 	}
 
 	const struct settings_bin_filters *filters = &mmap->filters;
-	/* All group filters are at the end. When we see a non-group filter,
-	   we can stop. Note that a group filter can also be one that never
-	   matches in this process. */
+	ARRAY_TYPE(uint32_t) candidates;
+	t_array_init(&candidates, 8);
+	const char *const *names;
+	unsigned int i, names_count;
+	names = array_get(&ctx->lookup.filter_names, &names_count);
+	for (i = orig_names_count; i < names_count; i++) {
+		const uint32_t *list =
+			settings_bin_filter_index_lookup(&block->filter_index,
+							 names[i]);
+		if (list != NULL)
+			settings_filter_candidates_append(&candidates, list);
+	}
+	array_sort(&candidates, uint32_cmp_desc);
+
 	int ret = 0;
-	for (uint32_t i = block->filter_count; i > 0; ) {
-		i--;
+	uint32_t prev_idx = UINT32_MAX, filter_idx;
+	array_foreach_elem(&candidates, filter_idx) {
+		if (filter_idx == prev_idx)
+			continue;
+		prev_idx = filter_idx;
+		if (filter_idx <= include_filter_idx) {
+			/* Group filters are always after the filters
+			   including them. Only a corrupted index can have
+			   these. */
+			continue;
+		}
+
 		uint32_t event_filter_idx;
-		if (settings_mmap_get_filter_idx(mmap, block, i,
+		if (settings_mmap_get_filter_idx(mmap, block, filter_idx,
 						 &event_filter_idx, error_r) < 0) {
 			ret = -1;
 			break;
 		}
-
-		const struct settings_bin_filter *filter =
-			settings_bin_filters_get(filters, event_filter_idx);
-		if ((filter->flags & SETTINGS_BIN_FILTER_FLAG_GROUP) == 0)
-			break;
 		if (settings_bin_filters_never(filters, event_filter_idx))
 			continue;
 
-		i_assert(i > include_filter_idx);
+		const struct settings_bin_filter *filter =
+			settings_bin_filters_get(filters, event_filter_idx);
+		if ((filter->flags & SETTINGS_BIN_FILTER_FLAG_GROUP) == 0) {
+			/* corrupted index */
+			continue;
+		}
 		if (settings_bin_filter_match(filters, filter, &ctx->lookup)) {
-			if (settings_mmap_apply_filter(ctx, block, i,
+			if (settings_mmap_apply_filter(ctx, block, filter_idx,
 						       filter, error_r) < 0) {
 				ret = -1;
 				break;
@@ -1221,13 +1259,36 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 	settings_bin_filter_lookup_init(&ctx->lookup, ctx->event);
 	const struct settings_bin_filters *filters = &mmap->filters;
 
+	/* Find the filters that can match: the filters without names and the
+	   filters whose primary name is one of the lookup's filter names. */
+	ARRAY_TYPE(uint32_t) candidates;
+	const char *name;
+	t_array_init(&candidates, 32);
+	settings_filter_candidates_append(&candidates,
+					  block->filter_index.noname_list);
+	array_foreach_elem(&ctx->lookup.filter_names, name) {
+		const uint32_t *list =
+			settings_bin_filter_index_lookup(&block->filter_index,
+							 name);
+		if (list != NULL)
+			settings_filter_candidates_append(&candidates, list);
+	}
+	array_sort(&candidates, uint32_cmp_desc);
+
 	/* Go through the filters in reverse sorted order, so we always set the
 	   setting just once, never overriding anything. A filter for the base
 	   settings is expected to always exist. */
-	for (uint32_t i = block->filter_count; i > 0; ) {
-		i--;
+	uint32_t prev_idx = UINT32_MAX, filter_idx;
+	array_foreach_elem(&candidates, filter_idx) {
+		if (filter_idx == prev_idx) {
+			/* same filter name was in the lookup multiple
+			   times */
+			continue;
+		}
+		prev_idx = filter_idx;
+
 		uint32_t event_filter_idx;
-		if (settings_mmap_get_filter_idx(mmap, block, i,
+		if (settings_mmap_get_filter_idx(mmap, block, filter_idx,
 						 &event_filter_idx, error_r) < 0)
 			return -1;
 		if (settings_bin_filters_never(filters, event_filter_idx))
@@ -1239,12 +1300,13 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 			continue;
 
 		i_assert((filter->flags & SETTINGS_BIN_FILTER_FLAG_GROUP) == 0);
-		if (settings_mmap_apply_filter(ctx, block, i,
+		if (settings_mmap_apply_filter(ctx, block, filter_idx,
 					       filter, error_r) < 0)
 			return -1;
 
 		/* Apply all group includes */
-		if (settings_apply_groups(ctx, mmap, block, i, error_r) < 0)
+		if (settings_apply_groups(ctx, mmap, block, filter_idx,
+					  error_r) < 0)
 			return -1;
 	}
 	return ctx->seen_filter ? 1 : 0;

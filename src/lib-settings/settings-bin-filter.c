@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "hash.h"
 #include "dns-util.h"
 #include "settings.h"
 #include "settings-bin-filter.h"
@@ -543,4 +544,26 @@ int settings_bin_filter_index_read(struct settings_bin_filter_index *index_r,
 			return -1;
 	}
 	return 0;
+}
+
+const uint32_t *
+settings_bin_filter_index_lookup(const struct settings_bin_filter_index *index,
+				 const char *name)
+{
+	if (index->hash_count == 0)
+		return NULL;
+
+	uint32_t key_hash = str_stable_hash(name) % index->hash_count;
+	for (uint32_t i = 0; i < index->hash_count; i++) {
+		uint32_t name_offset = index->hash[key_hash * 2];
+		if (name_offset == 0)
+			break;
+		if (strcmp((const char *)index->base + name_offset,
+			   name) == 0) {
+			return (const void *)(index->base +
+					      index->hash[key_hash * 2 + 1]);
+		}
+		key_hash = (key_hash + 1) % index->hash_count;
+	}
+	return NULL;
 }
