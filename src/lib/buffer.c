@@ -12,6 +12,14 @@
    and it's been checked to work correctly with memcpy(). */
 #undef memcpy
 
+/* sized_by(alloc): byte bound for w_buffer. Empty when unsupported so
+   default builds are unchanged. */
+#if defined(__has_attribute) && __has_attribute(sized_by)
+#  define ATTR_SIZED_BY(member) __attribute__((sized_by(member)))
+#else
+#  define ATTR_SIZED_BY(member)
+#endif
+
 struct real_buffer {
 	union {
 		struct buffer buf;
@@ -20,7 +28,7 @@ struct real_buffer {
 			const void *r_buffer;
 			size_t used;
 			/* private: */
-			unsigned char *w_buffer;
+			unsigned char *w_buffer ATTR_SIZED_BY(alloc);
 			size_t dirty, alloc, writable_size, max_size;
 
 			pool_t pool;
@@ -34,6 +42,8 @@ typedef int buffer_check_sizes[COMPILE_ERROR_IF_TRUE(sizeof(struct real_buffer) 
 
 static void buffer_alloc(struct real_buffer *buf, size_t size)
 {
+	unsigned char *new_buffer;
+
 	i_assert(buf->w_buffer == NULL || buf->alloced);
 
 	if (size == buf->alloc)
@@ -42,10 +52,12 @@ static void buffer_alloc(struct real_buffer *buf, size_t size)
 	i_assert(size > buf->alloc);
 
 	if (buf->w_buffer == NULL)
-		buf->w_buffer = p_malloc(buf->pool, size);
+		new_buffer = p_malloc(buf->pool, size);
 	else
-		buf->w_buffer = p_realloc(buf->pool, buf->w_buffer, buf->alloc, size);
+		new_buffer = p_realloc(buf->pool, buf->w_buffer, buf->alloc, size);
+	/* Publish capacity before the pointer so sized_by(alloc) stays sound. */
 	buf->alloc = size;
+	buf->w_buffer = new_buffer;
 	buf->writable_size = size-1; /* -1 for str_c() NUL */
 
 	buf->r_buffer = buf->w_buffer;
