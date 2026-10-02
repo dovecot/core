@@ -643,6 +643,15 @@ settings_block_read(struct settings_mmap *mmap, size_t *_offset,
 				       "filter count", &block->filter_count,
 				       error_r) < 0)
 		return -1;
+	/* Each filter takes at least 8+8+4 bytes */
+	if (block->filter_count > (block_end_offset - offset) / 20) {
+		*error_r = t_strdup_printf(
+			"Filter count %u points outside block "
+			"(offset=%zu, end_offset=%zu)",
+			block->filter_count, offset, block_end_offset);
+		return -1;
+	}
+	size_t filters_offset = offset;
 
 	/* filters */
 	unsigned int filter_idx;
@@ -706,7 +715,25 @@ settings_block_read(struct settings_mmap *mmap, size_t *_offset,
 			offset, block_end_offset);
 		return -1;
 	}
-	*_offset = offset;
+	/* Verify that the filter offsets point to the filters that were just
+	   validated. The filter sizes were already checked above. */
+	offset = filters_offset;
+	for (filter_idx = 0; filter_idx < block->filter_count; filter_idx++) {
+		uint64_t filter_settings_size;
+
+		if (block->filter_offsets[filter_idx] != offset) {
+			*error_r = t_strdup_printf(
+				"Filter %u offset mismatch (%"PRIu64" != %zu)",
+				filter_idx, block->filter_offsets[filter_idx],
+				offset);
+			return -1;
+		}
+		memcpy(&filter_settings_size,
+		       CONST_PTR_OFFSET(mmap->mmap_base, offset),
+		       sizeof(filter_settings_size));
+		offset += sizeof(filter_settings_size) + filter_settings_size;
+	}
+	*_offset = block_end_offset;
 	return 0;
 }
 

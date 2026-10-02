@@ -225,7 +225,7 @@ static const struct {
 	       "K\x00" // setting[0] key
 	       NUM32("\x01") // filter count
 	       "\x00\x00\x00\x00\x00\x00\x00"), // filter settings size
-	  "Area too small when reading size of 'filter settings size'" },
+	  "Filter count 1 points outside block" },
 
 	/* filter settings is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
@@ -245,7 +245,7 @@ static const struct {
 	       "K\x00" // setting[0] key
 	       NUM32("\x01") // filter count
 	       NUM64("\x10")), // filter settings size
-	  "'filter settings size' points outside area" },
+	  "Filter count 1 points outside block" },
 	/* filter error is missing */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
 	       NUM64("\x47") // full size
@@ -437,7 +437,7 @@ static const struct {
 	       "\x00" // filter error string
 	       NUM32("\x00") // include group count
 	       "\x00\x00\x00\x00\x00\x00" // 64bit padding
-	       NUM64("\x00") // filter[0] settings offset
+	       NUM64("\x4D") // filter[0] settings offset
 	       NUM32("\x00") // filter[0] event filter index
 	       "\x00" // safety NUL
 	       NUM64("\x02") // 2nd block size
