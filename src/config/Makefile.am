@@ -96,11 +96,17 @@ EXTRA_DIST = \
 	settings-get.pl
 
 test_programs = \
+	test-config-dump-full \
 	test-config-parser
 
 test_libs = \
 	$(noinst_LTLIBRARIES) \
 	$(LIBDOVECOT)
+
+test_config_dump_full_CFLAGS = $(AM_CFLAGS)
+test_config_dump_full_SOURCES = test-config-dump-full.c
+test_config_dump_full_LDADD = $(test_libs)
+test_config_dump_full_DEPENDENCIES = $(LIBDOVECOT_DEPS) $(noinst_LTLIBRARIES)
 
 test_config_parser_CFLAGS = $(AM_CFLAGS)
 test_config_parser_SOURCES = test-config-parser.c
