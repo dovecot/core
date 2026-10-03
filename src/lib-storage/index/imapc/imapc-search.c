@@ -16,6 +16,12 @@
 #define IMAPC_SEARCHCTX(obj) \
 	MODULE_CONTEXT(obj, imapc_storage_module)
 
+/* Absolute fallback limit for the number of UIDs in an ESEARCH response,
+   used only when the mailbox's EXISTS count can't be trusted
+   (imapc_features=no-msn-updates). 1M UIDs is 4 MiB; a SORT response
+   larger than that is unreasonable. */
+#define IMAPC_ESEARCH_MAX_UIDS 1000000
+
 ARRAY_DEFINE_TYPE(imapc_search_arg, struct mail_search_arg *);
 
 static bool
@@ -531,14 +537,28 @@ static void imapc_search_reply_esort(const struct imap_arg *args,
 				     struct imapc_mailbox *mbox)
 {
 	const char *atom;
+	unsigned int max_uids;
 
 	/* It should contain UID ALL <uidset> or just UID if nothing matched */
 	i_assert(mbox->search_ctx != NULL);
+
+	/* The reply can't contain more UIDs than the mailbox has messages.
+	   Bound the sequence-set expansion by it, so a malicious or buggy
+	   server can't exhaust our memory with a huge range: a 13-byte
+	   "1:4294967294" would otherwise expand to ~17 GiB. (With
+	   imapc_features=no-msn-updates the EXISTS count may be stale, so
+	   fall back to a generous absolute limit there.) */
+	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES))
+		max_uids = IMAPC_ESEARCH_MAX_UIDS;
+	else
+		max_uids = mbox->exists_count;
+
 	if (!imap_arg_atom_equals(&args[0], "UID") ||
 	    (args[1].type != IMAP_ARG_EOL &&
 	     (!imap_arg_atom_equals(&args[1], "ALL") ||
 	      !imap_arg_get_atom(&args[2], &atom) ||
-	      imap_seq_set_ordered_parse(atom, &mbox->search_ctx->sorted_uids) < 0)))
+	      imap_seq_set_ordered_parse(atom, &mbox->search_ctx->sorted_uids,
+					 max_uids) < 0)))
 		e_error(mbox->box.event, "Invalid ESEARCH reply for SORT");
 }
 
