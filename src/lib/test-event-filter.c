@@ -1123,6 +1123,52 @@ static void test_event_filter_timeval_values(void)
 	test_end();
 }
 
+static void test_event_filter_source_location(void)
+{
+	static const struct {
+		const char *filter;
+		const char *source_filename;
+		unsigned int source_linenum;
+		bool match;
+	} tests[] = {
+		{ "source_location=foo.c", "foo.c", 123, TRUE },
+		{ "source_location=foo.c", "foo.cc", 123, FALSE },
+		{ "source_location=foo.c", "xfoo.c", 123, FALSE },
+		{ "source_location=foo.c:123", "foo.c", 123, TRUE },
+		{ "source_location=foo.c:123", "foo.c", 12, FALSE },
+		{ "source_location=foo.c:123", "foo.c", 1234, FALSE },
+		{ "source_location=foo.c:123", "foo.cc", 123, FALSE },
+		{ "source_location=foo.c:123", "foo", 123, FALSE },
+		{ "source_location=foo.c:123", "xfoo.c", 123, FALSE },
+		{ "source_location=foo.c:", "foo.c", 0, FALSE },
+		{ "source_location=foo.c:x", "foo.c", 0, FALSE },
+		{ "source_location=\"a:b.lua:5\"", "a:b.lua", 5, TRUE },
+		{ "source_location=\"a:b.lua:5\"", "a", 5, FALSE },
+		{ "NOT source_location=foo.c:123", "foo.c", 123, FALSE },
+		{ "NOT source_location=foo.c:123", "foo.c", 12, TRUE },
+	};
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG,
+	};
+	struct event_filter *filter;
+	const char *error;
+
+	test_begin("event filter: source_location");
+	struct event *e = event_create(NULL);
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		filter = event_filter_create();
+		test_assert_idx(event_filter_parse(tests[i].filter, filter,
+						   &error) == 0, i);
+		test_assert_idx(event_filter_match_source(filter, e,
+				tests[i].source_filename,
+				tests[i].source_linenum,
+				&failure_ctx) == tests[i].match, i);
+		event_filter_unref(&filter);
+	}
+	event_unref(&e);
+	test_end();
+}
+
 static void test_event_filter_has_source_location(void)
 {
 	static const struct {
@@ -1182,5 +1228,6 @@ void test_event_filter(void)
 	test_event_filter_interval_values();
 	test_event_filter_ambiguous_units();
 	test_event_filter_timeval_values();
+	test_event_filter_source_location();
 	test_event_filter_has_source_location();
 }

@@ -1027,6 +1027,25 @@ event_match_field(struct event_filter *filter, struct event *event,
 }
 
 static bool
+event_filter_source_location_match(const char *wanted,
+				   const char *source_filename,
+				   unsigned int source_linenum)
+{
+	const char *p = strrchr(wanted, ':');
+	unsigned int linenum;
+
+	if (p == NULL)
+		return strcmp(wanted, source_filename) == 0;
+
+	/* filename:linenum */
+	size_t filename_len = p - wanted;
+	return strncmp(wanted, source_filename, filename_len) == 0 &&
+		source_filename[filename_len] == '\0' &&
+		str_to_uint(p + 1, &linenum) == 0 &&
+		linenum == source_linenum;
+}
+
+static bool
 event_filter_query_match_cmp(struct event_filter *filter,
 			     struct event_filter_node *node,
 			     struct event *event, const char *source_filename,
@@ -1049,17 +1068,10 @@ event_filter_query_match_cmp(struct event_filter *filter,
 			return (event->sending_name != NULL) &&
 				wildcard_match_escaped(event->sending_name,
 						       node->field.value.str);
-		case EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION: {
-			bool ret;
-			if (strchr(node->field.value.str, ':') == NULL)
-				ret = strcmp(node->field.value.str, source_filename) == 0;
-			else T_BEGIN {
-				const char *wanted_str =
-					t_strdup_printf("%s:%u", source_filename, source_linenum);
-				ret = strcmp(node->field.value.str, wanted_str) == 0;
-			} T_END;
-			return ret;
-		}
+		case EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION:
+			return event_filter_source_location_match(
+				node->field.value.str,
+				source_filename, source_linenum);
 		case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
 			return event_has_category(event, node, log_type);
 		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT:
