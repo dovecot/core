@@ -13,12 +13,14 @@ static struct event_filter *global_core_log_filter = NULL;
 static ARRAY(struct event_filter *) global_debug_send_filters;
 static bool global_log_filters_have_source_location = FALSE;
 
+#undef event_want_level
 #undef e_error
 void e_error(struct event *event,
 	     const char *source_filename, unsigned int source_linenum,
 	     const char *fmt, ...)
 {
-	if (!event_want_level(event, LOG_TYPE_ERROR)) {
+	if (!event_want_level(event, LOG_TYPE_ERROR,
+			      source_filename, source_linenum)) {
 		event_send_abort(event);
 		return;
 	}
@@ -41,7 +43,8 @@ void e_warning(struct event *event,
 	       const char *source_filename, unsigned int source_linenum,
 	       const char *fmt, ...)
 {
-	if (!event_want_level(event, LOG_TYPE_WARNING)) {
+	if (!event_want_level(event, LOG_TYPE_WARNING,
+			      source_filename, source_linenum)) {
 		event_send_abort(event);
 		return;
 	}
@@ -64,7 +67,8 @@ void e_info(struct event *event,
 	    const char *source_filename, unsigned int source_linenum,
 	    const char *fmt, ...)
 {
-	if (!event_want_level(event, LOG_TYPE_INFO)) {
+	if (!event_want_level(event, LOG_TYPE_INFO,
+			      source_filename, source_linenum)) {
 		event_send_abort(event);
 		return;
 	}
@@ -315,7 +319,6 @@ bool event_want_log_level(struct event *event, enum log_type level,
 	return event->sending_debug_log;
 }
 
-#undef event_want_level
 bool event_want_level(struct event *event, enum log_type level,
 		      const char *source_filename,
 		      unsigned int source_linenum)
