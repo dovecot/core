@@ -1123,6 +1123,43 @@ static void test_event_filter_timeval_values(void)
 	test_end();
 }
 
+static void test_event_filter_has_source_location(void)
+{
+	static const struct {
+		const char *filter;
+		bool has_source_location;
+	} tests[] = {
+		{ "event=foo", FALSE },
+		{ "category=foo OR field=value", FALSE },
+		{ "source_location=foo.c", TRUE },
+		{ "source_location=foo.c:123", TRUE },
+		{ "event=foo AND source_location=foo.c", TRUE },
+		{ "event=foo OR (field=value AND source_location=foo.c)", TRUE },
+		{ "event=foo AND NOT source_location=foo.c", TRUE },
+	};
+	struct event_filter *filter;
+	const char *error;
+
+	test_begin("event filter: has source_location");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		filter = event_filter_create();
+		test_assert_idx(event_filter_parse(tests[i].filter, filter,
+						   &error) == 0, i);
+		test_assert_idx(event_filter_has_source_location(filter) ==
+				tests[i].has_source_location, i);
+		event_filter_unref(&filter);
+	}
+
+	/* each query is checked */
+	filter = event_filter_create();
+	test_assert(event_filter_parse("event=foo", filter, &error) == 0);
+	test_assert(event_filter_parse("source_location=foo.c", filter,
+				       &error) == 0);
+	test_assert(event_filter_has_source_location(filter));
+	event_filter_unref(&filter);
+	test_end();
+}
+
 void test_event_filter(void)
 {
 	test_event_filter_strings();
@@ -1145,4 +1182,5 @@ void test_event_filter(void)
 	test_event_filter_interval_values();
 	test_event_filter_ambiguous_units();
 	test_event_filter_timeval_values();
+	test_event_filter_has_source_location();
 }

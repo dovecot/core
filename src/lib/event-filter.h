@@ -59,6 +59,10 @@ const char *event_filter_find_field_exact(struct event_filter *filter,
 /* Returns TRUE if the event filter has key=prefix prefix string. */
 bool event_filter_has_field_prefix(struct event_filter *filter,
 				   const char *key, const char *prefix);
+/* Returns TRUE if the event filter has any source_location=value, including
+   negated ones. The filter's match result may then be different for each
+   source location. */
+bool event_filter_has_source_location(struct event_filter *filter);
 
 /* Returns TRUE if the event matches the event filter. */
 bool event_filter_match(struct event_filter *filter, struct event *event,

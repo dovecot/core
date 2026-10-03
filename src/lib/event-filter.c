@@ -342,6 +342,32 @@ bool event_filter_has_field_prefix(struct event_filter *filter,
 	return FALSE;
 }
 
+static bool
+event_filter_node_has_source_location(const struct event_filter_node *node)
+{
+	switch (node->op) {
+	case EVENT_FILTER_OP_AND:
+	case EVENT_FILTER_OP_OR:
+		return event_filter_node_has_source_location(node->children[0]) ||
+			event_filter_node_has_source_location(node->children[1]);
+	case EVENT_FILTER_OP_NOT:
+		return event_filter_node_has_source_location(node->children[0]);
+	default:
+		return node->type == EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION;
+	}
+}
+
+bool event_filter_has_source_location(struct event_filter *filter)
+{
+	const struct event_filter_query_internal *query;
+
+	array_foreach(&filter->queries, query) {
+		if (event_filter_node_has_source_location(query->expr))
+			return TRUE;
+	}
+	return FALSE;
+}
+
 bool event_filter_category_to_log_type(const char *name,
 				       enum event_filter_log_type *log_type_r)
 {
