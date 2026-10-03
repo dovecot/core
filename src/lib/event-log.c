@@ -11,6 +11,7 @@ unsigned int event_filter_replace_counter = 1;
 static struct event_filter *global_debug_log_filter = NULL;
 static struct event_filter *global_core_log_filter = NULL;
 static ARRAY(struct event_filter *) global_debug_send_filters;
+static bool global_log_filters_have_source_location = FALSE;
 
 #undef e_error
 void e_error(struct event *event,
@@ -288,8 +289,12 @@ bool event_want_log_level(struct event *event, enum log_type level,
 		   whether the filters would match. */
 		return event->sending_debug_log;
 	}
-	event->debug_level_checked_filter_counter =
-		event_filter_replace_counter;
+	/* With source_location filters the result can be different for each
+	   source location, so it can't be cached. */
+	if (!global_log_filters_have_source_location) {
+		event->debug_level_checked_filter_counter =
+			event_filter_replace_counter;
+	}
 
 	if (event->forced_debug) {
 		/* Debugging is forced for this event (and its children) */
@@ -432,12 +437,22 @@ struct event *event_set_forced_never_debug(struct event *event, bool force)
 	return event;
 }
 
+static void event_global_log_filters_updated(void)
+{
+	global_log_filters_have_source_location =
+		(global_debug_log_filter != NULL &&
+		 event_filter_has_source_location(global_debug_log_filter)) ||
+		(global_core_log_filter != NULL &&
+		 event_filter_has_source_location(global_core_log_filter));
+	event_filter_replace_counter++;
+}
+
 void event_set_global_debug_log_filter(struct event_filter *filter)
 {
 	event_unset_global_debug_log_filter();
 	global_debug_log_filter = filter;
 	event_filter_ref(global_debug_log_filter);
-	event_filter_replace_counter++;
+	event_global_log_filters_updated();
 }
 
 struct event_filter *event_get_global_debug_log_filter(void)
@@ -448,7 +463,7 @@ struct event_filter *event_get_global_debug_log_filter(void)
 void event_unset_global_debug_log_filter(void)
 {
 	event_filter_unref(&global_debug_log_filter);
-	event_filter_replace_counter++;
+	event_global_log_filters_updated();
 }
 
 struct event_filter **event_global_debug_send_filter_register(void)
@@ -466,7 +481,7 @@ void event_set_global_core_log_filter(struct event_filter *filter)
 	event_unset_global_core_log_filter();
 	global_core_log_filter = filter;
 	event_filter_ref(global_core_log_filter);
-	event_filter_replace_counter++;
+	event_global_log_filters_updated();
 }
 
 struct event_filter *event_get_global_core_log_filter(void)
@@ -477,7 +492,7 @@ struct event_filter *event_get_global_core_log_filter(void)
 void event_unset_global_core_log_filter(void)
 {
 	event_filter_unref(&global_core_log_filter);
-	event_filter_replace_counter++;
+	event_global_log_filters_updated();
 }
 
 void event_log_init(void)
