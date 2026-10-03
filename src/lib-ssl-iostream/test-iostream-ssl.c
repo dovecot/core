@@ -551,12 +551,231 @@ static void test_iostream_ssl_small_packets(void)
 	test_end();
 }
 
+static void cork_input_callback(struct test_endpoint *ep)
+{
+	const unsigned char *data;
+	size_t size;
+	ssize_t ret;
+
+	while ((ret = i_stream_read_more(ep->input, &data, &size)) > 0) {
+		test_assert(ep->last_write->used >= size);
+		if (ep->last_write->used >= size) {
+			test_assert(memcmp(ep->last_write->data, data,
+					   size) == 0);
+			buffer_delete(ep->last_write, 0, size);
+		}
+		i_stream_skip(ep->input, size);
+	}
+	if (ret < 0)
+		test_assert(ep->input->stream_errno == 0);
+	if (ep->last_write->used == 0)
+		io_loop_stop(current_ioloop);
+}
+
+static void cork_timeout_callback(struct test_endpoint *ep)
+{
+	ep->failed = TRUE;
+	io_loop_stop(current_ioloop);
+}
+
+/* Run ioloop until the client has read everything the server wrote */
+static void test_iostream_ssl_cork_wait(struct test_endpoint *client)
+{
+	struct timeout *to;
+
+	to = timeout_add(5000, cork_timeout_callback, client);
+	io_loop_run(current_ioloop);
+	timeout_remove(&to);
+	test_assert(!client->failed);
+	test_assert(client->last_write->used == 0);
+}
+
+static void
+test_ssl_endpoints_create(struct test_endpoint **server_r,
+			  struct test_endpoint **client_r)
+{
+	struct ssl_iostream_settings set;
+	struct test_endpoint *server, *client;
+	int fd[2];
+	const char *error;
+
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) < 0)
+		i_fatal("socketpair() failed: %m");
+	fd_set_nonblock(fd[0], TRUE);
+	fd_set_nonblock(fd[1], TRUE);
+
+	ssl_iostream_test_settings_server(&set);
+	server = create_test_endpoint(fd[0], &set);
+	ssl_iostream_test_settings_client(&set);
+	set.allow_invalid_cert = TRUE;
+	client = create_test_endpoint(fd[1], &set);
+	client->client = TRUE;
+
+	test_assert(ssl_iostream_context_init_server(server->set, &server->ctx,
+						     &error) == 0);
+	test_assert(ssl_iostream_context_init_client(client->set, &client->ctx,
+						     &error) == 0);
+
+	client->other = server;
+	server->other = client;
+
+	test_assert(io_stream_create_ssl_server(server->ctx, NULL,
+						&server->input, &server->output,
+						&server->iostream,
+						&error) == 0);
+	test_assert(io_stream_create_ssl_client(client->ctx, "localhost",
+						NULL, 0,
+						&client->input, &client->output,
+						&client->iostream,
+						&error) == 0);
+	o_stream_set_no_error_handling(server->output, TRUE);
+
+	*server_r = server;
+	*client_r = client;
+}
+
+static void
+test_ssl_endpoints_destroy(struct test_endpoint **server,
+			   struct test_endpoint **client)
+{
+	i_stream_unref(&(*server)->input);
+	o_stream_unref(&(*server)->output);
+	i_stream_unref(&(*client)->input);
+	o_stream_unref(&(*client)->output);
+
+	destroy_test_endpoint(server);
+	destroy_test_endpoint(client);
+	ssl_iostream_context_cache_free();
+}
+
+static void test_iostream_ssl_cork(void)
+{
+	static const char line[] = "hello world\n";
+	static const size_t iov_lens[] = { 700, 0, 700, 8000 };
+	struct test_endpoint *server, *client;
+	struct ioloop *ioloop;
+	struct ostream *plain_output;
+	struct const_iovec iov[N_ELEMENTS(iov_lens)];
+	unsigned char data[10000];
+	uoff_t plain_offset;
+	size_t pos;
+
+	test_begin("ssl: o_stream_cork");
+
+	ioloop = io_loop_create();
+	test_ssl_endpoints_create(&server, &client);
+
+	/* handshake */
+	server->io = io_add_istream(server->input, handshake_input_callback,
+				    server);
+	client->io = io_add_istream(client->input, handshake_input_callback,
+				    client);
+	test_assert(ssl_iostream_handshake(client->iostream) == 0);
+	io_loop_run(ioloop);
+	test_assert(ssl_iostream_is_handshaked(server->iostream));
+	test_assert(ssl_iostream_is_handshaked(client->iostream));
+	io_remove(&server->io);
+	io_remove(&client->io);
+	client->io = io_add_istream(client->input, cork_input_callback, client);
+
+	plain_output = server->iostream->plain_output;
+
+	/* corked writes are only buffered, nothing reaches the plain ostream
+	   until uncorking. (The output's max_buffer_size is 1024.) */
+	plain_offset = plain_output->offset;
+	o_stream_cork(server->output);
+	for (unsigned int i = 0; i < 50; i++) {
+		o_stream_nsend_str(server->output, line);
+		buffer_append(client->last_write, line, strlen(line));
+	}
+	test_assert(plain_output->offset == plain_offset);
+	test_assert(o_stream_get_buffer_used_size(server->output) ==
+		    50 * strlen(line));
+	o_stream_uncork(server->output);
+	test_assert(server->output->stream_errno == 0);
+	test_assert(plain_output->offset > plain_offset);
+	test_assert(o_stream_get_buffer_used_size(server->output) == 0);
+	test_iostream_ssl_cork_wait(client);
+
+	/* uncorked writes are written immediately */
+	plain_offset = plain_output->offset;
+	o_stream_nsend_str(server->output, line);
+	buffer_append(client->last_write, line, strlen(line));
+	test_assert(plain_output->offset > plain_offset);
+	test_iostream_ssl_cork_wait(client);
+
+	/* a write larger than max_buffer_size doesn't overflow the stream */
+	random_fill(data, sizeof(data));
+	o_stream_set_max_buffer_size(server->output, 1024);
+	o_stream_nsend(server->output, data, sizeof(data));
+	buffer_append(client->last_write, data, sizeof(data));
+	test_assert(!server->output->overflow);
+	test_assert(o_stream_flush(server->output) >= 0);
+	test_assert(server->output->stream_errno == 0);
+	test_iostream_ssl_cork_wait(client);
+
+	/* same while corked */
+	o_stream_cork(server->output);
+	o_stream_nsend(server->output, data, sizeof(data));
+	buffer_append(client->last_write, data, sizeof(data));
+	test_assert(!server->output->overflow);
+	o_stream_uncork(server->output);
+	test_assert(server->output->stream_errno == 0);
+	test_iostream_ssl_cork_wait(client);
+
+	/* same with multiple iovecs, so the full buffer is flushed in the
+	   middle of an iovec. Do it uncorked and corked. */
+	for (unsigned int n = 0; n < 2; n++) {
+		pos = 0;
+		for (unsigned int i = 0; i < N_ELEMENTS(iov_lens); i++) {
+			iov[i].iov_base = data + pos;
+			iov[i].iov_len = iov_lens[i];
+			pos += iov_lens[i];
+		}
+		i_assert(pos <= sizeof(data));
+		buffer_append(client->last_write, data, pos);
+		if (n == 1)
+			o_stream_cork(server->output);
+		o_stream_nsendv(server->output, iov, N_ELEMENTS(iov));
+		test_assert(!server->output->overflow);
+		if (n == 1)
+			o_stream_uncork(server->output);
+		else
+			test_assert(o_stream_flush(server->output) >= 0);
+		test_assert(server->output->stream_errno == 0);
+		test_iostream_ssl_cork_wait(client);
+	}
+
+	/* with unlimited max_buffer_size, corked writes don't grow the buffer
+	   without limit. Full TLS records are written out. */
+	o_stream_set_max_buffer_size(server->output, SIZE_MAX);
+	plain_offset = plain_output->offset;
+	o_stream_cork(server->output);
+	for (unsigned int i = 0; i < 1000; i++) {
+		o_stream_nsend(server->output, data, 100);
+		buffer_append(client->last_write, data, 100);
+	}
+	test_assert(plain_output->offset > plain_offset);
+	/* the SSL ostream's own buffer has less than one TLS record */
+	test_assert(o_stream_get_buffer_used_size(server->output) -
+		    o_stream_get_buffer_used_size(plain_output) <
+		    SSL3_RT_MAX_PLAIN_LENGTH);
+	o_stream_uncork(server->output);
+	test_assert(server->output->stream_errno == 0);
+	test_iostream_ssl_cork_wait(client);
+
+	test_ssl_endpoints_destroy(&server, &client);
+	io_loop_destroy(&ioloop);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_iostream_ssl_handshake,
 		test_iostream_ssl_get_buffer_avail_size,
 		test_iostream_ssl_small_packets,
+		test_iostream_ssl_cork,
 		NULL
 	};
 	ssl_iostream_openssl_init();
