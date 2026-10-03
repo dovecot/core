@@ -3,6 +3,7 @@
 #include "test-lib.h"
 #include "ioloop.h"
 #include "str.h"
+#include "event-filter.h"
 #include "failures-private.h"
 
 #include <unistd.h>
@@ -2503,6 +2504,72 @@ static void test_event_log_level(int log_fd)
 	test_end();
 }
 
+static unsigned int test_log_source_lines[3];
+
+static void test_event_log_source_lines(struct event *event)
+{
+	test_log_source_lines[0] = __LINE__ + 1;
+	e_debug(event, "Debug event");
+	test_log_source_lines[1] = __LINE__ + 1;
+	e_info(event, "Info event");
+	test_log_source_lines[2] = __LINE__ + 1;
+	e_warning(event, "Warning event");
+}
+
+static const char *
+test_event_log_source_location(int log_fd, const char *filter_str)
+{
+	struct event_filter *filter = event_filter_create();
+	const char *error;
+
+	if (event_filter_parse(filter_str, filter, &error) < 0)
+		i_panic("event_filter_parse(%s) failed: %s", filter_str, error);
+	event_set_global_debug_log_filter(filter);
+	event_filter_unref(&filter);
+
+	struct event *event = event_create(NULL);
+	event_set_min_log_level(event, LOG_TYPE_ERROR);
+	test_event_log_source_lines(event);
+	event_unref(&event);
+
+	event_unset_global_debug_log_filter();
+	const char *output = read_log_line(log_fd);
+	return output == NULL ? "" : t_strdup(output);
+}
+
+static void test_event_log_level_source_location(int log_fd)
+{
+	test_begin("event log level source_location filter");
+
+	/* get the source line numbers */
+	struct event *event = event_create(NULL);
+	event_set_min_log_level(event, LOG_TYPE_ERROR);
+	test_event_log_source_lines(event);
+	event_unref(&event);
+	test_assert(read_log_line(log_fd) == NULL);
+
+	test_assert_strcmp(test_event_log_source_location(log_fd,
+		"source_location=test-event-log.c"),
+		"Debug: Debug event\nInfo: Info event\nWarning: Warning event");
+	test_assert_strcmp(test_event_log_source_location(log_fd,
+		"source_location=event-log.c"), "");
+
+	/* Each line must be matched with its own source location. The
+	   earlier lines' results must not be used for the later lines. */
+	static const char *const results[] = {
+		"Debug: Debug event",
+		"Info: Info event",
+		"Warning: Warning event",
+	};
+	for (unsigned int i = 0; i < N_ELEMENTS(results); i++) {
+		test_assert_strcmp_idx(test_event_log_source_location(log_fd,
+			t_strdup_printf("source_location=test-event-log.c:%u",
+					test_log_source_lines[i])),
+			results[i], i);
+	}
+	test_end();
+}
+
 void test_event_log(void)
 {
 	test_event_duration();
@@ -2514,6 +2581,7 @@ void test_event_log(void)
 	int log_fd = temp_log_file_init();
 	test_event_log_message(log_fd);
 	test_event_log_level(log_fd);
+	test_event_log_level_source_location(log_fd);
 
 	i_set_failure_file("/dev/stderr", "");
 	i_set_error_handler(orig_error);
