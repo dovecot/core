@@ -442,9 +442,16 @@ mail_cache_map_full(struct mail_cache *cache, size_t offset, size_t size,
 	}
 
 	cache->remap_counter++;
-	if (cache->map_with_read)
-		return mail_cache_map_with_read(cache, offset, size, data_r,
-						corrupted_r);
+	if (cache->map_with_read) {
+		ret = mail_cache_map_with_read(cache, offset, size, data_r,
+					       corrupted_r);
+		if (ret > 0 && offset + orig_size > cache->mmap_length) {
+			/* requested offset/size points outside file. size may
+			   have been truncated to the file size. */
+			return 0;
+		}
+		return ret;
+	}
 
 	if (cache->file_cache != NULL) {
 		ret = file_cache_read(cache->file_cache, offset, size);
@@ -466,7 +473,9 @@ mail_cache_map_full(struct mail_cache *cache, size_t offset, size_t size,
 					  &cache->mmap_length);
 		*data_r = offset > cache->mmap_length ? NULL :
 			CONST_PTR_OFFSET(data, offset);
-		return mail_cache_map_finish(cache, offset, size,
+		/* use orig_size, since size may have been truncated to the
+		   file size */
+		return mail_cache_map_finish(cache, offset, orig_size,
 					     offset == 0 ? data : NULL, TRUE,
 					     corrupted_r);
 	}
