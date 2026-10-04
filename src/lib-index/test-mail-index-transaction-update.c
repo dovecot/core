@@ -84,6 +84,64 @@ static void mail_index_transaction_cleanup(struct mail_index_transaction *t)
 		array_free(&t->expunges);
 }
 
+static void test_mail_index_append_too_large_uids(void)
+{
+	struct mail_index_transaction *t;
+	const struct mail_index_record *appends;
+	ARRAY_TYPE(seq_range) saved_uids_arr;
+	uint32_t seq;
+
+	hdr.messages_count = 4;
+	t_array_init(&saved_uids_arr, 128);
+
+	test_begin("mail index append too large uids");
+	/* the last assigned UID would be UINT32_MAX */
+	t = mail_index_transaction_new();
+	mail_index_append(t, 0, &seq);
+	mail_index_append(t, 0, &seq);
+	test_assert(mail_index_append_finish_uids(t, (uint32_t)-2,
+						  &saved_uids_arr) < 0);
+	appends = array_front(&t->appends);
+	test_assert(appends[0].uid == 0 && appends[1].uid == 0);
+	mail_index_transaction_cleanup(t);
+
+	t = mail_index_transaction_new();
+	mail_index_append(t, 0, &seq);
+	test_assert(mail_index_append_finish_uids(t, UINT32_MAX,
+						  &saved_uids_arr) < 0);
+	mail_index_transaction_cleanup(t);
+
+	/* existing UID makes the next UID too large */
+	t = mail_index_transaction_new();
+	mail_index_append(t, (uint32_t)-2, &seq);
+	mail_index_append(t, 0, &seq);
+	test_assert(mail_index_append_finish_uids(t, 1, &saved_uids_arr) < 0);
+	mail_index_transaction_cleanup(t);
+
+	/* UID UINT32_MAX is invalid */
+	t = mail_index_transaction_new();
+	mail_index_append(t, UINT32_MAX, &seq);
+	test_assert(mail_index_append_finish_uids(t, 1, &saved_uids_arr) < 0);
+	mail_index_transaction_cleanup(t);
+
+	/* the highest allowed UIDs */
+	t = mail_index_transaction_new();
+	mail_index_append(t, 0, &seq);
+	mail_index_append(t, 0, &seq);
+	test_assert(mail_index_append_finish_uids(t, (uint32_t)-3,
+						  &saved_uids_arr) == 0);
+	appends = array_front(&t->appends);
+	test_assert(appends[0].uid == (uint32_t)-3);
+	test_assert(appends[1].uid == (uint32_t)-2);
+	mail_index_transaction_cleanup(t);
+
+	t = mail_index_transaction_new();
+	mail_index_append(t, (uint32_t)-2, &seq);
+	test_assert(mail_index_append_finish_uids(t, 1, &saved_uids_arr) == 0);
+	mail_index_transaction_cleanup(t);
+	test_end();
+}
+
 static void test_mail_index_append(void)
 {
 	struct mail_index_transaction *t;
@@ -105,7 +163,7 @@ static void test_mail_index_append(void)
 	test_assert(!t->appends_nonsorted);
 
 	t_array_init(&saved_uids_arr, 128);
-	mail_index_append_finish_uids(t, 123, &saved_uids_arr);
+	test_assert(mail_index_append_finish_uids(t, 123, &saved_uids_arr) == 0);
 	saved_uids = array_get(&saved_uids_arr, &count);
 	test_assert(count == 1);
 	test_assert(saved_uids[0].seq1 == 123 && saved_uids[0].seq2 == 124);
@@ -136,7 +194,7 @@ static void test_mail_index_append(void)
 	test_assert(seq == 9);
 	test_assert(t->highest_append_uid == 128);
 
-	mail_index_append_finish_uids(t, 125, &saved_uids_arr);
+	test_assert(mail_index_append_finish_uids(t, 125, &saved_uids_arr) == 0);
 	saved_uids = array_get(&saved_uids_arr, &count);
 	test_assert(count == 4);
 	test_assert(saved_uids[0].seq1 == 129 && saved_uids[0].seq2 == 129);
@@ -667,6 +725,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mail_index_append,
+		test_mail_index_append_too_large_uids,
 		test_mail_index_flag_update_fastpath,
 		test_mail_index_flag_update_simple_merges,
 		test_mail_index_flag_update_complex_merges,

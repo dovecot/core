@@ -681,16 +681,20 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
    UIDs are >= first_new_uid, and also greater than the highest seen uid (i.e. it
    doesn't try to fill UID gaps). Assumes that mailbox is locked in a way that
    UIDs can be safely assigned. Returns UIDs for all assigned messages, in
-   their sequence order (so UIDs are not necessary ascending). */
-void mail_index_append_finish_uids_full(struct mail_index_transaction *t,
-					uint32_t min_allowed_uid,
-					uint32_t first_new_uid,
-					ARRAY_TYPE(seq_range) *uids_r);
+   their sequence order (so UIDs are not necessary ascending). Returns 0 on
+   success, -1 if the UIDs would become too large (e.g. next_uid is
+   corrupted). Nothing is assigned on failure. */
+int mail_index_append_finish_uids_full(struct mail_index_transaction *t,
+				       uint32_t min_allowed_uid,
+				       uint32_t first_new_uid,
+				       ARRAY_TYPE(seq_range) *uids_r)
+	ATTR_WARN_UNUSED_RESULT;
 /* Call mail_index_append_finish_uids_full() with first_uid used for both
    min_allowed_uid and first_new_uid. */
-void mail_index_append_finish_uids(struct mail_index_transaction *t,
-				   uint32_t first_uid,
-				   ARRAY_TYPE(seq_range) *uids_r);
+int mail_index_append_finish_uids(struct mail_index_transaction *t,
+				  uint32_t first_uid,
+				  ARRAY_TYPE(seq_range) *uids_r)
+	ATTR_WARN_UNUSED_RESULT;
 /* Expunge record from index. Note that this doesn't affect sequence numbers
    until transaction is committed and mailbox is synced. */
 void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq);

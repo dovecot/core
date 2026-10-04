@@ -321,6 +321,18 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		return -1;
 	}
 
+	/* assign UIDs for new messages. do this before assigning map UIDs,
+	   since this can fail if next_uid is corrupted. */
+	hdr = mail_index_get_header(ctx->sync_ctx->sync_view);
+	if (mail_index_append_finish_uids(ctx->ctx.trans, hdr->next_uid,
+					  &_t->changes->saved_uids) < 0) {
+		mailbox_set_critical(_t->box,
+			"Mailbox index next_uid=%u is too large",
+			hdr->next_uid);
+		mdbox_transaction_save_rollback(_ctx);
+		return -1;
+	}
+
 	/* assign map UIDs for newly saved messages after we've successfully
 	   acquired all the locks. the transaction is now very unlikely to
 	   fail. the UIDs are written to the transaction log immediately within
@@ -334,11 +346,6 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	/* update dbox header flags */
 	dbox_save_update_header_flags(&ctx->ctx, ctx->sync_ctx->sync_view,
 		ctx->mbox->hdr_ext_id, offsetof(struct mdbox_index_header, flags));
-
-	/* assign UIDs for new messages */
-	hdr = mail_index_get_header(ctx->sync_ctx->sync_view);
-	mail_index_append_finish_uids(ctx->ctx.trans, hdr->next_uid,
-				      &_t->changes->saved_uids);
 
 	if (ctx->ctx.highest_pop3_uidl_seq != 0) {
 		const struct dbox_save_mail *mails;

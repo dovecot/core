@@ -1879,7 +1879,12 @@ static int virtual_sync_backend_add_new(struct virtual_sync_context *ctx)
 	/* assign UIDs to new messages */
 	first_uid = hdr->next_uid;
 	t_array_init(&saved_uids, 1);
-	mail_index_append_finish_uids(ctx->trans, first_uid, &saved_uids);
+	if (mail_index_append_finish_uids(ctx->trans, first_uid,
+					  &saved_uids) < 0) {
+		mailbox_set_critical(&ctx->mbox->box,
+			"Virtual index next_uid=%u is too large", first_uid);
+		return -1;
+	}
 	i_assert(seq_range_count(&saved_uids) == count);
 
 	/* update virtual UIDs in uidmap */
@@ -2084,7 +2089,10 @@ static int virtual_sync_backend_boxes(struct virtual_sync_context *ctx)
 		virtual_sync_backend_map_uids(ctx);
 		virtual_sync_new_backend_boxes(ctx);
 	}
-	ret = virtual_sync_backend_add_new(ctx);
+	if (virtual_sync_backend_add_new(ctx) < 0) {
+		/* the added uidmaps may not have virtual UIDs */
+		return -1;
+	}
 #ifdef DEBUG
 	for (i = 0; i < count; i++) {
 		const struct virtual_backend_uidmap *uidmap;
@@ -2093,7 +2101,7 @@ static int virtual_sync_backend_boxes(struct virtual_sync_context *ctx)
 			i_assert(uidmap->virtual_uid > 0);
 	}
 #endif
-	return ret;
+	return 0;
 }
 
 static void virtual_sync_backend_boxes_finish(struct virtual_sync_context *ctx)

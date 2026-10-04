@@ -1342,7 +1342,9 @@ int mdbox_map_append_assign_map_uids(struct mdbox_map_append_context *ctx,
 
 	/* assign map UIDs for appended records */
 	t_array_init(&uids, 1);
-	mail_index_append_finish_uids(ctx->trans, hdr->next_uid, &uids);
+	if (mail_index_append_finish_uids(ctx->trans, hdr->next_uid,
+					  &uids) < 0)
+		i_unreached(); /* next_uid was already checked */
 	range = array_front(&uids);
 	i_assert(range[0].seq2 - range[0].seq1 + 1 == count);
 

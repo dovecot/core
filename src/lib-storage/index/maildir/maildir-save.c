@@ -760,8 +760,12 @@ maildir_save_sync_index(struct maildir_save_context *ctx)
 	/* if messages were added to index, assign them UIDs */
 	first_uid = maildir_uidlist_get_next_uid(mbox->uidlist);
 	i_assert(first_uid != 0);
-	mail_index_append_finish_uids(ctx->trans, first_uid,
-				      &_t->changes->saved_uids);
+	if (mail_index_append_finish_uids(ctx->trans, first_uid,
+					  &_t->changes->saved_uids) < 0) {
+		mailbox_set_critical(&mbox->box,
+			"Maildir uidlist next_uid=%u is too large", first_uid);
+		return -1;
+	}
 	i_assert(ctx->files_count == seq_range_count(&_t->changes->saved_uids));
 
 	/* these mails are all recent in our session */

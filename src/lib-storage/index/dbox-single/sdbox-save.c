@@ -309,8 +309,14 @@ int sdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 
 	/* assign UIDs for new messages */
 	hdr = mail_index_get_header(ctx->sync_ctx->sync_view);
-	mail_index_append_finish_uids(ctx->ctx.trans, hdr->next_uid,
-				      &_t->changes->saved_uids);
+	if (mail_index_append_finish_uids(ctx->ctx.trans, hdr->next_uid,
+					  &_t->changes->saved_uids) < 0) {
+		mailbox_set_critical(_t->box,
+			"Mailbox index next_uid=%u is too large",
+			hdr->next_uid);
+		sdbox_transaction_save_rollback(_ctx);
+		return -1;
+	}
 	if (dbox_save_assign_uids(ctx, &_t->changes->saved_uids) < 0) {
 		sdbox_transaction_save_rollback(_ctx);
 		return -1;

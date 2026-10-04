@@ -770,8 +770,10 @@ int mbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 
 	if (ctx->synced) {
 		_t->changes->uid_validity = ctx->uid_validity;
-		mail_index_append_finish_uids(ctx->trans, 0,
-					      &_t->changes->saved_uids);
+		/* mbox sync has already assigned valid UIDs */
+		if (mail_index_append_finish_uids(ctx->trans, 0,
+						  &_t->changes->saved_uids) < 0)
+			i_unreached();
 
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, next_uid),
