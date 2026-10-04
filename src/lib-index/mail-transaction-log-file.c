@@ -214,9 +214,12 @@ mail_transaction_log_file_skip_to_head(struct mail_transaction_log_file *file)
 		file->sync_offset = modseq_hdr->log_offset;
 		file->sync_highest_modseq = modseq_hdr->highest_modseq;
 	}
-	if (file->hdr.file_seq == log->index->map->hdr.log_file_seq) {
+	/* If tail_offset is larger than head_offset, the index header is
+	   corrupted. Don't trust it, since syncing would later assert-crash
+	   when it's beyond what was actually synced. */
+	if (map->hdr.log_file_tail_offset <= head_offset) {
 		file->last_read_hdr_tail_offset =
-			log->index->map->hdr.log_file_tail_offset;
+			map->hdr.log_file_tail_offset;
 	}
 	if (file->last_read_hdr_tail_offset > file->max_tail_offset)
 		file->max_tail_offset = file->last_read_hdr_tail_offset;
