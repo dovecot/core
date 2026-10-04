@@ -5,6 +5,7 @@
 #include "write-full.h"
 #include "test-common.h"
 #include "test-dir.h"
+#include "test-corruption.h"
 #include "mailbox-log.h"
 
 #include <fcntl.h>
@@ -170,6 +171,84 @@ static void test_mailbox_log_iter_all_types(void)
 	test_end();
 }
 
+static failure_callback_t *orig_error_callback;
+
+static void
+test_ignore_errors_handler(const struct failure_context *ctx,
+			   const char *format, va_list args)
+{
+	/* Corruption is expected to be logged as errors */
+	if (ctx->type == LOG_TYPE_ERROR || ctx->type == LOG_TYPE_WARNING)
+		return;
+	orig_error_callback(ctx, format, args);
+}
+
+static void
+test_mailbox_log_corruption_callback(const unsigned char *data, size_t size,
+				     const char *path)
+{
+	struct mailbox_log *log;
+	struct mailbox_log_iter *iter;
+	struct mailbox_log_record rec;
+	int fd;
+
+	test_log_unlink(path);
+	fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	if (fd == -1)
+		i_fatal("creat(%s) failed: %m", path);
+	if (write_full(fd, data, size) < 0)
+		i_fatal("write(%s) failed: %m", path);
+	i_close_fd(&fd);
+
+	log = mailbox_log_alloc(NULL, path);
+	for (unsigned int i = 0; i < 2; i++) {
+		iter = mailbox_log_iter_init(log);
+		while (mailbox_log_iter_next(iter) != NULL) ;
+		(void)mailbox_log_iter_deinit(&iter);
+
+		/* appending must work after iterating */
+		i_zero(&rec);
+		rec.type = MAILBOX_LOG_RECORD_DELETE_MAILBOX;
+		test_assert(mailbox_log_append(log, &rec) == 0);
+	}
+	mailbox_log_free(&log);
+}
+
+static void test_mailbox_log_corruption(void)
+{
+	struct mailbox_log_record rec;
+	failure_callback_t *fatal_callback, *info_callback, *debug_callback;
+	const struct test_corruption_settings set = {
+		.name = "mailbox log",
+	};
+	enum mailbox_log_record_type type;
+	buffer_t *buf;
+	const char *path;
+
+	test_begin("mailbox log corruption");
+	path = test_dir_prepend(TEST_LOG_FNAME);
+
+	buf = t_buffer_create(256);
+	for (type = MAILBOX_LOG_RECORD_DELETE_MAILBOX;
+	     type <= MAILBOX_LOG_RECORD_CREATE_DIR; type++) {
+		i_zero(&rec);
+		rec.type = type;
+		rec.mailbox_guid[0] = type;
+		mailbox_log_record_set_timestamp(&rec, 1000 + type);
+		buffer_append(buf, &rec, sizeof(rec));
+	}
+
+	i_get_failure_handlers(&fatal_callback, &orig_error_callback,
+			       &info_callback, &debug_callback);
+	i_set_error_handler(test_ignore_errors_handler);
+	test_corruption_run(&set, buf->data, buf->used,
+			    test_mailbox_log_corruption_callback, path);
+	i_set_error_handler(orig_error_callback);
+
+	test_log_unlink(path);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -177,6 +256,7 @@ int main(void)
 		test_mailbox_log_iter_partial_record,
 		test_mailbox_log_iter_rotated,
 		test_mailbox_log_iter_all_types,
+		test_mailbox_log_corruption,
 		NULL
 	};
 
