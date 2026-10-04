@@ -828,6 +828,61 @@ static void test_iostream_ssl_flush_before_handshake(void)
 	test_end();
 }
 
+static int finish_flush_callback(struct test_endpoint *ep)
+{
+	int ret = o_stream_finish(ep->output);
+
+	test_assert(ret >= 0);
+	if (ret > 0) {
+		ep->finished = TRUE;
+		io_loop_stop(current_ioloop);
+	}
+	return ret;
+}
+
+static void test_iostream_ssl_finish(void)
+{
+	static const char line[] = "hello world\n";
+	struct test_endpoint *server, *client;
+	struct ioloop *ioloop;
+	struct timeout *to;
+	int ret;
+
+	test_begin("ssl: o_stream_finish()");
+
+	ioloop = io_loop_create();
+	test_ssl_endpoints_create(&server, &client);
+
+	/* finish the handshake */
+	server->io = io_add_istream(server->input,
+				    handshake_server_input_callback, server);
+	client->io = io_add_istream(client->input, cork_input_callback,
+				    client);
+	o_stream_nsend_str(server->output, line);
+	buffer_append(client->last_write, line, strlen(line));
+	test_assert(ssl_iostream_handshake(client->iostream) == 0);
+	test_iostream_ssl_cork_wait(client);
+
+	/* Finishing sends the close_notify alert. If it can't be done
+	   immediately, the flush callback must be called until it's done. */
+	o_stream_set_flush_callback(server->output, finish_flush_callback,
+				    server);
+	ret = o_stream_finish(server->output);
+	test_assert(ret >= 0);
+	if (ret == 0) {
+		to = timeout_add(5000, cork_timeout_callback, server);
+		io_loop_run(ioloop);
+		timeout_remove(&to);
+		test_assert(!server->failed);
+		test_assert(server->finished);
+	}
+	test_assert(o_stream_get_buffer_used_size(server->output) == 0);
+
+	test_ssl_endpoints_destroy(&server, &client);
+	io_loop_destroy(&ioloop);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -836,6 +891,7 @@ int main(void)
 		test_iostream_ssl_small_packets,
 		test_iostream_ssl_cork,
 		test_iostream_ssl_flush_before_handshake,
+		test_iostream_ssl_finish,
 		NULL
 	};
 	ssl_iostream_openssl_init();
