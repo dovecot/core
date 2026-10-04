@@ -111,6 +111,9 @@ struct mail_index_registered_ext {
 	uint16_t record_align;
 
 	mail_index_expunge_handler_t *expunge_handler;
+	/* The extension was registered only by reading it from the index
+	   file. The defaults are from the file, which may be corrupted. */
+	bool map_registered;
 };
 
 struct mail_index_modseq_header {
@@ -414,6 +417,12 @@ int mail_index_map_ext_get_next(struct mail_index_map *map,
 				unsigned int *offset,
 				const struct mail_index_ext_header **ext_hdr_r,
 				const char **name_r);
+/* Register an extension that was found from the index file. If it's later
+   registered with mail_index_ext_register(), the defaults are replaced. */
+uint32_t mail_index_map_ext_register(struct mail_index *index,
+				     const char *name,
+				     uint32_t hdr_size, uint16_t record_size,
+				     uint16_t record_align);
 int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
 				 const struct mail_index_ext_header *ext_hdr,
 				 const char *name, const char **error_r);

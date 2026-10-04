@@ -92,10 +92,10 @@ mail_index_map_register_ext(struct mail_index_map *map,
 	ext->record_align = ext_hdr->record_align;
 	ext->reset_id = ext_hdr->reset_id;
 
-	ext->index_idx = mail_index_ext_register(map->index, name,
-						 ext_hdr->hdr_size,
-						 ext_hdr->record_size,
-						 ext_hdr->record_align);
+	ext->index_idx = mail_index_map_ext_register(map->index, name,
+						     ext_hdr->hdr_size,
+						     ext_hdr->record_size,
+						     ext_hdr->record_align);
 
 	/* Update index ext_id -> map ext_id mapping. Fill non-used
 	   ext_ids with UINT32_MAX */

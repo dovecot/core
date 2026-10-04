@@ -261,10 +261,12 @@ bool mail_index_ext_name_is_valid(const char *name)
 	return i == 0 || i < MAIL_INDEX_EXT_NAME_MAX_LENGTH;
 }
 
-uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
-				 uint32_t default_hdr_size,
-				 uint16_t default_record_size,
-				 uint16_t default_record_align)
+static uint32_t
+mail_index_ext_register_full(struct mail_index *index, const char *name,
+			     uint32_t default_hdr_size,
+			     uint16_t default_record_size,
+			     uint16_t default_record_align,
+			     bool map_registered)
 {
 	struct mail_index_registered_ext rext;
 	uint32_t ext_id;
@@ -277,8 +279,20 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 			"Invalid record alignment", name);
 	}
 
-	if (mail_index_ext_lookup(index, name, &ext_id))
+	if (mail_index_ext_lookup(index, name, &ext_id)) {
+		struct mail_index_registered_ext *old_rext =
+			array_idx_modifiable(&index->extensions, ext_id);
+		if (old_rext->map_registered && !map_registered) {
+			/* The extension was first seen in the index file.
+			   Replace the defaults read from the file with the
+			   ones that the caller expects. */
+			old_rext->hdr_size = default_hdr_size;
+			old_rext->record_size = default_record_size;
+			old_rext->record_align = default_record_align;
+			old_rext->map_registered = FALSE;
+		}
 		return ext_id;
+	}
 
 	i_zero(&rext);
 	rext.name = p_strdup(index->extension_pool, name);
@@ -286,9 +300,29 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 	rext.hdr_size = default_hdr_size;
 	rext.record_size = default_record_size;
 	rext.record_align = default_record_align;
+	rext.map_registered = map_registered;
 
 	array_push_back(&index->extensions, &rext);
 	return rext.index_idx;
+}
+
+uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
+				 uint32_t default_hdr_size,
+				 uint16_t default_record_size,
+				 uint16_t default_record_align)
+{
+	return mail_index_ext_register_full(index, name, default_hdr_size,
+					    default_record_size,
+					    default_record_align, FALSE);
+}
+
+uint32_t mail_index_map_ext_register(struct mail_index *index,
+				     const char *name,
+				     uint32_t hdr_size, uint16_t record_size,
+				     uint16_t record_align)
+{
+	return mail_index_ext_register_full(index, name, hdr_size,
+					    record_size, record_align, TRUE);
 }
 
 void mail_index_ext_register_resize_defaults(struct mail_index *index,
@@ -303,6 +337,8 @@ void mail_index_ext_register_resize_defaults(struct mail_index *index,
 	rext->hdr_size = default_hdr_size;
 	rext->record_size = default_record_size;
 	rext->record_align = default_record_align;
+	/* don't let mail_index_ext_register() replace these defaults */
+	rext->map_registered = FALSE;
 }
 
 bool mail_index_ext_lookup(struct mail_index *index, const char *name,
