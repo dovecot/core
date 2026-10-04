@@ -46,6 +46,10 @@ struct mail_index_sync_map_ctx;
 typedef int mail_index_expunge_handler_t(struct mail_index_sync_map_ctx *ctx,
 					 const void *data, void **sync_context);
 
+/* Extension record offsets are 16bit and the records are reordered so that
+   the record size stays below 64kB. */
+#define MAIL_INDEX_RECORD_MAX_SIZE 65536
+
 #define MAIL_INDEX_HEADER_SIZE_ALIGN(size) \
 	(((size) + 7) & ~7U)
 
