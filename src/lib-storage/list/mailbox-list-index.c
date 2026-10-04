@@ -115,6 +115,13 @@ int mailbox_list_index_index_open(struct mailbox_list *list)
 	}
 	if (ret == 1)
 		ilist->index_created = TRUE;
+	/* The list index is small, so verify all the records' UIDs. Zero or
+	   unordered UIDs would break UID lookups. */
+	if (mail_index_verify_records(ilist->index) < 0) {
+		mailbox_list_index_set_index_error(list);
+		mail_index_close(ilist->index);
+		return -1;
+	}
 	ilist->opened = TRUE;
 	return 0;
 }
