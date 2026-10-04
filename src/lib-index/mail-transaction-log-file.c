@@ -186,6 +186,25 @@ mail_transaction_log_file_skip_to_head(struct mail_transaction_log_file *file)
 	   sync_offset from it so we don't have to read the whole log
 	   file from beginning. */
 	head_offset = map->hdr.log_file_head_offset;
+	if (head_offset > file->last_size) {
+		/* The file may have grown since it was last stat()ed */
+		struct stat st;
+
+		if (fstat(file->fd, &st) < 0) {
+			log_file_set_syscall_error(file, "fstat()");
+			return;
+		}
+		file->last_size = st.st_size;
+		if (head_offset > file->last_size) {
+			/* Corrupted index header. Don't trust the head or the
+			   tail offset, since they're beyond what can actually
+			   be synced. */
+			mail_index_set_error(log->index,
+				"%s: log_file_head_offset points outside log file",
+				log->index->filepath);
+			return;
+		}
+	}
 
 	modseq_hdr = mail_index_map_get_modseq_header(map);
 	if (head_offset < file->hdr.hdr_size) {
