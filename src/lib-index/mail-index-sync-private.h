@@ -44,6 +44,9 @@ struct mail_index_sync_map_ctx {
 	bool cur_ext_ignore:1;
 	bool internal_update:1; /* used by keywords for ext_intro */
 	bool errors:1;
+	/* mail_transaction_log_view_next() failed, because a log file was
+	   corrupted */
+	bool log_corrupted:1;
 };
 
 extern struct mail_transaction_map_functions mail_index_map_sync_funcs;

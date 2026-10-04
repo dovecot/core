@@ -44,7 +44,18 @@ mail_index_sync_update_log_offset(struct mail_index_sync_map_ctx *ctx,
 		}
 		map->hdr.log_file_seq = prev_seq;
 	} else {
-		i_assert(ctx->view->index->log->head->hdr.file_seq == prev_seq);
+		const struct mail_transaction_log_file *head =
+			ctx->view->index->log->head;
+
+		if (head->hdr.file_seq != prev_seq) {
+			/* Syncing stopped before reaching the head log file,
+			   because an older log file was corrupted. Skip the
+			   rest of it and continue from the beginning of the
+			   head log file. */
+			i_assert(ctx->log_corrupted);
+			prev_seq = head->hdr.file_seq;
+			prev_offset = head->hdr.hdr_size;
+		}
 		if (map->hdr.log_file_seq != prev_seq) {
 			map->hdr.log_file_seq = prev_seq;
 			map->hdr.log_file_tail_offset = 0;
@@ -1074,6 +1085,7 @@ int mail_index_sync_map(struct mail_index_map **_map,
 		/* we'll just skip over broken entries */
 		(void)mail_index_sync_record(&sync_map_ctx, thdr, tdata);
 	}
+	sync_map_ctx.log_corrupted = ret < 0;
 	map = view->map;
 
 	if (had_dirty)
