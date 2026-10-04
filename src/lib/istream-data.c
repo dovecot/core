@@ -12,7 +12,9 @@ static ssize_t i_stream_data_read(struct istream_private *stream)
 static void i_stream_data_seek(struct istream_private *stream, uoff_t v_offset,
 			       bool mark ATTR_UNUSED)
 {
-	stream->skip = v_offset;
+	/* Seeking past the end is allowed, like with files. Reading then
+	   just returns EOF. */
+	stream->skip = I_MIN(v_offset, stream->pos);
 	stream->istream.v_offset = v_offset;
 }
 

@@ -373,9 +373,33 @@ static void test_istream_read_next_line(void)
 	test_end();
 }
 
+static void test_istream_data_seek_past_end(void)
+{
+	struct istream *is;
+	const unsigned char *data;
+	size_t size;
+
+	test_begin("istream data seek past end");
+	is = i_stream_create_from_data("123456", 6);
+	i_stream_seek(is, 10);
+	test_assert(i_stream_read_more(is, &data, &size) == -1);
+	test_assert(size == 0);
+	test_assert(is->v_offset == 10);
+	test_assert(is->eof);
+	test_assert(is->stream_errno == 0);
+
+	/* seeking back works */
+	i_stream_seek(is, 4);
+	test_assert(i_stream_read_more(is, &data, &size) == 1);
+	test_assert(size == 2 && memcmp(data, "56", 2) == 0);
+	i_stream_unref(&is);
+	test_end();
+}
+
 void test_istream(void)
 {
 	test_istream_children();
 	test_istream_next_line();
 	test_istream_read_next_line();
+	test_istream_data_seek_past_end();
 }
