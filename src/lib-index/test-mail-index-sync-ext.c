@@ -159,12 +159,82 @@ static void test_mail_index_sync_header_update(void)
 	test_end();
 }
 
+static void
+test_mail_index_sync_ext_intro_init(struct mail_index_sync_map_ctx *ctx_r)
+{
+	i_zero(ctx_r);
+	ctx_r->view = t_new(struct mail_index_view, 1);
+	ctx_r->view->log_view = t_new(struct mail_transaction_log_view, 1);
+	ctx_r->view->index = t_new(struct mail_index, 1);
+	ctx_r->view->index->fsck_log_head_file_seq = 10; /* silence errors */
+	ctx_r->view->map = t_new(struct mail_index_map, 1);
+	t_array_init(&ctx_r->view->map->extensions, 4);
+}
+
+static struct mail_index_ext *
+test_mail_index_sync_ext_intro_add(struct mail_index_sync_map_ctx *ctx,
+				   const char *name, uint32_t hdr_size,
+				   uint16_t record_offset, uint16_t record_size,
+				   uint16_t record_align)
+{
+	struct mail_index_ext *ext;
+
+	ext = array_append_space(&ctx->view->map->extensions);
+	ext->name = name;
+	ext->hdr_size = hdr_size;
+	ext->record_offset = record_offset;
+	ext->record_size = record_size;
+	ext->record_align = record_align;
+	return ext;
+}
+
+static void test_mail_index_sync_ext_intro_record_size(void)
+{
+	struct mail_index_sync_map_ctx ctx;
+	struct mail_transaction_ext_intro u;
+
+	test_begin("mail index sync ext intro record size");
+
+	/* NO_SHRINK keeps the larger existing record_size, so it must be
+	   used when checking the resulting record size. Otherwise the
+	   reordering would make the record too large. */
+	test_mail_index_sync_ext_intro_init(&ctx);
+	ctx.view->map->hdr.record_size = 65536;
+	test_mail_index_sync_ext_intro_add(&ctx, "a", 0, 8, 32760, 8);
+	test_mail_index_sync_ext_intro_add(&ctx, "b", 0, 32768, 32767, 1);
+
+	i_zero(&u);
+	u.ext_id = 1;
+	u.record_size = 1;
+	u.record_align = 8;
+	u.flags = MAIL_TRANSACTION_EXT_INTRO_FLAG_NO_SHRINK;
+	test_assert(mail_index_sync_ext_intro(&ctx, &u) == -1);
+	i_free(ctx.view->index->need_recreate);
+
+	/* record_align of an extension without records doesn't affect the
+	   record size */
+	test_mail_index_sync_ext_intro_init(&ctx);
+	ctx.view->map->hdr.record_size = 65520;
+	test_mail_index_sync_ext_intro_add(&ctx, "a", 0, 8, 32760, 8);
+	test_mail_index_sync_ext_intro_add(&ctx, "b", 0, 32768, 32750, 1);
+	test_mail_index_sync_ext_intro_add(&ctx, "c", 4, 0, 0, 8);
+
+	i_zero(&u);
+	u.ext_id = 2;
+	u.hdr_size = 4;
+	u.record_align = 8;
+	test_assert(mail_index_sync_ext_intro(&ctx, &u) == 1);
+	test_assert(ctx.view->index->need_recreate == NULL);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mail_index_sync_ext_atomic_inc,
 		test_mail_index_sync_ext_hdr_update,
 		test_mail_index_sync_header_update,
+		test_mail_index_sync_ext_intro_record_size,
 		NULL
 	};
 	return test_run(test_functions);

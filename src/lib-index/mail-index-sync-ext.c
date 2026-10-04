@@ -435,6 +435,31 @@ mail_index_sync_ext_init_new(struct mail_index_sync_map_ctx *ctx,
 	*ext_map_idx_r = ext_map_idx;
 }
 
+/* Returns TRUE if the records would fit into the maximum record size after
+   the extension at ext_map_idx (UINT32_MAX = new extension) gets the given
+   record size and alignment. This is a conservative estimate, which assumes
+   the maximum alignment padding for each extension. */
+static bool
+sync_ext_record_size_fits(struct mail_index_map *map, uint32_t ext_map_idx,
+			  uint16_t record_size, uint16_t record_align)
+{
+	const struct mail_index_ext *ext;
+	unsigned int i, count = 0;
+	uint32_t size = MAIL_INDEX_RECORD_MIN_SIZE + sizeof(uint64_t);
+
+	if (array_is_created(&map->extensions))
+		ext = array_get(&map->extensions, &count);
+	else
+		ext = NULL;
+	for (i = 0; i < count; i++) {
+		if (i != ext_map_idx && ext[i].record_size > 0)
+			size += ext[i].record_size + ext[i].record_align;
+	}
+	if (record_size > 0)
+		size += record_size + record_align;
+	return size < UINT16_MAX;
+}
+
 int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 			      const struct mail_transaction_ext_intro *u)
 {
@@ -443,6 +468,7 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	const struct mail_index_ext *ext;
 	const char *name, *error;
 	uint32_t ext_map_idx;
+	uint16_t record_size, record_align;
 	bool no_shrink;
 
 	/* default to ignoring the following extension updates in case this
@@ -516,6 +542,21 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 					       name, &error) < 0) {
 		mail_index_sync_set_corrupted(ctx,
 			"Broken extension introduction: %s", error);
+		return -1;
+	}
+
+	record_size = u->record_size;
+	record_align = u->record_align;
+	if (ext != NULL && u->reset_id == ext->reset_id) {
+		sync_ext_resize_get_record_size(u, ext, no_shrink,
+						&record_size, &record_align);
+	}
+	if (!sync_ext_record_size_fits(map, ext != NULL ? ext_map_idx :
+				       UINT32_MAX, record_size,
+				       record_align)) {
+		mail_index_sync_set_corrupted(ctx,
+			"Broken extension introduction: "
+			"Record size too large");
 		return -1;
 	}
 
