@@ -14,6 +14,8 @@
 #include "mailbox-list-iter.h"
 #include "mail-index.h"
 #include "mail-thread.h"
+#include "list/mailbox-list-index.h"
+#include "index/dbox-multi/mdbox-map.h"
 #include "test-mail-storage-common.h"
 
 #include <dirent.h>
@@ -550,6 +552,420 @@ static void test_mdbox_map_index_corruption(void)
 	test_storage_corruption("mdbox map index corruption", &set, fnames);
 }
 
+static void test_mdbox_storage_file_corruption(void)
+{
+	static const char *const fnames[] = {
+		"m.1", NULL
+	};
+	const struct test_mail_storage_settings set = {
+		.username = TEST_USERNAME,
+		.driver = "mdbox",
+		.hierarchy_sep = "/",
+	};
+	test_storage_corruption("mdbox storage file corruption", &set, fnames);
+}
+
+static void test_mdbox_mailbox_index_corruption(void)
+{
+	/* the other mailboxes' indexes are similar, so corrupting them
+	   wouldn't add much */
+	static const char *const fnames[] = {
+		"mailboxes/INBOX/dbox-Mails/dovecot.index",
+		"mailboxes/INBOX/dbox-Mails/dovecot.index.log",
+		NULL
+	};
+	const struct test_mail_storage_settings set = {
+		.username = TEST_USERNAME,
+		.driver = "mdbox",
+		.hierarchy_sep = "/",
+	};
+	test_storage_corruption("mdbox mailbox index corruption",
+				&set, fnames);
+}
+
+static void test_set_ignore_errors(bool ignore)
+{
+	failure_callback_t *fatal_callback, *info_callback, *debug_callback;
+
+	if (ignore) {
+		i_get_failure_handlers(&fatal_callback, &orig_error_callback,
+				       &info_callback, &debug_callback);
+		i_set_error_handler(test_ignore_errors_handler);
+	} else {
+		i_set_error_handler(orig_error_callback);
+	}
+}
+
+static void test_mailbox_list_index_name_id_too_large(void)
+{
+	static const char *const extra_input[] = {
+		"mailbox_list_layout=index",
+		NULL
+	};
+	const struct test_mail_storage_settings set = {
+		.username = TEST_USERNAME,
+		.driver = "sdbox",
+		.hierarchy_sep = "/",
+		.extra_input = extra_input,
+	};
+	struct test_mail_storage_settings set2 = set;
+	struct test_mail_storage_ctx *storage_ctx;
+	struct mailbox_list_index_record rec;
+	struct mail_namespace *ns;
+	struct mail_index *index;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	struct mailbox_list_iterate_context *iter;
+	struct mailbox *box;
+	const void *data;
+	const char *home, *dir;
+	uint32_t ext_id, seq, count;
+	bool expunged;
+
+	test_begin("mailbox list index name_id too large");
+	storage_ctx = test_mail_storage_init();
+	test_mail_storage_init_user(storage_ctx, &set);
+	ns = mail_namespace_find_inbox(storage_ctx->user->namespaces);
+	for (unsigned int i = 0; i < 3; i++) {
+		box = mailbox_alloc(ns->list, t_strdup_printf("box%u", i), 0);
+		test_assert(mailbox_create(box, NULL, FALSE) == 0);
+		mailbox_free(&box);
+	}
+	test_mail_storage_deinit_user(storage_ctx);
+
+	/* Set the first record's name_id to a large value that isn't in
+	   the header and the rest to 0, so new name_ids are allocated for
+	   them after the large one. */
+	home = t_strconcat(storage_ctx->home_root, TEST_USERNAME, NULL);
+	dir = test_storage_find_file(home, "dovecot.list.index.log");
+	index = mail_index_alloc(NULL, dir, "dovecot.list.index");
+	ext_id = mail_index_ext_register(index, "list",
+		sizeof(struct mailbox_list_index_header),
+		sizeof(struct mailbox_list_index_record), sizeof(uint32_t));
+	test_assert(mail_index_open(index, 0) > 0);
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view, 0);
+	count = mail_index_view_get_messages_count(view);
+	test_assert(count >= 3);
+	for (seq = 1; seq <= count; seq++) {
+		mail_index_lookup_ext(view, seq, ext_id, &data, &expunged);
+		i_assert(data != NULL);
+		memcpy(&rec, data, sizeof(rec));
+		rec.name_id = seq == 1 ? (uint32_t)-2 : 0;
+		mail_index_update_ext(trans, seq, ext_id, &rec, NULL);
+	}
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	mail_index_view_close(&view);
+	mail_index_close(index);
+	mail_index_free(&index);
+
+	/* The mailbox names can't be found anymore, so the mailboxes are
+	   renamed to unknown-*. New mailboxes can still be created. */
+	set2.keep_home = TRUE;
+	test_mail_storage_init_user(storage_ctx, &set2);
+	test_set_ignore_errors(TRUE);
+	ns = mail_namespace_find_inbox(storage_ctx->user->namespaces);
+	iter = mailbox_list_iter_init(ns->list, "unknown-*", 0);
+	count = 0;
+	while (mailbox_list_iter_next(iter) != NULL)
+		count++;
+	test_assert(mailbox_list_iter_deinit(&iter) == 0);
+	test_assert_ucmp(count, ==, 3);
+	box = mailbox_alloc(ns->list, "newbox", 0);
+	test_assert(mailbox_create(box, NULL, FALSE) == 0);
+	mailbox_free(&box);
+	test_set_ignore_errors(FALSE);
+
+	iter = mailbox_list_iter_init(ns->list, "*", 0);
+	count = 0;
+	while (mailbox_list_iter_next(iter) != NULL)
+		count++;
+	test_assert(mailbox_list_iter_deinit(&iter) == 0);
+	/* unknown-* and newbox */
+	test_assert_ucmp(count, ==, 4);
+	test_mail_storage_deinit_user(storage_ctx);
+	test_mail_storage_deinit(&storage_ctx);
+	test_end();
+}
+
+static void test_mdbox_map_next_uid_too_large(void)
+{
+	const struct test_mail_storage_settings set = {
+		.username = TEST_USERNAME,
+		.driver = "mdbox",
+		.hierarchy_sep = "/",
+	};
+	struct test_mail_storage_ctx *storage_ctx;
+	struct mail_namespace *ns;
+	struct mailbox *box;
+	struct mail_index *index;
+	struct mail_index_sync_ctx *sync_ctx;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	const uint32_t next_uid = (uint32_t)-2;
+	const char *dir;
+
+	test_begin("mdbox map next_uid too large");
+	storage_ctx = test_mail_storage_init();
+	test_mail_storage_init_user(storage_ctx, &set);
+	ns = mail_namespace_find_inbox(storage_ctx->user->namespaces);
+	box = mailbox_alloc(ns->list, "INBOX", 0);
+	test_assert(mailbox_open(box) == 0);
+	test_assert(test_mail_save(box, 0) == 0);
+
+	dir = t_strconcat(storage_ctx->home_root, TEST_USERNAME"/storage",
+			  NULL);
+	index = mail_index_alloc(NULL, dir, "dovecot.map.index");
+	test_assert(mail_index_open(index, 0) > 0);
+	test_assert(mail_index_sync_begin(index, &sync_ctx, &view,
+					  &trans, 0) > 0);
+	mail_index_update_header(trans,
+		offsetof(struct mail_index_header, next_uid),
+		&next_uid, sizeof(next_uid), FALSE);
+	test_assert(mail_index_sync_commit(&sync_ctx) == 0);
+	mail_index_close(index);
+	mail_index_free(&index);
+
+	/* saving must fail without crashing */
+	test_set_ignore_errors(TRUE);
+	test_assert(test_mail_save(box, 1) < 0);
+	test_assert(test_mail_save(box, 2) < 0);
+	(void)mailbox_sync(box, 0);
+	test_assert(mail_index_view_get_messages_count(box->view) == 1);
+	mailbox_free(&box);
+	test_mail_storage_deinit_user(storage_ctx);
+	test_set_ignore_errors(FALSE);
+	test_mail_storage_deinit(&storage_ctx);
+	test_end();
+}
+
+static void test_mdbox_map_highest_file_id_too_large(void)
+{
+	const struct test_mail_storage_settings set = {
+		.username = TEST_USERNAME,
+		.driver = "mdbox",
+		.hierarchy_sep = "/",
+	};
+	struct test_mail_storage_ctx *storage_ctx;
+	struct mail_namespace *ns;
+	struct mailbox *box;
+	struct mail_index *index;
+	struct mail_index_sync_ctx *sync_ctx;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	const uint32_t highest_file_id = (uint32_t)-2;
+	const char *dir;
+	uint32_t ext_id;
+
+	test_begin("mdbox map highest_file_id too large");
+	storage_ctx = test_mail_storage_init();
+	test_mail_storage_init_user(storage_ctx, &set);
+	ns = mail_namespace_find_inbox(storage_ctx->user->namespaces);
+	box = mailbox_alloc(ns->list, "INBOX", 0);
+	test_assert(mailbox_open(box) == 0);
+	test_assert(test_mail_save(box, 0) == 0);
+
+	dir = t_strconcat(storage_ctx->home_root, TEST_USERNAME"/storage",
+			  NULL);
+	index = mail_index_alloc(NULL, dir, "dovecot.map.index");
+	ext_id = mail_index_ext_register(index, "map",
+		sizeof(struct mdbox_map_mail_index_header),
+		sizeof(struct mdbox_map_mail_index_record), sizeof(uint32_t));
+	test_assert(mail_index_open(index, 0) > 0);
+	test_assert(mail_index_sync_begin(index, &sync_ctx, &view,
+					  &trans, 0) > 0);
+	mail_index_update_header_ext(trans, ext_id,
+		offsetof(struct mdbox_map_mail_index_header, highest_file_id),
+		&highest_file_id, sizeof(highest_file_id));
+	test_assert(mail_index_sync_commit(&sync_ctx) == 0);
+	mail_index_close(index);
+	mail_index_free(&index);
+
+	/* saving fails and marks the storage corrupted */
+	test_set_ignore_errors(TRUE);
+	test_assert(test_mail_save(box, 1) < 0);
+	/* the storage rebuild fixes highest_file_id */
+	(void)mailbox_sync(box, 0);
+	test_assert(test_mail_save(box, 2) == 0);
+	test_assert(mailbox_sync(box, 0) == 0);
+	test_set_ignore_errors(FALSE);
+	test_assert(mail_index_view_get_messages_count(box->view) == 2);
+	mailbox_free(&box);
+	test_mail_storage_deinit_user(storage_ctx);
+	test_mail_storage_deinit(&storage_ctx);
+	test_end();
+}
+
+static void test_mailbox_next_uid_too_large_driver(const char *driver)
+{
+	const struct test_mail_storage_settings set = {
+		.username = TEST_USERNAME,
+		.driver = driver,
+		.hierarchy_sep = "/",
+	};
+	struct test_mail_storage_ctx *storage_ctx;
+	struct mail_namespace *ns;
+	struct mailbox *box;
+	struct mail_index_transaction *trans;
+	const uint32_t next_uid = UINT32_MAX;
+
+	storage_ctx = test_mail_storage_init();
+	test_mail_storage_init_user(storage_ctx, &set);
+	ns = mail_namespace_find_inbox(storage_ctx->user->namespaces);
+	box = mailbox_alloc(ns->list, "INBOX", 0);
+	test_assert(mailbox_open(box) == 0);
+	test_assert(test_mail_save(box, 0) == 0);
+	test_assert(mailbox_sync(box, 0) == 0);
+
+	trans = mail_index_transaction_begin(box->view,
+			MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	mail_index_update_header(trans,
+		offsetof(struct mail_index_header, next_uid),
+		&next_uid, sizeof(next_uid), FALSE);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	test_assert(mailbox_sync(box, 0) == 0);
+
+	/* saving must fail without crashing */
+	test_set_ignore_errors(TRUE);
+	test_assert(test_mail_save(box, 1) < 0);
+	(void)mailbox_sync(box, 0);
+	test_assert(mail_index_view_get_messages_count(box->view) == 1);
+	mailbox_free(&box);
+	test_mail_storage_deinit_user(storage_ctx);
+	test_set_ignore_errors(FALSE);
+	test_mail_storage_deinit(&storage_ctx);
+}
+
+static void test_mailbox_next_uid_too_large(void)
+{
+	test_begin("mailbox next_uid too large");
+	test_mailbox_next_uid_too_large_driver("sdbox");
+	test_mailbox_next_uid_too_large_driver("mdbox");
+	test_mailbox_next_uid_too_large_driver("mbox");
+	test_end();
+}
+
+static void test_mailbox_read_seq(struct mailbox *box, uint32_t seq)
+{
+	struct mailbox_transaction_context *trans;
+	struct mail *mail;
+	struct istream *input;
+	const char *value;
+
+	trans = mailbox_transaction_begin(box, 0, __func__);
+	mail = mail_alloc(trans, 0, NULL);
+	/* fsck may have already dropped the record */
+	if (seq <= mail_index_view_get_messages_count(box->view)) {
+		mail_set_seq(mail, seq);
+		(void)mail_get_first_header(mail, "Subject", &value);
+		(void)mail_get_stream(mail, NULL, NULL, &input);
+	}
+	mail_free(&mail);
+	(void)mailbox_transaction_commit(&trans);
+}
+
+static void test_mailbox_search_result(struct mailbox *box)
+{
+	struct mailbox_transaction_context *trans;
+	struct mail_search_args *search_args;
+	struct mail_search_context *search_ctx;
+	struct mail_search_result *result;
+	struct mail *mail;
+
+	trans = mailbox_transaction_begin(box, 0, __func__);
+	search_args = mail_search_build_init();
+	mail_search_build_add_all(search_args);
+	search_ctx = mailbox_search_init(trans, search_args, NULL, 0, NULL);
+	result = mailbox_search_result_save(search_ctx,
+					    MAILBOX_SEARCH_RESULT_FLAG_UPDATE);
+	while (mailbox_search_next(search_ctx, &mail)) ;
+	(void)mailbox_search_deinit(&search_ctx);
+	mailbox_search_result_free(&result);
+	mail_search_args_unref(&search_args);
+	(void)mailbox_transaction_commit(&trans);
+}
+
+static void test_mailbox_index_uid_zero_at(unsigned int zero_idx)
+{
+	const struct test_mail_storage_settings set = {
+		.username = TEST_USERNAME,
+		.driver = "sdbox",
+		.hierarchy_sep = "/",
+	};
+	struct test_mail_storage_settings set2 = set;
+	struct test_mail_storage_ctx *storage_ctx;
+	struct mail_index_header hdr;
+	struct mail_namespace *ns;
+	struct mailbox *box;
+	const char *home, *dir, *path;
+	const uint32_t zero = 0;
+	int fd;
+
+	storage_ctx = test_mail_storage_init();
+	test_mail_storage_init_user(storage_ctx, &set);
+	ns = mail_namespace_find_inbox(storage_ctx->user->namespaces);
+	box = mailbox_alloc(ns->list, "INBOX", 0);
+	test_assert(mailbox_open(box) == 0);
+	for (unsigned int i = 0; i < 11; i++)
+		test_assert(test_mail_save(box, i) == 0);
+	/* expunge the first mail */
+	test_assert(mailbox_sync(box, 0) == 0);
+	test_mailbox_read_mails(box, TRUE);
+	test_assert(mailbox_sync(box, 0) == 0);
+	mailbox_free(&box);
+	/* create the thread index */
+	test_storage_access(storage_ctx->user, FALSE);
+	test_mail_storage_deinit_user(storage_ctx);
+
+	/* set the record's UID to 0 */
+	home = t_strconcat(storage_ctx->home_root, TEST_USERNAME, NULL);
+	test_storage_index_write(home, "dovecot.index");
+	dir = test_storage_find_file(home, "dovecot.index");
+	path = t_strconcat(dir, "/dovecot.index", NULL);
+	fd = open(path, O_RDWR);
+	if (fd == -1)
+		i_fatal("open(%s) failed: %m", path);
+	if (pread_full(fd, &hdr, sizeof(hdr), 0) <= 0)
+		i_fatal("pread(%s) failed: %m", path);
+	test_assert_ucmp(hdr.messages_count, ==, 10);
+	if (pwrite_full(fd, &zero, sizeof(zero),
+			hdr.header_size + zero_idx * hdr.record_size) < 0)
+		i_fatal("pwrite(%s) failed: %m", path);
+	i_close_fd(&fd);
+
+	/* accessing must not crash */
+	set2.keep_home = TRUE;
+	test_mail_storage_init_user(storage_ctx, &set2);
+	test_set_ignore_errors(TRUE);
+	ns = mail_namespace_find_inbox(storage_ctx->user->namespaces);
+	box = mailbox_alloc(ns->list, "INBOX", 0);
+	test_assert(mailbox_open(box) == 0);
+	test_mailbox_read_seq(box, zero_idx + 1);
+	test_mailbox_search_result(box);
+	test_mailbox_thread(box);
+	mailbox_free(&box);
+
+	/* fsck dropped the uid=0 record, and the mailbox rebuild added the
+	   mail back */
+	box = mailbox_alloc(ns->list, "INBOX", 0);
+	test_assert(mailbox_sync(box, 0) == 0);
+	test_assert_ucmp(mail_index_view_get_messages_count(box->view), ==, 10);
+	mailbox_free(&box);
+	test_storage_access(storage_ctx->user, FALSE);
+	test_storage_access(storage_ctx->user, TRUE);
+	test_mail_storage_deinit_user(storage_ctx);
+	test_set_ignore_errors(FALSE);
+	test_mail_storage_deinit(&storage_ctx);
+}
+
+static void test_mailbox_index_uid_zero(void)
+{
+	test_begin("mailbox index record with uid=0");
+	for (unsigned int i = 0; i < 10; i++)
+		test_mailbox_index_uid_zero_at(i);
+	test_end();
+}
+
 static void test_thread_index_corruption(void)
 {
 	static const char *const fnames[] = {
@@ -569,8 +985,15 @@ int main(int argc, char **argv)
 	void (*const tests[])(void) = {
 		test_mailbox_list_index_corruption,
 		test_mailbox_list_index_layout_index_corruption,
+		test_mailbox_list_index_name_id_too_large,
 		test_mdbox_map_index_corruption,
+		test_mdbox_storage_file_corruption,
+		test_mdbox_mailbox_index_corruption,
 		test_thread_index_corruption,
+		test_mdbox_map_next_uid_too_large,
+		test_mdbox_map_highest_file_id_too_large,
+		test_mailbox_next_uid_too_large,
+		test_mailbox_index_uid_zero,
 		NULL
 	};
 
