@@ -769,6 +769,65 @@ static void test_iostream_ssl_cork(void)
 	test_end();
 }
 
+static int handshake_flush_callback(struct test_endpoint *ep)
+{
+	ep->sent++;
+	return o_stream_flush(ep->output);
+}
+
+static void handshake_server_input_callback(struct test_endpoint *ep)
+{
+	/* reading continues the handshake */
+	test_assert(i_stream_read(ep->input) >= 0);
+}
+
+static void handshake_flush_timeout(void *context ATTR_UNUSED)
+{
+	io_loop_stop(current_ioloop);
+}
+
+static void test_iostream_ssl_flush_before_handshake(void)
+{
+	static const char line[] = "hello world\n";
+	struct test_endpoint *server, *client;
+	struct ioloop *ioloop;
+	struct timeout *to;
+
+	test_begin("ssl: o_stream_flush() before handshake");
+
+	ioloop = io_loop_create();
+	test_ssl_endpoints_create(&server, &client);
+	o_stream_set_flush_callback(server->output, handshake_flush_callback,
+				    server);
+
+	/* The data can't be written until the handshake has finished, so
+	   flushing must not return 1. */
+	o_stream_nsend_str(server->output, line);
+	buffer_append(client->last_write, line, strlen(line));
+	test_assert(o_stream_flush(server->output) == 0);
+	test_assert(o_stream_get_buffer_used_size(server->output) > 0);
+
+	/* The client hasn't started the handshake yet. The flush callback
+	   must not be called repeatedly while waiting for its input. */
+	to = timeout_add_short(100, handshake_flush_timeout, NULL);
+	io_loop_run(ioloop);
+	timeout_remove(&to);
+	test_assert(server->sent < 10);
+
+	/* After the handshake the data is written */
+	server->io = io_add_istream(server->input,
+				    handshake_server_input_callback, server);
+	client->io = io_add_istream(client->input, cork_input_callback,
+				    client);
+	test_assert(ssl_iostream_handshake(client->iostream) == 0);
+	test_iostream_ssl_cork_wait(client);
+	test_assert(o_stream_get_buffer_used_size(server->output) == 0);
+
+	test_ssl_endpoints_destroy(&server, &client);
+	io_loop_destroy(&ioloop);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -776,6 +835,7 @@ int main(void)
 		test_iostream_ssl_get_buffer_avail_size,
 		test_iostream_ssl_small_packets,
 		test_iostream_ssl_cork,
+		test_iostream_ssl_flush_before_handshake,
 		NULL
 	};
 	ssl_iostream_openssl_init();
