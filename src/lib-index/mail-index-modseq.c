@@ -393,7 +393,11 @@ static void mail_index_modseq_update_header(struct mail_index_modseq_sync *ctx)
 	highest_modseq = mail_transaction_log_view_get_prev_modseq(view->log_view);
 
 	ext = array_idx(&map->extensions, ext_map_idx);
-	old_modseq_hdr = MAIL_INDEX_MAP_HDR_OFFSET(map, ext->hdr_offset);
+	old_modseq_hdr = mail_index_map_get_modseq_header(map);
+	if (old_modseq_hdr == NULL) {
+		/* the header has an unexpected size, don't write past it */
+		return;
+	}
 
 	if (old_modseq_hdr->log_seq < log_seq ||
 	    (old_modseq_hdr->log_seq == log_seq &&
