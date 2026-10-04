@@ -141,10 +141,13 @@ int mail_index_map_ext_get_next(struct mail_index_map *map,
 	}
 
 	/* finally make sure that the hdr_size is small enough.
-	   do this last so that we could return a usable name. */
-	offset += MAIL_INDEX_HEADER_SIZE_ALIGN(ext_hdr->hdr_size);
-	if (offset > map->hdr.header_size)
+	   do this last so that we could return a usable name. Check this
+	   without overflowing offset. */
+	if (ext_hdr->hdr_size > map->hdr.header_size - offset ||
+	    MAIL_INDEX_HEADER_SIZE_ALIGN(ext_hdr->hdr_size) >
+	    map->hdr.header_size - offset)
 		return -1;
+	offset += MAIL_INDEX_HEADER_SIZE_ALIGN(ext_hdr->hdr_size);
 
 	*offset_p = offset;
 	*ext_hdr_r = ext_hdr;
