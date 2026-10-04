@@ -485,8 +485,8 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	no_shrink = (u->flags & MAIL_TRANSACTION_EXT_INTRO_FLAG_NO_SHRINK) != 0;
 
 	/* make sure the header looks valid before doing anything with it */
-	if (mail_index_map_ext_hdr_check(&map->hdr, &ext_hdr,
-					 name, &error) < 0) {
+	if (mail_index_map_ext_intro_hdr_check(&map->hdr, &ext_hdr,
+					       name, &error) < 0) {
 		mail_index_sync_set_corrupted(ctx,
 			"Broken extension introduction: %s", error);
 		return -1;

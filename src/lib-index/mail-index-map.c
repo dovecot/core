@@ -154,7 +154,7 @@ int mail_index_map_ext_get_next(struct mail_index_map *map,
 static int
 mail_index_map_ext_hdr_check_record(const struct mail_index_header *hdr,
 				    const struct mail_index_ext_header *ext_hdr,
-				    const char **error_r)
+				    bool intro, const char **error_r)
 {
 	if (ext_hdr->record_align == 0) {
 		*error_r = "Record field alignment is zero";
@@ -173,10 +173,17 @@ mail_index_map_ext_hdr_check_record(const struct mail_index_header *hdr,
 		return -1;
 	}
 
-	if (ext_hdr->record_offset == 0) {
-		/* if we get here from extension introduction, record_offset=0
-		   and hdr->record_size hasn't been updated yet */
+	if (intro) {
+		/* extension introduction doesn't have record_offset yet and
+		   hdr->record_size hasn't been updated yet */
+		i_assert(ext_hdr->record_offset == 0);
 		return 0;
+	}
+	if (ext_hdr->record_offset < MAIL_INDEX_RECORD_MIN_SIZE) {
+		*error_r = t_strdup_printf("Record field offset %u points "
+					   "inside the base record",
+					   ext_hdr->record_offset);
+		return -1;
 	}
 
 	if (ext_hdr->record_offset + ext_hdr->record_size > hdr->record_size) {
@@ -202,9 +209,11 @@ mail_index_map_ext_hdr_check_record(const struct mail_index_header *hdr,
 	return 0;
 }
 
-int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
-				 const struct mail_index_ext_header *ext_hdr,
-				 const char *name, const char **error_r)
+static int
+mail_index_map_ext_hdr_check_full(const struct mail_index_header *hdr,
+				  const struct mail_index_ext_header *ext_hdr,
+				  const char *name, bool intro,
+				  const char **error_r)
 {
 	if (ext_hdr->record_size == 0 && ext_hdr->hdr_size == 0) {
 		*error_r = "Invalid field values";
@@ -216,7 +225,7 @@ int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
 	}
 
 	if (ext_hdr->record_size != 0) {
-		if (mail_index_map_ext_hdr_check_record(hdr, ext_hdr,
+		if (mail_index_map_ext_hdr_check_record(hdr, ext_hdr, intro,
 							error_r) < 0)
 			return -1;
 	} else if (ext_hdr->record_offset != 0) {
@@ -234,6 +243,22 @@ int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
 		return -1;
 	}
 	return 0;
+}
+
+int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
+				 const struct mail_index_ext_header *ext_hdr,
+				 const char *name, const char **error_r)
+{
+	return mail_index_map_ext_hdr_check_full(hdr, ext_hdr, name, FALSE,
+						 error_r);
+}
+
+int mail_index_map_ext_intro_hdr_check(const struct mail_index_header *hdr,
+				       const struct mail_index_ext_header *ext_hdr,
+				       const char *name, const char **error_r)
+{
+	return mail_index_map_ext_hdr_check_full(hdr, ext_hdr, name, TRUE,
+						 error_r);
 }
 
 static void mail_index_header_init(struct mail_index *index,
