@@ -477,12 +477,21 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	return 1;
 }
 
+static void
+mail_index_header_restore_range(struct mail_index_header *hdr,
+				const struct mail_index_header *orig_hdr,
+				size_t start_offset, size_t end_offset)
+{
+	memcpy(PTR_OFFSET(hdr, start_offset),
+	       CONST_PTR_OFFSET(orig_hdr, start_offset),
+	       end_offset - start_offset);
+}
+
 static int sync_header_update(const struct mail_transaction_header_update *u,
 			      struct mail_index_sync_map_ctx *ctx)
 {
 	struct mail_index_map *map = ctx->view->map;
-	uint32_t orig_log_file_tail_offset = map->hdr.log_file_tail_offset;
-	uint32_t orig_next_uid = map->hdr.next_uid;
+	const struct mail_index_header orig_hdr = map->hdr;
 
 	if (u->offset >= map->hdr.base_header_size ||
 	    u->offset + u->size > map->hdr.base_header_size) {
@@ -504,17 +513,37 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 		       u + 1, sizeof(map->hdr) - u->offset);
 	}
 
-	if (map->hdr.next_uid < orig_next_uid) {
+	if (map->hdr.next_uid < orig_hdr.next_uid) {
 		/* next_uid update tried to shrink its value. this can happen
 		   in some race conditions with e.g. with dsync, so just
 		   silently ignore it. */
-		map->hdr.next_uid = orig_next_uid;
+		map->hdr.next_uid = orig_hdr.next_uid;
 	}
 
 	/* the tail offset updates are intended for internal transaction
 	   log handling. we'll update the offset in the header only when
 	   the sync is finished. */
-	map->hdr.log_file_tail_offset = orig_log_file_tail_offset;
+	map->hdr.log_file_tail_offset = orig_hdr.log_file_tail_offset;
+
+	/* These fields describe the index file's structure or they're
+	   maintained internally. They're never changed with header updates,
+	   so a change can only come from a corrupted log. Ignore them, since
+	   e.g. a changed header_size or messages_count would break the
+	   map. */
+	/* major_version .. indexid */
+	mail_index_header_restore_range(&map->hdr, &orig_hdr, 0,
+		offsetof(struct mail_index_header, flags));
+	/* messages_count .. deleted_messages_count */
+	mail_index_header_restore_range(&map->hdr, &orig_hdr,
+		offsetof(struct mail_index_header, messages_count),
+		offsetof(struct mail_index_header, first_recent_uid));
+	/* log_file_seq .. log_file_head_offset */
+	mail_index_header_restore_range(&map->hdr, &orig_hdr,
+		offsetof(struct mail_index_header, log_file_seq),
+		offsetof(struct mail_index_header, unused_old_sync_size_part1));
+	/* keep hdr_copy_buf in sync with the restored fields */
+	buffer_write(map->hdr_copy_buf, 0, &map->hdr,
+		     I_MIN(sizeof(map->hdr), map->hdr.base_header_size));
 	return 1;
 }
 
