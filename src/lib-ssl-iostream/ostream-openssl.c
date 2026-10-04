@@ -202,19 +202,49 @@ static int o_stream_ssl_flush(struct ostream_private *stream)
 	return o_stream_get_buffer_used_size(plain_output) == 0 ? 1 : 0;
 }
 
+/* The buffer is full, but iov still has more data. Flush the buffer to make
+   room for the rest of the data and buffer it. Stop when flushing makes no
+   more progress. Returns the total number of bytes buffered from iov, or -1
+   on error. */
+static ssize_t
+o_stream_ssl_buffer_rest(struct ssl_ostream *sstream,
+			 const struct const_iovec *iov, unsigned int iov_count,
+			 size_t bytes_sent, size_t total_size)
+{
+	while (bytes_sent < total_size) {
+		size_t prev_used = sstream->buffer->used;
+
+		if (o_stream_ssl_flush_buffer(sstream) < 0)
+			return -1;
+		if (sstream->buffer->used == prev_used)
+			break;
+		bytes_sent += o_stream_ssl_buffer(sstream, iov, iov_count,
+						  bytes_sent);
+	}
+	return bytes_sent;
+}
+
 static ssize_t
 o_stream_ssl_sendv(struct ostream_private *stream,
 		   const struct const_iovec *iov, unsigned int iov_count)
 {
 	struct ssl_ostream *sstream = (struct ssl_ostream *)stream;
+	size_t total_size = 0;
 
 	i_assert(!sstream->shutdown);
+
+	for (unsigned int i = 0; i < iov_count; i++)
+		total_size += iov[i].iov_len;
 
 	size_t bytes_sent = o_stream_ssl_buffer(sstream, iov, iov_count, 0);
 	if (!sstream->ssl_io->handshaked) {
 		/* Nothing can be written before the handshake has finished.
 		   The buffer is flushed afterwards. */
 		return bytes_sent;
+	}
+	if (bytes_sent < total_size) {
+		return o_stream_ssl_buffer_rest(sstream, iov, iov_count,
+						bytes_sent, total_size);
 	}
 	if (sstream->buffer->used == bytes_sent) {
 		/* buffer was empty before calling this. try to write it
