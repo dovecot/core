@@ -465,6 +465,18 @@ int mail_index_fsck(struct mail_index *index)
 	map = mail_index_map_clone(index->map);
 	mail_index_unmap(&index->map);
 	index->map = map;
+	/* fsck modifies the records directly. Make sure they're not shared
+	   with other maps, which would then see records_count changing
+	   without their messages_count changing. This also drops any records
+	   after messages_count, which belong only to newer maps. A corrupted
+	   messages_count may be larger than records_count, so temporarily
+	   limit it. fsck recalculates (and logs) messages_count anyway. */
+	uint32_t messages_count = map->hdr.messages_count;
+	if (map->hdr.messages_count > map->rec_map->records_count)
+		map->hdr.messages_count = map->rec_map->records_count;
+	mail_index_map_move_to_memory(map);
+	mail_index_record_map_move_to_private(map);
+	map->hdr.messages_count = messages_count;
 
 	T_BEGIN {
 		mail_index_fsck_map(index, map);
