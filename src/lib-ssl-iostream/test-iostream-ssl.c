@@ -771,8 +771,13 @@ static void test_iostream_ssl_cork(void)
 
 static int handshake_flush_callback(struct test_endpoint *ep)
 {
+	int ret;
+
 	ep->sent++;
-	return o_stream_flush(ep->output);
+	if ((ret = o_stream_flush(ep->output)) <= 0)
+		return ret;
+	/* pretend that there's more data to send after the handshake */
+	return ssl_iostream_is_handshaked(ep->iostream) ? 1 : 0;
 }
 
 static void handshake_server_input_callback(struct test_endpoint *ep)
@@ -800,6 +805,15 @@ static void test_iostream_ssl_flush_before_handshake(void)
 	o_stream_set_flush_callback(server->output, handshake_flush_callback,
 				    server);
 
+	/* The client hasn't started the handshake yet. The flush callback
+	   must not be called repeatedly while waiting for its input, even
+	   though it keeps returning 0. */
+	o_stream_set_flush_pending(server->output, TRUE);
+	to = timeout_add_short(100, handshake_flush_timeout, NULL);
+	io_loop_run(ioloop);
+	timeout_remove(&to);
+	test_assert(server->sent > 0 && server->sent < 10);
+
 	/* The data can't be written until the handshake has finished, so
 	   flushing must not return 1. */
 	o_stream_nsend_str(server->output, line);
@@ -807,14 +821,17 @@ static void test_iostream_ssl_flush_before_handshake(void)
 	test_assert(o_stream_flush(server->output) == 0);
 	test_assert(o_stream_get_buffer_used_size(server->output) > 0);
 
-	/* The client hasn't started the handshake yet. The flush callback
-	   must not be called repeatedly while waiting for its input. */
+	/* The flush callback isn't called repeatedly with buffered data
+	   either. */
+	server->sent = 0;
 	to = timeout_add_short(100, handshake_flush_timeout, NULL);
 	io_loop_run(ioloop);
 	timeout_remove(&to);
 	test_assert(server->sent < 10);
+	server->sent = 0;
 
-	/* After the handshake the data is written */
+	/* After the handshake the flush callback is called again and the
+	   data is written */
 	server->io = io_add_istream(server->input,
 				    handshake_server_input_callback, server);
 	client->io = io_add_istream(client->input, cork_input_callback,
@@ -822,6 +839,7 @@ static void test_iostream_ssl_flush_before_handshake(void)
 	test_assert(ssl_iostream_handshake(client->iostream) == 0);
 	test_iostream_ssl_cork_wait(client);
 	test_assert(o_stream_get_buffer_used_size(server->output) == 0);
+	test_assert(server->sent > 0);
 
 	test_ssl_endpoints_destroy(&server, &client);
 	io_loop_destroy(&ioloop);
