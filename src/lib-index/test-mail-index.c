@@ -1088,6 +1088,97 @@ static void test_mail_index_verify_records(void)
 	test_end();
 }
 
+static struct mail_index *test_mail_index_open_zero_uids(void)
+{
+	struct mail_index *index;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	struct mail_index_sync_ctx *sync_ctx;
+	uint32_t seq;
+
+	index = test_mail_index_init(TRUE);
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view,
+			MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	uint32_t uid_validity = 1234;
+	mail_index_update_header(trans,
+		offsetof(struct mail_index_header, uid_validity),
+		&uid_validity, sizeof(uid_validity), TRUE);
+	for (uint32_t uid = 1; uid <= 4; uid++)
+		mail_index_append(trans, uid, &seq);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	mail_index_view_close(&view);
+
+	/* write dovecot.index */
+	test_assert(mail_index_sync_begin(index, &sync_ctx, &view,
+					  &trans, 0) > 0);
+	mail_index_write(index, FALSE, "test");
+	test_assert(mail_index_sync_commit(&sync_ctx) == 0);
+	uoff_t hdr_size = index->map->hdr.header_size;
+	uoff_t record_size = index->map->hdr.record_size;
+	test_mail_index_close(&index);
+
+	/* set the UIDs of seqs 1 and 3 to 0 */
+	const char *path = t_strconcat(test_mail_index_get_dir(),
+				       "/test.dovecot.index", NULL);
+	int fd = open(path, O_RDWR);
+	if (fd == -1)
+		i_fatal("open(%s) failed: %m", path);
+	uint32_t uid = 0;
+	for (seq = 1; seq <= 3; seq += 2) {
+		uoff_t offset = hdr_size + (seq - 1) * record_size +
+			offsetof(struct mail_index_record, uid);
+		test_assert(pwrite(fd, &uid, sizeof(uid), offset) ==
+			    sizeof(uid));
+	}
+	i_close_fd(&fd);
+
+	/* opening doesn't notice the corruption */
+	return test_mail_index_open(FALSE);
+}
+
+static void test_mail_index_commit_zero_uids(void)
+{
+	struct mail_index *index;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+
+	test_begin("mail index commit updates to uid=0 records");
+	/* flag update range covering uid=0 records and a valid record */
+	index = test_mail_index_open_zero_uids();
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view, 0);
+	mail_index_update_flags_range(trans, 1, 3, MODIFY_ADD, MAIL_SEEN);
+	/* the corruption error, fscking warning and 2 fsck errors */
+	test_expect_errors(4);
+	test_assert(mail_index_transaction_commit(&trans) < 0);
+	test_expect_no_more_errors();
+	test_assert(mail_index_reset_fscked(index));
+	mail_index_view_close(&view);
+
+	/* fsck dropped the uid=0 records */
+	view = mail_index_view_open(index);
+	test_assert(mail_index_view_get_messages_count(view) == 2);
+	trans = mail_index_transaction_begin(view, 0);
+	mail_index_update_flags_range(trans, 1, 2, MODIFY_ADD, MAIL_SEEN);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	mail_index_view_close(&view);
+	test_mail_index_deinit(&index);
+
+	/* separate flag updates to two uid=0 records */
+	index = test_mail_index_open_zero_uids();
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view, 0);
+	mail_index_update_flags(trans, 1, MODIFY_ADD, MAIL_SEEN);
+	mail_index_update_flags(trans, 3, MODIFY_ADD, MAIL_SEEN);
+	test_expect_errors(4);
+	test_assert(mail_index_transaction_commit(&trans) < 0);
+	test_expect_no_more_errors();
+	mail_index_view_close(&view);
+	test_mail_index_deinit(&index);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -1108,6 +1199,7 @@ int main(void)
 		test_mail_index_sync_stop_at_offset_log_garbage,
 		test_mail_index_keyword_update_avoid_after_replace,
 		test_mail_index_verify_records,
+		test_mail_index_commit_zero_uids,
 		NULL
 	};
 	test_dir_init("mail-index");

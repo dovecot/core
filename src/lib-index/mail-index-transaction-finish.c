@@ -185,7 +185,12 @@ mail_index_transaction_get_uid(struct mail_index_transaction *t, uint32_t seq)
 		i_assert(seq <= t->view->map->hdr.messages_count);
 		rec = MAIL_INDEX_REC_AT_SEQ(t->view->map, seq);
 	}
-	i_assert(rec->uid != 0);
+	if (unlikely(rec->uid == 0)) {
+		/* The view's map is corrupted. The commit will fail. */
+		i_assert(seq < t->first_new_seq);
+		t->corrupted_uids = TRUE;
+		return UINT32_MAX;
+	}
 	return rec->uid;
 }
 
@@ -213,6 +218,8 @@ get_nonexpunged_uid2(struct mail_index_transaction *t,
 	seq1++;
 
 	while (mail_index_transaction_get_uid(t, seq1) == uid1 + 1) {
+		if (t->corrupted_uids)
+			break;
 		seq1++;
 		uid1++;
 	}
@@ -235,6 +242,10 @@ void mail_index_transaction_seq_range_to_uid(struct mail_index_transaction *t,
 
 		uid1 = mail_index_transaction_get_uid(t, range->seq1);
 		uid2 = mail_index_transaction_get_uid(t, range->seq2);
+		if (t->corrupted_uids) {
+			/* the commit will fail anyway */
+			return;
+		}
 		i_assert(uid1 > prev_uid);
 		if (uid2 - uid1 == range->seq2 - range->seq1) {
 			/* simple conversion */
@@ -251,6 +262,8 @@ void mail_index_transaction_seq_range_to_uid(struct mail_index_transaction *t,
 			new_range->seq1 = uid1;
 			new_range->seq2 = get_nonexpunged_uid2(t, uid1,
 							       range->seq1);
+			if (t->corrupted_uids)
+				return;
 			i_assert(new_range->seq2 < uid2);
 
 			/* continue the range without the inserted seqs */

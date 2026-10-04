@@ -187,12 +187,28 @@ mail_index_transaction_commit_real(struct mail_index_transaction *t,
 	ret = mail_transaction_log_file_refresh(t, ctx);
 	if (ret == 0) T_BEGIN {
 		mail_index_transaction_finish(t);
-		mail_index_transaction_export(t, ctx, changes_r);
+		if (!t->corrupted_uids)
+			mail_index_transaction_export(t, ctx, changes_r);
 	} T_END;
+	if (t->corrupted_uids) {
+		mail_index_set_error(t->view->index,
+			"Corrupted index file %s: "
+			"Transaction refers to a record with uid=0",
+			t->view->index->filepath);
+		/* the view's sequences can't be trusted */
+		t->view->index->inconsistency_id++;
+		ret = -1;
+	}
 
 	mail_transaction_log_get_head(log, &log_seq1, &log_offset1);
-	if (mail_transaction_log_append_commit(&ctx) < 0 || ret < 0)
+	if (mail_transaction_log_append_commit(&ctx) < 0 || ret < 0) {
+		if (t->corrupted_uids) {
+			/* drop the uid=0 records. this is done only after
+			   the log is unlocked by the append commit. */
+			(void)mail_index_fsck(t->view->index);
+		}
 		return -1;
+	}
 	mail_transaction_log_get_head(log, &log_seq2, &log_offset2);
 	i_assert(log_seq1 == log_seq2);
 

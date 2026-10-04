@@ -101,6 +101,8 @@ struct mail_index_transaction {
 	bool log_updates:1;
 	/* extension updates */
 	bool log_ext_updates:1;
+	/* A sequence referred to a record with uid=0 in the view */
+	bool corrupted_uids:1;
 };
 
 #define MAIL_INDEX_TRANSACTION_HAS_CHANGES(t) \

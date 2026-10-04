@@ -179,6 +179,12 @@ view_lookup_full(struct mail_index_view *view, uint32_t seq,
 				view->index->filepath, seq);
 			(void)mail_index_fsck(view->index);
 			view->inconsistent = TRUE;
+			/* The map may be shared by other views, such as
+			   the transaction's parent view. Their sequences
+			   can't be trusted anymore either, and committing a
+			   transaction would fail converting the sequence to
+			   a UID. */
+			view->index->inconsistency_id++;
 		}
 
 		/* we'll need to return something so the caller doesn't crash */
