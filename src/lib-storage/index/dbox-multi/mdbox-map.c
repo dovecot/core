@@ -1229,7 +1229,7 @@ mdbox_map_assign_file_ids(struct mdbox_map_append_context *ctx,
 	struct dbox_file_append_context *const *file_appends;
 	unsigned int i, count;
 	struct mdbox_map_mail_index_header hdr;
-	uint32_t first_file_id, file_id, existing_id;
+	uint32_t first_file_id, file_id, highest_file_id, existing_id;
 
 	/* start the syncing. we'll need it even if there are no file ids to
 	   be assigned. */
@@ -1237,7 +1237,7 @@ mdbox_map_assign_file_ids(struct mdbox_map_append_context *ctx,
 		return -1;
 
 	mdbox_map_get_ext_hdr(ctx->map, ctx->atomic->sync_view, &hdr);
-	file_id = hdr.highest_file_id + 1;
+	highest_file_id = hdr.highest_file_id;
 
 	if (ctx->map->verify_existing_file_ids) {
 		/* storage/ directory had been already created but
@@ -1246,9 +1246,16 @@ mdbox_map_assign_file_ids(struct mdbox_map_append_context *ctx,
 		   accidentally overwrite any existing files. */
 		if (mdbox_find_highest_file_id(ctx->map, &existing_id) < 0)
 			return -1;
-		if (file_id < existing_id+1)
-			file_id = existing_id+1;
+		if (highest_file_id < existing_id)
+			highest_file_id = existing_id;
 	}
+	if (highest_file_id >
+	    MDBOX_MAP_MAX_FILE_ID - array_count(&ctx->file_appends)) {
+		mdbox_map_set_corrupted(ctx->map,
+			"highest_file_id=%u is too large", highest_file_id);
+		return -1;
+	}
+	file_id = highest_file_id + 1;
 
 	/* assign file_ids for newly created files */
 	first_file_id = file_id;

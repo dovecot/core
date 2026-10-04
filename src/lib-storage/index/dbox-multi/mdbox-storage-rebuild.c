@@ -264,6 +264,12 @@ rebuild_rename_file(struct mdbox_storage_rebuild_context *ctx,
 
 	old_path = t_strconcat(dir, "/", fname, NULL);
 	do {
+		if (ctx->highest_file_id >= MDBOX_MAP_MAX_FILE_ID) {
+			e_error(event, "rebuild: Can't rename %s: "
+				"highest_file_id=%u is too large",
+				old_path, ctx->highest_file_id);
+			return -1;
+		}
 		new_path = t_strdup_printf("%s/"MDBOX_MAIL_FILE_FORMAT,
 					   dir, ++ctx->highest_file_id);
 		/* use link()+unlink() instead of rename() to make sure we
@@ -303,7 +309,14 @@ static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
 		}
 		return 0;
 	}
-	if (!seq_range_exists(&ctx->seen_file_ids, file_id)) {
+	if (file_id > MDBOX_MAP_MAX_FILE_ID) {
+		/* give the file a new ID, so new file_ids can still be
+		   allocated after it */
+		e_warning(event, "rebuild: File ID is too large: %s/%s",
+			  dir, fname);
+		if (rebuild_rename_file(ctx, dir, &fname, &file_id) < 0)
+			return -1;
+	} else if (!seq_range_exists(&ctx->seen_file_ids, file_id)) {
 		if (ctx->highest_file_id < file_id)
 			ctx->highest_file_id = file_id;
 	} else {
@@ -991,6 +1004,14 @@ mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx,
 		       I_MIN(data_size, sizeof(ctx->orig_map_hdr)));
 	}
 	ctx->highest_file_id = ctx->orig_map_hdr.highest_file_id;
+	if (ctx->highest_file_id > MDBOX_MAP_MAX_FILE_ID) {
+		/* Corrupted. Use only the file IDs found from the storage,
+		   so new file_ids can be allocated again. */
+		e_warning(ctx->storage->storage.storage.event,
+			  "rebuild: Ignoring too large highest_file_id=%u "
+			  "in map header", ctx->highest_file_id);
+		ctx->highest_file_id = 0;
+	}
 	return 1;
 }
 

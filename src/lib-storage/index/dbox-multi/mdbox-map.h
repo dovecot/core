@@ -11,6 +11,10 @@ enum mdbox_map_append_flags {
 	DBOX_MAP_APPEND_FLAG_ALT	= 0x01
 };
 
+/* Larger file_ids are treated as corruption. They never grow this large in
+   practice, and this leaves plenty of space before they would wrap to 0. */
+#define MDBOX_MAP_MAX_FILE_ID ((uint32_t)INT32_MAX)
+
 struct mdbox_map_mail_index_header {
 	uint32_t highest_file_id;
 	/* increased every time storage is rebuilt */
