@@ -182,12 +182,25 @@ static int o_stream_ssl_flush(struct ostream_private *stream)
 	if (stream->finished && !sstream->shutdown && ret >= 0 &&
 	    (sstream->buffer == NULL || sstream->buffer->used == 0)) {
 		sstream->shutdown = TRUE;
+		/* SSL_shutdown() only writes the close_notify alert to the
+		   SSL BIO. Write it to plain_output immediately, so the peer
+		   sees the TLS shutdown already now instead of only when the
+		   SSL iostream is destroyed. */
 		if (SSL_shutdown(ssl_io->ssl) < 0) {
 			io_stream_set_error(
 				&sstream->ostream.iostream, "%s",
 				t_strdup_printf("SSL_shutdown() failed: %s",
 						openssl_iostream_error()));
 			sstream->ostream.ostream.stream_errno = EIO;
+			ret = -1;
+		} else if (openssl_iostream_bio_sync(
+				ssl_io, OPENSSL_IOSTREAM_SYNC_TYPE_WRITE) < 0) {
+			i_assert(ssl_io->plain_stream_errno != 0 &&
+				 ssl_io->plain_stream_errstr != NULL);
+			io_stream_set_error(&stream->iostream,
+					    "%s", ssl_io->plain_stream_errstr);
+			stream->ostream.stream_errno =
+				ssl_io->plain_stream_errno;
 			ret = -1;
 		}
 	}
