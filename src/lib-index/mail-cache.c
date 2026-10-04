@@ -952,6 +952,11 @@ int mail_cache_append(struct mail_cache *cache, const void *data, size_t size,
 			return -1;
 		}
 		*offset = st.st_size;
+		/* Everything in the cache file is 32bit aligned. If the file
+		   size isn't, the last write was only partial. Append after
+		   it at an aligned offset. */
+		if ((*offset & 3) != 0)
+			*offset += 4 - (*offset & 3);
 	}
 	if (*offset >= cache->index->optimization_set.cache.max_size ||
 	    cache->index->optimization_set.cache.max_size - *offset < size) {
