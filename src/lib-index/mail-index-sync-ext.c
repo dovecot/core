@@ -159,7 +159,10 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_map_idx,
 	for (;;) {
 		min_align = UINT16_MAX;
 		for (i = 0; i < count; i++) {
-			if (sorted[i]->record_align > max_align)
+			/* extensions without records may have any
+			   record_align, so ignore it */
+			if (sorted[i]->record_size > 0 &&
+			    sorted[i]->record_align > max_align)
 				max_align = sorted[i]->record_align;
 
 			if (sorted[i]->record_offset == 0 &&
@@ -289,8 +292,13 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u,
 		}
 	}
 
-	if (ext->record_align < u->record_align ||
-	    (ext->record_align > u->record_align && !no_shrink)) {
+	/* record_align isn't validated for extensions without records, so
+	   ignore the intro's record_align if it has no records, and replace
+	   the existing record_align if the extension had no records. */
+	if (u->record_size > 0 &&
+	    (ext->record_size == 0 ||
+	     ext->record_align < u->record_align ||
+	     (ext->record_align > u->record_align && !no_shrink))) {
 		ext->record_align = u->record_align;
 		reorder = TRUE;
 	}
