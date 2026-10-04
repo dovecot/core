@@ -833,6 +833,14 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 		ctx->prev_msg.next_uid = hdr->next_uid;
 	}
 
+	if (ctx->prev_msg.next_uid >= UINT32_MAX) {
+		/* the new UID would wrap to 0 */
+		mailbox_set_critical(box,
+			"mdbox rebuild: next_uid=%u is too large",
+			ctx->prev_msg.next_uid);
+		return -1;
+	}
+
 	/* add the new message */
 	i_zero(&dbox_rec);
 	dbox_rec.map_uid = msg->map_uid;
