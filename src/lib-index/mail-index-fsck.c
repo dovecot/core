@@ -153,27 +153,37 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 	unsigned int changed_count, keywords_count, name_base_pos;
 	ARRAY_TYPE(const_string) names;
 	buffer_t *dest;
-	bool changed = FALSE;
+	bool changed = FALSE, hdr_broken;
 
 	hdr_offset = ext_offset +
 		mail_index_map_ext_hdr_offset(sizeof(MAIL_INDEX_EXT_KEYWORDS)-1);
 	kw_hdr = MAIL_INDEX_MAP_HDR_OFFSET(map, hdr_offset);
-	keywords_count = kw_hdr->keywords_count;
-
 	kw_rec = (const void *)(kw_hdr + 1);
-	name_buffer = (const char *)(kw_rec + keywords_count);
-
-	name_pos = (size_t)(name_buffer - (const char *)kw_hdr);
-	if (name_pos > ext_hdr->hdr_size) {
+	if (ext_hdr->hdr_size < sizeof(*kw_hdr)) {
+		/* too small to contain keywords_count */
+		hdr_broken = TRUE;
+	} else {
+		/* Check keywords_count before calculating name_pos, which
+		   could otherwise wrap. */
+		unsigned int max_keywords_count =
+			(ext_hdr->hdr_size - sizeof(*kw_hdr)) / sizeof(*kw_rec);
+		hdr_broken = kw_hdr->keywords_count > max_keywords_count;
+	}
+	if (hdr_broken) {
 		/* the header is completely broken */
 		keywords_count =
 			mail_index_fsck_find_keyword_count(map, ext_hdr);
 		mail_index_fsck_error(index, "Assuming keywords_count = %u",
 				      keywords_count);
 		kw_rec = NULL;
+		name_buffer = NULL;
 		name_size = 0;
 		changed = TRUE;
 	} else {
+		keywords_count = kw_hdr->keywords_count;
+		name_pos = sizeof(*kw_hdr) + keywords_count * sizeof(*kw_rec);
+		i_assert(name_pos <= ext_hdr->hdr_size);
+		name_buffer = (const char *)kw_hdr + name_pos;
 		name_size = ext_hdr->hdr_size - name_pos;
 	}
 
