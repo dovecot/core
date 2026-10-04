@@ -219,6 +219,14 @@ int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
 		if (mail_index_map_ext_hdr_check_record(hdr, ext_hdr,
 							error_r) < 0)
 			return -1;
+	} else if (ext_hdr->record_offset != 0) {
+		/* Extensions without records always have record_offset=0.
+		   Otherwise the record_offset might point outside the
+		   record. */
+		*error_r = t_strdup_printf(
+			"Record offset %u set without record size",
+			ext_hdr->record_offset);
+		return -1;
 	}
 	if (ext_hdr->hdr_size > MAIL_INDEX_EXT_HEADER_MAX_SIZE) {
 		*error_r = t_strdup_printf("Header size too large (%u)",
