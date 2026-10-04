@@ -16,6 +16,8 @@ struct test_mail_storage_settings {
 	const char *driver;
 	const char *hierarchy_sep;
 	const char *const *extra_input;
+	/* Don't delete the existing home directory */
+	bool keep_home;
 };
 
 struct test_mail_storage_ctx *test_mail_storage_init(void);
