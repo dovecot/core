@@ -633,7 +633,7 @@ int mail_cache_purge(struct mail_cache *cache, uint32_t purge_file_seq,
 	trans = mail_index_transaction_begin(view,
 		MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	if (ret < 0)
-		;
+		mail_index_transaction_rollback(&trans);
 	else if ((ret = mail_cache_purge_full(cache, trans, purge_file_seq,
 					      reason)) < 0)
 		mail_index_transaction_rollback(&trans);
