@@ -13,6 +13,12 @@ struct dotlock_settings;
 
 #define MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file) ((file)->fd == -1)
 
+/* Log file sequences are increased by one for each rotation, so they're never
+   anywhere close to this in practice. Larger values are treated as
+   corruption, which also avoids UINT32_MAX that is used internally to mean
+   the latest log file. */
+#define MAIL_TRANSACTION_LOG_MAX_FILE_SEQ 0x7fffffff
+
 #define LOG_FILE_MODSEQ_CACHE_SIZE 10
 
 struct modseq_cache {

@@ -295,6 +295,13 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 	} else {
 		hdr->file_seq = 1;
 	}
+	if (hdr->prev_file_seq > MAIL_TRANSACTION_LOG_MAX_FILE_SEQ) {
+		/* The index's log_file_seq must have been corrupted. Start
+		   from the beginning, unless there are existing log files. */
+		hdr->file_seq = 1;
+		hdr->prev_file_seq = 0;
+		hdr->prev_file_offset = 0;
+	}
 	if (hdr->initial_modseq == 0) {
 		/* modseq tracking in log files is required for many reasons
 		   nowadays, even if per-message modseqs aren't enabled in
@@ -600,6 +607,17 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 		   shouldn't have filled */
 		memset(PTR_OFFSET(&file->hdr, file->hdr.hdr_size), 0,
 		       sizeof(file->hdr) - file->hdr.hdr_size);
+	}
+	if (file->hdr.file_seq == 0 ||
+	    file->hdr.file_seq > MAIL_TRANSACTION_LOG_MAX_FILE_SEQ) {
+		mail_transaction_log_file_set_corrupted(file,
+			"Invalid file_seq=%u", file->hdr.file_seq);
+		return 0;
+	}
+	if (file->hdr.prev_file_seq > MAIL_TRANSACTION_LOG_MAX_FILE_SEQ) {
+		mail_transaction_log_file_set_corrupted(file,
+			"Invalid prev_file_seq=%u", file->hdr.prev_file_seq);
+		return 0;
 	}
 
 	if (file->hdr.indexid == 0) {

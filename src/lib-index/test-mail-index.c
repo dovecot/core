@@ -117,6 +117,85 @@ static void test_mail_index_log_refresh_rotation_race(void)
 	test_end();
 }
 
+static void test_mail_index_log_rotate_max_file_seq(void)
+{
+	struct mail_index *index;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	const char *path;
+	uint32_t file_seq, seq;
+	uoff_t file_offset;
+	int fd;
+
+	test_begin("mail index log rotate max file_seq");
+	index = test_mail_index_init(TRUE);
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view,
+			MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	uint32_t uid_validity = 1234;
+	mail_index_update_header(trans,
+		offsetof(struct mail_index_header, uid_validity),
+		&uid_validity, sizeof(uid_validity), TRUE);
+	mail_index_append(trans, 1, &seq);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	mail_index_view_close(&view);
+
+	/* write dovecot.index without rotating */
+	test_assert(mail_transaction_log_sync_lock(index->log, "test",
+		&file_seq, &file_offset) == 0);
+	mail_index_write(index, FALSE, "test");
+	mail_transaction_log_sync_unlock(index->log, "test");
+	test_mail_index_close(&index);
+
+	/* set the highest allowed file_seq to both the log and the index */
+	file_seq = MAIL_TRANSACTION_LOG_MAX_FILE_SEQ;
+	path = t_strconcat(test_mail_index_get_dir(),
+			   "/test.dovecot.index.log", NULL);
+	fd = open(path, O_RDWR);
+	if (fd == -1)
+		i_fatal("open(%s) failed: %m", path);
+	test_assert(pwrite(fd, &file_seq, sizeof(file_seq),
+		offsetof(struct mail_transaction_log_header, file_seq)) ==
+		sizeof(file_seq));
+	i_close_fd(&fd);
+	path = t_strconcat(test_mail_index_get_dir(),
+			   "/test.dovecot.index", NULL);
+	fd = open(path, O_RDWR);
+	if (fd == -1)
+		i_fatal("open(%s) failed: %m", path);
+	test_assert(pwrite(fd, &file_seq, sizeof(file_seq),
+		offsetof(struct mail_index_header, log_file_seq)) ==
+		sizeof(file_seq));
+	i_close_fd(&fd);
+
+	index = test_mail_index_open(FALSE);
+	test_assert(index->log->head->hdr.file_seq ==
+		    MAIL_TRANSACTION_LOG_MAX_FILE_SEQ);
+
+	/* rotating must not create a log file older than the head */
+	test_assert(mail_transaction_log_sync_lock(index->log, "test",
+		&file_seq, &file_offset) == 0);
+	mail_index_write(index, TRUE, "test");
+	mail_transaction_log_sync_unlock(index->log, "test");
+	test_assert(index->log->head->hdr.file_seq >
+		    MAIL_TRANSACTION_LOG_MAX_FILE_SEQ);
+
+	/* changes written to the new log file are seen */
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view,
+			MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	mail_index_append(trans, 2, &seq);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	mail_index_view_close(&view);
+	test_assert(mail_index_refresh(index) == 0);
+	view = mail_index_view_open(index);
+	test_assert(mail_index_view_get_messages_count(view) == 2);
+	mail_index_view_close(&view);
+
+	test_mail_index_deinit(&index);
+	test_end();
+}
+
 static void
 test_mail_index_new_extension_rotate_write(struct mail_index *index2,
 					   uint32_t uid)
@@ -936,6 +1015,7 @@ int main(void)
 	static void (*const test_functions[])(void) = {
 		test_mail_index_rotate,
 		test_mail_index_log_refresh_rotation_race,
+		test_mail_index_log_rotate_max_file_seq,
 		test_mail_index_new_extension,
 		test_mail_index_corruption_message_count,
 		test_mail_index_corruption_record_size_zero,
