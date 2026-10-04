@@ -211,8 +211,12 @@ o_stream_ssl_sendv(struct ostream_private *stream,
 	i_assert(!sstream->shutdown);
 
 	size_t bytes_sent = o_stream_ssl_buffer(sstream, iov, iov_count, 0);
-	if (sstream->ssl_io->handshaked &&
-	    sstream->buffer->used == bytes_sent) {
+	if (!sstream->ssl_io->handshaked) {
+		/* Nothing can be written before the handshake has finished.
+		   The buffer is flushed afterwards. */
+		return bytes_sent;
+	}
+	if (sstream->buffer->used == bytes_sent) {
 		/* buffer was empty before calling this. try to write it
 		   immediately. */
 		if (o_stream_ssl_flush_buffer(sstream) < 0)
