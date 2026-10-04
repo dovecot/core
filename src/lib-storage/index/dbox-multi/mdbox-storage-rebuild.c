@@ -338,17 +338,28 @@ static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
 	return ret < 0 ? -1 : 0;
 }
 
-static void
+static int
 rebuild_add_missing_map_uids(struct mdbox_storage_rebuild_context *ctx,
 			     uint32_t next_uid)
 {
 	struct mdbox_rebuild_msg **msgs;
 	struct mdbox_map_mail_index_record rec;
-	unsigned int i, count;
+	unsigned int i, count, missing_count = 0;
 	uint32_t seq;
 
 	i_zero(&rec);
 	msgs = array_get_modifiable(&ctx->msgs, &count);
+	for (i = 0; i < count; i++) {
+		if (msgs[i]->map_uid == 0)
+			missing_count++;
+	}
+	if (missing_count > 0 && next_uid >= UINT32_MAX - missing_count) {
+		/* the new map_uids would wrap to 0 */
+		mail_storage_set_critical(&ctx->storage->storage.storage,
+			"mdbox map %s: next_uid=%u is too large",
+			ctx->storage->map->index_path, next_uid);
+		return -1;
+	}
 	for (i = 0; i < count; i++) {
 		if (msgs[i]->map_uid != 0)
 			continue;
@@ -364,9 +375,10 @@ rebuild_add_missing_map_uids(struct mdbox_storage_rebuild_context *ctx,
 				      ctx->storage->map->map_ext_id,
 				      &rec, NULL);
 	}
+	return 0;
 }
 
-static void rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
+static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 {
 	struct mdbox_map *map = ctx->storage->map;
 	const struct mail_index_header *hdr;
@@ -409,11 +421,13 @@ static void rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 				(*pos)->seen_zero_ref_in_map = TRUE;
 		}
 	}
-	rebuild_add_missing_map_uids(ctx, hdr->next_uid);
+	if (rebuild_add_missing_map_uids(ctx, hdr->next_uid) < 0)
+		return -1;
 
 	/* afterwards we're interested in looking up map_uids.
 	   re-sort the messages to make it easier. */
 	array_sort(&ctx->msgs, mdbox_rebuild_msg_uid_cmp);
+	return 0;
 }
 
 static struct mdbox_rebuild_msg *
@@ -1059,8 +1073,8 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx,
 			return -1;
 	}
 
-	rebuild_apply_map(ctx);
-	if (rebuild_mailboxes(ctx) < 0 ||
+	if (rebuild_apply_map(ctx) < 0 ||
+	    rebuild_mailboxes(ctx) < 0 ||
 	    rebuild_finish(ctx) < 0) {
 		mdbox_map_atomic_set_failed(ctx->atomic);
 		return -1;
