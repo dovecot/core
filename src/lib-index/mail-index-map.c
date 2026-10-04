@@ -164,6 +164,10 @@ mail_index_map_ext_hdr_check_record(const struct mail_index_header *hdr,
 		return -1;
 	}
 
+	if ((ext_hdr->record_align & (ext_hdr->record_align - 1)) != 0) {
+		*error_r = "Record alignment isn't a power of 2";
+		return -1;
+	}
 	/* until we get 128 bit CPUs having a larger alignment is pointless */
 	if (ext_hdr->record_align > sizeof(uint64_t)) {
 		*error_r = "Record alignment is too large";
