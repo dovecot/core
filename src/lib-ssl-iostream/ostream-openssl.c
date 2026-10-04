@@ -91,21 +91,22 @@ o_stream_ssl_buffer(struct ssl_ostream *sstream, const struct const_iovec *iov,
 	return bytes_sent;
 }
 
-static int o_stream_ssl_flush_buffer(struct ssl_ostream *sstream)
+static int o_stream_ssl_flush_buffer(struct ssl_ostream *sstream, size_t size)
 {
 	struct ssl_iostream *ssl_io = sstream->ssl_io;
 	size_t pos = 0;
 	int ret = 1;
 
 	i_assert(!sstream->shutdown);
+	i_assert(size <= sstream->buffer->used);
 
-	while (pos < sstream->buffer->used) {
+	while (pos < size) {
 		/* we're writing plaintext data to OpenSSL, which it encrypts
 		   and writes to bio_int's buffer. ssl_iostream_bio_sync()
 		   reads it from there and adds to plain_output stream. */
 		ret = SSL_write(ssl_io->ssl,
 				CONST_PTR_OFFSET(sstream->buffer->data, pos),
-				sstream->buffer->used - pos);
+				size - pos);
 		if (ret <= 0) {
 			ret = openssl_iostream_handle_error(
 				ssl_io, ret, OPENSSL_IOSTREAM_SYNC_TYPE_WRITE,
@@ -169,7 +170,7 @@ static int o_stream_ssl_flush(struct ostream_private *stream)
 
 	if (ret > 0 && sstream->buffer != NULL && sstream->buffer->used > 0) {
 		/* we can try to send some of our buffered data */
-		ret = o_stream_ssl_flush_buffer(sstream);
+		ret = o_stream_ssl_flush_buffer(sstream, sstream->buffer->used);
 	}
 
 	/* Stream is finished; shutdown the SSL write direction once our buffer
@@ -214,7 +215,8 @@ o_stream_ssl_buffer_rest(struct ssl_ostream *sstream,
 	while (bytes_sent < total_size) {
 		size_t prev_used = sstream->buffer->used;
 
-		if (o_stream_ssl_flush_buffer(sstream) < 0)
+		if (o_stream_ssl_flush_buffer(sstream,
+					      sstream->buffer->used) < 0)
 			return -1;
 		if (sstream->buffer->used == prev_used)
 			break;
@@ -249,7 +251,7 @@ o_stream_ssl_sendv(struct ostream_private *stream,
 	if (sstream->buffer->used == bytes_sent) {
 		/* buffer was empty before calling this. try to write it
 		   immediately. */
-		if (o_stream_ssl_flush_buffer(sstream) < 0)
+		if (o_stream_ssl_flush_buffer(sstream, bytes_sent) < 0)
 			return -1;
 	}
 	return bytes_sent;
