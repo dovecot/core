@@ -32,6 +32,11 @@
 #define MAILBOX_LIST_INDEX_HIERARCHY_SEP '~'
 #define MAILBOX_LIST_INDEX_HIERARCHY_ALT_SEP '^'
 
+/* New name_ids are allocated by incrementing the highest name_id, so they're
+   never anywhere close to this in practice. Larger name_ids are treated as
+   corruption, so allocating new name_ids can't wrap to 0. */
+#define MAILBOX_LIST_INDEX_MAX_NAME_ID 0x7fffffff
+
 #define INDEX_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mailbox_list_index_module)
 #define INDEX_LIST_CONTEXT_REQUIRE(obj) \

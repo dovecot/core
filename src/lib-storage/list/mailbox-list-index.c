@@ -358,6 +358,8 @@ int mailbox_list_index_name_iter_next(struct mailbox_list_index_name_iter *iter,
 		/* allow extra space in the end as long as last id=0 */
 		return id == 0 ? 0 : -1;
 	}
+	if (id > MAILBOX_LIST_INDEX_MAX_NAME_ID)
+		return -1;
 	iter->prev_id = id;
 
 	/* get name. It's NUL-terminated within the header, so it can be
@@ -515,7 +517,8 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 		irec = data;
 
 		node->name_id = irec->name_id;
-		if (node->name_id == 0) {
+		if (node->name_id == 0 ||
+		    node->name_id > MAILBOX_LIST_INDEX_MAX_NAME_ID) {
 			/* invalid name_id - assign a new one */
 			node->name_id = ++ilist->highest_name_id;
 			node->corrupted_ext = TRUE;
