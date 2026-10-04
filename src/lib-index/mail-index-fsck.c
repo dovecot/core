@@ -569,6 +569,30 @@ int mail_index_verify_records(struct mail_index *index)
 	return mail_index_fsck(index) < 0 ? -1 : 0;
 }
 
+bool mail_index_view_verify_records(struct mail_index_view *view)
+{
+	struct mail_index *index = view->index;
+	const char *error;
+	bool valid, fsck = FALSE;
+
+	T_BEGIN {
+		valid = mail_index_map_verify_records(view->map, &error);
+		if (!valid) {
+			mail_index_set_error(index,
+				"Corrupted index file %s: %s",
+				index->filepath, error);
+			/* The index's map may have already been fixed, but
+			   the view hasn't been synced yet. */
+			fsck = view->map == index->map ||
+				!mail_index_map_verify_records(index->map,
+							       &error);
+		}
+	} T_END;
+	if (fsck)
+		(void)mail_index_fsck(index);
+	return valid;
+}
+
 void mail_index_fsck_locked(struct mail_index *index)
 {
 	int ret;

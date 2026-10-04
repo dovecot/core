@@ -608,6 +608,11 @@ int mail_index_fsck(struct mail_index *index) ATTR_COLD;
    old records until they're synced. Returns 1 if the records were valid,
    0 if they were fixed with fsck, -1 if fsck failed. */
 int mail_index_verify_records(struct mail_index *index);
+/* Like mail_index_verify_records(), but verify the records visible in the
+   view. Returns TRUE if the records are valid. If not, the index is fsck'd
+   (unless its latest map is already valid) and FALSE is returned. The view
+   still sees the invalid records until it's synced. */
+bool mail_index_view_verify_records(struct mail_index_view *view);
 /* Returns TRUE if mail_index_fsck() has been called since the last
    mail_index_reset_fscked() call. */
 bool mail_index_reset_fscked(struct mail_index *index);

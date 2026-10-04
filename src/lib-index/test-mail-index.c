@@ -1179,6 +1179,37 @@ static void test_mail_index_commit_zero_uids(void)
 	test_end();
 }
 
+static void test_mail_index_view_verify_records(void)
+{
+	struct mail_index *index;
+	struct mail_index_view *view;
+
+	test_begin("mail index view verify records");
+	index = test_mail_index_open_zero_uids();
+	view = mail_index_view_open(index);
+	/* the corruption error, fscking warning and 2 fsck errors */
+	test_expect_errors(4);
+	test_assert(!mail_index_view_verify_records(view));
+	test_expect_no_more_errors();
+	test_assert(mail_index_reset_fscked(index));
+
+	/* the view still sees the old records, but the index was already
+	   fixed, so it's not fsck'd again */
+	test_expect_errors(1);
+	test_assert(!mail_index_view_verify_records(view));
+	test_expect_no_more_errors();
+	test_assert(!mail_index_reset_fscked(index));
+	mail_index_view_close(&view);
+
+	/* a new view sees the fixed records */
+	view = mail_index_view_open(index);
+	test_assert(mail_index_view_verify_records(view));
+	test_assert(mail_index_view_get_messages_count(view) == 2);
+	mail_index_view_close(&view);
+	test_mail_index_deinit(&index);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -1200,6 +1231,7 @@ int main(void)
 		test_mail_index_keyword_update_avoid_after_replace,
 		test_mail_index_verify_records,
 		test_mail_index_commit_zero_uids,
+		test_mail_index_view_verify_records,
 		NULL
 	};
 	test_dir_init("mail-index");
