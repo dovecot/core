@@ -6,6 +6,10 @@
 #include "ostream-private.h"
 #include "iostream-openssl.h"
 
+/* While the stream is corked, write the buffered data once it fills at least
+   one full TLS record. */
+#define OSTREAM_SSL_CORK_FLUSH_SIZE SSL3_RT_MAX_PLAIN_LENGTH
+
 struct ssl_ostream {
 	struct ostream_private ostream;
 	struct ssl_iostream *ssl_io;
@@ -231,7 +235,7 @@ o_stream_ssl_sendv(struct ostream_private *stream,
 		   const struct const_iovec *iov, unsigned int iov_count)
 {
 	struct ssl_ostream *sstream = (struct ssl_ostream *)stream;
-	size_t total_size = 0;
+	size_t total_size = 0, flush_size = 0;
 
 	i_assert(!sstream->shutdown);
 
@@ -248,12 +252,21 @@ o_stream_ssl_sendv(struct ostream_private *stream,
 		return o_stream_ssl_buffer_rest(sstream, iov, iov_count,
 						bytes_sent, total_size);
 	}
-	if (sstream->buffer->used == bytes_sent) {
-		/* buffer was empty before calling this. try to write it
-		   immediately. */
-		if (o_stream_ssl_flush_buffer(sstream, bytes_sent) < 0)
-			return -1;
+	if (!stream->corked) {
+		/* If the buffer was empty before calling this, try to write
+		   it immediately. */
+		if (sstream->buffer->used == bytes_sent)
+			flush_size = bytes_sent;
+	} else {
+		/* Corked: Write only full TLS records, so the buffer doesn't
+		   grow without limit. Keep the rest buffered. */
+		size_t used = sstream->buffer->used;
+
+		flush_size = used - used % OSTREAM_SSL_CORK_FLUSH_SIZE;
 	}
+	if (flush_size > 0 &&
+	    o_stream_ssl_flush_buffer(sstream, flush_size) < 0)
+		return -1;
 	return bytes_sent;
 }
 
