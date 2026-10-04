@@ -1311,6 +1311,14 @@ int mdbox_map_append_assign_map_uids(struct mdbox_map_append_context *ctx,
 	if (mdbox_map_assign_file_ids(ctx, TRUE, "saving - assign uids") < 0)
 		return -1;
 
+	hdr = mail_index_get_header(ctx->atomic->sync_view);
+	if (hdr->next_uid >= UINT32_MAX - array_count(&ctx->appends)) {
+		/* new map_uids would wrap to 0 */
+		mdbox_map_set_corrupted(ctx->map, "next_uid=%u is too large",
+					hdr->next_uid);
+		return -1;
+	}
+
 	/* append map records to index */
 	i_zero(&rec);
 	ref16 = 1;
@@ -1333,7 +1341,6 @@ int mdbox_map_append_assign_map_uids(struct mdbox_map_append_context *ctx,
 	}
 
 	/* assign map UIDs for appended records */
-	hdr = mail_index_get_header(ctx->atomic->sync_view);
 	t_array_init(&uids, 1);
 	mail_index_append_finish_uids(ctx->trans, hdr->next_uid, &uids);
 	range = array_front(&uids);
@@ -1378,6 +1385,12 @@ int mdbox_map_append_move(struct mdbox_map_append_context *ctx,
 
 	next_uid = mail_index_get_header(ctx->atomic->sync_view)->next_uid;
 	uids = array_get(map_uids, &map_uids_count);
+	if (next_uid >= UINT32_MAX - map_uids_count) {
+		/* new map_uids would wrap to 0 */
+		mdbox_map_set_corrupted(ctx->map, "next_uid=%u is too large",
+					next_uid);
+		return -1;
+	}
 	for (i = j = 0; i < map_uids_count; i++) {
 		struct mdbox_file *mfile =
 			(struct mdbox_file *)appends[j].file_append->file;
