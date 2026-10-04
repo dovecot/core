@@ -271,7 +271,7 @@ mailbox_log_iter_next(struct mailbox_log_iter *iter)
 	}
 	rec = &iter->buf[iter->idx++];
 	if (rec->type < MAILBOX_LOG_RECORD_DELETE_MAILBOX ||
-	    rec->type > MAILBOX_LOG_RECORD_UNSUBSCRIBE) {
+	    rec->type > MAILBOX_LOG_RECORD_CREATE_DIR) {
 		offset = iter->offset -
 			(iter->count - iter->idx) * sizeof(iter->buf[0]);
 		e_error(iter->log->event,

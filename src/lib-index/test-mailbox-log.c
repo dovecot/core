@@ -135,12 +135,48 @@ static void test_mailbox_log_iter_rotated(void)
 	test_end();
 }
 
+static void test_mailbox_log_iter_all_types(void)
+{
+	struct mailbox_log *log;
+	struct mailbox_log_iter *iter;
+	struct mailbox_log_record rec;
+	const struct mailbox_log_record *iter_rec;
+	enum mailbox_log_record_type type;
+	const char *path;
+
+	test_begin("mailbox log iter all types");
+	path = test_dir_prepend(TEST_LOG_FNAME);
+	test_log_unlink(path);
+
+	log = mailbox_log_alloc(NULL, path);
+	for (type = MAILBOX_LOG_RECORD_DELETE_MAILBOX;
+	     type <= MAILBOX_LOG_RECORD_CREATE_DIR; type++) {
+		i_zero(&rec);
+		rec.type = type;
+		test_assert(mailbox_log_append(log, &rec) == 0);
+	}
+
+	type = MAILBOX_LOG_RECORD_DELETE_MAILBOX;
+	iter = mailbox_log_iter_init(log);
+	while ((iter_rec = mailbox_log_iter_next(iter)) != NULL) {
+		test_assert(iter_rec->type == type);
+		type++;
+	}
+	test_assert(type == MAILBOX_LOG_RECORD_CREATE_DIR + 1);
+	test_assert(mailbox_log_iter_deinit(&iter) == 0);
+	mailbox_log_free(&log);
+
+	test_log_unlink(path);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mailbox_log_iter,
 		test_mailbox_log_iter_partial_record,
 		test_mailbox_log_iter_rotated,
+		test_mailbox_log_iter_all_types,
 		NULL
 	};
 
