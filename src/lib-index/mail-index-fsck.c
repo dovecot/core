@@ -502,6 +502,52 @@ int mail_index_fsck(struct mail_index *index)
 	return 0;
 }
 
+static bool
+mail_index_map_verify_records(struct mail_index_map *map,
+			      const char **error_r)
+{
+	const struct mail_index_record *rec;
+	uint32_t seq, prev_uid = 0;
+
+	for (seq = 1; seq <= map->hdr.messages_count; seq++) {
+		rec = MAIL_INDEX_REC_AT_SEQ(map, seq);
+		if (rec->uid <= prev_uid) {
+			*error_r = t_strdup_printf(
+				"Record seq=%u UID %u <= previous UID %u",
+				seq, rec->uid, prev_uid);
+			return FALSE;
+		}
+		if (rec->uid >= map->hdr.next_uid) {
+			*error_r = t_strdup_printf(
+				"Record seq=%u UID %u >= next_uid %u",
+				seq, rec->uid, map->hdr.next_uid);
+			return FALSE;
+		}
+		prev_uid = rec->uid;
+	}
+	return TRUE;
+}
+
+int mail_index_verify_records(struct mail_index *index)
+{
+	const char *error;
+	bool valid;
+
+	i_assert(index->open_count > 0);
+
+	T_BEGIN {
+		valid = mail_index_map_verify_records(index->map, &error);
+		if (!valid) {
+			mail_index_set_error(index,
+				"Corrupted index file %s: %s",
+				index->filepath, error);
+		}
+	} T_END;
+	if (valid)
+		return 1;
+	return mail_index_fsck(index) < 0 ? -1 : 0;
+}
+
 void mail_index_fsck_locked(struct mail_index *index)
 {
 	int ret;

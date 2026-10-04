@@ -599,6 +599,15 @@ void mail_index_mark_corrupted(struct mail_index *index) ATTR_COLD;
 /* Check and fix any found problems. Returns -1 if we couldn't lock for sync,
    0 if everything went ok. */
 int mail_index_fsck(struct mail_index *index) ATTR_COLD;
+/* Verify that all the message records in the index have valid UIDs:
+   non-zero, ascending and lower than next_uid. Opening the index doesn't
+   verify them, because it would be too slow for large indexes. This can be
+   called after the index files may have been replaced with untrusted ones,
+   e.g. when they were downloaded from a remote storage. If the records are
+   invalid, the index is fsck'd. Views that are already open keep seeing the
+   old records until they're synced. Returns 1 if the records were valid,
+   0 if they were fixed with fsck, -1 if fsck failed. */
+int mail_index_verify_records(struct mail_index *index);
 /* Returns TRUE if mail_index_fsck() has been called since the last
    mail_index_reset_fscked() call. */
 bool mail_index_reset_fscked(struct mail_index *index);
