@@ -150,7 +150,7 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 	struct mail_index_keyword_header_rec new_kw_rec;
 	const char *name, *name_buffer, **name_array;
 	unsigned int i, j, name_pos, name_size, rec_pos, hdr_offset, diff;
-	unsigned int changed_count, keywords_count, name_base_pos;
+	unsigned int changed_count, keywords_count, name_base_pos, count;
 	ARRAY_TYPE(const_string) names;
 	buffer_t *dest;
 	bool changed = FALSE, hdr_broken;
@@ -207,7 +207,9 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 
 	/* give new names to invalid keywords */
 	changed_count = 0;
-	name_array = array_front_modifiable(&names);
+	/* keywords_count may be 0, so don't use array_front_modifiable() */
+	name_array = array_get_modifiable(&names, &count);
+	i_assert(count == keywords_count);
 	for (i = j = 0; i < keywords_count; i++) {
 		while (name_array[i][0] == '\0') {
 			name = t_strdup_printf("unknown-%d", j++);
