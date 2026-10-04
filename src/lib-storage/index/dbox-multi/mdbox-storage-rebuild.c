@@ -961,6 +961,7 @@ mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx,
 {
 	const void *data;
 	size_t data_size;
+	int ret;
 
 	if (mdbox_map_open_or_create(ctx->storage->map) < 0)
 		return -1;
@@ -969,6 +970,27 @@ mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx,
 	   rebuild at the same time. */
 	if (mdbox_map_atomic_lock(ctx->atomic, "mdbox storage rebuild") < 0)
 		return -1;
+
+	/* The rebuild relies on the map UIDs being ordered. Verifying them is
+	   cheap compared to the rebuild itself. This needs to be done after
+	   locking, so the locked view sees the same records. */
+	ret = mail_index_verify_records(ctx->storage->map->index);
+	if (ret <= 0) {
+		if (ret == 0) {
+			/* The invalid records were fixed with fsck, but the
+			   locked view still has the old records, so fail this
+			   rebuild. Mark the storage corrupted, so the next
+			   sync rebuilds again. */
+			mdbox_map_set_corrupted(ctx->storage->map,
+				"Invalid records - retrying rebuild");
+		} else {
+			mail_storage_set_index_error(
+				&ctx->storage->storage.storage,
+				ctx->storage->map->index);
+		}
+		mdbox_map_atomic_set_failed(ctx->atomic);
+		return -1;
+	}
 
 	/* get storage rebuild counter after locking */
 	ctx->rebuild_count = mdbox_map_get_rebuild_count(ctx->storage->map);
