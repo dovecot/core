@@ -503,6 +503,17 @@ int mail_index_fsck(struct mail_index *index)
 
 	T_BEGIN {
 		mail_index_fsck_map(index, map);
+		/* fsck may have dropped or modified extension headers, so
+		   the map's parsed extensions and keywords must be updated
+		   to match them. */
+		if (array_is_created(&map->keyword_idx_map))
+			array_clear(&map->keyword_idx_map);
+		if (mail_index_map_parse_extensions(map) < 0 ||
+		    mail_index_map_parse_keywords(map) < 0) {
+			mail_index_set_error(index,
+				"fsck left broken extension headers to index file %s",
+				index->filepath);
+		}
 	} T_END;
 
 	mail_index_write(index, FALSE, "fscking");
