@@ -139,6 +139,7 @@ test_programs = \
 	test-mail-search-args-simplify \
 	test-mail \
 	test-mail-storage \
+	test-mail-storage-corruption \
 	test-mailbox-get \
 	test-mailbox-list \
 	test-index
@@ -171,6 +172,10 @@ test_mail_autoexpunge_DEPENDENCIES = libstorage.la $(LIBDOVECOT_DEPS)
 test_mail_storage_SOURCES = test-mail-storage.c
 test_mail_storage_LDADD = libstorage.la $(LIBDOVECOT)
 test_mail_storage_DEPENDENCIES = libstorage.la $(LIBDOVECOT_DEPS)
+
+test_mail_storage_corruption_SOURCES = test-mail-storage-corruption.c
+test_mail_storage_corruption_LDADD = libstorage.la $(LIBDOVECOT)
+test_mail_storage_corruption_DEPENDENCIES = libstorage.la $(LIBDOVECOT_DEPS)
 
 test_mailbox_list_SOURCES = test-mailbox-list.c
 test_mailbox_list_LDADD = libstorage.la $(LIBDOVECOT)
