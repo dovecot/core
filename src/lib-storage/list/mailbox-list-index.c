@@ -713,6 +713,20 @@ mailbox_list_index_parse_full(struct mailbox_list *list,
 	ilist->sync_log_file_seq = hdr->log_file_seq;
 	ilist->sync_log_file_offset = hdr->log_file_head_offset;
 
+	if (hdr->next_uid == UINT32_MAX) {
+		/* No new mailboxes could be added. The UIDs are only used
+		   internally, so they can't really run out. */
+		if (!handle_corruption)
+			return -1;
+		mailbox_list_set_critical(list,
+			"Corrupted mailbox list index %s: next_uid=%u",
+			ilist->path, hdr->next_uid);
+		if (ilist->has_backing_store) {
+			mail_index_mark_corrupted(ilist->index);
+			return -1;
+		}
+		ilist->call_corruption_callback = TRUE;
+	}
 	if (mailbox_list_index_parse_header(ilist, view) < 0) {
 		if (!handle_corruption)
 			return -1;
