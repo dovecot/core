@@ -243,7 +243,9 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 
 	if (dest->used > ext_hdr->hdr_size) {
 		/* need to resize the header */
-		struct mail_index_ext_header new_ext_hdr;
+		/* ext_hdr points to hdr_copy_buf, which may be reallocated
+		   by buffer_copy(). Copy it first. */
+		struct mail_index_ext_header new_ext_hdr = *ext_hdr;
 
 		diff = dest->used - ext_hdr->hdr_size;
 		buffer_copy(map->hdr_copy_buf, hdr_offset + diff,
@@ -251,7 +253,6 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 		hdr->header_size += diff;
 		*offset_p += diff;
 
-		new_ext_hdr = *ext_hdr;
 		new_ext_hdr.hdr_size += diff;
 		buffer_write(map->hdr_copy_buf, ext_offset,
 			     &new_ext_hdr, sizeof(new_ext_hdr));
