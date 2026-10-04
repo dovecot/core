@@ -858,6 +858,19 @@ static int finish_flush_callback(struct test_endpoint *ep)
 	return ret;
 }
 
+static void close_notify_input_callback(struct test_endpoint *ep)
+{
+	ssize_t ret;
+
+	while ((ret = i_stream_read(ep->input)) > 0)
+		i_stream_skip(ep->input, ret);
+	if (ret == -1) {
+		test_assert(ep->input->stream_errno == 0);
+		ep->finished = TRUE;
+		io_loop_stop(current_ioloop);
+	}
+}
+
 static void test_iostream_ssl_finish(void)
 {
 	static const char line[] = "hello world\n";
@@ -895,6 +908,16 @@ static void test_iostream_ssl_finish(void)
 		test_assert(server->finished);
 	}
 	test_assert(o_stream_get_buffer_used_size(server->output) == 0);
+
+	/* The client sees the close_notify alert as EOF */
+	io_remove(&client->io);
+	client->io = io_add_istream(client->input,
+				    close_notify_input_callback, client);
+	to = timeout_add(5000, cork_timeout_callback, client);
+	io_loop_run(ioloop);
+	timeout_remove(&to);
+	test_assert(!client->failed);
+	test_assert(client->finished);
 
 	test_ssl_endpoints_destroy(&server, &client);
 	io_loop_destroy(&ioloop);
