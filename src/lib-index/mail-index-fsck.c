@@ -343,6 +343,7 @@ mail_index_fsck_records(struct mail_index *index, struct mail_index_map *map,
 	struct mail_index_record *rec, *next_rec;
 	uint32_t i, last_uid;
 	bool logged_unordered_uids = FALSE, logged_zero_uids = FALSE;
+	bool logged_max_uids = FALSE;
 	bool records_dropped = FALSE;
 
 	hdr->messages_count = 0;
@@ -355,13 +356,22 @@ mail_index_fsck_records(struct mail_index *index, struct mail_index_map *map,
 	rec = map->rec_map->records; last_uid = 0;
 	for (i = 0; i < map->rec_map->records_count; ) {
 		next_rec = PTR_OFFSET(rec, hdr->record_size);
-		if (rec->uid <= last_uid) {
+		/* UID UINT32_MAX can't be valid, since next_uid must be
+		   larger than it. */
+		if (rec->uid <= last_uid || rec->uid == UINT32_MAX) {
 			/* log an error once, and skip this record */
 			if (rec->uid == 0) {
 				if (!logged_zero_uids) {
 					mail_index_fsck_error(index,
 						"Record UIDs have zeroes");
 					logged_zero_uids = TRUE;
+				}
+			} else if (rec->uid == UINT32_MAX) {
+				if (!logged_max_uids) {
+					mail_index_fsck_error(index,
+						"Record UIDs have %u",
+						UINT32_MAX);
+					logged_max_uids = TRUE;
 				}
 			} else {
 				if (!logged_unordered_uids) {
