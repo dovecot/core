@@ -638,13 +638,27 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 	   multiple times. other records are checked internally by
 	   mail_index_sync_record(). */
 	switch (rec_type) {
-	case MAIL_TRANSACTION_APPEND:
-		if ((rec_size % sizeof(struct mail_index_record)) != 0) {
+	case MAIL_TRANSACTION_APPEND: {
+		const struct mail_index_record *recs = data;
+		unsigned int i, count;
+
+		if ((rec_size % sizeof(*recs)) != 0) {
 			mail_transaction_log_file_set_corrupted(file,
 				"Invalid append record size");
 			return FALSE;
 		}
+		count = rec_size / sizeof(*recs);
+		for (i = 0; i < count; i++) {
+			/* uid=UINT32_MAX would wrap next_uid to 0 */
+			if (recs[i].uid == 0 || recs[i].uid == UINT32_MAX) {
+				mail_transaction_log_file_set_corrupted(file,
+					"Append with invalid uid=%u",
+					recs[i].uid);
+				return FALSE;
+			}
+		}
 		break;
+	}
 	case MAIL_TRANSACTION_EXPUNGE:
 		buffer_create_from_const_data(&uid_buf, data, rec_size);
 		array_create_from_buffer(&uids, &uid_buf,
