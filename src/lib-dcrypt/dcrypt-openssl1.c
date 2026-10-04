@@ -3801,7 +3801,7 @@ dcrypt_openssl_sign_ecdsa(struct dcrypt_private_key *key, const char *algorithm,
 	EVP_PKEY *pkey = key->key;
 	EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
 	bool ret;
-	int rs_len = EC_GROUP_order_bits(EC_KEY_get0_group(ec_key)) / 8;
+	int rs_len = (EC_GROUP_order_bits(EC_KEY_get0_group(ec_key)) + 7) / 8;
 
 	/* digest data */
 	buffer_t *digest = t_buffer_create(64);
