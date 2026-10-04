@@ -141,8 +141,10 @@ void mail_event_create(struct mail *mail)
 		char uid_buf[MAX_INT_STRLEN];
 		const char *prefix;
 		if (p->mail.uid == 0) {
-			i_assert(p->mail.saving);
-			prefix = "Saving mail: ";
+			/* uid=0 without saving is possible if the index is
+			   corrupted */
+			prefix = p->mail.saving ? "Saving mail: " :
+				"Corrupted UID 0: ";
 		} else {
 			prefix = t_strconcat(
 				p->mail.saving ? "Saving mail UID " : "UID ",
