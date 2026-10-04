@@ -335,6 +335,14 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 	ctx->tmp_mail = mail_alloc(ctx->t, MAIL_FETCH_DATE |
 				   MAIL_FETCH_RECEIVED_DATE, headers_ctx);
 
+	/* Threading requires UIDs to be valid and in ascending order.
+	   Verifying them is cheap compared to threading. */
+	if (!mail_index_view_verify_records(ctx->box->view)) {
+		mailbox_set_index_error(ctx->box);
+		mailbox_header_lookup_unref(&headers_ctx);
+		return -1;
+	}
+
 	/* add all missing UIDs */
 	ctx->strmap_sync = mail_index_strmap_view_sync_init(tbox->strmap_view,
 							    &last_uid);
