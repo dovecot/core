@@ -1702,6 +1702,11 @@ static int search_more_with_mail(struct index_search_context *ctx,
 		if (!more)
 			break;
 		mail_set_seq(mail, _ctx->seq);
+		if (unlikely(mail->uid == 0)) {
+			/* Corrupted index record. The view is now marked
+			   inconsistent, so treat the mail as expunged. */
+			continue;
+		}
 
 		T_BEGIN {
 			ret = box->v.search_next_match_mail(_ctx, mail);
