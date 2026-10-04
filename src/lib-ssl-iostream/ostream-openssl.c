@@ -148,7 +148,6 @@ static int o_stream_ssl_flush(struct ostream_private *stream)
 {
 	struct ssl_ostream *sstream = (struct ssl_ostream *)stream;
 	struct ssl_iostream *ssl_io = sstream->ssl_io;
-	struct ostream *plain_output = ssl_io->plain_output;
 	int ret = 1;
 
 	if (!ssl_io->handshaked) {
@@ -216,9 +215,9 @@ static int o_stream_ssl_flush(struct ostream_private *stream)
 	if (ret <= 0)
 		return ret;
 
-	/* return 1 only when the output buffer is empty, which is what the
-	   caller expects. */
-	return o_stream_get_buffer_used_size(plain_output) == 0 ? 1 : 0;
+	/* return 1 only when all the output buffers are empty, which is what
+	   the caller expects. */
+	return o_stream_get_buffer_used_size(&stream->ostream) == 0 ? 1 : 0;
 }
 
 /* The buffer is full, but iov still has more data. Flush the buffer to make
