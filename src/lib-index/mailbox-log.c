@@ -272,8 +272,9 @@ mailbox_log_iter_next(struct mailbox_log_iter *iter)
 	rec = &iter->buf[iter->idx++];
 	if (rec->type < MAILBOX_LOG_RECORD_DELETE_MAILBOX ||
 	    rec->type > MAILBOX_LOG_RECORD_CREATE_DIR) {
+		/* idx was already incremented */
 		offset = iter->offset -
-			(iter->count - iter->idx) * sizeof(iter->buf[0]);
+			(iter->count - iter->idx + 1) * sizeof(iter->buf[0]);
 		e_error(iter->log->event,
 			"Corrupted mailbox log %s at offset %"PRIuUOFF_T": "
 			"type=%d", iter->filepath, offset, rec->type);
