@@ -104,11 +104,23 @@ mdbox_storage_rebuild_init(struct mdbox_storage *storage,
 	return ctx;
 }
 
+static void rebuild_msg_mailbox_rollback(struct rebuild_msg_mailbox *msg)
+{
+	if (msg->box == NULL)
+		return;
+	mail_index_sync_rollback(&msg->sync_ctx);
+	mailbox_free(&msg->box);
+	i_zero(msg);
+}
+
 static void
 mdbox_storage_rebuild_deinit(struct mdbox_storage_rebuild_context *ctx)
 {
 	i_assert(ctx->storage->rebuilding_storage);
 
+	/* do this while rebuilding_storage is still set, so closing the
+	   mailbox won't start another rebuild */
+	rebuild_msg_mailbox_rollback(&ctx->prev_msg);
 	ctx->storage->rebuilding_storage = FALSE;
 
 	hash_table_destroy(&ctx->guid_hash);
@@ -706,12 +718,16 @@ static int rebuild_mailboxes(struct mdbox_storage_rebuild_context *ctx)
 
 static int rebuild_msg_mailbox_commit(struct rebuild_msg_mailbox *msg)
 {
+	int ret = 0;
+
 	mail_index_sync_set_reason(msg->sync_ctx, "mdbox storage rebuild");
-	if (mail_index_sync_commit(&msg->sync_ctx) < 0)
-		return -1;
+	if (mail_index_sync_commit(&msg->sync_ctx) < 0) {
+		mailbox_set_index_error(msg->box);
+		ret = -1;
+	}
 	mailbox_free(&msg->box);
 	i_zero(msg);
-	return 0;
+	return ret;
 }
 
 static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
@@ -796,8 +812,10 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 
 	/* switch the mailbox cache if necessary */
 	if (box != ctx->prev_msg.box && ctx->prev_msg.box != NULL) {
-		if (rebuild_msg_mailbox_commit(&ctx->prev_msg) < 0)
+		if (rebuild_msg_mailbox_commit(&ctx->prev_msg) < 0) {
+			mailbox_free(&box);
 			return -1;
+		}
 	}
 	if (ctx->prev_msg.box == NULL) {
 		ret = mail_index_sync_begin(box->index,
