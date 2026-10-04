@@ -53,7 +53,7 @@ static size_t get_buffer_avail_size(const struct ssl_ostream *sstream)
 
 static size_t
 o_stream_ssl_buffer(struct ssl_ostream *sstream, const struct const_iovec *iov,
-		    unsigned int iov_count)
+		    unsigned int iov_count, size_t skip)
 {
 	size_t avail, size, bytes_sent = 0;
 
@@ -66,12 +66,24 @@ o_stream_ssl_buffer(struct ssl_ostream *sstream, const struct const_iovec *iov,
 		o_stream_set_flush_pending(sstream->ssl_io->plain_output, TRUE);
 
 	for (unsigned int i = 0; i < iov_count; i++) {
-		size = I_MIN(iov[i].iov_len, avail);
-		buffer_append(sstream->buffer, iov[i].iov_base, size);
+		const unsigned char *data = iov[i].iov_base;
+		size_t len = iov[i].iov_len;
+
+		/* skip the bytes that were already buffered */
+		if (skip >= len) {
+			skip -= len;
+			continue;
+		}
+		data += skip;
+		len -= skip;
+		skip = 0;
+
+		size = I_MIN(len, avail);
+		buffer_append(sstream->buffer, data, size);
 		bytes_sent += size;
 		avail -= size;
 
-		if (size != iov[i].iov_len)
+		if (size != len)
 			break;
 	}
 
@@ -198,7 +210,7 @@ o_stream_ssl_sendv(struct ostream_private *stream,
 
 	i_assert(!sstream->shutdown);
 
-	size_t bytes_sent = o_stream_ssl_buffer(sstream, iov, iov_count);
+	size_t bytes_sent = o_stream_ssl_buffer(sstream, iov, iov_count, 0);
 	if (sstream->ssl_io->handshaked &&
 	    sstream->buffer->used == bytes_sent) {
 		/* buffer was empty before calling this. try to write it
