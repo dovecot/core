@@ -206,8 +206,9 @@ static int o_stream_ssl_flush(struct ostream_private *stream)
 	}
 
 	if (ret == 0 && ssl_io->want_read) {
-		/* we need to read more data until we can continue. */
-		o_stream_set_flush_pending(plain_output, FALSE);
+		/* We need to read more data until we can continue. The SSL
+		   istream sets the flush pending again after reading input. */
+		o_stream_buffering_flush_wait(stream);
 		ssl_io->ostream_flush_waiting_input = TRUE;
 		ret = 1;
 	}
