@@ -283,7 +283,7 @@ int mail_cache_lookup_iter_next(struct mail_cache_lookup_iterate_ctx *ctx,
 
 	i_assert(ctx->remap_counter == cache->remap_counter);
 
-	if (ctx->pos + sizeof(uint32_t) > ctx->rec_size) {
+	while (ctx->pos + sizeof(uint32_t) > ctx->rec_size) {
 		if (ctx->pos != ctx->rec_size) {
 			mail_cache_set_corrupted(cache,
 				"record has invalid size");
