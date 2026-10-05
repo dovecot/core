@@ -120,6 +120,7 @@ int file_lock_proc_parse_line(const char *line, struct proc_lock *lock_r)
 	}
 	if (str_array_length(args) < 7)
 		return -1;
+	i_assert(args[0] != NULL);
 
 	proc_lock_parse_class(args[0], &lock.lock_class);
 	lock.write = strcmp(args[2], "READ") != 0;
