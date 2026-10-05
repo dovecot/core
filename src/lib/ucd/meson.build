@@ -55,6 +55,7 @@ if ucd_files.length() == 0
         prog_wget,
         f'https://dovecot.org/res/@filename@',
         '--quiet',
+        '--no-use-server-timestamps',
         '--output-document',
         '@OUTPUT@',
       ],
