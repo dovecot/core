@@ -49,7 +49,7 @@ int mail_index_unpack_num(const uint8_t **p, const uint8_t *end,
 			  uint32_t *num_r)
 {
 	const uint8_t *c = *p;
-	uint32_t value = 0;
+	uint64_t value = 0;
 	unsigned int bits = 0;
 
 	for (;;) {
@@ -59,15 +59,17 @@ int mail_index_unpack_num(const uint8_t **p, const uint8_t *end,
 			return -1;
 		}
 
-		value |= (*c & 0x7f) << bits;
+		value |= (uint64_t)(*c & 0x7f) << bits;
 		if (*c < 0x80)
 			break;
 
 		bits += 7;
 		c++;
+		if (unlikely(bits >= 32))
+			break;
 	}
 
-	if (unlikely(bits >= 32)) {
+	if (unlikely(bits >= 32 || value > UINT32_MAX)) {
 		/* broken input */
 		*p = end;
 		*num_r = 0;
@@ -75,7 +77,7 @@ int mail_index_unpack_num(const uint8_t **p, const uint8_t *end,
 	}
 
 	*p = c + 1;
-	*num_r = value;
+	*num_r = (uint32_t)value;
 	return 0;
 }
 
