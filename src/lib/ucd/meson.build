@@ -1,5 +1,8 @@
 fs = import('fs')
 
+# Keep in sync with UCD_VERSION in src/lib/Makefile.am.
+ucd_version = '18.0.0'
+
 ucd_filenames = [               # Downloadable filenames.
   'CaseFolding.txt',
   'CompositionExclusions.txt',
@@ -43,14 +46,39 @@ if ucd_files.length() != 0 and have_git_tree
   ucd_files = []
 endif
 
+# Ignore UCD files that are not for ucd_version. UnicodeData.txt has no version header, so
+# it's skipped here, but ignored along with the others.
+if ucd_files.length() != 0
+  foreach filename : ucd_filenames
+    if filename == 'UnicodeData.txt'
+      continue
+    endif
+    header = fs.read(filename).substring(0, 1024)
+    if not header.contains(f'-@ucd_version@.txt') and \
+       not header.contains(f'Version: @ucd_version@')
+      warning(f'Found unicode UCD files not matching version @ucd_version@. ' +
+              'Going to ignore them and download the files')
+      ucd_files = []
+      break
+    endif
+  endforeach
+endif
+
 if ucd_files.length() == 0
   # The UCD files are at least partially unavailable. Attempt to download them.
   prog_wget = find_program('wget')
+
+  # Download the files again when ucd_version changes.
+  ucd_version_stamp = configure_file(
+    output: 'ucd-version.h',
+    configuration: {'UCD_VERSION': f'"@ucd_version@"'},
+  )
 
   foreach filename : ucd_filenames
     ucd_files += custom_target(
       filename,
       output: filename,
+      depend_files: ucd_version_stamp,
       command: [
         prog_wget,
         f'https://dovecot.org/res/@filename@',
