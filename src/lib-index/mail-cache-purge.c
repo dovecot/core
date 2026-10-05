@@ -96,6 +96,12 @@ mail_cache_purge_field(struct mail_cache_copy_context *ctx,
 		buffer_append_zero(ctx->buffer, 4 - (field->size & 3));
 }
 
+static uint32_t file_seq_next(uint32_t file_seq)
+{
+	/* file_seq=0 isn't valid */
+	return file_seq == UINT32_MAX ? 1 : file_seq + 1;
+}
+
 static uint32_t get_next_file_seq(struct mail_cache *cache)
 {
 	const struct mail_index_ext *ext;
@@ -108,13 +114,13 @@ static uint32_t get_next_file_seq(struct mail_cache *cache)
 
 	view = mail_index_view_open(cache->index);
 	ext = mail_index_view_get_ext(view, cache->ext_id);
-	file_seq = ext != NULL ? ext->reset_id + 1 : ioloop_time32;
+	file_seq = ext != NULL ? file_seq_next(ext->reset_id) : ioloop_time32;
 
 	if (cache->hdr != NULL && file_seq <= cache->hdr->file_seq)
-		file_seq = cache->hdr->file_seq + 1;
+		file_seq = file_seq_next(cache->hdr->file_seq);
 	mail_index_view_close(&view);
 
-	return file_seq != 0 ? file_seq : 1;
+	return file_seq;
 }
 
 static void
