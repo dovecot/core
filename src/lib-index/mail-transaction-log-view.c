@@ -849,6 +849,13 @@ log_view_get_next(struct mail_transaction_log_view *view,
 		return -1;
 	}
 
+	if ((view->cur_offset % 4) != 0) {
+		mail_transaction_log_file_set_corrupted(file,
+			"offset isn't 32bit aligned (%"PRIuUOFF_T")",
+			view->cur_offset);
+		return -1;
+	}
+
 	i_assert(view->cur_offset >= file->buffer_offset);
 	hdr = CONST_PTR_OFFSET(data, view->cur_offset - file->buffer_offset);
 	data = CONST_PTR_OFFSET(hdr, sizeof(*hdr));
