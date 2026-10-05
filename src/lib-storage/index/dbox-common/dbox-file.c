@@ -98,9 +98,12 @@ static int dbox_file_parse_header(struct dbox_file *file, const char *line)
 	const char *const *tmp, *value;
 	enum dbox_header_key key;
 
-	file->file_version = *line - '0';
-	if (!i_isdigit(line[0]) || line[1] != ' ' ||
-	    (file->file_version != 1 && file->file_version != DBOX_VERSION)) {
+	if (!i_isdigit(line[0]) || line[1] != ' ') {
+		dbox_file_set_corrupted(file, "Invalid dbox version");
+		return -1;
+	}
+	file->file_version = line[0] - '0';
+	if (file->file_version != 1 && file->file_version != DBOX_VERSION) {
 		dbox_file_set_corrupted(file, "Invalid dbox version");
 		return -1;
 	}
