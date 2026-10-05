@@ -549,6 +549,7 @@ tester_sources = [
   'test-file-cache.c',
   'test-file-create-locked.c',
   'test-file-lock-proc.c',
+  'test-file-lock.c',
   'test-guid.c',
   'test-hash-format.c',
   'test-hash-method.c',
