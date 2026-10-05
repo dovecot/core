@@ -2,8 +2,7 @@
 
 fs = import('fs')
 
-# IO loop: 'best' tries each method in turn and falls back to select() which is always
-# available.
+# IO loop: 'best' tries each method in turn.
 ioloop = get_option('ioloop')
 
 if ioloop in ['best', 'epoll'] and conf.get('HAVE_EPOLL_CREATE', 0) == 1 and \
@@ -17,9 +16,8 @@ elif ioloop in ['best', 'kqueue'] and conf.get('HAVE_KQUEUE', 0) == 1 and \
 elif ioloop in ['best', 'poll'] and conf.get('HAVE_POLL', 0) == 1
   conf.set10('IOLOOP_POLL', true)
   ioloop = 'poll'
-elif ioloop in ['best', 'select']
-  conf.set10('IOLOOP_SELECT', true)
-  ioloop = 'select'
+elif ioloop == 'best'
+  error('No usable I/O loop method found (epoll, kqueue or poll)')
 else
   error(f'@ioloop@ ioloop requested but it is not available')
 endif

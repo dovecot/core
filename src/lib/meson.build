@@ -223,7 +223,6 @@ liblib_sources = [
   'ioloop-notify-kqueue.c',
   'ioloop-notify-none.c',
   'ioloop-poll.c',
-  'ioloop-select.c',
   'ioloop.c',
   'iostream-proxy.c',
   'iostream-pump.c',
