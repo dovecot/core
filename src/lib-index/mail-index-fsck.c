@@ -259,13 +259,16 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 		   by buffer_copy(). Copy it first. */
 		struct mail_index_ext_header new_ext_hdr = *ext_hdr;
 
-		diff = dest->used - ext_hdr->hdr_size;
+		/* the header contents are padded to 64bit alignment, so
+		   the following extensions must move by an aligned amount */
+		diff = MAIL_INDEX_HEADER_SIZE_ALIGN(dest->used) -
+			MAIL_INDEX_HEADER_SIZE_ALIGN(ext_hdr->hdr_size);
 		buffer_copy(map->hdr_copy_buf, hdr_offset + diff,
 			    map->hdr_copy_buf, hdr_offset, SIZE_MAX);
 		hdr->header_size += diff;
 		*offset_p += diff;
 
-		new_ext_hdr.hdr_size += diff;
+		new_ext_hdr.hdr_size = dest->used;
 		buffer_write(map->hdr_copy_buf, ext_offset,
 			     &new_ext_hdr, sizeof(new_ext_hdr));
 	}
