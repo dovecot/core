@@ -390,9 +390,12 @@ mail_cache_link_records(struct mail_cache_transaction_ctx *ctx,
 		if (prev_offset != 0) {
 			/* link this record to previous one */
 			rec->prev_offset = prev_offset;
-			ctx->cache->hdr_copy.continued_record_count++;
+			/* the counters may be broken - don't let them wrap */
+			if (ctx->cache->hdr_copy.continued_record_count < UINT32_MAX)
+				ctx->cache->hdr_copy.continued_record_count++;
 		} else {
-			ctx->cache->hdr_copy.record_count++;
+			if (ctx->cache->hdr_copy.record_count < UINT32_MAX)
+				ctx->cache->hdr_copy.record_count++;
 		}
 		*offsetp = write_offset;
 
