@@ -714,7 +714,7 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 	const struct mail_index_ext *ext;
 	void *data;
 	uint32_t seq;
-	uint64_t min_value, max_value, orig_num;
+	uint64_t min_value, max_value, orig_num, new_num, diff_abs;
 
 	i_assert(ctx->cur_ext_map_idx != UINT32_MAX);
 	i_assert(!ctx->cur_ext_ignore);
@@ -735,14 +735,35 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 	rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq);
 	data = PTR_OFFSET(rec, ext->record_offset);
 
-	min_value = u->diff >= 0 ? 0 : (uint64_t)(-(int64_t)u->diff);
+	switch (ctx->cur_ext_record_size) {
+	case 1:
+		orig_num = *(const uint8_t *)data;
+		break;
+	case 2:
+		orig_num = *(const uint16_t *)data;
+		break;
+	case 4:
+		orig_num = *(const uint32_t *)data;
+		break;
+	case 8:
+		orig_num = *(const uint64_t *)data;
+		break;
+	default:
+		mail_index_sync_set_corrupted(ctx,
+			"Extension record inc with invalid size=%u",
+			ctx->cur_ext_record_size);
+		return -1;
+	}
 
+	diff_abs = u->diff >= 0 ? (uint64_t)u->diff :
+		(uint64_t)(-(int64_t)u->diff);
+	min_value = u->diff >= 0 ? 0 : diff_abs;
 	max_value = ctx->cur_ext_record_size == 8 ? UINT64_MAX :
 		((uint64_t)1 << (ctx->cur_ext_record_size*8)) - 1;
 	if (u->diff <= 0) {
 		/* skip */
-	} else if (max_value >= (uint32_t)u->diff) {
-		max_value -= u->diff;
+	} else if (max_value >= diff_abs) {
+		max_value -= diff_abs;
 	} else {
 		mail_index_sync_set_corrupted(ctx,
 			"Extension record inc diff=%d larger than max value=%u "
@@ -750,42 +771,6 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 		return -1;
 	}
 
-	switch (ctx->cur_ext_record_size) {
-	case 1: {
-		uint8_t *num = data;
-
-		orig_num = *num;
-		if (orig_num >= min_value && orig_num <= max_value)
-			*num += u->diff;
-		break;
-	}
-	case 2: {
-		uint16_t *num = data;
-		orig_num = *num;
-		if (orig_num >= min_value && orig_num <= max_value)
-			*num += u->diff;
-		break;
-	}
-	case 4: {
-		uint32_t *num = data;
-		orig_num = *num;
-		if (orig_num >= min_value && orig_num <= max_value)
-			*num += u->diff;
-		break;
-	}
-	case 8: {
-		uint64_t *num = data;
-		orig_num = *num;
-		if (orig_num >= min_value && orig_num <= max_value)
-			*num += u->diff;
-		break;
-	}
-	default:
-		mail_index_sync_set_corrupted(ctx,
-			"Extension record inc with invalid size=%u",
-			ctx->cur_ext_record_size);
-		return -1;
-	}
 	if (orig_num < min_value) {
 		mail_index_sync_set_corrupted(ctx,
 			"Extension record inc drops number below zero "
@@ -798,6 +783,25 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 			"(uid=%u, diff=%d, orig=%"PRIu64")",
 			u->uid, u->diff, orig_num);
 		return -1;
+	}
+	/* the checks above guarantee that this doesn't wrap */
+	new_num = u->diff >= 0 ? orig_num + diff_abs : orig_num - diff_abs;
+
+	switch (ctx->cur_ext_record_size) {
+	case 1:
+		*(uint8_t *)data = (uint8_t)new_num;
+		break;
+	case 2:
+		*(uint16_t *)data = (uint16_t)new_num;
+		break;
+	case 4:
+		*(uint32_t *)data = (uint32_t)new_num;
+		break;
+	case 8:
+		*(uint64_t *)data = new_num;
+		break;
+	default:
+		i_unreached();
 	}
 	return 1;
 }
