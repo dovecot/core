@@ -150,11 +150,16 @@ static int o_stream_default_buffering_flush(struct ostream_private *_stream)
 
 	/* we may be able to copy more data, try it */
 	o_stream_ref(ostream);
+	_stream->buffering_flush_waiting = FALSE;
 	if (_stream->callback != NULL)
 		ret2 = _stream->callback(_stream->context);
 	else
 		ret2 = o_stream_flush(ostream);
-	if (ret2 == 0)
+	if (ret2 == 0 && _stream->buffering_flush_waiting) {
+		/* Nothing more can be written until something else happens.
+		   Don't keep calling the flush callback until then. */
+		ret2 = 1;
+	} else if (ret2 == 0)
 		o_stream_set_flush_pending(_stream->buffering_parent, TRUE);
 	o_stream_unref(&ostream);
 	if (ret2 < 0)
@@ -171,6 +176,14 @@ void o_stream_init_buffering_flush(struct ostream_private *_stream,
 
 	o_stream_set_flush_callback(parent, o_stream_default_buffering_flush,
 				    _stream);
+}
+
+void o_stream_buffering_flush_wait(struct ostream_private *_stream)
+{
+	i_assert(_stream->buffering_parent != NULL);
+
+	o_stream_set_flush_pending(_stream->buffering_parent, FALSE);
+	_stream->buffering_flush_waiting = TRUE;
 }
 
 #undef o_stream_set_flush_callback

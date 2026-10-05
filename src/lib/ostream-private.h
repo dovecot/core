@@ -50,6 +50,8 @@ struct ostream_private {
 	bool noverflow:1;
 	bool finish_also_parent:1;
 	bool finish_via_child:1;
+	/* o_stream_buffering_flush_wait() was called */
+	bool buffering_flush_waiting:1;
 };
 
 struct ostream *
@@ -78,5 +80,13 @@ int o_stream_flush_parent(struct ostream_private *_stream);
    this ostream. */
 void o_stream_init_buffering_flush(struct ostream_private *_stream,
 				   struct ostream *parent);
+
+/* Call this in a buffering ostream's flush() when nothing more can be written
+   until something else happens, e.g. more input is read. This clears the
+   buffering parent's flush pending state and prevents it from being set again
+   when the flush callback returns 0. Call
+   o_stream_set_flush_pending(buffering_parent, TRUE) once the stream can
+   continue. */
+void o_stream_buffering_flush_wait(struct ostream_private *_stream);
 
 #endif
