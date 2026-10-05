@@ -43,6 +43,7 @@ test_deps = [deps, dep_test, dep_dns, dep_master]
 tests = {
   'event-stats': 'test-event-stats.c',
   'service-settings': 'test-master-service-settings.c',
+  'stats-client': 'test-stats-client.c',
 }
 
 foreach test_name, test_src : tests
