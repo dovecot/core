@@ -17,6 +17,7 @@ Makefile.in
 compile_commands.json
 *~
 vgcore.*
+test.out~*
 auth-token-secret.dat
 
 /configure
