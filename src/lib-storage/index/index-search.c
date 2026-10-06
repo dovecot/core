@@ -1266,6 +1266,11 @@ static int search_build_inthreads(struct index_search_context *ctx,
 				ret = -1;
 			break;
 		case SEARCH_INTHREAD:
+			/* The INTHREAD's search key is searched separately
+			   using the same thread context, so build the nested
+			   INTHREADs' results first. */
+			if (search_build_inthreads(ctx, arg->value.subargs) < 0)
+				ret = -1;
 			if (search_build_inthread_result(ctx, arg) < 0)
 				ret = -1;
 			break;
