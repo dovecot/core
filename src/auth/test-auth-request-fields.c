@@ -4,6 +4,7 @@
 #include "auth-common.h"
 #include "str.h"
 #include "strescape.h"
+#include "auth-settings.h"
 #include "auth-request.h"
 #include "auth-fields.h"
 
@@ -201,6 +202,77 @@ static void test_auth_fields_invalid_key(void)
 	pool_unref(&pool);
 }
 
+/* Usernames are interpolated into filesystem paths, so a "/" or "@" delimited
+   component consisting solely of dots must not be accepted. */
+struct test_username_case {
+	const char *username;
+	bool accepted;
+};
+
+static struct auth_settings test_username_auth_set = {
+	.master_user_separator = "",
+	.default_domain = "",
+	.username_format = "",
+};
+
+/* the check has to run on the expanded username, since auth_username_format
+   can turn an accepted username into a traversing one */
+static struct auth_settings test_username_format_auth_set = {
+	.master_user_separator = "",
+	.default_domain = "",
+	.username_format = "%{user | username | truncate(2)}",
+};
+
+static void
+test_auth_request_usernames(struct auth_settings *set,
+			    const struct test_username_case *cases,
+			    unsigned int count)
+{
+	/* allow all characters, so the "/" cases reach the dots check */
+	memset(set->username_chars_map, 1, sizeof(set->username_chars_map));
+
+	for (unsigned int i = 0; i < count; i++) {
+		struct auth_request *request = test_auth_request_init();
+		const char *error;
+
+		request->set = set;
+		test_assert_idx(auth_request_set_username(request,
+			cases[i].username, &error) == cases[i].accepted, i);
+		test_auth_request_deinit(request);
+	}
+}
+
+static void test_auth_request_username_dots(void)
+{
+	static const struct test_username_case cases[] = {
+		{ ".", FALSE },
+		{ "..", FALSE },
+		{ "...", FALSE },
+		{ "..@example.com", FALSE },
+		{ "user@..", FALSE },
+		{ "a/../b", FALSE },
+		{ "a/..", FALSE },
+		{ "./a", FALSE },
+		{ "../a", FALSE },
+		{ "first.last@example.com", TRUE },
+		{ "user..@example.com", TRUE },
+		{ "..key@example.com", TRUE },
+		{ "user..name@example.com", TRUE },
+		{ "a/b", TRUE },
+		{ "user@", TRUE },
+	};
+	/* truncate(2) leaves ".." and "ab" */
+	static const struct test_username_case format_cases[] = {
+		{ "..x@example.com", FALSE },
+		{ "abc@example.com", TRUE },
+	};
+
+	test_auth_request_usernames(&test_username_auth_set,
+				    cases, N_ELEMENTS(cases));
+	test_auth_request_usernames(&test_username_format_auth_set,
+				    format_cases, N_ELEMENTS(format_cases));
+}
+
 void test_auth_request_fields(void)
 {
 	test_begin("auth request fields");
@@ -208,5 +280,6 @@ void test_auth_request_fields(void)
 	test_auth_request_fields_secured();
 	test_auth_request_export_import();
 	test_auth_fields_invalid_key();
+	test_auth_request_username_dots();
 	test_end();
 }

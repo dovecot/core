@@ -381,7 +381,8 @@ auth_request_fix_username(struct auth_request *request, const char **username,
 			*error_r = t_strdup_printf(
 				"Username character disallowed by auth_username_chars: "
 				"0x%02x (username: %s)", *p,
-				str_sanitize(*username, 128));
+				str_sanitize(*username,
+					     AUTH_USERNAME_LOG_MAX_LEN));
 			return -1;
 		}
 	}
@@ -411,6 +412,13 @@ auth_request_fix_username(struct auth_request *request, const char **username,
 	if (user[0] == '\0') {
 		/* Some PAM plugins go nuts with empty usernames */
 		*error_r = "Empty username";
+		return -1;
+	}
+	if (str_has_dots_component(user, "/@")) {
+		*error_r = t_strdup_printf(
+			"Username has a path component consisting only of dots "
+			"(username: %s)",
+			str_sanitize(user, AUTH_USERNAME_LOG_MAX_LEN));
 		return -1;
 	}
 	*username = user;

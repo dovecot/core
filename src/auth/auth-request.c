@@ -1964,6 +1964,14 @@ auth_request_try_update_username(struct auth_request *request,
 		request->failed = TRUE;
 		return TRUE;
 	}
+	if (str_has_dots_component(new_value, "/@")) {
+		e_error(authdb_event(request),
+			"username attempted to be changed to one with a path "
+			"component consisting only of dots: %s",
+			str_sanitize(new_value, AUTH_USERNAME_LOG_MAX_LEN));
+		request->failed = TRUE;
+		return TRUE;
+	}
 
 	if (strcmp(request->fields.user, new_value) != 0) {
 		e_debug(authdb_event(request),

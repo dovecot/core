@@ -15,6 +15,8 @@
 #include "password-scheme.h"
 
 #define AUTH_REQUEST_USER_KEY_IGNORE " "
+/* usernames are truncated to this length in log messages */
+#define AUTH_USERNAME_LOG_MAX_LEN 128
 
 struct auth_client_connection;
 
