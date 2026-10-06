@@ -1873,37 +1873,25 @@ static bool setting_override_match_info(struct settings_apply_ctx *ctx,
 	return FALSE;
 }
 
+/* Parse the override's key path: set the filter, the final key, the last
+   filter key/value and the filter element counts. Returns 0 on success, -1 on
+   error. */
 static int
-settings_override_filter_match(struct settings_apply_ctx *ctx,
-			       struct settings_override *set,
-			       const char **error_r)
+settings_override_parse(struct settings_mmap *mmap,
+			struct settings_override *set, const char **error_r)
 {
-	const struct failure_context failure_ctx = {
-		.type = LOG_TYPE_DEBUG
-	};
 	const char *p, *error;
 
-	/* check if the filter is already set */
-	if (set->filter != NULL) {
-		if (set->filter == EVENT_FILTER_MATCH_NEVER)
-			return 0;
-		if (!setting_override_match_info(ctx, set))
-			return 0;
-		if (set->filter == EVENT_FILTER_MATCH_ALWAYS)
-			return 1;
-		return event_filter_match(set->filter, ctx->event,
-					  &failure_ctx) ? 1 : 0;
-	}
+	i_assert(set->filter == NULL);
 
 	if (str_begins(set->key, "*"SETTINGS_SEPARATOR_S, &set->key)) {
 		/* always match, also for any named list filters */
-		if (settings_override_set_blocks(ctx->instance->mmap,
-						 set, error_r) < 0)
+		if (settings_override_set_blocks(mmap, set, error_r) < 0)
 			return -1;
 		/* Sort this as the first */
 		set->filter_array_element_count = INT_MAX;
 		set->filter = EVENT_FILTER_MATCH_ALWAYS;
-		return setting_override_match_info(ctx, set) ? 1 : 0;
+		return 0;
 	}
 
 	string_t *filter_string = NULL;
@@ -1914,7 +1902,7 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 		enum setting_type set_type;
 		const void *blocks ATTR_UNUSED;
 
-		if (!settings_override_key_part_find(ctx->instance->mmap, &part,
+		if (!settings_override_key_part_find(mmap, &part,
 						     last_filter_key,
 						     last_filter_value,
 						     &set_type, &blocks)) {
@@ -1968,7 +1956,7 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 	if (set->last_filter_value != last_filter_value)
 		set->last_filter_value = p_strdup(set->pool, last_filter_value);
 
-	if (settings_override_set_blocks(ctx->instance->mmap, set, error_r) < 0)
+	if (settings_override_set_blocks(mmap, set, error_r) < 0)
 		return -1;
 
 	if (filter_string == NULL)
@@ -1982,7 +1970,26 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 		}
 		pool_ref(set->pool);
 	}
+	return 0;
+}
 
+static int
+settings_override_filter_match(struct settings_apply_ctx *ctx,
+			       struct settings_override *set,
+			       const char **error_r)
+{
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+
+	if (set->filter == NULL) {
+		if (settings_override_parse(ctx->instance->mmap, set,
+					    error_r) < 0)
+			return -1;
+	}
+
+	if (set->filter == EVENT_FILTER_MATCH_NEVER)
+		return 0;
 	if (!setting_override_match_info(ctx, set))
 		return 0;
 	return (set->filter == EVENT_FILTER_MATCH_ALWAYS ||
