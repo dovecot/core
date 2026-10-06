@@ -13,6 +13,7 @@
 #include "settings-bin-filter.h"
 #include "settings-history.h"
 #include "var-expand.h"
+#include "path-util.h"
 
 #include <ctype.h>
 #include <sys/stat.h>
@@ -718,6 +719,7 @@ settings_var_expand(struct settings_apply_ctx *ctx, unsigned int key_idx,
 	}
 
 	enum setting_type set_type = ctx->info->defines[key_idx].type;
+	const char *path_template = NULL;
 	if (set_type == SET_PATH_FILE || set_type == SET_PATH_DIR) {
 		/* Note: for these types *value points to the raw value both
 		   with and without a config-exported template. */
@@ -749,6 +751,7 @@ settings_var_expand(struct settings_apply_ctx *ctx, unsigned int key_idx,
 			}
 			want_expand = TRUE;
 		}
+		path_template = path;
 	}
 
 	/* Ensure we don't potentially have %{ values that we missed,
@@ -787,6 +790,29 @@ settings_var_expand(struct settings_apply_ctx *ctx, unsigned int key_idx,
 		var_expand_program_free(&program);
 		if (ret < 0 && (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0)
 			return -1;
+		if (ret == 0 && path_template != NULL &&
+		    str_c(ctx->str)[0] == '/') {
+			/* Normalize the expanded path and make sure the
+			   %variables didn't take it outside the template's
+			   literal prefix, e.g. /home/vmail/%{user} must stay
+			   under /home/vmail/. */
+			const char *npath;
+			size_t len = str_len(ctx->str);
+			/* t_normpath() drops a trailing '/', which is wanted
+			   only for SET_PATH_DIR */
+			bool keep_slash = set_type == SET_PATH_FILE &&
+				len > 1 && str_c(ctx->str)[len-1] == '/';
+
+			if (t_normpath_confine(str_c(ctx->str), path_template,
+					       &npath, error_r) < 0)
+				return -1;
+			if (keep_slash && strcmp(npath, "/") != 0)
+				npath = t_strconcat(npath, "/", NULL);
+			if (strcmp(npath, str_c(ctx->str)) != 0) {
+				str_truncate(ctx->str, 0);
+				str_append(ctx->str, npath);
+			}
+		}
 		changed = strcmp(*value, str_c(ctx->str)) != 0;
 	}
 

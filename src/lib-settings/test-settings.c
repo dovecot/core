@@ -1016,6 +1016,73 @@ static void test_settings_no_config_defaults(void)
 	test_end();
 }
 
+static void test_settings_path_confine(void)
+{
+	struct var_expand_table tab[] = {
+		{ .key = "home", .value = "/home/user" },
+		{ .key = "user", .value = "tss" },
+		{ .key = "evil", .value = "../../etc" },
+		{ .key = "empty", .value = "" },
+		{ .key = NULL }
+	};
+	struct var_expand_params params = {
+		.table = tab,
+	};
+	static const struct {
+		const char *name;
+		enum settings_override_type type;
+		const char *value;
+		/* NULL = settings_get() must fail */
+		const char *expected;
+	} tests[] = {
+		{ "inside", SETTINGS_OVERRIDE_TYPE_DEFAULT,
+		  "/var/mail/%{user}", "/var/mail/tss" },
+		{ "dotdot resolved", SETTINGS_OVERRIDE_TYPE_DEFAULT,
+		  "/var/mail/a/../%{user}", "/var/mail/tss" },
+		{ "empty trailing variable", SETTINGS_OVERRIDE_TYPE_DEFAULT,
+		  "/var/mail/%{empty}", "/var/mail" },
+		{ "unnormalized prefix", SETTINGS_OVERRIDE_TYPE_DEFAULT,
+		  "/var//mail/%{user}", "/var/mail/tss" },
+		{ "escape", SETTINGS_OVERRIDE_TYPE_DEFAULT,
+		  "/var/mail/%{evil}", NULL },
+		{ "home relative is only normalized",
+		  SETTINGS_OVERRIDE_TYPE_DEFAULT, "~/mail/%{evil}",
+		  "/home/etc" },
+	};
+
+	test_begin("settings_get - path confine");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		struct settings_root *set_root = settings_root_init();
+		settings_root_override(set_root, "test_path_dir",
+				       tests[i].value, tests[i].type);
+
+		struct event *event = event_create(NULL);
+		event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
+		event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, &params);
+
+		struct test_path_settings *set;
+		const char *error = NULL;
+		int ret = settings_get(event, &test_path_setting_parser_info,
+				       0, &set, &error);
+		if (tests[i].expected == NULL) {
+			test_assert_idx(ret < 0, i);
+			test_assert_idx(error != NULL &&
+					strstr(error, "is outside") != NULL, i);
+		} else {
+			test_assert_idx(ret == 0, i);
+			if (ret == 0) {
+				test_assert_strcmp_idx(set->dir,
+						       tests[i].expected, i);
+				settings_free(set);
+			} else
+				i_error("%s: %s", tests[i].name, error);
+		}
+		event_unref(&event);
+		settings_root_deinit(&set_root);
+	}
+	test_end();
+}
+
 static void test_settings_no_config_2nd_defaults(void)
 {
 	test_begin("settings_get - default_settings without config with 2nd defaults");
@@ -1256,6 +1323,7 @@ int main(void)
 		test_settings_override_rename,
 		test_settings_filter_array_append_only,
 		test_settings_instance_dup_filter_array,
+		test_settings_path_confine,
 		NULL
 	};
 	return test_run(test_functions);
