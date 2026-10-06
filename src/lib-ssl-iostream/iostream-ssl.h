@@ -325,8 +325,7 @@ void ssl_iostream_context_unref(struct ssl_iostream_context **ctx);
    key, so contexts wanting different protocols are never shared. They must not
    be set both here and via set->application_protocols.
 
-   Returns 1 if new context was created, 0 if existing was re-used, and
-   -1 on error.
+   Returns 0 on success and -1 on error.
 */
 int ssl_iostream_client_context_cache_get(const struct ssl_iostream_settings *set,
 					  const char *const *application_protocols,

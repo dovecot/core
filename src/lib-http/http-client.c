@@ -364,11 +364,8 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 		return 0;
 
 	if (client->ssl_set != NULL) {
-		if (ssl_iostream_client_context_cache_get(
-				client->ssl_set, names, &client->ssl_ctx,
-				error_r) < 0)
-			return -1;
-		return 0;
+		return ssl_iostream_client_context_cache_get(
+			client->ssl_set, names, &client->ssl_ctx, error_r);
 	}
 	/* no ssl settings given via http_client_settings -
 	   look them up automatically */
@@ -381,7 +378,7 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 						       error_r);
 	settings_free(set);
 	settings_free(ssl_set);
-	return ret < 0 ? -1 : 0;
+	return ret;
 }
 
 /*

@@ -1633,10 +1633,8 @@ smtp_client_connection_init_ssl_ctx(struct smtp_client_connection *conn,
 		smtp_protocol_name(conn->protocol),
 		NULL
 	};
-	if (ssl_iostream_client_context_cache_get(conn->set.ssl, names,
-						  &conn->ssl_ctx, error_r) < 0)
-		return -1;
-	return 0;
+	return ssl_iostream_client_context_cache_get(conn->set.ssl, names,
+						     &conn->ssl_ctx, error_r);
 }
 
 static int
