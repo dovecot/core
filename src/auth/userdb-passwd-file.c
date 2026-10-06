@@ -7,6 +7,7 @@
 
 #include "istream.h"
 #include "str.h"
+#include "path-util.h"
 #include "settings.h"
 #include "auth-cache.h"
 #include "db-passwd-file.h"
@@ -162,7 +163,8 @@ passwd_file_iterate_init(struct auth_request *auth_request,
 			return &ctx->ctx;
 		}
 		const char *path;
-		if (db_passwd_fix_path(str_c(dest), &path, module->pwf->path, &error) < 0) {
+		if (t_normpath_confine(str_c(dest), module->pwf->path,
+				       &path, &error) < 0) {
 			e_error(authdb_event(auth_request),
 				"passwd-file: User iteration failed: "
 				"Cannot normalize '%s': %s", str_c(dest), error);
