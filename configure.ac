@@ -384,7 +384,6 @@ DOVECOT_GLIBC
 DOVECOT_SCHED
 
 dnl * OS specific options
-DC_PLUGIN_DEPS
 case "$host_os" in
 	linux*|darwin*)
 		AC_DEFINE(PROCTITLE_HACK,, [Define if process title can be changed by modifying argv])

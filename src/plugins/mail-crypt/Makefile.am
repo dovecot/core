@@ -35,11 +35,7 @@ lib10_mail_crypt_plugin_la_LIBADD = \
 	$(LIBDOVECOT)
 
 lib11_mail_crypt_acl_plugin_la_LDFLAGS = -module -avoid-version
-if DOVECOT_PLUGIN_DEPS
-lib11_mail_crypt_acl_plugin_la_LIBADD = \
-	$(LIBDCRYPT_LIBS) \
-	lib10_mail_crypt_plugin.la
-endif
+lib11_mail_crypt_acl_plugin_la_LIBADD = $(LIBDCRYPT_LIBS)
 
 lib10_mail_crypt_plugin_la_SOURCES = \
 	crypt-settings.c \

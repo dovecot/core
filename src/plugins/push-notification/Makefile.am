@@ -17,13 +17,6 @@ lib20_push_notification_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = lib20_push_notification_plugin.la
 
-if DOVECOT_PLUGIN_DEPS
-notify_deps = ../notify/lib15_notify_plugin.la
-endif
-
-lib20_push_notification_plugin_la_LIBADD = \
-	$(notify_deps)
-
 lib20_push_notification_plugin_la_SOURCES = \
 	push-notification-driver-dlog.c \
 	push-notification-driver-ox.c \
@@ -83,7 +76,7 @@ lib22_push_notification_lua_plugin_la_CFLAGS = $(AM_CFLAGS) \
 lib22_push_notification_lua_plugin_la_LDFLAGS = -module -avoid-version
 module_LTLIBRARIES += \
 	lib22_push_notification_lua_plugin.la
-lib22_push_notification_lua_plugin_la_LIBADD = $(notify_deps) $(LUA_LIBS)
+lib22_push_notification_lua_plugin_la_LIBADD = $(LUA_LIBS)
 lib22_push_notification_lua_plugin_la_SOURCES = \
 	push-notification-driver-lua.c
 endif

@@ -13,11 +13,6 @@ lib11_trash_plugin_la_LDFLAGS = -module -avoid-version
 module_LTLIBRARIES = \
 	lib11_trash_plugin.la
 
-if DOVECOT_PLUGIN_DEPS
-lib11_trash_plugin_la_LIBADD = \
-	../quota/lib10_quota_plugin.la
-endif
-
 lib11_trash_plugin_la_SOURCES = \
 	trash-plugin.c
 

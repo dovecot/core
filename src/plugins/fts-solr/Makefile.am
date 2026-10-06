@@ -19,12 +19,7 @@ lib21_fts_solr_plugin_la_LDFLAGS = -module -avoid-version
 module_LTLIBRARIES = \
 	lib21_fts_solr_plugin.la
 
-if DOVECOT_PLUGIN_DEPS
-fts_plugin_dep = ../fts/lib20_fts_plugin.la
-endif
-
 lib21_fts_solr_plugin_la_LIBADD = \
-	$(fts_plugin_dep) \
 	$(EXPAT_LIBS)
 
 lib21_fts_solr_plugin_la_SOURCES = \
