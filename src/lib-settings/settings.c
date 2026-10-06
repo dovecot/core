@@ -2645,6 +2645,29 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 					value_needs_dup = TRUE;
 				}
 			}
+			if (value[0] == '/') {
+				/* Normalize like an expanded path, but don't
+				   confine: an override is not a template. */
+				const char *npath, *error;
+				size_t len = strlen(value);
+				bool keep_slash =
+					ctx->info->defines[key_idx].type ==
+						SET_PATH_FILE &&
+					len > 1 && value[len-1] == '/';
+
+				if (t_normpath(value, &npath, &error) < 0) {
+					*error_r = t_strdup_printf(
+						"Invalid %s=%s: %s",
+						key, value, error);
+					return -1;
+				}
+				if (keep_slash && strcmp(npath, "/") != 0)
+					npath = t_strconcat(npath, "/", NULL);
+				if (strcmp(npath, value) != 0) {
+					value = npath;
+					value_needs_dup = TRUE;
+				}
+			}
 		}
 		if (ctx->info->defines[key_idx].type == SET_FILTER_ARRAY &&
 		    set->type <= SETTINGS_OVERRIDE_TYPE_CLI_PARAM &&

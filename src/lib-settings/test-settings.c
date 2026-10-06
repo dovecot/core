@@ -1048,6 +1048,11 @@ static void test_settings_path_confine(void)
 		{ "home relative is only normalized",
 		  SETTINGS_OVERRIDE_TYPE_DEFAULT, "~/mail/%{evil}",
 		  "/home/etc" },
+		{ "userdb override is only normalized",
+		  SETTINGS_OVERRIDE_TYPE_USERDB, "/x/../y", "/y" },
+		{ "cli override keeps %variables",
+		  SETTINGS_OVERRIDE_TYPE_CLI_PARAM, "/var/mail/%{evil}",
+		  "/var/mail/%{evil}" },
 	};
 
 	test_begin("settings_get - path confine");
