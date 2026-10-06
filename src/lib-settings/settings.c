@@ -2040,6 +2040,13 @@ static bool settings_overrides_find_filter(struct settings_apply_ctx *ctx)
 				return TRUE;
 		}
 	}
+	if (ctx->instance->mmap == NULL &&
+	    array_is_created(&default_overrides.overrides)) {
+		array_foreach_elem(&default_overrides.overrides, set) {
+			if (settings_override_find_filter_check(ctx, set))
+				return TRUE;
+		}
+	}
 	return FALSE;
 }
 
@@ -2253,6 +2260,35 @@ settings_default_overrides_add_info(const struct setting_parser_info *info)
 	}
 }
 
+/* Set block_names to the registered infos that have the override's final key,
+   so setting_override_match_info() can skip the override for other infos
+   without matching its filter. */
+static void
+settings_default_override_set_blocks(struct settings_override *set)
+{
+	const struct setting_parser_info *info;
+	const char *key;
+	unsigned int key_idx;
+
+	if (set->key[0] == SETTINGS_INCLUDE_GROUP_PREFIX) {
+		/* Group override - applies to all infos */
+		return;
+	}
+
+	ARRAY_TYPE(const_string) block_names;
+	t_array_init(&block_names, 8);
+	array_foreach_elem(&set_registered_infos, info) {
+		key = set->key;
+		if (settings_key_part_find(info, &key, set->last_filter_key,
+					   set->last_filter_value, &key_idx))
+			array_push_back(&block_names, &info->name);
+	}
+	array_append_zero(&block_names);
+	set->block_names = p_memdup(set->pool, array_front(&block_names),
+				    array_count(&block_names) *
+				    sizeof(const char *));
+}
+
 /* Add the default_settings of newly registered infos to default_overrides. */
 static void settings_default_overrides_update(void)
 {
@@ -2277,6 +2313,15 @@ static void settings_default_overrides_update(void)
 	for (i = default_overrides.infos_count; i < count; i++)
 		settings_default_overrides_add_info(infos[i]);
 	default_overrides.infos_count = count;
+
+	/* The newly registered infos may also have the keys of the earlier
+	   default overrides, so update all of their block names. The old
+	   block_names arrays stay allocated in the pool until exit, but this
+	   is bounded by the number of info registrations. */
+	struct settings_override *set;
+	array_foreach_elem(&default_overrides.overrides, set) T_BEGIN {
+		settings_default_override_set_blocks(set);
+	} T_END;
 }
 
 static int

@@ -824,6 +824,31 @@ static const struct setting_parser_info test4_setting_parser_info = {
 	.pool_offset1 = 1 + offsetof(struct test4_settings, pool),
 };
 
+struct test5_settings {
+	pool_t pool;
+
+	const char *title;
+};
+
+static const struct setting_define test5_setting_defines[] = {
+	SETTING_DEFINE_STRUCT_STR("test3_title", title, struct test5_settings),
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct test5_settings test5_default_settings = {
+	.title = "",
+};
+
+static const struct setting_parser_info test5_setting_parser_info = {
+	.name = "test5",
+
+	.defines = test5_setting_defines,
+	.defaults = &test5_default_settings,
+
+	.struct_size = sizeof(struct test5_settings),
+	.pool_offset1 = 1 + offsetof(struct test5_settings, pool),
+};
+
 static const char *
 test_defaults_get_title(struct event *event, bool named)
 {
@@ -950,6 +975,36 @@ static void test_settings_no_config_defaults(void)
 			   "named-title-userdb");
 	test_assert_strcmp(test_defaults_get_item_value(events[1], "item1"),
 			   "item1-default");
+
+	/* The test3_item=item1 filter exists only in test3's default
+	   settings, but it's found also when looking up other infos. */
+	const struct test4_settings *set4;
+	const char *error4;
+	test_assert(settings_try_get_filter(events[1], "test3_item", "item1",
+					    &test4_setting_parser_info, 0,
+					    &set4, &error4) == 1);
+	settings_free(set4);
+	test_assert(settings_try_get_filter(events[1], "test3_item", "item2",
+					    &test4_setting_parser_info, 0,
+					    &set4, &error4) == 0);
+
+	/* A new info that has the same key as an earlier info's default
+	   gets the default as well. */
+	const struct test5_settings *set5;
+	const char *error;
+	struct settings_root *root5 = settings_root_init();
+	struct event *named_event = event_create(NULL);
+	event_set_ptr(named_event, SETTINGS_EVENT_ROOT, root5);
+	settings_event_add_filter_name(named_event, "test3_named");
+	if (settings_get(named_event, &test5_setting_parser_info, 0,
+			 &set5, &error) < 0)
+		i_error("%s", error);
+	else {
+		test_assert_strcmp(set5->title, "named-title-default");
+		settings_free(set5);
+	}
+	event_unref(&named_event);
+	settings_root_deinit(&root5);
 
 	for (unsigned int i = 0; i < N_ELEMENTS(roots); i++) {
 		event_unref(&events[i]);
