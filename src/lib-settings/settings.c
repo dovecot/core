@@ -1784,10 +1784,9 @@ settings_override_key_part_find(struct settings_mmap *mmap, const char **key,
 }
 
 static bool
-settings_key_part_find(struct settings_apply_ctx *ctx, const char **key,
-		       const char *last_filter_key,
-		       const char *last_filter_value,
-		       unsigned int *key_idx_r)
+settings_key_part_find(const struct setting_parser_info *info,
+		       const char **key, const char *last_filter_key,
+		       const char *last_filter_value, unsigned int *key_idx_r)
 {
 	if (last_filter_value != NULL) {
 		i_assert(last_filter_key != NULL);
@@ -1799,20 +1798,20 @@ settings_key_part_find(struct settings_apply_ctx *ctx, const char **key,
 		const char *prefixed_key =
 			t_strdup_printf("%s_%s_%s", key_prefix,
 					last_filter_value, *key);
-		if (setting_parser_info_find_key(ctx->info, prefixed_key,
+		if (setting_parser_info_find_key(info, prefixed_key,
 						 key_idx_r)) {
 			*key = prefixed_key;
 			return TRUE;
 		}
 
 		prefixed_key = t_strdup_printf("%s_%s", key_prefix, *key);
-		if (setting_parser_info_find_key(ctx->info, prefixed_key,
+		if (setting_parser_info_find_key(info, prefixed_key,
 						 key_idx_r)) {
 			*key = prefixed_key;
 			return TRUE;
 		}
 	}
-	return setting_parser_info_find_key(ctx->info, *key, key_idx_r);
+	return setting_parser_info_find_key(info, *key, key_idx_r);
 }
 
 static int
@@ -2053,7 +2052,7 @@ settings_override_get_value(struct settings_apply_ctx *ctx,
 	const char *key = *_key;
 	unsigned int key_idx = UINT_MAX;
 
-	if (!settings_key_part_find(ctx, &key, set->last_filter_key,
+	if (!settings_key_part_find(ctx->info, &key, set->last_filter_key,
 				    set->last_filter_value, &key_idx))
 		key_idx = UINT_MAX;
 
