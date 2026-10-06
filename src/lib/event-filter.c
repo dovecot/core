@@ -1027,6 +1027,21 @@ event_match_field(struct event_filter *filter, struct event *event,
 }
 
 static bool
+event_filter_source_filename_match(const char *wanted, size_t wanted_len,
+				   const char *source_filename)
+{
+	/* __FILE__ may contain a path (e.g. meson or VPATH builds), so match
+	   the wanted filename against the end of the path at a '/' boundary. */
+	size_t source_len = strlen(source_filename);
+	if (source_len < wanted_len)
+		return FALSE;
+
+	const char *suffix = source_filename + (source_len - wanted_len);
+	return memcmp(suffix, wanted, wanted_len) == 0 &&
+		(suffix == source_filename || suffix[-1] == '/');
+}
+
+static bool
 event_filter_source_location_match(const char *wanted,
 				   const char *source_filename,
 				   unsigned int source_linenum)
@@ -1034,15 +1049,16 @@ event_filter_source_location_match(const char *wanted,
 	const char *p = strrchr(wanted, ':');
 	unsigned int linenum;
 
-	if (p == NULL)
-		return strcmp(wanted, source_filename) == 0;
+	if (p == NULL) {
+		return event_filter_source_filename_match(wanted,
+			strlen(wanted), source_filename);
+	}
 
 	/* filename:linenum */
-	size_t filename_len = p - wanted;
-	return strncmp(wanted, source_filename, filename_len) == 0 &&
-		source_filename[filename_len] == '\0' &&
-		str_to_uint(p + 1, &linenum) == 0 &&
-		linenum == source_linenum;
+	return str_to_uint(p + 1, &linenum) == 0 &&
+		linenum == source_linenum &&
+		event_filter_source_filename_match(wanted, p - wanted,
+						   source_filename);
 }
 
 static bool
