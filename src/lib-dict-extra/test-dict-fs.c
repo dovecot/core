@@ -103,24 +103,26 @@ static void test_dict_fs_set_get(void)
 		const char *username;
 		const char *path;
 	} username_test_cases[] = {
-		{ ".testuser", ".test-dict/.testuser/...key" },
+		{ ".testuser", ".test-dict/.testuser/.../key" },
 		{ "./testuser",   ".test-dict/.../testuser/.../key" },
 		{ "./.testuser",   ".test-dict/.../.testuser/.../key" },
 		{ "../testuser", ".test-dict/..../testuser/.../key" },
 		{ "../.testuser", ".test-dict/..../.testuser/.../key" },
 		{ "././testuser", ".test-dict/.../.../testuser/.../key" },
-		{ "././.testuser", ".test-dict/.../.../testuser/.../key" },
+		{ "././.testuser", ".test-dict/.../.../.testuser/.../key" },
 		{ "./../testuser", ".test-dict/.../..../testuser/.../key" },
-		{ "./../.testuser", ".test-dict/.../..../testuser/.../key" },
+		{ "./../.testuser", ".test-dict/.../..../.testuser/.../key" },
 		{ ".././testuser", ".test-dict/..../.../testuser/.../key" },
-		{ "./../.testuser", ".test-dict/.../..../testuser/.../key" },
+		{ ".././.testuser", ".test-dict/..../.../.testuser/.../key" },
 		{ "../../testuser", ".test-dict/..../..../testuser/.../key" },
-		{ "../../.testuser", ".test-dict/..../..../testuser/.../key" },
+		{ "../../.testuser", ".test-dict/..../..../.testuser/.../key" },
 	};
 	for (size_t i = 0; i < N_ELEMENTS(username_test_cases); i++) {
+		const char *path = username_test_cases[i].path;
+
 		test_dict_set_get(dict, username_test_cases[i].username,
 				  username_test_key, "1");
-		test_assert(test_file_exists(test_cases[i].path));
+		test_assert_idx(test_file_exists(path) == TRUE, i);
 	}
 	dict_deinit(&dict);
 
