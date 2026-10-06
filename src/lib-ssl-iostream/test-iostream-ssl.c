@@ -299,6 +299,100 @@ static int test_iostream_ssl_handshake_real(struct ssl_iostream_settings *server
 					       hostname, NULL);
 }
 
+/* Handshake using contexts taken from the context cache, returning the
+   application protocol the client ended up negotiating. */
+static int
+test_iostream_ssl_alpn_handshake(const struct ssl_iostream_settings *server_set,
+				 const struct ssl_iostream_settings *client_set,
+				 const char *const *server_protos,
+				 const char *const *client_protos,
+				 const char **proto_r)
+{
+	struct ssl_iostream_context *server_ctx, *client_ctx;
+	const char *error;
+
+	*proto_r = NULL;
+	/* NOTE: the cache keeps a pointer to the settings, so they must
+	   outlive the cache - the caller's settings do. */
+	if (ssl_iostream_server_context_cache_get(server_set, server_protos,
+						  &server_ctx, &error) < 0) {
+		i_error("server context cache: %s", error);
+		return -1;
+	}
+	if (ssl_iostream_client_context_cache_get(client_set, client_protos,
+						  &client_ctx, &error) < 0) {
+		i_error("client context cache: %s", error);
+		ssl_iostream_context_unref(&server_ctx);
+		return -1;
+	}
+	return test_iostream_ssl_handshake_ctx(server_ctx, server_set,
+					       client_ctx, client_set,
+					       "localhost", proto_r);
+}
+
+static void test_iostream_ssl_context_cache_alpn(void)
+{
+	struct ssl_iostream_settings server_set, client_set;
+	struct ssl_iostream_context *ctx1, *ctx2, *ctx3;
+	const char *const imap_protos[] = { "imap", NULL };
+	const char *const http_protos[] = { "http/1.1", NULL };
+	const char *error, *proto;
+	struct ioloop *ioloop;
+
+	test_begin("ssl: context cache application protocols");
+
+	ssl_iostream_test_settings_server(&server_set);
+	ssl_iostream_test_settings_client(&client_set);
+	client_set.allow_invalid_cert = TRUE;
+
+	/* The ALPN protocols are part of the SSL_CTX, so contexts wanting
+	   different protocols must not be shared. */
+	test_assert(ssl_iostream_client_context_cache_get(
+		&client_set, http_protos, &ctx1, &error) == 0);
+	test_assert(ssl_iostream_client_context_cache_get(
+		&client_set, imap_protos, &ctx2, &error) == 0);
+	test_assert(ctx1 != ctx2);
+	/* ... while the same protocols still share one context. */
+	test_assert(ssl_iostream_client_context_cache_get(
+		&client_set, imap_protos, &ctx3, &error) == 0);
+	test_assert(ctx3 == ctx2);
+	ssl_iostream_context_unref(&ctx1);
+	ssl_iostream_context_unref(&ctx2);
+	ssl_iostream_context_unref(&ctx3);
+
+	/* Wanting no protocols isn't the same as wanting some. */
+	test_assert(ssl_iostream_client_context_cache_get(
+		&client_set, NULL, &ctx1, &error) == 0);
+	test_assert(ssl_iostream_client_context_cache_get(
+		&client_set, imap_protos, &ctx2, &error) == 0);
+	test_assert(ctx1 != ctx2);
+	ssl_iostream_context_unref(&ctx1);
+	ssl_iostream_context_unref(&ctx2);
+
+	ioloop = io_loop_create();
+
+	/* An HTTP client that initialized its context first must not make an
+	   imap connection using the same settings send ALPN http/1.1. */
+	test_assert(ssl_iostream_client_context_cache_get(
+		&client_set, http_protos, &ctx1, &error) == 0);
+	test_assert(test_iostream_ssl_alpn_handshake(&server_set, &client_set,
+						     imap_protos, imap_protos,
+						     &proto) == 0);
+	test_assert(null_strcmp(proto, "imap") == 0);
+	ssl_iostream_context_unref(&ctx1);
+
+	/* Sending the wrong ALPN is what made the server reject the
+	   handshake with no_application_protocol. */
+	test_assert(test_iostream_ssl_alpn_handshake(&server_set, &client_set,
+						     imap_protos, http_protos,
+						     &proto) < 0);
+
+	io_loop_destroy(&ioloop);
+	ssl_iostream_context_cache_free();
+
+	test_end();
+}
+
 static void test_iostream_ssl_handshake(void)
 {
 	struct ssl_iostream_settings server_set, client_set;
@@ -954,6 +1048,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_iostream_ssl_handshake,
+		test_iostream_ssl_context_cache_alpn,
 		test_iostream_ssl_get_buffer_avail_size,
 		test_iostream_ssl_small_packets,
 		test_iostream_ssl_cork,
