@@ -112,6 +112,8 @@ quota_check(struct mail_user *user, uoff_t mail_size, const char **error_r)
 	if (quser == NULL) {
 		/* no quota for user */
 		e_debug(user->event, "User has no quota");
+		*error_r = quota_alloc_result_errstr(QUOTA_ALLOC_RESULT_OK,
+						     NULL);
 		return QUOTA_ALLOC_RESULT_OK;
 	}
 
