@@ -180,13 +180,23 @@ static void destroy_test_endpoint(struct test_endpoint **_ep)
 	pool_unref(&ep->pool);
 }
 
-static int test_iostream_ssl_handshake_real(struct ssl_iostream_settings *server_set,
-					    struct ssl_iostream_settings *client_set,
-					    const char *hostname)
+/* Run the handshake between a server and a client over the given contexts,
+   which this function takes ownership of. On success *alpn_r is set to the
+   negotiated application protocol, or NULL if there was none. */
+static int
+test_iostream_ssl_handshake_ctx(struct ssl_iostream_context *server_ctx,
+				const struct ssl_iostream_settings *server_set,
+				struct ssl_iostream_context *client_ctx,
+				const struct ssl_iostream_settings *client_set,
+				const char *hostname, const char **alpn_r)
 {
 	const char *error;
 	struct test_endpoint *server, *client;
+	struct timeout *to;
 	int fd[2], ret = 0;
+
+	if (alpn_r != NULL)
+		*alpn_r = NULL;
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) < 0)
 		i_fatal("socketpair() failed: %m");
@@ -197,24 +207,11 @@ static int test_iostream_ssl_handshake_real(struct ssl_iostream_settings *server
 	client = create_test_endpoint(fd[1], client_set);
 	client->hostname = hostname;
 	client->client = TRUE;
+	server->ctx = server_ctx;
+	client->ctx = client_ctx;
 
 	server->other = client;
 	client->other = server;
-
-	if (ssl_iostream_context_init_server(server->set, &server->ctx,
-					     &error) < 0) {
-		i_error("server: %s", error);
-		destroy_test_endpoint(&client);
-		destroy_test_endpoint(&server);
-		return -1;
-	}
-	if (ssl_iostream_context_init_client(client->set, &client->ctx,
-					     &error) < 0) {
-		i_error("client: %s", error);
-		destroy_test_endpoint(&client);
-		destroy_test_endpoint(&server);
-		return -1;
-	}
 
 	if (io_stream_create_ssl_server(server->ctx, NULL,
 					&server->input, &server->output,
@@ -231,10 +228,13 @@ static int test_iostream_ssl_handshake_real(struct ssl_iostream_settings *server
 	client->io = io_add_istream(client->input, handshake_input_callback, client);
 	server->io = io_add_istream(server->input, handshake_input_callback, server);
 
+	/* don't hang forever if the handshake never completes nor fails */
+	to = timeout_add(30000, io_loop_stop, current_ioloop);
 	if (ssl_iostream_handshake(client->iostream) < 0)
 		ret = -1;
 	else
 		io_loop_run(current_ioloop);
+	timeout_remove(&to);
 
 	if (client->failed || server->failed)
 		ret = -1;
@@ -260,6 +260,9 @@ static int test_iostream_ssl_handshake_real(struct ssl_iostream_settings *server
 						    &error) != SSL_IOSTREAM_CERT_VALIDITY_OK) {
 		i_error("server: %s", error);
 		ret = -1;
+	} else if (alpn_r != NULL) {
+		*alpn_r = t_strdup(ssl_iostream_get_application_protocol(
+					client->iostream));
 	}
 
 	i_stream_unref(&server->input);
@@ -271,6 +274,29 @@ static int test_iostream_ssl_handshake_real(struct ssl_iostream_settings *server
 	destroy_test_endpoint(&server);
 
 	return ret;
+}
+
+static int test_iostream_ssl_handshake_real(struct ssl_iostream_settings *server_set,
+					    struct ssl_iostream_settings *client_set,
+					    const char *hostname)
+{
+	struct ssl_iostream_context *server_ctx, *client_ctx;
+	const char *error;
+
+	if (ssl_iostream_context_init_server(server_set, &server_ctx,
+					     &error) < 0) {
+		i_error("server: %s", error);
+		return -1;
+	}
+	if (ssl_iostream_context_init_client(client_set, &client_ctx,
+					     &error) < 0) {
+		i_error("client: %s", error);
+		ssl_iostream_context_unref(&server_ctx);
+		return -1;
+	}
+	return test_iostream_ssl_handshake_ctx(server_ctx, server_set,
+					       client_ctx, client_set,
+					       hostname, NULL);
 }
 
 static void test_iostream_ssl_handshake(void)
