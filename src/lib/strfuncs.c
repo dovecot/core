@@ -702,6 +702,25 @@ size_t str_match_icase(const char *p1, const char *p2)
 	return i;
 }
 
+bool str_has_dots_component(const char *str, const char *delimiters)
+{
+	const char *p = str;
+
+	while (*p != '\0') {
+		size_t dots = strspn(p, ".");
+
+		p += dots;
+		if (dots > 0 &&
+		    (*p == '\0' || strchr(delimiters, *p) != NULL))
+			return TRUE;
+		/* skip the rest of the component */
+		p += strcspn(p, delimiters);
+		if (*p != '\0')
+			p++;
+	}
+	return FALSE;
+}
+
 #undef str_begins
 bool str_begins(const char *haystack, const char *needle, const char **suffix_r)
 {

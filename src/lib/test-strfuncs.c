@@ -848,6 +848,44 @@ static void test_memcspn(void)
 	test_end();
 }
 
+static void test_str_has_dots_component(void)
+{
+	const struct {
+		const char *str;
+		bool result;
+	} tests[] = {
+		{ "", FALSE },
+		{ ".", TRUE },
+		{ "..", TRUE },
+		{ "...", TRUE },
+		{ "a/..", TRUE },
+		{ "../a", TRUE },
+		{ "a/./b", TRUE },
+		{ "..@example.com", TRUE },
+		{ "user@..", TRUE },
+		{ ".@.", TRUE },
+		{ "first.last@example.com", FALSE },
+		{ "..key", FALSE },
+		{ "key..", FALSE },
+		{ "user..name", FALSE },
+		{ "a/b", FALSE },
+		{ "a//b", FALSE },
+		{ "user@", FALSE },
+		{ "@domain", FALSE },
+	};
+
+	test_begin("str_has_dots_component()");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		test_assert_idx(str_has_dots_component(tests[i].str, "/@") ==
+				tests[i].result, i);
+	}
+	/* only the given delimiters split components */
+	test_assert(!str_has_dots_component("user@..", "/"));
+	test_assert(!str_has_dots_component("a/..", "@"));
+	test_assert(str_has_dots_component("..", ""));
+	test_end();
+}
+
 void test_strfuncs(void)
 {
 	test_p_strdup();
@@ -875,6 +913,7 @@ void test_strfuncs(void)
 	test_str_match();
 	test_str_match_icase();
 	test_str_ends_with();
+	test_str_has_dots_component();
 	test_memspn();
 	test_memcspn();
 }

@@ -125,6 +125,11 @@ bool str_begins(const char *haystack, const char *needle,
 		const char **suffix_r);
 bool str_begins_icase(const char *haystack, const char *needle,
 		      const char **suffix_r);
+/* Returns TRUE if any component of str, split at any of the delimiters
+   characters, consists solely of one or more dots. For example "..",
+   "a/../b" and "user@.." all match with delimiters "/@". Such a component
+   escapes its parent directory when str is used as part of a path. */
+bool str_has_dots_component(const char *str, const char *delimiters) ATTR_PURE;
 static inline ATTR_PURE bool
 str_begins_with(const char *haystack, const char *needle)
 {
