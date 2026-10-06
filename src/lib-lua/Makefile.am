@@ -70,7 +70,7 @@ EXTRA_DIST = \
 	test-lua-base64.lua \
 	test-lua-str-sanitize.lua
 
-test_libs_ssl = ../lib-ssl-iostream/libssl_iostream_openssl.la
+test_libs_ssl = ../lib-ssl-iostream/libssl_iostream_openssl_static.la
 
 test_lua_SOURCES = test-lua.c
 test_lua_LDADD = libdlua.la $(LIBDOVECOT) $(LUA_LIBS)

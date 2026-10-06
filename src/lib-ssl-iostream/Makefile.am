@@ -1,6 +1,9 @@
 include $(top_srcdir)/Makefile.test.include
 
-noinst_LTLIBRARIES = libssl_iostream.la
+noinst_LTLIBRARIES = \
+	libssl_iostream.la \
+	libssl_iostream_openssl_common.la \
+	libssl_iostream_openssl_static.la
 
 NOPLUGIN_LDFLAGS =
 
@@ -14,15 +17,25 @@ AM_CPPFLAGS = \
 
 module_LTLIBRARIES = libssl_iostream_openssl.la
 
-libssl_iostream_openssl_la_LDFLAGS = -module -avoid-version
-libssl_iostream_openssl_la_LIBADD = $(SSL_LIBS)
-libssl_iostream_openssl_la_SOURCES = \
+# OpenSSL backend as convenience libraries, reused both by the loadable
+# module and by unit tests that link the backend statically. Linking
+# executables against the loadable module itself isn't portable.
+libssl_iostream_openssl_common_la_SOURCES = \
 	dovecot-openssl-common.c \
+	iostream-openssl-common.c
+
+libssl_iostream_openssl_static_la_LIBADD = \
+	libssl_iostream_openssl_common.la \
+	$(SSL_LIBS)
+libssl_iostream_openssl_static_la_SOURCES = \
 	iostream-openssl.c \
-	iostream-openssl-common.c \
 	iostream-openssl-context.c \
 	istream-openssl.c \
 	ostream-openssl.c
+
+libssl_iostream_openssl_la_LDFLAGS = -module -avoid-version
+libssl_iostream_openssl_la_LIBADD = libssl_iostream_openssl_static.la
+libssl_iostream_openssl_la_SOURCES =
 
 libssl_iostream_la_SOURCES = \
 	iostream-ssl.c \
@@ -44,8 +57,8 @@ pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 test_libs = \
-	$(module_LTLIBRARIES) \
-	$(noinst_LTLIBRARIES) \
+	libssl_iostream_openssl_static.la \
+	libssl_iostream.la \
 	../lib-settings/libsettings.la \
 	../lib-dns/libdns.la \
 	../lib-var-expand/libvar_expand.la \
