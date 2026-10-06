@@ -274,6 +274,75 @@ int t_normpath_to(const char *path, const char *root, const char **npath_r,
 	return t_normpath(t_strconcat(root, "/", path, NULL), npath_r, error_r);
 }
 
+int t_normpath_confine(const char *path, const char *unexpanded_path,
+		       const char **npath_r, const char **error_r)
+{
+	const char *npath, *var, *prefix, *nprefix;
+	size_t nprefix_len;
+	bool dir_prefix, inside;
+
+	if (t_normpath(path, &npath, error_r) < 0)
+		return -1;
+
+	/* "~/" is expanded to the home directory before the %variables, so
+	   the literal prefix is not part of the expanded path. */
+	if (unexpanded_path[0] == '~' &&
+	    (unexpanded_path[1] == '/' || unexpanded_path[1] == '\0'))
+		var = NULL;
+	else
+		var = strstr(unexpanded_path, "%{");
+	if (var == NULL || var == unexpanded_path) {
+		/* nothing to confine to */
+		*npath_r = npath;
+		return 0;
+	}
+
+	prefix = t_strdup_until(unexpanded_path, var);
+	/* A prefix ending with '/' names a directory: the path must be that
+	   directory or below it. An empty trailing %variable expands to the
+	   directory itself, e.g. /var/index/%{user | domain} for a user
+	   without a domain. */
+	dir_prefix = prefix[strlen(prefix)-1] == '/';
+	if (prefix[0] != '/')
+		nprefix = prefix;
+	else if (dir_prefix) {
+		/* normalize the prefix the same way as the path, so e.g.
+		   "/var//mail/%{user}" works */
+		if (t_normpath(prefix, &nprefix, error_r) < 0)
+			return -1;
+	} else {
+		/* The prefix ends inside a path component, e.g.
+		   "/var/mail-%{domain}". Normalize only the directories before
+		   it and keep the partial component as it is, so that
+		   "/var/mail/..%{user}" doesn't confine to "/var". */
+		const char *frag = strrchr(prefix, '/') + 1, *ndir;
+
+		if (t_normpath(t_strdup_until(prefix, frag), &ndir,
+			       error_r) < 0)
+			return -1;
+		nprefix = strcmp(ndir, "/") == 0 ?
+			t_strconcat("/", frag, NULL) :
+			t_strconcat(ndir, "/", frag, NULL);
+	}
+	nprefix_len = strlen(nprefix);
+	if (dir_prefix && strcmp(nprefix, "/") == 0)
+		inside = TRUE;
+	else if (dir_prefix) {
+		inside = strncmp(npath, nprefix, nprefix_len) == 0 &&
+			(npath[nprefix_len] == '/' ||
+			 npath[nprefix_len] == '\0');
+	} else {
+		inside = strncmp(npath, nprefix, nprefix_len) == 0;
+	}
+	if (!inside) {
+		*error_r = t_strdup_printf("Path %s is outside '%s'",
+					   npath, prefix);
+		return -1;
+	}
+	*npath_r = npath;
+	return 0;
+}
+
 int t_realpath(const char *path, const char **npath_r, const char **error_r)
 {
 	return path_normalize(path, TRUE, npath_r, error_r);

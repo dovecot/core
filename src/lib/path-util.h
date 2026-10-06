@@ -17,6 +17,17 @@ int t_normpath(const char *path, const char **npath_r, const char **error_r);
 /* Like t_normpath(), but path is relative to given root. */
 int t_normpath_to(const char *path, const char *root, const char **npath_r,
 		  const char **error_r);
+/* Like t_normpath(), but path was expanded from the given %variable template
+   and the normalized path must still be under the template's literal prefix,
+   i.e. the part before its first %variable, which is normalized as well. This
+   keeps an expanded %variable from escaping the directory the template was
+   written for, e.g. /home/vmail/%{user} with a user of "../../etc". A prefix
+   ending with '/' names a directory, and the path may be that directory
+   itself. A template without a literal prefix, or one relative to the home
+   directory ("~/..."), only gets the path normalized. Symbolic links are not
+   resolved. */
+int t_normpath_confine(const char *path, const char *unexpanded_path,
+		       const char **npath_r, const char **error_r);
 
 /* Returns path as the real normalized absolute path, which means that all
  * symbolic links in the path are resolved, that './' and '../' components

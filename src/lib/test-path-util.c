@@ -415,6 +415,73 @@ static void test_cleanup(void)
 		i_error("unlink_directory() failed: %s", error);
 }
 
+static void test_normpath_confine(void)
+{
+	static const struct {
+		const char *path, *unexpanded, *result;
+	} tests[] = {
+		/* stays under the literal prefix */
+		{ "/home/vmail/user", "/home/vmail/%{user}",
+		  "/home/vmail/user" },
+		{ "/home/vmail/a/../b", "/home/vmail/%{user}",
+		  "/home/vmail/b" },
+		{ "/home/vmail/user/", "/home/vmail/%{user}/",
+		  "/home/vmail/user" },
+		/* the prefix directory itself (empty trailing variable) */
+		{ "/home/vmail/", "/home/vmail/%{user}", "/home/vmail" },
+		{ "/home/vmail/.", "/home/vmail/%{user}", "/home/vmail" },
+		/* the literal prefix is normalized too */
+		{ "/var/mail/user", "/var//mail/%{user}", "/var/mail/user" },
+		{ "/var/mail/user", "/var/x/../mail/%{user}",
+		  "/var/mail/user" },
+		/* everything is under "/" */
+		{ "/etc/passwd", "/%{user}", "/etc/passwd" },
+		/* the literal prefix need not end at a directory boundary */
+		{ "/var/mail-example.com/user", "/var/mail-%{domain}/%{user}",
+		  "/var/mail-example.com/user" },
+		{ "/var/mail-example.com/user", "/var//mail-%{domain}/%{user}",
+		  "/var/mail-example.com/user" },
+		/* a partial component is kept as it is, not normalized away */
+		{ "/var/mail/..user", "/var/mail/..%{user}",
+		  "/var/mail/..user" },
+		/* no %variables: only normalized */
+		{ "/x/../y", "/x/../y", "/y" },
+		/* template begins with a %variable: nothing to confine to */
+		{ "/etc/passwd", "%{home}/mail", "/etc/passwd" },
+		/* "~/" is expanded to the home directory, so the literal
+		   prefix is not part of the expanded path either */
+		{ "/home/user/Maildir/shared/owner",
+		  "~/Maildir/shared/%{owner_user}",
+		  "/home/user/Maildir/shared/owner" },
+		{ "/home/user/a/../b", "~/%{user}", "/home/user/b" },
+		/* escapes */
+		{ "/home/vmail/../../etc", "/home/vmail/%{user}", NULL },
+		{ "/home/vmail/..", "/home/vmail/%{user}", NULL },
+		{ "/home/vmailx/user", "/home/vmail/%{user}", NULL },
+		{ "/etc", "/home/%{user}/%{domain}", NULL },
+		{ "/var/mail/user", "/var/mail/..%{user}", NULL },
+	};
+	const char *npath, *error;
+
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		int ret = t_normpath_confine(tests[i].path, tests[i].unexpanded,
+					     &npath, &error);
+		if (tests[i].result == NULL)
+			test_assert_idx(ret < 0, i);
+		else {
+			test_assert_idx(ret == 0, i);
+			test_assert_strcmp_idx(npath, tests[i].result, i);
+		}
+	}
+
+	/* symlinks are not resolved: link1 -> tmpdir stays link1, while the
+	   ".." is still resolved textually */
+	test_assert(t_normpath_confine(t_strconcat(link1, "/a/../user", NULL),
+				       t_strconcat(link1, "/%{user}", NULL),
+				       &npath, &error) == 0);
+	test_assert_strcmp(npath, t_strconcat(link1, "/user", NULL));
+}
+
 static void test_path_util_init(void)
 {
 	const char *error;
@@ -482,6 +549,7 @@ void test_path_util(void)
 	test_link4();
 	test_link_loop();
 	test_abspath_vs_normpath();
+	test_normpath_confine();
 	test_link_alloc();
 	test_link_alloc2();
 	test_openat_safe();
