@@ -98,7 +98,12 @@ all-settings.c: $(SETTING_FILES) $(SETTING_LINKED_FILES) $(top_srcdir)/src/confi
 
 CLEANFILES = all-settings.c.tmp
 
+check-local: all-settings.c
+	$(AM_V_GEN)$(PYTHON) $(top_srcdir)/src/config/plugin-infos-check.py all-settings.c \
+		$(top_srcdir)/src/plugins/*/Makefile.am
+
 EXTRA_DIST = \
+	plugin-infos-check.py \
 	config-settings.c \
 	settings-get.py
 
