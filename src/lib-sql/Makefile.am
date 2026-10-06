@@ -10,18 +10,22 @@ NOPLUGIN_LDFLAGS =
 if SQL_PLUGINS
 if BUILD_MYSQL
 MYSQL_LIB = libdriver_mysql.la
+MYSQL_TEST_LIB = libdriver_mysql_static.la
 SQL_DRIVER_PLUGINS += mysql
 endif
 if BUILD_PGSQL
 PGSQL_LIB = libdriver_pgsql.la
+PGSQL_TEST_LIB = libdriver_pgsql_static.la
 SQL_DRIVER_PLUGINS += pgsql
 endif
 if BUILD_SQLITE
 SQLITE_LIB = libdriver_sqlite.la
+SQLITE_TEST_LIB = libdriver_sqlite_static.la
 SQL_DRIVER_PLUGINS += sqlite
 endif
 if BUILD_CASSANDRA
 CASSANDRA_LIB = libdriver_cassandra.la
+CASSANDRA_TEST_LIB = libdriver_cassandra_static.la
 SQL_DRIVER_PLUGINS += cassandra
 endif
 
@@ -30,6 +34,14 @@ sql_module_LTLIBRARIES = \
 	$(PGSQL_LIB) \
 	$(SQLITE_LIB) \
 	$(CASSANDRA_LIB)
+
+# The drivers as convenience libraries, reused both by the loadable modules
+# and by unit tests that link the drivers statically.
+noinst_LTLIBRARIES += \
+	$(MYSQL_TEST_LIB) \
+	$(PGSQL_TEST_LIB) \
+	$(SQLITE_TEST_LIB) \
+	$(CASSANDRA_TEST_LIB)
 
 sql_moduledir = $(moduledir)
 endif
@@ -71,25 +83,37 @@ endif
 nodist_libsql_la_SOURCES = sql-drivers-register.c
 
 if SQL_PLUGINS
+libdriver_mysql_static_la_LIBADD = $(MYSQL_LIBS)
+libdriver_mysql_static_la_CPPFLAGS = $(AM_CPPFLAGS) $(MYSQL_CFLAGS)
+libdriver_mysql_static_la_SOURCES = driver-mysql.c
+
 libdriver_mysql_la_LDFLAGS = -module -avoid-version
-libdriver_mysql_la_LIBADD = $(MYSQL_LIBS)
-libdriver_mysql_la_CPPFLAGS = $(AM_CPPFLAGS) $(MYSQL_CFLAGS)
-libdriver_mysql_la_SOURCES = driver-mysql.c
+libdriver_mysql_la_LIBADD = libdriver_mysql_static.la
+libdriver_mysql_la_SOURCES =
+
+libdriver_pgsql_static_la_LIBADD = $(PGSQL_LIBS)
+libdriver_pgsql_static_la_CPPFLAGS = $(AM_CPPFLAGS) $(PGSQL_CFLAGS)
+libdriver_pgsql_static_la_SOURCES = driver-pgsql.c
 
 libdriver_pgsql_la_LDFLAGS = -module -avoid-version
-libdriver_pgsql_la_LIBADD = $(PGSQL_LIBS)
-libdriver_pgsql_la_CPPFLAGS = $(AM_CPPFLAGS) $(PGSQL_CFLAGS)
-libdriver_pgsql_la_SOURCES = driver-pgsql.c
+libdriver_pgsql_la_LIBADD = libdriver_pgsql_static.la
+libdriver_pgsql_la_SOURCES =
+
+libdriver_sqlite_static_la_LIBADD = $(SQLITE_LIBS)
+libdriver_sqlite_static_la_CPPFLAGS = $(AM_CPPFLAGS) $(SQLITE_CFLAGS)
+libdriver_sqlite_static_la_SOURCES = driver-sqlite.c
 
 libdriver_sqlite_la_LDFLAGS = -module -avoid-version
-libdriver_sqlite_la_LIBADD = $(SQLITE_LIBS)
-libdriver_sqlite_la_CPPFLAGS = $(AM_CPPFLAGS) $(SQLITE_CFLAGS)
-libdriver_sqlite_la_SOURCES = driver-sqlite.c
+libdriver_sqlite_la_LIBADD = libdriver_sqlite_static.la
+libdriver_sqlite_la_SOURCES =
+
+libdriver_cassandra_static_la_LIBADD = $(CASSANDRA_LIBS) $(SSL_LIBS)
+libdriver_cassandra_static_la_CPPFLAGS = $(AM_CPPFLAGS) $(CASSANDRA_CFLAGS) $(SSL_CFLAGS)
+libdriver_cassandra_static_la_SOURCES = driver-cassandra.c
 
 libdriver_cassandra_la_LDFLAGS = -module -avoid-version
-libdriver_cassandra_la_LIBADD = $(CASSANDRA_LIBS) $(SSL_LIBS)
-libdriver_cassandra_la_CPPFLAGS = $(AM_CPPFLAGS) $(CASSANDRA_CFLAGS) $(SSL_CFLAGS)
-libdriver_cassandra_la_SOURCES = driver-cassandra.c
+libdriver_cassandra_la_LIBADD = libdriver_cassandra_static.la
+libdriver_cassandra_la_SOURCES =
 else
 endif
 
@@ -152,7 +176,8 @@ install-exec-local:
 endif
 
 test_libs = \
-	$(noinst_LTLIBRARIES) \
+	libdriver_test.la \
+	libsql.la \
 	../lib-dovecot/libdovecot.la
 
 test_programs = test-sql test-sql-sqlpool
@@ -168,30 +193,30 @@ test_sql_sqlpool_DEPENDENCIES = $(test_libs)
 if BUILD_SQLITE
 test_programs += test-sql-sqlite
 test_sql_sqlite_SOURCES = test-sql-sqlite.c
-test_sql_sqlite_LDADD = $(SQLITE_LIB) $(pkglib_LTLIBRARIES) $(test_libs) $(DLLIB)
-test_sql_sqlite_DEPENDENCIES = $(SQLITE_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
+test_sql_sqlite_LDADD = $(SQLITE_TEST_LIB) $(pkglib_LTLIBRARIES) $(test_libs) $(DLLIB)
+test_sql_sqlite_DEPENDENCIES = $(SQLITE_TEST_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
 endif
 
 if BUILD_MYSQL
 noinst_PROGRAMS += test-sql-mysql
 test_sql_mysql_SOURCES = test-sql-mysql.c
-test_sql_mysql_LDADD = $(MYSQL_LIB) $(pkglib_LTLIBRARIES) $(test_libs) $(DLLIB)
-test_sql_mysql_DEPENDENCIES = $(MYSQL_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
+test_sql_mysql_LDADD = $(MYSQL_TEST_LIB) $(pkglib_LTLIBRARIES) $(test_libs) $(DLLIB)
+test_sql_mysql_DEPENDENCIES = $(MYSQL_TEST_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
 test_sql_mysql_CPPFLAGS = $(AM_CPPFLAGS) $(MYSQL_CFLAGS)
 endif
 
 if BUILD_PGSQL
 noinst_PROGRAMS += test-sql-pgsql
 test_sql_pgsql_SOURCES = test-sql-pgsql.c
-test_sql_pgsql_LDADD = $(PGSQL_LIB) $(pkglib_LTLIBRARIES) $(test_libs) $(DLLIB)
-test_sql_pgsql_DEPENDENCIES = $(PGSQL_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
+test_sql_pgsql_LDADD = $(PGSQL_TEST_LIB) $(pkglib_LTLIBRARIES) $(test_libs) $(DLLIB)
+test_sql_pgsql_DEPENDENCIES = $(PGSQL_TEST_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
 test_sql_pgsql_CPPFLAGS = $(AM_CPPFLAGS) $(PGSQL_CFLAGS)
 endif
 
 if BUILD_CASSANDRA
 noinst_PROGRAMS += test-cql-cassandra
 test_cql_cassandra_SOURCES = test-cql-cassandra.c
-test_cql_cassandra_LDADD = $(CASSANDRA_LIB) $(pkglib_LTLIBRARIES) $(test_libs) $(DLLIB)
-test_cql_cassandra_DEPENDENCIES = $(CASSANDRA_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
+test_cql_cassandra_LDADD = $(CASSANDRA_TEST_LIB) $(pkglib_LTLIBRARIES) $(test_libs) $(DLLIB)
+test_cql_cassandra_DEPENDENCIES = $(CASSANDRA_TEST_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
 test_cql_cassandra_CPPFLAGS = $(AM_CPPFLAGS) $(CASSANDRA_CFLAGS)
 endif
