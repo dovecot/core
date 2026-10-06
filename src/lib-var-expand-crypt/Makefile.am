@@ -1,5 +1,6 @@
 include $(top_srcdir)/Makefile.test.include
 
+noinst_LTLIBRARIES = libvar_expand_crypt.la
 module_LTLIBRARIES = var_expand_crypt.la
 
 AM_CPPFLAGS = \
@@ -8,11 +9,13 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-var-expand \
 	-I$(top_srcdir)/src/lib-dcrypt
 
-var_expand_crypt_la_SOURCES = \
+libvar_expand_crypt_la_SOURCES = \
 	var-expand-crypt.c
 
 NOPLUGIN_LDFLAGS =
+var_expand_crypt_la_SOURCES =
 var_expand_crypt_la_LDFLAGS = $(MODULE_LIBS) -avoid-version -module
+var_expand_crypt_la_LIBADD = libvar_expand_crypt.la
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
@@ -22,7 +25,7 @@ test_programs = \
 
 test_libs = \
 	$(LIBUNWIND_LIBS) \
-	$(module_LTLIBRARIES) \
+	libvar_expand_crypt.la \
 	../lib-dcrypt/libdcrypt.la \
 	../lib-var-expand/libvar_expand.la \
 	../lib-regex/libdregex.la \
@@ -35,7 +38,7 @@ test_libs = \
 
 test_var_expand_crypt_SOURCES = test-var-expand-crypt.c
 test_var_expand_crypt_LDADD = $(test_libs) $(SSL_LIBS) $(LIBDOVECOT_TEST_LIBS)
-test_var_expand_crypt_DEPENDENCIES = $(module_LTLIBRARIES)
+test_var_expand_crypt_DEPENDENCIES = libvar_expand_crypt.la
 test_var_expand_crypt_LDFLAGS = -static
 if HAVE_WHOLE_ARCHIVE
 test_var_expand_crypt_LDFLAGS += -export-dynamic -Wl,$(LD_WHOLE_ARCHIVE),../lib/.libs/liblib.a,../lib-json/.libs/libjson.a,../lib-ssl-iostream/.libs/libssl_iostream.a,$(LD_NO_WHOLE_ARCHIVE)
