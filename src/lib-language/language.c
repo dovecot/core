@@ -210,6 +210,18 @@ language_list_get_first(struct language_list *list)
 }
 
 #ifdef HAVE_LANG_EXTTEXTCAT
+static const char *language_textcat_name(const char *textcat_name)
+{
+	/* name is <lang>-<optional country or characterset>-<encoding>
+	   eg, fi--utf8 or pt-PT-utf8 */
+	const char *name = t_strcut(textcat_name, '-');
+
+	/* For Norwegian we treat both bokmal and nynorsk as "no". */
+	if (strcmp(name, "nb") == 0 || strcmp(name, "nn") == 0)
+		name = "no";
+	return name;
+}
+
 static bool language_match_lists(struct language_list *list,
                                  candidate_t *candp, int candp_len,
                                  const struct language **lang_r)
@@ -217,13 +229,7 @@ static bool language_match_lists(struct language_list *list,
 	const char *name;
 
 	for (int i = 0; i < candp_len; i++) {
-		/* name is <lang>-<optional country or characterset>-<encoding>
-		   eg, fi--utf8 or pt-PT-utf8 */
-		name = t_strcut(candp[i].name, '-');
-
-		/* For Norwegian we treat both bokmal and nynorsk as "no". */
-		if (strcmp(name, "nb") == 0 || strcmp(name, "nn") == 0)
-			name = "no";
+		name = language_textcat_name(candp[i].name);
 		if ((*lang_r = language_list_find(list, name)) != NULL)
 			return TRUE;
 	}
