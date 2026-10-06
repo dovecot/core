@@ -133,6 +133,9 @@ auth_common_sources += \
 endif
 endif
 
+# The plugins as convenience libraries, reused both by the loadable modules
+# and by unit tests that link the plugins statically.
+noinst_LTLIBRARIES =
 test_auth_ldadd_plugins =
 
 headers = \
@@ -187,22 +190,30 @@ endif
 
 if HAVE_LDAP
 if LDAP_PLUGIN
+noinst_LTLIBRARIES += libauthdb_ldap_static.la
+libauthdb_ldap_static_la_LIBADD = $(LIBDOVECOT_LDAP) $(LDAP_LIBS)
+libauthdb_ldap_static_la_CPPFLAGS = $(AM_CPPFLAGS) -DPLUGIN_BUILD
+libauthdb_ldap_static_la_SOURCES = $(ldap_sources)
+
 libauthdb_ldap_la_LDFLAGS = -module -avoid-version -shared
-libauthdb_ldap_la_LIBADD = $(LIBDOVECOT_LDAP) $(LDAP_LIBS)
-libauthdb_ldap_la_CPPFLAGS = $(AM_CPPFLAGS) -DPLUGIN_BUILD
-libauthdb_ldap_la_SOURCES = $(ldap_sources)
-test_auth_ldadd_plugins += libauthdb_ldap.la
+libauthdb_ldap_la_LIBADD = libauthdb_ldap_static.la
+libauthdb_ldap_la_SOURCES =
+test_auth_ldadd_plugins += libauthdb_ldap_static.la
 else
 auth_libs += $(LIBDOVECOT_LDAP)
 endif
 endif
 
 if AUTH_LUA_PLUGIN
+noinst_LTLIBRARIES += libauthdb_lua_static.la
+libauthdb_lua_static_la_LIBADD = $(LIBDOVECOT_LUA)
+libauthdb_lua_static_la_CPPFLAGS = $(AM_CPPFLAGS) -DPLUGIN_BUILD
+libauthdb_lua_static_la_SOURCES = $(lua_sources)
+
 libauthdb_lua_la_LDFLAGS = -module -avoid-version -shared
-libauthdb_lua_la_LIBADD = $(LIBDOVECOT_LUA)
-libauthdb_lua_la_CPPFLAGS = $(AM_CPPFLAGS) -DPLUGIN_BUILD
-libauthdb_lua_la_SOURCES = $(lua_sources)
-test_auth_ldadd_plugins += libauthdb_lua.la
+libauthdb_lua_la_LIBADD = libauthdb_lua_static.la
+libauthdb_lua_la_SOURCES =
+test_auth_ldadd_plugins += libauthdb_lua_static.la
 endif
 
 libauthdb_imap_la_LDFLAGS = -module -avoid-version -shared
