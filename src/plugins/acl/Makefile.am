@@ -24,7 +24,15 @@ lib01_acl_plugin_la_LDFLAGS = -module -avoid-version
 module_LTLIBRARIES = \
 	lib01_acl_plugin.la
 
-lib01_acl_plugin_la_SOURCES = \
+# The plugin as a convenience library, reused both by the loadable module and
+# by unit tests that link the plugin statically.
+noinst_LTLIBRARIES = \
+	libacl_plugin_static.la
+
+lib01_acl_plugin_la_SOURCES =
+lib01_acl_plugin_la_LIBADD = libacl_plugin_static.la
+
+libacl_plugin_static_la_SOURCES = \
 	acl-api.c \
 	acl-attributes.c \
 	acl-backend.c \
@@ -70,11 +78,11 @@ test_programs = \
 	test-acl-vfile-update
 
 test_libs = \
-	$(module_LTLIBRARIES) \
+	libacl_plugin_static.la \
 	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT)
 test_deps = \
-	$(module_LTLIBRARIES) \
+	libacl_plugin_static.la \
 	$(LIBDOVECOT_STORAGE_DEPS) \
 	$(LIBDOVECOT_DEPS)
 
