@@ -240,6 +240,15 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 				       "Empty username doesn't exist");
 		return -1;
 	}
+	if (str_has_dots_component(userdomain, "/@")) {
+		/* An all-dots component would escape its parent directory
+		   once the owner name is used in a path, e.g. by
+		   get_nonexistent_user_path(). No such user can exist, so
+		   answer the same way as for any nonexistent user. */
+		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+				       T_MAIL_ERR_MAILBOX_NOT_FOUND(*_name));
+		return -1;
+	}
 
 	/* expand the namespace prefix and see if it already exists.
 	   this should normally happen only when the mailbox is being opened */
