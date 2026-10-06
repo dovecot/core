@@ -359,6 +359,22 @@ static bool quick_strcmp(const char *str1, const char *str2)
 	return null_strcmp(str1, str2) == 0;
 }
 
+bool ssl_iostream_application_protocols_equals(const char *const *protos1,
+					       const char *const *protos2)
+{
+	if (protos1 == protos2)
+		return TRUE;
+	if (protos1 == NULL || protos2 == NULL)
+		return FALSE;
+
+	unsigned int i;
+	for (i = 0; protos1[i] != NULL && protos2[i] != NULL; i++) {
+		if (strcmp(protos1[i], protos2[i]) != 0)
+			return FALSE;
+	}
+	return protos1[i] == NULL && protos2[i] == NULL;
+}
+
 bool ssl_iostream_settings_equals(const struct ssl_iostream_settings *set1,
 				  const struct ssl_iostream_settings *set2)
 {
@@ -390,6 +406,11 @@ bool ssl_iostream_settings_equals(const struct ssl_iostream_settings *set1,
 	    !quick_strcmp(set1->cert_username_field,
 			  set2->cert_username_field) ||
 	    !quick_strcmp(set1->crypto_device, set2->crypto_device))
+		return FALSE;
+
+	if (!ssl_iostream_application_protocols_equals(
+			set1->application_protocols,
+			set2->application_protocols))
 		return FALSE;
 
 	if (set1->skip_crl_check != set2->skip_crl_check ||

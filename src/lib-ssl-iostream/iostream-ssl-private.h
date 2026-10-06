@@ -78,6 +78,11 @@ void iostream_ssl_module_init(const struct iostream_ssl_vfuncs *vfuncs);
 bool ssl_iostream_settings_equals(const struct ssl_iostream_settings *set1,
 				  const struct ssl_iostream_settings *set2);
 
+/* Returns TRUE if both application protocol lists are equal. The order of the
+   protocols matters, since it is the preference order. */
+bool ssl_iostream_application_protocols_equals(const char *const *protos1,
+					       const char *const *protos2);
+
 void ssl_iostream_unref(struct ssl_iostream **ssl_io);
 
 #endif
