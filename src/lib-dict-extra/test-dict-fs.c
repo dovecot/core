@@ -116,6 +116,9 @@ static void test_dict_fs_set_get(void)
 		{ ".././.testuser", ".test-dict/..../.../.testuser/.../key" },
 		{ "../../testuser", ".test-dict/..../..../testuser/.../key" },
 		{ "../../.testuser", ".test-dict/..../..../.testuser/.../key" },
+		{ ".", ".test-dict/.../.../key" },
+		{ "..", ".test-dict/..../.../key" },
+		{ "...", ".test-dict/...../.../key" },
 	};
 	for (size_t i = 0; i < N_ELEMENTS(username_test_cases); i++) {
 		const char *path = username_test_cases[i].path;

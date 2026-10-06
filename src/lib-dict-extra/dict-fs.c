@@ -55,12 +55,13 @@ static void fs_dict_deinit(struct dict *_dict)
 /* Remove unsafe paths */
 static const char *fs_dict_escape_key(const char *key)
 {
-	const char *ptr;
+	const char *ptr, *dots;
 	string_t *new_key = NULL;
 	/* A key always starts with either "priv/" or "shared/". Usernames can
-	   start with "./" or "../". Thus make sure the given key has no such
-	   prefix. */
-	if (str_begins_with(key, "./") || str_begins_with(key, "../")) {
+	   start with "./" or "../", or consist solely of dots. Thus make sure
+	   the given key has no such prefix. */
+	dots = key + strspn(key, ".");
+	if (dots != key && (*dots == '\0' || *dots == '/')) {
 		new_key = t_str_new(strlen(key));
 		str_append(new_key, "..");
 	}
