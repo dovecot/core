@@ -1612,7 +1612,6 @@ smtp_client_connection_init_ssl_ctx(struct smtp_client_connection *conn,
 				    const char **error_r)
 {
 	struct smtp_client *client = conn->client;
-	int ret;
 
 	if (conn->ssl_ctx != NULL)
 		return 0;
@@ -1630,15 +1629,13 @@ smtp_client_connection_init_ssl_ctx(struct smtp_client_connection *conn,
 			"Requested SSL connection, but no SSL settings given";
 		return -1;
 	}
-	if ((ret = ssl_iostream_client_context_cache_get(conn->set.ssl, &conn->ssl_ctx,
-							 error_r)) <= 0)
-		return ret;
-	const char *application_protocol = smtp_protocol_name(conn->protocol);
 	const char *const names[] = {
-		application_protocol,
+		smtp_protocol_name(conn->protocol),
 		NULL
 	};
-	ssl_iostream_context_set_application_protocols(conn->ssl_ctx, names);
+	if (ssl_iostream_client_context_cache_get(conn->set.ssl, names,
+						  &conn->ssl_ctx, error_r) < 0)
+		return -1;
 	return 0;
 }
 

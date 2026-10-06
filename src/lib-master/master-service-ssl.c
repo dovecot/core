@@ -36,7 +36,8 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	}
 
 	ssl_server_settings_to_iostream_set(set, server_set, &ssl_set);
-	if (ssl_iostream_server_context_cache_get(ssl_set, &service->ssl_ctx,
+	if (ssl_iostream_server_context_cache_get(ssl_set, NULL,
+						  &service->ssl_ctx,
 						  &error) < 0) {
 		e_error(service->event,
 			"SSL context initialization failed, disabling SSL: %s",

@@ -168,14 +168,11 @@ int io_stream_autocreate_ssl_client(
 	}
 	settings_free(ssl_set);
 
-	ret = ssl_iostream_client_context_cache_get(set, &ctx, error_r);
+	ret = ssl_iostream_client_context_cache_get(
+		set, parameters->application_protocols, &ctx, error_r);
 	settings_free(set);
 	if (ret < 0)
 		return -1;
-	if (ret > 0 && parameters->application_protocols != NULL) {
-		ssl_iostream_context_set_application_protocols(ctx,
-				parameters->application_protocols);
-	}
 	ret = io_stream_create_ssl_client(ctx, parameters->host,
 					  parameters->event_parent,
 					  parameters->flags, input,
@@ -204,14 +201,11 @@ int io_stream_autocreate_ssl_server(
 	settings_free(ssl_set);
 	settings_free(ssl_server_set);
 
-	ret = ssl_iostream_server_context_cache_get(set, &ctx, error_r);
+	ret = ssl_iostream_server_context_cache_get(
+		set, parameters->application_protocols, &ctx, error_r);
 	settings_free(set);
 	if (ret < 0)
 		return -1;
-	if (ret > 0 && parameters->application_protocols != NULL) {
-		ssl_iostream_context_set_application_protocols(ctx,
-				parameters->application_protocols);
-	}
 	ret = io_stream_create_ssl_server(ctx, parameters->event_parent, input,
 					  output, iostream_r, error_r);
 	ssl_iostream_context_unref(&ctx);

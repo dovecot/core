@@ -127,7 +127,7 @@ int smtp_client_init_ssl_ctx(struct smtp_client *client, const char **error_r)
 
 	if (client->set.ssl != NULL) {
 		return ssl_iostream_client_context_cache_get(client->set.ssl,
-			&client->ssl_ctx, error_r);
+			NULL, &client->ssl_ctx, error_r);
 	}
 	/* no ssl settings given via smtp_client_settings -
 	   look them up automatically */
@@ -135,8 +135,9 @@ int smtp_client_init_ssl_ctx(struct smtp_client *client, const char **error_r)
 		return -1;
 	ssl_client_settings_to_iostream_set(ssl_set, &set);
 
-	int ret = ssl_iostream_client_context_cache_get(set, &client->ssl_ctx,
-							error_r);
+	int ret = ssl_iostream_client_context_cache_get(set, NULL,
+						       &client->ssl_ctx,
+						       error_r);
 	settings_free(set);
 	settings_free(ssl_set);
 	return ret;

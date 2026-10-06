@@ -385,12 +385,10 @@ http_server_connection_ssl_init(struct http_server_connection *conn)
 						      &conn->conn.output,
 						      &conn->ssl_iostream,
 						      &error);
-	} else if ((ret = ssl_iostream_server_context_cache_get(server->ssl_set,
-								&ssl_ctx, &error)) < 0) {
+	} else if ((ret = ssl_iostream_server_context_cache_get(
+			server->ssl_set, names, &ssl_ctx, &error)) < 0) {
 		/* pass */
 	} else {
-		if (ret > 0)
-			ssl_iostream_context_set_application_protocols(ssl_ctx, names);
 		ret = io_stream_create_ssl_server(ssl_ctx,
 						  server->event,
 						  &conn->conn.input,

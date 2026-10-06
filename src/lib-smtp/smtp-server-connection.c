@@ -385,23 +385,18 @@ smtp_server_connection_sni_callback(const char *name, const char **error_r,
 	ssl_server_settings_to_iostream_set(ssl_set, ssl_server_set,
 					    &conn->set.ssl);
 
-	int ret;
-	if ((ret = ssl_iostream_server_context_cache_get(conn->set.ssl, &ssl_ctx,
-							 error_r)) < 0) {
+	const char *const names[] = {
+		smtp_protocol_name(conn->set.protocol),
+		NULL
+	};
+	if (ssl_iostream_server_context_cache_get(conn->set.ssl, names, &ssl_ctx,
+						  error_r) < 0) {
 		settings_free(ssl_set);
 		settings_free(ssl_server_set);
 		return -1;
 	}
 	settings_free(ssl_set);
 	settings_free(ssl_server_set);
-	if (ret == 1) {
-		const char *application_protocol = smtp_protocol_name(conn->set.protocol);
-		const char *const names[] = {
-			application_protocol,
-			NULL
-		};
-		ssl_iostream_context_set_application_protocols(ssl_ctx, names);
-	}
 	ssl_iostream_change_context(conn->ssl_iostream, ssl_ctx);
 	ssl_iostream_context_unref(&ssl_ctx);
 	return 0;
@@ -433,7 +428,7 @@ int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 		ret = io_stream_autocreate_ssl_server(&parameters,
 			&conn->conn.input, &conn->conn.output,
 			&conn->ssl_iostream, &error);
-	} else if (ssl_iostream_server_context_cache_get(conn->set.ssl,
+	} else if (ssl_iostream_server_context_cache_get(conn->set.ssl, NULL,
 							 &ssl_ctx, &error) < 0)
 		ret = -1;
 	else {
