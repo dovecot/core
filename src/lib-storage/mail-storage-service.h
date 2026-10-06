@@ -130,6 +130,13 @@ extern struct mail_storage_service_user_module_register
 	mail_storage_service_user_module_register;
 extern struct module *mail_storage_service_modules;
 
+/* Verify that the plugins required by the given mail_plugins are also listed
+   in it. The required plugins are looked up from the binary config, so if
+   the config hasn't been read, nothing is verified. Returns 0 if ok, -1 if a
+   required plugin is missing. */
+int mail_storage_service_check_mail_plugins(const char *const *plugins,
+					    const char **error_r);
+
 /* Stored here, since it's used by both obox and fts_dovecot plugins.
    It's better not to have to link fts_dovecot with obox plugin. */
 extern MODULE_CONTEXT_DEFINE(metacache_service_user_module,

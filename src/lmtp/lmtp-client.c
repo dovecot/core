@@ -82,10 +82,14 @@ static void refresh_proctitle(void)
 static void client_load_modules(struct client *client)
 {
         struct module_dir_load_settings mod_set;
+	const char *const *plugins, *error;
 
 	if (!array_is_created(&client->lmtp_set->mail_plugins) ||
 	    array_is_empty(&client->lmtp_set->mail_plugins))
 		return;
+	plugins = settings_boollist_get(&client->lmtp_set->mail_plugins);
+	if (mail_storage_service_check_mail_plugins(plugins, &error) < 0)
+		i_fatal("%s", error);
         i_zero(&mod_set);
         mod_set.abi_version = DOVECOT_ABI_VERSION;
         mod_set.require_init_funcs = TRUE;
@@ -95,8 +99,7 @@ static void client_load_modules(struct client *client)
         mail_storage_service_modules =
                 module_dir_load_missing(mail_storage_service_modules,
                                         client->lmtp_set->mail_plugin_dir,
-                                        settings_boollist_get(&client->lmtp_set->mail_plugins),
-                                        &mod_set);
+                                        plugins, &mod_set);
 	module_dir_init(mail_storage_service_modules);
 }
 

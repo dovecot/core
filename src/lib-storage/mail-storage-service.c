@@ -955,18 +955,53 @@ mail_storage_service_first_init(struct mail_storage_service_ctx *ctx,
 		auth_master_init(user_set->auth_socket_path, flags));
 }
 
+int mail_storage_service_check_mail_plugins(const char *const *plugins,
+					   const char **error_r)
+{
+	struct settings_root *root =
+		master_service_get_settings_root(master_service);
+	const char **names, *const *required;
+	unsigned int i, j, count = str_array_length(plugins);
+
+	/* allow giving the names also in lib<nn>_<name> form */
+	names = t_new(const char *, count + 1);
+	for (i = 0; i < count; i++)
+		names[i] = module_file_get_name(plugins[i]);
+
+	for (i = 0; i < count; i++) {
+		required = settings_root_get_required_plugins(root, names[i]);
+		if (required == NULL)
+			continue;
+		for (j = 0; required[j] != NULL; j++) {
+			if (!str_array_find(names, required[j])) {
+				*error_r = t_strdup_printf(
+					"mail_plugins: Plugin %s requires "
+					"also plugin %s to be loaded",
+					names[i], required[j]);
+				return -1;
+			}
+		}
+	}
+	return 0;
+}
+
 static int
 mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 				  const struct mail_user_settings *user_set,
 				  const char **error_r)
 {
 	struct module_dir_load_settings mod_set;
+	const char *const *plugins;
 
 	if (!array_is_created(&user_set->mail_plugins) ||
 	    array_is_empty(&user_set->mail_plugins))
 		return 0;
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS) != 0)
 		return 0;
+
+	plugins = settings_boollist_get(&user_set->mail_plugins);
+	if (mail_storage_service_check_mail_plugins(plugins, error_r) < 0)
+		return -1;
 
 	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
@@ -976,8 +1011,7 @@ mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 	mod_set.debug = user_set->mail_debug;
 
 	return module_dir_try_load_missing(&mail_storage_service_modules,
-					   user_set->mail_plugin_dir,
-					   settings_boollist_get(&user_set->mail_plugins),
+					   user_set->mail_plugin_dir, plugins,
 					   &mod_set, error_r);
 }
 
