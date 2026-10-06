@@ -270,7 +270,7 @@ stats_client_send_event(struct stats_client *client, struct event *event,
 	/* Need to send the event for stats and/or export */
 	string_t *str = t_str_new(256);
 
-	if (++recursion == 0)
+	if (++recursion == 1)
 		o_stream_cork(client->conn.output);
 	struct event *global_event = event_get_global();
 	if (global_event != NULL) {
