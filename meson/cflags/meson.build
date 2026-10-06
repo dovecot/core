@@ -20,6 +20,19 @@ if get_option('buildtype') == 'debug'
   ]
 endif
 
+# Meson passes the source files to the compiler with paths relative to the build directory,
+# so __FILE__ would be e.g. "../../dovecot/src/lib/ioloop.c". Strip the source root from it
+# to get "src/lib/ioloop.c" in panic messages and logs regardless of the build directory's
+# location. The absolute path is mapped as well in case it is used.
+fs = import('fs')
+global_args += [
+  '-fmacro-prefix-map=' + fs.relative_to(
+    meson.project_source_root(),
+    meson.project_build_root(),
+  ) + '/=',
+  '-fmacro-prefix-map=' + meson.project_source_root() + '/=',
+]
+
 c_args = [
   '-Wmissing-prototypes',
   '-Wmissing-declarations',
