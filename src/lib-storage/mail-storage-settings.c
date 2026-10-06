@@ -398,7 +398,7 @@ static const struct setting_define mail_user_setting_defines[] = {
 
 	DEF(STR, mail_uid),
 	DEF(STR, mail_gid),
-	DEF(STR, mail_home),
+	DEF(PATH_DIR, mail_home),
 	DEF(STR, mail_chroot),
 	DEF(BOOLLIST, mail_access_groups),
 	DEF(STR, mail_privileged_group),
