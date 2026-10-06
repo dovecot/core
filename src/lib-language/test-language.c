@@ -293,6 +293,30 @@ static void test_language_detect_unknown(void)
 	language_list_deinit(&lp);
 	test_end();
 }
+static void test_language_detect_init_failure(void)
+{
+	const struct language_settings set = {
+		.textcat_config_path = "/nonexistent/fpdb.conf",
+	};
+	struct language_list *lp;
+	const struct language *lang_r = NULL;
+	const unsigned char text[] = "Some text that is long enough";
+	const char *unknown, *error;
+
+	test_begin("language detect init failure");
+	/* The second list uses the cached failed textcat */
+	for (unsigned int i = 0; i < 2; i++) {
+		lp = language_list_init(&set);
+		test_assert_idx(language_list_add_names(lp, to_array("en, fi"),
+							&unknown) == TRUE, i);
+		test_assert_idx(language_detect(lp, text, sizeof(text)-1,
+						&lang_r, &error) ==
+				LANGUAGE_DETECT_RESULT_ERROR, i);
+		language_list_deinit(&lp);
+	}
+	test_end();
+}
+
 static void test_language_find_builtin(void)
 {
 	const struct language *lp;
@@ -327,6 +351,7 @@ int main(void)
 		test_language_detect_finnish_as_english,
 		test_language_detect_na,
 		test_language_detect_unknown,
+		test_language_detect_init_failure,
 		test_language_find_builtin,
 		test_language_register,
 		NULL

@@ -256,6 +256,10 @@ static int language_textcat_init(struct language_list *list,
 		    strcmp(textcat_cache->data_dir, data_dir) == 0) {
 			list->textcat = textcat_cache;
 			list->textcat->refcount++;
+			if (list->textcat->failed != NULL) {
+				*error_r = list->textcat->failed;
+				return -1;
+			}
 			return 0;
 		}
 		textcat_unref(textcat_cache);
