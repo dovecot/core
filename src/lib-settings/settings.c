@@ -172,6 +172,17 @@ struct settings_apply_ctx {
 };
 
 static ARRAY(const struct setting_parser_info *) set_registered_infos;
+/* Parsed SETTINGS_OVERRIDE_TYPE_DEFAULT overrides for the default_settings of
+   set_registered_infos. They're used by the settings lookups that have no
+   binary config. The parsed overrides don't depend on the settings root or
+   instance, so they're parsed only once. */
+struct settings_default_overrides {
+	pool_t pool;
+	ARRAY(struct settings_override *) overrides;
+	/* Number of set_registered_infos added to overrides */
+	unsigned int infos_count;
+};
+static struct settings_default_overrides default_overrides;
 
 static const char *settings_override_type_names[] = {
 	"default", "userdb", "-o parameter",
@@ -2206,6 +2217,69 @@ settings_instance_overrides_add_filters(struct settings_apply_ctx *ctx,
 	}
 }
 
+static void settings_default_overrides_free(void)
+{
+	struct settings_override *set;
+
+	array_foreach_elem(&default_overrides.overrides, set)
+		settings_override_free(set);
+	array_free(&default_overrides.overrides);
+	pool_unref(&default_overrides.pool);
+	i_zero(&default_overrides);
+}
+
+static void
+settings_default_overrides_add_info(const struct setting_parser_info *info)
+{
+	const struct setting_keyvalue *defaults = info->default_settings;
+	struct settings_override *set;
+	const char *error;
+
+	if (defaults == NULL)
+		return;
+	for (unsigned int i = 0; defaults[i].key != NULL; i++) {
+		set = p_new(default_overrides.pool,
+			    struct settings_override, 1);
+		set->pool = default_overrides.pool;
+		set->type = SETTINGS_OVERRIDE_TYPE_DEFAULT;
+		set->key = set->orig_key = defaults[i].key;
+		set->value = defaults[i].value;
+		int ret;
+		T_BEGIN {
+			ret = settings_override_parse(NULL, set, &error);
+		} T_END_PASS_STR_IF(ret < 0, &error);
+		if (ret < 0)
+			i_panic("Applying default settings failed: %s", error);
+		array_push_back(&default_overrides.overrides, &set);
+	}
+}
+
+/* Add the default_settings of newly registered infos to default_overrides. */
+static void settings_default_overrides_update(void)
+{
+	if (!array_is_created(&set_registered_infos))
+		return;
+
+	unsigned int i, count;
+	const struct setting_parser_info *const *infos =
+		array_get(&set_registered_infos, &count);
+	if (default_overrides.infos_count == count)
+		return;
+
+	if (default_overrides.pool == NULL) {
+		default_overrides.pool =
+			pool_alloconly_create("settings default overrides",
+					      1024);
+		i_array_init(&default_overrides.overrides, 64);
+		lib_atexit(settings_default_overrides_free);
+	}
+	/* Infos are only ever appended, so only the new ones need to be
+	   added. */
+	for (i = default_overrides.infos_count; i < count; i++)
+		settings_default_overrides_add_info(infos[i]);
+	default_overrides.infos_count = count;
+}
+
 static int
 settings_instance_override_init(struct settings_apply_ctx *ctx,
 				const char **error_r)
@@ -2235,13 +2309,25 @@ settings_instance_override_init(struct settings_apply_ctx *ctx,
 				return -1;
 		}
 	}
-	if ((ctx->instance->mmap == NULL || have_2nd_defaults) &&
-	    array_is_created(&set_registered_infos)) {
-		/* a) No configuration - default_settings won't be
-		   applied unless we add them here also. This isn't for any
-		   production use, so performance doesn't matter.
-
-		   b) SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT has been used. The
+	if (ctx->instance->mmap == NULL) {
+		/* No configuration - default_settings won't be applied unless
+		   we add them here also. This is used by unit tests, but also
+		   in production by settings roots that are created without
+		   configuration (e.g. for a plugin's internal fs). Use the
+		   already parsed default overrides. */
+		settings_default_overrides_update();
+		if (array_is_created(&default_overrides.overrides)) {
+			array_foreach_elem(&default_overrides.overrides, set) {
+				/* The cached overrides are already parsed, so
+				   this can't fail. */
+				if (settings_apply_add_override(ctx, set,
+								error_r) < 0)
+					i_unreached();
+			}
+		}
+	} else if (have_2nd_defaults &&
+		   array_is_created(&set_registered_infos)) {
+		/* SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT has been used. The
 		   idea is that unless SETTINGS_OVERRIDE_TYPE_2ND_CLI_PARAM has
 		   overridden it, the value should be the default. This works
 		   for the defaults in the struct without extra code, but if

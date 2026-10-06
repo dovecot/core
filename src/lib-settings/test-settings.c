@@ -708,6 +708,290 @@ static void test_settings_alias(void)
 	test_end();
 }
 
+/*
+ * default_settings with settings roots without configuration
+ */
+
+struct test3_settings {
+	pool_t pool;
+
+	const char *title;
+	ARRAY_TYPE(const_string) items;
+};
+
+struct test3_item_settings {
+	pool_t pool;
+
+	const char *name;
+	const char *value;
+};
+
+struct test4_settings {
+	pool_t pool;
+
+	const char *value;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("test3_"#name, name, struct test3_settings)
+
+static const struct setting_define test3_setting_defines[] = {
+	DEF(STR, title),
+	{ .type = SET_FILTER_ARRAY, .key = "test3_item",
+	  .offset = offsetof(struct test3_settings, items),
+	  .filter_array_field_name = "test3_item_name" },
+	{ .type = SET_FILTER_NAME, .key = "test3_named" },
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct test3_settings test3_default_settings = {
+	.title = "",
+	.items = ARRAY_INIT,
+};
+
+static const struct setting_keyvalue test3_default_settings_keyvalue[] = {
+	{ "test3_title", "title-default" },
+	{ "test3_named/test3_title", "named-title-default" },
+	{ "test3_item/item1/test3_item_value", "item1-default" },
+	{ NULL, NULL }
+};
+
+static const struct setting_parser_info test3_setting_parser_info = {
+	.name = "test3",
+
+	.defines = test3_setting_defines,
+	.defaults = &test3_default_settings,
+	.default_settings = test3_default_settings_keyvalue,
+
+	.struct_size = sizeof(struct test3_settings),
+	.pool_offset1 = 1 + offsetof(struct test3_settings, pool),
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("test3_item_"#name, name, \
+				     struct test3_item_settings)
+
+static const struct setting_define test3_item_setting_defines[] = {
+	DEF(STR, name),
+	DEF(STR, value),
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct test3_item_settings test3_item_default_settings = {
+	.name = "",
+	.value = "",
+};
+
+static const struct setting_parser_info test3_item_setting_parser_info = {
+	.name = "test3_item",
+
+	.defines = test3_item_setting_defines,
+	.defaults = &test3_item_default_settings,
+
+	.struct_size = sizeof(struct test3_item_settings),
+	.pool_offset1 = 1 + offsetof(struct test3_item_settings, pool),
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("test4_"#name, name, struct test4_settings)
+
+static const struct setting_define test4_setting_defines[] = {
+	DEF(STR, value),
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct test4_settings test4_default_settings = {
+	.value = "",
+};
+
+static const struct setting_keyvalue test4_default_settings_keyvalue[] = {
+	{ "test4_value", "test4-default" },
+	{ "test3_named/test4_value", "named-test4-default" },
+	{ NULL, NULL }
+};
+
+static const struct setting_parser_info test4_setting_parser_info = {
+	.name = "test4",
+
+	.defines = test4_setting_defines,
+	.defaults = &test4_default_settings,
+	.default_settings = test4_default_settings_keyvalue,
+
+	.struct_size = sizeof(struct test4_settings),
+	.pool_offset1 = 1 + offsetof(struct test4_settings, pool),
+};
+
+static const char *
+test_defaults_get_title(struct event *event, bool named)
+{
+	const struct test3_settings *set;
+	const char *error;
+
+	struct event *lookup_event = event_create(event);
+	if (named)
+		settings_event_add_filter_name(lookup_event, "test3_named");
+	if (settings_get(lookup_event, &test3_setting_parser_info, 0,
+			 &set, &error) < 0) {
+		i_error("%s", error);
+		event_unref(&lookup_event);
+		return "<error>";
+	}
+	event_unref(&lookup_event);
+	const char *title = t_strdup(set->title);
+	settings_free(set);
+	return title;
+}
+
+static const char *
+test_defaults_get_item_value(struct event *event, const char *item_name)
+{
+	const struct test3_item_settings *set;
+	const char *error;
+	int ret;
+
+	ret = settings_try_get_filter(event, "test3_item", item_name,
+				      &test3_item_setting_parser_info, 0,
+				      &set, &error);
+	if (ret < 0) {
+		i_error("%s", error);
+		return "<error>";
+	}
+	if (ret == 0)
+		return "<none>";
+	const char *value = t_strdup(set->value);
+	settings_free(set);
+	return value;
+}
+
+static const char *
+test_defaults_get_test4_value(struct event *event, bool named)
+{
+	const struct test4_settings *set;
+	const char *error;
+
+	struct event *lookup_event = event_create(event);
+	if (named)
+		settings_event_add_filter_name(lookup_event, "test3_named");
+	if (settings_get(lookup_event, &test4_setting_parser_info, 0,
+			 &set, &error) < 0) {
+		i_error("%s", error);
+		event_unref(&lookup_event);
+		return "<error>";
+	}
+	event_unref(&lookup_event);
+	const char *value = t_strdup(set->value);
+	settings_free(set);
+	return value;
+}
+
+static void test_settings_no_config_defaults(void)
+{
+	test_begin("settings_get - default_settings without config");
+
+	/* Two independent roots with instances get the same defaults */
+	struct settings_root *roots[2];
+	struct settings_instance *instances[2];
+	struct event *events[2];
+	for (unsigned int i = 0; i < N_ELEMENTS(roots); i++) {
+		roots[i] = settings_root_init();
+		instances[i] = settings_instance_new(roots[i]);
+		events[i] = event_create(NULL);
+		event_set_ptr(events[i], SETTINGS_EVENT_ROOT, roots[i]);
+		event_set_ptr(events[i], SETTINGS_EVENT_INSTANCE,
+			      instances[i]);
+	}
+	for (unsigned int j = 0; j < 2; j++) {
+		for (unsigned int i = 0; i < N_ELEMENTS(roots); i++) {
+			test_assert_strcmp_idx(
+				test_defaults_get_title(events[i], FALSE),
+				"title-default", i);
+			test_assert_strcmp_idx(
+				test_defaults_get_title(events[i], TRUE),
+				"named-title-default", i);
+			test_assert_strcmp_idx(
+				test_defaults_get_item_value(events[i], "item1"),
+				"item1-default", i);
+			test_assert_strcmp_idx(
+				test_defaults_get_item_value(events[i], "item2"),
+				"<none>", i);
+		}
+	}
+
+	/* Instance overrides are sorted the same way with the defaults:
+	   a named filter override wins over the named default, and a plain
+	   userdb override wins over the named filter default. */
+	settings_override(instances[0], "test3_named/test3_title",
+			  "named-title-userdb", SETTINGS_OVERRIDE_TYPE_USERDB);
+	settings_override(instances[0], "test3_item/item1/test3_item_value",
+			  "item1-userdb", SETTINGS_OVERRIDE_TYPE_USERDB);
+	test_assert_strcmp(test_defaults_get_title(events[0], FALSE),
+			   "title-default");
+	test_assert_strcmp(test_defaults_get_title(events[0], TRUE),
+			   "named-title-userdb");
+	test_assert_strcmp(test_defaults_get_item_value(events[0], "item1"),
+			   "item1-userdb");
+	settings_override(instances[1], "test3_title", "title-userdb",
+			  SETTINGS_OVERRIDE_TYPE_USERDB);
+	test_assert_strcmp(test_defaults_get_title(events[1], FALSE),
+			   "title-userdb");
+	test_assert_strcmp(test_defaults_get_title(events[1], TRUE),
+			   "title-userdb");
+
+	/* A new info registered after the earlier lookups: its defaults are
+	   added, and the earlier infos' defaults still work. */
+	test_assert_strcmp(test_defaults_get_test4_value(events[0], FALSE),
+			   "test4-default");
+	test_assert_strcmp(test_defaults_get_test4_value(events[0], TRUE),
+			   "named-test4-default");
+	test_assert_strcmp(test_defaults_get_title(events[0], TRUE),
+			   "named-title-userdb");
+	test_assert_strcmp(test_defaults_get_item_value(events[1], "item1"),
+			   "item1-default");
+
+	for (unsigned int i = 0; i < N_ELEMENTS(roots); i++) {
+		event_unref(&events[i]);
+		settings_instance_free(&instances[i]);
+		settings_root_deinit(&roots[i]);
+	}
+	test_end();
+}
+
+static void test_settings_no_config_2nd_defaults(void)
+{
+	test_begin("settings_get - default_settings without config with 2nd defaults");
+
+	struct settings_root *root = settings_root_init();
+	struct settings_instance *instance = settings_instance_new(root);
+	struct event *event = event_create(NULL);
+	event_set_ptr(event, SETTINGS_EVENT_ROOT, root);
+	event_set_ptr(event, SETTINGS_EVENT_INSTANCE, instance);
+
+	/* Like mail_storage_2nd_settings_reset(): reset back to the
+	   defaults, which includes default_settings */
+	settings_override(instance, "test3_title", "userdb-title",
+			  SETTINGS_OVERRIDE_TYPE_USERDB);
+	settings_override(instance, "*/test3_title", "",
+			  SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT);
+	test_assert_strcmp(test_defaults_get_title(event, FALSE),
+			   "title-default");
+	test_assert_strcmp(test_defaults_get_title(event, TRUE),
+			   "named-title-default");
+
+	/* 2nd CLI parameter overrides it */
+	settings_override(instance, "*/test3_title", "cli-title",
+			  SETTINGS_OVERRIDE_TYPE_2ND_CLI_PARAM);
+	test_assert_strcmp(test_defaults_get_title(event, FALSE),
+			   "cli-title");
+
+	event_unref(&event);
+	settings_instance_free(&instance);
+	settings_root_deinit(&root);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -718,6 +1002,8 @@ int main(void)
 		test_settings_empty_default,
 		test_settings_path_expand,
 		test_settings_path_expand_no_home,
+		test_settings_no_config_defaults,
+		test_settings_no_config_2nd_defaults,
 		test_settings_alias,
 		NULL
 	};
