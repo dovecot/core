@@ -23,7 +23,7 @@ NOPLUGIN_LDFLAGS =
 
 module_LTLIBRARIES = \
 	lib10_mail_crypt_plugin.la \
-	lib05_mail_crypt_acl_plugin.la \
+	lib11_mail_crypt_acl_plugin.la \
 	libfs_crypt.la
 
 doveadm_module_LTLIBRARIES = \
@@ -34,9 +34,9 @@ lib10_mail_crypt_plugin_la_LIBADD = \
 	$(LIBDCRYPT_LIBS) \
 	$(LIBDOVECOT)
 
-lib05_mail_crypt_acl_plugin_la_LDFLAGS = -module -avoid-version
+lib11_mail_crypt_acl_plugin_la_LDFLAGS = -module -avoid-version
 if DOVECOT_PLUGIN_DEPS
-lib05_mail_crypt_acl_plugin_la_LIBADD = \
+lib11_mail_crypt_acl_plugin_la_LIBADD = \
 	$(LIBDCRYPT_LIBS) \
 	lib10_mail_crypt_plugin.la
 endif
@@ -47,7 +47,7 @@ lib10_mail_crypt_plugin_la_SOURCES = \
 	mail-crypt-key.c \
 	mail-crypt-plugin.c
 
-lib05_mail_crypt_acl_plugin_la_SOURCES = \
+lib11_mail_crypt_acl_plugin_la_SOURCES = \
 	mail-crypt-acl-plugin.c
 
 libfs_crypt_la_SOURCES = fs-crypt.c \

@@ -103,7 +103,7 @@ static const struct crypt_acl_settings crypt_acl_default_settings = {
 
 const struct setting_parser_info crypt_acl_setting_parser_info = {
 	.name = "crypt_acl",
-	.plugin_dependency = "lib05_mail_crypt_acl_plugin",
+	.plugin_dependency = "lib11_mail_crypt_acl_plugin",
 
 	.defines = crypt_acl_setting_defines,
 	.defaults = &crypt_acl_default_settings,
