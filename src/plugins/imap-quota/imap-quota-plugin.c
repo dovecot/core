@@ -5,6 +5,7 @@
 #include "ostream.h"
 #include "imap-resp-code.h"
 #include "imap-quote.h"
+#include "settings-parser.h"
 #include "mail-namespace.h"
 #include "imap-commands.h"
 #include "quota.h"
@@ -235,5 +236,8 @@ void imap_quota_plugin_deinit(void)
 	imap_client_created_hook_set(next_hook_client_created);
 }
 
-const char *imap_quota_plugin_dependencies[] = { "quota", NULL };
+const struct setting_plugin_info imap_quota_plugin_info = {
+	.plugin = "lib11_imap_quota_plugin",
+	.required_plugins = (const char *const []) { "quota", NULL },
+};
 const char imap_quota_plugin_binary_dependency[] = "imap";

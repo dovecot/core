@@ -393,5 +393,3 @@ void mail_lua_plugin_deinit(void)
 	var_expand_unregister_filter("lua_call");
 	var_expand_unregister_filter("lua_file");
 }
-
-const char *mail_lua_plugin_dependencies[] = { NULL };

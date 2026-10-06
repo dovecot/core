@@ -412,4 +412,9 @@ void mail_crypt_acl_plugin_deinit(void)
 	mail_storage_hooks_remove(&mail_crypt_acl_mail_storage_hooks);
 }
 
-const char *mail_crypt_acl_plugin_dependencies[] = { "acl", NULL };
+const struct setting_plugin_info mail_crypt_acl_plugin_info = {
+	.plugin = "lib11_mail_crypt_acl_plugin",
+	.required_plugins = (const char *const []) {
+		"mail_crypt", "acl", NULL
+	},
+};

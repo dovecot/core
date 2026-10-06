@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
+#include "settings-parser.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
 #include "quota-private.h"
@@ -54,5 +55,8 @@ void quota_status_plugin_deinit(void)
 	quota_status_set_check(NULL);
 }
 
-const char *quota_status_plugin_dependencies[] = { "quota", NULL };
+const struct setting_plugin_info quota_status_plugin_info = {
+	.plugin = "lib11_quota_status_plugin",
+	.required_plugins = (const char *const []) { "quota", NULL },
+};
 const char quota_status_plugin_binary_dependency[] = "quota-status";

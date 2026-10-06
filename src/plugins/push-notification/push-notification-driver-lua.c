@@ -635,5 +635,7 @@ void push_notification_lua_plugin_deinit(void)
 }
 
 const char *push_notification_lua_plugin_version = DOVECOT_ABI_VERSION;
-const char *push_notification_lua_plugin_dependencies[] =
-	{ "push_notification", "mail_lua", NULL};
+const struct setting_plugin_info push_notification_lua_plugin_info = {
+	.plugin = "lib22_push_notification_lua_plugin",
+	.required_plugins = (const char *const []) { "push_notification", "mail_lua", NULL },
+};

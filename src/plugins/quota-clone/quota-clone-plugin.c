@@ -328,4 +328,7 @@ void quota_clone_plugin_deinit(void)
 	mail_storage_hooks_remove(&quota_clone_mail_storage_hooks);
 }
 
-const char *quota_clone_plugin_dependencies[] = { "quota", NULL };
+const struct setting_plugin_info quota_clone_plugin_info = {
+	.plugin = "lib20_quota_clone_plugin",
+	.required_plugins = (const char *const []) { "quota", NULL },
+};

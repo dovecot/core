@@ -1268,5 +1268,8 @@ void imap_acl_plugin_deinit(void)
 	imap_client_created_hook_set(next_hook_client_created);
 }
 
-const char *imap_acl_plugin_dependencies[] = { "acl", NULL };
+const struct setting_plugin_info imap_acl_plugin_info = {
+	.plugin = "lib02_imap_acl_plugin",
+	.required_plugins = (const char *const []) { "acl", NULL },
+};
 const char imap_acl_plugin_binary_dependency[] = "imap";

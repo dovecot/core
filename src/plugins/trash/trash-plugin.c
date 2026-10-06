@@ -677,4 +677,7 @@ void trash_plugin_deinit(void)
 	mail_storage_hooks_remove(&trash_mail_storage_hooks);
 }
 
-const char *trash_plugin_dependencies[] = { "quota", NULL };
+const struct setting_plugin_info trash_plugin_info = {
+	.plugin = "lib11_trash_plugin",
+	.required_plugins = (const char *const []) { "quota", NULL },
+};

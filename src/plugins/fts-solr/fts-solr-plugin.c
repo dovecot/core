@@ -77,4 +77,7 @@ void fts_solr_plugin_deinit(void)
 	mail_storage_hooks_remove(&fts_solr_mail_storage_hooks);
 }
 
-const char *fts_solr_plugin_dependencies[] = { "fts", NULL };
+const struct setting_plugin_info fts_solr_plugin_info = {
+	.plugin = "lib21_fts_solr_plugin",
+	.required_plugins = (const char *const []) { "fts", NULL },
+};

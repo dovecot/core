@@ -331,7 +331,10 @@ static void push_notification_user_created(struct mail_user *user)
 /* Plugin interface. */
 
 const char *push_notification_plugin_version = DOVECOT_ABI_VERSION;
-const char *push_notification_plugin_dependencies[] = { "notify", NULL };
+const struct setting_plugin_info push_notification_plugin_info = {
+	.plugin = "lib20_push_notification_plugin",
+	.required_plugins = (const char *const []) { "notify", NULL },
+};
 
 extern struct push_notification_driver push_notification_driver_dlog;
 extern struct push_notification_driver push_notification_driver_ox;

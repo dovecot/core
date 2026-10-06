@@ -124,4 +124,7 @@ void fts_flatcurve_plugin_deinit(void)
 	mail_storage_hooks_remove(&fts_backend_mail_storage_hooks);
 }
 
-const char *fts_flatcurve_plugin_dependencies[] = { "fts", NULL };
+const struct setting_plugin_info fts_flatcurve_plugin_info = {
+	.plugin = "lib21_fts_flatcurve_plugin",
+	.required_plugins = (const char *const []) { "fts", NULL },
+};

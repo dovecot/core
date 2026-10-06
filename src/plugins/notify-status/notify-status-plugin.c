@@ -28,7 +28,10 @@ void notify_status_plugin_init(struct module *module);
 void notify_status_plugin_deinit(void);
 
 const char *notify_status_plugin_version = DOVECOT_ABI_VERSION;
-const char *notify_status_plugin_dependencies[] = { "notify", NULL };
+const struct setting_plugin_info notify_status_plugin_info = {
+	.plugin = "lib20_notify_status_plugin",
+	.required_plugins = (const char *const []) { "notify", NULL },
+};
 
 struct notify_status_plugin_settings {
 	pool_t pool;

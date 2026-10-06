@@ -3,7 +3,6 @@
 #ifndef PUSH_NOTIFICATION_PLUGIN_H
 #define PUSH_NOTIFICATION_PLUGIN_H
 
-extern const char *push_notification_plugin_dependencies[];
 extern struct event_category event_category_push_notification;
 extern struct push_notification_event push_notification_event_messagenew;
 

@@ -3,7 +3,6 @@
 
 struct module;
 
-extern const char *quota_status_plugin_dependencies[];
 extern const char quota_status_plugin_binary_dependency[];
 
 void quota_status_plugin_init(struct module *module);

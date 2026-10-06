@@ -496,8 +496,6 @@ void dict_ldap_deinit(void)
 	ldap_clients_cleanup();
 	dict_driver_unregister(&dict_driver_ldap);
 }
-
-const char *dict_ldap_plugin_dependencies[] = { NULL };
 #endif
 
 #endif
