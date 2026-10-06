@@ -19,19 +19,21 @@ libdcrypt_la_SOURCES = \
 
 libdcrypt_la_CFLAGS = $(AM_CFLAGS)
 
+# OpenSSL backend as a convenience library, reused both by the loadable
+# module and by unit tests that link the backend statically. The OpenSSL
+# helpers shared with lib-ssl-iostream are bundled in, so the module doesn't
+# need to link against the ssl_iostream_openssl module.
 libdcrypt_openssl_static_la_SOURCES = dcrypt-openssl1.c dcrypt-openssl3.c
-libdcrypt_openssl_static_la_LDFLAGS = ../lib-ssl-iostream/libssl_iostream_openssl.la
-libdcrypt_openssl_static_la_LIBADD = $(SSL_LIBS)
-libdcrypt_openssl_static_la_DEPENDENCIES = ../lib-ssl-iostream/libssl_iostream_openssl.la
+libdcrypt_openssl_static_la_LIBADD = \
+	../lib-ssl-iostream/libssl_iostream_openssl_common.la \
+	$(SSL_LIBS)
 libdcrypt_openssl_static_la_CFLAGS = $(AM_CFLAGS) $(SSL_CFLAGS)
 
 module_LTLIBRARIES += libdcrypt_openssl.la
 
-libdcrypt_openssl_la_SOURCES = dcrypt-openssl1.c dcrypt-openssl3.c
-libdcrypt_openssl_la_LDFLAGS = -module -avoid-version ../lib-ssl-iostream/libssl_iostream_openssl.la
-libdcrypt_openssl_la_LIBADD = $(SSL_LIBS)
-libdcrypt_openssl_la_DEPENDENCIES = ../lib-ssl-iostream/libssl_iostream_openssl.la
-libdcrypt_openssl_la_CFLAGS = $(AM_CFLAGS) $(SSL_CFLAGS)
+libdcrypt_openssl_la_SOURCES =
+libdcrypt_openssl_la_LDFLAGS = -module -avoid-version
+libdcrypt_openssl_la_LIBADD = libdcrypt_openssl_static.la
 
 headers = \
 	dcrypt.h \
