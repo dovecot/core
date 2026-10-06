@@ -1083,10 +1083,8 @@ static void test_jwt_rs_token(void)
 				     &error) ||
 	    !dcrypt_sign(key, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
 			 tokenbuf->data, tokenbuf->used, sig,
-			 DCRYPT_PADDING_RSA_PKCS1, &error)) {
-		i_error("dcrypt signing failed: %s", error);
-		lib_exit(1);
-	}
+			 DCRYPT_PADDING_RSA_PKCS1, &error))
+		i_fatal("dcrypt signing failed: %s", error);
 	dcrypt_key_unref_private(&key);
 
 	/* convert to base64 */
@@ -1120,10 +1118,8 @@ static void test_jwt_ps_token(void)
 				     &error) ||
 	    !dcrypt_sign(key, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
 			 tokenbuf->data, tokenbuf->used, sig,
-			 DCRYPT_PADDING_RSA_PKCS1_PSS, &error)) {
-		i_error("dcrypt signing failed: %s", error);
-		lib_exit(1);
-	}
+			 DCRYPT_PADDING_RSA_PKCS1_PSS, &error))
+		i_fatal("dcrypt signing failed: %s", error);
 	dcrypt_key_unref_private(&key);
 
 	/* convert to base64 */
@@ -1147,17 +1143,13 @@ static void test_jwt_ec_token(void)
 	struct dcrypt_keypair pair;
 	i_zero(&pair);
 	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0,
-				     "prime256v1", &error)) {
-		i_error("dcrypt keypair generate failed: %s", error);
-		lib_exit(1);
-	}
+				     "prime256v1", &error))
+		i_fatal("dcrypt keypair generate failed: %s", error);
 	/* export public key */
 	buffer_t *keybuf = t_buffer_create(256);
 	if (!dcrypt_key_store_public(pair.pub, DCRYPT_FORMAT_PEM, keybuf,
-				     &error)) {
-		i_error("dcrypt key store failed: %s", error);
-		lib_exit(1);
-	}
+				     &error))
+		i_fatal("dcrypt key store failed: %s", error);
 	evict_key("ES256");
 	save_key("ES256", str_c(keybuf));
 
@@ -1167,10 +1159,8 @@ static void test_jwt_ec_token(void)
 	buffer_t *sig = t_buffer_create(64);
 	if (!dcrypt_sign(pair.priv, "sha256", DCRYPT_SIGNATURE_FORMAT_X962,
 			 tokenbuf->data, tokenbuf->used, sig,
-			 DCRYPT_PADDING_DEFAULT, &error)) {
-		i_error("dcrypt signing failed: %s", error);
-		lib_exit(1);
-	}
+			 DCRYPT_PADDING_DEFAULT, &error))
+		i_fatal("dcrypt signing failed: %s", error);
 	dcrypt_keypair_unref(&pair);
 
 	/* convert to base64 */
