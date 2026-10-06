@@ -104,13 +104,15 @@ foreach test_name : tests
   )
 endforeach
 
-# test-sasl-authentication pulls in an extra NTLM client stub and runs it (its path is
-# passed via TEST_WINBIND_HELPER_PATH).
+# test-sasl-authentication and its fuzzer pull in an extra NTLM client stub and run it
+# (its path is passed via TEST_WINBIND_HELPER_PATH).
 ntlm_dummy = executable(
   'ntlm_dummy',
   'ntlm_dummy.c',
   dependencies: dep_lib,
 )
+
+ntlm_dummy_c_args = '-DTEST_WINBIND_HELPER_PATH="@0@"'.format(ntlm_dummy.full_path())
 
 test(
   'authentication',
@@ -119,7 +121,7 @@ test(
     'test-sasl-authentication.c',
     'dsasl-client-mech-ntlm-dummy.c',
     sasl_gssapi_test_sources,
-    c_args: '-DTEST_WINBIND_HELPER_PATH="@0@"'.format(ntlm_dummy.full_path()),
+    c_args: ntlm_dummy_c_args,
     dependencies: [test_deps, sasl_gssapi_test_deps],
   ),
   depends: ntlm_dummy,
@@ -132,6 +134,7 @@ if get_option('fuzzing')
     'fuzz-sasl-authentication.c',
     'dsasl-client-mech-ntlm-dummy.c',
     sasl_gssapi_test_sources,
+    c_args: ntlm_dummy_c_args,
     link_language: 'cpp',
     pie: true,
     dependencies: [test_deps, sasl_gssapi_test_deps, ext_fuzzer],
@@ -142,6 +145,7 @@ if get_option('fuzzing')
       'fuzz-sasl-authentication',
       fuzzer,
       args: fuzzer_test_args,
+      depends: ntlm_dummy,
       suite: 'sasl',
       timeout: fuzzer_test_timeout,
       workdir: meson.current_build_dir(),
