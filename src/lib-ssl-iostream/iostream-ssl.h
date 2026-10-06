@@ -304,9 +304,6 @@ int ssl_iostream_get_peer_cert_fingerprint(struct ssl_iostream *ssl_io,
 					   const char **pubkey_fp_r,
 					   const char **error_r);
 
-void ssl_iostream_context_set_application_protocols(struct ssl_iostream_context *ssl_ctx,
-						    const char *const *names);
-
 int ssl_iostream_context_init_client(const struct ssl_iostream_settings *set,
 				     struct ssl_iostream_context **ctx_r,
 				     const char **error_r);
