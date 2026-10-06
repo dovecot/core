@@ -626,3 +626,8 @@ const char *module_get_plugin_name(struct module *module)
 {
 	return module_name_drop_suffix(module->name);
 }
+
+const char *module_file_get_plugin_name(const char *fname)
+{
+	return module_name_drop_suffix(module_file_get_name(fname));
+}

@@ -73,5 +73,8 @@ void *module_get_symbol_quiet(struct module *module, const char *symbol);
 const char *module_file_get_name(const char *fname);
 /* Returns module's name without "_plugin" suffix. */
 const char *module_get_plugin_name(struct module *module);
+/* Returns plugin's name from the filename, i.e. module_file_get_name() without
+   "_plugin" suffix. For example lib02_imap_acl_plugin.so returns imap_acl. */
+const char *module_file_get_plugin_name(const char *fname);
 
 #endif
