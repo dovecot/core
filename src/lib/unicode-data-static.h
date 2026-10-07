@@ -289,6 +289,10 @@ struct unicode_code_point_data {
 	bool pb_wb_midnum:1;
 	bool pb_wb_numeric:1;
 	bool pb_wb_extendnumlet:1;
+
+	/* Case */
+	bool pb_c_cased:1;
+	bool pb_c_case_ignorable:1;
 };
 
 #endif

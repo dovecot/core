@@ -12,6 +12,7 @@
 #define UCD_CASE_FOLDING_TXT "CaseFolding.txt"
 #define UCD_COMPOSITION_EXCLUSIONS_TXT "CompositionExclusions.txt"
 #define UCD_DERIVED_BIDI_CLASS_TXT "DerivedBidiClass.txt"
+#define UCD_DERIVED_CORE_PROPERTIES_TXT "DerivedCoreProperties.txt"
 #define UCD_DERIVED_JOINING_TYPE_TXT "DerivedJoiningType.txt"
 #define UCD_DERIVED_NORMALIZATION_PROPS_TXT "DerivedNormalizationProps.txt"
 #define UCD_GRAPHEME_BREAK_PROPERTY_TXT "GraphemeBreakProperty.txt"
@@ -237,6 +238,28 @@ test_derived_bidi_class_line(const char *line, unsigned int line_num,
 		    cp_data->general_category != UNICODE_GENERAL_CATEGORY_CN)
 			continue;
 		test_assert_idx(cp_data->bidi_class == bidi_class, cp);
+	}
+}
+
+static void
+test_derived_core_properties_line(const char *line, unsigned int line_num,
+				  const char *comment_data ATTR_UNUSED)
+{
+	uint32_t cp_first, cp_last, cp;
+	const char *prop;
+
+	if (!parse_prop_file_line(line, UCD_DERIVED_CORE_PROPERTIES_TXT,
+				  line_num, &cp_first, &cp_last, &prop, NULL))
+		return;
+
+	for (cp = cp_first; cp <= cp_last && !test_has_failed(); cp++) {
+		const struct unicode_code_point_data *cp_data =
+			unicode_code_point_get_data(cp);
+
+		if (strcmp(prop, "Cased") == 0)
+			test_assert_idx(cp_data->pb_c_cased, cp);
+		else if (strcmp(prop, "Case_Ignorable") == 0)
+			test_assert_idx(cp_data->pb_c_case_ignorable, cp);
 	}
 }
 
@@ -832,6 +855,8 @@ void test_unicode_data(void)
 	test_ucd_file(UCD_COMPOSITION_EXCLUSIONS_TXT,
 		      test_composition_exclusions_line);
 	test_ucd_file(UCD_DERIVED_BIDI_CLASS_TXT, test_derived_bidi_class_line);
+	test_ucd_file(UCD_DERIVED_CORE_PROPERTIES_TXT,
+		      test_derived_core_properties_line);
 	test_ucd_file(UCD_DERIVED_JOINING_TYPE_TXT,
 		      test_derived_joining_type_line);
 	test_ucd_file(UCD_DERIVED_NORMALIZATION_PROPS_TXT,

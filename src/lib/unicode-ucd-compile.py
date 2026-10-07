@@ -495,6 +495,16 @@ def read_ucd_files():
                 continue
 
             prop = columns[1].strip()
+            if prop == "Cased":
+                cpd = CodePointData()
+                cpd.pb_c_cased = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+                continue
+            if prop == "Case_Ignorable":
+                cpd = CodePointData()
+                cpd.pb_c_case_ignorable = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+                continue
             if prop != "InCB":
                 continue
 
@@ -1707,6 +1717,10 @@ def write_tables_c_cpd(cpd):
         )
     if hasattr(cpd, "pb_g_white_space"):
         print("\t\t.pb_g_white_space = TRUE,")
+    if hasattr(cpd, "pb_c_cased"):
+        print("\t\t.pb_c_cased = TRUE,")
+    if hasattr(cpd, "pb_c_case_ignorable"):
+        print("\t\t.pb_c_case_ignorable = TRUE,")
     if hasattr(cpd, "pb_e_extended_pictographic"):
         print("\t\t.pb_e_extended_pictographic = TRUE,")
     if hasattr(cpd, "pb_sr_join_control"):
