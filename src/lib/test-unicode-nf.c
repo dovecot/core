@@ -874,6 +874,26 @@ static void test_slow_next_transform(void)
 	test_assert(test_nf_arrays_equal(&out, &expected));
 }
 
+static void test_stream_safe_counts(void)
+{
+	ARRAY_TYPE(uint32_t) in, out;
+	const uint32_t *cps;
+	unsigned int count;
+
+	t_array_init(&in, 64);
+	t_array_init(&out, 64);
+
+	/* U+3310 SQUARE GIGA has NFKD decomposition U+30AD U+3099 U+30AB
+	   U+3099, which has only one trailing non-starter */
+	test_nf_append_n(&in, 0x3310, 1);
+	test_nf_append_n(&in, 0x0301, 30);
+	test_nf_write_cps(&in, UNICODE_NFKD, &out);
+	cps = array_get(&out, &count);
+	test_assert(count == 4 + 30 + 1);
+	if (count == 4 + 30 + 1)
+		test_assert(cps[4 + 29] == TEST_CGJ);
+}
+
 /*
  * Code point data given to the transform
  */
@@ -1139,6 +1159,9 @@ void test_unicode_nf(void)
 	test_end();
 	test_begin("unicode normalization: slow next transform");
 	test_slow_next_transform();
+	test_end();
+	test_begin("unicode normalization: stream safe counts");
+	test_stream_safe_counts();
 	test_end();
 }
 

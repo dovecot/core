@@ -502,9 +502,10 @@ unicode_nf_get_ccc_counts(const uint32_t *decomp, size_t len,
 	for (i = 0; i < len; i++) {
 		cpd = (decomp_cpd != NULL ? decomp_cpd[i] :
 		       unicode_code_point_get_data(decomp[i]));
-		if (cpd->canonical_combining_class == 0)
+		if (cpd->canonical_combining_class == 0) {
 			*seen_starter_r = TRUE;
-		else if (!*seen_starter_r)
+			*trail_r = 0;
+		} else if (!*seen_starter_r)
 			(*lead_r)++;
 		else
 			(*trail_r)++;
