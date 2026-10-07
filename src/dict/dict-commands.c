@@ -349,11 +349,10 @@ static int cmd_iterate(struct dict_connection_cmd *cmd, const char *const *args)
 		e_error(cmd->event, "ITERATE: broken input");
 		return -1;
 	}
-	dict_connection_cmd_async(cmd);
 	username = args[3];
-
 	if (!dict_cmd_key_is_valid(cmd, "ITERATE", args[2], username))
 		return -1;
+	dict_connection_cmd_async(cmd);
 
 	const struct dict_op_settings set = {
 		.username = username,
