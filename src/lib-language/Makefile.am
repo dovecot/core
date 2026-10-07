@@ -21,6 +21,7 @@ AM_CPPFLAGS = \
 
 stopwordsdir = $(datadir)/${PACKAGE_TARNAME}/stopwords
 dist_stopwords_DATA = \
+	stopwords/stopwords_ca.txt \
 	stopwords/stopwords_da.txt \
 	stopwords/stopwords_de.txt \
 	stopwords/stopwords_en.txt \
