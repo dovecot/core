@@ -895,6 +895,219 @@ static void test_stream_safe_counts(void)
 }
 
 /*
+ * Reference implementation without streaming
+ */
+
+static size_t
+test_nf_decompose(uint32_t cp, bool canonical, uint32_t buf[3],
+		  const uint32_t **decomp_r)
+{
+	size_t len;
+
+	if (cp >= 0xac00 && cp <= 0xd7a3) {
+		/* Hangul syllable */
+		uint32_t s_index = cp - 0xac00;
+
+		buf[0] = 0x1100 + s_index / (21 * 28);
+		buf[1] = 0x1161 + (s_index % (21 * 28)) / 28;
+		buf[2] = 0x11a7 + s_index % 28;
+		*decomp_r = buf;
+		return (buf[2] == 0x11a7 ? 2 : 3);
+	}
+	len = unicode_code_point_get_full_decomposition(cp, canonical,
+							decomp_r);
+	if (len == 0) {
+		buf[0] = cp;
+		*decomp_r = buf;
+		len = 1;
+	}
+	return len;
+}
+
+static uint32_t test_nf_compose_pair(uint32_t l, uint32_t r)
+{
+	if (l >= 0x1100 && l < 0x1100 + 19 && r >= 0x1161 && r < 0x1161 + 21)
+		return 0xac00 + ((l - 0x1100) * 21 + (r - 0x1161)) * 28;
+	if (l >= 0xac00 && l <= 0xd7a3 && (l - 0xac00) % 28 == 0 &&
+	    r > 0x11a7 && r < 0x11a7 + 28)
+		return l + (r - 0x11a7);
+	return unicode_code_point_data_find_composition(
+		unicode_code_point_get_data(l), r);
+}
+
+static void
+test_nf_reference(const uint32_t *in, size_t in_count,
+		  enum unicode_nf_type type, ARRAY_TYPE(uint32_t) *out)
+{
+	bool canonical = (type == UNICODE_NFD || type == UNICODE_NFC);
+	bool compose = (type == UNICODE_NFC || type == UNICODE_NFKC);
+	const uint32_t cgj = TEST_CGJ;
+	const uint32_t *decomp;
+	uint32_t buf[3], *cps, tmp;
+	unsigned int i, j, k, count, nonstarter_count = 0, lead, trail;
+	size_t len;
+	bool starter;
+
+	ARRAY_TYPE(uint32_t) decomposed;
+	t_array_init(&decomposed, in_count * 2);
+	for (i = 0; i < in_count; i++) {
+		/* Stream-Safe Text Process (UAX15-D4) */
+		len = test_nf_decompose(in[i], FALSE, buf, &decomp);
+		lead = trail = 0;
+		starter = FALSE;
+		for (j = 0; j < len; j++) {
+			if (test_ccc(decomp[j]) == 0) {
+				starter = TRUE;
+				trail = 0;
+			} else if (!starter) {
+				lead++;
+			} else {
+				trail++;
+			}
+		}
+		if (nonstarter_count + lead > 30) {
+			array_push_back(&decomposed, &cgj);
+			nonstarter_count = 0;
+		}
+		nonstarter_count = (starter ? trail : nonstarter_count + len);
+
+		len = test_nf_decompose(in[i], canonical, buf, &decomp);
+		array_append(&decomposed, decomp, len);
+	}
+
+	/* Canonical ordering */
+	cps = array_get_modifiable(&decomposed, &count);
+	for (i = 1; i < count; i++) {
+		for (j = i; j > 0 && test_ccc(cps[j]) != 0 &&
+			    test_ccc(cps[j - 1]) > test_ccc(cps[j]); j--) {
+			tmp = cps[j - 1];
+			cps[j - 1] = cps[j];
+			cps[j] = tmp;
+		}
+	}
+
+	array_clear(out);
+	if (!compose) {
+		array_append(out, cps, count);
+		return;
+	}
+
+	/* Canonical composition (UAX15-D117) */
+	for (i = 0; i < count; i++) {
+		const uint32_t *res;
+		unsigned int res_count;
+		uint8_t ccc = test_ccc(cps[i]);
+		bool blocked = FALSE;
+
+		res = array_get(out, &res_count);
+		for (j = res_count; j > 0; j--) {
+			if (test_ccc(res[j - 1]) == 0)
+				break;
+		}
+		if (j > 0) {
+			/* res[j - 1] is the last starter */
+			for (k = j; k < res_count; k++) {
+				if (test_ccc(res[k]) >= ccc)
+					blocked = TRUE;
+			}
+			tmp = (blocked ? 0 :
+			       test_nf_compose_pair(res[j - 1], cps[i]));
+			if (tmp != 0) {
+				array_idx_set(out, j - 1, &tmp);
+				continue;
+			}
+		}
+		array_push_back(out, &cps[i]);
+	}
+}
+
+/* Compare all the ways to normalize the input against the reference
+   implementation */
+static void
+test_nf_compare(const ARRAY_TYPE(uint32_t) *in, enum unicode_nf_type type,
+		unsigned int idx)
+{
+	ARRAY_TYPE(uint32_t) expected, output;
+	const uint32_t *in_cps;
+	unsigned int in_count;
+
+	in_cps = array_get(in, &in_count);
+	t_array_init(&expected, in_count * 2);
+	t_array_init(&output, in_count * 2);
+	test_nf_reference(in_cps, in_count, type, &expected);
+
+	test_nf_write_cps(in, type, &output);
+	test_assert_idx(test_nf_arrays_equal(&output, &expected), idx);
+
+	test_nf_throttled(in_cps, in_count, type, &output);
+	test_assert_idx(test_nf_arrays_equal(&output, &expected), idx);
+
+	test_assert_idx(test_nf_is_cps(in, type) ==
+			(test_nf_arrays_equal(in, &expected) ? 1 : 0), idx);
+}
+
+static void test_nf_random(void)
+{
+	static const uint32_t starters[] = {
+		'a', 'e', 'o', 'z', ' ',
+		/* precomposed */
+		0x00e9, 0x00c5, 0x1e09, 0x1f82, 0x01d5, 0x212b, 0x2126,
+		/* composition exclusions */
+		0x0958, 0x1d15e, 0x1d160, 0xfb2c,
+		/* Hangul jamo and syllables */
+		0x1100, 0x1112, 0x1161, 0x1175, 0x11a8, 0x11c2, 0xac00, 0xac01,
+		0xd7a3,
+		/* starters that compose with the previous starter */
+		0x0b47, 0x0b3e, 0x0b57, 0x0bc6, 0x0bbe, 0x0cbf, 0x0cd5,
+		0x304b, 0x30cf,
+		/* compatibility decompositions */
+		0xfdfa, 0xff9e, 0x3300, 0x3310, 0xfb01, 0x2474,
+		/* starters with non-starter decompositions */
+		0x0f73, 0x0f75, 0x0f81,
+		TEST_CGJ,
+	};
+	static const uint32_t nonstarters[] = {
+		0x0300, 0x0301, 0x0302, 0x0308, 0x0313, 0x0316, 0x031b,
+		0x0323, 0x0327, 0x0328, 0x0334, 0x0340, 0x0343, 0x0344,
+		0x0345, 0x05b0, 0x0f71, 0x0f72, 0x0f74, 0x0f80, 0x3099,
+		0x309a, 0x1d165, 0x1d16e, 0x302e,
+	};
+	ARRAY_TYPE(uint32_t) in;
+	unsigned int i, j, len;
+	uint32_t cp;
+
+	t_array_init(&in, 256);
+	for (i = 0; i < 1000; i++) T_BEGIN {
+		array_clear(&in);
+		len = i_rand_limit(100);
+		while (array_count(&in) < len) {
+			if (i_rand_limit(8) == 0) {
+				/* long run of non-starters */
+				unsigned int run = i_rand_minmax(25, 70);
+
+				for (j = 0; j < run; j++) {
+					cp = nonstarters[i_rand_limit(
+						N_ELEMENTS(nonstarters))];
+					array_push_back(&in, &cp);
+				}
+			} else if (i_rand_limit(2) == 0) {
+				cp = starters[i_rand_limit(
+					N_ELEMENTS(starters))];
+				array_push_back(&in, &cp);
+			} else {
+				cp = nonstarters[i_rand_limit(
+					N_ELEMENTS(nonstarters))];
+				array_push_back(&in, &cp);
+			}
+		}
+		test_nf_compare(&in, UNICODE_NFD, i);
+		test_nf_compare(&in, UNICODE_NFKD, i);
+		test_nf_compare(&in, UNICODE_NFC, i);
+		test_nf_compare(&in, UNICODE_NFKC, i);
+	} T_END;
+}
+
+/*
  * Code point data given to the transform
  */
 
@@ -1162,6 +1375,9 @@ void test_unicode_nf(void)
 	test_end();
 	test_begin("unicode normalization: stream safe counts");
 	test_stream_safe_counts();
+	test_end();
+	test_begin("unicode normalization: random");
+	test_nf_random();
 	test_end();
 }
 
