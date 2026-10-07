@@ -647,7 +647,12 @@ int istream_raw_mbox_get_body_size(struct istream *stream,
 			rstream->mail_size =
 				next_body_offset - rstream->hdr_offset;
 			i_stream_seek(stream, old_offset);
-			*body_size_r = expected_body_size;
+			/* With header_missing_eoh the body also contains the
+			   empty line. Callers use body_offset + body_size as
+			   the next message's offset (and as the number of
+			   bytes to move or expunge), so it must be included
+			   here. */
+			*body_size_r = next_body_offset - rstream->body_offset;
 			return 0;
 		}
 		/* invalid expected_body_size */
