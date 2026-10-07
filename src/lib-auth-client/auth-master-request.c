@@ -184,7 +184,8 @@ int auth_master_request_got_reply(struct auth_master_request **_req,
 		req->state = AUTH_MASTER_REQUEST_STATE_REPLIED;
 
 	e_debug(req->event, "Got reply: %s %s",
-		reply, t_strarray_join(args, " "));
+		reply, t_strarray_join(auth_client_args_hide_secrets(args),
+				       " "));
 
 	const struct auth_master_reply mreply = {
 		.reply = reply,

@@ -75,6 +75,10 @@ struct auth_client {
 
 extern struct event_category event_category_auth_client;
 
+/* Returns args with the values of all secret fields (see
+   auth_field_is_secret()) replaced with "<hidden>". Used for debug logging. */
+const char *const *auth_client_args_hide_secrets(const char *const *args);
+
 bool auth_client_request_is_aborted(struct auth_client_request *request);
 time_t auth_client_request_get_create_time(struct auth_client_request *request);
 

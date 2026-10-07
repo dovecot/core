@@ -415,7 +415,8 @@ static void pass_callback_finish(struct auth_request *auth_request,
 		break;
 	}
 
-	e_debug(auth_event, "passdb out: %s", str_c(str));
+	e_debug(auth_event, "passdb out: %s",
+		auth_master_reply_hide_secrets(conn, str_c(str)));
 
 	str_append_c(str, '\n');
 	o_stream_nsend(conn->conn.output, str_data(str), str_len(str));
