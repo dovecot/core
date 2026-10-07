@@ -54,6 +54,7 @@ static unsigned int textcat_cache_count = 0;
 
 /*  ISO 639-1 alpha 2 codes for languages */
 const struct language languages_builtin [] = {
+	{ "ca" }, /* Catalan */
 	{ "da" }, /* Danish */
 	{ "de" }, /* German */
 	{ "en" }, /* English */
