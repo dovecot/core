@@ -41,6 +41,7 @@ static struct textcat *textcat_cache = NULL;
 
 /*  ISO 639-1 alpha 2 codes for languages */
 const struct language languages_builtin [] = {
+	{ "ca" }, /* Catalan */
 	{ "da" }, /* Danish */
 	{ "de" }, /* German */
 	{ "en" }, /* English */
