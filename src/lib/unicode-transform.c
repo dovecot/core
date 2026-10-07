@@ -823,7 +823,7 @@ unicode_nf_check_sink_input(struct unicode_transform *trans,
 	else {
 		unc->buffer_len -= buf->cp_count;
 		memmove(&unc->cp_buffer[0], &unc->cp_buffer[buf->cp_count],
-			unc->buffer_len);
+			unc->buffer_len * sizeof(unc->cp_buffer[0]));
 	}
 	return buf->cp_count;
 }
