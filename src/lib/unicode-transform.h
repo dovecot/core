@@ -153,9 +153,6 @@ struct unicode_nf_context {
 	struct unicode_transform transform;
 
 	size_t nonstarter_count;
-	uint32_t cp_buffer[UNICODE_NF_BUFFER_SIZE];
-	const struct unicode_code_point_data *
-		cpd_buffer[UNICODE_NF_BUFFER_SIZE];
 	size_t buffer_len;
 	/* Index after the last starter in the buffer. The non-starters after
 	   it may still be reordered. */
@@ -174,6 +171,11 @@ struct unicode_nf_context {
 	bool compose:1;
 	bool canonical:1;
 	bool have_starter:1;
+
+	/* These are last, so they don't need to be zeroed at init */
+	uint32_t cp_buffer[UNICODE_NF_BUFFER_SIZE];
+	const struct unicode_code_point_data *
+		cpd_buffer[UNICODE_NF_BUFFER_SIZE];
 };
 
 void unicode_nf_init(struct unicode_nf_context *ctx_r,

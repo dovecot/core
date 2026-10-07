@@ -311,7 +311,8 @@ static const struct unicode_transform_def unicode_nf_def = {
 void unicode_nf_init(struct unicode_nf_context *ctx_r,
 		     enum unicode_nf_type type)
 {
-	i_zero(ctx_r);
+	/* The buffers are written before they're read */
+	memset(ctx_r, 0, offsetof(struct unicode_nf_context, cp_buffer));
 	unicode_transform_init(&ctx_r->transform, &unicode_nf_def);
 
 	switch (type) {
