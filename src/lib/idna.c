@@ -1484,14 +1484,16 @@ int idna_process_domain_name(const char *domain_name,
 	bool got_chr = FALSE;
 
 	while (size > 0 || got_chr) {
-		int bytes = uni_utf8_get_char_n(input, size, &chr);
-		if (bytes <= 0) {
-			*error_r = "Invalid UTF8 encoding";
-			return -1;
-
+		if (!got_chr) {
+			int bytes = uni_utf8_get_char_n(input, size, &chr);
+			if (bytes <= 0) {
+				*error_r = "Invalid UTF8 encoding";
+				return -1;
+			}
+			input += bytes;
+			size -= bytes;
+			got_chr = TRUE;
 		}
-		input += bytes;
-		size -= bytes;
 
 		sret = unicode_transform_input(trans, &chr, 1, error_r);
 		if (sret < 0)
