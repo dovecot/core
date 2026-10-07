@@ -248,6 +248,9 @@ static void test_unichar_run_transform(void)
 	} tests[] = {
 		{ "abc", "abc", 0 },
 		{ "a\xc3\xa4o", "a\xc3\xa4o", 0 },
+		{ "a\xff\xff\xff" "b", "a" UNICODE_REPLACEMENT_CHAR_UTF8 "b", -1 },
+		{ "\xff" "a\xfe\xc3", UNICODE_REPLACEMENT_CHAR_UTF8 "a"
+		  UNICODE_REPLACEMENT_CHAR_UTF8, -1 },
 	};
 	struct test_refusing_transform rt;
 	buffer_t *output = t_buffer_create(64);

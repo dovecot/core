@@ -274,10 +274,10 @@ int uni_utf8_run_transform(const void *_input, size_t size,
 				/* Invalid input. try the next byte. */
 				ret = -1;
 				input++; size--;
-				if (!bad_cp) {
-				       chr = UNICODE_REPLACEMENT_CHAR;
-				       bad_cp = TRUE;
-				}
+				if (bad_cp)
+					continue;
+				chr = UNICODE_REPLACEMENT_CHAR;
+				bad_cp = TRUE;
 			} else {
 				input += bytes;
 				size -= bytes;
