@@ -2155,6 +2155,16 @@ settings_instance_override_add_default(struct settings_apply_ctx *ctx,
 			filter_key++;
 		else
 			filter_key = array_set->orig_key;
+		/* settings_get_filter() uses these to see that the filter
+		   exists, even if it has no other settings. No need to
+		   p_strdup() them: filter_key points to array_set->orig_key,
+		   which is either static or allocated from the same pool
+		   as this override (set->pool == array_set->pool), and
+		   set->value was already duplicated above. Keep this in
+		   mind if the generated overrides ever get a different
+		   pool than array_set. */
+		set->last_filter_key = filter_key;
+		set->last_filter_value = set->value;
 
 		/* Build the final event filter. */
 		const char *filter_string = t_strdup_printf(

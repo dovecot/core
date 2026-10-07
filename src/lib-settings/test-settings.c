@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
 #include "settings.h"
 #include "settings-history.h"
 #include "test-common.h"
@@ -1126,6 +1127,63 @@ static void test_settings_override_rename(void)
 	test_end();
 }
 
+static void test_settings_filter_array_append_only(void)
+{
+	test_begin("settings_get - filter array item without settings");
+
+	struct settings_root *set_root = settings_root_init();
+	/* Growing the overrides array while the generated default overrides
+	   are being added to it must not break the lookups. */
+	string_t *items = t_str_new(128);
+	str_append(items, "new1 new2");
+	for (unsigned int i = 0; i < 20; i++)
+		str_printfa(items, " extra%u", i);
+	settings_root_override(set_root, "test2_fruit+", str_c(items),
+			       SETTINGS_OVERRIDE_TYPE_CODE);
+	settings_root_override(set_root, "test2_fruit/new1/eat", "yes",
+			       SETTINGS_OVERRIDE_TYPE_CODE);
+
+	struct event *event = event_create(NULL);
+	event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
+
+	struct test2_settings *set;
+	const char *error;
+	test_assert(settings_get(event, &test2_setting_parser_info, 0,
+				 &set, &error) == 0);
+	test_assert(array_count(&set->fruits) == 22);
+	settings_free(set);
+
+	struct test2_fruit_settings *fruit_set;
+	test_assert(settings_try_get_filter(event, "test2_fruit", "new1",
+				&test2_fruit_setting_parser_info, 0,
+				&fruit_set, &error) == 1);
+	test_assert_strcmp(fruit_set->name, "new1");
+	test_assert(fruit_set->eat);
+	settings_free(fruit_set);
+
+	/* new2 has no settings other than the generated name */
+	test_assert(settings_try_get_filter(event, "test2_fruit", "new2",
+				&test2_fruit_setting_parser_info, 0,
+				&fruit_set, &error) == 1);
+	test_assert_strcmp(fruit_set->name, "new2");
+	test_assert(!fruit_set->eat);
+	settings_free(fruit_set);
+
+	test_assert(settings_get_filter(event, "test2_fruit", "extra19",
+				&test2_fruit_setting_parser_info, 0,
+				&fruit_set, &error) == 0);
+	test_assert_strcmp(fruit_set->name, "extra19");
+	settings_free(fruit_set);
+
+	test_assert(settings_try_get_filter(event, "test2_fruit", "unknown",
+				&test2_fruit_setting_parser_info, 0,
+				&fruit_set, &error) == 0);
+
+	event_unref(&event);
+	settings_root_deinit(&set_root);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -1141,6 +1199,7 @@ int main(void)
 		test_settings_alias,
 		test_settings_history_translate_key,
 		test_settings_override_rename,
+		test_settings_filter_array_append_only,
 		NULL
 	};
 	return test_run(test_functions);
