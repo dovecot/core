@@ -283,6 +283,7 @@ int uni_utf8_run_transform(const void *_input, size_t size,
 				size -= bytes;
 				bad_cp = FALSE;
 			}
+			got_chr = TRUE;
 		}
 
 		sret = unicode_transform_input(trans, &chr, 1, error_r);

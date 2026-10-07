@@ -4,6 +4,7 @@
 #include "str.h"
 #include "buffer.h"
 #include "unichar.h"
+#include "unicode-transform.h"
 
 static void test_unichar_uni_utf8_strlen(void)
 {
@@ -214,6 +215,61 @@ static void test_unichar_grapheme_clusters(void)
 	test_end();
 }
 
+struct test_refusing_transform {
+	struct unicode_transform transform;
+	unsigned int calls;
+};
+
+static ssize_t
+test_refusing_transform_input(struct unicode_transform *trans,
+			      const struct unicode_transform_buffer *buf,
+			      const char **error_r)
+{
+	struct test_refusing_transform *rt =
+		container_of(trans, struct test_refusing_transform, transform);
+
+	/* Refuse the input twice, so unicode_transform_input() returns 0
+	   even after flushing. */
+	if (++rt->calls % 3 != 0)
+		return 0;
+	return uniform_transform_forward(trans, buf->cp, buf->cp_data, 1,
+					 error_r);
+}
+
+static const struct unicode_transform_def test_refusing_transform_def = {
+	.input = test_refusing_transform_input,
+};
+
+static void test_unichar_run_transform(void)
+{
+	static const struct {
+		const char *input, *output;
+		int ret;
+	} tests[] = {
+		{ "abc", "abc", 0 },
+		{ "a\xc3\xa4o", "a\xc3\xa4o", 0 },
+	};
+	struct test_refusing_transform rt;
+	buffer_t *output = t_buffer_create(64);
+	const char *error;
+	unsigned int i;
+	int ret;
+
+	test_begin("uni_utf8_run_transform()");
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		i_zero(&rt);
+		unicode_transform_init(&rt.transform,
+				       &test_refusing_transform_def);
+		buffer_set_used_size(output, 0);
+		ret = uni_utf8_run_transform(tests[i].input,
+					     strlen(tests[i].input),
+					     &rt.transform, output, &error);
+		test_assert_idx(ret == tests[i].ret, i);
+		test_assert_strcmp_idx(str_c(output), tests[i].output, i);
+	}
+	test_end();
+}
+
 void test_unichar(void)
 {
 	static const char overlong_utf8[] = "\xf8\x80\x95\x81\xa1";
@@ -270,4 +326,5 @@ void test_unichar(void)
 	test_unichar_surrogates();
 
 	test_unichar_grapheme_clusters();
+	test_unichar_run_transform();
 }
