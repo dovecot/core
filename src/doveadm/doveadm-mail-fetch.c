@@ -298,10 +298,14 @@ static int fetch_text_utf8(struct fetch_cmd_context *ctx)
 		} else if (block.hdr->eoh)
 			doveadm_print_stream("\n", 1);
 		else {
-			i_assert(block.hdr->name_len > 0);
-			doveadm_print_stream(block.hdr->name,
-					     block.hdr->name_len);
-			doveadm_print_stream(": ", 2);
+			/* name is empty for lines without ':' and for
+			   too long names. The whole line is in the value
+			   then. */
+			if (block.hdr->name_len > 0) {
+				doveadm_print_stream(block.hdr->name,
+						     block.hdr->name_len);
+				doveadm_print_stream(": ", 2);
+			}
 			if (block.hdr->full_value_len > 0) {
 				doveadm_print_stream(block.hdr->full_value,
 						     block.hdr->full_value_len);
