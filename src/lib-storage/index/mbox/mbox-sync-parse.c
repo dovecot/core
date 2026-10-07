@@ -522,7 +522,11 @@ int mbox_sync_parse_next_mail(struct istream *input,
 
 		if (!hdr->continued) {
 			line_start_pos = str_len(ctx->header);
-			str_append(ctx->header, hdr->name);
+			/* The name may contain NULs. Copy all of it, or the
+			   rewritten header would be shorter than the one in
+			   the file and all the offsets after it would be
+			   wrong. */
+			str_append_data(ctx->header, hdr->name, hdr->name_len);
 			str_append_data(ctx->header, hdr->middle, hdr->middle_len);
 		}
 
