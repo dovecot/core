@@ -519,6 +519,16 @@ smtp_client_connection_xclient_cb(const struct smtp_reply *reply,
 	if (conn->state == SMTP_CLIENT_CONNECTION_STATE_DISCONNECTED)
 		return;
 
+	if (!smtp_reply_is_success(reply) && !conn->xclient_rejected) {
+		/* The server dropped the forwarded client information: it
+		   generates its own session ID, loses the client IP and port
+		   and resets the proxy TTL. Delivery still continues. Warn
+		   once: a long XCLIENT is split into several commands. */
+		conn->xclient_rejected = TRUE;
+		e_warning(conn->event, "Server rejected XCLIENT handshake: %s",
+			  smtp_reply_log(reply));
+	}
+
 	if (conn->to_connect != NULL)
 		timeout_reset(conn->to_connect);
 	if (--conn->xclient_replies_expected == 0)
@@ -2009,6 +2019,7 @@ void smtp_client_connection_connect(
 	conn->xclient_replies_expected = 0;
 	conn->authenticated = FALSE;
 	conn->xclient_sent = FALSE;
+	conn->xclient_rejected = FALSE;
 	conn->connect_failed = FALSE;
 	conn->connect_succeeded = FALSE;
 	conn->handshake_failed = FALSE;

@@ -234,6 +234,7 @@ struct smtp_client_connection {
 	bool old_smtp:1;
 	bool authenticated:1;
 	bool xclient_sent:1;
+	bool xclient_rejected:1;
 	bool connect_failed:1;
 	bool connect_succeeded:1;
 	bool handshake_failed:1;
