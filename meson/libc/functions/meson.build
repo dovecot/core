@@ -19,6 +19,7 @@ try_libc_functions = [
   'kevent',
   'kqueue',
   'localtime_r',
+  'malloc_trim',
   'malloc_usable_size',
   'memrchr',
   'memset_s',

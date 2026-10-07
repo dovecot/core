@@ -31,6 +31,9 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <syslog.h>
+#if defined(HAVE_MALLOC_TRIM) && defined(HAVE_MALLOC_H)
+#  include <malloc.h>
+#endif
 
 #define DEFAULT_CONFIG_FILE_PATH SYSCONFDIR"/dovecot.conf"
 
@@ -1753,6 +1756,24 @@ void master_service_client_connection_accept(struct master_service_connection *c
 	conn->accepted = TRUE;
 }
 
+static void master_service_free_unused_memory(void)
+{
+	/* Free the data stack's cached unused block, so malloc_trim() can
+	   release it as well. (The ioloop would free it within a second
+	   anyway.) */
+	data_stack_free_unused();
+#if defined(HAVE_MALLOC_TRIM) && defined(HAVE_MALLOC_H)
+	/* Release the freed memory back to the OS. glibc's malloc_trim()
+	   releases also the free pages in the middle of the heap (using
+	   madvise(MADV_DONTNEED)), not just the top of the heap. Without this
+	   a long-running imap process keeps several MB of freed heap resident
+	   after each session, because a few long-lived allocations near the
+	   top of the heap pin everything below them. This takes about 0.25 ms
+	   for a 5 MB heap. */
+	(void)malloc_trim(0);
+#endif
+}
+
 void master_service_client_connection_destroyed(struct master_service *service)
 {
 	i_assert(service->total_available_count > 0);
@@ -1794,6 +1815,16 @@ void master_service_client_connection_destroyed(struct master_service *service)
 		master_service_stop(service);
 	} else {
 		master_status_update(service);
+		if (service->master_status.available_count ==
+		    service->total_available_count) {
+			/* All the clients have disconnected. Free unused memory
+			   back to the OS. The process may now be idling for a
+			   long time, or the previous client may have done work
+			   that grew the heap huge (e.g. THREAD for a large
+			   mailbox) while the following clients use very little
+			   of it. */
+			master_service_free_unused_memory();
+		}
 	}
 }
 

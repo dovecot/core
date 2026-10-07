@@ -352,7 +352,7 @@ AC_DEFINE(PACKAGE_WEBPAGE, "https://www.dovecot.org/", [Support URL])
 AC_CHECK_FUNCS(flock pread setproctitle setresgid \
 	       getmntinfo setpriority quotactl getmntent kqueue kevent \
 	       backtrace_symbols walkcontext dirfd clearenv \
-	       malloc_usable_size glob fallocate posix_fadvise \
+	       malloc_usable_size malloc_trim glob fallocate posix_fadvise \
 	       getpeereid getpeerucred inotify_init timegm memrchr)
 
 AC_CHECK_HEADERS([valgrind/valgrind.h])
