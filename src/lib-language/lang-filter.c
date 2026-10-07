@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "module-dir.h"
 #include "language.h"
 #include "lang-filter-private.h"
 
@@ -10,7 +11,18 @@
 #  include "lang-icu.h"
 #endif
 
+const char *lang_filter_module_dir = MODULE_DIR;
+
+struct lang_filter_module_class {
+	const char *module_name;
+	const struct lang_filter *filter_class;
+};
+
 static ARRAY(const struct lang_filter *) lang_filter_classes;
+static struct module *lang_filter_modules = NULL;
+/* Filter classes registered by modules. This is freed when the last module
+   unregisters. */
+static ARRAY(struct lang_filter_module_class) lang_filter_module_classes;
 
 void lang_filters_init(void)
 {
@@ -29,7 +41,85 @@ void lang_filters_deinit(void)
 #ifdef HAVE_LIBICU
 	lang_icu_deinit();
 #endif
+	module_dir_unload(&lang_filter_modules);
 	array_free(&lang_filter_classes);
+}
+
+static const struct lang_filter *
+lang_filter_module_class_find(const char *module_name)
+{
+	const struct lang_filter_module_class *mclass;
+
+	if (!array_is_created(&lang_filter_module_classes))
+		return NULL;
+	array_foreach(&lang_filter_module_classes, mclass) {
+		if (strcmp(mclass->module_name, module_name) == 0)
+			return mclass->filter_class;
+	}
+	return NULL;
+}
+
+void lang_filter_module_register(const char *module_name,
+				 const struct lang_filter *filter_class)
+{
+	struct lang_filter_module_class *mclass;
+
+	i_assert(lang_filter_module_class_find(module_name) == NULL);
+
+	if (!array_is_created(&lang_filter_module_classes))
+		i_array_init(&lang_filter_module_classes, 4);
+	mclass = array_append_space(&lang_filter_module_classes);
+	mclass->module_name = module_name;
+	mclass->filter_class = filter_class;
+}
+
+void lang_filter_module_unregister(const char *module_name)
+{
+	const struct lang_filter_module_class *mclass;
+
+	array_foreach(&lang_filter_module_classes, mclass) {
+		if (strcmp(mclass->module_name, module_name) == 0) {
+			array_delete(&lang_filter_module_classes,
+				array_foreach_idx(&lang_filter_module_classes,
+						  mclass), 1);
+			if (array_is_empty(&lang_filter_module_classes))
+				array_free(&lang_filter_module_classes);
+			return;
+		}
+	}
+	i_unreached();
+}
+
+int lang_filter_module_load(const char *module_name,
+			    const struct lang_filter **class_r,
+			    const char **error_r)
+{
+	const char *module_names[] = { module_name, NULL };
+	struct module_dir_load_settings mod_set;
+	struct module *module;
+
+	i_zero(&mod_set);
+	mod_set.abi_version = DOVECOT_ABI_VERSION;
+	mod_set.setting_name = "<built-in lib-language lookup>";
+	mod_set.require_init_funcs = TRUE;
+	mod_set.ignore_missing = TRUE;
+	if (module_dir_try_load_missing(&lang_filter_modules,
+					lang_filter_module_dir, module_names,
+					&mod_set, error_r) < 0)
+		return -1;
+	module = module_dir_find(lang_filter_modules, module_name);
+	if (module == NULL)
+		return 0;
+	module_dir_init(lang_filter_modules);
+
+	*class_r = lang_filter_module_class_find(module_name);
+	if (*class_r == NULL) {
+		*error_r = t_strdup_printf(
+			"Module %s didn't register its filter class",
+			module->path);
+		return -1;
+	}
+	return 1;
 }
 
 void lang_filter_register(const struct lang_filter *filter_class)

@@ -12,6 +12,7 @@ AM_CPPFLAGS = \
 	$(LIBICU_CFLAGS) \
 	-DUDHRDIR=\""$(top_srcdir)/src/lib-language"\" \
 	-DDATADIR=\"$(pkgdatadir)\" \
+	-DMODULE_DIR=\""$(moduledir)"\" \
 	-DTEST_STOPWORDS_DIR=\""$(top_srcdir)/src/lib-language/stopwords"\"
 
 stopwordsdir = $(datadir)/${PACKAGE_TARNAME}/stopwords
