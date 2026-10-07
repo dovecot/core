@@ -181,6 +181,19 @@ cmd_lookup_callback(const struct dict_lookup_result *result,
 	dict_connection_cmd_try_flush(&cmd);
 }
 
+static bool
+dict_cmd_key_is_valid(struct dict_connection_cmd *cmd, const char *cmd_name,
+		       const char *key, const char *username)
+{
+	if (str_begins_with(key, DICT_PATH_PRIVATE) &&
+	    (username == NULL || username[0] == '\0')) {
+		e_error(cmd->event, "%s: private dict key requires username",
+			cmd_name);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static int cmd_lookup(struct dict_connection_cmd *cmd, const char *const *args)
 {
 	const char *username;
@@ -191,11 +204,8 @@ static int cmd_lookup(struct dict_connection_cmd *cmd, const char *const *args)
 	}
 	username = args[1];
 
-	if (str_begins_with(args[0], DICT_PATH_PRIVATE) &&
-	    (username == NULL || username[0] == '\0')) {
-		e_error(cmd->event, "LOOKUP: private dict key requires username");
+	if (!dict_cmd_key_is_valid(cmd, "LOOKUP", args[0], username))
 		return -1;
-	}
 
 	/* <key> [<username>] */
 	dict_connection_cmd_async(cmd);
@@ -342,11 +352,8 @@ static int cmd_iterate(struct dict_connection_cmd *cmd, const char *const *args)
 	dict_connection_cmd_async(cmd);
 	username = args[3];
 
-	if (str_begins_with(args[2], DICT_PATH_PRIVATE) &&
-	    (username == NULL || username[0] == '\0')) {
-		e_error(cmd->event, "ITERATE: private dict key requires username");
+	if (!dict_cmd_key_is_valid(cmd, "ITERATE", args[2], username))
 		return -1;
-	}
 
 	const struct dict_op_settings set = {
 		.username = username,
@@ -579,12 +586,8 @@ static int cmd_set(struct dict_connection_cmd *cmd, const char *const *args)
 
 	if (dict_connection_transaction_lookup_parse(cmd->conn, args[0], &trans) < 0)
 		return -1;
-	if (str_begins_with(args[1], DICT_PATH_PRIVATE) &&
-	    (trans->ctx->set.username == NULL ||
-	     trans->ctx->set.username[0] == '\0')) {
-		e_error(cmd->event, "SET: private dict key requires username");
+	if (!dict_cmd_key_is_valid(cmd, "SET", args[1], trans->ctx->set.username))
 		return -1;
-	}
 
 	event_add_str(cmd->event, "user", trans->ctx->set.username);
         dict_set(trans->ctx, args[1], args[2]);
@@ -603,12 +606,8 @@ static int cmd_unset(struct dict_connection_cmd *cmd, const char *const *args)
 
 	if (dict_connection_transaction_lookup_parse(cmd->conn, args[0], &trans) < 0)
 		return -1;
-	if (str_begins_with(args[1], DICT_PATH_PRIVATE) &&
-	    (trans->ctx->set.username == NULL ||
-	     trans->ctx->set.username[0] == '\0')) {
-		e_error(cmd->event, "UNSET: private dict key requires username");
+	if (!dict_cmd_key_is_valid(cmd, "UNSET", args[1], trans->ctx->set.username))
 		return -1;
-	}
 
         dict_unset(trans->ctx, args[1]);
 	return 0;
@@ -629,12 +628,8 @@ cmd_atomic_inc(struct dict_connection_cmd *cmd, const char *const *args)
 
 	if (dict_connection_transaction_lookup_parse(cmd->conn, args[0], &trans) < 0)
 		return -1;
-	if (str_begins_with(args[1], DICT_PATH_PRIVATE) &&
-	    (trans->ctx->set.username == NULL ||
-	     trans->ctx->set.username[0] == '\0')) {
-		e_error(cmd->event, "ATOMIC_INC: private dict key requires username");
+	if (!dict_cmd_key_is_valid(cmd, "ATOMIC_INC", args[1], trans->ctx->set.username))
 		return -1;
-	}
 
         dict_atomic_inc(trans->ctx, args[1], diff);
 	return 0;
