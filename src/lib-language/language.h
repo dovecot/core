@@ -17,6 +17,8 @@ enum language_detect_result {
 };
 
 struct language_settings {
+	/* Parent event for logging (optional) */
+	struct event *event;
 	const char *textcat_config_path;
 	const char *textcat_data_path;
 };

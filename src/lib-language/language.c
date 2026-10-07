@@ -27,6 +27,7 @@ struct textcat {
 
 struct language_list {
 	pool_t pool;
+	struct event *event;
 	ARRAY_TYPE(language) languages;
 	struct textcat *textcat;
 	const char *textcat_config;
@@ -134,6 +135,8 @@ struct language_list *language_list_init(const struct language_settings *setting
 	pool = pool_alloconly_create("language_list", 128);
 	lp = p_new(pool, struct language_list, 1);
 	lp->pool = pool;
+	lp->event = event_create(settings->event);
+	event_set_append_log_prefix(lp->event, "textcat: ");
 	lp->textcat_config = p_strdup_empty(pool, settings->textcat_config_path);
 	lp->textcat_datadir = p_strdup_empty(pool, settings->textcat_data_path);
 	p_array_init(&lp->languages, pool, 32);
@@ -149,6 +152,7 @@ void language_list_deinit(struct language_list **list)
 	if (lp->textcat != NULL)
 		textcat_unref(lp->textcat);
 #endif
+	event_unref(&lp->event);
 	pool_unref(&lp->pool);
 }
 

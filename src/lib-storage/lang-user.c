@@ -56,6 +56,7 @@ lang_user_init_languages(struct lang_user *luser, const char **error_r)
 	i_assert(!array_is_empty(langs));
 
 	struct language_settings lang_settings = {
+		.event = luser->event,
 		.textcat_config_path = luser->set->textcat_config_path,
 	};
 	luser->lang_list = language_list_init(&lang_settings);
