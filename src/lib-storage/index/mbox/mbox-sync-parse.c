@@ -420,6 +420,10 @@ static bool parse_content_length(struct mbox_sync_mail_context *ctx,
 	for (i = 0; i < hdr->full_value_len; i++) {
 		if (hdr->full_value[i] < '0' || hdr->full_value[i] > '9')
 			break;
+		if (value > ((uoff_t)OFF_T_MAX - 9) / 10) {
+			/* too large - can't be a valid size in this file */
+			return FALSE;
+		}
 		value = value*10 + (hdr->full_value[i] - '0');
 	}
 

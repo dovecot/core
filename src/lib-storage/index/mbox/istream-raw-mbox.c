@@ -611,6 +611,16 @@ int istream_raw_mbox_get_body_size(struct istream *stream,
 		rstream->mail_size - (rstream->body_offset -
 				      rstream->hdr_offset);
 	old_offset = stream->v_offset;
+	if (expected_body_size != UOFF_T_MAX &&
+	    expected_body_size > (uoff_t)OFF_T_MAX - body_offset - 2) {
+		/* expected_body_size typically comes from the untrusted
+		   Content-Length header. A value this large can't point to
+		   a valid offset in the file. Without this check
+		   next_body_offset could wrap around to an earlier From_-line
+		   or become a negative off_t, either of which breaks the
+		   mailbox sync permanently. */
+		expected_body_size = UOFF_T_MAX;
+	}
 	if (expected_body_size != UOFF_T_MAX) {
 		/* if we already have the existing body size, use it as long as
 		   it's >= expected body_size. otherwise the previous parsing
