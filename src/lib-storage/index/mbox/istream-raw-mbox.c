@@ -471,16 +471,17 @@ struct istream *i_stream_create_raw_mbox(struct istream *input)
 static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 {
 	const unsigned char *data;
-	size_t size = 0;
+	size_t size = 0, skip;
 	time_t received_time;
 	char *sender;
 	int tz;
 	ssize_t ret = 0;
 
-	/* minimal: "From x Thu Nov 29 22:33:52 2001" = 31 chars */
+	/* minimal: "From x Thu Nov 29 22:33:52 2001" = 31 chars, plus the
+	   preceding CR+LF */
 	do {
 		data = i_stream_get_data(rstream->istream.parent, &size);
-		if (size >= 31)
+		if (size >= 2 + 31)
 			break;
 	} while ((ret = i_stream_read_memarea(rstream->istream.parent)) > 0);
 	if (ret == -1)
@@ -492,17 +493,18 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 		return 1;
 	}
 
-	if (size > 31 && memcmp(data, "\nFrom ", 6) == 0) {
-		data += 6;
-		size -= 6;
-	} else if (size > 32 && memcmp(data, "\r\nFrom ", 7) == 0) {
-		data += 7;
-		size -= 7;
-	} else {
+	if (size > 31 && memcmp(data, "\nFrom ", 6) == 0)
+		skip = 6;
+	else if (size > 32 && memcmp(data, "\r\nFrom ", 7) == 0)
+		skip = 7;
+	else
 		return 0;
-	}
 
-	while (memchr(data, '\n', size) == NULL) {
+	/* i_stream_read_bytes() returns the data from the beginning of the
+	   stream position again, i.e. including the [CR]LF + "From " prefix.
+	   Keep skipping over it, or a From_-line that crosses the read
+	   buffer's end is never seen as valid. */
+	while (memchr(data + skip, '\n', size - skip) == NULL) {
 		ret = i_stream_read_bytes(rstream->istream.parent,
 					  &data, &size, size+1);
 		if (ret < 0) {
@@ -512,7 +514,8 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 		}
 	}
 
-	if (mbox_from_parse(data, size, &received_time, &tz, &sender) < 0)
+	if (mbox_from_parse(data + skip, size - skip,
+			    &received_time, &tz, &sender) < 0)
 		return 0;
 
 	rstream->next_received_time = received_time;
