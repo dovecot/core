@@ -185,8 +185,15 @@ static bool
 dict_cmd_key_is_valid(struct dict_connection_cmd *cmd, const char *cmd_name,
 		       const char *key, const char *username)
 {
-	if (str_begins_with(key, DICT_PATH_PRIVATE) &&
-	    (username == NULL || username[0] == '\0')) {
+	if (str_begins_with(key, DICT_PATH_SHARED))
+		return TRUE;
+	if (!str_begins_with(key, DICT_PATH_PRIVATE)) {
+		e_error(cmd->event, "%s: key '%s' has no "
+			DICT_PATH_SHARED" or "DICT_PATH_PRIVATE" prefix",
+			cmd_name, key);
+		return FALSE;
+	}
+	if (username == NULL || username[0] == '\0') {
 		e_error(cmd->event, "%s: private dict key requires username",
 			cmd_name);
 		return FALSE;
