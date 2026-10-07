@@ -2,14 +2,30 @@
 
 #include "lib.h"
 #include "array.h"
+#include "unlink-directory.h"
 #include "test-common.h"
 #include "language.h"
+
+#include <stdio.h>
+#include <dirent.h>
+#include <sys/stat.h>
+
 /* TODO: These checks will not work without proper libtextcat configuration.
    As such, they are not really unit test to be coupled with the build. */
+
+#define TEST_LANGUAGE_DIR ".test-language"
 
 const struct language_settings settings = {
 	.textcat_config_path = TEXTCAT_DATADIR"/fpdb.conf",
 	.textcat_data_path = TEXTCAT_DATADIR"/",
+	.temp_path_prefix = TEST_LANGUAGE_DIR"/",
+	.textcat_filter_languages = TRUE,
+};
+
+const struct language_settings settings_nofilter = {
+	.textcat_config_path = TEXTCAT_DATADIR"/fpdb.conf",
+	.textcat_data_path = TEXTCAT_DATADIR"/",
+	.temp_path_prefix = TEST_LANGUAGE_DIR"/",
 };
 
 static ARRAY_TYPE(lang_settings) *to_array(const char *values)
@@ -266,7 +282,7 @@ static void test_language_detect_na(void)
 	const char names[] = "fi, de, fr";
 	const char *unknown, *error;
 	test_begin("language detect not available");
-	lp = language_list_init(&settings);
+	lp = language_list_init(&settings_nofilter);
 	test_assert(language_list_add_names(lp, to_array(names), &unknown) == TRUE);
 	test_assert(language_detect(lp, english, sizeof(english)-1, &lang_r, &error)
 	            == LANGUAGE_DETECT_RESULT_UNKNOWN);
@@ -286,7 +302,7 @@ static void test_language_detect_unknown(void)
 	const char names[] = "fi, de, fr";
 	const char *unknown, *error;
 	test_begin("language detect unknown");
-	lp = language_list_init(&settings);
+	lp = language_list_init(&settings_nofilter);
 	test_assert(language_list_add_names(lp, to_array(names), &unknown) == TRUE);
 	test_assert(language_detect(lp, klingon, sizeof(klingon), &lang_r, &error)
 	            == LANGUAGE_DETECT_RESULT_UNKNOWN);
@@ -297,6 +313,7 @@ static void test_language_detect_init_failure(void)
 {
 	const struct language_settings set = {
 		.textcat_config_path = "/nonexistent/fpdb.conf",
+		.temp_path_prefix = TEST_LANGUAGE_DIR"/",
 	};
 	struct language_list *lp;
 	const struct language *lang_r = NULL;
@@ -312,6 +329,171 @@ static void test_language_detect_init_failure(void)
 		test_assert_idx(language_detect(lp, text, sizeof(text)-1,
 						&lang_r, &error) ==
 				LANGUAGE_DETECT_RESULT_ERROR, i);
+		language_list_deinit(&lp);
+	}
+	test_end();
+}
+
+/* With filtering, only the wanted languages' fingerprints are loaded, so
+   English text is detected as one of the wanted languages. */
+static void test_language_detect_na_filtered(void)
+{
+	struct language_list *lp = NULL;
+	const struct language *lang_r = NULL;
+	const unsigned char english[]  = "Whereas recognition of the inherent dignity and"\
+		" of the equal and inalienable rights of all members of the human"\
+		"family is the foundation of freedom, justice and peace in the "\
+		"world,\n Whereas disregard and contempt for human rights have "\
+		"resulted in barbarous acts which have outraged the conscience"\
+		"of mankind, and the advent of a world in which human beings"\
+		"shall enjoy freedom of speech and belief and freedom from "\
+		"fear and want has been proclaimed as the highest aspiration"\
+		"of the common people, ";
+
+	const char names[] = "fi, de, fr";
+	const char *unknown, *error;
+	test_begin("language detect not available filtered");
+	lp = language_list_init(&settings);
+	test_assert(language_list_add_names(lp, to_array(names), &unknown) == TRUE);
+	test_assert(language_detect(lp, english, sizeof(english)-1, &lang_r, &error)
+	            == LANGUAGE_DETECT_RESULT_OK);
+	test_assert(strcmp(lang_r->name, "en") != 0);
+	language_list_deinit(&lp);
+	test_end();
+}
+
+static unsigned int test_dir_file_count(void)
+{
+	DIR *dir = opendir(TEST_LANGUAGE_DIR);
+	struct dirent *d;
+	unsigned int count = 0;
+
+	if (dir == NULL)
+		i_fatal("opendir("TEST_LANGUAGE_DIR") failed: %m");
+	while ((d = readdir(dir)) != NULL) {
+		if (d->d_name[0] != '.')
+			count++;
+	}
+	(void)closedir(dir);
+	return count;
+}
+
+static void test_language_detect_filtered_config(void)
+{
+	struct language_list *lp = NULL;
+	const struct language *lang_r = NULL;
+	const unsigned char finnish[] =
+		"Yhdistyneiden kansakuntien kolmas yleiskokous hyv\xC3\xA4ksyi "\
+		"ja julkisti ihmisoikeuksien yleismaailmallisen julistuksen "\
+		"joulukuun 10. p\xC3\xA4iv\xC3\xA4n\xC3\xA4 1948. Julistuksen "\
+		"hyv\xC3\xA4ksymisen puolesta \xC3\xA4\xC3\xA4nesti 48 maata. "\
+		"Mik\xC3\xA4\xC3\xA4n maa ei \xC3\xA4\xC3\xA4nest\xC3\xA4nyt "\
+		"vastaan. Kahdeksan maata pid\xC3\xA4ttyi "\
+		"\xC3\xA4\xC3\xA4nest\xC3\xA4m\xC3\xA4st\xC3\xA4.";
+	const char *config_path = TEST_LANGUAGE_DIR"/fpdb.conf";
+	const char *config =
+		"# comment\n"
+		"\n"
+		"#fi.lm fi--utf8\n"
+		"en.lm       en--utf8\n"
+		"fi.lm\tfi--utf8    # trailing comment\n"
+		"nb.lm       nb--utf8\n"
+		"nn.lm       nn--utf8\n"
+		"sv.lm       sv--utf8\n";
+	struct language_settings set = settings;
+	const char *unknown, *error;
+
+	test_begin("language detect filtered config");
+	set.textcat_config_path = config_path;
+	/* earlier tests didn't leave any temporary files behind */
+	test_assert(test_dir_file_count() == 0);
+	FILE *f = fopen(config_path, "w");
+	if (f == NULL || fputs(config, f) < 0 || fclose(f) < 0)
+		i_fatal("fopen/fputs(%s) failed: %m", config_path);
+
+	/* fi and no are kept, en and sv filtered out */
+	lp = language_list_init(&set);
+	test_assert(language_list_add_names(lp, to_array("no, fi"),
+					    &unknown) == TRUE);
+	test_assert(language_detect(lp, finnish, sizeof(finnish)-1,
+				    &lang_r, &error) ==
+		    LANGUAGE_DETECT_RESULT_OK);
+	test_assert(strcmp(lang_r->name, "fi") == 0);
+	/* the filtered config file was deleted, only fpdb.conf exists */
+	test_assert(test_dir_file_count() == 1);
+	language_list_deinit(&lp);
+
+	/* none of the wanted languages have fingerprints - original config
+	   is used and Finnish isn't detected as any of them */
+	lp = language_list_init(&set);
+	test_assert(language_list_add_names(lp, to_array("de, fr"),
+					    &unknown) == TRUE);
+	test_assert(language_detect(lp, finnish, sizeof(finnish)-1,
+				    &lang_r, &error) ==
+		    LANGUAGE_DETECT_RESULT_UNKNOWN);
+	test_assert(test_dir_file_count() == 1);
+	language_list_deinit(&lp);
+
+	i_unlink(config_path);
+	test_end();
+}
+
+static void test_language_detect_cache(void)
+{
+	static const char *const lang_names[] = {
+		"da", "de", "en", "es", "fr", "it", "nl",
+		"pt", "ro", "ru", "sv", "tr", "no",
+	};
+	struct language_list *lp_en_fi, *lp_sv_de, *lp;
+	const struct language *lang_r = NULL;
+	const unsigned char finnish[] =
+		"Yhdistyneiden kansakuntien kolmas yleiskokous hyv\xC3\xA4ksyi "\
+		"ja julkisti ihmisoikeuksien yleismaailmallisen julistuksen "\
+		"joulukuun 10. p\xC3\xA4iv\xC3\xA4n\xC3\xA4 1948. Julistuksen "\
+		"hyv\xC3\xA4ksymisen puolesta \xC3\xA4\xC3\xA4nesti 48 maata. "\
+		"Mik\xC3\xA4\xC3\xA4n maa ei \xC3\xA4\xC3\xA4nest\xC3\xA4nyt "\
+		"vastaan. Kahdeksan maata pid\xC3\xA4ttyi "\
+		"\xC3\xA4\xC3\xA4nest\xC3\xA4m\xC3\xA4st\xC3\xA4.";
+	const char *unknown, *error;
+
+	test_begin("language detect cache");
+	/* Two lists with different languages are alive at the same time.
+	   Finnish text is detected as the closest language of each list. */
+	lp_en_fi = language_list_init(&settings);
+	test_assert(language_list_add_names(lp_en_fi, to_array("en, fi"),
+					    &unknown) == TRUE);
+	lp_sv_de = language_list_init(&settings);
+	test_assert(language_list_add_names(lp_sv_de, to_array("sv, de"),
+					    &unknown) == TRUE);
+	for (unsigned int i = 0; i < 2; i++) {
+		test_assert(language_detect(lp_en_fi, finnish,
+					    sizeof(finnish)-1, &lang_r,
+					    &error) ==
+			    LANGUAGE_DETECT_RESULT_OK);
+		test_assert(strcmp(lang_r->name, "fi") == 0);
+		test_assert(language_detect(lp_sv_de, finnish,
+					    sizeof(finnish)-1, &lang_r,
+					    &error) ==
+			    LANGUAGE_DETECT_RESULT_OK);
+		test_assert(strcmp(lang_r->name, "fi") != 0);
+	}
+	language_list_deinit(&lp_en_fi);
+	language_list_deinit(&lp_sv_de);
+
+	/* More different language lists than fit into the cache */
+	for (unsigned int i = 0; i < N_ELEMENTS(lang_names) * 2; i++) {
+		const char *names = t_strdup_printf("fi, %s",
+			lang_names[i % N_ELEMENTS(lang_names)]);
+		if (i >= N_ELEMENTS(lang_names))
+			names = t_strconcat(names, ", nl", NULL);
+		lp = language_list_init(&settings);
+		test_assert_idx(language_list_add_names(lp, to_array(names),
+							&unknown) == TRUE, i);
+		test_assert_idx(language_detect(lp, finnish,
+						sizeof(finnish)-1, &lang_r,
+						&error) ==
+				LANGUAGE_DETECT_RESULT_OK, i);
+		test_assert_idx(strcmp(lang_r->name, "fi") == 0, i);
 		language_list_deinit(&lp);
 	}
 	test_end();
@@ -352,12 +534,27 @@ int main(void)
 		test_language_detect_na,
 		test_language_detect_unknown,
 		test_language_detect_init_failure,
+		test_language_detect_na_filtered,
+		test_language_detect_filtered_config,
+		test_language_detect_cache,
 		test_language_find_builtin,
 		test_language_register,
 		NULL
 	};
+	const char *error;
+
+	if (unlink_directory(TEST_LANGUAGE_DIR, UNLINK_DIRECTORY_FLAG_RMDIR,
+			     &error) < 0)
+		i_fatal("%s", error);
+	if (mkdir(TEST_LANGUAGE_DIR, 0700) < 0)
+		i_fatal("mkdir("TEST_LANGUAGE_DIR") failed: %m");
+
 	languages_init();
 	ret = test_run(test_functions);
 	languages_deinit();
+
+	if (unlink_directory(TEST_LANGUAGE_DIR, UNLINK_DIRECTORY_FLAG_RMDIR,
+			     &error) < 0)
+		i_fatal("%s", error);
 	return ret;
 }

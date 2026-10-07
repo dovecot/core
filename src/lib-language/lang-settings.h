@@ -27,6 +27,7 @@ struct langs_settings {
 	pool_t pool;
 	ARRAY_TYPE(const_string) languages;
 	const char *textcat_config_path;
+	bool textcat_filter_languages;
 
 	ARRAY_TYPE(lang_settings) parsed_languages;
 };

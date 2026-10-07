@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "module-context.h"
 #include "mail-user.h"
 #include "mail-storage-private.h"
@@ -50,14 +51,21 @@ lang_user_settings_get(struct mail_user *user, const char *lang)
 }
 
 static int
-lang_user_init_languages(struct lang_user *luser, const char **error_r)
+lang_user_init_languages(struct mail_user *user, struct lang_user *luser,
+			 const char **error_r)
 {
 	const ARRAY_TYPE(lang_settings) *langs = &luser->set->parsed_languages;
 	i_assert(!array_is_empty(langs));
 
+	string_t *temp_prefix = t_str_new(128);
+	mail_user_set_get_temp_prefix(temp_prefix, user->set);
+
 	struct language_settings lang_settings = {
 		.event = luser->event,
 		.textcat_config_path = luser->set->textcat_config_path,
+		.temp_path_prefix = str_c(temp_prefix),
+		.textcat_filter_languages =
+			luser->set->textcat_filter_languages,
 	};
 	luser->lang_list = language_list_init(&lang_settings);
 
@@ -348,7 +356,7 @@ lang_user_init_libfts(struct mail_user *user, struct lang_user *luser,
 {
 	p_array_init(&luser->languages, user->pool, 4);
 
-	if (lang_user_init_languages(luser, error_r) < 0 ||
+	if (lang_user_init_languages(user, luser, error_r) < 0 ||
 	    lang_user_init_data_language(user, luser, error_r) < 0 ||
 	    lang_user_languages_fill_all(user, luser, error_r) < 0)
 		return -1;

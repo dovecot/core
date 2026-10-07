@@ -21,6 +21,10 @@ struct language_settings {
 	struct event *event;
 	const char *textcat_config_path;
 	const char *textcat_data_path;
+	/* Path prefix for temporary files, e.g. "<mail_temp_dir>/dovecot." */
+	const char *temp_path_prefix;
+	/* Load only the textcat fingerprints of the wanted languages. */
+	bool textcat_filter_languages;
 };
 
 struct language {

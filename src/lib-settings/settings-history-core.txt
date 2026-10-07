@@ -1,6 +1,7 @@
 # default <setting-path> <old-default> <ce-version> <pro-version>
 # rename <old-setting-key> <new-setting-key> <ce-version> <pro-version>
 # value <old-setting-key>=<old-value> <new-setting-key>=<new-value> <ce-version> <pro-version>
+default	textcat_filter_languages	no	2.4.6	3.3.0
 value	shutdown_clients=yes	service_shutdown_clients_timeout=0	2.4.6	3.3.0
 value	shutdown_clients=no	service_shutdown_clients_timeout=infinite	2.4.6	3.3.0
 default	mail_temp_dir	/dev/shm/dovecot	-	3.3.0

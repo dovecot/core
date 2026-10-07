@@ -63,11 +63,13 @@ static const struct setting_define langs_setting_defines[] = {
 	  .offset = offsetof(struct langs_settings, languages),
 	  .filter_array_field_name = "language_name", },
 	DEF(STR, textcat_config_path),
+	DEF(BOOL, textcat_filter_languages),
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct langs_settings langs_default_settings = {
 	.textcat_config_path = "",
+	.textcat_filter_languages = TRUE,
 };
 
 const struct setting_parser_info langs_setting_parser_info = {
