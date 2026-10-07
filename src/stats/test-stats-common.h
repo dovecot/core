@@ -20,6 +20,8 @@ bool test_stats_callback(struct event *event,
 			 struct failure_context *ctx, const char *fmt ATTR_UNUSED,
 			 va_list args ATTR_UNUSED);
 
+int test_stats_try_init(const char *const settings_blob[],
+			const char **error_r);
 void test_stats_init(const char *const settings_blob[]);
 void test_stats_deinit(void);
 

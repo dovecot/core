@@ -43,9 +43,18 @@ static struct stats_settings *read_settings(const char *const settings[],
 	return set;
 }
 
-void test_stats_init(const char *const settings_blob[])
+static void test_stats_deinit_settings(void)
 {
-	const char *error;
+	settings_free(stats_set);
+	settings_root_deinit(&set_root);
+	stats_event_categories_deinit();
+	pool_unref(&test_pool);
+}
+
+int test_stats_try_init(const char *const settings_blob[],
+			const char **error_r)
+{
+	int ret;
 
 	if (!callback_added) {
 		event_register_callback(test_stats_callback);
@@ -65,18 +74,25 @@ void test_stats_init(const char *const settings_blob[])
 
 	struct event *event;
 	stats_set = read_settings(settings_blob, &event);
-	if (stats_metrics_init(event, stats_set, &stats_metrics, &error) < 0)
-		i_fatal("%s", error);
+	ret = stats_metrics_init(event, stats_set, &stats_metrics, error_r);
 	event_unref(&event);
+	if (ret < 0)
+		test_stats_deinit_settings();
+	return ret;
+}
+
+void test_stats_init(const char *const settings_blob[])
+{
+	const char *error;
+
+	if (test_stats_try_init(settings_blob, &error) < 0)
+		i_fatal("%s", error);
 }
 
 void test_stats_deinit(void)
 {
 	stats_metrics_deinit(&stats_metrics);
-	settings_free(stats_set);
-	settings_root_deinit(&set_root);
-	stats_event_categories_deinit();
-	pool_unref(&test_pool);
+	test_stats_deinit_settings();
 }
 
 void test_event_send(struct event *event)
