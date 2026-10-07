@@ -636,6 +636,34 @@ test_nf_write(const void *input, size_t size, enum unicode_nf_type type,
 	i_unreached();
 }
 
+static int
+test_nf_is(const void *input, size_t size, enum unicode_nf_type type)
+{
+	switch (type) {
+	case UNICODE_NFD:
+		return uni_utf8_is_nfd(input, size);
+	case UNICODE_NFKD:
+		return uni_utf8_is_nfkd(input, size);
+	case UNICODE_NFC:
+		return uni_utf8_is_nfc(input, size);
+	case UNICODE_NFKC:
+		return uni_utf8_is_nfkc(input, size);
+	}
+	i_unreached();
+}
+
+static int
+test_nf_is_cps(const ARRAY_TYPE(uint32_t) *in, enum unicode_nf_type type)
+{
+	string_t *in_utf8 = t_str_new(256);
+	const uint32_t *cps;
+	unsigned int count;
+
+	cps = array_get(in, &count);
+	test_nf_cps_to_utf8(cps, count, in_utf8);
+	return test_nf_is(str_data(in_utf8), str_len(in_utf8), type);
+}
+
 static void
 test_nf_write_cps(const ARRAY_TYPE(uint32_t) *in, enum unicode_nf_type type,
 		  ARRAY_TYPE(uint32_t) *out)
@@ -690,6 +718,7 @@ static void test_long_runs(void)
 	test_nf_append_n(&in, 0x1161, 60);
 	test_nf_write_cps(&in, UNICODE_NFC, &out);
 	test_assert(test_nf_arrays_equal(&out, &in));
+	test_assert(test_nf_is_cps(&in, UNICODE_NFC) == 1);
 
 	/* 30 non-starters followed by a decomposition that begins with a
 	   starter */
@@ -745,6 +774,17 @@ static void test_long_runs(void)
 		array_append(&expected, decomp, len);
 	test_nf_write_cps(&in, UNICODE_NFKD, &out);
 	test_assert(test_nf_arrays_equal(&out, &expected));
+
+	/* Normalized, until the run of non-starters becomes too long for the
+	   Stream-Safe Text Format */
+	array_clear(&in);
+	test_nf_append_n(&in, 'a', 1);
+	test_nf_append_n(&in, 0x0301, 30);
+	test_assert(test_nf_is_cps(&in, UNICODE_NFD) == 1);
+	test_assert(test_nf_is_cps(&in, UNICODE_NFKC) == 0);
+	test_nf_append_n(&in, 0x0301, 30);
+	test_assert(test_nf_is_cps(&in, UNICODE_NFD) == 0);
+	test_assert(test_nf_is_cps(&in, UNICODE_NFKD) == 0);
 }
 
 /*

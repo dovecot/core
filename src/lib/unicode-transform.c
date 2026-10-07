@@ -660,6 +660,9 @@ unicode_nf_input(struct unicode_transform *trans,
 			break;
 		}
 	}
+
+	if (unicode_nf_forward(ctx, error_r) < 0)
+		return -1;
 	return n;
 }
 
