@@ -82,8 +82,12 @@ int imap_search_args_build(struct client_command_context *cmd,
 	}
 
 	if (search_args_have_searchres(sargs->args)) {
-		if (client_handle_search_save_ambiguity(cmd))
+		if (client_handle_search_save_ambiguity(cmd)) {
+			/* the command is parsed again once the ambiguity
+			   is over */
+			mail_search_args_unref(&sargs);
 			return 0;
+		}
 	}
 
 	mail_search_args_init(sargs, cmd->client->mailbox, TRUE,
