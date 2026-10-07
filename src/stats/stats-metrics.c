@@ -247,15 +247,19 @@ stats_metrics_get_group_by_method(struct event *event, pool_t pool,
 		group_by->discrete_modifier =
 			p_strdup_empty(pool, set->discrete_modifier);
 	} else if (strcmp(set->method, "exponential") == 0) {
-		if (!stats_metrics_group_by_exponential_check(set, error_r))
+		if (!stats_metrics_group_by_exponential_check(set, error_r)) {
+			settings_free(set);
 			return -1;
+		}
 		metrics_group_by_exponential_init(group_by, pool,
 			set->exponential_base,
 			set->exponential_min_magnitude,
 			set->exponential_max_magnitude);
 	} else if (strcmp(set->method, "linear") == 0) {
-		if (!stats_metrics_group_by_linear_check(set, error_r))
+		if (!stats_metrics_group_by_linear_check(set, error_r)) {
+			settings_free(set);
 			return -1;
+		}
 		metrics_group_by_linear_init(group_by, pool,
 			set->linear_min, set->linear_max, set->linear_step);
 	} else {
