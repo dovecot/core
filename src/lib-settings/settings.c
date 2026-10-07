@@ -1816,11 +1816,11 @@ settings_override_set_blocks(struct settings_mmap *mmap,
 	if (key[0] == SETTINGS_INCLUDE_GROUP_PREFIX) {
 		/* Group override - we don't currently support optimizing the
 		   block name checks. */
-		return 1;
+		return 0;
 	}
 	if (mmap == NULL) {
 		/* Using only built-in settings - skip optimizations. */
-		return 1;
+		return 0;
 	}
 	if (!settings_override_key_part_find(mmap, &key, set->last_filter_key,
 					     set->last_filter_value, &set_type,
@@ -1856,7 +1856,7 @@ settings_override_set_blocks(struct settings_mmap *mmap,
 					 mmap->block_names_rel_offsets[block_idx]);
 	}
 	set->block_names = block_names;
-	return 1;
+	return 0;
 }
 
 static bool setting_override_match_info(struct settings_apply_ctx *ctx,
@@ -1897,10 +1897,9 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 
 	if (str_begins(set->key, "*"SETTINGS_SEPARATOR_S, &set->key)) {
 		/* always match, also for any named list filters */
-		int ret = settings_override_set_blocks(ctx->instance->mmap,
-						       set, error_r);
-		if (ret <= 0)
-			return ret;
+		if (settings_override_set_blocks(ctx->instance->mmap,
+						 set, error_r) < 0)
+			return -1;
 		/* Sort this as the first */
 		set->filter_array_element_count = INT_MAX;
 		set->filter = EVENT_FILTER_MATCH_ALWAYS;
@@ -1969,9 +1968,8 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 	if (set->last_filter_value != last_filter_value)
 		set->last_filter_value = p_strdup(set->pool, last_filter_value);
 
-	int ret = settings_override_set_blocks(ctx->instance->mmap, set, error_r);
-	if (ret <= 0)
-		return ret;
+	if (settings_override_set_blocks(ctx->instance->mmap, set, error_r) < 0)
+		return -1;
 
 	if (filter_string == NULL)
 		set->filter = EVENT_FILTER_MATCH_ALWAYS;
