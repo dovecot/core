@@ -173,19 +173,27 @@ void unicode_nf_reset(struct unicode_nf_context *ctx);
 
 struct unicode_nf_checker {
 	const struct unicode_code_point_data *cpd_last;
+	/* The last code point, if it's a starter with quick check Yes that
+	   wasn't given to the normalization transform (last_starter=TRUE) */
+	uint32_t last_cp;
 
 	uint8_t nf_qc_mask;
 	uint8_t nf_qc_yes;
 	uint8_t nf_qc_no;
 
+	/* Code points given to the normalization transform that haven't been
+	   compared to its output yet */
 	uint32_t cp_buffer[UNICODE_NF_BUFFER_SIZE];
 	size_t buffer_len;
 	struct unicode_nf_context nf;
 	struct unicode_transform sink;
 
-	bool not_first_cp;
 	bool compose:1;
 	bool canonical:1;
+	bool last_starter:1;
+	/* The normalization transform has been given input since it was
+	   reset */
+	bool nf_used:1;
 };
 
 void unicode_nf_checker_init(struct unicode_nf_checker *unc_r,

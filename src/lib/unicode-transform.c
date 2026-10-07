@@ -810,21 +810,19 @@ unicode_nf_check_sink_input(struct unicode_transform *trans,
 		container_of(trans, struct unicode_nf_checker, sink);
 	size_t n;
 
-	i_assert(unc->buffer_len > 0);
-	i_assert(buf->cp_count <= unc->buffer_len);
+	if (buf->cp_count > unc->buffer_len) {
+		*error_r = "Not normalized";
+		return -1;
+	}
 	for (n = 0; n < buf->cp_count; n++) {
 		if (buf->cp[n] != unc->cp_buffer[n]) {
 			*error_r = "Not normalized";
 			return -1;
 		}
 	}
-	if (buf->cp_count == unc->buffer_len)
-		unc->buffer_len = 0;
-	else {
-		unc->buffer_len -= buf->cp_count;
-		memmove(&unc->cp_buffer[0], &unc->cp_buffer[buf->cp_count],
-			unc->buffer_len * sizeof(unc->cp_buffer[0]));
-	}
+	unc->buffer_len -= buf->cp_count;
+	memmove(&unc->cp_buffer[0], &unc->cp_buffer[buf->cp_count],
+		unc->buffer_len * sizeof(unc->cp_buffer[0]));
 	return buf->cp_count;
 }
 
@@ -840,6 +838,7 @@ unicode_nf_checker_nf_input(struct unicode_nf_checker *unc, uint32_t cp,
 	   transform may output it immediately. */
 	i_assert(unc->buffer_len < N_ELEMENTS(unc->cp_buffer));
 	unc->cp_buffer[unc->buffer_len++] = cp;
+	unc->nf_used = TRUE;
 
 	i_zero(&buf);
 	buf.cp = &cp;
@@ -857,14 +856,15 @@ static int unicode_nf_checker_nf_finish(struct unicode_nf_checker *unc)
 	const char *error;
 	int ret;
 
-	if (unc->buffer_len == 0)
+	if (!unc->nf_used)
 		return 1;
 
 	ret = unicode_transform_flush(&unc->nf.transform, &error);
 	i_assert(ret != 0);
-	if (ret < 0)
+	if (ret < 0 || unc->buffer_len > 0)
 		return 0;
 	unicode_nf_reset(&unc->nf);
+	unc->nf_used = FALSE;
 	return 1;
 }
 
@@ -877,8 +877,10 @@ int unicode_nf_checker_input(struct unicode_nf_checker *unc, uint32_t cp,
 		*_cp_data = unicode_code_point_get_data(cp);
 
 	const struct unicode_code_point_data *cp_data = *_cp_data;
+	bool last_starter = unc->last_starter;
 
 	unc->cpd_last = cp_data;
+	unc->last_starter = FALSE;
 
 	if (cp_data->general_category == UNICODE_GENERAL_CATEGORY_INVALID)
 		return -1;
@@ -890,15 +892,19 @@ int unicode_nf_checker_input(struct unicode_nf_checker *unc, uint32_t cp,
 		return 0;
 	if ((cp_data->nf_quick_check & unc->nf_qc_mask) == unc->nf_qc_yes &&
 	    cp_data->canonical_combining_class == 0) {
+		/* Nothing after this starter interacts with anything before
+		   it. Finish checking the previous code points, and remember
+		   this one in case the next code point needs to be checked
+		   with the normalization transform. */
 		if (unicode_nf_checker_nf_finish(unc) == 0)
 			return 0;
-		i_assert(unc->buffer_len == 0);
-		unc->cp_buffer[0] = cp;
+		unc->last_cp = cp;
+		unc->last_starter = TRUE;
 		return 1;
 	}
 
-	if (unc->buffer_len == 0 && cpd_last != NULL &&
-	    unicode_nf_checker_nf_input(unc, unc->cp_buffer[0], cpd_last) < 0)
+	if (last_starter &&
+	    unicode_nf_checker_nf_input(unc, unc->last_cp, cpd_last) < 0)
 		return 0;
 	if (unicode_nf_checker_nf_input(unc, cp, cp_data) < 0)
 		return 0;
