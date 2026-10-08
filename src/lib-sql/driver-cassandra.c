@@ -1936,11 +1936,25 @@ static void result_finish(struct cassandra_result *result)
 		sql_result_unref(&result->api);
 }
 
+static void
+cassandra_fallback_warn(struct cassandra_db *db, struct cassandra_result *result)
+{
+	time_t last_warning =
+		ioloop_time - db->last_fallback_warning[result->query_type];
+
+	if (last_warning < CASSANDRA_FALLBACK_WARN_INTERVAL_SECS)
+		return;
+	e_warning(db->api.event,
+		  "%s - retrying future %s queries with consistency %s (instead of %s)",
+		  result->error, cassandra_query_type_names[result->query_type],
+		  cass_consistency_string(result->fallback_consistency),
+		  cass_consistency_string(result->primary_consistency));
+	db->last_fallback_warning[result->query_type] = ioloop_time;
+}
+
 static void query_resend_with_fallback(struct cassandra_result *result)
 {
 	struct cassandra_db *db = container_of(result->api.db, struct cassandra_db, api);
-	time_t last_warning =
-		ioloop_time - db->last_fallback_warning[result->query_type];
 
 	if (db->closing) {
 		/* Don't resend onto a session that's closing - result->error
@@ -1952,14 +1966,7 @@ static void query_resend_with_fallback(struct cassandra_result *result)
 		return;
 	}
 
-	if (last_warning >= CASSANDRA_FALLBACK_WARN_INTERVAL_SECS) {
-		e_warning(db->api.event,
-			  "%s - retrying future %s queries with consistency %s (instead of %s)",
-			  result->error, cassandra_query_type_names[result->query_type],
-			  cass_consistency_string(result->fallback_consistency),
-			  cass_consistency_string(result->primary_consistency));
-		db->last_fallback_warning[result->query_type] = ioloop_time;
-	}
+	cassandra_fallback_warn(db, result);
 	i_free_and_null(result->error);
 	db->fallback_failures[result->query_type]++;
 
