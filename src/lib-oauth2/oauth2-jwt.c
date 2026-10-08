@@ -21,6 +21,52 @@
 
 #include <time.h>
 
+enum oauth2_jwt_alg_type {
+	OAUTH2_JWT_ALG_HMAC,
+	OAUTH2_JWT_ALG_RSA,
+	OAUTH2_JWT_ALG_EC,
+};
+
+struct oauth2_jwt_alg {
+	const char *name;
+	enum oauth2_jwt_alg_type type;
+	const char *hash;
+	/* RSA: PKCS#1 v1.5 or PSS padding */
+	enum dcrypt_padding padding;
+};
+
+/* JWS algorithms (RFC 7518 3.1, RFC 8812 3.2) */
+static const struct oauth2_jwt_alg oauth2_jwt_algs[] = {
+	{ .name = "HS256", .type = OAUTH2_JWT_ALG_HMAC, .hash = "sha256" },
+	{ .name = "HS384", .type = OAUTH2_JWT_ALG_HMAC, .hash = "sha384" },
+	{ .name = "HS512", .type = OAUTH2_JWT_ALG_HMAC, .hash = "sha512" },
+	{ .name = "RS256", .type = OAUTH2_JWT_ALG_RSA, .hash = "sha256",
+	  .padding = DCRYPT_PADDING_RSA_PKCS1 },
+	{ .name = "RS384", .type = OAUTH2_JWT_ALG_RSA, .hash = "sha384",
+	  .padding = DCRYPT_PADDING_RSA_PKCS1 },
+	{ .name = "RS512", .type = OAUTH2_JWT_ALG_RSA, .hash = "sha512",
+	  .padding = DCRYPT_PADDING_RSA_PKCS1 },
+	{ .name = "PS256", .type = OAUTH2_JWT_ALG_RSA, .hash = "sha256",
+	  .padding = DCRYPT_PADDING_RSA_PKCS1_PSS },
+	{ .name = "PS384", .type = OAUTH2_JWT_ALG_RSA, .hash = "sha384",
+	  .padding = DCRYPT_PADDING_RSA_PKCS1_PSS },
+	{ .name = "PS512", .type = OAUTH2_JWT_ALG_RSA, .hash = "sha512",
+	  .padding = DCRYPT_PADDING_RSA_PKCS1_PSS },
+	{ .name = "ES256", .type = OAUTH2_JWT_ALG_EC, .hash = "sha256" },
+	{ .name = "ES384", .type = OAUTH2_JWT_ALG_EC, .hash = "sha384" },
+	{ .name = "ES512", .type = OAUTH2_JWT_ALG_EC, .hash = "sha512" },
+	{ .name = "ES256K", .type = OAUTH2_JWT_ALG_EC, .hash = "sha256" },
+};
+
+static const struct oauth2_jwt_alg *oauth2_jwt_alg_find(const char *name)
+{
+	for (unsigned int i = 0; i < N_ELEMENTS(oauth2_jwt_algs); i++) {
+		if (strcmp(oauth2_jwt_algs[i].name, name) == 0)
+			return &oauth2_jwt_algs[i];
+	}
+	return NULL;
+}
+
 static const struct json_tree_node *
 get_field_node(const struct json_tree *tree, const char *key)
 {
@@ -202,26 +248,14 @@ oauth2_lookup_hmac_key(const struct oauth2_settings *set, const char *azp,
 
 static int
 oauth2_validate_hmac(const struct oauth2_settings *set, const char *azp,
-		     const char *alg, const char *key_id,
+		     const struct oauth2_jwt_alg *alg, const char *key_id,
 		     const char *const *blobs, const char **error_r)
 {
-	const struct hash_method *method;
-
-	if (strcmp(alg, "HS256") == 0)
-		method = hash_method_lookup("sha256");
-	else if (strcmp(alg, "HS384") == 0)
-		method = hash_method_lookup("sha384");
-	else if (strcmp(alg, "HS512") == 0)
-		method = hash_method_lookup("sha512");
-	else {
-		*error_r = t_strdup_printf("unsupported algorithm '%s'",
-					   str_sanitize_utf8(alg, 32));
-		return -1;
-	}
-
+	const struct hash_method *method = hash_method_lookup(alg->hash);
 	const buffer_t *key;
 
-	if (oauth2_lookup_hmac_key(set, azp, alg, key_id, &key, error_r) < 0)
+	if (oauth2_lookup_hmac_key(set, azp, alg->name, key_id, &key,
+				   error_r) < 0)
 		return -1;
 
 	struct hmac_context ctx;
@@ -293,42 +327,16 @@ oauth2_lookup_pubkey(const struct oauth2_settings *set, const char *azp,
 
 static int
 oauth2_validate_rsa_ecdsa(const struct oauth2_settings *set,
-			  const char *azp, const char *alg, const char *key_id,
-			  const char *const *blobs, const char **error_r)
+			  const char *azp, const struct oauth2_jwt_alg *alg,
+			  const char *key_id, const char *const *blobs,
+			  const char **error_r)
 {
-	const char *method;
-	enum dcrypt_padding padding;
-	enum dcrypt_signature_format sig_format;
+	enum dcrypt_signature_format sig_format =
+		alg->type == OAUTH2_JWT_ALG_EC ? DCRYPT_SIGNATURE_FORMAT_X962 :
+		DCRYPT_SIGNATURE_FORMAT_DSS;
 
 	if (!dcrypt_is_initialized()) {
 		*error_r = "No crypto library loaded";
-		return -1;
-	}
-
-	if (str_begins_with(alg, "RS")) {
-		padding = DCRYPT_PADDING_RSA_PKCS1;
-		sig_format = DCRYPT_SIGNATURE_FORMAT_DSS;
-	} else if (str_begins_with(alg, "PS")) {
-		padding = DCRYPT_PADDING_RSA_PKCS1_PSS;
-		sig_format = DCRYPT_SIGNATURE_FORMAT_DSS;
-	} else if (str_begins_with(alg, "ES")) {
-		padding = DCRYPT_PADDING_DEFAULT;
-		sig_format = DCRYPT_SIGNATURE_FORMAT_X962;
-	} else {
-		/* this should be checked by caller */
-		i_unreached();
-	}
-
-	if (strcmp(alg+2, "256") == 0 ||
-	    strcmp(alg+2, "256K") == 0) {
-		method = "sha256";
-	} else if (strcmp(alg+2, "384") == 0) {
-		method = "sha384";
-	} else if (strcmp(alg+2, "512") == 0) {
-		method = "sha512";
-	} else {
-		*error_r = t_strdup_printf("Unsupported algorithm '%s'",
-					   str_sanitize_utf8(alg, 32));
 		return -1;
 	}
 
@@ -336,7 +344,8 @@ oauth2_validate_rsa_ecdsa(const struct oauth2_settings *set,
 		t_base64url_decode_str(BASE64_DECODE_FLAG_NO_PADDING, blobs[2]);
 
 	struct dcrypt_public_key *pubkey;
-	if (oauth2_lookup_pubkey(set, azp, alg, key_id, &pubkey, error_r) < 0)
+	if (oauth2_lookup_pubkey(set, azp, alg->name, key_id, &pubkey,
+				 error_r) < 0)
 		return -1;
 
 	/* data to verify */
@@ -344,9 +353,9 @@ oauth2_validate_rsa_ecdsa(const struct oauth2_settings *set,
 
 	/* verify signature */
 	bool valid;
-	if (!dcrypt_verify(pubkey, method, sig_format, data, strlen(data),
-			   signature->data, signature->used, &valid, padding,
-			   error_r)) {
+	if (!dcrypt_verify(pubkey, alg->hash, sig_format, data, strlen(data),
+			   signature->data, signature->used, &valid,
+			   alg->padding, error_r)) {
 		valid = FALSE;
 	} else if (!valid) {
 		*error_r = "Bad signature";
@@ -357,22 +366,21 @@ oauth2_validate_rsa_ecdsa(const struct oauth2_settings *set,
 
 static int
 oauth2_validate_signature(const struct oauth2_settings *set, const char *azp,
-			  const char *alg, const char *key_id,
+			  const char *alg_name, const char *key_id,
 			  const char *const *blobs, const char **error_r)
 {
-	if (str_begins_with(alg, "HS")) {
+	const struct oauth2_jwt_alg *alg = oauth2_jwt_alg_find(alg_name);
+
+	if (alg == NULL) {
+		*error_r = t_strdup_printf("Unsupported algorithm '%s'",
+					   str_sanitize_utf8(alg_name, 32));
+		return -1;
+	}
+	if (alg->type == OAUTH2_JWT_ALG_HMAC)
 		return oauth2_validate_hmac(set, azp, alg, key_id, blobs,
 					    error_r);
-	} else if (str_begins_with(alg, "RS") ||
-		   str_begins_with(alg, "PS") ||
-		   str_begins_with(alg, "ES")) {
-		return oauth2_validate_rsa_ecdsa(set, azp, alg, key_id, blobs,
-						 error_r);
-	}
-
-	*error_r = t_strdup_printf("Unsupported algorithm '%s'",
-				   str_sanitize_utf8(alg, 32));
-	return -1;
+	return oauth2_validate_rsa_ecdsa(set, azp, alg, key_id, blobs,
+					 error_r);
 }
 
 struct jwt_node {

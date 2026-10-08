@@ -653,6 +653,28 @@ static void test_jwt_broken_token(void)
 	test_end();
 }
 
+static void test_jwt_unsupported_alg(void)
+{
+	static const char *const algs[] = {
+		"RS256K", "PS256K", "HS1", "ES521", "none"
+	};
+
+	test_begin("JWT unsupported algorithm");
+	for (unsigned int i = 0; i < N_ELEMENTS(algs); i++) T_BEGIN {
+		buffer_t *tokenbuf = create_jwt_token(algs[i]);
+		struct oauth2_request req;
+		const char *error = NULL;
+		bool is_jwt;
+
+		str_append(tokenbuf, ".c2ln");
+		test_assert_idx(parse_jwt_token(&req, str_c(tokenbuf),
+						&is_jwt, &error) < 0, i);
+		test_assert_strcmp_idx(error, t_strdup_printf(
+			"Unsupported algorithm '%s'", t_str_ucase(algs[i])), i);
+	} T_END;
+	test_end();
+}
+
 static void test_jwt_bad_valid_token(void)
 {
 	test_begin("JWT bad token tests");
@@ -1230,6 +1252,7 @@ int main(void)
 		test_jwt_valid_token,
 		test_jwt_bad_valid_token,
 		test_jwt_broken_token,
+		test_jwt_unsupported_alg,
 		test_jwt_dates,
 		test_jwt_key_files,
 		test_jwt_kid_escape,
