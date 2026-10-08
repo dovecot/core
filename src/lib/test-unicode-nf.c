@@ -684,8 +684,16 @@ static void test_long_runs(void)
 	t_array_init(&out, 128);
 	t_array_init(&expected, 128);
 
+	/* A starter followed by NFC_QC=Maybe starters, which don't compose
+	   with each other */
+	test_nf_append_n(&in, 'a', 1);
+	test_nf_append_n(&in, 0x1161, 60);
+	test_nf_write_cps(&in, UNICODE_NFC, &out);
+	test_assert(test_nf_arrays_equal(&out, &in));
+
 	/* 30 non-starters followed by a decomposition that begins with a
 	   starter */
+	array_clear(&in);
 	test_nf_append_n(&in, 'a', 1);
 	test_nf_append_n(&in, 0x0301, 30);
 	test_nf_append_n(&in, 0x00e9, 1);
@@ -736,6 +744,93 @@ static void test_long_runs(void)
 	for (i = 0; i < 5; i++)
 		array_append(&expected, decomp, len);
 	test_nf_write_cps(&in, UNICODE_NFKD, &out);
+	test_assert(test_nf_arrays_equal(&out, &expected));
+}
+
+/*
+ * Transform that accepts only a few code points at a time
+ */
+
+struct test_throttle_sink {
+	struct unicode_transform transform;
+	ARRAY_TYPE(uint32_t) *output;
+	unsigned int max_count, calls;
+};
+
+static ssize_t
+test_throttle_sink_input(struct unicode_transform *trans,
+			 const struct unicode_transform_buffer *buf,
+			 const char **error_r ATTR_UNUSED)
+{
+	struct test_throttle_sink *sink =
+		container_of(trans, struct test_throttle_sink, transform);
+	size_t count = I_MIN(buf->cp_count, sink->max_count);
+
+	if (++sink->calls % 4 == 0)
+		return 0;
+	array_append(sink->output, buf->cp, count);
+	return count;
+}
+
+static const struct unicode_transform_def test_throttle_sink_def = {
+	.input = test_throttle_sink_input,
+};
+
+static void
+test_nf_throttled(const uint32_t *in, size_t in_count,
+		  enum unicode_nf_type type, ARRAY_TYPE(uint32_t) *out)
+{
+	struct unicode_nf_context nf;
+	struct test_throttle_sink sink;
+	const char *error;
+	unsigned int loops = 0;
+	size_t pos = 0;
+	ssize_t sret;
+	int ret;
+
+	unicode_nf_init(&nf, type);
+	i_zero(&sink);
+	unicode_transform_init(&sink.transform, &test_throttle_sink_def);
+	sink.output = out;
+	sink.max_count = i_rand_minmax(1, 3);
+	unicode_transform_chain(&nf.transform, &sink.transform);
+
+	array_clear(out);
+	while (pos < in_count && ++loops < 100000) {
+		size_t count = i_rand_minmax(1, 64);
+
+		count = I_MIN(count, in_count - pos);
+		sret = unicode_transform_input(&nf.transform, &in[pos],
+					       count, &error);
+		test_assert(sret >= 0);
+		if (sret < 0)
+			return;
+		pos += sret;
+	}
+	do {
+		ret = unicode_transform_flush(&nf.transform, &error);
+		test_assert(ret >= 0);
+	} while (ret == 0 && ++loops < 100000);
+	test_assert(pos == in_count);
+	test_assert(loops < 100000);
+}
+
+static void test_slow_next_transform(void)
+{
+	ARRAY_TYPE(uint32_t) in, out, expected;
+	const uint32_t *cps;
+	unsigned int i, count;
+
+	t_array_init(&in, 64);
+	t_array_init(&out, 64);
+	t_array_init(&expected, 64);
+	for (i = 0; i < 20; i++) {
+		test_nf_append_n(&in, 'e', 1);
+		test_nf_append_n(&in, 0x0301, 1);
+		test_nf_append_n(&expected, 0x00e9, 1);
+	}
+	cps = array_get(&in, &count);
+	test_nf_throttled(cps, count, UNICODE_NFC, &out);
 	test_assert(test_nf_arrays_equal(&out, &expected));
 }
 
@@ -1001,6 +1096,9 @@ void test_unicode_nf(void)
 	test_end();
 	test_begin("unicode normalization: decomposition non-starters");
 	test_decomposition_nonstarters();
+	test_end();
+	test_begin("unicode normalization: slow next transform");
+	test_slow_next_transform();
 	test_end();
 }
 

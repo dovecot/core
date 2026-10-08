@@ -156,13 +156,24 @@ struct unicode_nf_context {
 	uint32_t cp_buffer[UNICODE_NF_BUFFER_SIZE];
 	const struct unicode_code_point_data *
 		cpd_buffer[UNICODE_NF_BUFFER_SIZE];
-	size_t buffer_len, buffer_processed, buffer_output_max;
-
-	uint8_t nf_qc_mask;
+	size_t buffer_len;
+	/* Index after the last starter in the buffer. The non-starters after
+	   it may still be reordered. */
+	size_t run_pos;
+	/* NFC/NFKC: [0, composed_pos) has been composed */
+	size_t composed_pos;
+	/* NFC/NFKC: Index of the last starter in [0, composed_pos), if
+	   have_starter=TRUE. The following code points may compose with it. */
+	size_t starter_pos;
+	/* [0, buffer_output_max) is final and can be forwarded */
+	size_t buffer_output_max;
+	/* NFC/NFKC: Combining class of the last code point after starter_pos
+	   that didn't compose with it, or -1 if there is none. */
+	int last_ccc;
 
 	bool compose:1;
 	bool canonical:1;
-	bool finished:1;
+	bool have_starter:1;
 };
 
 void unicode_nf_init(struct unicode_nf_context *ctx_r,

@@ -274,6 +274,25 @@ static uint32_t unicode_hangul_compose_pair(uint32_t l, uint32_t r)
  * Normalization transform: NFD, NFKD, NFC, NFKC
  */
 
+/* The transform buffers the decomposed code points until they can't change
+   anymore:
+
+   - The Canonical Ordering Algorithm only reorders non-starters, and never
+     across a starter. So everything up to and including the last starter in
+     the buffer is in its final order, while the non-starters after it may
+     still be reordered by the following input.
+   - For NFC and NFKC, the Canonical Composition Algorithm is run
+     incrementally on the code points that are in their final order. A later
+     code point can only compose with the last starter, because any starter
+     in between blocks it. So everything before the last starter is final.
+
+   The Stream-Safe Text Process (UAX15-D4) limits the number of non-starters
+   after the last starter to UNICODE_NF_STREAM_SAFE_NON_STARTER_LEN. So after
+   the final code points are forwarded, the buffer contains at most a starter
+   and the non-starters after it. UNICODE_NF_BUFFER_SIZE leaves space for a
+   CGJ and the longest decomposition after them, so the next code point can
+   always be accepted after the final code points are forwarded. */
+
 #define UNICODE_COMBINING_GRAPHEME_JOINER 0x034f
 
 static ssize_t
@@ -298,19 +317,15 @@ void unicode_nf_init(struct unicode_nf_context *ctx_r,
 	switch (type) {
 	case UNICODE_NFD:
 		ctx_r->canonical = TRUE;
-		ctx_r->nf_qc_mask = UNICODE_NFD_QUICK_CHECK_MASK;
 		break;
 	case UNICODE_NFKD:
-		ctx_r->nf_qc_mask = UNICODE_NFKD_QUICK_CHECK_MASK;
 		break;
 	case UNICODE_NFC:
 		ctx_r->compose = TRUE;
 		ctx_r->canonical = TRUE;
-		ctx_r->nf_qc_mask = UNICODE_NFC_QUICK_CHECK_MASK;
 		break;
 	case UNICODE_NFKC:
 		ctx_r->compose = TRUE;
-		ctx_r->nf_qc_mask = UNICODE_NFKC_QUICK_CHECK_MASK;
 		break;
 	}
 }
@@ -355,6 +370,28 @@ unicode_nf_buffer_delete(struct unicode_nf_context *ctx, size_t offset,
 }
 
 static void
+unicode_nf_buffer_delete_head(struct unicode_nf_context *ctx, size_t count)
+{
+	if (count == 0)
+		return;
+
+	i_assert(count <= ctx->buffer_output_max);
+	unicode_nf_buffer_delete(ctx, 0, count);
+
+	ctx->buffer_output_max -= count;
+	ctx->run_pos -= count;
+	if (ctx->compose)
+		ctx->composed_pos -= count;
+	if (ctx->have_starter) {
+		/* The starter is forwarded only when flushing at the end */
+		if (ctx->starter_pos >= count)
+			ctx->starter_pos -= count;
+		else
+			ctx->have_starter = FALSE;
+	}
+}
+
+static void
 unicode_nf_buffer_append(struct unicode_nf_context *ctx, uint32_t cp,
 			 const struct unicode_code_point_data *cpd)
 {
@@ -378,68 +415,77 @@ unicode_nf_buffer_append(struct unicode_nf_context *ctx, uint32_t cp,
 	ctx->cp_buffer[pos] = cp;
 	ctx->cpd_buffer[pos] = cpd;
 	ctx->buffer_len++;
+	if (ccc == 0)
+		ctx->run_pos = ctx->buffer_len;
 }
 
 static uint32_t
 unicode_nf_compose_pair(uint32_t l, uint32_t r,
-			const struct unicode_code_point_data **l_data)
+			const struct unicode_code_point_data *l_data)
 {
 	uint32_t comp = unicode_hangul_compose_pair(l, r);
 
 	if (comp > 0x0000)
 		return comp;
-
-	if (*l_data == NULL)
-		*l_data = unicode_code_point_get_data(l);
-	return unicode_code_point_data_find_composition(*l_data, r);
+	return unicode_code_point_data_find_composition(l_data, r);
 }
 
 static void unicode_nf_compose(struct unicode_nf_context *ctx)
 {
-	size_t in_pos, out_pos, starter;
-	int last_ccc;
+	size_t in_pos, out_pos = ctx->composed_pos;
 
-	out_pos = 1;
-	last_ccc = -1;
-	starter = 0;
-	for (in_pos = I_MAX(1, ctx->buffer_processed);
-	     in_pos < ctx->buffer_output_max; in_pos++) {
+	/* Apply the Canonical Composition Algorithm (UAX15-D117) to the code
+	   points whose order is final. */
+	for (in_pos = ctx->composed_pos; in_pos < ctx->run_pos; in_pos++) {
 		uint32_t cp = ctx->cp_buffer[in_pos];
 		const struct unicode_code_point_data *cpd =
 			ctx->cpd_buffer[in_pos];
-
-		if (cpd == NULL) {
-			ctx->cpd_buffer[in_pos] = cpd =
-				unicode_code_point_get_data(cp);
-		}
-
 		uint8_t ccc = cpd->canonical_combining_class;
-		if (last_ccc < (int)ccc) {
+
+		/* The code point isn't blocked from the last starter, if
+		   all the code points between them have a lower combining
+		   class. A starter is blocked by anything in between. */
+		if (ctx->have_starter && ctx->last_ccc < (int)ccc) {
+			size_t starter_pos = ctx->starter_pos;
 			uint32_t comp = unicode_nf_compose_pair(
-				ctx->cp_buffer[starter], cp,
-				&ctx->cpd_buffer[starter]);
+				ctx->cp_buffer[starter_pos], cp,
+				ctx->cpd_buffer[starter_pos]);
 
 			if (comp > 0x0000) {
-				ctx->cp_buffer[starter] = comp;
-				ctx->cpd_buffer[starter] = NULL;
+				ctx->cp_buffer[starter_pos] = comp;
+				ctx->cpd_buffer[starter_pos] =
+					unicode_code_point_get_data(comp);
 				continue;
 			}
 		}
 		if (ccc == 0) {
-			starter = out_pos;
-			last_ccc = -1;
+			ctx->have_starter = TRUE;
+			ctx->starter_pos = out_pos;
+			ctx->last_ccc = -1;
 		} else {
-			last_ccc = ccc;
+			ctx->last_ccc = ccc;
 		}
 		ctx->cp_buffer[out_pos] = cp;
 		ctx->cpd_buffer[out_pos] = cpd;
 		out_pos++;
 	}
-	if (ctx->finished) {
-		ctx->buffer_len = ctx->buffer_output_max = out_pos;
-	} else if (in_pos > out_pos) {
+
+	if (in_pos > out_pos) {
+		/* Remove the gap left by the composed code points */
 		unicode_nf_buffer_delete(ctx, out_pos, (in_pos - out_pos));
-		ctx->buffer_output_max = out_pos;
+		ctx->run_pos = out_pos;
+	}
+	ctx->composed_pos = out_pos;
+}
+
+static void unicode_nf_update_output_max(struct unicode_nf_context *ctx)
+{
+	if (!ctx->compose)
+		ctx->buffer_output_max = ctx->run_pos;
+	else {
+		unicode_nf_compose(ctx);
+		ctx->buffer_output_max = (ctx->have_starter ?
+					  ctx->starter_pos : ctx->composed_pos);
 	}
 }
 
@@ -469,7 +515,6 @@ static bool
 unicode_nf_input_cp(struct unicode_nf_context *ctx, uint32_t cp,
 		    const struct unicode_code_point_data *cpd)
 {
-	uint8_t nf_qc_mask = ctx->nf_qc_mask;
 	const struct unicode_code_point_data *
 		decomp_cpd[UNICODE_DECOMPOSITION_MAX_LENGTH];
 	const uint32_t *decomp, *decomp_k;
@@ -566,31 +611,35 @@ unicode_nf_input_cp(struct unicode_nf_context *ctx, uint32_t cp,
 	for (i = 0; i < len; i++)
 		unicode_nf_buffer_append(ctx, decomp[i], decomp_cpd[i]);
 
-	/*
-	 * Everything before the last starter with quick check Yes is final
-	 */
-
-	size_t last_qc_y = 0;
-
-	for (i = I_MAX(1, ctx->buffer_output_max); i < ctx->buffer_len; i++) {
-		const struct unicode_code_point_data *cpd_i =
-			ctx->cpd_buffer[i];
-
-		if (cpd_i->canonical_combining_class == 0 &&
-		    (cpd_i->nf_quick_check & nf_qc_mask) == 0)
-			last_qc_y = i;
-	}
-	ctx->buffer_output_max = last_qc_y;
+	unicode_nf_update_output_max(ctx);
 	return TRUE;
+}
+
+static ssize_t
+unicode_nf_forward(struct unicode_nf_context *ctx, const char **error_r)
+{
+	ssize_t sret;
+
+	if (ctx->buffer_output_max == 0)
+		return 0;
+
+	sret = uniform_transform_forward(&ctx->transform, ctx->cp_buffer,
+					 ctx->cpd_buffer,
+					 ctx->buffer_output_max, error_r);
+	if (sret < 0)
+		return -1;
+	unicode_nf_buffer_delete_head(ctx, sret);
+	return sret;
 }
 
 static ssize_t
 unicode_nf_input(struct unicode_transform *trans,
 		 const struct unicode_transform_buffer *buf,
-		 const char **error_r ATTR_UNUSED)
+		 const char **error_r)
 {
 	struct unicode_nf_context *ctx =
 		container_of(trans, struct unicode_nf_context, transform);
+	ssize_t sret;
 	size_t n = 0;
 
 	while (n < buf->cp_count) {
@@ -600,54 +649,18 @@ unicode_nf_input(struct unicode_transform *trans,
 			n++;
 			continue;
 		}
-		break;
+
+		/* Only the final code points can fill the buffer */
+		i_assert(ctx->buffer_output_max > 0);
+		sret = unicode_nf_forward(ctx, error_r);
+		if (sret < 0)
+			return -1;
+		if (sret == 0) {
+			/* The next transform is full */
+			break;
+		}
 	}
 	return n;
-}
-
-static int
-unicode_nf_flush_more(struct unicode_nf_context *ctx, bool finished,
-		      const char **error_r)
-{
-	struct unicode_transform *trans = &ctx->transform;
-
-	ctx->finished = finished;
-
-	if (ctx->buffer_len == 0)
-		return 1;
-	if (!finished && ctx->buffer_output_max == 0)
-		return 0;
-
-	/*
-	 * Apply the Canonical Composition Algorithm
-	 */
-
-	if (ctx->finished)
-		ctx->buffer_output_max = ctx->buffer_len;
-	i_assert(ctx->buffer_processed <= ctx->buffer_output_max);
-	if (ctx->compose && ctx->buffer_len > 1)
-		unicode_nf_compose(ctx);
-	ctx->buffer_processed = ctx->buffer_output_max;
-
-	/*
-	 * Forward output
-	 */
-
-	size_t output_len = ctx->buffer_processed;
-	ssize_t sret;
-
-	sret = uniform_transform_forward(trans, ctx->cp_buffer, ctx->cpd_buffer,
-					 output_len, error_r);
-	if (sret < 0)
-		return -1;
-
-	i_assert((size_t)sret <= ctx->buffer_processed);
-	unicode_nf_buffer_delete(ctx, 0, sret);
-	ctx->buffer_processed -= sret;
-	ctx->buffer_output_max -= sret;
-	if ((size_t)sret < output_len)
-		return 0;
-	return 1;
 }
 
 static int
@@ -657,7 +670,17 @@ unicode_nf_flush(struct unicode_transform *trans, bool finished,
 	struct unicode_nf_context *ctx =
 		container_of(trans, struct unicode_nf_context, transform);
 
-	return unicode_nf_flush_more(ctx, finished, error_r);
+	if (finished) {
+		/* No more input, so everything is final */
+		ctx->run_pos = ctx->buffer_len;
+		if (ctx->compose)
+			unicode_nf_compose(ctx);
+		ctx->buffer_output_max = ctx->buffer_len;
+	}
+
+	if (unicode_nf_forward(ctx, error_r) < 0)
+		return -1;
+	return (ctx->buffer_output_max == 0 ? 1 : 0);
 }
 
 /*
