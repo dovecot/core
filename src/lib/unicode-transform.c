@@ -403,28 +403,19 @@ unicode_nf_get_ccc_counts(const uint32_t *decomp, size_t len,
 }
 
 static bool
-unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
-	      const struct unicode_code_point_data *cpd)
+unicode_nf_input_cp(struct unicode_nf_context *ctx, uint32_t cp,
+		    const struct unicode_code_point_data *cpd)
 {
-	static const size_t buffer_size = UNICODE_NF_BUFFER_SIZE;
 	uint8_t nf_qc_mask = ctx->nf_qc_mask;
-	size_t i;
-
-	i_assert(ctx->buffer_len <= buffer_size);
-	if (ctx->buffer_len == buffer_size) {
-		/* Buffer already full */
-		return FALSE;
-	}
-
-	/*
-	 * Decompose the code point
-	 */
-
 	const struct unicode_code_point_data *
 		decomp_cpd[UNICODE_DECOMPOSITION_MAX_LENGTH];
 	const uint32_t *decomp, *decomp_k;
 	uint32_t decomp_hangul[3];
-	size_t len, len_k;
+	size_t len, len_k, i;
+
+	/*
+	 * Decompose the code point
+	 */
 
 	if (cp >= HANGUL_FIRST && cp <= HANGUL_LAST) {
 		len = len_k = unicode_hangul_decompose(cp, decomp_hangul);
@@ -461,19 +452,6 @@ unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
 	i_assert(len <= UNICODE_DECOMPOSITION_MAX_LENGTH);
 	i_assert(len_k <= UNICODE_DECOMPOSITION_MAX_LENGTH);
 
-	if ((ctx->buffer_len + len) > buffer_size &&
-	    (ctx->nonstarter_count + len) <=
-		UNICODE_NF_STREAM_SAFE_NON_STARTER_LEN) {
-		/* Decomposition overflows the buffer. Record and mark it as
-		   pending and come back to it once the buffer is sufficiently
-		   drained. */
-		i_assert(ctx->pending_decomp == 0 || ctx->pending_cp == cp);
-		ctx->pending_decomp = len;
-		ctx->pending_cp = cp;
-		ctx->pending_cpd = cpd;
-		return FALSE;
-	}
-
 	/* UAX15-D4: Stream-Safe Text Process is the process of producing a
 	   Unicode string in Stream-Safe Text Format by processing that string
 	   from start to finish, inserting U+034F COMBINING GRAPHEME JOINER
@@ -497,41 +475,33 @@ unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
 	   4. Return the output string.
 	 */
 	size_t ns_lead, ns_trail;
-	bool seen_starter;
+	bool seen_starter, cgj;
 
 	unicode_nf_get_ccc_counts(decomp_k, len_k,
 				  (decomp_k == decomp ? decomp_cpd : NULL),
 				  &ns_lead, &ns_trail, &seen_starter);
-	ctx->nonstarter_count += ns_lead;
-	if (ctx->nonstarter_count > UNICODE_NF_STREAM_SAFE_NON_STARTER_LEN) {
-		ctx->nonstarter_count = 0;
+	cgj = (ctx->nonstarter_count + ns_lead >
+	       UNICODE_NF_STREAM_SAFE_NON_STARTER_LEN);
+
+	if (ctx->buffer_len + len + (cgj ? 1 : 0) > UNICODE_NF_BUFFER_SIZE) {
+		/* Buffer is full. The final code points need to be
+		   forwarded first. */
+		return FALSE;
+	}
+
+	if (cgj) {
 		unicode_nf_buffer_append(ctx, UNICODE_COMBINING_GRAPHEME_JOINER,
 			unicode_code_point_get_data(
 				UNICODE_COMBINING_GRAPHEME_JOINER));
-	} else if (seen_starter) {
+		ctx->nonstarter_count = 0;
+	}
+	if (seen_starter)
 		ctx->nonstarter_count = ns_trail;
-	}
+	else
+		ctx->nonstarter_count += len_k;
 
-	/*
-	 * Buffer the requested decomposition in canonical order
-	 */
-
-	bool pending_decomp = FALSE;
-
-	i_assert(ctx->buffer_len <= buffer_size);
-	if ((ctx->buffer_len + len) > buffer_size) {
-		/* Decomposition now overflows the buffer. Record and mark it as
-		   pending and come back to it once the buffer is sufficiently
-		   drained. */
-		i_assert(ctx->pending_decomp == 0 || ctx->pending_cp == cp);
-		ctx->pending_decomp = len;
-		ctx->pending_cp = cp;
-		ctx->pending_cpd = cpd;
-		pending_decomp = TRUE;
-	} else {
-		for (i = 0; i < len; i++)
-			unicode_nf_buffer_append(ctx, decomp[i], decomp_cpd[i]);
-	}
+	for (i = 0; i < len; i++)
+		unicode_nf_buffer_append(ctx, decomp[i], decomp_cpd[i]);
 
 	/*
 	 * Everything before the last starter with quick check Yes is final
@@ -548,42 +518,6 @@ unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
 			last_qc_y = i;
 	}
 	ctx->buffer_output_max = last_qc_y;
-	return !pending_decomp;
-}
-
-static bool
-unicode_nf_input_cp(struct unicode_nf_context *ctx, uint32_t cp,
-		    const struct unicode_code_point_data *cpd)
-{
-	static const size_t buffer_size = UNICODE_NF_BUFFER_SIZE;
-
-	i_assert(ctx->buffer_len <= buffer_size);
-	if (ctx->buffer_len == buffer_size ||
-	    (ctx->pending_decomp > 0 &&
-	     ctx->buffer_len > (buffer_size - ctx->pending_decomp))) {
-		/* Buffer is (still too) full. */
-		return FALSE;
-	}
-
-	if (ctx->pending_decomp > 0) {
-		/* Earlier, the buffer was too full for the next decomposition
-		   and it was recorded and marked as pending. Now, we have the
-		   opportunity to continue. */
-		if (!unicode_nf_cp(ctx, ctx->pending_cp, ctx->pending_cpd))
-			return FALSE;
-		ctx->pending_decomp = 0;
-
-		i_assert(ctx->buffer_len <= buffer_size);
-		if (ctx->buffer_output_max > 0 &&
-		    ctx->buffer_len == buffer_size) {
-			/* Pending decomposition filled the buffer completely.
-			 */
-			return FALSE;
-		}
-	}
-
-	/* Normal input of next code point */
-	(void)unicode_nf_cp(ctx, cp, cpd);
 	return TRUE;
 }
 
@@ -717,16 +651,6 @@ unicode_nf_flush(struct unicode_transform *trans, bool finished,
 {
 	struct unicode_nf_context *ctx =
 		container_of(trans, struct unicode_nf_context, transform);
-	int ret;
-
-	ret = unicode_nf_flush_more(ctx, finished, error_r);
-	if (ret <= 0)
-		return ret;
-
-	if (finished && ctx->pending_decomp > 0) {
-		if (unicode_nf_cp(ctx, ctx->pending_cp, ctx->pending_cpd))
-			ctx->pending_decomp = 0;
-	}
 
 	return unicode_nf_flush_more(ctx, finished, error_r);
 }

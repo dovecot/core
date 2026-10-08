@@ -1,8 +1,14 @@
 #ifndef UNICODE_NF_H
 #define UNICODE_NF_H
 
+#include "unicode-data-tables.h"
+
 #define UNICODE_NF_STREAM_SAFE_NON_STARTER_LEN 30
-#define UNICODE_NF_BUFFER_SIZE (UNICODE_NF_STREAM_SAFE_NON_STARTER_LEN + 2)
+/* Space for a starter, the non-starters after it, a CGJ and the longest
+   decomposition */
+#define UNICODE_NF_BUFFER_SIZE \
+	(1 + UNICODE_NF_STREAM_SAFE_NON_STARTER_LEN + 1 + \
+	 UNICODE_DECOMPOSITION_MAX_LENGTH)
 
 struct unicode_code_point_data;
 
@@ -151,10 +157,6 @@ struct unicode_nf_context {
 	const struct unicode_code_point_data *
 		cpd_buffer[UNICODE_NF_BUFFER_SIZE];
 	size_t buffer_len, buffer_processed, buffer_output_max;
-
-	size_t pending_decomp;
-	uint32_t pending_cp;
-	const struct unicode_code_point_data *pending_cpd;
 
 	uint8_t nf_qc_mask;
 

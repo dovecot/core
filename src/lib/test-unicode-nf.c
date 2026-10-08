@@ -584,6 +584,162 @@ static void test_full_buffer(bool compose)
 }
 
 /*
+ * Long runs and the Stream-Safe Text Format
+ */
+
+#define TEST_CGJ 0x034f
+
+static uint8_t test_ccc(uint32_t cp)
+{
+	return unicode_code_point_get_data(cp)->canonical_combining_class;
+}
+
+static void
+test_nf_cps_to_utf8(const uint32_t *cps, size_t count, string_t *dest)
+{
+	str_truncate(dest, 0);
+	uni_ucs4_to_utf8(cps, count, dest);
+}
+
+static void
+test_nf_utf8_to_cps(const buffer_t *str, ARRAY_TYPE(uint32_t) *dest)
+{
+	const unsigned char *data = str->data;
+	size_t size = str->used;
+	unichar_t chr;
+	int bytes;
+
+	array_clear(dest);
+	while (size > 0) {
+		bytes = uni_utf8_get_char_n(data, size, &chr);
+		i_assert(bytes > 0);
+		array_push_back(dest, &chr);
+		data += bytes;
+		size -= bytes;
+	}
+}
+
+static int
+test_nf_write(const void *input, size_t size, enum unicode_nf_type type,
+	      buffer_t *output)
+{
+	switch (type) {
+	case UNICODE_NFD:
+		return uni_utf8_write_nfd(input, size, output);
+	case UNICODE_NFKD:
+		return uni_utf8_write_nfkd(input, size, output);
+	case UNICODE_NFC:
+		return uni_utf8_write_nfc(input, size, output);
+	case UNICODE_NFKC:
+		return uni_utf8_write_nfkc(input, size, output);
+	}
+	i_unreached();
+}
+
+static void
+test_nf_write_cps(const ARRAY_TYPE(uint32_t) *in, enum unicode_nf_type type,
+		  ARRAY_TYPE(uint32_t) *out)
+{
+	string_t *in_utf8 = t_str_new(256);
+	buffer_t *out_utf8 = t_buffer_create(256);
+	const uint32_t *cps;
+	unsigned int count;
+
+	cps = array_get(in, &count);
+	test_nf_cps_to_utf8(cps, count, in_utf8);
+	test_assert(test_nf_write(str_data(in_utf8), str_len(in_utf8), type,
+				  out_utf8) == 0);
+	test_nf_utf8_to_cps(out_utf8, out);
+}
+
+static void
+test_nf_append_n(ARRAY_TYPE(uint32_t) *arr, uint32_t cp, unsigned int n)
+{
+	while (n-- > 0)
+		array_push_back(arr, &cp);
+}
+
+static bool
+test_nf_arrays_equal(const ARRAY_TYPE(uint32_t) *arr1,
+		     const ARRAY_TYPE(uint32_t) *arr2)
+{
+	const uint32_t *cps1, *cps2;
+	unsigned int count1, count2;
+
+	cps1 = array_get(arr1, &count1);
+	cps2 = array_get(arr2, &count2);
+	return count1 == count2 &&
+		memcmp(cps1, cps2, count1 * sizeof(*cps1)) == 0;
+}
+
+static void test_long_runs(void)
+{
+	ARRAY_TYPE(uint32_t) in, out, expected;
+	const uint32_t *cps, *decomp;
+	unsigned int i, count;
+	size_t len;
+	uint32_t cp;
+
+	t_array_init(&in, 128);
+	t_array_init(&out, 128);
+	t_array_init(&expected, 128);
+
+	/* 30 non-starters followed by a decomposition that begins with a
+	   starter */
+	test_nf_append_n(&in, 'a', 1);
+	test_nf_append_n(&in, 0x0301, 30);
+	test_nf_append_n(&in, 0x00e9, 1);
+	test_nf_append_n(&in, 'b', 1);
+	array_clear(&expected);
+	test_nf_append_n(&expected, 'a', 1);
+	test_nf_append_n(&expected, 0x0301, 30);
+	test_nf_append_n(&expected, 'e', 1);
+	test_nf_append_n(&expected, 0x0301, 1);
+	test_nf_append_n(&expected, 'b', 1);
+	test_nf_write_cps(&in, UNICODE_NFD, &out);
+	test_assert(test_nf_arrays_equal(&out, &expected));
+
+	array_clear(&expected);
+	test_nf_append_n(&expected, 0x00e1, 1);
+	test_nf_append_n(&expected, 0x0301, 29);
+	test_nf_append_n(&expected, 0x00e9, 1);
+	test_nf_append_n(&expected, 'b', 1);
+	test_nf_write_cps(&in, UNICODE_NFC, &out);
+	test_assert(test_nf_arrays_equal(&out, &expected));
+
+	/* A long run of different non-starters gets a CGJ after every 30
+	   non-starters, and each part is in canonical order */
+	array_clear(&in);
+	for (cp = 0x0301; cp <= 0x0340; cp++)
+		array_push_back(&in, &cp);
+	test_nf_write_cps(&in, UNICODE_NFD, &out);
+	cps = array_get(&out, &count);
+	test_assert(count == 66);
+	if (count == 66)
+		test_assert(cps[30] == TEST_CGJ && cps[61] == TEST_CGJ);
+	for (i = 1; i < count; i++) {
+		if (cps[i - 1] != TEST_CGJ && cps[i] != TEST_CGJ)
+			test_assert_idx(test_ccc(cps[i - 1]) <=
+					test_ccc(cps[i]), i);
+	}
+
+	/* Long decompositions after non-starters */
+	array_clear(&in);
+	test_nf_append_n(&in, 'a', 1);
+	test_nf_append_n(&in, 0x0301, 25);
+	test_nf_append_n(&in, 0xfdfa, 5);
+	len = unicode_code_point_get_full_decomposition(0xfdfa, FALSE,
+							&decomp);
+	array_clear(&expected);
+	test_nf_append_n(&expected, 'a', 1);
+	test_nf_append_n(&expected, 0x0301, 25);
+	for (i = 0; i < 5; i++)
+		array_append(&expected, decomp, len);
+	test_nf_write_cps(&in, UNICODE_NFKD, &out);
+	test_assert(test_nf_arrays_equal(&out, &expected));
+}
+
+/*
  * Code point data given to the transform
  */
 
@@ -683,6 +839,70 @@ static void test_stream_safe_nfkd(bool compose)
 	test_assert(buffer_cmp(nf_out, expected));
 }
 
+static void test_decomposition_nonstarters(void)
+{
+	const struct unicode_code_point_data *cpd;
+	const uint32_t *decomp, *decomp_k;
+	unsigned int lead, trail, lead_k, trail_k, i;
+	size_t len, len_k;
+	bool starter, starter_k;
+	uint32_t cp;
+
+	/* The normalization buffer is sized for the Stream-Safe Text
+	   Format, which counts non-starters in the NFKD decomposition. Make
+	   sure that the canonical decomposition never has more non-starters
+	   at either end. */
+	for (cp = 0; cp <= 0x10ffff; cp++) {
+		if (!uni_is_valid_ucs4(cp))
+			continue;
+		cpd = unicode_code_point_get_data(cp);
+		len = unicode_code_point_data_get_full_decomposition(
+			cpd, TRUE, &decomp);
+		len_k = unicode_code_point_data_get_full_decomposition(
+			cpd, FALSE, &decomp_k);
+		if (len == 0) {
+			decomp = &cp;
+			len = 1;
+		}
+		if (len_k == 0) {
+			decomp_k = &cp;
+			len_k = 1;
+		}
+
+		lead = trail = lead_k = trail_k = 0;
+		starter = starter_k = FALSE;
+		for (i = 0; i < len; i++) {
+			if (test_ccc(decomp[i]) == 0) {
+				starter = TRUE;
+				trail = 0;
+			} else if (!starter) {
+				lead++;
+			} else {
+				trail++;
+			}
+		}
+		for (i = 0; i < len_k; i++) {
+			if (test_ccc(decomp_k[i]) == 0) {
+				starter_k = TRUE;
+				trail_k = 0;
+			} else if (!starter_k) {
+				lead_k++;
+			} else {
+				trail_k++;
+			}
+		}
+		test_assert_idx(len <= UNICODE_DECOMPOSITION_MAX_LENGTH, cp);
+		test_assert_idx(len_k <= UNICODE_DECOMPOSITION_MAX_LENGTH, cp);
+		test_assert_idx(lead <= lead_k, cp);
+		if (starter_k)
+			test_assert_idx(starter && trail <= trail_k, cp);
+		else if (!starter)
+			test_assert_idx(len <= len_k, cp);
+		else
+			test_assert_idx(trail <= len_k, cp);
+	}
+}
+
 void test_unicode_nf(void)
 {
 	struct istream *input = NULL;
@@ -775,4 +995,12 @@ void test_unicode_nf(void)
 	test_begin("unicode normalization: stream safe nfkd count (nfc)");
 	test_stream_safe_nfkd(TRUE);
 	test_end();
+
+	test_begin("unicode normalization: long runs");
+	test_long_runs();
+	test_end();
+	test_begin("unicode normalization: decomposition non-starters");
+	test_decomposition_nonstarters();
+	test_end();
 }
+
