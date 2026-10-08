@@ -882,7 +882,7 @@ struct mailbox mbox_mailbox = {
 		mbox_save_continue,
 		mbox_save_finish,
 		mbox_save_cancel,
-		mail_storage_copy,
+		mbox_copy,
 		mbox_transaction_save_commit_pre,
 		mbox_transaction_save_commit_post,
 		mbox_transaction_save_rollback,

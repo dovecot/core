@@ -106,6 +106,7 @@ mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
 
 struct mail_save_context *
 mbox_save_alloc(struct mailbox_transaction_context *_t);
+int mbox_copy(struct mail_save_context *ctx, struct mail *mail);
 int mbox_save_begin(struct mail_save_context *ctx, struct istream *input);
 int mbox_save_continue(struct mail_save_context *ctx);
 int mbox_save_finish(struct mail_save_context *ctx);

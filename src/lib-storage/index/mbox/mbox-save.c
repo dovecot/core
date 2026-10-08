@@ -15,6 +15,7 @@
 #include "istream-concat.h"
 #include "message-parser.h"
 #include "mail-user.h"
+#include "mail-copy.h"
 #include "index-mail.h"
 #include "mbox-storage.h"
 #include "mbox-file.h"
@@ -449,6 +450,30 @@ mbox_save_alloc(struct mailbox_transaction_context *t)
 		t->save_ctx = &ctx->ctx;
 	}
 	return t->save_ctx;
+}
+
+int mbox_copy(struct mail_save_context *_ctx, struct mail *mail)
+{
+	struct mbox_save_context *ctx = MBOX_SAVECTX(_ctx);
+	struct mbox_transaction_context *t = MBOX_TRANSCTX(_ctx->transaction);
+
+	if (mail->box == _ctx->transaction->box) {
+		/* Copying within the same mbox. The source mail's stream is
+		   a view to the mailbox's shared raw mbox stream, which
+		   mbox_save_begin() may move or invalidate when it locks and
+		   syncs the mbox to get the next UID (e.g. because another
+		   session or the MDA appended mails). Reading the source mail
+		   afterwards then fails an assert in istream-raw-mbox or reads
+		   from the wrong offset. Lock and sync before the source
+		   mail's stream is opened, so it's opened against the synced
+		   mbox. */
+		if (mbox_save_init_file(ctx, t) < 0) {
+			ctx->failed = TRUE;
+			mailbox_save_cancel(&_ctx);
+			return -1;
+		}
+	}
+	return mail_storage_copy(_ctx, mail);
 }
 
 int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
