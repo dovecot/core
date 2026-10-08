@@ -828,6 +828,46 @@ unicode_nf_check_sink_input(struct unicode_transform *trans,
 	return buf->cp_count;
 }
 
+static int
+unicode_nf_checker_nf_input(struct unicode_nf_checker *unc, uint32_t cp,
+			    const struct unicode_code_point_data *cp_data)
+{
+	struct unicode_transform_buffer buf;
+	const char *error;
+	ssize_t sret;
+
+	/* Add the code point to the buffer first, since the normalization
+	   transform may output it immediately. */
+	i_assert(unc->buffer_len < N_ELEMENTS(unc->cp_buffer));
+	unc->cp_buffer[unc->buffer_len++] = cp;
+
+	i_zero(&buf);
+	buf.cp = &cp;
+	buf.cp_data = &cp_data;
+	buf.cp_count = 1;
+	sret = unicode_transform_input_buf(&unc->nf.transform, &buf, &error);
+	if (sret < 0)
+		return -1;
+	i_assert(sret == 1);
+	return 0;
+}
+
+static int unicode_nf_checker_nf_finish(struct unicode_nf_checker *unc)
+{
+	const char *error;
+	int ret;
+
+	if (unc->buffer_len == 0)
+		return 1;
+
+	ret = unicode_transform_flush(&unc->nf.transform, &error);
+	i_assert(ret != 0);
+	if (ret < 0)
+		return 0;
+	unicode_nf_reset(&unc->nf);
+	return 1;
+}
+
 int unicode_nf_checker_input(struct unicode_nf_checker *unc, uint32_t cp,
 			     const struct unicode_code_point_data **_cp_data)
 {
@@ -837,8 +877,6 @@ int unicode_nf_checker_input(struct unicode_nf_checker *unc, uint32_t cp,
 		*_cp_data = unicode_code_point_get_data(cp);
 
 	const struct unicode_code_point_data *cp_data = *_cp_data;
-	const char *error;
-	int ret;
 
 	unc->cpd_last = cp_data;
 
@@ -852,62 +890,24 @@ int unicode_nf_checker_input(struct unicode_nf_checker *unc, uint32_t cp,
 		return 0;
 	if ((cp_data->nf_quick_check & unc->nf_qc_mask) == unc->nf_qc_yes &&
 	    cp_data->canonical_combining_class == 0) {
-		if (unc->buffer_len > 0) {
-			ret = unicode_transform_flush(&unc->nf.transform,
-						      &error);
-			i_assert(ret != 0);
-			if (ret < 0)
-				return 0;
-			unicode_nf_reset(&unc->nf);
-		}
+		if (unicode_nf_checker_nf_finish(unc) == 0)
+			return 0;
 		i_assert(unc->buffer_len == 0);
 		unc->cp_buffer[0] = cp;
 		return 1;
 	}
 
-	struct unicode_transform_buffer buf;
-	ssize_t sret;
-
-	if (unc->buffer_len == 0 && cpd_last != NULL) {
-		i_zero(&buf);
-		buf.cp = &unc->cp_buffer[0];
-		buf.cp_data = &cpd_last;
-		buf.cp_count = 1;
-
-		unc->buffer_len++;
-		sret = unicode_transform_input_buf(&unc->nf.transform, &buf,
-						   &error);
-		i_assert(sret != 0);
-		if (sret < 0)
-			return 0;
-	}
-
-	i_assert(unc->buffer_len < UNICODE_NF_BUFFER_SIZE);
-	unc->cp_buffer[unc->buffer_len] = cp;
-	unc->buffer_len++;
-
-	i_zero(&buf);
-	buf.cp = &cp;
-	buf.cp_data = &cp_data;
-	buf.cp_count = 1;
-	sret = unicode_transform_input_buf(&unc->nf.transform, &buf, &error);
-	i_assert(sret != 0);
-	if (sret < 0)
+	if (unc->buffer_len == 0 && cpd_last != NULL &&
+	    unicode_nf_checker_nf_input(unc, unc->cp_buffer[0], cpd_last) < 0)
+		return 0;
+	if (unicode_nf_checker_nf_input(unc, cp, cp_data) < 0)
 		return 0;
 	return 1;
 }
 
 int unicode_nf_checker_finish(struct unicode_nf_checker *unc)
 {
-	if (unc->buffer_len == 0)
-		return 1;
-
-	const char *error;
-	int ret;
-
-	ret = unicode_transform_flush(&unc->nf.transform, &error);
-	i_assert(ret != 0);
-	return (ret > 0 ? 1 : 0);
+	return unicode_nf_checker_nf_finish(unc);
 }
 
 /*
