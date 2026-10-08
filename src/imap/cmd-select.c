@@ -408,6 +408,17 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 
 	if (ctx->qresync_uid_validity == status.uidvalidity &&
 	    status.uidvalidity != 0 && !client->nonpermanent_modseqs) {
+		if (ctx->qresync_modseq > status.highest_modseq) {
+			/* The client has seen a higher modseq than we have.
+			   The modseqs have been reset without UIDVALIDITY
+			   changing, which happens when the index is lost or
+			   rebuilt (e.g. mbox and maildir keep their UIDs
+			   outside the index, but not the modseqs). Changes
+			   since the client's modseq can't be computed, so
+			   send all flags and VANISHED for all known UIDs
+			   that no longer exist. */
+			ctx->qresync_modseq = 0;
+		}
 		if ((ret = select_qresync(ctx)) < 0) {
 			client_send_box_error(ctx->cmd, ctx->box);
 			return -1;
