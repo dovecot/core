@@ -144,6 +144,24 @@ oauth2_client_secret_start(const struct oauth2_settings *set,
 					  typeof(context))), \
 		(oauth2_request_callback_t*)callback, (void*)context);
 
+/* RFC 7523 JWT bearer assertion grant: POST the signed assertion to
+   set->grant_url, along with client_id, client_secret and scope when set.
+   The caller builds and signs the assertion. */
+struct oauth2_request *
+oauth2_jwt_bearer_grant_start(const struct oauth2_settings *set,
+			      const struct oauth2_request_input *input,
+			      const char *assertion,
+			      oauth2_request_callback_t *callback,
+			      void *context);
+#define oauth2_jwt_bearer_grant_start(set, input, assertion, callback, \
+				      context) \
+	oauth2_jwt_bearer_grant_start( \
+		set, input - CALLBACK_TYPECHECK( \
+			callback, void(*)(struct oauth2_request_result*, \
+					  typeof(context))), \
+		assertion, \
+		(oauth2_request_callback_t*)callback, (void*)context);
+
 /* Abort without calling callback, use this to cancel the request */
 void oauth2_request_abort(struct oauth2_request **);
 

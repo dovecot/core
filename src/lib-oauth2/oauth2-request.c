@@ -412,6 +412,40 @@ oauth2_client_secret_start(const struct oauth2_settings *set,
 				    payload, FALSE, TRUE);
 }
 
+#undef oauth2_jwt_bearer_grant_start
+struct oauth2_request *
+oauth2_jwt_bearer_grant_start(const struct oauth2_settings *set,
+			      const struct oauth2_request_input *input,
+			      const char *assertion,
+			      oauth2_request_callback_t *callback,
+			      void *context)
+{
+	pool_t pool = pool_alloconly_create_clean("oauth2 request", 1024);
+	string_t *payload = str_new(pool, 128);
+
+	/* Pre-escaped: http_url_escape_param() leaves ':' literal */
+	str_append(payload, "grant_type="
+		   "urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer");
+	str_append(payload, "&assertion=");
+	http_url_escape_param(payload, assertion);
+	if (set->client_id != NULL && *set->client_id != '\0') {
+		str_append(payload, "&client_id=");
+		http_url_escape_param(payload, set->client_id);
+	}
+	if (set->client_secret != NULL && *set->client_secret != '\0') {
+		str_append(payload, "&client_secret=");
+		http_url_escape_param(payload, set->client_secret);
+	}
+	if (set->scope != NULL && *set->scope != '\0') {
+		str_append(payload, "&scope=");
+		http_url_escape_param(payload, set->scope);
+	}
+
+	return oauth2_request_start(set, input, callback, context,
+				    pool, "POST", set->grant_url,
+				    payload, FALSE, TRUE);
+}
+
 void oauth2_request_abort(struct oauth2_request **_req)
 {
 	struct oauth2_request *req = *_req;
