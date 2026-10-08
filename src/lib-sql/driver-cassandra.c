@@ -2061,6 +2061,13 @@ driver_cassandra_error_is_uncertain(CassError error)
 		 * error. The mutation may already have been applied before the
 		 * error, so this is ambiguous rather than a definite failure.
 		 * Callers must not treat it as "the write did not happen". */
+	case CASS_ERROR_SERVER_OVERLOADED:
+		/* The coordinator can throw this while it is already sending
+		 * the mutations to the replicas (when there are too many
+		 * hints in progress). For a logged batch the batchlog has
+		 * already been written by then and will be replayed, and for
+		 * an unlogged batch the earlier mutations have already been
+		 * sent. */
 	case CASS_ERROR_LIB_UNEXPECTED_RESPONSE:
 	case CASS_ERROR_LIB_INVALID_DATA:
 	case CASS_ERROR_LIB_NOT_ENOUGH_DATA:
@@ -2076,7 +2083,6 @@ driver_cassandra_error_is_uncertain(CassError error)
 	 * be the result of a mutation at all. */
 	case CASS_ERROR_SERVER_PROTOCOL_ERROR:
 	case CASS_ERROR_SERVER_BAD_CREDENTIALS:
-	case CASS_ERROR_SERVER_OVERLOADED:
 	case CASS_ERROR_SERVER_IS_BOOTSTRAPPING:
 	case CASS_ERROR_SERVER_TRUNCATE_ERROR:
 	case CASS_ERROR_SERVER_READ_TIMEOUT:
