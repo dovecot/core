@@ -353,16 +353,29 @@ unicode_nf_buffer_delete(struct unicode_nf_context *ctx, size_t offset,
 }
 
 static void
-unicode_nf_buffer_swap(struct unicode_nf_context *ctx,
-		       size_t idx1, size_t idx2)
+unicode_nf_buffer_append(struct unicode_nf_context *ctx, uint32_t cp,
+			 const struct unicode_code_point_data *cpd)
 {
-	uint32_t tmp_cp = ctx->cp_buffer[idx2];
-	const struct unicode_code_point_data *tmp_cpd = ctx->cpd_buffer[idx2];
+	uint8_t ccc = cpd->canonical_combining_class;
+	size_t pos = ctx->buffer_len;
 
-	ctx->cp_buffer[idx2] = ctx->cp_buffer[idx1];
-	ctx->cpd_buffer[idx2] = ctx->cpd_buffer[idx1];
-	ctx->cp_buffer[idx1] = tmp_cp;
-	ctx->cpd_buffer[idx1] = tmp_cpd;
+	i_assert(ctx->buffer_len < UNICODE_NF_BUFFER_SIZE);
+	if (ccc != 0) {
+		/* Apply the Canonical Ordering Algorithm (COA): Insert the
+		   non-starter after the preceding code points that have the
+		   same or a lower combining class. Starters have combining
+		   class 0, so a non-starter is never moved before a
+		   starter. */
+		while (pos > 0 &&
+		       ctx->cpd_buffer[pos - 1]->canonical_combining_class > ccc) {
+			ctx->cp_buffer[pos] = ctx->cp_buffer[pos - 1];
+			ctx->cpd_buffer[pos] = ctx->cpd_buffer[pos - 1];
+			pos--;
+		}
+	}
+	ctx->cp_buffer[pos] = cp;
+	ctx->cpd_buffer[pos] = cpd;
+	ctx->buffer_len++;
 }
 
 static bool
@@ -493,16 +506,14 @@ unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
 		ctx->nonstarter_count = 0;
 		/* Write U+034F COMBINING GRAPHEME JOINER (CGJ)
 		 */
-		ctx->cp_buffer[ctx->buffer_len] = 0x034F;
-		ctx->cpd_buffer[ctx->buffer_len] =
-			unicode_code_point_get_data(0x034F);
-		ctx->buffer_len++;
+		unicode_nf_buffer_append(ctx, 0x034F,
+					 unicode_code_point_get_data(0x034F));
 	} else if (seen_starter) {
 		ctx->nonstarter_count = ns_trail;
 	}
 
 	/*
-	 * Buffer the requested decomposition for COA sorting
+	 * Buffer the requested decomposition in canonical order
 	 */
 
 	bool pending_decomp = FALSE;
@@ -518,47 +529,25 @@ unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
 		ctx->pending_cpd = cpd;
 		pending_decomp = TRUE;
 	} else {
-		for (i = 0; i < len; i++) {
-			ctx->cp_buffer[ctx->buffer_len] = decomp[i];
-			ctx->cpd_buffer[ctx->buffer_len] = decomp_cpd[i];
-			ctx->buffer_len++;
-		}
-		i_assert(ctx->buffer_len <= buffer_size);
+		for (i = 0; i < len; i++)
+			unicode_nf_buffer_append(ctx, decomp[i], decomp_cpd[i]);
 	}
 
 	/*
-	 * Apply the Canonical Ordering Algorithm (COA)
+	 * Everything before the last starter with quick check Yes is final
 	 */
 
-	bool changed = TRUE;
-	size_t last_qc_y;
-	size_t last_starter;
+	size_t last_qc_y = 0;
 
-	while (changed) {
-		changed = FALSE;
-		last_qc_y = 0;
-		last_starter = 0;
+	for (i = I_MAX(1, ctx->buffer_output_max); i < ctx->buffer_len; i++) {
+		const struct unicode_code_point_data *cpd_i =
+			ctx->cpd_buffer[i];
 
-		for (i = I_MAX(1, ctx->buffer_output_max);
-		     i < ctx->buffer_len; i++) {
-			const struct unicode_code_point_data
-				*cpd_i = ctx->cpd_buffer[i],
-				*cpd_im1 = ctx->cpd_buffer[i - 1];
-			uint8_t ccc_i = cpd_i->canonical_combining_class;
-			uint8_t ccc_im1 = cpd_im1->canonical_combining_class;
-			bool nqc = ((cpd_i->nf_quick_check & nf_qc_mask) == 0);
-
-			if (ccc_i == 0) {
-				last_starter = i;
-				if (nqc)
-					last_qc_y = i;
-			} else if (ccc_im1 > ccc_i) {
-				unicode_nf_buffer_swap(ctx, i - 1, i);
-				changed = TRUE;
-			}
-		}
+		if (cpd_i->canonical_combining_class == 0 &&
+		    (cpd_i->nf_quick_check & nf_qc_mask) == 0)
+			last_qc_y = i;
 	}
-	ctx->buffer_output_max = I_MIN(last_qc_y, last_starter);
+	ctx->buffer_output_max = last_qc_y;
 	return !pending_decomp;
 }
 
