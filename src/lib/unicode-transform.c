@@ -274,6 +274,8 @@ static uint32_t unicode_hangul_compose_pair(uint32_t l, uint32_t r)
  * Normalization transform: NFD, NFKD, NFC, NFKC
  */
 
+#define UNICODE_COMBINING_GRAPHEME_JOINER 0x034f
+
 static ssize_t
 unicode_nf_input(struct unicode_transform *trans,
 		 const struct unicode_transform_buffer *buf,
@@ -504,10 +506,9 @@ unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
 	ctx->nonstarter_count += ns_lead;
 	if (ctx->nonstarter_count > UNICODE_NF_STREAM_SAFE_NON_STARTER_LEN) {
 		ctx->nonstarter_count = 0;
-		/* Write U+034F COMBINING GRAPHEME JOINER (CGJ)
-		 */
-		unicode_nf_buffer_append(ctx, 0x034F,
-					 unicode_code_point_get_data(0x034F));
+		unicode_nf_buffer_append(ctx, UNICODE_COMBINING_GRAPHEME_JOINER,
+			unicode_code_point_get_data(
+				UNICODE_COMBINING_GRAPHEME_JOINER));
 	} else if (seen_starter) {
 		ctx->nonstarter_count = ns_trail;
 	}
