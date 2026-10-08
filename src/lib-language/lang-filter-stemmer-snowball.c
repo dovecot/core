@@ -76,11 +76,13 @@ lang_filter_stemmer_snowball_filter(struct lang_filter *filter,
 
 	base = sb_stemmer_stem(sp->stemmer, (const unsigned char *)*token, strlen(*token));
 	if (base == NULL) {
-		/* the only reason why this could fail is because of
-		   out of memory. */
-		i_fatal_status(FATAL_OUTOFMEM,
-			       "sb_stemmer_stem(len=%zu) failed: Out of memory",
-			       strlen(*token));
+		/* This fails on out of memory, but also on bugs in the
+		   stemming algorithms. For example libstemmer v2.2.0 Greek
+		   stemmer fails for some words. Since the input can come from
+		   untrusted mails or search queries, keep the original token
+		   unchanged. Don't log anything, since users could flood logs
+		   with it. */
+		return 1;
 	}
 	int len = sb_stemmer_length(sp->stemmer);
 	if (len > 0)

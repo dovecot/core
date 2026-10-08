@@ -12,9 +12,13 @@
 #include "lang-settings.h"
 
 #include <stdio.h>
+#ifdef HAVE_LANG_STEMMER
+#  include <libstemmer.h>
+#endif
 
 #define MALFORMED "malformed"
 #define UNKNOWN "bebobidoop"
+#define LANG_EL "el"
 #define LANG_EN "en"
 #define LANG_FI "fi"
 #define LANG_FR "fr"
@@ -443,6 +447,39 @@ static void test_lang_filter_stemmer_snowball_stem_french(void)
 	}
 	lang_filter_unref(&stemmer);
 	test_assert(stemmer == NULL);
+	test_end();
+}
+
+static void test_lang_filter_stemmer_snowball_stem_failure(void)
+{
+	struct lang_filter *stemmer;
+	const char *error;
+	/* libstemmer v2.2.0 Greek stemmer fails with these words, newer
+	   versions stem them successfully. */
+	const char * const tokens[] = {
+		"\xCE\xB9\xCF\x83\xCE\xB1\xCE\xB9\xCF\x83\xCE\xB1",
+		"\xCE\xAF\xCF\x83\xCE\xB1\xCE\xAF\xCF\x83\xCE\xB1",
+		NULL
+	};
+	const char *token;
+
+	/* Old libstemmer versions don't support Greek */
+	struct sb_stemmer *sb = sb_stemmer_new(LANG_EL, "UTF_8");
+	if (sb == NULL) {
+		i_info("Greek not supported by libstemmer, "
+		       "skipping stem failure test");
+		return;
+	}
+	sb_stemmer_delete(sb);
+
+	test_begin("lang filter stem failure");
+	test_assert(lang_filter_create(lang_filter_stemmer_snowball, NULL, make_settings(LANG_EL, NULL), event, &stemmer, &error) == 0);
+	for (unsigned int i = 0; tokens[i] != NULL; i++) {
+		token = tokens[i];
+		test_assert_idx(lang_filter(stemmer, &token, &error) > 0, i);
+		test_assert_idx(token != NULL && token[0] != '\0', i);
+	}
+	lang_filter_unref(&stemmer);
 	test_end();
 }
 
@@ -1121,6 +1158,7 @@ int main(void)
 #ifdef HAVE_LANG_STEMMER
 		test_lang_filter_stemmer_snowball_stem_english,
 		test_lang_filter_stemmer_snowball_stem_french,
+		test_lang_filter_stemmer_snowball_stem_failure,
 		test_lang_filter_stopwords_stemmer_eng,
 #endif
 		/* run before any test loads the libicu module */
