@@ -414,27 +414,26 @@ static void unicode_nf_compose(struct unicode_nf_context *ctx)
 		}
 
 		uint8_t ccc = cpd->canonical_combining_class;
-		uint32_t comp = 0x0000;
 		if (last_ccc < (int)ccc) {
-			comp = unicode_nf_compose_pair(
+			uint32_t comp = unicode_nf_compose_pair(
 				ctx->cp_buffer[starter], cp,
 				&ctx->cpd_buffer[starter]);
+
+			if (comp > 0x0000) {
+				ctx->cp_buffer[starter] = comp;
+				ctx->cpd_buffer[starter] = NULL;
+				continue;
+			}
 		}
-		if (comp > 0x0000) {
-			ctx->cp_buffer[starter] = comp;
-			ctx->cpd_buffer[starter] = NULL;
-		} else if (ccc == 0) {
+		if (ccc == 0) {
 			starter = out_pos;
 			last_ccc = -1;
-			ctx->cp_buffer[out_pos] = cp;
-			ctx->cpd_buffer[out_pos] = cpd;
-			out_pos++;
 		} else {
 			last_ccc = ccc;
-			ctx->cp_buffer[out_pos] = cp;
-			ctx->cpd_buffer[out_pos] = cpd;
-			out_pos++;
 		}
+		ctx->cp_buffer[out_pos] = cp;
+		ctx->cpd_buffer[out_pos] = cpd;
+		out_pos++;
 	}
 	if (ctx->finished) {
 		ctx->buffer_len = ctx->buffer_output_max = out_pos;
