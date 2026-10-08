@@ -394,6 +394,56 @@ unicode_nf_compose_pair(uint32_t l, uint32_t r,
 	return unicode_code_point_data_find_composition(*l_data, r);
 }
 
+static void unicode_nf_compose(struct unicode_nf_context *ctx)
+{
+	size_t in_pos, out_pos, starter;
+	int last_ccc;
+
+	out_pos = 1;
+	last_ccc = -1;
+	starter = 0;
+	for (in_pos = I_MAX(1, ctx->buffer_processed);
+	     in_pos < ctx->buffer_output_max; in_pos++) {
+		uint32_t cp = ctx->cp_buffer[in_pos];
+		const struct unicode_code_point_data *cpd =
+			ctx->cpd_buffer[in_pos];
+
+		if (cpd == NULL) {
+			ctx->cpd_buffer[in_pos] = cpd =
+				unicode_code_point_get_data(cp);
+		}
+
+		uint8_t ccc = cpd->canonical_combining_class;
+		uint32_t comp = 0x0000;
+		if (last_ccc < (int)ccc) {
+			comp = unicode_nf_compose_pair(
+				ctx->cp_buffer[starter], cp,
+				&ctx->cpd_buffer[starter]);
+		}
+		if (comp > 0x0000) {
+			ctx->cp_buffer[starter] = comp;
+			ctx->cpd_buffer[starter] = NULL;
+		} else if (ccc == 0) {
+			starter = out_pos;
+			last_ccc = -1;
+			ctx->cp_buffer[out_pos] = cp;
+			ctx->cpd_buffer[out_pos] = cpd;
+			out_pos++;
+		} else {
+			last_ccc = ccc;
+			ctx->cp_buffer[out_pos] = cp;
+			ctx->cpd_buffer[out_pos] = cpd;
+			out_pos++;
+		}
+	}
+	if (ctx->finished) {
+		ctx->buffer_len = ctx->buffer_output_max = out_pos;
+	} else if (in_pos > out_pos) {
+		unicode_nf_buffer_delete(ctx, out_pos, (in_pos - out_pos));
+		ctx->buffer_output_max = out_pos;
+	}
+}
+
 static void
 unicode_nf_get_ccc_counts(const uint32_t *decomp, size_t len,
 			  const struct unicode_code_point_data *const *decomp_cpd,
@@ -573,55 +623,8 @@ unicode_nf_flush_more(struct unicode_nf_context *ctx, bool finished,
 	if (ctx->finished)
 		ctx->buffer_output_max = ctx->buffer_len;
 	i_assert(ctx->buffer_processed <= ctx->buffer_output_max);
-	if (ctx->compose && ctx->buffer_len > 1) {
-		size_t in_pos, out_pos, starter;
-		int last_ccc;
-
-		out_pos = 1;
-		last_ccc = -1;
-		starter = 0;
-		for (in_pos = I_MAX(1, ctx->buffer_processed);
-		     in_pos < ctx->buffer_output_max; in_pos++) {
-			uint32_t cp = ctx->cp_buffer[in_pos];
-			const struct unicode_code_point_data *cpd =
-				ctx->cpd_buffer[in_pos];
-
-			if (cpd == NULL) {
-				ctx->cpd_buffer[in_pos] = cpd =
-					unicode_code_point_get_data(cp);
-			}
-
-			uint8_t ccc = cpd->canonical_combining_class;
-			uint32_t comp = 0x0000;
-			if (last_ccc < (int)ccc) {
-				comp = unicode_nf_compose_pair(
-					ctx->cp_buffer[starter], cp,
-					&ctx->cpd_buffer[starter]);
-			}
-			if (comp > 0x0000) {
-				ctx->cp_buffer[starter] = comp;
-				ctx->cpd_buffer[starter] = NULL;
-			} else if (ccc == 0) {
-				starter = out_pos;
-				last_ccc = -1;
-				ctx->cp_buffer[out_pos] = cp;
-				ctx->cpd_buffer[out_pos] = cpd;
-				out_pos++;
-			} else {
-				last_ccc = ccc;
-				ctx->cp_buffer[out_pos] = cp;
-				ctx->cpd_buffer[out_pos] = cpd;
-				out_pos++;
-			}
-		}
-		if (finished) {
-			ctx->buffer_len = ctx->buffer_output_max = out_pos;
-		} else if (in_pos > out_pos) {
-			unicode_nf_buffer_delete(ctx, out_pos,
-						 (in_pos - out_pos));
-			ctx->buffer_output_max = out_pos;
-		}
-	}
+	if (ctx->compose && ctx->buffer_len > 1)
+		unicode_nf_compose(ctx);
 	ctx->buffer_processed = ctx->buffer_output_max;
 
 	/*
