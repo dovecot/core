@@ -240,18 +240,21 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 	}
 	array_free(&src_uids);
 
-	if (!copy_ctx->move ||
-	    copy_ctx->srcbox == copy_ctx->destbox) {
-		/* copying or moving within the same mailbox
-		   succeeded or failed */
+	if (copy_ctx->move && ret <= 0) {
+		/* move failed, don't expunge anything. This applies also
+		   when moving within the same mailbox: src_trans contains
+		   the expunges of the already moved mails, but their copies
+		   in the destination transaction are rolled back. */
+		mailbox_transaction_rollback(&src_trans);
+	} else if (!copy_ctx->move ||
+		   copy_ctx->srcbox == copy_ctx->destbox) {
+		/* copying succeeded or failed, or moving within the same
+		   mailbox succeeded */
 		if (mailbox_transaction_commit(&src_trans) < 0 && ret >= 0) {
 			copy_ctx->error_string =
 				mailbox_get_last_error(copy_ctx->srcbox, &copy_ctx->mail_error);
 			ret = -1;
 		}
-	} else if (ret <= 0) {
-		/* move failed, don't expunge anything */
-		mailbox_transaction_rollback(&src_trans);
 	} else {
 		/* move succeeded */
 		if (mailbox_transaction_commit(&src_trans) < 0 ||
