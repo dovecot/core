@@ -650,6 +650,39 @@ static void test_hangul_cp_data(enum unicode_nf_type type)
 	}
 }
 
+static void test_stream_safe_nfkd(bool compose)
+{
+	string_t *input = t_str_new(128), *expected = t_str_new(128);
+	buffer_t *nf_out = t_buffer_create(128);
+	unsigned int i;
+
+	/* U+FF9E HALFWIDTH KATAKANA VOICED SOUND MARK is a starter, but its
+	   NFKD decomposition U+3099 is a non-starter. The Stream-Safe Text
+	   Process counts the non-starters in the NFKD decomposition also with
+	   NFD and NFC, so a CGJ is inserted before it. */
+	str_append_c(input, 'a');
+	for (i = 0; i < 30; i++)
+		uni_ucs4_to_utf8_c(0x0301, input);
+	uni_ucs4_to_utf8_c(0xff9e, input);
+
+	if (compose) {
+		uni_ucs4_to_utf8_c(0x00e1, expected);
+		for (i = 0; i < 29; i++)
+			uni_ucs4_to_utf8_c(0x0301, expected);
+		test_assert(uni_utf8_write_nfc(str_data(input), str_len(input),
+					       nf_out) == 0);
+	} else {
+		str_append_c(expected, 'a');
+		for (i = 0; i < 30; i++)
+			uni_ucs4_to_utf8_c(0x0301, expected);
+		test_assert(uni_utf8_write_nfd(str_data(input), str_len(input),
+					       nf_out) == 0);
+	}
+	uni_ucs4_to_utf8_c(0x034f, expected);
+	uni_ucs4_to_utf8_c(0xff9e, expected);
+	test_assert(buffer_cmp(nf_out, expected));
+}
+
 void test_unicode_nf(void)
 {
 	struct istream *input = NULL;
@@ -734,5 +767,12 @@ void test_unicode_nf(void)
 	test_hangul_cp_data(UNICODE_NFKD);
 	test_hangul_cp_data(UNICODE_NFC);
 	test_hangul_cp_data(UNICODE_NFKC);
+	test_end();
+
+	test_begin("unicode normalization: stream safe nfkd count (nfd)");
+	test_stream_safe_nfkd(FALSE);
+	test_end();
+	test_begin("unicode normalization: stream safe nfkd count (nfc)");
+	test_stream_safe_nfkd(TRUE);
 	test_end();
 }

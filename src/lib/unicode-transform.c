@@ -420,7 +420,7 @@ unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
 		decomp_k = decomp;
 		if (ctx->canonical) {
 			len_k = unicode_code_point_data_get_full_decomposition(
-				cpd, ctx->canonical, &decomp_k);
+				cpd, FALSE, &decomp_k);
 			if (len_k == 0) {
 				decomp_k = decomp;
 				len_k = len;
@@ -477,14 +477,13 @@ unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
 	bool seen_starter = FALSE;
 	for (i = 0; i < len_k; i++) {
 		if (cpd == NULL)
-			cpd = unicode_code_point_get_data(decomp[i]);
+			cpd = unicode_code_point_get_data(decomp_k[i]);
 
 		uint8_t ccc = cpd->canonical_combining_class;
 
-		if (decomp == decomp_k) {
+		if (decomp == decomp_k)
 			decomp_cpd[i] = cpd;
-			cpd = NULL;
-		}
+		cpd = NULL;
 
 		if (ccc == 0)
 			seen_starter = TRUE;
