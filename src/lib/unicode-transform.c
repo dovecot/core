@@ -591,13 +591,16 @@ unicode_nf_input(struct unicode_transform *trans,
 {
 	struct unicode_nf_context *ctx =
 		container_of(trans, struct unicode_nf_context, transform);
-	size_t n;
+	size_t n = 0;
 
-	for (n = 0; n < buf->cp_count; n++) {
-		if (!unicode_nf_input_cp(ctx, buf->cp[n],
-					 (buf->cp_data == NULL ?
-					  NULL : buf->cp_data[n])))
-			break;
+	while (n < buf->cp_count) {
+		if (unicode_nf_input_cp(ctx, buf->cp[n],
+					(buf->cp_data == NULL ?
+					 NULL : buf->cp_data[n]))) {
+			n++;
+			continue;
+		}
+		break;
 	}
 	return n;
 }
