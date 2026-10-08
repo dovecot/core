@@ -1,9 +1,12 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "test-lib.h"
+#include "array.h"
 #include "strnum.h"
 #include "str.h"
 #include "unichar.h"
+#include "unicode-data.h"
+#include "unicode-transform.h"
 #include "istream.h"
 
 #include <fcntl.h>
@@ -580,6 +583,73 @@ static void test_full_buffer(bool compose)
 	test_assert(ret == 0);
 }
 
+/*
+ * Code point data given to the transform
+ */
+
+struct test_cpd_sink {
+	struct unicode_transform transform;
+	ARRAY_TYPE(uint32_t) cps;
+	ARRAY(const struct unicode_code_point_data *) cp_data;
+};
+
+static ssize_t
+test_cpd_sink_input(struct unicode_transform *trans,
+		    const struct unicode_transform_buffer *buf,
+		    const char **error_r ATTR_UNUSED)
+{
+	struct test_cpd_sink *sink =
+		container_of(trans, struct test_cpd_sink, transform);
+
+	array_append(&sink->cps, buf->cp, buf->cp_count);
+	array_append(&sink->cp_data, buf->cp_data, buf->cp_count);
+	return buf->cp_count;
+}
+
+static const struct unicode_transform_def test_cpd_sink_def = {
+	.input = test_cpd_sink_input,
+};
+
+static void test_hangul_cp_data(enum unicode_nf_type type)
+{
+	static const uint32_t in[] = { 0xac00, 0xac01 };
+	const struct unicode_code_point_data *in_data[N_ELEMENTS(in)];
+	struct unicode_transform_buffer buf = {
+		.cp = in,
+		.cp_data = in_data,
+		.cp_count = N_ELEMENTS(in),
+	};
+	struct unicode_nf_context nf;
+	struct test_cpd_sink sink;
+	const struct unicode_code_point_data *const *out_data;
+	const uint32_t *out;
+	unsigned int i, count;
+	const char *error;
+
+	for (i = 0; i < N_ELEMENTS(in); i++)
+		in_data[i] = unicode_code_point_get_data(in[i]);
+
+	unicode_nf_init(&nf, type);
+	i_zero(&sink);
+	unicode_transform_init(&sink.transform, &test_cpd_sink_def);
+	t_array_init(&sink.cps, 8);
+	t_array_init(&sink.cp_data, 8);
+	unicode_transform_chain(&nf.transform, &sink.transform);
+
+	test_assert(unicode_transform_input_buf(&nf.transform, &buf,
+						&error) == N_ELEMENTS(in));
+	test_assert(unicode_transform_flush(&nf.transform, &error) == 1);
+
+	out = array_get(&sink.cps, &count);
+	out_data = array_front(&sink.cp_data);
+	test_assert(count > 0);
+	for (i = 0; i < count; i++) {
+		test_assert_idx(out_data[i] == NULL ||
+				out_data[i] ==
+				unicode_code_point_get_data(out[i]), i);
+	}
+}
+
 void test_unicode_nf(void)
 {
 	struct istream *input = NULL;
@@ -657,5 +727,12 @@ void test_unicode_nf(void)
 	test_end();
 	test_begin("unicode normalization: full buffer (nfc)");
 	test_full_buffer(TRUE);
+	test_end();
+
+	test_begin("unicode normalization: hangul code point data");
+	test_hangul_cp_data(UNICODE_NFD);
+	test_hangul_cp_data(UNICODE_NFKD);
+	test_hangul_cp_data(UNICODE_NFC);
+	test_hangul_cp_data(UNICODE_NFKC);
 	test_end();
 }

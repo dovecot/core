@@ -405,6 +405,8 @@ unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
 	if (cp >= HANGUL_FIRST && cp <= HANGUL_LAST) {
 		len = len_k = unicode_hangul_decompose(cp, decomp_hangul);
 		decomp = decomp_k = decomp_hangul;
+		/* The data is for the syllable, not for its first jamo */
+		cpd = NULL;
 	} else {
 		if (cpd == NULL)
 			cpd = unicode_code_point_get_data(cp);
