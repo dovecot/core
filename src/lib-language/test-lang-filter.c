@@ -450,6 +450,25 @@ static void test_lang_filter_stemmer_snowball_stem_french(void)
 	test_end();
 }
 
+static void test_lang_filter_stemmer_snowball_unknown_language(void)
+{
+	struct lang_filter *stemmer;
+	const char *error;
+	const char *token;
+
+	test_begin("lang filter stem unknown language");
+	test_assert(lang_filter_create(lang_filter_stemmer_snowball, NULL, make_settings(UNKNOWN, NULL), event, &stemmer, &error) == 0);
+	for (unsigned int i = 0; i < 2; i++) {
+		token = "foo";
+		error = NULL;
+		test_assert_idx(lang_filter(stemmer, &token, &error) < 0, i);
+		test_assert_idx(token == NULL, i);
+		test_assert_idx(error != NULL, i);
+	}
+	lang_filter_unref(&stemmer);
+	test_end();
+}
+
 static void test_lang_filter_stemmer_snowball_stem_failure(void)
 {
 	struct lang_filter *stemmer;
@@ -1158,6 +1177,7 @@ int main(void)
 #ifdef HAVE_LANG_STEMMER
 		test_lang_filter_stemmer_snowball_stem_english,
 		test_lang_filter_stemmer_snowball_stem_french,
+		test_lang_filter_stemmer_snowball_unknown_language,
 		test_lang_filter_stemmer_snowball_stem_failure,
 		test_lang_filter_stopwords_stemmer_eng,
 #endif

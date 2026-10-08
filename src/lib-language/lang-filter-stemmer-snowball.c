@@ -55,7 +55,6 @@ lang_filter_stemmer_snowball_create_stemmer(struct lang_filter_stemmer_snowball 
 		*error_r = t_strdup_printf(
 			"Creating a Snowball stemmer for language '%s' failed.",
 			sp->lang->name);
-		lang_filter_stemmer_snowball_destroy(&sp->filter);
 		return -1;
 	}
 	return 0;
