@@ -380,6 +380,20 @@ unicode_nf_buffer_append(struct unicode_nf_context *ctx, uint32_t cp,
 	ctx->buffer_len++;
 }
 
+static uint32_t
+unicode_nf_compose_pair(uint32_t l, uint32_t r,
+			const struct unicode_code_point_data **l_data)
+{
+	uint32_t comp = unicode_hangul_compose_pair(l, r);
+
+	if (comp > 0x0000)
+		return comp;
+
+	if (*l_data == NULL)
+		*l_data = unicode_code_point_get_data(l);
+	return unicode_code_point_data_find_composition(*l_data, r);
+}
+
 static void
 unicode_nf_get_ccc_counts(const uint32_t *decomp, size_t len,
 			  const struct unicode_code_point_data *const *decomp_cpd,
@@ -537,20 +551,6 @@ unicode_nf_input(struct unicode_transform *trans,
 			break;
 	}
 	return n;
-}
-
-static uint32_t
-unicode_nf_compose_pair(uint32_t l, uint32_t r,
-			const struct unicode_code_point_data **l_data)
-{
-	uint32_t comp = unicode_hangul_compose_pair(l, r);
-
-	if (comp > 0x0000)
-		return comp;
-
-	if (*l_data == NULL)
-		*l_data = unicode_code_point_get_data(l);
-	return unicode_code_point_data_find_composition(*l_data, r);
 }
 
 static int
