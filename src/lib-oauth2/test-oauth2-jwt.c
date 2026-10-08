@@ -11,6 +11,7 @@
 #include "array.h"
 #include "iso8601-date.h"
 #include "json-generator.h"
+#include "json-tree.h"
 #include "settings.h"
 #include "oauth2.h"
 #include "oauth2-private.h"
@@ -1194,6 +1195,245 @@ static void test_jwt_ec_token(void)
 	test_end();
 }
 
+/* Returns an RSA key (curve NULL) or a new EC key on the named curve, with
+   its public key as PEM in *pubkey_r. */
+static struct dcrypt_private_key *
+sign_key_get(const char *curve, const char **pubkey_r)
+{
+	struct dcrypt_private_key *key;
+	struct dcrypt_keypair pair;
+	const char *error;
+
+	if (curve == NULL) {
+		if (!dcrypt_key_load_private(&key, rsa_private_key, NULL, NULL,
+					     &error))
+			i_fatal("dcrypt_key_load_private() failed: %s", error);
+		*pubkey_r = rsa_public_key;
+		return key;
+	}
+
+	string_t *pem = t_str_new(512);
+
+	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, curve, &error) ||
+	    !dcrypt_key_store_public(pair.pub, DCRYPT_FORMAT_PEM, pem, &error))
+		i_fatal("EC key %s: %s", curve, error);
+	dcrypt_key_unref_public(&pair.pub);
+	*pubkey_r = str_c(pem);
+	return pair.priv;
+}
+
+static struct json_tree *sign_claims(time_t iat)
+{
+	struct json_tree_node *root;
+	struct json_tree *claims = json_tree_create_object(&root);
+
+	json_tree_node_add_string(root, "sub", "testuser");
+	json_tree_node_add_number_int(root, "iat", iat);
+	json_tree_node_add_number_int(root, "exp", iat + 600);
+	return claims;
+}
+
+static void test_jwt_sign_verify(void)
+{
+	static const struct {
+		const char *curve;
+		const char *alg;
+		const char *expect_alg;
+		size_t sig_len;
+	} test_cases[] = {
+		{ NULL, "RS256", "RS256", 256 },
+		{ NULL, "RS384", "RS384", 256 },
+		{ NULL, "RS512", "RS512", 256 },
+		{ NULL, "PS256", "PS256", 256 },
+		{ NULL, "PS384", "PS384", 256 },
+		{ NULL, "PS512", "PS512", 256 },
+		{ NULL, NULL, "RS256", 256 },
+		{ "prime256v1", "ES256", "ES256", 64 },
+		{ "prime256v1", NULL, "ES256", 64 },
+		{ "secp384r1", "ES384", "ES384", 96 },
+		{ "secp384r1", NULL, "ES384", 96 },
+		{ "secp521r1", "ES512", "ES512", 132 },
+		{ "secp521r1", NULL, "ES512", 132 },
+		{ "secp256k1", NULL, "ES256K", 64 },
+	};
+
+	if (skip_dcrypt)
+		return;
+
+	test_begin("JWT sign and verify");
+	for (unsigned int i = 0; i < N_ELEMENTS(test_cases); i++) T_BEGIN {
+		const char *pubkey, *error;
+		struct dcrypt_private_key *key =
+			sign_key_get(test_cases[i].curve, &pubkey);
+		struct json_tree *claims = sign_claims(time(NULL));
+		const char *header = t_strdup_printf(
+			"{\"typ\":\"JWT\",\"alg\":\"%s\"}",
+			test_cases[i].expect_alg);
+
+		evict_key(test_cases[i].expect_alg);
+		save_key(test_cases[i].expect_alg, pubkey);
+
+		/* ECDSA r and s need padding only when they are short. In 16
+		   signatures ES512 reliably gets one, since the top byte of
+		   its r is zero about half the time. The other curves rarely
+		   do. */
+		for (unsigned int n = 0; n < 16; n++) {
+			string_t *token = t_str_new(512);
+
+			/* the signature must not cover what dest already has */
+			str_append(token, "x.");
+			if (oauth2_jwt_sign(key, test_cases[i].alg, NULL,
+					    claims, token, &error) < 0) {
+				test_failed(t_strdup_printf("%u: %s", i, error));
+				break;
+			}
+			test_assert_idx(str_begins_with(str_c(token), "x."), i);
+
+			const char *jwt = str_c(token) + 2;
+			const char *const *parts = t_strsplit(jwt, ".");
+			buffer_t *hdr = t_base64url_decode_str(
+				BASE64_DECODE_FLAG_NO_PADDING, parts[0]);
+			buffer_t *sig = t_base64url_decode_str(
+				BASE64_DECODE_FLAG_NO_PADDING, parts[2]);
+
+			test_assert_strcmp_idx(str_c(hdr), header, i);
+			test_assert_ucmp_idx(sig->used, ==,
+					     test_cases[i].sig_len, i);
+			test_jwt_token(jwt);
+		}
+		json_tree_unref(&claims);
+		dcrypt_key_unref_private(&key);
+	} T_END;
+	test_end();
+}
+
+static void test_jwt_sign_known_answer(void)
+{
+	/* RSA PKCS#1 v1.5 signatures are deterministic. The expected
+	   tokens were made with "openssl dgst -sign" over the same input. */
+	static const struct {
+		const char *alg;
+		const char *token;
+	} test_cases[] = {
+		{ "RS256",
+		  "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImsxIn0.eyJzdWIi"
+		  "OiJ0ZXN0dXNlciIsImlhdCI6MTcwMDAwMDAwMCwiZXhwIjoxNzAwMDAwNjAw"
+		  "fQ.mNteizbLipdQOOsDqqKJH9NyjpnH-DI9TAt9xjhE3rg7tbCTTcGPZx7XV"
+		  "DQ2vNoeW-xC1_h0__9A5vSdN5e-fpPbSwJYQP9euJbHbP-CsGZy9gY8rbhck"
+		  "2hTYDw-qllsBjlgGHbyidD-0czO39o4bYsBPw0jUeceesd7S47thoAp5srdB"
+		  "DEZl21Z2POicaAM48PZRrsxzf89ZM1gIXSrFzBpCpXYm6fSPTK3oAaDGv1Nb"
+		  "LBEX6eH9sjna3LnFF4Cez_9IfLXtm6IlI1upmv_0gwGYRZH6o9euv3yu7A2q"
+		  "5QXkNaLXmhooYoJFi1_kM5rCd3zGvCa6YeaMkvuSEEJlQ"
+		},
+		{ "RS512",
+		  "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzUxMiIsImtpZCI6ImsxIn0.eyJzdWIi"
+		  "OiJ0ZXN0dXNlciIsImlhdCI6MTcwMDAwMDAwMCwiZXhwIjoxNzAwMDAwNjAw"
+		  "fQ.YVLGcSA7Yh2BeR1cTtGcESXKjVmRPLJ_D4ylLog8o7wU1l1uEYNwFM5W3"
+		  "pJVB3duSwt-jIy2R4h3whu6f1C_U_j97-67uWRtRNDpDx_n4n2K43spNqShQ"
+		  "cpFrabvKLms3Gi_-XItyE0_Co4IgNPSJ-nGU9sZeKHpYLAwXrJ1a9eGKO6zl"
+		  "H7Kq8UhW_H_Q1lv5B4cDNY4sEtGbgQW4qRRdPaLmcDr7taKHeoz4oWBvJVNH"
+		  "Hlhf-lO_RTvcUvYFzsMc8IDu7iIyJprzFlyJ1KYG3id5RmuhYrnR7Pxf7UwO"
+		  "9uN8m6xxwTC2ZsUD20LbTbSp1RZxAJkH7px9oF_L_Ab-g"
+		},
+	};
+
+	if (skip_dcrypt)
+		return;
+
+	test_begin("JWT sign known answer");
+	for (unsigned int i = 0; i < N_ELEMENTS(test_cases); i++) T_BEGIN {
+		const char *pubkey, *error;
+		struct dcrypt_private_key *key = sign_key_get(NULL, &pubkey);
+		struct json_tree *claims = sign_claims(1700000000);
+		string_t *token = t_str_new(512);
+
+		test_assert_idx(oauth2_jwt_sign(key, test_cases[i].alg, "k1",
+						claims, token, &error) == 0, i);
+		test_assert_strcmp_idx(str_c(token), test_cases[i].token, i);
+		json_tree_unref(&claims);
+		dcrypt_key_unref_private(&key);
+	} T_END;
+	test_end();
+}
+
+static void test_jwt_sign_errors(void)
+{
+	static const struct {
+		const char *curve;
+		const char *alg;
+		const char *error;
+	} test_cases[] = {
+		{ NULL, "ES256", "Algorithm 'ES256' does not match the key" },
+		{ NULL, "HS256", "Unsupported algorithm 'HS256'" },
+		{ NULL, "none", "Unsupported algorithm 'none'" },
+		{ NULL, "rs256", "Unsupported algorithm 'rs256'" },
+		{ "prime256v1", "RS256",
+		  "Algorithm 'RS256' does not match the key" },
+		{ "prime256v1", "PS256",
+		  "Algorithm 'PS256' does not match the key" },
+		{ "prime256v1", "ES384",
+		  "Algorithm 'ES384' does not match the key" },
+		{ "secp384r1", "ES256",
+		  "Algorithm 'ES256' does not match the key" },
+		{ "secp521r1", "ES256K",
+		  "Algorithm 'ES256K' does not match the key" },
+		{ "secp224r1", NULL, "No algorithm for EC curve secp224r1" },
+		{ "secp224r1", "ES256",
+		  "Algorithm 'ES256' does not match the key" },
+	};
+
+	if (skip_dcrypt)
+		return;
+
+	test_begin("JWT sign errors");
+	for (unsigned int i = 0; i < N_ELEMENTS(test_cases); i++) T_BEGIN {
+		const char *pubkey, *error = NULL;
+		struct dcrypt_private_key *key =
+			sign_key_get(test_cases[i].curve, &pubkey);
+		struct json_tree *claims = sign_claims(time(NULL));
+		string_t *token = t_str_new(512);
+
+		str_append(token, "prefix");
+		test_assert_idx(oauth2_jwt_sign(key, test_cases[i].alg, NULL,
+						claims, token, &error) < 0, i);
+		test_assert_strcmp_idx(error, test_cases[i].error, i);
+		test_assert_strcmp_idx(str_c(token), "prefix", i);
+		json_tree_unref(&claims);
+		dcrypt_key_unref_private(&key);
+	} T_END;
+	test_end();
+}
+
+static void test_jwt_sign_dcrypt_failure(void)
+{
+	struct dcrypt_keypair pair;
+	const char *error;
+
+	if (skip_dcrypt)
+		return;
+
+	/* too short for a SHA-512 PKCS#1 v1.5 signature */
+	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_RSA, 512, NULL, &error)) {
+		i_info("512-bit RSA keys not supported, "
+		       "skipping dcrypt_sign() failure test: %s", error);
+		return;
+	}
+
+	test_begin("JWT sign dcrypt_sign() failure");
+	struct json_tree *claims = sign_claims(time(NULL));
+	string_t *token = t_str_new(512);
+
+	str_append(token, "prefix");
+	error = NULL;
+	test_assert(oauth2_jwt_sign(pair.priv, "RS512", NULL, claims, token,
+				    &error) < 0);
+	test_assert(error != NULL);
+	test_assert_strcmp(str_c(token), "prefix");
+	json_tree_unref(&claims);
+	dcrypt_keypair_unref(&pair);
+	test_end();
+}
+
 static void test_do_init(void)
 {
 	const char *error;
@@ -1261,6 +1501,10 @@ int main(void)
 		test_jwt_rs_token,
 		test_jwt_ps_token,
 		test_jwt_ec_token,
+		test_jwt_sign_verify,
+		test_jwt_sign_known_answer,
+		test_jwt_sign_errors,
+		test_jwt_sign_dcrypt_failure,
 		test_do_deinit,
 		NULL
 	};

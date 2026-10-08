@@ -5,6 +5,8 @@
 #include "http-url.h"
 
 struct dict;
+struct dcrypt_private_key;
+struct json_tree;
 struct oauth2_request;
 struct oauth2_validation_key_cache;
 struct var_expand_program;
@@ -196,6 +198,13 @@ void oauth2_request_abort(struct oauth2_request **);
 int oauth2_try_parse_jwt(const struct oauth2_settings *set,
 			 const char *token, ARRAY_TYPE(oauth2_field) *fields,
 			 bool *is_jwt_r, const char **error_r);
+/* Append a compact JWS of the claims object, signed with key, to dest.
+   alg_name is case-sensitive ("RS256", not "rs256"). NULL picks RS256 for
+   an RSA key, or the ES* algorithm of an EC key's curve. kid NULL leaves
+   "kid" out of the header. Fails if alg_name does not fit the key. */
+int oauth2_jwt_sign(struct dcrypt_private_key *key, const char *alg_name,
+		    const char *kid, const struct json_tree *claims,
+		    string_t *dest, const char **error_r);
 
 /* Initialize validation key cache */
 struct oauth2_validation_key_cache *oauth2_validation_key_cache_init(void);

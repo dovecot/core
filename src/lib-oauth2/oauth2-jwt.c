@@ -11,6 +11,8 @@
 #include "istream.h"
 #include "iso8601-date.h"
 #include "json-tree.h"
+#include "json-tree-io.h"
+#include "json-ostream.h"
 #include "array.h"
 #include "base64.h"
 #include "str-sanitize.h"
@@ -33,6 +35,8 @@ struct oauth2_jwt_alg {
 	const char *hash;
 	/* RSA: PKCS#1 v1.5 or PSS padding */
 	enum dcrypt_padding padding;
+	/* EC: curve OID */
+	const char *curve;
 };
 
 /* JWS algorithms (RFC 7518 3.1, RFC 8812 3.2) */
@@ -52,10 +56,18 @@ static const struct oauth2_jwt_alg oauth2_jwt_algs[] = {
 	  .padding = DCRYPT_PADDING_RSA_PKCS1_PSS },
 	{ .name = "PS512", .type = OAUTH2_JWT_ALG_RSA, .hash = "sha512",
 	  .padding = DCRYPT_PADDING_RSA_PKCS1_PSS },
-	{ .name = "ES256", .type = OAUTH2_JWT_ALG_EC, .hash = "sha256" },
-	{ .name = "ES384", .type = OAUTH2_JWT_ALG_EC, .hash = "sha384" },
-	{ .name = "ES512", .type = OAUTH2_JWT_ALG_EC, .hash = "sha512" },
-	{ .name = "ES256K", .type = OAUTH2_JWT_ALG_EC, .hash = "sha256" },
+	/* P-256 */
+	{ .name = "ES256", .type = OAUTH2_JWT_ALG_EC, .hash = "sha256",
+	  .curve = "1.2.840.10045.3.1.7" },
+	/* P-384 */
+	{ .name = "ES384", .type = OAUTH2_JWT_ALG_EC, .hash = "sha384",
+	  .curve = "1.3.132.0.34" },
+	/* P-521 */
+	{ .name = "ES512", .type = OAUTH2_JWT_ALG_EC, .hash = "sha512",
+	  .curve = "1.3.132.0.35" },
+	/* secp256k1 */
+	{ .name = "ES256K", .type = OAUTH2_JWT_ALG_EC, .hash = "sha256",
+	  .curve = "1.3.132.0.10" },
 };
 
 static const struct oauth2_jwt_alg *oauth2_jwt_alg_find(const char *name)
@@ -65,6 +77,33 @@ static const struct oauth2_jwt_alg *oauth2_jwt_alg_find(const char *name)
 			return &oauth2_jwt_algs[i];
 	}
 	return NULL;
+}
+
+static bool
+oauth2_jwt_alg_fits_key(const struct oauth2_jwt_alg *alg,
+			enum dcrypt_key_type key_type, const char *curve)
+{
+	if (key_type == DCRYPT_KEY_RSA)
+		return alg->type == OAUTH2_JWT_ALG_RSA;
+	return alg->type == OAUTH2_JWT_ALG_EC && strcmp(alg->curve, curve) == 0;
+}
+
+/* RSA, or EC with *curve_r set to the curve OID. Other keys fail. */
+static int
+oauth2_jwt_key_type(struct dcrypt_public_key *key,
+		    enum dcrypt_key_type *key_type_r, const char **curve_r,
+		    const char **error_r)
+{
+	*key_type_r = dcrypt_key_type_public(key);
+	*curve_r = NULL;
+	if (*key_type_r == DCRYPT_KEY_EC) {
+		if (!dcrypt_key_get_curve_public(key, curve_r, error_r))
+			return -1;
+	} else if (*key_type_r != DCRYPT_KEY_RSA) {
+		*error_r = "Unsupported key type";
+		return -1;
+	}
+	return 0;
 }
 
 static const struct json_tree_node *
@@ -705,4 +744,111 @@ int oauth2_try_parse_jwt(const struct oauth2_settings *set,
 	json_tree_unref(&body_tree);
 
 	return ret;
+}
+
+/* The curve's short name, such as "secp224r1". The OID came from OpenSSL,
+   so it has a name. The OID is returned only if OpenSSL itself fails. */
+static const char *oauth2_jwt_curve_name(const char *curve_oid)
+{
+	buffer_t *der = t_buffer_create(16);
+	const char *name, *error;
+
+	if (!dcrypt_name2oid(curve_oid, der, &error))
+		return curve_oid;
+	name = dcrypt_oid2name(der->data, der->used, &error);
+	return name == NULL ? curve_oid : name;
+}
+
+static int
+oauth2_jwt_key_alg(struct dcrypt_private_key *key, const char *alg_name,
+		   const struct oauth2_jwt_alg **alg_r, const char **error_r)
+{
+	struct dcrypt_public_key *pubkey;
+	enum dcrypt_key_type key_type;
+	const char *curve;
+	int ret;
+
+	dcrypt_key_convert_private_to_public(key, &pubkey);
+	ret = oauth2_jwt_key_type(pubkey, &key_type, &curve, error_r);
+	dcrypt_key_unref_public(&pubkey);
+	if (ret < 0)
+		return -1;
+
+	if (alg_name != NULL) {
+		const struct oauth2_jwt_alg *alg = oauth2_jwt_alg_find(alg_name);
+
+		if (alg == NULL || alg->type == OAUTH2_JWT_ALG_HMAC) {
+			*error_r = t_strdup_printf("Unsupported algorithm '%s'",
+						   alg_name);
+			return -1;
+		}
+		if (!oauth2_jwt_alg_fits_key(alg, key_type, curve)) {
+			*error_r = t_strdup_printf(
+				"Algorithm '%s' does not match the key",
+				alg_name);
+			return -1;
+		}
+		*alg_r = alg;
+		return 0;
+	}
+
+	/* The first match is RS256 for RSA, or the curve's ES* for EC */
+	for (unsigned int i = 0; i < N_ELEMENTS(oauth2_jwt_algs); i++) {
+		if (oauth2_jwt_alg_fits_key(&oauth2_jwt_algs[i], key_type,
+					    curve)) {
+			*alg_r = &oauth2_jwt_algs[i];
+			return 0;
+		}
+	}
+	*error_r = t_strdup_printf("No algorithm for EC curve %s",
+				   oauth2_jwt_curve_name(curve));
+	return -1;
+}
+
+int oauth2_jwt_sign(struct dcrypt_private_key *key, const char *alg_name,
+		    const char *kid, const struct json_tree *claims,
+		    string_t *dest, const char **error_r)
+{
+	const struct oauth2_jwt_alg *alg;
+
+	if (oauth2_jwt_key_alg(key, alg_name, &alg, error_r) < 0)
+		return -1;
+
+	string_t *json = t_str_new(256);
+	struct json_ostream *joutput = json_ostream_create_str(json, 0);
+
+	json_ostream_ndescend_object(joutput, NULL);
+	json_ostream_nwrite_string(joutput, "typ", "JWT");
+	json_ostream_nwrite_string(joutput, "alg", alg->name);
+	if (kid != NULL)
+		json_ostream_nwrite_string(joutput, "kid", kid);
+	json_ostream_nascend_object(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+
+	size_t start = str_len(dest);
+
+	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, SIZE_MAX,
+			 str_data(json), str_len(json), dest);
+	str_append_c(dest, '.');
+	str_truncate(json, 0);
+	json_tree_write_buffer(claims, json, 0, NULL);
+	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, SIZE_MAX,
+			 str_data(json), str_len(json), dest);
+
+	/* JWS wants ECDSA signatures as r || s, each zero-padded to the
+	   curve's width (RFC 7518 3.4). dcrypt's X9.62 format pads them. */
+	enum dcrypt_signature_format sig_format =
+		alg->type == OAUTH2_JWT_ALG_EC ? DCRYPT_SIGNATURE_FORMAT_X962 :
+		DCRYPT_SIGNATURE_FORMAT_DSS;
+	buffer_t *sig = t_buffer_create(256);
+
+	if (!dcrypt_sign(key, alg->hash, sig_format, str_data(dest) + start,
+			 str_len(dest) - start, sig, alg->padding, error_r)) {
+		str_truncate(dest, start);
+		return -1;
+	}
+	str_append_c(dest, '.');
+	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, SIZE_MAX,
+			 sig->data, sig->used, dest);
+	return 0;
 }
