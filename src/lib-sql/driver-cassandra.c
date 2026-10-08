@@ -2075,6 +2075,14 @@ driver_cassandra_error_is_uncertain(CassError error)
 		/* The server replied, but the driver couldn't decode the
 		 * reply. The request reached the coordinator, so the
 		 * mutation may have been applied. */
+	case CASS_ERROR_LIB_NO_HOSTS_AVAILABLE:
+		/* The driver ran out of hosts in the query plan. The hosts
+		 * that were already tried count too: e.g. a coordinator may
+		 * have answered UNAVAILABLE, or the connection may have
+		 * dropped while the request was in flight, after which the
+		 * driver retried the next host. So the request may have
+		 * reached a coordinator and the mutation may have been
+		 * applied. */
 		return TRUE;
 
 	/* Server errors that the coordinator answered with before it could have
