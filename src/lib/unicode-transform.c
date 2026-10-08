@@ -380,6 +380,28 @@ unicode_nf_buffer_append(struct unicode_nf_context *ctx, uint32_t cp,
 	ctx->buffer_len++;
 }
 
+static void
+unicode_nf_get_ccc_counts(const uint32_t *decomp, size_t len,
+			  const struct unicode_code_point_data *const *decomp_cpd,
+			  size_t *lead_r, size_t *trail_r, bool *seen_starter_r)
+{
+	const struct unicode_code_point_data *cpd;
+	size_t i;
+
+	*lead_r = *trail_r = 0;
+	*seen_starter_r = FALSE;
+	for (i = 0; i < len; i++) {
+		cpd = (decomp_cpd != NULL ? decomp_cpd[i] :
+		       unicode_code_point_get_data(decomp[i]));
+		if (cpd->canonical_combining_class == 0)
+			*seen_starter_r = TRUE;
+		else if (!*seen_starter_r)
+			(*lead_r)++;
+		else
+			(*trail_r)++;
+	}
+}
+
 static bool
 unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
 	      const struct unicode_code_point_data *cpd)
@@ -398,6 +420,8 @@ unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
 	 * Decompose the code point
 	 */
 
+	const struct unicode_code_point_data *
+		decomp_cpd[UNICODE_DECOMPOSITION_MAX_LENGTH];
 	const uint32_t *decomp, *decomp_k;
 	uint32_t decomp_hangul[3];
 	size_t len, len_k;
@@ -405,8 +429,8 @@ unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
 	if (cp >= HANGUL_FIRST && cp <= HANGUL_LAST) {
 		len = len_k = unicode_hangul_decompose(cp, decomp_hangul);
 		decomp = decomp_k = decomp_hangul;
-		/* The data is for the syllable, not for its first jamo */
-		cpd = NULL;
+		for (i = 0; i < len; i++)
+			decomp_cpd[i] = unicode_code_point_get_data(decomp[i]);
 	} else {
 		if (cpd == NULL)
 			cpd = unicode_code_point_get_data(cp);
@@ -415,6 +439,12 @@ unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
 		if (len == 0) {
 			decomp = &cp;
 			len = 1;
+			decomp_cpd[0] = cpd;
+		} else {
+			for (i = 0; i < len; i++) {
+				decomp_cpd[i] =
+					unicode_code_point_get_data(decomp[i]);
+			}
 		}
 		len_k = len;
 		decomp_k = decomp;
@@ -426,8 +456,6 @@ unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
 				len_k = len;
 			}
 		}
-		if (len > 0)
-			cpd = NULL;
 	}
 
 	i_assert(len <= UNICODE_DECOMPOSITION_MAX_LENGTH);
@@ -468,42 +496,12 @@ unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
 		   (which may be zero).
 	   4. Return the output string.
 	 */
+	size_t ns_lead, ns_trail;
+	bool seen_starter;
 
-	/* Determine number of leading and trailing non-starters in full NFKD
-	   decomposition. */
-	const struct unicode_code_point_data *
-		decomp_cpd[UNICODE_DECOMPOSITION_MAX_LENGTH];
-	size_t ns_lead = 0, ns_trail = 0;
-	bool seen_starter = FALSE;
-	for (i = 0; i < len_k; i++) {
-		if (cpd == NULL)
-			cpd = unicode_code_point_get_data(decomp_k[i]);
-
-		uint8_t ccc = cpd->canonical_combining_class;
-
-		if (decomp == decomp_k)
-			decomp_cpd[i] = cpd;
-		cpd = NULL;
-
-		if (ccc == 0)
-			seen_starter = TRUE;
-		else if (!seen_starter)
-			ns_lead++;
-		else
-			ns_trail++;
-	}
-
-	/* Lookup canonical decomposed code points if necessary (avoid double
-	   lookups). */
-	if (decomp != decomp_k) {
-		for (i = 0; i < len; i++) {
-			if (cpd == NULL)
-				cpd = unicode_code_point_get_data(decomp[i]);
-			decomp_cpd[i] = cpd;
-			cpd = NULL;
-		}
-	}
-
+	unicode_nf_get_ccc_counts(decomp_k, len_k,
+				  (decomp_k == decomp ? decomp_cpd : NULL),
+				  &ns_lead, &ns_trail, &seen_starter);
 	ctx->nonstarter_count += ns_lead;
 	if (ctx->nonstarter_count > UNICODE_NF_STREAM_SAFE_NON_STARTER_LEN) {
 		ctx->nonstarter_count = 0;
