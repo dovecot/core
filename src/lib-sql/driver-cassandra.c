@@ -146,6 +146,7 @@ struct cassandra_settings {
 
 	unsigned int fallback_failure_threshold;
 	unsigned int fallback_window_msecs;
+	unsigned int primary_retry_count;
 
 	const char *ssl;
 
@@ -231,6 +232,7 @@ static const struct setting_define cassandra_setting_defines[] = {
 
 	DEF(UINT, fallback_failure_threshold),
 	DEF_MSECS(fallback_window),
+	DEF(UINT, primary_retry_count),
 
 	DEF(ENUM, ssl),
 
@@ -302,6 +304,7 @@ static struct cassandra_settings cassandra_default_settings = {
 
 	.fallback_failure_threshold = 3,
 	.fallback_window_msecs = 5000,
+	.primary_retry_count = 2,
 
 	.ssl = "no:cert-only:cert-ip",
 
@@ -437,6 +440,9 @@ struct cassandra_result {
 	enum cassandra_query_type query_type;
 	struct timeval page0_start_time, start_time, finish_time;
 	unsigned int row_count, total_row_count, page_num;
+	/* number of times this query has been retried at primary consistency
+	   after a transient error */
+	unsigned int primary_retries;
 	cass_int64_t timestamp;
 
 	pool_t row_pool;
@@ -2121,6 +2127,27 @@ static bool query_error_want_fallback(CassError error)
 	}
 }
 
+/* Returns TRUE if a fallback-eligible error is likely transient, so the query
+   could succeed by retrying it at primary consistency. */
+static bool query_error_want_primary_retry(CassError error)
+{
+	switch (error) {
+	case CASS_ERROR_SERVER_UNAVAILABLE:
+	case CASS_ERROR_LIB_NO_HOSTS_AVAILABLE:
+		/* Strong evidence that a datacenter (or enough replicas) is
+		   actually unreachable. The coordinator already knows the
+		   required replicas can't be reached. */
+		return FALSE;
+	case CASS_ERROR_LIB_REQUEST_TIMED_OUT:
+		/* The full cassandra_request_timeout was already spent waiting
+		   for this query. Retrying would most likely only delay the
+		   reply beyond the caller's own timeout. */
+		return FALSE;
+	default:
+		return TRUE;
+	}
+}
+
 static CassErrorSource driver_cassandra_error_source(CassError error)
 {
 	/* The public CASS_ERROR() macro defines the encoding as
@@ -2320,6 +2347,21 @@ static void query_callback(CassFuture *future, void *context)
 			return;
 		}
 		/* a primary-consistency attempt failed */
+		if (!db->closing &&
+		    db->primary_probe_failures[result->query_type] == 0 &&
+		    query_error_want_primary_retry(error) &&
+		    result->primary_retries < db->set->primary_retry_count) {
+			/* Transient error while the breaker is closed - the
+			   primary consistency may well succeed on a retry, so
+			   don't degrade durability yet. When the breaker is
+			   already open, the query isn't retried: probes are
+			   kept cheap, and queries sent before the breaker
+			   opened are downgraded right away. */
+			result->primary_retries++;
+			i_free_and_null(result->error);
+			driver_cassandra_result_send_query(result);
+			return;
+		}
 		if (db->primary_probe_failures[result->query_type] == 0) {
 			/* breaker is closed: count this failure towards the
 			   threshold for opening it. */
