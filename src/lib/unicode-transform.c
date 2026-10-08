@@ -445,7 +445,7 @@ unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
 	/* UAX15-D4: Stream-Safe Text Process is the process of producing a
 	   Unicode string in Stream-Safe Text Format by processing that string
 	   from start to finish, inserting U+034F COMBINING GRAPHEME JOINER
-	   (CGJ) within long sequences of non-starters. The exact position o
+	   (CGJ) within long sequences of non-starters. The exact position of
 	   the inserted CGJs are determined according to the following
 	   algorithm, which describes the generation of an output string from an
 	   input string:
