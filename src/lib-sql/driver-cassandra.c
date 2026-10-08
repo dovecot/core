@@ -409,6 +409,10 @@ struct cassandra_result {
 	char *log_query;
 	char *error;
 	CassConsistency consistency, fallback_consistency;
+	/* primary consistency configured for this query type. consistency
+	   above is what the current attempt actually used (== primary, or ==
+	   fallback once downgraded). */
+	CassConsistency primary_consistency;
 	CassConsistency error_result_consistency;
 	enum cassandra_query_type query_type;
 	struct timeval page0_start_time, start_time, finish_time;
@@ -427,6 +431,8 @@ struct cassandra_result {
 	bool paging_continues:1;
 	bool batch_unlogged:1;
 	bool any_uncertain:1;
+	/* current attempt was sent at fallback consistency */
+	bool sent_at_fallback:1;
 };
 
 struct cassandra_transaction_context {
@@ -1951,13 +1957,14 @@ static void query_resend_with_fallback(struct cassandra_result *result)
 			  "%s - retrying future %s queries with consistency %s (instead of %s)",
 			  result->error, cassandra_query_type_names[result->query_type],
 			  cass_consistency_string(result->fallback_consistency),
-			  cass_consistency_string(result->consistency));
+			  cass_consistency_string(result->primary_consistency));
 		db->last_fallback_warning[result->query_type] = ioloop_time;
 	}
 	i_free_and_null(result->error);
 	db->fallback_failures[result->query_type]++;
 
 	result->consistency = result->fallback_consistency;
+	result->sent_at_fallback = TRUE;
 	driver_cassandra_result_send_query(result);
 }
 
@@ -2214,7 +2221,8 @@ static void query_callback(CassFuture *future, void *context)
 			get_consistency_error(result, future, error));
 
 		if (query_error_want_fallback(error) &&
-		    result->fallback_consistency != result->consistency) {
+		    !result->sent_at_fallback &&
+		    result->fallback_consistency != result->primary_consistency) {
 			/* retry with fallback consistency */
 			query_resend_with_fallback(result);
 			return;
@@ -2224,7 +2232,7 @@ static void query_callback(CassFuture *future, void *context)
 	}
 	db->counters[CASSANDRA_COUNTER_TYPE_QUERY_RECV_OK]++;
 
-	if (result->fallback_consistency != result->consistency) {
+	if (!result->sent_at_fallback) {
 		/* non-fallback query finished successfully. if there had been
 		   any fallbacks, reset them. */
 		db->fallback_failures[result->query_type] = 0;
@@ -2349,22 +2357,23 @@ cassandra_result_connect_and_send_query(struct cassandra_result *result)
 	result->row_pool = pool_alloconly_create("cassandra result", 512);
 	switch (result->query_type) {
 	case CASSANDRA_QUERY_TYPE_READ:
-		result->consistency = db->set->parsed_read_consistency;
+		result->primary_consistency = db->set->parsed_read_consistency;
 		result->fallback_consistency =
 			db->set->parsed_read_fallback_consistency;
 		break;
 	case CASSANDRA_QUERY_TYPE_READ_MORE:
 		/* consistency is already set and we don't want to fallback
 		   at this point anymore. */
+		result->primary_consistency = result->consistency;
 		result->fallback_consistency = result->consistency;
 		break;
 	case CASSANDRA_QUERY_TYPE_WRITE:
-		result->consistency = db->set->parsed_write_consistency;
+		result->primary_consistency = db->set->parsed_write_consistency;
 		result->fallback_consistency =
 			db->set->parsed_write_fallback_consistency;
 		break;
 	case CASSANDRA_QUERY_TYPE_DELETE:
-		result->consistency = db->set->parsed_delete_consistency;
+		result->primary_consistency = db->set->parsed_delete_consistency;
 		result->fallback_consistency =
 			db->set->parsed_delete_fallback_consistency;
 		break;
@@ -2372,10 +2381,14 @@ cassandra_result_connect_and_send_query(struct cassandra_result *result)
 		i_unreached();
 	}
 
-	if (driver_cassandra_want_fallback_query(result))
+	if (driver_cassandra_want_fallback_query(result)) {
 		result->consistency = result->fallback_consistency;
-	else
+		result->sent_at_fallback = TRUE;
+	} else {
+		result->consistency = result->primary_consistency;
+		result->sent_at_fallback = FALSE;
 		db->primary_query_last_sent[result->query_type] = ioloop_timeval;
+	}
 
 	driver_cassandra_result_send_query(result);
 	result->query_sent = TRUE;
