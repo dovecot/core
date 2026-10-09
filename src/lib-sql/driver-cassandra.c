@@ -2227,14 +2227,17 @@ static void query_callback(CassFuture *future, void *context)
 				t_strdup_printf(", page %u", result->page_num),
 			get_consistency_error(result, future, error));
 
-		if (query_error_want_fallback(error) &&
-		    !result->sent_at_fallback &&
-		    result->fallback_consistency != result->primary_consistency) {
-			/* retry with fallback consistency */
-			query_resend_with_fallback(result);
+		if (!query_error_want_fallback(error) ||
+		    result->sent_at_fallback ||
+		    result->fallback_consistency == result->primary_consistency) {
+			/* Not a fallback-eligible error, the fallback attempt
+			   itself failed or there's no distinct fallback
+			   consistency configured. */
+			result_finish(result);
 			return;
 		}
-		result_finish(result);
+		/* retry with fallback consistency */
+		query_resend_with_fallback(result);
 		return;
 	}
 	db->counters[CASSANDRA_COUNTER_TYPE_QUERY_RECV_OK]++;
