@@ -11,7 +11,7 @@
 #include "lang-filter-normalizer-icu.h"
 
 /* This is built as a separate module, so that only the processes using
-   the normalizer-icu filter need to load libicu. */
+   custom transliterator IDs need to load libicu. */
 const char *lang_filter_normalizer_icu_version = DOVECOT_ABI_VERSION;
 
 struct lang_filter_normalizer_icu {

@@ -29,7 +29,9 @@ extern const struct lang_filter *lang_filter_stemmer_snowball;
  for syntax. Defaults to
  "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC; [\x20] Remove"
 
- This requires the lang_filter_normalizer_icu module, which uses libicu.
+ The default ID and its variants without "NFC" and/or "[\x20] Remove" are
+ implemented internally. Other IDs require the lang_filter_normalizer_icu
+ module, which uses libicu.
  */
 extern const struct lang_filter *lang_filter_normalizer_icu;
 

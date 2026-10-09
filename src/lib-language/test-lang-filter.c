@@ -511,7 +511,6 @@ static void test_lang_filter_normalizer_module_missing(void)
 	test_end();
 }
 
-#ifdef HAVE_LIBICU
 static void test_lang_filter_normalizer_swedish_short(void)
 {
 	struct lang_filter *norm = NULL;
@@ -684,6 +683,110 @@ static void test_lang_filter_normalizer_baddata(void)
 	test_end();
 }
 
+static void test_lang_filter_normalizer_final_sigma(void)
+{
+	static const struct {
+		const char *input;
+		const char *output;
+	} tests[] = {
+		/* U+03A3 alone is not final */
+		{ "\xCE\xA3", "\xCF\x83" },
+		{ "1\xCE\xA3", "1\xCF\x83" },
+		/* U+03A3 after a cased letter */
+		{ "\xCE\x9F\xCE\x94\xCE\x9F\xCE\xA3",
+		  "\xCE\xBF\xCE\xB4\xCE\xBF\xCF\x82" },
+		{ "A\xCE\xA3", "a\xCF\x82" },
+		{ "A\xCE\xA3""1", "a\xCF\x82""1" },
+		/* followed by a cased letter */
+		{ "\xCE\xA3\xCE\x91", "\xCF\x83\xCE\xB1" },
+		{ "A\xCE\xA3\xCE\xA3", "a\xCF\x83\xCF\x82" },
+		/* U+0027 is case-ignorable */
+		{ "A'\xCE\xA3", "a'\xCF\x82" },
+		{ "A\xCE\xA3'", "a\xCF\x82'" },
+		{ "A\xCE\xA3'A", "a\xCF\x83'a" },
+		{ "''\xCE\xA3", "''\xCF\x83" },
+		/* U+0345 is both cased and case-ignorable. It's handled as
+		   case-ignorable. NFKD + nonspacing mark removal drops it. */
+		{ "1\xCD\x85\xCE\xA3", "1\xCF\x83" },
+		{ "A\xCE\xA3\xCD\x85", "a\xCF\x82" },
+	};
+	struct lang_filter *norm;
+	const char *error, *token;
+	unsigned int i;
+
+	test_begin("lang filter normalizer final sigma");
+	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, make_settings(NULL, NULL), event, &norm, &error) == 0);
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		token = tests[i].input;
+		test_assert_idx(lang_filter(norm, &token, &error) == 1, i);
+		test_assert_strcmp_idx(token, tests[i].output, i);
+	}
+	lang_filter_unref(&norm);
+	test_end();
+}
+
+static void test_lang_filter_normalizer_builtin_ids(void)
+{
+	/* "A\u0301 \uD55C" - A with combining acute, space, Hangul syllable */
+	static const char *input = "A\xCC\x81 \xED\x95\x9C";
+	static const struct {
+		const char *id;
+		const char *output;
+	} tests[] = {
+		{ "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC; [\\x20] Remove",
+		  "a\xED\x95\x9C" },
+		{ "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; [\\x20] Remove",
+		  "a\xE1\x84\x92\xE1\x85\xA1\xE1\x86\xAB" },
+		{ "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC",
+		  "a \xED\x95\x9C" },
+		{ "Any-Lower; NFKD; [: Nonspacing Mark :] Remove",
+		  "a \xE1\x84\x92\xE1\x85\xA1\xE1\x86\xAB" },
+	};
+	struct lang_settings set = lang_default_settings;
+	const char *old_module_dir = lang_filter_module_dir;
+	string_t *long_input = t_str_new(256), *long_output = t_str_new(256);
+	struct lang_filter *norm;
+	const char *error, *token;
+	unsigned int i;
+
+	/* Long runs of combining marks and Hangul vowel jamo */
+	str_append(long_input, "A");
+	for (i = 0; i < 64; i++)
+		str_append(long_input, "\xCC\x81");
+	str_append(long_input, "B");
+	str_append(long_output, "ab");
+	for (i = 0; i < 40; i++) {
+		str_append(long_input, "\xE1\x85\xA1");
+		str_append(long_output, "\xE1\x85\xA1");
+	}
+
+	test_begin("lang filter normalizer built-in IDs");
+	/* make sure the libicu module isn't used */
+	lang_filter_module_dir = "/nonexistent";
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		set.filter_normalizer_icu_id = tests[i].id;
+		test_assert_idx(lang_filter_create(lang_filter_normalizer_icu, NULL, make_settings(NULL, &set), event, &norm, &error) == 0, i);
+		token = input;
+		test_assert_idx(lang_filter(norm, &token, &error) == 1, i);
+		test_assert_strcmp_idx(token, tests[i].output, i);
+		/* the same as above, but in ASCII-only fast path */
+		token = "Foo Bar";
+		test_assert_idx(lang_filter(norm, &token, &error) == 1, i);
+		test_assert_strcmp_idx(token, strstr(tests[i].id, "x20") != NULL ?
+				       "foobar" : "foo bar", i);
+		token = " ";
+		test_assert_idx(lang_filter(norm, &token, &error) ==
+				(strstr(tests[i].id, "x20") != NULL ? 0 : 1), i);
+		token = str_c(long_input);
+		test_assert_idx(lang_filter(norm, &token, &error) == 1, i);
+		test_assert_strcmp_idx(token, str_c(long_output), i);
+		lang_filter_unref(&norm);
+	}
+	lang_filter_module_dir = old_module_dir;
+	test_end();
+}
+
+#ifdef HAVE_LIBICU
 static void test_lang_filter_normalizer_invalid_id(void)
 {
 	struct lang_filter *norm = NULL;
@@ -699,7 +802,24 @@ static void test_lang_filter_normalizer_invalid_id(void)
 	test_end();
 }
 
+static void test_lang_filter_normalizer_module(void)
+{
+	struct lang_filter *norm = NULL;
+	struct lang_settings set = lang_default_settings;
+	set.filter_normalizer_icu_id = "Any-Upper";
+	const char *error = NULL, *token = "foo\xC3\xA4";
+
+	test_begin("lang filter normalizer libicu module");
+	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, make_settings(NULL, &set), event, &norm, &error) == 0);
+	test_assert(lang_filter(norm, &token, &error) == 1);
+	test_assert_strcmp(token, "FOO\xC3\x84");
+	lang_filter_unref(&norm);
+	test_end();
+}
+#endif
+
 #ifdef HAVE_LANG_STEMMER
+#ifdef HAVE_LIBICU
 static void test_lang_filter_normalizer_stopwords_stemmer_eng(void)
 {
 	int ret;
@@ -754,6 +874,7 @@ static void test_lang_filter_normalizer_stopwords_stemmer_eng(void)
 	test_assert(normalizer == NULL);
 	test_end();
 }
+#endif
 
 static void test_lang_filter_stopwords_normalizer_stemmer_no(void)
 {
@@ -868,7 +989,6 @@ static void test_lang_filter_stopwords_normalizer_stemmer_sv(void)
 	test_end();
 }
 #endif
-#endif
 
 static void test_lang_filter_english_possessive(void)
 {
@@ -949,18 +1069,23 @@ int main(void)
 #endif
 		/* run before any test loads the libicu module */
 		test_lang_filter_normalizer_module_missing,
-#ifdef HAVE_LIBICU
 		test_lang_filter_normalizer_swedish_short,
 		test_lang_filter_normalizer_swedish_short_default_id,
 		test_lang_filter_normalizer_french,
 		test_lang_filter_normalizer_empty,
 		test_lang_filter_normalizer_baddata,
+		test_lang_filter_normalizer_final_sigma,
+		test_lang_filter_normalizer_builtin_ids,
+#ifdef HAVE_LIBICU
 		test_lang_filter_normalizer_invalid_id,
+		test_lang_filter_normalizer_module,
+#endif
 #ifdef HAVE_LANG_STEMMER
+#ifdef HAVE_LIBICU
 		test_lang_filter_normalizer_stopwords_stemmer_eng,
+#endif
 		test_lang_filter_stopwords_normalizer_stemmer_no,
 		test_lang_filter_stopwords_normalizer_stemmer_sv,
-#endif
 #endif
 		test_lang_filter_english_possessive,
 		NULL

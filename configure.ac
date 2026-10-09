@@ -169,7 +169,7 @@ AS_HELP_STRING([--with-textcat], [Build with libtextcat support (for lib-languag
   want_textcat=auto)
 
 AC_ARG_WITH(icu,
-AS_HELP_STRING([--with-icu], [Build with libicu support (for lib-language normalization) (auto)]),
+AS_HELP_STRING([--with-icu], [Build with libicu support (for lib-language custom normalizer IDs) (auto)]),
   want_icu=$withval,
   want_icu=auto)
 
