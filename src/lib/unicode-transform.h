@@ -223,7 +223,9 @@ int unicode_nf_checker_finish(struct unicode_nf_checker *unc);
  * Casemap Transform
  */
 
-/* Maximum number of mapped code points buffered by the casemap transform */
+/* Maximum number of mapped code points buffered by the casemap transform.
+   Final_Sigma: If more case-ignorable code points follow a capital sigma
+   than fit into the buffer after it, it's lowercased as final sigma. */
 #define UNICODE_CASEMAP_BUFFER_SIZE 32
 
 struct unicode_casemap {
@@ -233,6 +235,20 @@ struct unicode_casemap {
 		      const uint32_t **map_r);
 
 	unsigned int buffer_len;
+	/* Final_Sigma: Position of the pending sigma in cp_buffer */
+	unsigned int sigma_pos;
+
+	/* Lowercase a capital sigma to final sigma when it's preceded by a
+	   cased letter and not followed by one (Final_Sigma condition in
+	   SpecialCasing.txt) */
+	bool final_sigma:1;
+	/* Final_Sigma: The last code point that isn't case-ignorable was
+	   cased */
+	bool preceded_by_cased:1;
+	/* Final_Sigma: It's still unknown whether a cased letter follows the
+	   sigma at sigma_pos. It and the code points after it aren't
+	   forwarded until it's known. */
+	bool sigma_pending:1;
 
 	/* Mapped code points that haven't been forwarded yet. These are last,
 	   so they don't need to be zeroed at init. */
@@ -243,6 +259,12 @@ struct unicode_casemap {
 
 void unicode_casemap_init_uppercase(struct unicode_casemap *map);
 void unicode_casemap_init_lowercase(struct unicode_casemap *map);
+/* Like unicode_casemap_init_lowercase(), but also handle the Final_Sigma
+   condition like libicu's Any-Lower transliterator. A case-ignorable code
+   point is skipped when checking the condition, even if it's also cased.
+   The condition is checked separately for each string, which ends when the
+   transform is flushed. */
+void unicode_casemap_init_lowercase_final_sigma(struct unicode_casemap *map);
 void unicode_casemap_init_casefold(struct unicode_casemap *map);
 
 /*

@@ -868,6 +868,10 @@ int unicode_nf_checker_finish(struct unicode_nf_checker *unc)
  * Casemap Transform
  */
 
+#define UNICODE_GREEK_CAPITAL_LETTER_SIGMA 0x03a3
+#define UNICODE_GREEK_SMALL_LETTER_FINAL_SIGMA 0x03c2
+#define UNICODE_GREEK_SMALL_LETTER_SIGMA 0x03c3
+
 static size_t
 unicode_casemap_uppercase_cp(const struct unicode_code_point_data *cp_data,
 			     const uint32_t **map_r);
@@ -907,6 +911,12 @@ void unicode_casemap_init_lowercase(struct unicode_casemap *map_r)
 	map_r->map = unicode_casemap_lowercase_cp;
 }
 
+void unicode_casemap_init_lowercase_final_sigma(struct unicode_casemap *map_r)
+{
+	unicode_casemap_init_lowercase(map_r);
+	map_r->final_sigma = TRUE;
+}
+
 void unicode_casemap_init_casefold(struct unicode_casemap *map_r)
 {
 	/* The buffers are written before they're read */
@@ -936,20 +946,48 @@ unicode_casemap_casefold_cp(const struct unicode_code_point_data *cp_data,
 	return unicode_code_point_data_get_casefold_mapping(cp_data, map_r);
 }
 
+static void
+unicode_casemap_sigma_decide(struct unicode_casemap *map,
+			     bool followed_by_cased)
+{
+	i_assert(map->sigma_pending);
+	i_assert(map->cp_buffer[map->sigma_pos] ==
+		 UNICODE_GREEK_SMALL_LETTER_SIGMA);
+
+	if (!followed_by_cased) {
+		map->cp_buffer[map->sigma_pos] =
+			UNICODE_GREEK_SMALL_LETTER_FINAL_SIGMA;
+	}
+	map->sigma_pending = FALSE;
+}
+
 static bool
 unicode_casemap_input_cp(struct unicode_casemap *map, uint32_t cp,
 			 const struct unicode_code_point_data *cp_data)
 {
+	unsigned int pos = map->buffer_len;
 	const uint32_t *map_cps;
 	size_t i, map_cps_len;
 
 	if (cp_data == NULL)
 		cp_data = unicode_code_point_get_data(cp);
 
+	if (map->sigma_pending && !cp_data->pb_c_case_ignorable) {
+		/* This code point shows whether a cased letter follows the
+		   sigma */
+		unicode_casemap_sigma_decide(map, cp_data->pb_c_cased);
+	}
+
 	map_cps_len = map->map(cp_data, &map_cps);
 	if (map->buffer_len + I_MAX(map_cps_len, 1) >
-	    UNICODE_CASEMAP_BUFFER_SIZE)
+	    UNICODE_CASEMAP_BUFFER_SIZE) {
+		if (map->sigma_pending && map->sigma_pos == 0) {
+			/* Too many case-ignorable code points follow the
+			   sigma */
+			unicode_casemap_sigma_decide(map, FALSE);
+		}
 		return FALSE;
+	}
 
 	if (map_cps_len == 0) {
 		map->cp_buffer[map->buffer_len] = cp;
@@ -960,20 +998,32 @@ unicode_casemap_input_cp(struct unicode_casemap *map, uint32_t cp,
 			map->cpd_buffer[map->buffer_len++] = NULL;
 		}
 	}
+
+	if (map->final_sigma && !cp_data->pb_c_case_ignorable) {
+		if (cp == UNICODE_GREEK_CAPITAL_LETTER_SIGMA &&
+		    map->preceded_by_cased) {
+			/* Keep the sigma until it's known whether a cased
+			   letter follows it */
+			map->sigma_pending = TRUE;
+			map->sigma_pos = pos;
+		}
+		map->preceded_by_cased = cp_data->pb_c_cased;
+	}
 	return TRUE;
 }
 
 static ssize_t
 unicode_casemap_forward(struct unicode_casemap *map, const char **error_r)
 {
+	unsigned int count = (map->sigma_pending ?
+			      map->sigma_pos : map->buffer_len);
 	ssize_t sret;
 
-	if (map->buffer_len == 0)
+	if (count == 0)
 		return 0;
 
 	sret = uniform_transform_forward(&map->transform, map->cp_buffer,
-					 map->cpd_buffer, map->buffer_len,
-					 error_r);
+					 map->cpd_buffer, count, error_r);
 	if (sret < 0)
 		return -1;
 
@@ -982,6 +1032,8 @@ unicode_casemap_forward(struct unicode_casemap *map, const char **error_r)
 		map->buffer_len * sizeof(map->cp_buffer[0]));
 	memmove(map->cpd_buffer, &map->cpd_buffer[sret],
 		map->buffer_len * sizeof(map->cpd_buffer[0]));
+	if (map->sigma_pending)
+		map->sigma_pos -= sret;
 	return sret;
 }
 
@@ -1019,15 +1071,26 @@ unicode_casemap_input(struct unicode_transform *trans,
 }
 
 static int
-unicode_casemap_flush(struct unicode_transform *trans,
-		      bool finished ATTR_UNUSED, const char **error_r)
+unicode_casemap_flush(struct unicode_transform *trans, bool finished,
+		      const char **error_r)
 {
 	struct unicode_casemap *map =
 		container_of(trans, struct unicode_casemap, transform);
 
+	if (finished && map->sigma_pending) {
+		/* No more input, so no cased letter follows the sigma */
+		unicode_casemap_sigma_decide(map, FALSE);
+	}
+
 	if (unicode_casemap_forward(map, error_r) < 0)
 		return -1;
-	return (map->buffer_len == 0 ? 1 : 0);
+	if (map->buffer_len > 0)
+		return 0;
+	if (finished) {
+		/* The string ended */
+		map->preceded_by_cased = FALSE;
+	}
+	return 1;
 }
 
 /*
