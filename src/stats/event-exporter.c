@@ -45,6 +45,7 @@ void event_exporters_deinit(void)
 		if (exporter->transport->deinit != NULL)
 			exporter->transport->deinit(exporter);
 	}
+	array_free(&event_exporters);
 }
 
 int event_exporter_init(const struct event_exporter_transport *transport,
