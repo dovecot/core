@@ -381,7 +381,7 @@ struct cassandra_db {
 	   consistency probes. The value is 1 when the breaker opens, and it's
 	   incremented for each failed primary probe after that. It's also the
 	   exponential backoff counter for scheduling the primary probes. */
-	unsigned int fallback_failures[CASSANDRA_QUERY_TYPE_COUNT];
+	unsigned int primary_probe_failures[CASSANDRA_QUERY_TYPE_COUNT];
 
 	/* for synchronous queries: */
 	struct ioloop *ioloop, *orig_ioloop;
@@ -2243,15 +2243,15 @@ static void query_callback(CassFuture *future, void *context)
 			return;
 		}
 		/* a primary-consistency attempt failed */
-		if (db->fallback_failures[result->query_type] == 0) {
+		if (db->primary_probe_failures[result->query_type] == 0) {
 			/* breaker is closed: open it */
-			db->fallback_failures[result->query_type] = 1;
+			db->primary_probe_failures[result->query_type] = 1;
 		} else if (result->primary_probe) {
 			/* a primary probe failed while the breaker is open.
 			   Grow the backoff. A query that was sent at primary
 			   consistency before the breaker opened isn't a probe,
 			   so it doesn't affect the backoff. */
-			db->fallback_failures[result->query_type]++;
+			db->primary_probe_failures[result->query_type]++;
 		}
 		/* Either way, downgrade this individual query so it still has
 		   a chance to apply. */
@@ -2263,7 +2263,7 @@ static void query_callback(CassFuture *future, void *context)
 	if (!result->sent_at_fallback) {
 		/* non-fallback query finished successfully. if there had been
 		   any fallbacks, reset them. */
-		db->fallback_failures[result->query_type] = 0;
+		db->primary_probe_failures[result->query_type] = 0;
 	}
 
 	result->result = cass_future_get_result(future);
@@ -2325,7 +2325,7 @@ static bool
 driver_cassandra_want_fallback_query(struct cassandra_result *result)
 {
 	struct cassandra_db *db = container_of(result->api.db, struct cassandra_db, api);
-	unsigned int failure_count = db->fallback_failures[result->query_type];
+	unsigned int failure_count = db->primary_probe_failures[result->query_type];
 	unsigned int i, msecs = CASSANDRA_FALLBACK_FIRST_RETRY_MSECS;
 	struct timeval tv;
 
@@ -2417,7 +2417,7 @@ cassandra_result_connect_and_send_query(struct cassandra_result *result)
 		result->consistency = result->primary_consistency;
 		result->sent_at_fallback = FALSE;
 		result->primary_probe =
-			db->fallback_failures[result->query_type] > 0;
+			db->primary_probe_failures[result->query_type] > 0;
 		db->primary_query_last_sent[result->query_type] = ioloop_timeval;
 	}
 
