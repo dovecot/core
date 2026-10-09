@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "restrict-access.h"
 #include "unichar.h"
 #include "unicode-data.h"
 #include "unicode-transform.h"
@@ -101,10 +102,15 @@ lang_filter_normalizer_icu_create_module(const struct lang_settings *set,
 			"but the "LANG_FILTER_NORMALIZER_ICU_MODULE_NAME
 			" module isn't installed in %s",
 			set->filter_normalizer_icu_id, lang_filter_module_dir);
+	}
+	if (ret <= 0) {
+		if (restrict_access_get_current_chroot() != NULL) {
+			*error_r = t_strconcat(*error_r, " (with mail_chroot, "
+				"add "LANG_FILTER_NORMALIZER_ICU_MODULE_NAME
+				" to mail_plugins)", NULL);
+		}
 		return -1;
 	}
-	if (ret < 0)
-		return -1;
 	return icu_class->v.create(set, event, filter_r, error_r);
 }
 
