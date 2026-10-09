@@ -81,4 +81,11 @@ bool http_request_has_connection_option(const struct http_request *req,
 int http_request_get_payload_size(const struct http_request *req,
 	uoff_t *size_r);
 
+int http_url_request_target_parse(const char *request_target,
+				  const char *host_header,
+				  const struct http_url *default_base,
+				  pool_t pool,
+				  struct http_request_target *target,
+				  const char **error_r) ATTR_NULL(3);
+
 #endif

@@ -59,6 +59,9 @@ headers = \
 	http-server-private.h \
 	http-server.h
 
+noinst_HEADERS = \
+	http-url-private.h
+
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
@@ -148,6 +151,7 @@ test_http_request_parser_LDADD = \
 	http-transfer-chunked.lo \
 	http-message-parser.lo \
 	http-request-parser.lo \
+	http-request.lo \
 	$(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_http_request_parser_DEPENDENCIES = $(test_deps)
 
