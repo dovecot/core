@@ -144,6 +144,9 @@ struct cassandra_settings {
 	unsigned int execution_retry_times;
 	unsigned int page_size;
 
+	unsigned int fallback_failure_threshold;
+	unsigned int fallback_window_msecs;
+
 	const char *ssl;
 
 	const char *reconnect_policy;
@@ -226,6 +229,9 @@ static const struct setting_define cassandra_setting_defines[] = {
 	DEF(UINT, execution_retry_times),
 	DEF(UINT, page_size),
 
+	DEF(UINT, fallback_failure_threshold),
+	DEF_MSECS(fallback_window),
+
 	DEF(ENUM, ssl),
 
 	DEF(ENUM, reconnect_policy),
@@ -293,6 +299,9 @@ static struct cassandra_settings cassandra_default_settings = {
 	.execution_retry_interval_msecs = 0,
 	.execution_retry_times = 0,
 	.page_size = 0,
+
+	.fallback_failure_threshold = 3,
+	.fallback_window_msecs = 5000,
 
 	.ssl = "no:cert-only:cert-ip",
 
@@ -382,6 +391,12 @@ struct cassandra_db {
 	   incremented for each failed primary probe after that. It's also the
 	   exponential backoff counter for scheduling the primary probes. */
 	unsigned int primary_probe_failures[CASSANDRA_QUERY_TYPE_COUNT];
+	/* Number of consecutive primary-consistency queries that have
+	   definitively failed within the current window, while the breaker is
+	   still closed. A successful primary-consistency query resets it. Once
+	   this reaches fallback_failure_threshold, the breaker opens. */
+	unsigned int primary_window_failures[CASSANDRA_QUERY_TYPE_COUNT];
+	struct timeval primary_failure_window_start[CASSANDRA_QUERY_TYPE_COUNT];
 
 	/* for synchronous queries: */
 	struct ioloop *ioloop, *orig_ioloop;
@@ -718,6 +733,14 @@ cassandra_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				consistencies[i].set_value);
 			return FALSE;
 		}
+	}
+	if (set->fallback_failure_threshold == 0) {
+		*error_r = "cassandra_fallback_failure_threshold must not be 0";
+		return FALSE;
+	}
+	if (set->fallback_window_msecs == 0) {
+		*error_r = "cassandra_fallback_window must not be 0";
+		return FALSE;
 	}
 	if (set->connections_per_host == 0) {
 		*error_r = "cassandra_connections_per_host must not be 0";
@@ -1946,27 +1969,53 @@ static void result_finish(struct cassandra_result *result)
 
 static void
 cassandra_fallback_warn(struct cassandra_db *db, struct cassandra_result *result,
-			const char *reason)
+			bool rate_limit, const char *reason)
 {
 	time_t last_warning =
 		ioloop_time - db->last_fallback_warning[result->query_type];
 
-	if (last_warning < CASSANDRA_FALLBACK_WARN_INTERVAL_SECS)
+	if (rate_limit && last_warning < CASSANDRA_FALLBACK_WARN_INTERVAL_SECS)
 		return;
 	e_warning(db->api.event, "%s - %s", result->error, reason);
 	db->last_fallback_warning[result->query_type] = ioloop_time;
 }
 
 /* A primary-consistency query has definitively failed while the breaker was
-   closed. Open the breaker. */
+   closed. Count it within the window and open the breaker once the threshold
+   of consecutive failures is reached. */
 static void
 cassandra_breaker_record_failure(struct cassandra_db *db,
 				 struct cassandra_result *result)
 {
 	enum cassandra_query_type query_type = result->query_type;
+	struct timeval *window_start =
+		&db->primary_failure_window_start[query_type];
 
+	if (window_start->tv_sec == 0 ||
+	    timeval_diff_msecs(&ioloop_timeval, window_start) >
+	    (long long)db->set->fallback_window_msecs) {
+		/* start a fresh window */
+		*window_start = ioloop_timeval;
+		db->primary_window_failures[query_type] = 0;
+	}
+	db->primary_window_failures[query_type]++;
+	if (db->primary_window_failures[query_type] <
+	    db->set->fallback_failure_threshold) {
+		cassandra_fallback_warn(db, result, TRUE, t_strdup_printf(
+			"retrying the query with consistency %s (instead of %s), "
+			"fallback breaker still closed (%u/%u failures)",
+			cass_consistency_string(result->fallback_consistency),
+			cass_consistency_string(result->primary_consistency),
+			db->primary_window_failures[query_type],
+			db->set->fallback_failure_threshold));
+		return;
+	}
+
+	/* open the breaker */
 	db->primary_probe_failures[query_type] = 1;
-	cassandra_fallback_warn(db, result, t_strdup_printf(
+	db->primary_window_failures[query_type] = 0;
+	window_start->tv_sec = 0;
+	cassandra_fallback_warn(db, result, FALSE, t_strdup_printf(
 		"fallback breaker opened, retrying future %s queries with "
 		"consistency %s (instead of %s)",
 		cassandra_query_type_names[query_type],
@@ -1981,7 +2030,7 @@ cassandra_breaker_probe_failed(struct cassandra_db *db,
 			       struct cassandra_result *result)
 {
 	db->primary_probe_failures[result->query_type]++;
-	cassandra_fallback_warn(db, result, t_strdup_printf(
+	cassandra_fallback_warn(db, result, TRUE, t_strdup_printf(
 		"fallback breaker still open, retrying future %s queries with "
 		"consistency %s (instead of %s)",
 		cassandra_query_type_names[result->query_type],
@@ -2272,7 +2321,8 @@ static void query_callback(CassFuture *future, void *context)
 		}
 		/* a primary-consistency attempt failed */
 		if (db->primary_probe_failures[result->query_type] == 0) {
-			/* breaker is closed: open it */
+			/* breaker is closed: count this failure towards the
+			   threshold for opening it. */
 			cassandra_breaker_record_failure(db, result);
 		} else if (result->primary_probe) {
 			/* a primary probe failed while the breaker is open.
@@ -2289,9 +2339,11 @@ static void query_callback(CassFuture *future, void *context)
 	db->counters[CASSANDRA_COUNTER_TYPE_QUERY_RECV_OK]++;
 
 	if (!result->sent_at_fallback) {
-		/* non-fallback query finished successfully. if there had been
-		   any fallbacks, reset them. */
+		/* a primary-consistency query finished successfully. Close
+		   the breaker and reset the windowed failure counter. */
 		db->primary_probe_failures[result->query_type] = 0;
+		db->primary_window_failures[result->query_type] = 0;
+		db->primary_failure_window_start[result->query_type].tv_sec = 0;
 	}
 
 	result->result = cass_future_get_result(future);
