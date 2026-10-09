@@ -893,21 +893,24 @@ static const struct unicode_transform_def unicode_casemap_def = {
 
 void unicode_casemap_init_uppercase(struct unicode_casemap *map_r)
 {
-	i_zero(map_r);
+	/* The buffers are written before they're read */
+	memset(map_r, 0, offsetof(struct unicode_casemap, cp_buffer));
 	unicode_transform_init(&map_r->transform, &unicode_casemap_def);
 	map_r->map = unicode_casemap_uppercase_cp;
 }
 
 void unicode_casemap_init_lowercase(struct unicode_casemap *map_r)
 {
-	i_zero(map_r);
+	/* The buffers are written before they're read */
+	memset(map_r, 0, offsetof(struct unicode_casemap, cp_buffer));
 	unicode_transform_init(&map_r->transform, &unicode_casemap_def);
 	map_r->map = unicode_casemap_lowercase_cp;
 }
 
 void unicode_casemap_init_casefold(struct unicode_casemap *map_r)
 {
-	i_zero(map_r);
+	/* The buffers are written before they're read */
+	memset(map_r, 0, offsetof(struct unicode_casemap, cp_buffer));
 	unicode_transform_init(&map_r->transform, &unicode_casemap_def);
 	map_r->map = unicode_casemap_casefold_cp;
 }

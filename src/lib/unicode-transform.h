@@ -234,7 +234,8 @@ struct unicode_casemap {
 
 	unsigned int buffer_len;
 
-	/* Mapped code points that haven't been forwarded yet */
+	/* Mapped code points that haven't been forwarded yet. These are last,
+	   so they don't need to be zeroed at init. */
 	uint32_t cp_buffer[UNICODE_CASEMAP_BUFFER_SIZE];
 	const struct unicode_code_point_data *
 		cpd_buffer[UNICODE_CASEMAP_BUFFER_SIZE];
