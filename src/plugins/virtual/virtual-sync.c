@@ -24,6 +24,17 @@ struct virtual_sync_mail {
 	struct virtual_mail_index_record vrec;
 };
 
+/* A change that the virtual index has for a backend mailbox's mail */
+struct virtual_backend_change {
+	struct virtual_backend_box *bbox;
+	uint32_t real_uid;
+	enum mail_index_sync_type type;
+	enum mail_flags add_flags, remove_flags;
+	/* keyword name for MAIL_INDEX_SYNC_TYPE_KEYWORD_{ADD,REMOVE} */
+	const char *keyword;
+};
+ARRAY_DEFINE_TYPE(virtual_backend_change, struct virtual_backend_change);
+
 struct virtual_sync_context {
 	struct virtual_mailbox *mbox;
         struct mail_index_sync_ctx *index_sync_ctx;
@@ -466,13 +477,87 @@ static void virtual_sync_ext_header_update(struct virtual_sync_context *ctx)
 		&ext_hdr.change_counter, sizeof(ext_hdr.change_counter));
 }
 
+static void
+virtual_sync_gather_index_rec(struct virtual_mailbox *mbox,
+			      struct mail_index_view *sync_view,
+			      const char *const *kw_all,
+			      const struct mail_index_sync_rec *sync_rec,
+			      pool_t pool,
+			      ARRAY_TYPE(virtual_backend_change) *changes)
+{
+	uint32_t virtual_ext_id = mbox->virtual_ext_id;
+	struct virtual_backend_box *bbox;
+	const struct virtual_mail_index_record *vrec;
+	struct virtual_backend_change *change;
+	const void *data;
+	uint32_t vseq, seq1, seq2;
+
+	switch (sync_rec->type) {
+	case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
+	case MAIL_INDEX_SYNC_TYPE_FLAGS:
+	case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
+	case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
+		break;
+	}
+	if (!mail_index_lookup_seq_range(sync_view, sync_rec->uid1,
+					 sync_rec->uid2, &seq1, &seq2)) {
+		/* already expunged, nothing to do. */
+		return;
+	}
+
+	for (vseq = seq1; vseq <= seq2; vseq++) {
+		mail_index_lookup_ext(sync_view, vseq, virtual_ext_id,
+				      &data, NULL);
+		vrec = data;
+
+		if (!virtual_backend_box_lookup(mbox, vrec->mailbox_id, &bbox))
+			continue;
+
+		change = array_append_space(changes);
+		change->bbox = bbox;
+		change->real_uid = vrec->real_uid;
+		change->type = sync_rec->type;
+		switch (sync_rec->type) {
+		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
+			break;
+		case MAIL_INDEX_SYNC_TYPE_FLAGS:
+			change->add_flags =
+				sync_rec->add_flags & MAIL_FLAGS_NONRECENT;
+			change->remove_flags =
+				sync_rec->remove_flags & MAIL_FLAGS_NONRECENT;
+			break;
+		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
+		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
+			change->keyword =
+				p_strdup(pool, kw_all[sync_rec->keyword_idx]);
+			break;
+		}
+	}
+}
+
+static void
+virtual_sync_gather_changes(struct virtual_mailbox *mbox,
+			    struct mail_index_sync_ctx *index_sync_ctx,
+			    struct mail_index_view *sync_view, pool_t pool,
+			    ARRAY_TYPE(virtual_backend_change) *changes)
+{
+	const ARRAY_TYPE(keywords) *keywords;
+	const char *const *kw_all;
+	struct mail_index_sync_rec sync_rec;
+
+	keywords = mail_index_get_keywords(mbox->box.index);
+	kw_all = array_count(keywords) == 0 ? NULL : array_front(keywords);
+	while (mail_index_sync_next(index_sync_ctx, &sync_rec)) {
+		virtual_sync_gather_index_rec(mbox, sync_view, kw_all,
+					      &sync_rec, pool, changes);
+	}
+}
+
 static int
 virtual_sync_apply_backend_change(struct virtual_mailbox *mbox,
-				  struct virtual_backend_box *bbox,
-				  uint32_t real_uid, const char *const *kw_all,
-				  const struct mail_index_sync_rec *sync_rec)
+				  const struct virtual_backend_change *change)
 {
-	enum mail_flags flags;
+	struct virtual_backend_box *bbox = change->bbox;
 	struct mail_keywords *keywords;
 	enum modify_type modify_type;
 	const char *kw_names[2];
@@ -487,30 +572,32 @@ virtual_sync_apply_backend_change(struct virtual_mailbox *mbox,
 	}
 
 	virtual_backend_box_sync_mail_set(bbox);
-	if (!mail_set_uid(bbox->sync_mail, real_uid)) {
+	if (!mail_set_uid(bbox->sync_mail, change->real_uid)) {
 		/* message is already expunged from backend mailbox. */
 		return 0;
 	}
 
-	switch (sync_rec->type) {
+	switch (change->type) {
 	case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
 		mail_expunge(bbox->sync_mail);
 		break;
 	case MAIL_INDEX_SYNC_TYPE_FLAGS:
-		flags = sync_rec->add_flags & MAIL_FLAGS_NONRECENT;
-		if (flags != 0)
-			mail_update_flags(bbox->sync_mail, MODIFY_ADD, flags);
-		flags = sync_rec->remove_flags & MAIL_FLAGS_NONRECENT;
-		if (flags != 0)
-			mail_update_flags(bbox->sync_mail, MODIFY_REMOVE, flags);
+		if (change->add_flags != 0) {
+			mail_update_flags(bbox->sync_mail, MODIFY_ADD,
+					  change->add_flags);
+		}
+		if (change->remove_flags != 0) {
+			mail_update_flags(bbox->sync_mail, MODIFY_REMOVE,
+					  change->remove_flags);
+		}
 		break;
 	case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
 	case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
-		kw_names[0] = kw_all[sync_rec->keyword_idx];
+		kw_names[0] = change->keyword;
 		kw_names[1] = NULL;
 		keywords = mailbox_keywords_create_valid(bbox->box, kw_names);
 
-		modify_type = sync_rec->type == MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD ?
+		modify_type = change->type == MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD ?
 			MODIFY_ADD : MODIFY_REMOVE;
 		mail_update_keywords(bbox->sync_mail, modify_type, keywords);
 		mailbox_keywords_unref(&keywords);
@@ -519,60 +606,25 @@ virtual_sync_apply_backend_change(struct virtual_mailbox *mbox,
 	return 0;
 }
 
-static int
-virtual_sync_index_rec(struct virtual_mailbox *mbox,
-		       struct mail_index_view *sync_view,
-		       const char *const *kw_all,
-		       const struct mail_index_sync_rec *sync_rec)
-{
-	uint32_t virtual_ext_id = mbox->virtual_ext_id;
-	struct virtual_backend_box *bbox;
-	const struct virtual_mail_index_record *vrec;
-	const void *data;
-	uint32_t vseq, seq1, seq2;
-
-	switch (sync_rec->type) {
-	case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
-	case MAIL_INDEX_SYNC_TYPE_FLAGS:
-	case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
-	case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
-		break;
-	}
-	if (!mail_index_lookup_seq_range(sync_view, sync_rec->uid1,
-					 sync_rec->uid2, &seq1, &seq2)) {
-		/* already expunged, nothing to do. */
-		return 0;
-	}
-
-	for (vseq = seq1; vseq <= seq2; vseq++) {
-		mail_index_lookup_ext(sync_view, vseq, virtual_ext_id,
-				      &data, NULL);
-		vrec = data;
-
-		if (!virtual_backend_box_lookup(mbox, vrec->mailbox_id, &bbox))
-			continue;
-		if (virtual_sync_apply_backend_change(mbox, bbox,
-						      vrec->real_uid, kw_all,
-						      sync_rec) < 0)
-			return -1;
-	}
-	return 0;
-}
-
 static int virtual_sync_index_changes(struct virtual_sync_context *ctx)
 {
-	const ARRAY_TYPE(keywords) *keywords;
-	const char *const *kw_all;
-	struct mail_index_sync_rec sync_rec;
+	ARRAY_TYPE(virtual_backend_change) changes;
+	const struct virtual_backend_change *change;
+	pool_t pool;
+	int ret = 0;
 
-	keywords = mail_index_get_keywords(ctx->index);
-	kw_all = array_count(keywords) == 0 ? NULL : array_front(keywords);
-	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) {
-		if (virtual_sync_index_rec(ctx->mbox, ctx->sync_view, kw_all,
-					   &sync_rec) < 0)
-			return -1;
+	pool = pool_alloconly_create("virtual sync changes", 1024);
+	p_array_init(&changes, pool, 16);
+	virtual_sync_gather_changes(ctx->mbox, ctx->index_sync_ctx,
+				    ctx->sync_view, pool, &changes);
+	array_foreach(&changes, change) {
+		if (virtual_sync_apply_backend_change(ctx->mbox, change) < 0) {
+			ret = -1;
+			break;
+		}
 	}
-	return 0;
+	pool_unref(&pool);
+	return ret;
 }
 
 static void virtual_sync_index_finish(struct virtual_sync_context *ctx)
