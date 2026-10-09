@@ -6,7 +6,7 @@
 #include "unichar.h"
 #include "test-common.h"
 #include "language.h"
-#include "lang-filter.h"
+#include "lang-filter-private.h"
 #include "settings.h"
 #include "lang-settings.h"
 
@@ -493,6 +493,24 @@ static void test_lang_filter_stopwords_stemmer_eng(void)
 }
 #endif
 
+static void test_lang_filter_normalizer_module_missing(void)
+{
+	struct lang_settings set = lang_default_settings;
+	set.filter_normalizer_icu_id = "Any-Lower";
+	const char *old_module_dir = lang_filter_module_dir;
+	struct lang_filter *norm = NULL;
+	const char *error = NULL;
+
+	test_begin("lang filter normalizer custom ID without libicu module");
+	/* no modules in the stopwords directory */
+	lang_filter_module_dir = TEST_STOPWORDS_DIR;
+	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, make_settings(NULL, &set), event, &norm, &error) < 0);
+	test_assert(norm == NULL);
+	test_assert(error != NULL && strstr(error, "requires libicu") != NULL);
+	lang_filter_module_dir = old_module_dir;
+	test_end();
+}
+
 #ifdef HAVE_LIBICU
 static void test_lang_filter_normalizer_swedish_short(void)
 {
@@ -929,6 +947,8 @@ int main(void)
 		test_lang_filter_stemmer_snowball_stem_french,
 		test_lang_filter_stopwords_stemmer_eng,
 #endif
+		/* run before any test loads the libicu module */
+		test_lang_filter_normalizer_module_missing,
 #ifdef HAVE_LIBICU
 		test_lang_filter_normalizer_swedish_short,
 		test_lang_filter_normalizer_swedish_short_default_id,
@@ -948,6 +968,7 @@ int main(void)
 	int ret;
 
 	lang_filters_init();
+	lang_filter_module_dir = TEST_MODULE_DIR;
 	ret = test_run(test_functions);
 	lang_filters_deinit();
 	return ret;

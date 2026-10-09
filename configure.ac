@@ -753,6 +753,14 @@ DOVECOT_WANT_STEMMER
 DOVECOT_WANT_TEXTCAT
 
 DOVECOT_WANT_ICU
+AS_IF([test "$have_icu" = "yes"], [
+  # The libicu helper functions are in a separate library. External plugins
+  # linking with lib-language get it too for backwards compatibility.
+  LIBDOVECOT_LIBLANG_ICU='$(top_builddir)/src/lib-language/libdovecot-language-icu.la'
+  LINKED_LIBLANG_LDADD="-ldovecot-language-icu"
+])
+AC_SUBST(LIBDOVECOT_LIBLANG_ICU)
+AC_SUBST(LINKED_LIBLANG_LDADD)
 DOVECOT_WANT_PCRE
 
 DOVECOT_WANT_APPARMOR

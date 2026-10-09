@@ -7,9 +7,12 @@
 #include "lang-filter-private.h"
 #include "lang-settings.h"
 #include "language.h"
-
-#ifdef HAVE_LIBICU
 #include "lang-icu.h"
+#include "lang-filter-normalizer-icu.h"
+
+/* This is built as a separate module, so that only the processes using
+   the normalizer-icu filter need to load libicu. */
+const char *lang_filter_normalizer_icu_version = DOVECOT_ABI_VERSION;
 
 struct lang_filter_normalizer_icu {
 	struct lang_filter filter;
@@ -44,7 +47,7 @@ lang_filter_normalizer_icu_create(const struct lang_settings *set,
 	                           sizeof(struct lang_filter_normalizer_icu));
 	np = p_new(pp, struct lang_filter_normalizer_icu, 1);
 	np->pool = pp;
-	np->filter = *lang_filter_normalizer_icu;
+	np->filter = lang_filter_normalizer_icu_class;
 	np->transliterator_id = set->filter_normalizer_icu_id;
 	p_array_init(&np->utf16_token, pp, 64);
 	p_array_init(&np->trans_token, pp, 64);
@@ -84,34 +87,7 @@ lang_filter_normalizer_icu_filter(struct lang_filter *filter, const char **token
 	return 1;
 }
 
-#else
-
-static int
-lang_filter_normalizer_icu_create(const struct lang_settings *set ATTR_UNUSED,
-				  struct event *event ATTR_UNUSED,
-				  struct lang_filter **filter_r ATTR_UNUSED,
-				  const char **error_r)
-{
-	*error_r = "libicu support not built in";
-	return -1;
-}
-
-static int
-lang_filter_normalizer_icu_filter(struct lang_filter *filter ATTR_UNUSED,
-				  const char **token ATTR_UNUSED,
-				  const char **error_r ATTR_UNUSED)
-{
-	return -1;
-}
-
-static void
-lang_filter_normalizer_icu_destroy(struct lang_filter *normalizer ATTR_UNUSED)
-{
-}
-
-#endif
-
-static const struct lang_filter lang_filter_normalizer_icu_real = {
+const struct lang_filter lang_filter_normalizer_icu_class = {
 	.class_name = "normalizer-icu",
 	.v = {
 		lang_filter_normalizer_icu_create,
@@ -120,5 +96,14 @@ static const struct lang_filter lang_filter_normalizer_icu_real = {
 	}
 };
 
-const struct lang_filter *lang_filter_normalizer_icu =
-	&lang_filter_normalizer_icu_real;
+void lang_filter_normalizer_icu_init(struct module *module ATTR_UNUSED)
+{
+	lang_filter_module_register(LANG_FILTER_NORMALIZER_ICU_MODULE_NAME,
+				    &lang_filter_normalizer_icu_class);
+}
+
+void lang_filter_normalizer_icu_deinit(void)
+{
+	lang_filter_module_unregister(LANG_FILTER_NORMALIZER_ICU_MODULE_NAME);
+	lang_icu_deinit();
+}

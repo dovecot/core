@@ -12,7 +12,7 @@ AC_DEFUN([DOVECOT_WANT_ICU], [
   ])
 
   AS_IF([test "$have_icu" != "no"], [
-    AC_DEFINE(HAVE_LIBICU,, [Define if you want ICU normalization support for lib-language])
+    AC_DEFINE(HAVE_LIBICU,, [Define if you want to build the lib-language ICU normalizer module])
   ])
 
   AM_CONDITIONAL(BUILD_LIBICU, test "$have_icu" = "yes")

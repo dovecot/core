@@ -7,10 +7,6 @@
 #include "language.h"
 #include "lang-filter-private.h"
 
-#ifdef HAVE_LIBICU
-#  include "lang-icu.h"
-#endif
-
 const char *lang_filter_module_dir = MODULE_DIR;
 
 struct lang_filter_module_class {
@@ -38,9 +34,6 @@ void lang_filters_init(void)
 
 void lang_filters_deinit(void)
 {
-#ifdef HAVE_LIBICU
-	lang_icu_deinit();
-#endif
 	module_dir_unload(&lang_filter_modules);
 	array_free(&lang_filter_classes);
 }

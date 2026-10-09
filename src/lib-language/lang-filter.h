@@ -28,6 +28,8 @@ extern const struct lang_filter *lang_filter_stemmer_snowball;
  https://unicode-org.github.io/icu/userguide/transforms/general/#transliterator-identifiers
  for syntax. Defaults to
  "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC; [\x20] Remove"
+
+ This requires the lang_filter_normalizer_icu module, which uses libicu.
  */
 extern const struct lang_filter *lang_filter_normalizer_icu;
 

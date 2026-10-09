@@ -5,7 +5,10 @@
 #include "str.h"
 #include "unichar.h"
 #include "test-common.h"
+#include "lang-filter-private.h"
+#include "lang-settings.h"
 #include "lang-icu.h"
+#include "lang-filter-normalizer-icu.h"
 
 #include <unicode/uclean.h>
 
@@ -143,6 +146,21 @@ static void test_lang_icu_translate_resize(void)
 	test_end();
 }
 
+static void test_lang_icu_normalizer_invalid_id(void)
+{
+	struct lang_filter *norm = NULL;
+	struct lang_settings set = lang_default_settings;
+	set.filter_normalizer_icu_id = "Any-One-Out-There; DKFN; [: Nonspacing Mark :] Remove";
+	const char *error = NULL, *token = "foo";
+
+	test_begin("normalizer libicu invalid id");
+	test_assert(lang_filter_create(&lang_filter_normalizer_icu_class, NULL,
+				       &set, NULL, &norm, &error) == 0);
+	test_assert(lang_filter(norm, &token, &error) < 0 && error != NULL);
+	lang_filter_unref(&norm);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -152,9 +170,13 @@ int main(void)
 		test_lang_icu_utf16_to_utf8_resize,
 		test_lang_icu_translate,
 		test_lang_icu_translate_resize,
+		test_lang_icu_normalizer_invalid_id,
 		NULL
 	};
-	int ret = test_run(test_functions);
-	lang_icu_deinit();
+	int ret;
+
+	lang_filter_normalizer_icu_init(NULL);
+	ret = test_run(test_functions);
+	lang_filter_normalizer_icu_deinit();
 	return ret;
 }
