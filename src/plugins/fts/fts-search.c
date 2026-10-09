@@ -271,7 +271,7 @@ fts_search_merge_scores_or(ARRAY_TYPE(fts_score_map) *dest,
 	   lower scores than in arg_scores, increase them. */
 	for (srci = src2i = 0; srci < src_count || src2i < src2_count;) {
 		if (src2i == src2_count ||
-		    src_map[srci].uid < src2_map[src2i].uid) {
+		    (srci < src_count && src_map[srci].uid < src2_map[src2i].uid)) {
 			array_push_back(dest, &src_map[srci]);
 			srci++;
 		} else if (srci == src_count ||
