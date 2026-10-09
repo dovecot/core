@@ -93,6 +93,11 @@ int t_openat_safe(int base_fd, const char *path, int flags,
 int t_openat_safe_dir(const char *base_dir, const char *path, int flags,
 		      const char **error_r);
 
+/* Returns TRUE if any '/' separated component of path is "..". This doesn't
+   check for absolute paths, so callers that require a relative path must check
+   the leading '/' separately. */
+bool path_has_parent_component(const char *path);
+
 /* Update binpath to be absolute:
  * a) begins with '/' -> no change
  * b) contains '/' -> assume relative to working directory

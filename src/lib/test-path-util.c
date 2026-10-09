@@ -431,6 +431,42 @@ static void test_path_util_init(void)
 	create_links(tmpdir);
 }
 
+static void test_path_has_parent_component(void)
+{
+	static const struct {
+		const char *path;
+		bool result;
+	} tests[] = {
+		{ "", FALSE },
+		{ "foo", FALSE },
+		{ "foo/bar", FALSE },
+		{ "/foo/bar/", FALSE },
+		{ ".", FALSE },
+		{ "./foo", FALSE },
+		{ "...", FALSE },
+		{ "..foo", FALSE },
+		{ "foo..", FALSE },
+		{ "foo/..bar/baz..", FALSE },
+		{ "foo/.../bar", FALSE },
+		{ "..", TRUE },
+		{ "../", TRUE },
+		{ "../foo", TRUE },
+		{ "/..", TRUE },
+		{ "foo/..", TRUE },
+		{ "foo/../bar", TRUE },
+		{ "foo//../bar", TRUE },
+		{ "foo..bar/..", TRUE },
+		{ "...foo/../", TRUE },
+	};
+
+	test_begin("path_has_parent_component()");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		test_assert_idx(path_has_parent_component(tests[i].path) ==
+				tests[i].result, i);
+	}
+	test_end();
+}
+
 void test_path_util(void)
 {
 	test_begin("test_path_util");
@@ -453,4 +489,5 @@ void test_path_util(void)
 	test_cleanup();
 	alarm(0);
 	test_end();
+	test_path_has_parent_component();
 }

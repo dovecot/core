@@ -547,6 +547,19 @@ int t_openat_safe_dir(const char *base_dir, const char *path, int flags,
 	return fd;
 }
 
+bool path_has_parent_component(const char *path)
+{
+	const char *p = path;
+
+	while ((p = strstr(p, "..")) != NULL) {
+		if ((p == path || p[-1] == '/') &&
+		    (p[2] == '\0' || p[2] == '/'))
+			return TRUE;
+		p += 2;
+	}
+	return FALSE;
+}
+
 bool t_binary_abspath(const char **binpath, const char **error_r)
 {
 	const char *path_env, *const *paths;
