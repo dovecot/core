@@ -131,7 +131,7 @@ static void test_internal_split(void)
 		ctx.log_prefix = "";
 		i_log_type(&ctx, "%s", long_lext);
 		test_exit(0);
-	case 1:
+	default:
 		/* parent - log reader */
 		i_close_fd(&fd[1]);
 		break;
