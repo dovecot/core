@@ -376,6 +376,11 @@ struct cassandra_db {
 
 	struct timeval primary_query_last_sent[CASSANDRA_QUERY_TYPE_COUNT];
 	time_t last_fallback_warning[CASSANDRA_QUERY_TYPE_COUNT];
+	/* >0 means the fallback "circuit breaker" is open for this query type:
+	   queries are sent at fallback consistency, with periodic primary
+	   consistency probes. The value is 1 when the breaker opens, and it's
+	   incremented for each failed primary probe after that. It's also the
+	   exponential backoff counter for scheduling the primary probes. */
 	unsigned int fallback_failures[CASSANDRA_QUERY_TYPE_COUNT];
 
 	/* for synchronous queries: */
@@ -433,6 +438,9 @@ struct cassandra_result {
 	bool any_uncertain:1;
 	/* current attempt was sent at fallback consistency */
 	bool sent_at_fallback:1;
+	/* current attempt is a primary-consistency probe sent while the
+	   breaker was open */
+	bool primary_probe:1;
 };
 
 struct cassandra_transaction_context {
@@ -1968,8 +1976,6 @@ static void query_resend_with_fallback(struct cassandra_result *result)
 
 	cassandra_fallback_warn(db, result);
 	i_free_and_null(result->error);
-	db->fallback_failures[result->query_type]++;
-
 	result->consistency = result->fallback_consistency;
 	result->sent_at_fallback = TRUE;
 	driver_cassandra_result_send_query(result);
@@ -2236,7 +2242,19 @@ static void query_callback(CassFuture *future, void *context)
 			result_finish(result);
 			return;
 		}
-		/* retry with fallback consistency */
+		/* a primary-consistency attempt failed */
+		if (db->fallback_failures[result->query_type] == 0) {
+			/* breaker is closed: open it */
+			db->fallback_failures[result->query_type] = 1;
+		} else if (result->primary_probe) {
+			/* a primary probe failed while the breaker is open.
+			   Grow the backoff. A query that was sent at primary
+			   consistency before the breaker opened isn't a probe,
+			   so it doesn't affect the backoff. */
+			db->fallback_failures[result->query_type]++;
+		}
+		/* Either way, downgrade this individual query so it still has
+		   a chance to apply. */
 		query_resend_with_fallback(result);
 		return;
 	}
@@ -2394,9 +2412,12 @@ cassandra_result_connect_and_send_query(struct cassandra_result *result)
 	if (driver_cassandra_want_fallback_query(result)) {
 		result->consistency = result->fallback_consistency;
 		result->sent_at_fallback = TRUE;
+		result->primary_probe = FALSE;
 	} else {
 		result->consistency = result->primary_consistency;
 		result->sent_at_fallback = FALSE;
+		result->primary_probe =
+			db->fallback_failures[result->query_type] > 0;
 		db->primary_query_last_sent[result->query_type] = ioloop_timeval;
 	}
 
