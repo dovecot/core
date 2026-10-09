@@ -18,8 +18,12 @@
 #endif
 
 #define DETECT_STR_MAX_LEN 200
+/* Maximum number of textcat handles kept cached. Different users can have
+   different textcat configs, and each config has its own handle. */
+#define TEXTCAT_CACHE_MAX_COUNT 16
 
 struct textcat {
+	struct textcat *prev, *next;
 	int refcount;
 	void *handle;
 	char *config_path, *data_dir, *failed;
@@ -37,7 +41,9 @@ struct language_list {
 pool_t languages_pool;
 ARRAY_TYPE(language) languages;
 #ifdef HAVE_LANG_EXTTEXTCAT
+/* Most recently used first. Each cached textcat has a reference. */
 static struct textcat *textcat_cache = NULL;
+static unsigned int textcat_cache_count = 0;
 #endif
 
 /*  ISO 639-1 alpha 2 codes for languages */
@@ -69,9 +75,6 @@ static void textcat_unref(struct textcat *textcat)
 	if (--textcat->refcount > 0)
 		return;
 
-	if (textcat == textcat_cache)
-		textcat_cache = NULL;
-
 	i_free(textcat->config_path);
 	i_free(textcat->data_dir);
 	i_free(textcat->failed);
@@ -98,8 +101,13 @@ void languages_init(void)
 void languages_deinit(void)
 {
 #ifdef HAVE_LANG_EXTTEXTCAT
-	if (textcat_cache != NULL)
-		textcat_unref(textcat_cache);
+	while (textcat_cache != NULL) {
+		struct textcat *textcat = textcat_cache;
+
+		DLLIST_REMOVE(&textcat_cache, textcat);
+		textcat_unref(textcat);
+	}
+	textcat_cache_count = 0;
 #endif
 	pool_unref(&languages_pool);
 }
@@ -262,25 +270,39 @@ static int language_textcat_init(struct language_list *list,
 		TEXTCAT_DATADIR"/fpdb.conf";
 	data_dir = list->textcat_datadir != NULL ? list->textcat_datadir :
 		TEXTCAT_DATADIR"/";
-	if (textcat_cache != NULL) {
-		if (strcmp(textcat_cache->config_path, config_path) == 0 &&
-		    strcmp(textcat_cache->data_dir, data_dir) == 0) {
-			list->textcat = textcat_cache;
+	for (textcat = textcat_cache; textcat != NULL;
+	     textcat = textcat->next) {
+		if (strcmp(textcat->config_path, config_path) == 0 &&
+		    strcmp(textcat->data_dir, data_dir) == 0) {
+			/* move to the head of the cache */
+			DLLIST_REMOVE(&textcat_cache, textcat);
+			DLLIST_PREPEND(&textcat_cache, textcat);
+			list->textcat = textcat;
 			list->textcat->refcount++;
-			if (list->textcat->failed != NULL) {
-				*error_r = list->textcat->failed;
+			if (textcat->failed != NULL) {
+				*error_r = textcat->failed;
 				return -1;
 			}
 			return 0;
 		}
-		textcat_unref(textcat_cache);
+	}
+
+	if (textcat_cache_count >= TEXTCAT_CACHE_MAX_COUNT) {
+		/* drop the least recently used */
+		struct textcat *last = textcat_cache;
+		while (last->next != NULL)
+			last = last->next;
+		DLLIST_REMOVE(&textcat_cache, last);
+		textcat_unref(last);
+		textcat_cache_count--;
 	}
 
 	textcat = list->textcat = i_new(struct textcat, 1);
 	textcat->refcount = 2;
 	textcat->config_path = i_strdup(config_path);
 	textcat->data_dir = i_strdup(data_dir);
-	textcat_cache = textcat;
+	DLLIST_PREPEND(&textcat_cache, textcat);
+	textcat_cache_count++;
 
 	textcat->handle = special_textcat_Init(config_path, data_dir);
 	if (textcat->handle == NULL) {
