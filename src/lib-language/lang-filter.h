@@ -33,7 +33,7 @@ extern const struct lang_filter *lang_filter_stemmer_snowball;
  */
 extern const struct lang_filter *lang_filter_normalizer_icu;
 
-/* Lowercases the input. Supports UTF8, if libicu is available. */
+/* Lowercases the input. */
 extern const struct lang_filter *lang_filter_lowercase;
 
 /* Removes <'s> suffix from words. */
