@@ -13,6 +13,8 @@
 #include "index-search-result.h"
 #include "virtual-storage.h"
 
+#define VIRTUAL_SYNC_LOCK_FNAME ".dovecot-virtual-sync.lock"
+#define VIRTUAL_SYNC_LOCK_TIMEOUT_SECS (3*60)
 
 struct virtual_add_record {
 	struct virtual_mail_index_record rec;
@@ -2082,8 +2084,38 @@ static int virtual_sync_finish(struct virtual_sync_context *ctx, bool success)
 	return ret;
 }
 
-static int virtual_sync(struct virtual_mailbox *mbox,
-			enum mailbox_sync_flags flags)
+/* Lock the virtual mailbox for syncing. Only virtual syncs take this lock, so
+   its holder never waits for anything that waits for it. This lock isn't
+   recursive, but the same virtual mailbox is never synced recursively
+   (mail_index_sync_begin() asserts that already). */
+static int virtual_sync_lock(struct virtual_mailbox *mbox,
+			     struct file_lock **lock_r)
+{
+	const char *error;
+
+	*lock_r = NULL;
+	if (mail_index_is_in_memory(mbox->box.index)) {
+		/* Nothing to coordinate with other processes */
+		return 0;
+	}
+	if (mail_index_is_readonly(mbox->box.index)) {
+		/* Nothing can be committed to the virtual index, so there's
+		   nothing to serialize. The lock file likely couldn't be
+		   created either. */
+		return 0;
+	}
+	if (mailbox_lock_file_create(&mbox->box, VIRTUAL_SYNC_LOCK_FNAME,
+				     VIRTUAL_SYNC_LOCK_TIMEOUT_SECS,
+				     lock_r, &error) <= 0) {
+		mailbox_set_critical(&mbox->box,
+			"Failed to lock virtual mailbox for syncing: %s", error);
+		return -1;
+	}
+	return 0;
+}
+
+static int virtual_sync_run(struct virtual_mailbox *mbox,
+			    enum mailbox_sync_flags flags)
 {
 	struct virtual_sync_context *ctx;
 	enum mail_index_sync_flags index_sync_flags;
@@ -2132,6 +2164,19 @@ static int virtual_sync(struct virtual_mailbox *mbox,
 
 	virtual_sync_index_finish(ctx);
 	return virtual_sync_finish(ctx, TRUE);
+}
+
+static int virtual_sync(struct virtual_mailbox *mbox,
+			enum mailbox_sync_flags flags)
+{
+	struct file_lock *lock;
+	int ret;
+
+	if (virtual_sync_lock(mbox, &lock) < 0)
+		return -1;
+	ret = virtual_sync_run(mbox, flags);
+	file_lock_free(&lock);
+	return ret;
 }
 
 struct mailbox_sync_context *
