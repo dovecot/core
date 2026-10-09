@@ -96,14 +96,23 @@ const struct lang_filter lang_filter_normalizer_icu_class = {
 	}
 };
 
+/* The module may be loaded both via mail_plugins and when it's needed.
+   Both use the same dlopen() handle, so init and deinit are called twice. */
+static unsigned int lang_filter_normalizer_icu_init_count = 0;
+
 void lang_filter_normalizer_icu_init(struct module *module ATTR_UNUSED)
 {
+	if (lang_filter_normalizer_icu_init_count++ > 0)
+		return;
 	lang_filter_module_register(LANG_FILTER_NORMALIZER_ICU_MODULE_NAME,
 				    &lang_filter_normalizer_icu_class);
 }
 
 void lang_filter_normalizer_icu_deinit(void)
 {
+	i_assert(lang_filter_normalizer_icu_init_count > 0);
+	if (--lang_filter_normalizer_icu_init_count > 0)
+		return;
 	lang_filter_module_unregister(LANG_FILTER_NORMALIZER_ICU_MODULE_NAME);
 	lang_icu_deinit();
 }

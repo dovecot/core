@@ -17,7 +17,8 @@ struct lang_filter_module_class {
 static ARRAY(const struct lang_filter *) lang_filter_classes;
 static struct module *lang_filter_modules = NULL;
 /* Filter classes registered by modules. This is freed when the last module
-   unregisters. */
+   unregisters. A module loaded via mail_plugins may be initialized before
+   lang_filters_init() and deinitialized after lang_filters_deinit(). */
 static ARRAY(struct lang_filter_module_class) lang_filter_module_classes;
 
 void lang_filters_init(void)
@@ -90,6 +91,11 @@ int lang_filter_module_load(const char *module_name,
 	const char *module_names[] = { module_name, NULL };
 	struct module_dir_load_settings mod_set;
 	struct module *module;
+
+	/* The module may already be loaded, e.g. via mail_plugins */
+	*class_r = lang_filter_module_class_find(module_name);
+	if (*class_r != NULL)
+		return 1;
 
 	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;

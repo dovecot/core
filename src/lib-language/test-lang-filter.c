@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
+#include "module-dir.h"
 #include "sha2.h"
 #include "str.h"
 #include "unichar.h"
@@ -787,6 +788,53 @@ static void test_lang_filter_normalizer_builtin_ids(void)
 }
 
 #ifdef HAVE_LIBICU
+static struct module *test_lang_filter_module_preload(void)
+{
+	const char *module_names[] = { "lang_filter_normalizer_icu", NULL };
+	struct module_dir_load_settings mod_set;
+	struct module *modules;
+
+	/* load the module like mail_plugins does */
+	i_zero(&mod_set);
+	mod_set.abi_version = DOVECOT_ABI_VERSION;
+	mod_set.setting_name = "mail_plugins";
+	mod_set.require_init_funcs = TRUE;
+	modules = module_dir_load(TEST_MODULE_DIR, module_names, &mod_set);
+	module_dir_init(modules);
+	return modules;
+}
+
+static void test_lang_filter_normalizer_module_upper(void)
+{
+	struct lang_settings set = lang_default_settings;
+	set.filter_normalizer_icu_id = "Any-Upper";
+	struct lang_filter *norm = NULL;
+	const char *error = NULL, *token = "foo";
+
+	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, make_settings(NULL, &set), event, &norm, &error) == 0);
+	if (norm == NULL)
+		return;
+	test_assert(lang_filter(norm, &token, &error) == 1);
+	test_assert_strcmp(token, "FOO");
+	lang_filter_unref(&norm);
+}
+
+static void test_lang_filter_normalizer_module_preloaded(void)
+{
+	const char *old_module_dir = lang_filter_module_dir;
+	struct module *modules;
+
+	test_begin("lang filter normalizer libicu module via mail_plugins");
+	modules = test_lang_filter_module_preload();
+	/* the module isn't loaded again, which would fail e.g. after
+	   chrooting */
+	lang_filter_module_dir = "/nonexistent";
+	test_lang_filter_normalizer_module_upper();
+	lang_filter_module_dir = old_module_dir;
+	module_dir_unload(&modules);
+	test_end();
+}
+
 static void test_lang_filter_normalizer_invalid_id(void)
 {
 	struct lang_filter *norm = NULL;
@@ -808,12 +856,20 @@ static void test_lang_filter_normalizer_module(void)
 	struct lang_settings set = lang_default_settings;
 	set.filter_normalizer_icu_id = "Any-Upper";
 	const char *error = NULL, *token = "foo\xC3\xA4";
+	struct module *modules;
 
 	test_begin("lang filter normalizer libicu module");
 	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, make_settings(NULL, &set), event, &norm, &error) == 0);
 	test_assert(lang_filter(norm, &token, &error) == 1);
 	test_assert_strcmp(token, "FOO\xC3\x84");
 	lang_filter_unref(&norm);
+
+	/* loading the module also via mail_plugins and unloading it keeps
+	   the class registered */
+	modules = test_lang_filter_module_preload();
+	test_lang_filter_normalizer_module_upper();
+	module_dir_unload(&modules);
+	test_lang_filter_normalizer_module_upper();
 	test_end();
 }
 #endif
@@ -1077,6 +1133,7 @@ int main(void)
 		test_lang_filter_normalizer_final_sigma,
 		test_lang_filter_normalizer_builtin_ids,
 #ifdef HAVE_LIBICU
+		test_lang_filter_normalizer_module_preloaded,
 		test_lang_filter_normalizer_invalid_id,
 		test_lang_filter_normalizer_module,
 #endif
