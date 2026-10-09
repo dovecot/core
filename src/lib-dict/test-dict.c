@@ -7,6 +7,7 @@
 #include "test-dir.h"
 
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 
 static void test_dict_escape(void)
@@ -183,12 +184,13 @@ struct test_dict_file {
 
 static void
 test_dict_file_init(struct test_dict_file *ctx, const char *path,
-		    const char *lock_method)
+		    const char *lock_method, bool fsync)
 {
 	const char *const settings[] = {
 		"dict", "file",
 		"dict/file/path", path,
 		"dict/file/lock_method", lock_method,
+		"dict/file/fsync", fsync ? "yes" : "no",
 		NULL
 	};
 	const char *error;
@@ -255,7 +257,7 @@ static void test_dict_file_iterate_commit(void)
 	test_begin("dict file commit while iterating");
 	test_dict_file_init(&ctx, t_strconcat(test_dir_get(),
 					      "/iterate-commit", NULL),
-			    "dotlock");
+			    "dotlock", TRUE);
 	struct dict *dict = ctx.dict;
 	test_dict_file_set(dict, DICT_PATH_SHARED"a", "1");
 	test_dict_file_set(dict, DICT_PATH_SHARED"b", "1");
@@ -299,8 +301,8 @@ static void test_dict_file_iterate_replaced_one(const char *lock_method)
 
 	path = t_strdup_printf("%s/iterate-replaced-%s", test_dir_get(),
 			       lock_method);
-	test_dict_file_init(&ctx1, path, lock_method);
-	test_dict_file_init(&ctx2, path, lock_method);
+	test_dict_file_init(&ctx1, path, lock_method, TRUE);
+	test_dict_file_init(&ctx2, path, lock_method, TRUE);
 	test_dict_file_set(ctx1.dict, DICT_PATH_SHARED"a", "1");
 
 	/* The other dict replaces the file. Lookups see its changes while
@@ -333,8 +335,8 @@ static void test_dict_file_iterate_replaced_commit_one(const char *lock_method)
 
 	path = t_strdup_printf("%s/iterate-replaced-commit-%s",
 			       test_dir_get(), lock_method);
-	test_dict_file_init(&ctx1, path, lock_method);
-	test_dict_file_init(&ctx2, path, lock_method);
+	test_dict_file_init(&ctx1, path, lock_method, TRUE);
+	test_dict_file_init(&ctx2, path, lock_method, TRUE);
 	test_dict_file_set(ctx1.dict, DICT_PATH_SHARED"a", "1");
 
 	/* A commit while iterating must include the changes of the file
@@ -385,7 +387,7 @@ static void test_dict_file_read_error(void)
 	test_begin("dict file read error");
 	dir = t_strconcat(test_dir_get(), "/dir", NULL);
 	path = t_strconcat(test_dir_get(), "/dict", NULL);
-	test_dict_file_init(&ctx, path, "dotlock");
+	test_dict_file_init(&ctx, path, "dotlock", TRUE);
 	struct dict *dict = ctx.dict;
 	test_dict_file_set(dict, DICT_PATH_SHARED"a", "1");
 	struct dict_iterate_context *iter = test_dict_file_iterate_init(dict);
@@ -419,6 +421,56 @@ static void test_dict_file_read_error(void)
 	test_end();
 }
 
+static void test_dict_file_fsync_one(bool fsync)
+{
+	const struct dict_op_settings op_set = { };
+	struct test_dict_file ctx;
+	const char *path, *temp_path, *value, *error;
+
+	path = t_strdup_printf("%s/fsync-%d", test_dir_get(), fsync ? 1 : 0);
+	temp_path = t_strconcat(path, ".tmp", NULL);
+	test_dict_file_init(&ctx, path, "fcntl", fsync);
+	struct dict *dict = ctx.dict;
+	test_assert(test_dict_file_try_set(dict, DICT_PATH_SHARED"old") == 1);
+
+	/* On Linux fdatasync() fails with EINVAL on a FIFO, while writing to
+	   it works as long as it has a reader. */
+	if (mkfifo(temp_path, 0600) < 0)
+		i_fatal("mkfifo(%s) failed: %m", temp_path);
+	int fifo_fd = open(temp_path, O_RDONLY | O_NONBLOCK);
+	if (fifo_fd == -1)
+		i_fatal("open(%s) failed: %m", temp_path);
+	/* POSIX allows fdatasync() to succeed on a FIFO */
+	const bool fifo_sync_fails =
+		fdatasync(fifo_fd) < 0 && errno == EINVAL;
+
+	const int ret = test_dict_file_try_set(dict, DICT_PATH_SHARED"key");
+	if (!fsync) {
+		test_assert(ret == 1);
+		test_assert(dict_lookup(dict, &op_set, pool_datastack_create(),
+					DICT_PATH_SHARED"key", &value,
+					&error) == 1);
+	} else if (fifo_sync_fails) {
+		test_assert(ret == -1);
+		/* a failed commit must not leave its changes visible */
+		test_assert(dict_lookup(dict, &op_set, pool_datastack_create(),
+					DICT_PATH_SHARED"key", &value,
+					&error) == 0);
+	}
+	test_assert(dict_lookup(dict, &op_set, pool_datastack_create(),
+				DICT_PATH_SHARED"old", &value, &error) == 1);
+
+	i_close_fd(&fifo_fd);
+	test_dict_file_deinit(&ctx);
+}
+static void test_dict_file_fsync(void)
+{
+	test_begin("dict file fsync");
+	test_dict_file_fsync_one(TRUE);
+	test_dict_file_fsync_one(FALSE);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -429,6 +481,7 @@ int main(void)
 		test_dict_file_iterate_replaced,
 		test_dict_file_iterate_replaced_commit,
 		test_dict_file_read_error,
+		test_dict_file_fsync,
 		NULL
 	};
 	int ret;

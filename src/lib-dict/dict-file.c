@@ -40,6 +40,7 @@ struct file_dict {
 	struct file_dict_snapshot *snapshot;
 	int fd;
 
+	bool fsync;
 	bool refreshed;
 };
 
@@ -62,6 +63,7 @@ struct dict_file_settings {
 
 	const char *dict_file_lock_method;
 	const char *dict_file_path;
+	bool dict_file_fsync;
 };
 #undef DEF
 #define DEF(type, name) \
@@ -69,12 +71,20 @@ struct dict_file_settings {
 static const struct setting_define dict_file_setting_defines[] = {
 	DEF(ENUM, dict_file_lock_method),
 	DEF(STR, dict_file_path),
+	DEF(BOOL, dict_file_fsync),
 
 	SETTING_DEFINE_LIST_END
 };
 static const struct dict_file_settings dict_file_default_settings = {
 	.dict_file_lock_method = "dotlock:fcntl:flock",
 	.dict_file_path = "",
+#ifdef DOVECOT_PRO_EDITION
+	/* A crashed obox server discards its local files instead of
+	   reading them again. */
+	.dict_file_fsync = FALSE,
+#else
+	.dict_file_fsync = TRUE,
+#endif
 };
 const struct setting_parser_info dict_file_setting_parser_info = {
 	.name = "dict_file",
@@ -179,6 +189,7 @@ file_dict_init(const struct dict *dict_driver, struct event *event,
 
 	dict = i_new(struct file_dict, 1);
 	dict->path = i_strdup(set->dict_file_path);
+	dict->fsync = set->dict_file_fsync;
 	if (!file_lock_method_parse(set->dict_file_lock_method,
 				    &dict->lock_method))
 		i_unreached(); /* enum should have been checked already */
@@ -745,9 +756,18 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	hash_table_iterate_deinit(&iter);
 
 	if (o_stream_finish(output) <= 0) {
-		*error_r = t_strdup_printf("write(%s) failed: %s", temp_path,
-					   o_stream_get_error(output));
-		o_stream_destroy(&output);
+		error = t_strdup_printf("write(%s) failed: %s", temp_path,
+					o_stream_get_error(output));
+	} else if (dict->fsync && fdatasync(fd) < 0) {
+		/* without this a crash after the rename can leave an empty
+		   file in place of the old one */
+		error = t_strdup_printf("fdatasync(%s) failed: %m", temp_path);
+	} else {
+		error = NULL;
+	}
+	o_stream_destroy(&output);
+	if (error != NULL) {
+		*error_r = error;
 		dict->refreshed = FALSE;
 		if (dotlock != NULL)
 			file_dotlock_delete(&dotlock);
@@ -757,7 +777,6 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 		}
 		return -1;
 	}
-	o_stream_destroy(&output);
 
 	if (dotlock != NULL) {
 		if (file_dotlock_replace(&dotlock,
