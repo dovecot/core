@@ -2,6 +2,9 @@
 
 #include "test-stats-common.h"
 #include "array.h"
+#include "ioloop.h"
+#include "net.h"
+#include "http-client.h"
 
 bool test_stats_callback(struct event *event,
 			 enum event_callback_type type ATTR_UNUSED,
@@ -665,6 +668,71 @@ static void test_stats_metrics_exporter_init_failure(void)
 	test_end();
 }
 
+static void
+test_stats_export_http_post_timeout_run(const char *timeout_setting,
+					bool expect_timeout)
+{
+	struct ioloop *ioloop = io_loop_create();
+	struct ip_addr ip;
+	in_port_t port = 0;
+
+	/* The listener never accepts or answers: the kernel completes the
+	   TCP handshake and the request just waits for a response. */
+	test_assert(net_addr2ip("127.0.0.1", &ip) == 0);
+	int fd_listen = net_listen(&ip, &port, 128);
+	if (fd_listen == -1)
+		i_fatal("net_listen() failed: %m");
+
+	const char *const settings_blob[] = {
+		"metric=test",
+		"metric/test/metric_name=test",
+		"metric/test/metric_filter=event=test",
+		"metric/test/metric_exporter=http",
+		"event_exporter=http",
+		"event_exporter/http/event_exporter_name=http",
+		"event_exporter/http/event_exporter_driver=http-post",
+		"event_exporter/http/event_exporter_format=json",
+		t_strdup_printf("event_exporter/http/event_exporter_http_post_url="
+				"http://127.0.0.1:%u/", port),
+		timeout_setting,
+		NULL
+	};
+	test_stats_init(settings_blob);
+
+	struct event *event = event_create(NULL);
+	event_add_category(event, &test_category);
+	event_set_name(event, "test");
+	test_event_send(event);
+	event_unref(&event);
+
+	if (expect_timeout) {
+		test_expect_error_string(t_strdup_printf(
+			"Failed to export event via HTTP POST: %d",
+			HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT));
+	}
+	struct timeout *to = timeout_add(1500, io_loop_stop, ioloop);
+	io_loop_run(ioloop);
+	timeout_remove(&to);
+	test_expect_no_more_errors();
+
+	test_stats_deinit();
+	i_close_fd(&fd_listen);
+	io_loop_destroy(&ioloop);
+}
+
+static void test_stats_export_http_post_timeout(void)
+{
+	test_begin("stats export http-post default request timeout");
+	test_stats_export_http_post_timeout_run(NULL, TRUE);
+	test_end();
+
+	test_begin("stats export http-post explicit request timeout");
+	test_stats_export_http_post_timeout_run(
+		"event_exporter/http/http_client_request_absolute_timeout=10s",
+		FALSE);
+	test_end();
+}
+
 int main(void) {
 	void (*const test_functions[])(void) = {
 		test_stats_metrics,
@@ -674,6 +742,7 @@ int main(void) {
 		test_stats_metrics_group_by_exponential_bounds,
 		test_stats_metrics_group_by_legacy_exponential_bounds,
 		test_stats_metrics_exporter_init_failure,
+		test_stats_export_http_post_timeout,
 		NULL
 	};
 

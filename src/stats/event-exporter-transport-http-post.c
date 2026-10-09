@@ -62,6 +62,7 @@ event_exporter_http_post_init(pool_t pool, struct event *event,
 {
 	struct http_post_event_exporter *exporter =
 		p_new(pool, struct http_post_event_exporter, 1);
+	settings_event_add_filter_name(event, "event_exporter_http_post");
 	if (settings_get(event, &event_exporter_http_post_setting_parser_info,
 			 0, &exporter->set, error_r) < 0)
 		return -1;

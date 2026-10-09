@@ -2,6 +2,7 @@
 
 #include "test-stats-common.h"
 #include "settings.h"
+#include "http-client.h"
 #include <time.h>
 #include <unistd.h>
 
@@ -92,6 +93,9 @@ void test_stats_init(const char *const settings_blob[])
 void test_stats_deinit(void)
 {
 	stats_metrics_deinit(&stats_metrics);
+	/* Exporter connections outlive their http_client in the shared
+	   context and still reference settings freed below. */
+	http_client_global_context_free();
 	test_stats_deinit_settings();
 }
 
