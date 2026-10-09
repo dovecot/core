@@ -933,50 +933,53 @@ unicode_casemap_casefold_cp(const struct unicode_code_point_data *cp_data,
 	return unicode_code_point_data_get_casefold_mapping(cp_data, map_r);
 }
 
-static ssize_t
+static bool
 unicode_casemap_input_cp(struct unicode_casemap *map, uint32_t cp,
-			 const struct unicode_code_point_data *cp_data,
-			 const char **error_r)
+			 const struct unicode_code_point_data *cp_data)
 {
-	bool was_buffered = map->cp_buffered;
-	ssize_t sret;
+	const uint32_t *map_cps;
+	size_t i, map_cps_len;
 
 	if (cp_data == NULL)
 		cp_data = unicode_code_point_get_data(cp);
 
-	const uint32_t *map_cps;
-	const struct unicode_code_point_data *const *map_cps_data = NULL;
-	size_t map_cps_len;
-
 	map_cps_len = map->map(cp_data, &map_cps);
+	if (map->buffer_len + I_MAX(map_cps_len, 1) >
+	    UNICODE_CASEMAP_BUFFER_SIZE)
+		return FALSE;
+
 	if (map_cps_len == 0) {
-		map_cps = &cp;
-		map_cps_data = &cp_data;
-		map_cps_len = 1;
+		map->cp_buffer[map->buffer_len] = cp;
+		map->cpd_buffer[map->buffer_len++] = cp_data;
+	} else {
+		for (i = 0; i < map_cps_len; i++) {
+			map->cp_buffer[map->buffer_len] = map_cps[i];
+			map->cpd_buffer[map->buffer_len++] = NULL;
+		}
 	}
-	i_assert(map_cps_len > map->cp_map_pos);
+	return TRUE;
+}
 
-	map_cps += map->cp_map_pos;
-	map_cps_len -= map->cp_map_pos;
-	sret = uniform_transform_forward(&map->transform,
-					 map_cps, map_cps_data, map_cps_len,
+static ssize_t
+unicode_casemap_forward(struct unicode_casemap *map, const char **error_r)
+{
+	ssize_t sret;
+
+	if (map->buffer_len == 0)
+		return 0;
+
+	sret = uniform_transform_forward(&map->transform, map->cp_buffer,
+					 map->cpd_buffer, map->buffer_len,
 					 error_r);
-	if (sret < 0) {
-		i_assert(*error_r != NULL);
+	if (sret < 0)
 		return -1;
-	}
-	if ((size_t)sret < map_cps_len) {
-		map->cp_buffered = TRUE;
-		map->cp = cp;
-		map->cp_data = cp_data;
-		map->cp_map_pos += sret;
-		return (was_buffered ? 0 : 1);
-	}
 
-	map->cp_buffered = FALSE;
-	map->cp_data = NULL;
-	map->cp_map_pos = 0;
-	return 1;
+	map->buffer_len -= sret;
+	memmove(map->cp_buffer, &map->cp_buffer[sret],
+		map->buffer_len * sizeof(map->cp_buffer[0]));
+	memmove(map->cpd_buffer, &map->cpd_buffer[sret],
+		map->buffer_len * sizeof(map->cpd_buffer[0]));
+	return sret;
 }
 
 static ssize_t
@@ -986,31 +989,29 @@ unicode_casemap_input(struct unicode_transform *trans,
 {
 	struct unicode_casemap *map =
 		container_of(trans, struct unicode_casemap, transform);
-	int ret;
+	ssize_t sret;
+	size_t n = 0;
 
-	ret = unicode_casemap_flush(trans, TRUE, error_r);
-	if (ret < 0) {
-		i_assert(*error_r != NULL);
-		return -1;
-	}
-	if (map->cp_buffered)
-		return 0;
-
-	size_t n;
-	for (n = 0; n < buf->cp_count; n++) {
-		if (map->cp_buffered)
-			break;
-		ret = unicode_casemap_input_cp(map, buf->cp[n],
-					       (buf->cp_data != NULL ?
-					        buf->cp_data[n] : NULL),
-					       error_r);
-		if (ret < 0) {
-			i_assert(*error_r != NULL);
-			return -1;
+	while (n < buf->cp_count) {
+		if (unicode_casemap_input_cp(map, buf->cp[n],
+					     (buf->cp_data == NULL ?
+					      NULL : buf->cp_data[n]))) {
+			n++;
+			continue;
 		}
-		if (ret == 0)
+
+		/* The buffer is full */
+		sret = unicode_casemap_forward(map, error_r);
+		if (sret < 0)
+			return -1;
+		if (sret == 0) {
+			/* The next transform is full */
 			break;
+		}
 	}
+
+	if (unicode_casemap_forward(map, error_r) < 0)
+		return -1;
 	return n;
 }
 
@@ -1020,14 +1021,10 @@ unicode_casemap_flush(struct unicode_transform *trans,
 {
 	struct unicode_casemap *map =
 		container_of(trans, struct unicode_casemap, transform);
-	int ret;
 
-	if (!map->cp_buffered)
-		return 1;
-
-	ret = unicode_casemap_input_cp(map, map->cp, map->cp_data, error_r);
-	i_assert(ret >= 0 || *error_r != NULL);
-	return ret;
+	if (unicode_casemap_forward(map, error_r) < 0)
+		return -1;
+	return (map->buffer_len == 0 ? 1 : 0);
 }
 
 /*

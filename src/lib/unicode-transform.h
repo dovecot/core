@@ -223,17 +223,21 @@ int unicode_nf_checker_finish(struct unicode_nf_checker *unc);
  * Casemap Transform
  */
 
+/* Maximum number of mapped code points buffered by the casemap transform */
+#define UNICODE_CASEMAP_BUFFER_SIZE 32
+
 struct unicode_casemap {
 	struct unicode_transform transform;
 
 	size_t (*map)(const struct unicode_code_point_data *cp_data,
 		      const uint32_t **map_r);
 
-	uint32_t cp;
-	const struct unicode_code_point_data *cp_data;
-	unsigned int cp_map_pos;
+	unsigned int buffer_len;
 
-	bool cp_buffered:1;
+	/* Mapped code points that haven't been forwarded yet */
+	uint32_t cp_buffer[UNICODE_CASEMAP_BUFFER_SIZE];
+	const struct unicode_code_point_data *
+		cpd_buffer[UNICODE_CASEMAP_BUFFER_SIZE];
 };
 
 void unicode_casemap_init_uppercase(struct unicode_casemap *map);
