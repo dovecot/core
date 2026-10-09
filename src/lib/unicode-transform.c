@@ -561,6 +561,8 @@ unicode_nf_input_cp(struct unicode_nf_context *ctx, uint32_t cp,
 
 	i_assert(len <= UNICODE_DECOMPOSITION_MAX_LENGTH);
 	i_assert(len_k <= UNICODE_DECOMPOSITION_MAX_LENGTH);
+	/* decomp_cpd[] is reused below when decomp_k == decomp */
+	i_assert(decomp_k != decomp || len_k == len);
 
 	/* UAX15-D4: Stream-Safe Text Process is the process of producing a
 	   Unicode string in Stream-Safe Text Format by processing that string
