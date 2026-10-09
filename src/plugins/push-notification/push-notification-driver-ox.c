@@ -30,7 +30,6 @@
 
 /* Default values. */
 static const char *const default_events[] = { "MessageNew", NULL };
-static const char *const default_mboxes[] = { "INBOX", NULL };
 
 /* This is data specific to an OX driver. */
 struct push_notification_driver_ox_config {
@@ -197,11 +196,10 @@ push_notification_driver_ox_begin_txn(struct push_notification_driver_txn *dtxn)
 	if (md_value == NULL)
 		return FALSE;
 
-	/* Unused keys: events, expire, folder */
+	/* Unused keys: events, expire */
 	/* TODO: To be implemented later(?) */
 	const char *const *events = default_events;
 	time_t expire = INT_MAX;
-	const char *const *mboxes = default_mboxes;
 
 	if (expire < ioloop_time) {
 		e_debug(dconfig->event, "Skipped due to expiration (%ld < %ld)",
@@ -210,36 +208,42 @@ push_notification_driver_ox_begin_txn(struct push_notification_driver_txn *dtxn)
 	}
 
 	mbox_curr = mailbox_get_vname(dtxn->ptxn->mbox);
-	for (; *mboxes != NULL; mboxes++) {
-		if (strcmp(mbox_curr, *mboxes) == 0) {
-			mbox_found = TRUE;
-			break;
+
+	txn = p_new(dtxn->ptxn->pool,
+		    struct push_notification_driver_ox_txn, 1);
+
+	bool mbox_arg_seen = FALSE;
+
+	/* Valid keys: user mailbox */
+	args = t_strsplit_tabescaped(md_value);
+	for (; *args != NULL; args++) {
+		key = *args;
+		value = strchr(key, '=');
+
+		if (value == NULL)
+		  continue;
+
+		key = t_strdup_until(key, value++);
+
+		if (strcmp(key, "user") == 0) {
+			txn->unsafe_user =
+				p_strdup(dtxn->ptxn->pool, value);
+		} else if (strcmp(key, "mailbox") == 0) {
+		  mbox_arg_seen = TRUE;
+			if (strcmp(mbox_curr, value) == 0) {
+			  mbox_found = TRUE;
+			}
 		}
 	}
+
+	if (!mbox_arg_seen)
+	  mbox_found = strcmp(mbox_curr, "INBOX") == 0;
 
 	if (mbox_found == FALSE) {
 		e_debug(dconfig->event,
 			"Skipped because %s is not a watched mailbox",
 			mbox_curr);
 		return FALSE;
-	}
-
-	txn = p_new(dtxn->ptxn->pool,
-		    struct push_notification_driver_ox_txn, 1);
-
-	/* Valid keys: user */
-	args = t_strsplit_tabescaped(md_value);
-	for (; *args != NULL; args++) {
-		key = *args;
-
-		value = strchr(key, '=');
-		if (value != NULL) {
-			key = t_strdup_until(key, value++);
-			if (strcmp(key, "user") == 0) {
-				txn->unsafe_user =
-					p_strdup(dtxn->ptxn->pool, value);
-			}
-		}
 	}
 
 	if (txn->unsafe_user == NULL) {
