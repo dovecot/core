@@ -245,6 +245,7 @@ static bool language_match_lists(struct language_list *list,
 static int language_textcat_init(struct language_list *list,
 				 const char **error_r)
 {
+	struct textcat *textcat;
 	const char *config_path;
 	const char *data_dir;
 
@@ -275,16 +276,18 @@ static int language_textcat_init(struct language_list *list,
 		textcat_unref(textcat_cache);
 	}
 
-	textcat_cache = list->textcat = i_new(struct textcat, 1);
-	textcat_cache->refcount = 2;
-	textcat_cache->config_path = i_strdup(config_path);
-	textcat_cache->data_dir = i_strdup(data_dir);
-	textcat_cache->handle = special_textcat_Init(config_path, data_dir);
-	if (textcat_cache->handle == NULL) {
-		textcat_cache->failed = i_strdup_printf(
+	textcat = list->textcat = i_new(struct textcat, 1);
+	textcat->refcount = 2;
+	textcat->config_path = i_strdup(config_path);
+	textcat->data_dir = i_strdup(data_dir);
+	textcat_cache = textcat;
+
+	textcat->handle = special_textcat_Init(config_path, data_dir);
+	if (textcat->handle == NULL) {
+		textcat->failed = i_strdup_printf(
 			"special_textcat_Init(%s, %s) failed",
 			config_path, data_dir);
-		*error_r = textcat_cache->failed;
+		*error_r = textcat->failed;
 		return -1;
 	}
 	/* The textcat minimum document size could be set here. It
