@@ -117,6 +117,9 @@ struct auth_request_fields {
 	bool cert_username:1;
 };
 
+typedef void
+auth_request_delayed_failure_callback_t(struct auth_request *request);
+
 struct auth_request {
 	int refcount;
 
@@ -164,6 +167,8 @@ struct auth_request {
 	AUTH_REQUEST_FIELDS_CONST struct auth_request_fields fields;
 
 	struct timeout *to_abort, *to_penalty;
+	/* Set while the request is waiting in auth_internal_failure_delay */
+	auth_request_delayed_failure_callback_t *delayed_failure_callback;
 	unsigned int policy_penalty;
 	unsigned int last_penalty;
 	size_t initial_response_len;
