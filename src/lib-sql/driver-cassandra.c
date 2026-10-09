@@ -1945,19 +1945,48 @@ static void result_finish(struct cassandra_result *result)
 }
 
 static void
-cassandra_fallback_warn(struct cassandra_db *db, struct cassandra_result *result)
+cassandra_fallback_warn(struct cassandra_db *db, struct cassandra_result *result,
+			const char *reason)
 {
 	time_t last_warning =
 		ioloop_time - db->last_fallback_warning[result->query_type];
 
 	if (last_warning < CASSANDRA_FALLBACK_WARN_INTERVAL_SECS)
 		return;
-	e_warning(db->api.event,
-		  "%s - retrying future %s queries with consistency %s (instead of %s)",
-		  result->error, cassandra_query_type_names[result->query_type],
-		  cass_consistency_string(result->fallback_consistency),
-		  cass_consistency_string(result->primary_consistency));
+	e_warning(db->api.event, "%s - %s", result->error, reason);
 	db->last_fallback_warning[result->query_type] = ioloop_time;
+}
+
+/* A primary-consistency query has definitively failed while the breaker was
+   closed. Open the breaker. */
+static void
+cassandra_breaker_record_failure(struct cassandra_db *db,
+				 struct cassandra_result *result)
+{
+	enum cassandra_query_type query_type = result->query_type;
+
+	db->primary_probe_failures[query_type] = 1;
+	cassandra_fallback_warn(db, result, t_strdup_printf(
+		"fallback breaker opened, retrying future %s queries with "
+		"consistency %s (instead of %s)",
+		cassandra_query_type_names[query_type],
+		cass_consistency_string(result->fallback_consistency),
+		cass_consistency_string(result->primary_consistency)));
+}
+
+/* A primary-consistency probe failed while the breaker was already open. Grow
+   the exponential backoff so probes are attempted less frequently. */
+static void
+cassandra_breaker_probe_failed(struct cassandra_db *db,
+			       struct cassandra_result *result)
+{
+	db->primary_probe_failures[result->query_type]++;
+	cassandra_fallback_warn(db, result, t_strdup_printf(
+		"fallback breaker still open, retrying future %s queries with "
+		"consistency %s (instead of %s)",
+		cassandra_query_type_names[result->query_type],
+		cass_consistency_string(result->fallback_consistency),
+		cass_consistency_string(result->primary_consistency)));
 }
 
 static void query_resend_with_fallback(struct cassandra_result *result)
@@ -1974,7 +2003,6 @@ static void query_resend_with_fallback(struct cassandra_result *result)
 		return;
 	}
 
-	cassandra_fallback_warn(db, result);
 	i_free_and_null(result->error);
 	result->consistency = result->fallback_consistency;
 	result->sent_at_fallback = TRUE;
@@ -2245,13 +2273,13 @@ static void query_callback(CassFuture *future, void *context)
 		/* a primary-consistency attempt failed */
 		if (db->primary_probe_failures[result->query_type] == 0) {
 			/* breaker is closed: open it */
-			db->primary_probe_failures[result->query_type] = 1;
+			cassandra_breaker_record_failure(db, result);
 		} else if (result->primary_probe) {
 			/* a primary probe failed while the breaker is open.
 			   Grow the backoff. A query that was sent at primary
 			   consistency before the breaker opened isn't a probe,
 			   so it doesn't affect the backoff. */
-			db->primary_probe_failures[result->query_type]++;
+			cassandra_breaker_probe_failed(db, result);
 		}
 		/* Either way, downgrade this individual query so it still has
 		   a chance to apply. */
