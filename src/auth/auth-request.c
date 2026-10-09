@@ -8,6 +8,7 @@
 #include "hex-binary.h"
 #include "str.h"
 #include "array.h"
+#include "llist.h"
 #include "safe-memset.h"
 #include "str-sanitize.h"
 #include "strescape.h"
@@ -57,6 +58,9 @@ struct auth_policy_check_ctx {
 };
 
 unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
+
+/* Requests waiting in auth_internal_failure_delay timeout */
+static struct auth_request *auth_requests_delayed_failures = NULL;
 
 static void
 auth_request_userdb_import(struct auth_request *request, const char *args);
@@ -777,6 +781,8 @@ static void auth_request_delayed_failure_finish(struct auth_request *request)
 		request->delayed_failure_callback;
 
 	timeout_remove(&request->to_penalty);
+	DLLIST_REMOVE_FULL(&auth_requests_delayed_failures, request,
+			   delayed_failure_prev, delayed_failure_next);
 	request->delayed_failure_callback = NULL;
 	callback(request);
 }
@@ -792,6 +798,16 @@ auth_request_delay_failure(struct auth_request *request, unsigned int msecs,
 	request->delayed_failure_callback = callback;
 	request->to_penalty = timeout_add(msecs,
 		auth_request_delayed_failure_finish, request);
+	DLLIST_PREPEND_FULL(&auth_requests_delayed_failures, request,
+			    delayed_failure_prev, delayed_failure_next);
+}
+
+void auth_requests_flush_delayed_failures(void)
+{
+	while (auth_requests_delayed_failures != NULL) {
+		auth_request_delayed_failure_finish(
+			auth_requests_delayed_failures);
+	}
 }
 
 static void auth_request_passdb_internal_failure(struct auth_request *request)

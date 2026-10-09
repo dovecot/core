@@ -253,6 +253,9 @@ static void main_deinit(void)
 		/* cancel all pending anvil penalty lookups */
 		auth_penalty_deinit(&auth_penalty);
 	}
+	/* finish requests waiting in auth_internal_failure_delay while the
+	   connections are still alive */
+	auth_requests_flush_delayed_failures();
 	/* deinit auth workers, which aborts pending requests */
         auth_worker_connection_deinit();
 	/* deinit passdbs and userdbs. it aborts any pending async requests. */
