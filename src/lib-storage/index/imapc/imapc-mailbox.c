@@ -14,8 +14,6 @@
 #include "imapc-sync.h"
 #include "imapc-storage.h"
 
-#define NOTIFY_DELAY_MSECS 500
-
 void imapc_mailbox_set_corrupted(struct imapc_mailbox *mbox,
 				 const char *reason, ...)
 {
@@ -136,19 +134,27 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 static void imapc_mailbox_idle_timeout(struct imapc_mailbox *mbox)
 {
 	timeout_remove(&mbox->to_idle_delay);
-	if (mbox->box.notify_callback != NULL)
+	if (mbox->box.notify_callback != NULL) {
+		rate_limit_add(&mbox->box.notify_rate_limit);
 		mbox->box.notify_callback(&mbox->box, mbox->box.notify_context);
+	}
 }
 
 static void imapc_mailbox_idle_notify(struct imapc_mailbox *mbox)
 {
 	struct ioloop *old_ioloop = current_ioloop;
+	unsigned int delay_msecs;
 
 	if (mbox->box.notify_callback != NULL &&
 	    mbox->to_idle_delay == NULL) {
+		/* Use a timeout even when there is no delay. This way all the
+		   untagged replies handled before returning to the root
+		   ioloop are merged into a single notify callback call. */
+		delay_msecs =
+			rate_limit_get_delay_msecs(&mbox->box.notify_rate_limit);
 		io_loop_set_current(mbox->storage->root_ioloop);
 		mbox->to_idle_delay =
-			timeout_add_short(NOTIFY_DELAY_MSECS,
+			timeout_add_short(delay_msecs,
 					  imapc_mailbox_idle_timeout, mbox);
 		io_loop_set_current(old_ioloop);
 	}
