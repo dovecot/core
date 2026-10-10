@@ -4,7 +4,8 @@
 #include "net.h"
 #include "uri-util.h"
 
-#include "http-common.h"
+#define HTTP_DEFAULT_PORT 80
+#define HTTPS_DEFAULT_PORT 443
 
 enum http_request_target_format {
 	HTTP_REQUEST_TARGET_FORMAT_ORIGIN = 0,
