@@ -285,6 +285,7 @@ int client_alloc(int fd, const struct master_service_connection *conn,
 	p_array_init(&client->module_contexts, client->pool, 5);
 
 	client->fd = fd;
+	client->pending_plaintext_fd = -1;
 	client->local_ip = conn->local_ip;
 	client->local_port = conn->local_port;
 	client->ip = conn->remote_ip;
@@ -642,6 +643,7 @@ bool client_unref(struct client **_client)
 	o_stream_unref(&client->output);
 	o_stream_unref(&client->multiplex_orig_output);
 	i_close_fd(&client->fd);
+	i_close_fd(&client->pending_plaintext_fd);
 	event_unref(&client->event);
 	event_unref(&client->event_auth);
 	client_settings_free(client);

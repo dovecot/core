@@ -205,6 +205,9 @@ struct client {
 	ARRAY_TYPE(const_string) forward_fields;
 
 	int fd;
+	/* Keep the TLS socketpair endpoint alive until the backend has
+	   received it. macOS can otherwise deliver an early EOF. */
+	int pending_plaintext_fd;
 	struct istream *input;
 	struct ostream *output;
 	/* The rawlog streams don't hold any references */
