@@ -5,6 +5,7 @@
 #include "array.h"
 #include "istream.h"
 #include "sha1.h"
+#include "randgen.h"
 #include "str.h"
 #include "hex-binary.h"
 #include "eacces-error.h"
@@ -253,7 +254,13 @@ static struct dlua_script *dlua_create_script(const char *name,
 	/* lua API says that lua_newstate will return NULL only if it's out of
 	   memory. this cannot really happen with our allocator as it will
 	   call i_fatal_status anyways if it runs out of memory */
+#if LUA_VERSION_NUM >= 505
+	unsigned int seed;
+	random_fill(&seed, sizeof(seed));
+	script->L = lua_newstate(dlua_alloc, script, seed);
+#else
 	script->L = lua_newstate(dlua_alloc, script);
+#endif
 	i_assert(script->L != NULL);
 	script->ref = 1;
 	lua_atpanic(script->L, dlua_atpanic);
