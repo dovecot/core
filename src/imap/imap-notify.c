@@ -367,20 +367,21 @@ static int imap_client_notify_more(struct client *client)
 	if (client->notify_ctx->fetch_ctx != NULL) {
 		if ((ret = imap_client_notify_selected(client)) < 0) {
 			client->notify_ctx->fetch_ctx->state.failed = FALSE;
-			ret = -1;
+			imap_notify_failed(client->notify_ctx);
 		}
 	}
 
 	/* send notifications for non-selected mailboxes */
 	array_foreach_modifiable(&client->notify_ctx->namespaces, notify_ns) {
-		if (ret == 0 || client->notify_ctx->overflowed)
+		if (ret <= 0 || client->notify_ctx->overflowed)
 			break;
-		if (imap_client_notify_ns(notify_ns) < 0)
-			ret = -1;
+		if (imap_client_notify_ns(notify_ns) < 0) {
+			/* NOTIFICATIONOVERFLOW already tells the client about
+			   this. Don't fail the selected mailbox sync, since its
+			   storage error wouldn't be related to this failure. */
+			imap_notify_failed(client->notify_ctx);
+		}
 	}
-
-	if (ret < 0)
-		imap_notify_failed(client->notify_ctx);
 	event_reason_end(&reason);
 	return ret;
 }
