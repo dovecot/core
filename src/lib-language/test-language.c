@@ -223,6 +223,30 @@ static void test_language_detect_nynorsk(void)
 	test_end();
 }
 
+/* Detect Catalan */
+static void test_language_detect_catalan(void)
+{
+	struct language_list *lp = NULL;
+	const struct language *lang_r = NULL;
+	const unsigned char catalan[]  =
+		"Article 1.\n"\
+		"Tots els \xC3\xA9ssers humans neixen lliures i iguals en "\
+		"dignitat i en drets. S\xC3\xB3n dotats de ra\xC3\xB3 i de "\
+		"consci\xC3\xA8ncia, i han de comportar-se fraternalment els "\
+		"uns amb els altres.";
+
+	const char names[] = "es, fr, it, ca, en";
+	const char *unknown, *error;
+	test_begin("language detect Catalan");
+	lp = language_list_init(&settings);
+	test_assert(language_list_add_names(lp, to_array(names), &unknown) == TRUE);
+	test_assert(language_detect(lp, catalan, sizeof(catalan)-1, &lang_r, &error)
+	            == LANGUAGE_DETECT_RESULT_OK);
+	test_assert(strcmp(lang_r->name, "ca") == 0);
+	language_list_deinit(&lp);
+	test_end();
+}
+
 /* Detect Finnish as English */
 static void test_language_detect_finnish_as_english(void)
 {
@@ -324,6 +348,7 @@ int main(void)
 		test_language_detect_swedish,
 		test_language_detect_bokmal,
 		test_language_detect_nynorsk,
+		test_language_detect_catalan,
 		test_language_detect_finnish_as_english,
 		test_language_detect_na,
 		test_language_detect_unknown,
