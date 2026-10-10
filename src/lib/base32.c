@@ -223,7 +223,7 @@ void base32crockford_encode(const void *src, size_t src_size,
 	((c) == '\n' || (c) == '\r' || (c) == ' ' || (c) == '\t')
 
 static int
-base32_decode_with_alphabet(const unsigned char *alph,
+base32_decode_with_alphabet(const unsigned char *alph, bool finish,
 		  const void *src, size_t src_size, size_t *src_pos_r,
 		  buffer_t *dest)
 {
@@ -311,6 +311,17 @@ base32_decode_with_alphabet(const unsigned char *alph,
 		}
 	}
 
+	if (ipos > 0 && finish && ret > 0) {
+		/* The input ended on a partial group with no padding, which
+		   is what base32_encode() writes when pad is FALSE. A caller
+		   that hands over the whole string at once has no more data
+		   to add, so emit the bytes rather than dropping them. This
+		   is what base64_decode_finish() does for base64. */
+		buffer_append(dest, output, opos);
+		ipos = 0;
+		ret = 0;
+	}
+
 	if (src_pos_r != NULL) {
 		if (ipos == 0) {
 			for (; src_pos < src_size; src_pos++) {
@@ -330,13 +341,13 @@ int base32_decode(const void *src, size_t src_size,
 		  size_t *src_pos_r, buffer_t *dest)
 {
 	return base32_decode_with_alphabet
-		(b32dec, src, src_size, src_pos_r, dest);
+		(b32dec, FALSE, src, src_size, src_pos_r, dest);
 }
 int base32hex_decode(const void *src, size_t src_size,
 		  size_t *src_pos_r, buffer_t *dest)
 {
 	return base32_decode_with_alphabet
-		(b32hexdec, src, src_size, src_pos_r, dest);
+		(b32hexdec, FALSE, src, src_size, src_pos_r, dest);
 }
 
 int base32crockford_decode(const void *src, size_t src_size, buffer_t *dest)
@@ -372,7 +383,7 @@ buffer_t *t_base32_decode_str(const char *str)
 	size_t len = strlen(str);
 
 	buf = t_buffer_create(MAX_BASE32_DECODED_SIZE(len));
-	(void)base32_decode(str, len, NULL, buf);
+	(void)base32_decode_with_alphabet(b32dec, TRUE, str, len, NULL, buf);
 	return buf;
 }
 
@@ -382,7 +393,7 @@ buffer_t *t_base32hex_decode_str(const char *str)
 	size_t len = strlen(str);
 
 	buf = t_buffer_create(MAX_BASE32_DECODED_SIZE(len));
-	(void)base32hex_decode(str, len, NULL, buf);
+	(void)base32_decode_with_alphabet(b32hexdec, TRUE, str, len, NULL, buf);
 	return buf;
 }
 
