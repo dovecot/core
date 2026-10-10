@@ -95,9 +95,11 @@ static int imap_notify_status(struct imap_notify_namespace *notify_ns,
 	} else if (imap_status_get_result(client, box, &items, &result) < 0) {
 		/* hide permission errors from client. we don't want to leak
 		   information about existence of mailboxes where user doesn't
-		   have access to */
+		   have access to. also ignore mailboxes that were deleted
+		   after the change was noticed - the deletion is reported
+		   separately. */
 		(void)mailbox_get_last_error(box, &error);
-		if (error != MAIL_ERROR_PERM)
+		if (error != MAIL_ERROR_PERM && error != MAIL_ERROR_NOTFOUND)
 			ret = -1;
 	} else {
 		bool utf8 = client_has_enabled(client, imap_feature_utf8accept);
