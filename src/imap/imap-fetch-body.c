@@ -75,10 +75,11 @@ static const char *get_body_name(const struct imap_fetch_body_data *body)
 	return str_c(str);
 }
 
-static string_t *get_prefix(struct imap_fetch_state *state,
+static string_t *get_prefix(struct imap_fetch_context *ctx,
 			    const struct imap_fetch_body_data *body,
 			    uoff_t size, bool has_nuls)
 {
+	struct imap_fetch_state *state = &ctx->state;
 	string_t *str;
 
 	str = t_str_new(128);
@@ -93,7 +94,26 @@ static string_t *get_prefix(struct imap_fetch_state *state,
 		str_append(str, " NIL");
 	else if (has_nuls && body->binary)
 		str_printfa(str, " ~{%"PRIuUOFF_T"}\r\n", size);
-	else
+	else if (size == 0 &&
+		 (ctx->client->set->parsed_workarounds &
+		  WORKAROUND_EMPTY_PARTIAL_AS_QUOTED) != 0) {
+		/* An empty string, as RFC 9051 6.4.5 requires for a range
+		   past the end of a section. "" and {0} are the same value
+		   (string = quoted / literal), but only the literal splits
+		   the response across two lines.
+
+		   swift-nio-imap's FramingParser mishandles the zero-length
+		   case: it emits the header as a complete frame, enters
+		   .insideLiteral(remaining: 0), leaves it without consuming
+		   a byte, then returns .incomplete because frameLength is
+		   still 0. Only new network bytes re-drive it, and after a
+		   finished FETCH none arrive -- iOS Mail hangs ~90 s.
+
+		   Every zero-length literal is affected, not just partial
+		   fetches. imap_append_nstring() already prefers "" for an
+		   empty string; this was the one place that did not. */
+		str_append(str, " \"\"");
+	} else
 		str_printfa(str, " {%"PRIuUOFF_T"}\r\n", size);
 	return str;
 }
@@ -201,7 +221,7 @@ static int fetch_body_msgpart(struct imap_fetch_context *ctx, struct mail *mail,
 	ctx->state.cur_human_name = get_body_human_name(ctx->ctx_pool, body);
 
 	fetch_state_update_stats(ctx, body->msgpart);
-	str = get_prefix(&ctx->state, body, ctx->state.cur_size,
+	str = get_prefix(ctx, body, ctx->state.cur_size,
 			 result.binary_decoded_input_has_nuls);
 	o_stream_nsend(ctx->client->output, str_data(str), str_len(str));
 

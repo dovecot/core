@@ -204,6 +204,7 @@ static const struct imap_client_workaround_list imap_client_workaround_list[] = 
 	{ "delay-newmail", WORKAROUND_DELAY_NEWMAIL },
 	{ "tb-extra-mailbox-sep", WORKAROUND_TB_EXTRA_MAILBOX_SEP },
 	{ "tb-lsub-flags", WORKAROUND_TB_LSUB_FLAGS },
+	{ "empty-partial-as-quoted", WORKAROUND_EMPTY_PARTIAL_AS_QUOTED },
 	{ NULL, 0 }
 };
 
