@@ -70,6 +70,8 @@ void imap_client_notify_finished(struct client *client);
 void imap_client_notify_command_allocated(struct client *client);
 void imap_client_notify_command_freed(struct client *client);
 
+struct imap_notify_context *
+imap_notify_context_alloc(struct client *client, bool utf8);
 int imap_notify_begin(struct imap_notify_context *ctx);
 void imap_notify_deinit(struct imap_notify_context **ctx);
 

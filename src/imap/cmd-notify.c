@@ -548,17 +548,11 @@ bool cmd_notify(struct client_command_context *cmd)
 	const struct imap_arg *args;
 	const char *str;
 	int ret = 0;
-	pool_t pool;
 
 	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;
 
-	pool = pool_alloconly_create("imap notify context", 1024);
-	ctx = p_new(pool, struct imap_notify_context, 1);
-	ctx->pool = pool;
-	ctx->client = cmd->client;
-	ctx->utf8 = cmd->utf8;
-	p_array_init(&ctx->namespaces, pool, 4);
+	ctx = imap_notify_context_alloc(cmd->client, cmd->utf8);
 
 	if (!imap_arg_get_atom(&args[0], &str))
 		ret = -1;
@@ -572,7 +566,7 @@ bool cmd_notify(struct client_command_context *cmd)
 	if (ret < 0) {
 		client_send_command_error(cmd, ctx->error != NULL ? ctx->error :
 					  "Invalid arguments.");
-		pool_unref(&pool);
+		pool_unref(&ctx->pool);
 		return TRUE;
 	}
 
@@ -590,7 +584,7 @@ bool cmd_notify(struct client_command_context *cmd)
 		}
 		str_append(client_error, "] Unsupported NOTIFY events.");
 		client_send_tagline(cmd, str_c(client_error));
-		pool_unref(&pool);
+		pool_unref(&ctx->pool);
 		return TRUE;
 	}
 
@@ -599,16 +593,16 @@ bool cmd_notify(struct client_command_context *cmd)
 	} else if (ctx->global_max_mailbox_names > IMAP_NOTIFY_MAX_NAMES_PER_NS) {
 		client_send_tagline(cmd,
 			"NO [NOTIFICATIONOVERFLOW] Too many mailbox names");
-		pool_unref(&pool);
+		pool_unref(&ctx->pool);
 		return TRUE;
 	} else if (imap_notify_refresh_subscriptions(cmd, ctx) < 0) {
 		/* tagline already sent */
-		pool_unref(&pool);
+		pool_unref(&ctx->pool);
 		return TRUE;
 	} else if (imap_notify_begin(ctx) < 0) {
 		client_send_tagline(cmd,
 			"NO [NOTIFICATIONOVERFLOW] NOTIFY not supported for these mailboxes.");
-		pool_unref(&pool);
+		pool_unref(&ctx->pool);
 		return TRUE;
 	}
 	if (cmd->client->notify_ctx != NULL)

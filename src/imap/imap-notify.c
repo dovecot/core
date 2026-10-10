@@ -515,6 +515,21 @@ void imap_client_notify_command_allocated(struct client *client)
 	timeout_remove(&ctx->to_watch);
 }
 
+struct imap_notify_context *
+imap_notify_context_alloc(struct client *client, bool utf8)
+{
+	struct imap_notify_context *ctx;
+	pool_t pool;
+
+	pool = pool_alloconly_create("imap notify context", 1024);
+	ctx = p_new(pool, struct imap_notify_context, 1);
+	ctx->pool = pool;
+	ctx->client = client;
+	ctx->utf8 = utf8;
+	p_array_init(&ctx->namespaces, pool, 4);
+	return ctx;
+}
+
 int imap_notify_begin(struct imap_notify_context *ctx)
 {
 	struct imap_notify_namespace *notify_ns;
