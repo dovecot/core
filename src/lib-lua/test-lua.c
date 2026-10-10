@@ -211,6 +211,10 @@ static void test_lua(void)
 	if (error != NULL)
 		i_fatal("dlua_script_init failed: %s", error);
 
+	void *alloc_context;
+	(void)lua_getallocf(script->L, &alloc_context);
+	test_assert(alloc_context == script);
+
 	dlua_dovecot_register(script);
 
 	dlua_register(script, "test_assert", dlua_test_assert);

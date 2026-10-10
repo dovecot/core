@@ -4,6 +4,7 @@
 #include "llist.h"
 #include "array.h"
 #include "istream.h"
+#include "hash.h"
 #include "sha1.h"
 #include "str.h"
 #include "hex-binary.h"
@@ -253,7 +254,11 @@ static struct dlua_script *dlua_create_script(const char *name,
 	/* lua API says that lua_newstate will return NULL only if it's out of
 	   memory. this cannot really happen with our allocator as it will
 	   call i_fatal_status anyways if it runs out of memory */
+#if LUA_VERSION_NUM >= 505
+	script->L = lua_newstate(dlua_alloc, script, (unsigned int)hash_iv);
+#else
 	script->L = lua_newstate(dlua_alloc, script);
+#endif
 	i_assert(script->L != NULL);
 	script->ref = 1;
 	lua_atpanic(script->L, dlua_atpanic);
