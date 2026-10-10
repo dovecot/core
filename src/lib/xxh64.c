@@ -8,6 +8,8 @@
 #include "lib.h"
 #include "xxh64.h"
 
+#include <endian.h>
+
 #define XXH64_PRIME1  UINT64_C(0x9E3779B185EBCA87)
 #define XXH64_PRIME2  UINT64_C(0xC2B2AE3D27D4EB4F)
 #define XXH64_PRIME3  UINT64_C(0x165667B19E3779F9)
@@ -20,14 +22,14 @@ static inline uint64_t xxh64_read64(const void *p)
 {
 	uint64_t v;
 	memcpy(&v, p, sizeof(v));
-	return v;
+	return le64toh(v);  /* Convert from little-endian to host byte order */
 }
 
 static inline uint32_t xxh64_read32(const void *p)
 {
 	uint32_t v;
 	memcpy(&v, p, sizeof(v));
-	return v;
+	return le32toh(v);  /* Convert from little-endian to host byte order */
 }
 
 static uint64_t ATTR_UNSIGNED_WRAPS xxh64_round(uint64_t acc, uint64_t input)
