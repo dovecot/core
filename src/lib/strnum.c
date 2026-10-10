@@ -460,7 +460,9 @@ int str_to_float(const char *str, float *num_r)
 {
 	char *endp;
 	float num = strtof(str, &endp);
-	if (*endp != '\0')
+	/* strtof() performs no conversion for an empty string and leaves endp
+	   pointing at str, so the *endp check alone would accept "" as 0. */
+	if (endp == str || *endp != '\0')
 		return -1;
 
 	*num_r = num;
@@ -471,7 +473,9 @@ int str_to_double(const char *str, double *num_r)
 {
 	char *endp;
 	double num = strtod(str, &endp);
-	if (*endp != '\0')
+	/* strtod() performs no conversion for an empty string and leaves endp
+	   pointing at str, so the *endp check alone would accept "" as 0. */
+	if (endp == str || *endp != '\0')
 		return -1;
 
 	*num_r = num;
