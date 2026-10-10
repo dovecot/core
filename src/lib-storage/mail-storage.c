@@ -1214,6 +1214,8 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 			box->vname_raw = p_strdup(box->pool, vname_raw);
 		box->mailbox_not_original = mailbox_not_original;
 		box->mailbox_name_changed_by_nfc = mailbox_name_changed_by_nfc;
+		rate_limit_init(&box->notify_rate_limit,
+				&mailbox_notify_rate_limit_set);
 		hook_mailbox_allocated(box);
 	} T_END;
 

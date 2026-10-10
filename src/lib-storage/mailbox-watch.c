@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "rate-limit.h"
 #include "mail-storage-private.h"
 #include "mailbox-watch.h"
 
@@ -9,7 +10,12 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-#define NOTIFY_DELAY_MSECS 500
+/* Notify about the first changes immediately, but avoid flooding the notify
+   callback when there are a lot of changes. */
+const struct rate_limit_settings mailbox_notify_rate_limit_set = {
+	.interval_msecs = 500,
+	.burst = 5,
+};
 
 struct mailbox_notify_file {
 	struct mailbox_notify_file *next;
@@ -23,6 +29,7 @@ static void notify_delay_callback(struct mailbox *box)
 {
 	i_assert(box->notify_callback != NULL);
 	timeout_remove(&box->to_notify_delay);
+	rate_limit_add(&box->notify_rate_limit);
 	box->notify_callback(box, box->notify_context);
 }
 
@@ -46,11 +53,18 @@ static void notify_timeout(struct mailbox *box)
 
 static void notify_callback(struct mailbox *box)
 {
+	unsigned int delay_msecs;
+
 	timeout_reset(box->to_notify);
 
 	if (box->to_notify_delay == NULL) {
+		/* Use a timeout even when there is no delay. This way all the
+		   changes notified within the same ioloop run are merged into
+		   a single notify callback call. */
+		delay_msecs =
+			rate_limit_get_delay_msecs(&box->notify_rate_limit);
 		box->to_notify_delay =
-			timeout_add_short(NOTIFY_DELAY_MSECS,
+			timeout_add_short(delay_msecs,
 					  notify_delay_callback, box);
 	}
 }
