@@ -263,6 +263,7 @@ liblib_la_SOURCES = \
 	priorityq.c \
 	randgen.c \
 	rand.c \
+	rate-limit.c \
 	read-full.c \
 	restrict-access.c \
 	restrict-process-size.c \
@@ -433,6 +434,7 @@ headers = \
 	process-title.h \
 	priorityq.h \
 	randgen.h \
+	rate-limit.h \
 	read-full.h \
 	restrict-access.h \
 	restrict-process-size.h \
@@ -567,6 +569,7 @@ test_lib_SOURCES = \
 	test-printf-format-fix.c \
 	test-priorityq.c \
 	test-random.c \
+	test-rate-limit.c \
 	test-seq-range-array.c \
 	test-seq-set-builder.c \
 	test-stats-dist.c \
