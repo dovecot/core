@@ -6,6 +6,13 @@
 
 #include "http-common.h"
 
+enum http_request_target_format {
+	HTTP_REQUEST_TARGET_FORMAT_ORIGIN = 0,
+	HTTP_REQUEST_TARGET_FORMAT_ABSOLUTE,
+	HTTP_REQUEST_TARGET_FORMAT_AUTHORITY,
+	HTTP_REQUEST_TARGET_FORMAT_ASTERISK
+};
+
 struct http_url {
 	/* server */
 	struct uri_host host;

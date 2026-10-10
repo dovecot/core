@@ -2,7 +2,6 @@
 #define HTTP_URL_PRIVATE 1
 
 #include "http-url.h"
-#include "http-request.h"
 
 /*
  * HTTP URL parser
