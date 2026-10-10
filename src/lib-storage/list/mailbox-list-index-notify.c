@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
+#include "rate-limit.h"
 #include "mail-index-private.h"
 #include "mail-transaction-log-private.h"
 #include "mail-storage-private.h"
@@ -11,8 +12,6 @@
 #include "mailbox-list-index.h"
 
 #include <sys/stat.h>
-
-#define NOTIFY_DELAY_MSECS 500
 
 enum ilist_ext_type {
 	ILIST_EXT_NONE,
@@ -50,6 +49,7 @@ struct mailbox_list_notify_index {
 	void *wait_context;
 	struct io *io_wait, *io_wait_inbox;
 	struct timeout *to_wait, *to_notify;
+	struct rate_limit notify_rate_limit;
 
 	ARRAY_TYPE(seq_range) new_uids, expunged_uids, changed_uids;
 	/* mailboxes that were both created and deleted after the previous
@@ -168,6 +168,8 @@ int mailbox_list_index_notify_init(struct mailbox_list *list,
 	inotify->extra_names_pool =
 		pool_alloconly_create("mailbox list notify names", 512);
 	inotify->rec_name = str_new(default_pool, 64);
+	rate_limit_init(&inotify->notify_rate_limit,
+			&mailbox_notify_rate_limit_set);
 	if ((mask & (MAILBOX_LIST_NOTIFY_SUBSCRIBE |
 		     MAILBOX_LIST_NOTIFY_UNSUBSCRIBE)) != 0) {
 		if (mailbox_list_iter_subscriptions_refresh(list) == 0) {
@@ -1012,7 +1014,22 @@ int mailbox_list_index_notify_next(struct mailbox_list_notify *notify,
 static void notify_now_callback(struct mailbox_list_notify_index *inotify)
 {
 	timeout_remove(&inotify->to_notify);
+	rate_limit_add(&inotify->notify_rate_limit);
 	inotify->wait_callback(inotify->wait_context);
+}
+
+static void notify_add_timeout(struct mailbox_list_notify_index *inotify)
+{
+	unsigned int delay_msecs;
+
+	i_assert(inotify->to_notify == NULL);
+
+	/* Use a timeout even when there is no delay. This way all the
+	   changes notified within the same ioloop run are merged into a
+	   single callback call. */
+	delay_msecs = rate_limit_get_delay_msecs(&inotify->notify_rate_limit);
+	inotify->to_notify =
+		timeout_add_short(delay_msecs, notify_now_callback, inotify);
 }
 
 static void list_notify_callback(struct mailbox_list_notify_index *inotify)
@@ -1027,11 +1044,8 @@ static void list_notify_callback(struct mailbox_list_notify_index *inotify)
 
 	notify_update_stat(inotify, TRUE, FALSE);
 	if (ST_CHANGED(inotify->list_last_st, list_prev_st)) {
-		/* log has changed. call the callback with a small delay
-		   to allow bundling multiple changes together */
-		inotify->to_notify =
-			timeout_add_short(NOTIFY_DELAY_MSECS,
-					  notify_now_callback, inotify);
+		/* log has changed */
+		notify_add_timeout(inotify);
 	}
 }
 
@@ -1049,11 +1063,8 @@ static void inbox_notify_callback(struct mailbox_list_notify_index *inotify)
 	if (ST_CHANGED(inotify->inbox_last_st, inbox_prev_st))
 		inotify->inbox_event_pending = TRUE;
 	if (inotify->inbox_event_pending && inotify->to_notify == NULL) {
-		/* log has changed. call the callback with a small delay
-		   to allow bundling multiple changes together */
-		inotify->to_notify =
-			timeout_add_short(NOTIFY_DELAY_MSECS,
-					  notify_now_callback, inotify);
+		/* log has changed */
+		notify_add_timeout(inotify);
 	}
 }
 
