@@ -58,6 +58,7 @@ struct imap_notify_context {
 	bool watching_mailbox:1;
 	bool notifying:1;
 	bool utf8:1;
+	bool overflowed:1;
 };
 
 bool imap_notify_match_mailbox(struct imap_notify_namespace *notify_ns,

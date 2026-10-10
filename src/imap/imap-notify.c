@@ -2,6 +2,7 @@
 
 #include "imap-common.h"
 #include "str.h"
+#include "imap-resp-code.h"
 #include "ostream.h"
 #include "imap-quote.h"
 #include "mailbox-list-iter.h"
@@ -317,8 +318,14 @@ imap_client_notify_selected(struct client *client)
 
 static void imap_notify_failed(struct imap_notify_context *ctx)
 {
+	if (ctx->overflowed)
+		return;
+	ctx->overflowed = TRUE;
+
 	client_send_line(ctx->client,
-		"* NO NOTIFY error, some events may have got lost");
+		"* OK ["IMAP_RESP_CODE_NOTIFICATIONOVERFLOW"] "
+		"Failed to send some NOTIFY events, notifications disabled");
+	timeout_remove(&ctx->to_watch);
 }
 
 static int imap_client_notify_more(struct client *client)
@@ -339,7 +346,7 @@ static int imap_client_notify_more(struct client *client)
 
 	/* send notifications for non-selected mailboxes */
 	array_foreach_modifiable(&client->notify_ctx->namespaces, notify_ns) {
-		if (ret == 0)
+		if (ret == 0 || client->notify_ctx->overflowed)
 			break;
 		if (imap_client_notify_ns(notify_ns) < 0)
 			ret = -1;
@@ -366,6 +373,8 @@ int imap_client_notify_newmails(struct client *client)
 	}
 	if (client->notify_ctx->notifying)
 		return imap_client_notify_more(client);
+	if (client->notify_ctx->overflowed)
+		return 1;
 	client->notify_ctx->notifying = TRUE;
 
 	i_assert(!fetch_ctx->state.fetching);
@@ -394,8 +403,11 @@ void imap_client_notify_finished(struct client *client)
 static void notify_callback(struct imap_notify_namespace *notify_ns)
 {
 	struct client *client = notify_ns->ctx->client;
-	struct event_reason *reason = event_reason_begin("imap:notify_update");
 
+	if (notify_ns->ctx->overflowed)
+		return;
+
+	struct event_reason *reason = event_reason_begin("imap:notify_update");
 	o_stream_cork(client->output);
 	if (imap_client_notify_ns(notify_ns) < 0)
 		imap_notify_failed(notify_ns->ctx);
@@ -485,7 +497,7 @@ void imap_client_notify_command_freed(struct client *client)
 {
 	struct imap_notify_context *ctx = client->notify_ctx;
 
-	if (ctx == NULL)
+	if (ctx == NULL || ctx->overflowed)
 		return;
 
 	if (client->command_queue_size > 0) {
@@ -578,6 +590,8 @@ void imap_notify_flush(struct imap_notify_context *ctx)
 {
 	struct imap_notify_namespace *notify_ns;
 
+	if (ctx->overflowed)
+		return;
 	array_foreach_modifiable(&ctx->namespaces, notify_ns) {
 		if (notify_ns->notify != NULL)
 			mailbox_list_notify_flush(notify_ns->notify);
