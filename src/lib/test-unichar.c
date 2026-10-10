@@ -108,6 +108,44 @@ static void test_unichar_valid_unicode(void)
 	test_end();
 }
 
+static void test_unichar_invalid_lead_octet(void)
+{
+	unichar_t chr;
+
+	test_begin("unichar invalid lead octet");
+
+	/* RFC 3629 dropped the 5 and 6 byte sequences, so 0xf8..0xfd can
+	   never begin a valid character. However many of the following
+	   octets are available, they are invalid input and not an incomplete
+	   trailing character. */
+	for (unsigned int lead = 0xf8; lead <= 0xfd; lead++) {
+		const unsigned char input[] = {
+			(unsigned char)lead,
+			0xa1, 0xa1, 0xa1, 0xa1, 0xa1
+		};
+		const char cstr[] = { (char)lead, '\0' };
+
+		for (size_t size = 1; size <= sizeof(input); size++)
+			test_assert_idx(uni_utf8_get_char_n(input, size,
+							    &chr) < 0, lead);
+		test_assert_idx(uni_utf8_get_char_buf(input, 1, &chr) < 0, lead);
+		test_assert_idx(uni_utf8_get_char(cstr, &chr) < 0, lead);
+	}
+
+	/* 0xf0..0xf7 do begin a valid character, so a truncated one of those
+	   must still be reported as incomplete rather than invalid. */
+	for (unsigned int lead = 0xf0; lead <= 0xf7; lead++) {
+		const char cstr[] = { (char)lead, '\0' };
+
+		test_assert_idx(uni_utf8_get_char(cstr, &chr) == 0, lead);
+	}
+	test_assert(uni_utf8_get_char_n("\xf0\x9f\x98\x80", 3, &chr) == 0);
+	test_assert(uni_utf8_get_char_n("\xf0\x9f\x98\x80", 4, &chr) == 4 &&
+		    chr == 0x1F600);
+
+	test_end();
+}
+
 static void test_unichar_surrogates(void)
 {
 	unichar_t orig, high, low;
@@ -326,6 +364,7 @@ void test_unichar(void)
 	test_unichar_uni_utf8_strlen();
 	test_unichar_uni_utf8_partial_strlen_n();
 	test_unichar_valid_unicode();
+	test_unichar_invalid_lead_octet();
 	test_unichar_surrogates();
 
 	test_unichar_grapheme_clusters();
