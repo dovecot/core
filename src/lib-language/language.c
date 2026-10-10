@@ -412,6 +412,8 @@ static int language_textcat_init(struct language_list *list,
 	if (textcat_cache_count >= TEXTCAT_CACHE_MAX_COUNT) {
 		/* drop the least recently used */
 		struct textcat *last = textcat_cache;
+
+		i_assert(last != NULL);
 		while (last->next != NULL)
 			last = last->next;
 		DLLIST_REMOVE(&textcat_cache, last);
