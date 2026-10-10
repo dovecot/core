@@ -315,6 +315,12 @@ imap_client_notify_selected(struct client *client)
 	return ret;
 }
 
+static void imap_notify_failed(struct imap_notify_context *ctx)
+{
+	client_send_line(ctx->client,
+		"* NO NOTIFY error, some events may have got lost");
+}
+
 static int imap_client_notify_more(struct client *client)
 {
 	struct imap_notify_namespace *notify_ns;
@@ -339,10 +345,8 @@ static int imap_client_notify_more(struct client *client)
 			ret = -1;
 	}
 
-	if (ret < 0) {
-		client_send_line(client,
-			"* NO NOTIFY error, some events may have got lost");
-	}
+	if (ret < 0)
+		imap_notify_failed(client->notify_ctx);
 	event_reason_end(&reason);
 	return ret;
 }
@@ -389,10 +393,13 @@ void imap_client_notify_finished(struct client *client)
 
 static void notify_callback(struct imap_notify_namespace *notify_ns)
 {
+	struct client *client = notify_ns->ctx->client;
 	struct event_reason *reason = event_reason_begin("imap:notify_update");
-	o_stream_cork(notify_ns->ctx->client->output);
-	imap_client_notify_ns(notify_ns);
-	o_stream_uncork(notify_ns->ctx->client->output);
+
+	o_stream_cork(client->output);
+	if (imap_client_notify_ns(notify_ns) < 0)
+		imap_notify_failed(notify_ns->ctx);
+	o_stream_uncork(client->output);
 	event_reason_end(&reason);
 }
 
