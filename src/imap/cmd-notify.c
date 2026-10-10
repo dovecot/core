@@ -2,6 +2,7 @@
 
 #include "imap-common.h"
 #include "str.h"
+#include "imap-resp-code.h"
 #include "mailbox-list-iter.h"
 #include "imap-quote.h"
 #include "imap-utf7.h"
@@ -574,7 +575,7 @@ bool cmd_notify(struct client_command_context *cmd)
 		string_t *client_error = t_str_new(128);
 		unsigned int i;
 
-		str_append(client_error, "NO [BADEVENT");
+		str_append(client_error, "NO ["IMAP_RESP_CODE_BADEVENT);
 		for (i = 0; i < N_ELEMENTS(imap_notify_event_names); i++) {
 			if ((ctx->global_used_events & (1 << i)) != 0 &&
 			    ((1 << i) & UNSUPPORTED_EVENTS) != 0) {
@@ -592,7 +593,8 @@ bool cmd_notify(struct client_command_context *cmd)
 		/* selected mailbox only */
 	} else if (ctx->global_max_mailbox_names > IMAP_NOTIFY_MAX_NAMES_PER_NS) {
 		client_send_tagline(cmd,
-			"NO [NOTIFICATIONOVERFLOW] Too many mailbox names");
+			"NO ["IMAP_RESP_CODE_NOTIFICATIONOVERFLOW"] "
+			"Too many mailbox names");
 		pool_unref(&ctx->pool);
 		return TRUE;
 	} else if (imap_notify_refresh_subscriptions(cmd, ctx) < 0) {
@@ -601,7 +603,8 @@ bool cmd_notify(struct client_command_context *cmd)
 		return TRUE;
 	} else if (imap_notify_begin(ctx) < 0) {
 		client_send_tagline(cmd,
-			"NO [NOTIFICATIONOVERFLOW] NOTIFY not supported for these mailboxes.");
+			"NO ["IMAP_RESP_CODE_NOTIFICATIONOVERFLOW"] "
+			"NOTIFY not supported for these mailboxes.");
 		pool_unref(&ctx->pool);
 		return TRUE;
 	}
