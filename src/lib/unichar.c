@@ -60,11 +60,12 @@ uni_utf8_parse_char(const void *_buffer, size_t size, bool cstr,
 		chr &= 0x07;
 		break;
 	case 5:
-		chr &= 0x03;
-		break;
 	case 6:
-		chr &= 0x01;
-		break;
+		/* RFC 3629 dropped the 5 and 6 byte sequences, so no
+		   continuation byte can make these decode to a valid
+		   character. Report them as invalid right away instead of
+		   asking for more input when the sequence is truncated. */
+		return -1;
 	default:
 		/* only 7bit chars should have len==1 */
 		i_assert(len == 1);
