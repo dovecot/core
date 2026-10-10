@@ -50,6 +50,7 @@ struct imap_notify_context {
 
 	struct imap_fetch_context *fetch_ctx;
 	struct timeout *to_watch;
+	struct timeout *to_overflow;
 
 	bool have_subscriptions:1;
 	bool selected_set:1;

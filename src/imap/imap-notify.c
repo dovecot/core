@@ -316,6 +316,27 @@ imap_client_notify_selected(struct client *client)
 	return ret;
 }
 
+static void imap_notify_overflow_finish(struct client *client)
+{
+	struct imap_notify_context *old_ctx = client->notify_ctx;
+
+	timeout_remove(&old_ctx->to_overflow);
+	if (old_ctx->notifying) {
+		/* FETCH notifications are still being sent. Finish after
+		   they're done. */
+		return;
+	}
+	if (old_ctx->watching_mailbox)
+		mailbox_notify_changes_stop(client->mailbox);
+
+	/* behave as if NOTIFY NONE was received */
+	client->notify_ctx = imap_notify_context_alloc(client, old_ctx->utf8);
+	imap_notify_deinit(&old_ctx);
+	client->notify_immediate_expunges = FALSE;
+	client->notify_count_changes = FALSE;
+	client->notify_flag_changes = FALSE;
+}
+
 static void imap_notify_failed(struct imap_notify_context *ctx)
 {
 	if (ctx->overflowed)
@@ -325,7 +346,13 @@ static void imap_notify_failed(struct imap_notify_context *ctx)
 	client_send_line(ctx->client,
 		"* OK ["IMAP_RESP_CODE_NOTIFICATIONOVERFLOW"] "
 		"Failed to send some NOTIFY events, notifications disabled");
+
+	/* The context can't be freed yet, because the caller may still be
+	   using it. Until then the overflowed flag makes it ignore all
+	   changes. */
 	timeout_remove(&ctx->to_watch);
+	ctx->to_overflow = timeout_add_short(0, imap_notify_overflow_finish,
+					     ctx->client);
 }
 
 static int imap_client_notify_more(struct client *client)
@@ -396,8 +423,17 @@ int imap_client_notify_newmails(struct client *client)
 
 void imap_client_notify_finished(struct client *client)
 {
-	if (client->notify_ctx != NULL)
-		client->notify_ctx->notifying = FALSE;
+	struct imap_notify_context *ctx = client->notify_ctx;
+
+	if (ctx == NULL)
+		return;
+	ctx->notifying = FALSE;
+	if (ctx->overflowed && ctx->to_overflow == NULL) {
+		/* the overflow was waiting for FETCH notifications to
+		   finish */
+		ctx->to_overflow = timeout_add_short(0,
+			imap_notify_overflow_finish, client);
+	}
 }
 
 static void notify_callback(struct imap_notify_namespace *notify_ns)
@@ -581,6 +617,7 @@ void imap_notify_deinit(struct imap_notify_context **_ctx)
 			mailbox_list_notify_deinit(&notify_ns->notify);
 	}
 	timeout_remove(&ctx->to_watch);
+	timeout_remove(&ctx->to_overflow);
 	if (ctx->fetch_ctx != NULL)
 		imap_fetch_free(&ctx->fetch_ctx);
 	pool_unref(&ctx->pool);
