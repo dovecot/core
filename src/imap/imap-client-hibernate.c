@@ -259,7 +259,9 @@ imap_hibernate_process_send(struct client *client, const buffer_t *state,
 }
 #endif
 
-bool imap_client_hibernate(struct client **_client, const char **reason_r)
+static bool
+imap_client_hibernate_int(struct client **_client, int *fd_notify,
+			  const char **reason_r)
 {
 	struct client *client = *_client;
 	*reason_r = NULL;
@@ -277,7 +279,7 @@ bool imap_client_hibernate(struct client **_client, const char **reason_r)
 #ifdef BUILD_IMAP_HIBERNATE
 	buffer_t *state;
 	const char *error;
-	int ret, fd_notify = -1, fd_hibernate = -1;
+	int ret, fd_hibernate = -1;
 
 	if (o_stream_get_buffer_used_size(client->output) > 0) {
 		/* wait until we've sent the pending output to client */
@@ -317,10 +319,11 @@ bool imap_client_hibernate(struct client **_client, const char **reason_r)
 	}
 	/* the export allows only IDLE as the running command */
 	bool idle_cmd = client->command_queue != NULL;
-	if (ret > 0 && idle_cmd && client->mailbox != NULL) {
-		fd_notify = mailbox_watch_extract_notify_fd(client->mailbox,
-							    &error);
-		if (fd_notify == -1) {
+	if (ret > 0 && idle_cmd && client->mailbox != NULL &&
+	    *fd_notify == -1) {
+		*fd_notify = mailbox_watch_extract_notify_fd(client->mailbox,
+							     &error);
+		if (*fd_notify == -1) {
 			e->add_str("error", error);
 			e_debug(e->event(), "Couldn't hibernate imap client: "
 				"Couldn't extract notifications fd: %s",
@@ -330,7 +333,7 @@ bool imap_client_hibernate(struct client **_client, const char **reason_r)
 		}
 	}
 	if (ret > 0) {
-		if (imap_hibernate_process_send(client, state, fd_notify,
+		if (imap_hibernate_process_send(client, state, *fd_notify,
 						&fd_hibernate, &error) < 0) {
 			e->add_str("error", error);
 			e_error(e->event(),
@@ -339,7 +342,6 @@ bool imap_client_hibernate(struct client **_client, const char **reason_r)
 			ret = -1;
 		}
 	}
-	i_close_fd(&fd_notify);
 	if (ret > 0) {
 		/* hide the disconnect log message, because the client didn't
 		   actually log out */
@@ -367,4 +369,12 @@ bool imap_client_hibernate(struct client **_client, const char **reason_r)
 	*reason_r = "imap hibernation is not enabled";
 	return FALSE;
 #endif
+}
+
+bool imap_client_hibernate(struct client **_client, int fd_notify,
+			   const char **reason_r)
+{
+	bool ret = imap_client_hibernate_int(_client, &fd_notify, reason_r);
+	i_close_fd(&fd_notify);
+	return ret;
 }

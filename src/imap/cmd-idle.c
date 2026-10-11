@@ -182,7 +182,7 @@ static void idle_hibernate_timeout(struct cmd_idle_context *ctx)
 	i_assert(ctx->sync_ctx == NULL);
 	i_assert(!ctx->sync_pending);
 
-	if (imap_client_hibernate(&client, &reason)) {
+	if (imap_client_hibernate(&client, -1, &reason)) {
 		/* client may be destroyed now */
 	} else {
 		/* failed - don't bother retrying */

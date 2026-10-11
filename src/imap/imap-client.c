@@ -1057,7 +1057,7 @@ static void client_hibernate_timeout(struct client *client)
 		client_hibernate_timeout_start(client);
 		return;
 	}
-	if (!imap_client_hibernate(&client, &reason)) {
+	if (!imap_client_hibernate(&client, -1, &reason)) {
 		/* retried the next time the command queue becomes empty */
 		e_debug(client->event, "Hibernation not possible: %s",
 			reason);

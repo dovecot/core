@@ -367,8 +367,12 @@ const char *const *client_enabled_features(struct client *client);
 
 /* Send client processing to imap-idle process. If successful, returns TRUE
    and destroys the client. If hibernation failed, the exact reason is
-   returned (mainly for unit tests). */
-bool imap_client_hibernate(struct client **client, const char **reason_r);
+   returned (mainly for unit tests). fd_notify is the mailbox notification
+   fd to give to imap-hibernate, or -1 to extract one when IDLE is running in
+   a selected mailbox. The function takes ownership of fd_notify and closes
+   it in all cases. */
+bool imap_client_hibernate(struct client **client, int fd_notify,
+			   const char **reason_r);
 
 struct imap_search_update *
 client_search_update_lookup(struct client *client, const char *tag,
