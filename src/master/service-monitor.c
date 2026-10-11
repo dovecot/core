@@ -357,6 +357,7 @@ static void service_drop_warning_timeout(struct service *service)
 		/* a process became available - this was a false alarm */
 		return;
 	}
+	timeout_remove(&service->to_drop_warning);
 	service_log_drop_warning(service);
 }
 
