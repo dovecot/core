@@ -190,8 +190,8 @@ static void test_imap_client_hibernate(void)
 
 	const char *const input_userdb[] = {
 		"mailbox_list_index=no",
-		"mail_driver=mbox",
-		t_strdup_printf("mail_path=%s/mbox", test_dir_get()),
+		"mail_driver=maildir",
+		t_strdup_printf("mail_path=%s/maildir", test_dir_get()),
 		t_strdup_printf("base_dir=%s", test_dir_get()),
 		"mail_log_prefix="EVILSTR"%u",
 		"auth_token=asdf",
