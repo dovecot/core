@@ -253,6 +253,11 @@ imap_sync_send_highestmodseq(struct imap_sync_context *ctx,
 			"* OK [HIGHESTMODSEQ %"PRIu64"] Highest",
 			send_modseq));
 	}
+}
+
+static void imap_sync_update_last_full_modseq(struct imap_sync_context *ctx)
+{
+	struct client *client = ctx->client;
 
 	if (!ctx->sync_status.sync_delayed_expunges) {
 		/* no delayed expunges, remember this for future */
@@ -353,6 +358,9 @@ int imap_sync_deinit(struct imap_sync_context *ctx,
 	if (client_has_enabled(ctx->client, imap_feature_qresync) &&
 	    !ctx->client->nonpermanent_modseqs)
 		imap_sync_send_highestmodseq(ctx, sync_cmd);
+	/* Track this for all clients, not only QRESYNC ones. Hibernation
+	   state export relies on it. */
+	imap_sync_update_last_full_modseq(ctx);
 
 	if (array_is_created(&ctx->search_removes)) {
 		array_free(&ctx->search_removes);
