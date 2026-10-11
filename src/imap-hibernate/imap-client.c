@@ -492,13 +492,50 @@ imap_client_add_tagged_reply(string_t *replies, const char *tag,
 		    tag, (int)len, tagged_reply);
 }
 
+/* Add the tagged reply for a command finished by imap-hibernate and send
+   the imap_command_finished event for it. The command's output started at
+   replies' reply_start offset. If add_timing is TRUE, the (zero) timing
+   information is added to the tagged reply. */
 static void
-imap_client_input_done(struct imap_client *client, string_t *replies)
+imap_client_cmd_finished(struct imap_client *client, string_t *replies,
+			 size_t reply_start, const char *tag,
+			 const char *cmd_name, const char *tagged_reply,
+			 bool add_timing, size_t input_size)
+{
+	if (add_timing)
+		imap_client_add_tagged_reply(replies, tag, tagged_reply);
+	else
+		str_printfa(replies, "%s %s\r\n", tag, tagged_reply);
+
+	struct event_passthrough *e =
+		event_create_passthrough(client->event)->
+		set_name("imap_command_finished")->
+		add_str("cmd_tag", tag)->
+		add_str("cmd_name", cmd_name)->
+		add_str("cmd_input_name", cmd_name)->
+		add_str("tagged_reply_state", t_strcut(tagged_reply, ' '))->
+		add_str("tagged_reply", tagged_reply)->
+		add_timeval("last_run_time", &ioloop_timeval)->
+		add_int("running_usecs", 0)->
+		add_int("lock_wait_usecs", 0)->
+		add_int("net_in_bytes", input_size)->
+		add_int("net_out_bytes", str_len(replies) - reply_start);
+	e_debug(e->event(), "Command finished: %s: %s", cmd_name, tagged_reply);
+}
+
+static void
+imap_client_input_done(struct imap_client *client,
+		       const struct imap_client_input_line *line,
+		       string_t *replies)
 {
 	i_assert(client->state.idle_cmd);
 
-	str_printfa(replies, "%s OK "IMAP_REPLY_IDLE_COMPLETED"\r\n",
-		    client->state.tag);
+	/* The imap process doesn't add timing information to the tagged
+	   reply when it finishes IDLE after unhibernation either. */
+	imap_client_cmd_finished(client, replies, str_len(replies),
+				 client->state.tag, "IDLE",
+				 "OK "IMAP_REPLY_IDLE_COMPLETED, FALSE,
+				 line->size);
 	i_free(client->state.tag);
 	client->state.idle_cmd = FALSE;
 }
@@ -540,7 +577,7 @@ imap_client_input_line(struct imap_client *client,
 			client->idle_done = TRUE;
 			return FALSE;
 		}
-		imap_client_input_done(client, replies);
+		imap_client_input_done(client, line, replies);
 		return TRUE;
 	}
 
@@ -551,12 +588,16 @@ imap_client_input_line(struct imap_client *client,
 		imap_client_input_idle(client, line, replies);
 		break;
 	case IMAP_CLIENT_INPUT_CMD_NOOP:
-		imap_client_add_tagged_reply(replies, line->tag,
-					     IMAP_REPLY_NOOP_COMPLETED);
+		imap_client_cmd_finished(client, replies, str_len(replies),
+					 line->tag, "NOOP",
+					 IMAP_REPLY_NOOP_COMPLETED, TRUE,
+					 line->size);
 		break;
 	case IMAP_CLIENT_INPUT_CMD_CHECK:
-		imap_client_add_tagged_reply(replies, line->tag,
-					     IMAP_REPLY_CHECK_COMPLETED);
+		imap_client_cmd_finished(client, replies, str_len(replies),
+					 line->tag, "CHECK",
+					 IMAP_REPLY_CHECK_COMPLETED, TRUE,
+					 line->size);
 		break;
 	case IMAP_CLIENT_INPUT_CMD_OTHER:
 	case IMAP_CLIENT_INPUT_CMD_DONE:
