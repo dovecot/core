@@ -10,6 +10,7 @@
 #include "compression.h"
 #include "imap-util.h"
 #include "mail-search-build.h"
+#include "mail-namespace.h"
 #include "mail-storage-private.h"
 #include "mailbox-recent-flags.h"
 #include "imap-client.h"
@@ -27,9 +28,17 @@ enum imap_state_type_public {
 };
 
 enum imap_state_type_internal {
+	IMAP_STATE_TYPE_NAMESPACES		= 'N',
 	IMAP_STATE_TYPE_ID_LOGGED		= 'I',
 	IMAP_STATE_TYPE_TLS_COMPRESSION		= 'T',
 };
+
+/* The namespace flags that are visible to the client via the LIST and
+   NAMESPACE replies. */
+#define IMAP_STATE_NAMESPACE_FLAGS_MASK \
+	(NAMESPACE_FLAG_INBOX_USER | NAMESPACE_FLAG_INBOX_ANY | \
+	 NAMESPACE_FLAG_HIDDEN | NAMESPACE_FLAG_LIST_PREFIX | \
+	 NAMESPACE_FLAG_LIST_CHILDREN | NAMESPACE_FLAG_SUBSCRIPTIONS)
 
 struct mailbox_import_state {
 	const char *vname;
@@ -317,6 +326,27 @@ imap_state_export_mailbox(buffer_t *dest, struct client *client,
 	return imap_state_export_mailbox_mails(dest, box, error_r);
 }
 
+/* Returns a string that describes the namespaces as the client sees them. */
+static const char *imap_state_namespaces_string(struct mail_user *user)
+{
+	struct mail_namespace *ns;
+	string_t *str = t_str_new(128);
+
+	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
+		/* Shared namespaces are created on demand, so they don't
+		   necessarily exist in both processes. */
+		if ((ns->flags & NAMESPACE_FLAG_AUTOCREATED) != 0)
+			continue;
+		if (str_len(str) > 0)
+			str_append_c(str, '\n');
+		str_printfa(str, "%u:%x:%c:%s", (unsigned int)ns->type,
+			    (unsigned int)(ns->flags &
+					   IMAP_STATE_NAMESPACE_FLAGS_MASK),
+			    mail_namespace_get_sep(ns), ns->prefix);
+	}
+	return str_c(str);
+}
+
 int imap_state_export_base(struct client *client, bool internal,
 			   buffer_t *dest, const char **error_r)
 {
@@ -340,6 +370,17 @@ int imap_state_export_base(struct client *client, bool internal,
 	    client->multiplex_output == NULL && internal) {
 		*error_r = "COMPRESS enabled without multiplex ostream";
 		return 0;
+	}
+
+	if (internal) {
+		/* The client has seen the namespaces' prefixes and separators
+		   in the LIST and NAMESPACE replies. The configuration may be
+		   reloaded while the client is hibernated, so the unhibernating
+		   imap process verifies that they're still the same. */
+		const char *namespaces =
+			imap_state_namespaces_string(client->user);
+		buffer_append_c(dest, IMAP_STATE_TYPE_NAMESPACES);
+		buffer_append(dest, namespaces, strlen(namespaces) + 1);
 	}
 
 	if (client->mailbox != NULL) {
@@ -884,6 +925,29 @@ imap_state_import_searchres(struct client *client, const unsigned char *data,
 }
 
 static enum imap_state_result
+import_state_namespaces(struct client *client, const unsigned char *data,
+			size_t size, size_t *skip_r, const char **error_r)
+{
+	const unsigned char *p = data, *end = data + size;
+	const char *old_namespaces, *namespaces;
+
+	if (imap_state_import_string(&p, end, &old_namespaces) < 0) {
+		*error_r = "Namespaces state truncated";
+		return IMAP_STATE_CORRUPTED;
+	}
+	namespaces = imap_state_namespaces_string(client->user);
+	if (strcmp(old_namespaces, namespaces) != 0) {
+		*error_r = t_strdup_printf(
+			"Namespaces have changed ('%s' -> '%s')",
+			t_str_replace(old_namespaces, '\n', ' '),
+			t_str_replace(namespaces, '\n', ' '));
+		return IMAP_STATE_INCONSISTENT;
+	}
+	*skip_r = (p - data) + 1;
+	return IMAP_STATE_OK;
+}
+
+static enum imap_state_result
 import_state_id_logged(struct client *client,
 		       const unsigned char *data ATTR_UNUSED,
 		       size_t size ATTR_UNUSED,
@@ -959,6 +1023,7 @@ static struct {
 		(*import)(struct client *client, const unsigned char *data,
 			  size_t size, size_t *skip_r, const char **error_r);
 } imap_states_internal[] = {
+	{ IMAP_STATE_TYPE_NAMESPACES, import_state_namespaces },
 	{ IMAP_STATE_TYPE_ID_LOGGED, import_state_id_logged },
 	{ IMAP_STATE_TYPE_TLS_COMPRESSION, import_state_tls_compression }
 };
