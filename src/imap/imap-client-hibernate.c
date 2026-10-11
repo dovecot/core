@@ -136,6 +136,10 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 	if (client->command_queue != NULL &&
 	    strcasecmp(client->command_queue->name, "IDLE") == 0)
 		str_append(cmd, "\tidle-cmd");
+	else {
+		str_printfa(cmd, "\tlast_input=%"PRIdTIME_T,
+			    client->last_input);
+	}
 	if (fd_notify != -1)
 		str_append(cmd, "\tnotify_fd");
 	str_append(cmd, "\tstate=");
@@ -309,7 +313,9 @@ bool imap_client_hibernate(struct client **_client, const char **reason_r)
 			mailbox_get_vname(client->mailbox));
 		*reason_r = error;
 	}
-	if (ret > 0 && client->mailbox != NULL) {
+	/* the export allows only IDLE as the running command */
+	bool idle_cmd = client->command_queue != NULL;
+	if (ret > 0 && idle_cmd && client->mailbox != NULL) {
 		fd_notify = mailbox_watch_extract_notify_fd(client->mailbox,
 							    &error);
 		if (fd_notify == -1) {

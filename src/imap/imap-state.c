@@ -113,21 +113,96 @@ int imap_state_import_seq_range(const unsigned char **data,
 	return 0;
 }
 
+static int
+imap_state_export_check_delayed_expunges(struct client *client,
+					 const char **error_r)
+{
+	struct mailbox *box = client->mailbox;
+	const struct mail_index_header *view_hdr;
+	struct mail_index_view *head_view;
+	uint32_t seq1, seq2, old_count = 0;
+
+	/* Expunges that haven't been sent to the client yet can't be sent at
+	   unhibernation, so the client would have to relogin. Count how many
+	   of the messages known by the client's view still exist in the
+	   latest index state. Messages added after the view was synced
+	   have UIDs >= the view's UIDNEXT, so they aren't counted. */
+	view_hdr = mail_index_get_header(box->view);
+	/* Make sure expunges committed by other processes are seen. */
+	if (mail_index_refresh(box->index) < 0) {
+		mailbox_set_index_error(box);
+		*error_r = mailbox_get_last_internal_error(box, NULL);
+		return -1;
+	}
+	head_view = mail_index_view_open(box->index);
+	if (view_hdr->next_uid > 1 &&
+	    mail_index_lookup_seq_range(head_view, 1, view_hdr->next_uid - 1,
+					&seq1, &seq2))
+		old_count = seq2 - seq1 + 1;
+	mail_index_view_close(&head_view);
+
+	if (old_count != view_hdr->messages_count) {
+		*error_r = "Expunges not sent to client yet";
+		return 0;
+	}
+	return 1;
+}
+
+static int
+imap_state_export_check_nonidle(struct client *client, const char **error_r)
+{
+	i_assert(!client->syncing);
+
+	if ((client->set->parsed_workarounds & WORKAROUND_DELAY_NEWMAIL) != 0) {
+		/* Unhibernation sends EXISTS before the next command. This
+		   workaround exists to avoid that. */
+		*error_r = "delay-newmail workaround enabled";
+		return 0;
+	}
+	if (client->input_skip_line) {
+		*error_r = "Skipping the rest of a command line";
+		return 0;
+	}
+	if (array_is_created(&client->fetch_failed_uids) &&
+	    array_not_empty(&client->fetch_failed_uids)) {
+		*error_r = "FETCH failures pending";
+		return 0;
+	}
+	if (client->mailbox == NULL)
+		return 1;
+
+	if (mailbox_transaction_get_count(client->mailbox) > 0) {
+		*error_r = "Mailbox transactions open";
+		return 0;
+	}
+	if (client->sync_last_full_modseq == 0) {
+		/* checked again by the mailbox export */
+		*error_r = "No modseq tracking";
+		return 0;
+	}
+	return imap_state_export_check_delayed_expunges(client, error_r);
+}
+
 int imap_state_export_internal(struct client *client, buffer_t *dest,
 			       const char **error_r)
 {
-	/* the only IMAP command we allow running is IDLE */
+	int ret;
+
+	/* The only IMAP command we allow running is IDLE. Otherwise there must
+	   not be any commands running. */
 	if (client->command_queue_size > 1) {
 		*error_r = "Multiple commands in progress";
 		return 0;
 	}
-	if (client->command_queue == NULL ||
+	if (client->command_queue != NULL &&
 	    strcasecmp(client->command_queue->name, "IDLE") != 0) {
-		/* this would require saving the seq <-> uid mapping
-		   and restore it on import. quite a lot of trouble if
-		   messages have been expunged in the mean time. */
-		*error_r = "Non-IDLE connections not supported currently";
+		*error_r = "Command in progress";
 		return 0;
+	}
+	if (client->command_queue == NULL) {
+		ret = imap_state_export_check_nonidle(client, error_r);
+		if (ret <= 0)
+			return ret;
 	}
 	return client->v.state_export(client, TRUE, dest, error_r);
 }
