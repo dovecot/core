@@ -431,6 +431,8 @@ imap_client_input_nonidle_line_is_local(
 		/* without a selected mailbox the imap process replies BAD */
 		return client->state.mailbox_vname != NULL &&
 			imap_client_is_unchanged(client);
+	case IMAP_CLIENT_INPUT_CMD_LOGOUT:
+		return TRUE;
 	case IMAP_CLIENT_INPUT_CMD_OTHER:
 	case IMAP_CLIENT_INPUT_CMD_DONE:
 		break;
@@ -462,13 +464,18 @@ imap_client_input_done_is_local(struct imap_client *client,
 			   client hibernated without IDLE. */
 			if (!client->state.nonidle_allowed &&
 			    (i + 1 == count ||
-			     lines[i + 1].cmd != IMAP_CLIENT_INPUT_CMD_IDLE))
+			     (lines[i + 1].cmd != IMAP_CLIENT_INPUT_CMD_IDLE &&
+			      lines[i + 1].cmd != IMAP_CLIENT_INPUT_CMD_LOGOUT)))
 				return FALSE;
 			idle_mode = FALSE;
 			continue;
 		}
 		if (!imap_client_input_nonidle_line_is_local(client, &lines[i]))
 			return FALSE;
+		if (lines[i].cmd == IMAP_CLIENT_INPUT_CMD_LOGOUT) {
+			/* the rest of the input is ignored */
+			break;
+		}
 		if (lines[i].cmd == IMAP_CLIENT_INPUT_CMD_IDLE)
 			idle_mode = TRUE;
 	}
@@ -599,6 +606,16 @@ imap_client_input_line(struct imap_client *client,
 					 IMAP_REPLY_CHECK_COMPLETED, TRUE,
 					 line->size);
 		break;
+	case IMAP_CLIENT_INPUT_CMD_LOGOUT: {
+		size_t reply_start = str_len(replies);
+
+		str_append(replies, IMAP_REPLY_LOGOUT_BYE"\r\n");
+		imap_client_cmd_finished(client, replies, reply_start,
+					 line->tag, "LOGOUT",
+					 IMAP_REPLY_LOGOUT_COMPLETED, TRUE,
+					 line->size);
+		break;
+	}
 	case IMAP_CLIENT_INPUT_CMD_OTHER:
 	case IMAP_CLIENT_INPUT_CMD_DONE:
 		i_unreached();
@@ -650,7 +667,7 @@ static void imap_client_input(struct imap_client *client)
 	const unsigned char *data;
 	size_t size, partial_size;
 	unsigned int i, count;
-	bool forward = FALSE;
+	bool forward = FALSE, logout = FALSE;
 	int ret;
 
 	ret = i_stream_read_bytes(client->input, &data, &size,
@@ -675,6 +692,11 @@ static void imap_client_input(struct imap_client *client)
 			break;
 		}
 		i_stream_skip(client->input, lines[i].size);
+		if (lines[i].cmd == IMAP_CLIENT_INPUT_CMD_LOGOUT) {
+			/* the rest of the input is ignored */
+			logout = TRUE;
+			break;
+		}
 	}
 	if (!forward && count == 0 && ret == -2) {
 		/* the buffer is full without a full line */
@@ -692,6 +714,13 @@ static void imap_client_input(struct imap_client *client)
 	/* everything was handled locally */
 	if (imap_client_input_send_replies(client, replies) < 0)
 		return;
+	if (logout) {
+		/* The imap process would also run autoexpunge at logout.
+		   That's skipped here - it needs to be done when the client
+		   is hibernated instead. */
+		imap_client_destroy(&client, "Logged out");
+		return;
+	}
 	if (ret == -1) {
 		imap_client_disconnected(&client);
 		return;

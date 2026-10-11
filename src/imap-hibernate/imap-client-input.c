@@ -12,6 +12,7 @@ static const struct {
 	{ "IDLE", IMAP_CLIENT_INPUT_CMD_IDLE },
 	{ "NOOP", IMAP_CLIENT_INPUT_CMD_NOOP },
 	{ "CHECK", IMAP_CLIENT_INPUT_CMD_CHECK },
+	{ "LOGOUT", IMAP_CLIENT_INPUT_CMD_LOGOUT },
 };
 
 static bool
