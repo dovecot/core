@@ -89,6 +89,7 @@ static const struct setting_define imap_setting_defines[] = {
 	DEF(BOOL, imap4rev2_enable),
 #ifdef BUILD_IMAP_HIBERNATE
 	DEF_SECS(TIME, imap_hibernate_timeout),
+	DEF_SECS(TIME, imap_hibernate_nonidle_timeout),
 #endif
 
 	DEF(STR, imap_urlauth_host),
@@ -125,8 +126,10 @@ static const struct imap_settings imap_default_settings = {
 	.imap4rev2_enable = FALSE,
 #ifdef DOVECOT_PRO_EDITION
 	.imap_hibernate_timeout_secs = 30,
+	.imap_hibernate_nonidle_timeout_secs = 0,
 #else
 	.imap_hibernate_timeout_secs = 0,
+	.imap_hibernate_nonidle_timeout_secs = 0,
 #endif
 
 	.imap_urlauth_host = "",

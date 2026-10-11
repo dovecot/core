@@ -252,6 +252,8 @@ struct client *client_create(int fd_in, int fd_out,
 	return client;
 }
 
+static void client_hibernate_timeout_start(struct client *client);
+
 void client_create_finish_io(struct client *client)
 {
 	if (client->set->rawlog_dir[0] != '\0') {
@@ -285,6 +287,9 @@ int client_create_finish(struct client *client, const char **error_r)
 	mail_namespaces_set_storage_callbacks(client->user->namespaces,
 					      &imap_storage_callbacks, client);
 	client->v.init(client);
+	/* Start the non-IDLE hibernation timer also when no command gets run,
+	   e.g. right after login or after unhibernation finished IDLE. */
+	client_hibernate_timeout_start(client);
 	return 0;
 }
 
@@ -555,6 +560,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 	io_remove(&client->io);
 	timeout_remove(&client->to_idle_output);
 	timeout_remove(&client->to_idle);
+	timeout_remove(&client->to_hibernate);
 
 	if (!client->hibernated && client->fd_in == client->fd_out)
 		(void)shutdown(client->fd_out, SHUT_RDWR);
@@ -1037,6 +1043,39 @@ static bool client_command_is_ambiguous(struct client_command_context *cmd)
 	return TRUE;
 }
 
+static void client_hibernate_timeout(struct client *client)
+{
+	const char *reason;
+
+	i_assert(client->command_queue == NULL);
+
+	timeout_remove(&client->to_hibernate);
+	if (client->disconnected)
+		return;
+	if (o_stream_get_buffer_used_size(client->output) > 0) {
+		/* Output is still being sent. Try again later. */
+		client_hibernate_timeout_start(client);
+		return;
+	}
+	if (!imap_client_hibernate(&client, &reason)) {
+		/* retried the next time the command queue becomes empty */
+		e_debug(client->event, "Hibernation not possible: %s",
+			reason);
+	}
+}
+
+static void client_hibernate_timeout_start(struct client *client)
+{
+	unsigned int secs = client->set->imap_hibernate_nonidle_timeout_secs;
+
+	timeout_remove(&client->to_hibernate);
+	if (secs == 0 || client->disconnected || client->destroyed ||
+	    client->fd_in != client->fd_out)
+		return;
+	client->to_hibernate =
+		timeout_add(secs * 1000, client_hibernate_timeout, client);
+}
+
 struct client_command_context *client_command_alloc(struct client *client)
 {
 	struct client_command_context *cmd;
@@ -1055,6 +1094,7 @@ struct client_command_context *client_command_alloc(struct client *client)
 
 	DLLIST_PREPEND(&client->command_queue, cmd);
 	client->command_queue_size++;
+	timeout_remove(&client->to_hibernate);
 
 	imap_client_notify_command_allocated(client);
 	return cmd;
@@ -1182,6 +1222,7 @@ void client_command_free(struct client_command_context **_cmd)
 		/* no commands left in the queue, we can clear the pool */
 		p_clear(client->command_pool);
 		timeout_remove(&client->to_idle_output);
+		client_hibernate_timeout_start(client);
 	}
 	imap_client_notify_command_freed(client);
 	imap_refresh_proctitle();

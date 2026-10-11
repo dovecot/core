@@ -183,6 +183,9 @@ struct client {
 	struct ostream *output, *pre_rawlog_output, *post_rawlog_output;
 	struct ostream *multiplex_output, *side_channel_output;
 	struct timeout *to_idle, *to_idle_output, *to_delayed_input;
+	/* Hibernate the client when no commands have been running for
+	   imap_hibernate_nonidle_timeout. */
+	struct timeout *to_hibernate;
 	guid_128_t anvil_conn_guid;
 
 	pool_t pool;
