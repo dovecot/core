@@ -280,6 +280,11 @@ bool imap_client_hibernate(struct client **_client, const char **reason_r)
 		*reason_r = "output pending to client";
 		return FALSE;
 	}
+	if (i_stream_get_data_size(client->input) > 0) {
+		/* a partially received command line would be lost */
+		*reason_r = "input pending from client";
+		return FALSE;
+	}
 
 	struct event_passthrough *e =
 		event_create_passthrough(client->event)->

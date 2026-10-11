@@ -212,7 +212,10 @@ static void test_imap_client_hibernate(void)
 	i_zero(&ctx);
 
 	struct event *event = event_create(NULL);
-	int client_fd = dup(dev_null_fd);
+	int client_fds[2];
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, client_fds) < 0)
+		i_fatal("socketpair() failed: %m");
+	int client_fd = client_fds[0];
 	client = client_create(client_fd, client_fd, 0, event, mail_user,
 			       imap_setting_parser_info.defaults, &smtp_set,
 			       NULL);
@@ -228,6 +231,16 @@ static void test_imap_client_hibernate(void)
 	cmd->tag = EVILSTR"tag";
 	cmd->name = "IDLE";
 	event_unref(&event);
+
+	/* partial input line is buffered */
+	test_begin("imap client hibernate: input pending");
+	if (write(client_fds[1], "DON", 3) != 3)
+		i_fatal("write(client) failed: %m");
+	test_assert(i_stream_read(client->input) == 3);
+	test_assert(!imap_client_hibernate(&client, &error));
+	test_assert_strcmp(error, "input pending from client");
+	i_stream_skip(client->input, 3);
+	test_end();
 
 	/* imap-hibernate socket doesn't exist */
 	test_begin("imap client hibernate: socket not found");
@@ -328,6 +341,7 @@ static void test_imap_client_hibernate(void)
 	test_end();
 
 	i_close_fd(&ctx.fd_listen);
+	i_close_fd(&client_fds[1]);
 	mail_storage_service_deinit(&storage_service);
 }
 
