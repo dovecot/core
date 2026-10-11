@@ -484,6 +484,16 @@ import_send_expunges(struct client *client,
 			state->uidnext, state->highest_modseq);
 		return IMAP_STATE_INCONSISTENT;
 	}
+	if (client->state_import_nonidle &&
+	    array_not_empty(&expunged_uids)) {
+		/* The client's next command hasn't started yet, so EXPUNGEs
+		   can't be sent. The client's sequence numbers can't be kept
+		   in sync. */
+		*error_r = t_strdup_printf(
+			"%u messages expunged during hibernation",
+			seq_range_count(&expunged_uids));
+		return IMAP_STATE_INCONSISTENT;
+	}
 	seq_range_array_iter_init(&iter, &expunged_uids);
 
 	search_args = mail_search_build_init();

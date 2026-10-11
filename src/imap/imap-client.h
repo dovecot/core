@@ -265,6 +265,9 @@ struct client {
 	bool nonpermanent_modseqs:1;
 	bool state_import_bad_idle_done:1;
 	bool state_import_idle_continue:1;
+	/* Unhibernating a client that had no IDLE command running. EXPUNGEs
+	   can't be sent to it. */
+	bool state_import_nonidle:1;
 };
 
 struct imap_module_register {

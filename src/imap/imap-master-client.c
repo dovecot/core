@@ -485,7 +485,12 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 		master_input.state_import_bad_idle_done;
 	imap_client->state_import_idle_continue =
 		master_input.state_import_idle_continue;
-	if (imap_client->state_import_bad_idle_done) {
+	/* tag is sent only when IDLE was in progress */
+	imap_client->state_import_nonidle = master_input.tag == NULL;
+	if (imap_client->state_import_nonidle) {
+		reason = "client sent input";
+		event_add_str(event, "reason", "client_input");
+	} else if (imap_client->state_import_bad_idle_done) {
 		reason = "IDLE was stopped with BAD command";
 		event_add_str(event, "reason", "idle_bad_reply");
 	} else if (imap_client->state_import_idle_continue) {
