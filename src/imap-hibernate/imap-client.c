@@ -87,6 +87,10 @@ struct imap_client {
 	   client is destroyed. */
 	struct imap_client **destroy_ref;
 	const char *log_prefix;
+	/* Replies to client input that was handled locally, but which must
+	   be sent by the imap process because the rest of the input is
+	   forwarded to it. */
+	buffer_t *pending_output;
 	unsigned int next_read_threshold;
 	bool bad_done, idle_done;
 	bool unhibernate_queued;
@@ -231,6 +235,12 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 	if (input_size > 0) {
 		str_append(str, "\tclient_input=");
 		base64_encode(input_data, input_size, str);
+	}
+	if (client->pending_output != NULL &&
+	    client->pending_output->used > 0) {
+		str_append(str, "\tclient_output=");
+		base64_encode(client->pending_output->data,
+			      client->pending_output->used, str);
 	}
 	i_assert(o_stream_get_buffer_used_size(client->output) == 0);
 	if (client->idle_done) {
@@ -858,6 +868,7 @@ void imap_client_destroy(struct imap_client **_client, const char *reason)
 
 	if (client->state.tag != NULL)
 		i_free(client->state.tag);
+	buffer_free(&client->pending_output);
 	i_free(client->state.state);
 	if (client->state.capability != NULL)
 		str_table_unref(capability_table, &client->state.capability);
