@@ -175,20 +175,12 @@ static void test_client_set_mailbox_modseq(struct client *client)
 	client->sync_last_full_modseq = status.highest_modseq;
 }
 
-static void test_imap_client_hibernate(void)
+static struct client *test_client_create(int *peer_fd_r)
 {
-	struct client *client;
 	/* the client keeps a pointer to this */
 	static struct smtp_submit_settings smtp_set;
 	struct mail_user *mail_user;
-	struct test_imap_client_hibernate ctx;
 	const char *error;
-
-	storage_service = mail_storage_service_init(master_service,
-		MAIL_STORAGE_SERVICE_FLAG_ALLOW_ROOT |
-		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
-		MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR |
-		MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS);
 
 	const char *const input_userdb[] = {
 		"mailbox_list_index=no",
@@ -210,16 +202,35 @@ static void test_imap_client_hibernate(void)
 	test_assert(net_addr2ip("127.0.0.2", &input.remote_ip) == 0);
 	test_assert(mail_storage_service_lookup_next(storage_service, &input,
 						     &mail_user, &error) == 1);
-	i_zero(&ctx);
 
-	struct event *event = event_create(NULL);
 	int client_fds[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, client_fds) < 0)
 		i_fatal("socketpair() failed: %m");
-	int client_fd = client_fds[0];
-	client = client_create(client_fd, client_fd, 0, event, mail_user,
-			       imap_setting_parser_info.defaults, &smtp_set,
-			       NULL);
+	struct event *event = event_create(NULL);
+	struct client *client =
+		client_create(client_fds[0], client_fds[0], 0, event,
+			      mail_user, imap_setting_parser_info.defaults,
+			      &smtp_set, NULL);
+	event_unref(&event);
+	*peer_fd_r = client_fds[1];
+	return client;
+}
+
+static void test_imap_client_hibernate(void)
+{
+	struct client *client;
+	struct test_imap_client_hibernate ctx;
+	const char *error;
+	int peer_fd;
+
+	storage_service = mail_storage_service_init(master_service,
+		MAIL_STORAGE_SERVICE_FLAG_ALLOW_ROOT |
+		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
+		MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR |
+		MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS);
+	i_zero(&ctx);
+
+	client = test_client_create(&peer_fd);
 	ctx.client = client;
 
 	/* can't hibernate without IDLE */
@@ -231,11 +242,10 @@ static void test_imap_client_hibernate(void)
 	struct client_command_context *cmd = client_command_alloc(client);
 	cmd->tag = EVILSTR"tag";
 	cmd->name = "IDLE";
-	event_unref(&event);
 
 	/* partial input line is buffered */
 	test_begin("imap client hibernate: input pending");
-	if (write(client_fds[1], "DON", 3) != 3)
+	if (write(peer_fd, "DON", 3) != 3)
 		i_fatal("write(client) failed: %m");
 	test_assert(i_stream_read(client->input) == 3);
 	test_assert(!imap_client_hibernate(&client, &error));
@@ -343,7 +353,7 @@ static void test_imap_client_hibernate(void)
 	test_end();
 
 	i_close_fd(&ctx.fd_listen);
-	i_close_fd(&client_fds[1]);
+	i_close_fd(&peer_fd);
 	mail_storage_service_deinit(&storage_service);
 }
 
