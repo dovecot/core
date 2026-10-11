@@ -130,6 +130,9 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 		    dec2str(user->auth_token_session_pid));
 	str_append(cmd, "\tstats=");
 	str_append_tabescaped(cmd, client_stats(client));
+	str_append(cmd, "\tcapability=");
+	if (client->capability_string != NULL)
+		str_append_tabescaped(cmd, str_c(client->capability_string));
 	if (client->command_queue != NULL &&
 	    strcasecmp(client->command_queue->name, "IDLE") == 0)
 		str_append(cmd, "\tidle-cmd");

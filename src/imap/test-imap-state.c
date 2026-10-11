@@ -4,6 +4,7 @@
 #include "array.h"
 #include "buffer.h"
 #include "numpack.h"
+#include "str.h"
 #include "seq-range-array.h"
 #include "test-common.h"
 #include "mail-storage-service.h"
@@ -302,6 +303,50 @@ static void test_import_state_enabled_feature_disabled(void)
 	test_end();
 }
 
+static void test_verify_capability(void)
+{
+	struct client client;
+	const char *error;
+
+	test_begin("imap_state_verify_capability()");
+
+	i_zero(&client);
+	client.capability_string = t_str_new(32);
+	str_append(client.capability_string, "IMAP4rev1 LITERAL+ IDLE");
+
+	error = NULL;
+	test_assert(imap_state_verify_capability(&client,
+			"IMAP4rev1 LITERAL+ IDLE", &error) == IMAP_STATE_OK);
+	test_assert(error == NULL);
+
+	/* capabilities are case-insensitive */
+	test_assert(imap_state_verify_capability(&client,
+			"imap4rev1 literal+ Idle", &error) == IMAP_STATE_OK);
+	test_assert(error == NULL);
+
+	test_assert(imap_state_verify_capability(&client,
+			"IMAP4rev1 LITERAL- IDLE FOO", &error) ==
+		    IMAP_STATE_INCONSISTENT);
+	test_assert_strcmp(error, "CAPABILITY has changed (removed: LITERAL- FOO, added: LITERAL+)");
+
+	test_assert(imap_state_verify_capability(&client,
+			"imap4rev1 literal- idle", &error) ==
+		    IMAP_STATE_INCONSISTENT);
+	test_assert_strcmp(error, "CAPABILITY has changed (removed: literal-, added: LITERAL+)");
+
+	test_assert(imap_state_verify_capability(&client,
+			"IMAP4rev1 IDLE LITERAL+", &error) ==
+		    IMAP_STATE_INCONSISTENT);
+	test_assert_strcmp(error, "CAPABILITY has changed ('IMAP4rev1 IDLE LITERAL+' -> 'IMAP4rev1 LITERAL+ IDLE')");
+
+	/* hibernated by an older version */
+	test_assert(imap_state_verify_capability(&client, NULL, &error) ==
+		    IMAP_STATE_INCONSISTENT);
+	test_assert_strcmp(error, "CAPABILITY missing");
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -313,6 +358,7 @@ int main(void)
 		test_import_state_compress_unknown,
 		test_import_state_enabled_feature_unknown,
 		test_import_state_enabled_feature_disabled,
+		test_verify_capability,
 		NULL
 	};
 

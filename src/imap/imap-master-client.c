@@ -44,6 +44,8 @@ struct imap_master_input {
 
 	const char *auth_token;
 	const char *session_pid;
+	/* CAPABILITY that the client was told before hibernation */
+	const char *capability;
 
 	dev_t peer_dev;
 	ino_t peer_ino;
@@ -191,6 +193,8 @@ imap_master_client_parse_input(const char *const *args, pool_t pool,
 			master_input_r->auth_token = t_strdup(value);
 		} else if (strcmp(key, "session_pid") == 0) {
 			master_input_r->session_pid = t_strdup(value);
+		} else if (strcmp(key, "capability") == 0) {
+			master_input_r->capability = t_strdup(value);
 		} else if (strcmp(key, "bad-done") == 0) {
 			master_input_r->state_import_bad_idle_done = TRUE;
 		} else if (strcmp(key, "idle-continue") == 0) {
@@ -518,8 +522,14 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	struct event_reason *event_reason =
 		event_reason_begin("imap:unhibernate");
 	enum imap_state_result result =
-		imap_state_import_internal(imap_client, master_input.state->data,
-					   master_input.state->used, &error);
+		imap_state_verify_capability(imap_client,
+					     master_input.capability, &error);
+	if (result == IMAP_STATE_OK) {
+		result = imap_state_import_internal(imap_client,
+						    master_input.state->data,
+						    master_input.state->used,
+						    &error);
+	}
 	event_reason_end(&event_reason);
 
 	switch (result) {

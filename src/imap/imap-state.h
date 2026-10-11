@@ -21,6 +21,14 @@ imap_state_import_internal(struct client *client,
 			   const unsigned char *data, size_t size,
 			   const char **error_r);
 
+/* Verify that the client's CAPABILITY is the same as it was when the client
+   was hibernated. The client already saw the old CAPABILITY, so the session
+   can't continue if it has changed. old_capability is NULL if the client was
+   hibernated by an older version that didn't send it. */
+enum imap_state_result
+imap_state_verify_capability(struct client *client, const char *old_capability,
+			     const char **error_r);
+
 /* Imports external client state from an untrusted source. */
 enum imap_state_result
 imap_state_import_external(struct client *client,

@@ -159,6 +159,67 @@ imap_state_import_external(struct client *client,
 	return imap_state_import(client, FALSE, data, size, error_r);
 }
 
+static void
+imap_state_append_missing_caps(string_t *dest, const char *prefix,
+			       const char *const *caps,
+			       const char *const *other_caps)
+{
+	bool first = TRUE;
+
+	for (unsigned int i = 0; caps[i] != NULL; i++) {
+		if (str_array_icase_find(other_caps, caps[i]))
+			continue;
+		str_append(dest, first ? prefix : " ");
+		str_append(dest, caps[i]);
+		first = FALSE;
+	}
+}
+
+/* Returns a description of how the hibernated client's CAPABILITY differs
+   from the current one. */
+static const char *
+imap_state_capability_diff(const char *old_capability,
+			   const char *new_capability)
+{
+	const char *const *old_caps = t_strsplit_spaces(old_capability, " ");
+	const char *const *new_caps = t_strsplit_spaces(new_capability, " ");
+	string_t *str = t_str_new(64);
+
+	imap_state_append_missing_caps(str, "removed: ", old_caps, new_caps);
+	imap_state_append_missing_caps(str, str_len(str) == 0 ?
+				       "added: " : ", added: ",
+				       new_caps, old_caps);
+	if (str_len(str) == 0) {
+		/* only the order changed */
+		str_printfa(str, "'%s' -> '%s'", old_capability, new_capability);
+	}
+	return str_c(str);
+}
+
+enum imap_state_result
+imap_state_verify_capability(struct client *client, const char *old_capability,
+			     const char **error_r)
+{
+	const char *capability;
+
+	if (old_capability == NULL) {
+		/* The client was hibernated by an older Dovecot version, which
+		   didn't send the CAPABILITY. It can't be verified to be
+		   unchanged, so don't continue the session. */
+		*error_r = "CAPABILITY missing";
+		return IMAP_STATE_INCONSISTENT;
+	}
+	capability = client->capability_string == NULL ? "" :
+		str_c(client->capability_string);
+	/* capabilities are case-insensitive */
+	if (strcasecmp(old_capability, capability) != 0) {
+		*error_r = t_strdup_printf("CAPABILITY has changed (%s)",
+			imap_state_capability_diff(old_capability, capability));
+		return IMAP_STATE_INCONSISTENT;
+	}
+	return IMAP_STATE_OK;
+}
+
 static int
 imap_state_export_mailbox_mails(buffer_t *dest, struct mailbox *box,
 				const char **error_r)
