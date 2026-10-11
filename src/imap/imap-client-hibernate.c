@@ -51,7 +51,8 @@ imap_hibernate_handshake(int fd, const char *path, const char **error_r)
 }
 
 static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
-				     const buffer_t *state, int fd_notify)
+				     const buffer_t *state, int fd_notify,
+				     bool nonidle_allowed)
 {
 	struct mail_user *user = client->user;
 	struct stat peer_st;
@@ -140,9 +141,13 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 	if (client->capability_string != NULL)
 		str_append_tabescaped(cmd, str_c(client->capability_string));
 	if (client->command_queue != NULL &&
-	    strcasecmp(client->command_queue->name, "IDLE") == 0)
+	    strcasecmp(client->command_queue->name, "IDLE") == 0) {
 		str_append(cmd, "\tidle-cmd");
-	else {
+		/* imap-hibernate may answer DONE itself and keep the client
+		   hibernated without IDLE. */
+		if (nonidle_allowed)
+			str_append(cmd, "\tnonidle_allowed");
+	} else {
 		str_printfa(cmd, "\tlast_input=%"PRIdTIME_T,
 			    client->last_input);
 	}
@@ -222,7 +227,8 @@ imap_hibernate_process_read(int fd, const char *path, const char **error_r)
 
 static int
 imap_hibernate_process_send(struct client *client, const buffer_t *state,
-			    int fd_notify, int *fd_r, const char **error_r)
+			    int fd_notify, bool nonidle_allowed, int *fd_r,
+			    const char **error_r)
 {
 	string_t *cmd = t_str_new(512);
 	const char *path;
@@ -243,7 +249,8 @@ imap_hibernate_process_send(struct client *client, const buffer_t *state,
 	}
 	net_set_nonblock(fd, FALSE);
 
-	imap_hibernate_write_cmd(client, cmd, state, fd_notify);
+	imap_hibernate_write_cmd(client, cmd, state, fd_notify,
+				 nonidle_allowed);
 
 	alarm(IMAP_HIBERNATE_SEND_TIMEOUT_SECS);
 	if (imap_hibernate_process_send_cmd(fd, path, cmd, client->fd_in, error_r) < 0 ||
@@ -371,8 +378,22 @@ imap_client_hibernate_int(struct client **_client, int *fd_notify,
 			ret = -1;
 		}
 	}
+	/* A DONE answered by imap-hibernate turns an IDLE hibernation into
+	   a non-IDLE one, so the same checks apply. */
+	bool nonidle_allowed = FALSE;
+	if (ret > 0 && idle_cmd &&
+	    client->set->imap_hibernate_nonidle_timeout_secs > 0) {
+		if (imap_state_export_check_nonidle(client, &error) > 0)
+			nonidle_allowed = TRUE;
+		else {
+			e_debug(client->event,
+				"Hibernating without nonidle_allowed: %s",
+				error);
+		}
+	}
 	if (ret > 0) {
 		if (imap_hibernate_process_send(client, state, *fd_notify,
+						nonidle_allowed,
 						&fd_hibernate, &error) < 0) {
 			e->add_str("error", error);
 			e_error(e->event(),

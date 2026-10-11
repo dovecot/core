@@ -13,6 +13,9 @@ enum imap_state_result {
    0 if state couldn't be exported, -1 if temporary internal error error. */
 int imap_state_export_internal(struct client *client, buffer_t *dest,
 			       const char **error_r);
+/* Check whether the client's state allows it to be hibernated without IDLE.
+   Returns 1 if yes, 0 if not (with error_r set to the reason), -1 if error. */
+int imap_state_export_check_nonidle(struct client *client, const char **error_r);
 
 /* Imports internal client state from another Dovecot component,
    which may override IP addresses, session IDs, etc. */

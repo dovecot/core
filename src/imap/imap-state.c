@@ -149,8 +149,7 @@ imap_state_export_check_delayed_expunges(struct client *client,
 	return 1;
 }
 
-static int
-imap_state_export_check_nonidle(struct client *client, const char **error_r)
+int imap_state_export_check_nonidle(struct client *client, const char **error_r)
 {
 	i_assert(!client->syncing);
 

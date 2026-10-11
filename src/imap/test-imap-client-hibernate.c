@@ -37,6 +37,7 @@ struct test_imap_client_hibernate {
 	bool has_mailbox;
 	bool has_notify_fd;
 	bool idle_cmd;
+	bool nonidle_allowed;
 	const char *reply;
 };
 
@@ -130,9 +131,11 @@ static int imap_hibernate_server(struct test_imap_client_hibernate *ctx)
 	test_assert(args[i] != NULL && str_begins_with(args[i++], "stats="));
 	test_assert(args[i] != NULL &&
 		    str_begins_with(args[i++], "capability="));
-	if (ctx->idle_cmd)
+	if (ctx->idle_cmd) {
 		test_assert_strcmp(args[i++], "idle-cmd");
-	else
+		if (ctx->nonidle_allowed)
+			test_assert_strcmp(args[i++], "nonidle_allowed");
+	} else
 		test_assert(args[i] != NULL && str_begins_with(args[i++], "last_input="));
 	if (ctx->has_notify_fd)
 		test_assert_strcmp(args[i++], "notify_fd");
@@ -501,6 +504,47 @@ test_imap_client_hibernate_idle_fd(struct test_imap_client_hibernate *ctx)
 }
 
 static void
+test_imap_client_hibernate_idle_nonidle(struct test_imap_client_hibernate *ctx,
+					bool delay_newmail)
+{
+	struct client *client;
+	const char *error;
+	int peer_fd;
+
+	client = test_client_create(&peer_fd);
+	ctx->client = client;
+	ctx->idle_cmd = TRUE;
+	/* delay-newmail prevents hibernation without IDLE, so imap-hibernate
+	   must not be allowed to answer DONE. */
+	ctx->nonidle_allowed = !delay_newmail;
+	ctx->has_mailbox = FALSE;
+	ctx->has_notify_fd = FALSE;
+	ctx->reply = "+\n";
+
+	struct client_command_context *cmd = client_command_alloc(client);
+	cmd->tag = EVILSTR"tag";
+	cmd->name = "IDLE";
+
+	const struct imap_settings *orig_set = client->set;
+	struct imap_settings set = *orig_set;
+	set.imap_hibernate_nonidle_timeout_secs = 60;
+	if (delay_newmail)
+		set.parsed_workarounds |= WORKAROUND_DELAY_NEWMAIL;
+	client->set = &set;
+
+	test_begin(delay_newmail ?
+		   "imap client hibernate: IDLE with delay-newmail" :
+		   "imap client hibernate: IDLE with nonidle_allowed");
+	test_subprocess_fork(imap_hibernate_server, ctx, FALSE);
+	test_assert(imap_client_hibernate(&client, -1, &error));
+	test_subprocess_kill_all(SERVER_KILL_TIMEOUT_SECS);
+	test_end();
+
+	ctx->nonidle_allowed = FALSE;
+	i_close_fd(&peer_fd);
+}
+
+static void
 test_imap_client_hibernate_nonidle_no_mailbox(
 	struct test_imap_client_hibernate *ctx)
 {
@@ -689,6 +733,8 @@ static void test_imap_client_hibernate(void)
 
 	test_imap_client_hibernate_idle(&ctx);
 	test_imap_client_hibernate_idle_fd(&ctx);
+	test_imap_client_hibernate_idle_nonidle(&ctx, FALSE);
+	test_imap_client_hibernate_idle_nonidle(&ctx, TRUE);
 	test_imap_client_hibernate_nonidle_no_mailbox(&ctx);
 	test_imap_client_hibernate_nonidle_mailbox(&ctx);
 	test_imap_client_hibernate_autoexpunge();
