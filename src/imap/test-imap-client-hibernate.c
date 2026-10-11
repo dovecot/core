@@ -32,6 +32,7 @@ struct test_imap_client_hibernate {
 	struct client *client;
 	int fd_listen;
 	bool has_mailbox;
+	bool has_notify_fd;
 	const char *reply;
 };
 
@@ -85,7 +86,7 @@ static int imap_hibernate_server(struct test_imap_client_hibernate *ctx)
 	if (write(fd, ctx->reply, strlen(ctx->reply)) != (ssize_t)strlen(ctx->reply))
 		i_fatal("write(imap-hibernate client command) failed: %m");
 
-	if (ctx->has_mailbox) {
+	if (ctx->has_notify_fd) {
 		/* read mailbox notify fd */
 		i_stream_unix_set_read_fd(input);
 		if (i_stream_read_next_line(input) == NULL)
@@ -124,7 +125,7 @@ static int imap_hibernate_server(struct test_imap_client_hibernate *ctx)
 	test_assert(args[i] != NULL &&
 		    str_begins_with(args[i++], "capability="));
 	test_assert_strcmp(args[i++], "idle-cmd");
-	if (ctx->has_mailbox)
+	if (ctx->has_notify_fd)
 		test_assert_strcmp(args[i++], "notify_fd");
 
 	const char *const stats_prefixes[] = {
@@ -331,6 +332,7 @@ static void test_imap_client_hibernate(void)
 	test_begin("imap client hibernate: success");
 	ctx.reply = "+\n";
 	ctx.has_mailbox = TRUE;
+	ctx.has_notify_fd = TRUE;
 	test_subprocess_fork(imap_hibernate_server, &ctx, FALSE);
 	/* start notification only after forking or we'll have trouble
 	   deinitializing cleanly */
