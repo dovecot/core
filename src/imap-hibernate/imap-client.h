@@ -18,6 +18,8 @@ struct imap_client_state {
 	struct ip_addr local_ip, remote_ip;
 	in_port_t local_port, remote_port;
 	time_t session_created;
+	/* Time of the last client input. Used only for non-IDLE clients. */
+	time_t last_input;
 
 	uid_t uid;
 	gid_t gid;

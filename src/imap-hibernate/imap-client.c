@@ -79,6 +79,7 @@ struct imap_client {
 	struct istream *input;
 	struct ostream *output;
 	struct timeout *to_keepalive;
+	struct timeout *to_inactivity;
 	struct imap_master_connection *master_conn;
 	struct ioloop_context *ioloop_ctx;
 	/* Points to imap_hibernate_client.imap_client. Set to NULL when this
@@ -504,9 +505,41 @@ static void imap_client_input_nonidle(struct imap_client *client)
 	if (i_stream_read(client->input) < 0)
 		imap_client_disconnected(&client);
 	else {
+		timeout_remove(&client->to_inactivity);
 		client->input_pending = TRUE;
 		imap_client_move_back(client);
 	}
+}
+
+static void imap_client_inactivity_timeout(struct imap_client *client)
+{
+	o_stream_nsend_str(client->output,
+			   "* BYE Disconnected for inactivity.\r\n");
+	imap_client_destroy(&client, t_strdup_printf(
+		"Inactivity - no input for %"PRIdTIME_T" secs",
+		ioloop_time - client->state.last_input));
+}
+
+static void imap_client_add_inactivity_timeout(struct imap_client *client)
+{
+	time_t last_input = client->state.last_input;
+	time_t timeout_secs;
+
+	/* last_input is the time of the client's last input in the imap
+	   process, sent in the hibernation state. The timeout counts from it,
+	   so the time the client was already inactive before hibernation is
+	   included. If it's missing (or in the future), the timeout starts
+	   from now. */
+	if (last_input == 0 || last_input > ioloop_time)
+		last_input = ioloop_time;
+	timeout_secs = last_input + IMAP_CLIENT_INACTIVITY_TIMEOUT_SECS -
+		ioloop_time;
+	if (timeout_secs < 0)
+		timeout_secs = 0;
+	client->state.last_input = last_input;
+	client->to_inactivity = timeout_add(timeout_secs * 1000,
+					    imap_client_inactivity_timeout,
+					    client);
 }
 
 static void imap_client_input_notify(struct imap_client *client)
@@ -672,6 +705,7 @@ int imap_client_create(int fd, const struct imap_client_state *state,
 	client->state.local_port = state->local_port;
 	client->state.remote_port = state->remote_port;
 	client->state.session_created = state->session_created;
+	client->state.last_input = state->last_input;
 
 	client->state.uid = state->uid;
 	client->state.gid = state->gid;
@@ -808,6 +842,7 @@ static void imap_client_stop(struct imap_client *client)
 	}
 	io_remove(&client->io);
 	timeout_remove(&client->to_keepalive);
+	timeout_remove(&client->to_inactivity);
 	imap_client_stop_notify_listening(client);
 }
 
@@ -901,6 +936,7 @@ void imap_client_create_finish(struct imap_client *client)
 		   keepalives. The imap process doesn't send them either. */
 		client->io = io_add(client->fd, IO_READ,
 				    imap_client_input_nonidle, client);
+		imap_client_add_inactivity_timeout(client);
 	}
 
 	array_foreach_modifiable(&client->notifys, notify) {
