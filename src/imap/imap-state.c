@@ -294,6 +294,10 @@ imap_state_export_mailbox(buffer_t *dest, struct client *client,
 		*error_r = "Nonpermanent modseqs";
 		return 0;
 	}
+	if (client->sync_last_full_modseq == 0) {
+		*error_r = "No modseq tracking";
+		return 0;
+	}
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
 		*error_r = mailbox_get_last_internal_error(box, &mail_error);
@@ -309,11 +313,9 @@ imap_state_export_mailbox(buffer_t *dest, struct client *client,
 	numpack_encode(dest, status.uidvalidity);
 	numpack_encode(dest, status.uidnext);
 	numpack_encode(dest, status.messages);
-	if (client_has_enabled(client, imap_feature_qresync) &&
-	    !client->nonpermanent_modseqs)
-		numpack_encode(dest, client->sync_last_full_modseq);
-	else
-		numpack_encode(dest, status.highest_modseq);
+	/* The view's highest_modseq may already be past expunges that
+	   haven't been sent to the client yet. */
+	numpack_encode(dest, client->sync_last_full_modseq);
 
 	/* keywords count + CRC32 should be enough to figure out if it
 	   needs to be resent */

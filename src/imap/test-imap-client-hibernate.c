@@ -164,6 +164,16 @@ mailbox_notify_callback(struct mailbox *box ATTR_UNUSED,
 {
 }
 
+static void test_client_set_mailbox_modseq(struct client *client)
+{
+	struct mailbox_status status;
+
+	/* SELECT would do this */
+	mailbox_get_open_status(client->mailbox, STATUS_HIGHESTMODSEQ,
+				&status);
+	client->sync_last_full_modseq = status.highest_modseq;
+}
+
 static void test_imap_client_hibernate(void)
 {
 	struct client *client;
@@ -266,6 +276,7 @@ static void test_imap_client_hibernate(void)
 	test_assert(mailbox_open(import_box) == 0);
 	test_assert(mailbox_sync(import_box, 0) == 0);
 	client->mailbox = import_box;
+	test_client_set_mailbox_modseq(client);
 
 	buffer_t *state = t_buffer_create(256);
 	test_assert(imap_state_export_internal(client, state, &error) == 1);
@@ -300,6 +311,7 @@ static void test_imap_client_hibernate(void)
 	memset(update.mailbox_guid, 0x12, sizeof(update.mailbox_guid));
 	test_assert(mailbox_create(client->mailbox, &update, FALSE) == 0);
 	test_assert(mailbox_open(client->mailbox) == 0);
+	test_client_set_mailbox_modseq(client);
 	client->mailbox->vname = EVILSTR"mailbox";
 
 	/* successful hibernation */
