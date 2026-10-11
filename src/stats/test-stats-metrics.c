@@ -650,6 +650,21 @@ static void test_stats_metrics_group_by_legacy_exponential_bounds(void)
 	test_end();
 }
 
+static void test_stats_metrics_exporter_init_failure(void)
+{
+	static const char *const bad_driver[] = {
+		"event_exporter=foo",
+		"event_exporter/foo/event_exporter_driver=bogus",
+		"event_exporter/foo/event_exporter_format=json",
+		NULL
+	};
+	const char *error;
+
+	test_begin("stats metrics (exporter init failure doesn't crash)");
+	test_assert(test_stats_try_init(bad_driver, &error) < 0);
+	test_end();
+}
+
 int main(void) {
 	void (*const test_functions[])(void) = {
 		test_stats_metrics,
@@ -658,6 +673,7 @@ int main(void) {
 		test_stats_metrics_group_by_quantized,
 		test_stats_metrics_group_by_exponential_bounds,
 		test_stats_metrics_group_by_legacy_exponential_bounds,
+		test_stats_metrics_exporter_init_failure,
 		NULL
 	};
 

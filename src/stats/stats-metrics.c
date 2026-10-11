@@ -527,8 +527,12 @@ void stats_metrics_deinit(struct stats_metrics **_metrics)
 
 	event_exporters_deinit();
 
-	array_foreach_elem(&metrics->metrics, metric)
-		stats_metric_free(metric);
+	/* metrics->metrics isn't created if stats_metrics_add_from_settings()
+	   failed while still adding the exporters. */
+	if (array_is_created(&metrics->metrics)) {
+		array_foreach_elem(&metrics->metrics, metric)
+			stats_metric_free(metric);
+	}
 	event_filter_unref(&metrics->filter);
 	event_unref(&metrics->event);
 	pool_unref(&metrics->pool);
