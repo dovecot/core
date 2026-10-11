@@ -423,6 +423,10 @@ static bool
 imap_client_input_nonidle_line_is_local(
 	struct imap_client *client, const struct imap_client_input_line *line)
 {
+	if (client->unhibernate_queued) {
+		/* already waiting to be moved back to an imap process */
+		return FALSE;
+	}
 	switch (line->cmd) {
 	case IMAP_CLIENT_INPUT_CMD_IDLE:
 	case IMAP_CLIENT_INPUT_CMD_NOOP:
@@ -454,7 +458,7 @@ imap_client_input_done_is_local(struct imap_client *client,
 
 	i_assert(count > 0 && lines[0].cmd == IMAP_CLIENT_INPUT_CMD_DONE);
 
-	if (partial_size > 0)
+	if (partial_size > 0 || client->unhibernate_queued)
 		return FALSE;
 	for (i = 0; i < count; i++) {
 		if (idle_mode) {
