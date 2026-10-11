@@ -532,10 +532,16 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 		client_destroy(imap_client, "Client state initialization failed");
 		return -1;
 	case IMAP_STATE_INCONSISTENT:
+		error = t_strdup_printf(
+			"IMAP session state is inconsistent: %s", error);
+		event_add_str(event, "error", error);
 		e_debug(event, "imap-master: Unhibernation failed: %s", error);
 		event_unref(&event);
-		client_disconnect_with_error(imap_client,
-			"IMAP session state is inconsistent, please relogin.");
+		/* The details may contain internal errors, so tell the client
+		   only that it needs to login again. */
+		client_send_line(imap_client,
+			"* BYE IMAP session state is inconsistent, please relogin.");
+		client_disconnect(imap_client, error);
 		return -1;
 	case IMAP_STATE_OK:
 		break;
