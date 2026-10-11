@@ -15,6 +15,7 @@
 #include "base64.h"
 #include "str.h"
 #include "strescape.h"
+#include "str-table.h"
 #include "time-util.h"
 #include "var-expand.h"
 #include "master-service.h"
@@ -89,6 +90,8 @@ struct imap_client {
 };
 
 static struct imap_client *imap_clients;
+/* The CAPABILITY strings are usually the same for most clients */
+static struct str_table *capability_table;
 static struct priorityq *unhibernate_queue;
 static struct timeout *to_unhibernate;
 static const char imap_still_here_text[] = "* OK Still here\r\n";
@@ -210,6 +213,10 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 	if (state->session_pid != NULL) {
 		str_append(str, "\tsession_pid=");
 		str_append_tabescaped(str, state->session_pid);
+	}
+	if (state->capability != NULL) {
+		str_append(str, "\tcapability=");
+		str_append_tabescaped(str, state->capability);
 	}
 	input_data = i_stream_get_data(client->input, &input_size);
 	if (input_size > 0) {
@@ -702,6 +709,10 @@ int imap_client_create(int fd, const struct imap_client_state *state,
 		client->state.state = i_memdup(state->state, state->state_size);
 		client->state.state_size = state->state_size;
 	}
+	if (state->capability != NULL) {
+		client->state.capability =
+			str_table_ref(capability_table, state->capability);
+	}
 
 	struct master_service_anvil_session anvil_session = {
 		.username = client->state.username,
@@ -747,6 +758,10 @@ int imap_client_create(int fd, const struct imap_client_state *state,
 		e_error(client->event, "%s", *error_r);
 		event_unref(&client->event);
 		i_free(client->state.state);
+		if (client->state.capability != NULL) {
+			str_table_unref(capability_table,
+					&client->state.capability);
+		}
 		pool_unref(&pool);
 		return -1;
 	}
@@ -831,6 +846,8 @@ void imap_client_destroy(struct imap_client **_client, const char *reason)
 	if (client->state.tag != NULL)
 		i_free(client->state.tag);
 	i_free(client->state.state);
+	if (client->state.capability != NULL)
+		str_table_unref(capability_table, &client->state.capability);
 
 	if (client->shutdown_fd_on_destroy) {
 		if (shutdown(client->fd, SHUT_RDWR) < 0)
@@ -947,6 +964,7 @@ unsigned int imap_clients_kick(const char *user, const guid_128_t conn_guid)
 void imap_clients_init(void)
 {
 	unhibernate_queue = priorityq_init(client_unhibernate_cmp, 64);
+	capability_table = str_table_init();
 }
 
 void imap_clients_deinit(void)
@@ -956,4 +974,5 @@ void imap_clients_deinit(void)
 
 	timeout_remove(&to_unhibernate);
 	priorityq_deinit(&unhibernate_queue);
+	str_table_deinit(&capability_table);
 }

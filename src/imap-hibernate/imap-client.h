@@ -12,6 +12,9 @@ struct imap_client_state {
 	/* optional: */
 	const char *session_id, *mailbox_vname, *userdb_fields, *stats;
 	const char *auth_token, *session_pid;
+	/* CAPABILITY string. It's sent back to the imap process when
+	   unhibernating, so it can verify that it hasn't changed. */
+	const char *capability;
 	struct ip_addr local_ip, remote_ip;
 	in_port_t local_port, remote_port;
 	time_t session_created;
