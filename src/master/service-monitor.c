@@ -434,8 +434,7 @@ static void service_drop_connections(struct service_listener *l)
 			timeout_add_short(SERVICE_LOG_DROP_WARNING_DELAY_MSECS,
 					  service_drop_warning_timeout, service);
 	} else {
-		if (service->type != SERVICE_TYPE_WORKER)
-			service_log_drop_warning(service);
+		service_log_drop_warning(service);
 		/* this has been happening for a while now. just accept and
 		   close the connection, so it's clear that this is happening
 		   because of the limit, rather than because the service
