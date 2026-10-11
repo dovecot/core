@@ -1,6 +1,10 @@
 #ifndef IMAP_KEEPALIVE_H
 #define IMAP_KEEPALIVE_H
 
+/* Disconnect IMAP client after it hasn't sent any input for this many
+   seconds. */
+#define IMAP_CLIENT_INACTIVITY_TIMEOUT_SECS (60*30)
+
 /* This function can be used to set IMAP IDLE keepalive notification timeout
    interval so that the client gets the keepalive notifications at exactly the
    same time for all the IMAP connections. This helps to reduce battery usage

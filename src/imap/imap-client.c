@@ -17,6 +17,7 @@
 #include "time-util.h"
 #include "settings.h"
 #include "master-service.h"
+#include "imap-keepalive.h"
 #include "imap-resp-code.h"
 #include "imap-util.h"
 #include "imap-urlauth.h"
@@ -169,8 +170,9 @@ struct client *client_create(int fd_in, int fd_out,
 
 	p_array_init(&client->module_contexts, client->pool, 5);
 	client->last_input = ioloop_time;
-	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
-				      client_idle_timeout, client);
+	client->to_idle =
+		timeout_add(IMAP_CLIENT_INACTIVITY_TIMEOUT_SECS * 1000,
+			    client_idle_timeout, client);
 
 	client->command_pool =
 		pool_alloconly_create(MEMPOOL_GROWING"client command", 1024*2);
