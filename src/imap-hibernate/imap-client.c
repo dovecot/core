@@ -4,6 +4,7 @@
 #include "array.h"
 #include "ioloop.h"
 #include "fdpass.h"
+#include "fd-util.h"
 #include "hostpid.h"
 #include "connection.h"
 #include "iostream.h"
@@ -396,16 +397,35 @@ imap_client_input_get_lines(const unsigned char *data, size_t size,
 	*partial_size_r = size;
 }
 
+/* Returns TRUE if nothing can have changed in the selected mailbox since
+   the hibernation, i.e. the imap process would have nothing to send. */
+static bool imap_client_is_unchanged(struct imap_client *client)
+{
+	const struct imap_client_notify *notify;
+
+	if (client->mailbox_changed)
+		return FALSE;
+	if (client->state.mailbox_vname == NULL)
+		return TRUE;
+	/* without a notify fd the changes wouldn't be noticed */
+	if (array_count(&client->notifys) == 0)
+		return FALSE;
+	/* The notify fd may have become readable in the same ioloop run as
+	   the client input, before its callback was called. */
+	array_foreach(&client->notifys, notify) {
+		if (fd_is_readable_now(notify->fd))
+			return FALSE;
+	}
+	return TRUE;
+}
+
 static bool
 imap_client_input_nonidle_line_is_local(
-	struct imap_client *client ATTR_UNUSED,
-	const struct imap_client_input_line *line, bool after_done)
+	struct imap_client *client, const struct imap_client_input_line *line)
 {
 	switch (line->cmd) {
 	case IMAP_CLIENT_INPUT_CMD_IDLE:
-		/* DONE followed by IDLE only tells that the client is still
-		   there. */
-		return after_done;
+		return imap_client_is_unchanged(client);
 	case IMAP_CLIENT_INPUT_CMD_OTHER:
 	case IMAP_CLIENT_INPUT_CMD_DONE:
 		break;
@@ -422,7 +442,7 @@ imap_client_input_done_is_local(struct imap_client *client,
 				const struct imap_client_input_line *lines,
 				unsigned int count, size_t partial_size)
 {
-	bool idle_mode = TRUE, after_done = FALSE;
+	bool idle_mode = TRUE;
 	unsigned int i;
 
 	i_assert(count > 0 && lines[0].cmd == IMAP_CLIENT_INPUT_CMD_DONE);
@@ -440,13 +460,10 @@ imap_client_input_done_is_local(struct imap_client *client,
 			     lines[i + 1].cmd != IMAP_CLIENT_INPUT_CMD_IDLE))
 				return FALSE;
 			idle_mode = FALSE;
-			after_done = TRUE;
 			continue;
 		}
-		if (!imap_client_input_nonidle_line_is_local(client, &lines[i],
-							     after_done))
+		if (!imap_client_input_nonidle_line_is_local(client, &lines[i]))
 			return FALSE;
-		after_done = FALSE;
 		if (lines[i].cmd == IMAP_CLIENT_INPUT_CMD_IDLE)
 			idle_mode = TRUE;
 	}
@@ -483,7 +500,7 @@ static bool
 imap_client_input_line(struct imap_client *client,
 		       const struct imap_client_input_line *lines,
 		       unsigned int count, size_t partial_size,
-		       bool *after_done, string_t *replies)
+		       string_t *replies)
 {
 	const struct imap_client_input_line *line = &lines[0];
 
@@ -502,13 +519,11 @@ imap_client_input_line(struct imap_client *client,
 			return FALSE;
 		}
 		imap_client_input_done(client, replies);
-		*after_done = TRUE;
 		return TRUE;
 	}
 
-	if (!imap_client_input_nonidle_line_is_local(client, line, *after_done))
+	if (!imap_client_input_nonidle_line_is_local(client, line))
 		return FALSE;
-	*after_done = FALSE;
 	switch (line->cmd) {
 	case IMAP_CLIENT_INPUT_CMD_IDLE:
 		imap_client_input_idle(client, line, replies);
@@ -564,7 +579,7 @@ static void imap_client_input(struct imap_client *client)
 	const unsigned char *data;
 	size_t size, partial_size;
 	unsigned int i, count;
-	bool after_done = FALSE, forward = FALSE;
+	bool forward = FALSE;
 	int ret;
 
 	ret = i_stream_read_bytes(client->input, &data, &size,
@@ -584,8 +599,7 @@ static void imap_client_input(struct imap_client *client)
 	lines = array_get(&lines_arr, &count);
 	for (i = 0; i < count; i++) {
 		if (!imap_client_input_line(client, &lines[i], count - i,
-					    partial_size, &after_done,
-					    replies)) {
+					    partial_size, replies)) {
 			forward = TRUE;
 			break;
 		}
@@ -820,6 +834,7 @@ int imap_client_create(int fd, const struct imap_client_state *state,
 	client->pool = pool;
 	client->state.username = p_strdup(pool, state->username);
 	client->state.session_id = p_strdup(pool, state->session_id);
+	client->state.mailbox_vname = p_strdup(pool, state->mailbox_vname);
 	client->state.userdb_fields = p_strdup(pool, state->userdb_fields);
 	client->state.stats = p_strdup(pool, state->stats);
 	client->state.auth_token = p_strdup(pool, state->auth_token);
