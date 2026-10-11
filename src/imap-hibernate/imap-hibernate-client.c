@@ -251,8 +251,8 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 			}
 		}
 	}
-	if (state_r->tag == NULL) {
-		*error_r = "Missing tag";
+	if (state_r->idle_cmd && state_r->tag == NULL) {
+		*error_r = "Missing tag for IDLE client";
 		return -1;
 	}
 	if (peer_dev_major != 0 || peer_dev_minor != 0)

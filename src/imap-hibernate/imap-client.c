@@ -29,7 +29,10 @@
 
 #define IMAP_MASTER_SOCKET_NAME "imap-master"
 
-/* we only need enough for "DONE\r\n<tag> IDLE\r\n" */
+/* IDLE clients need only enough for "DONE\r\n<tag> IDLE\r\n". Non-IDLE
+   clients' input is read only to notice that there is some. Whatever is
+   read is passed to the new imap process, and the rest stays in the
+   socket. */
 #define IMAP_MAX_INBUF 12 + 1 + 128 /* DONE\r\nIDLE\r\n + ' ' + <tag> */
 #define IMAP_MAX_OUTBUF 1024
 
@@ -892,11 +895,13 @@ void imap_client_create_finish(struct imap_client *client)
 	if (client->state.idle_cmd) {
 		client->io = io_add(client->fd, IO_READ,
 				    imap_client_input_idle_cmd, client);
+		imap_client_add_idle_keepalive_timeout(client);
 	} else {
+		/* No command is running, so the client isn't expecting any
+		   keepalives. The imap process doesn't send them either. */
 		client->io = io_add(client->fd, IO_READ,
 				    imap_client_input_nonidle, client);
 	}
-	imap_client_add_idle_keepalive_timeout(client);
 
 	array_foreach_modifiable(&client->notifys, notify) {
 		notify->io = io_add(notify->fd, IO_READ,
