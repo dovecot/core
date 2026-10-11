@@ -38,6 +38,8 @@ struct imap_client_state {
 	guid_128_t anvil_conn_guid;
 	unsigned int imap_idle_notify_interval;
 	bool idle_cmd;
+	/* The client may stay hibernated without IDLE after DONE */
+	bool nonidle_allowed;
 	bool have_notify_fd;
 	bool anvil_sent;
 	bool multiplex_ostream;

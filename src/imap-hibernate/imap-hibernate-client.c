@@ -146,6 +146,8 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 			state_r->capability = value;
 		} else if (strcmp(key, "idle-cmd") == 0) {
 			state_r->idle_cmd = TRUE;
+		} else if (strcmp(key, "nonidle_allowed") == 0) {
+			state_r->nonidle_allowed = TRUE;
 		} else if (strcmp(key, "session") == 0) {
 			state_r->session_id = value;
 		} else if (strcmp(key, "mailbox") == 0) {

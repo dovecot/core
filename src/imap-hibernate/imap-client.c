@@ -433,9 +433,11 @@ imap_client_input_done_is_local(struct imap_client *client,
 		if (idle_mode) {
 			if (lines[i].cmd != IMAP_CLIENT_INPUT_CMD_DONE)
 				return FALSE;
-			/* Don't leave the client hibernated without IDLE */
-			if (i + 1 == count ||
-			    lines[i + 1].cmd != IMAP_CLIENT_INPUT_CMD_IDLE)
+			/* Unless the imap process allowed it, don't leave the
+			   client hibernated without IDLE. */
+			if (!client->state.nonidle_allowed &&
+			    (i + 1 == count ||
+			     lines[i + 1].cmd != IMAP_CLIENT_INPUT_CMD_IDLE))
 				return FALSE;
 			idle_mode = FALSE;
 			after_done = TRUE;
@@ -573,8 +575,7 @@ static void imap_client_input(struct imap_client *client)
 		return;
 	}
 	client->next_read_threshold = 0;
-	if (!client->state.idle_cmd)
-		client->state.last_input = ioloop_time;
+	client->state.last_input = ioloop_time;
 
 	t_array_init(&lines_arr, 4);
 	imap_client_input_get_lines(data, size, &lines_arr, &partial_size);
@@ -843,6 +844,9 @@ int imap_client_create(int fd, const struct imap_client_state *state,
 	client->state.imap_idle_notify_interval =
 		state->imap_idle_notify_interval;
 	client->state.idle_cmd = state->idle_cmd;
+	/* a client hibernated without IDLE is obviously allowed to stay so */
+	client->state.nonidle_allowed = state->nonidle_allowed ||
+		!state->idle_cmd;
 	client->state.have_notify_fd = state->have_notify_fd;
 	client->state.anvil_sent = state->anvil_sent;
 	client->state.multiplex_ostream = state->multiplex_ostream;
