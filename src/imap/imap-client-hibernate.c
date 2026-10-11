@@ -292,7 +292,9 @@ bool imap_client_hibernate(struct client **_client, const char **reason_r)
 
 	struct event_passthrough *e =
 		event_create_passthrough(client->event)->
-		set_name("imap_client_hibernated");
+		set_name("imap_client_hibernated")->
+		add_str("reason", client->command_queue != NULL ?
+			"idle" : "inactivity");
 	if (client->mailbox != NULL)
 		e->add_str("mailbox", mailbox_get_vname(client->mailbox));
 
