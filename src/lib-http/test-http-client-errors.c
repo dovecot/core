@@ -139,7 +139,7 @@ test_client_invalid_url(const struct http_client_settings *client_set)
 	struct _invalid_url *ctx;
 
 	ctx = i_new(struct _invalid_url, 1);
-	ctx->count = 2;
+	ctx->count = 3;
 
 	http_client = http_client_init(client_set, NULL);
 
@@ -152,6 +152,18 @@ test_client_invalid_url(const struct http_client_settings *client_set)
 
 	hreq = http_client_request_url_str(
 		http_client, "GET", "http:/www.example.com",
+		test_client_invalid_url_response, ctx);
+	http_client_request_add_header(hreq, "X-Frop", "frop");
+	http_client_request_set_payload_data(hreq, data, sizeof(data) - 1);
+	http_client_request_submit(hreq);
+
+	/* An unset (all-zero) struct http_url, as comes from an unset
+	   SET_HTTP_URL[_AUTH] setting, must fail the same way as an invalid
+	   URL string rather than assert on its NULL host name. */
+	struct http_url empty_url;
+	i_zero(&empty_url);
+	hreq = http_client_request_url(
+		http_client, "GET", &empty_url,
 		test_client_invalid_url_response, ctx);
 	http_client_request_add_header(hreq, "X-Frop", "frop");
 	http_client_request_set_payload_data(hreq, data, sizeof(data) - 1);

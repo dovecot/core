@@ -175,9 +175,21 @@ http_client_request_url(struct http_client *client,
 			const char *method, const struct http_url *target_url,
 			http_client_request_callback_t *callback, void *context)
 {
-	struct http_client_request *req;
+	struct http_client_request *req, *tmpreq;
 
-	req = http_client_request_new(client, method, callback, context);
+	req = tmpreq = http_client_request_new(client, method,
+					       callback, context);
+
+	if (http_url_is_empty(target_url)) {
+		req->label = p_strdup_printf(req->pool, "[Req%u: %s (unset URL)]",
+					     req->id, req->method);
+		http_client_request_error(
+			&tmpreq, HTTP_CLIENT_REQUEST_ERROR_INVALID_URL,
+			"Invalid HTTP URL: URL is not set");
+		http_client_request_update_event(req);
+		return req;
+	}
+
 	http_url_copy_authority(req->pool, &req->origin_url, target_url);
 	req->target = p_strdup(req->pool, http_url_create_target(target_url));
 	if (target_url->user != NULL && *target_url->user != '\0' &&
