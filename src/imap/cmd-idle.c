@@ -192,7 +192,7 @@ static void idle_hibernate_timeout(struct cmd_idle_context *ctx)
 
 static void idle_add_hibernate_timeout(struct cmd_idle_context *ctx)
 {
-	unsigned int secs = ctx->client->set->imap_hibernate_timeout;
+	unsigned int secs = ctx->client->set->imap_hibernate_timeout_secs;
 
 	i_assert(ctx->to_hibernate == NULL);
 

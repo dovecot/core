@@ -67,6 +67,10 @@ const struct setting_keyvalue imap_service_settings_defaults[] = {
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct imap_settings)
 
+#undef DEF_SECS
+#define DEF_SECS(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name##_secs, struct imap_settings)
+
 static const struct setting_define imap_setting_defines[] = {
 	DEF(BOOL, verbose_proctitle),
 	DEF(BOOL, mailbox_list_index),
@@ -84,7 +88,7 @@ static const struct setting_define imap_setting_defines[] = {
 	DEF(BOOL, mail_utf8_extensions),
 	DEF(BOOL, imap4rev2_enable),
 #ifdef BUILD_IMAP_HIBERNATE
-	DEF(TIME, imap_hibernate_timeout),
+	DEF_SECS(TIME, imap_hibernate_timeout),
 #endif
 
 	DEF(STR, imap_urlauth_host),
@@ -120,9 +124,9 @@ static const struct imap_settings imap_default_settings = {
 	.mail_utf8_extensions = FALSE,
 	.imap4rev2_enable = FALSE,
 #ifdef DOVECOT_PRO_EDITION
-	.imap_hibernate_timeout = 30,
+	.imap_hibernate_timeout_secs = 30,
 #else
-	.imap_hibernate_timeout = 0,
+	.imap_hibernate_timeout_secs = 0,
 #endif
 
 	.imap_urlauth_host = "",
