@@ -28,7 +28,7 @@ enum imap_state_type_public {
 
 enum imap_state_type_internal {
 	IMAP_STATE_TYPE_ID_LOGGED		= 'I',
-	IMAP_STATE_TYPE_TLS_COMPRESSION		= 'C',
+	IMAP_STATE_TYPE_TLS_COMPRESSION		= 'T',
 };
 
 struct mailbox_import_state {
