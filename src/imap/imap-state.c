@@ -793,9 +793,11 @@ imap_state_import_enabled_feature(struct client *client,
 		return IMAP_STATE_CORRUPTED;
 	}
 	if (!client_enable(client, feature_idx)) {
-		*error_r = t_strdup_printf("Feature '%s' couldn't be enabled",
+		/* The feature was enabled before the hibernation, so the
+		   configuration must have been changed to disable it. */
+		*error_r = t_strdup_printf("Feature '%s' can't be enabled anymore",
 					   name);
-		return IMAP_STATE_CORRUPTED;
+		return IMAP_STATE_INCONSISTENT;
 	}
 	*skip_r = (p - data) + 1;
 	return IMAP_STATE_OK;

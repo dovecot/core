@@ -275,6 +275,33 @@ static void test_import_state_enabled_feature_unknown(void)
 	test_end();
 }
 
+static bool test_feature_enable_fail(struct client *client ATTR_UNUSED)
+{
+	return FALSE;
+}
+
+static void test_import_state_enabled_feature_disabled(void)
+{
+	struct client client;
+	size_t skip;
+	const char *error;
+	const unsigned char name[] = "TEST-DISABLED";
+
+	test_begin("imap_state_import_enabled_feature() disabled feature is inconsistent");
+
+	imap_features_init();
+	(void)imap_feature_register("TEST-DISABLED", 0, test_feature_enable_fail);
+	i_zero(&client);
+	t_array_init(&client.enabled_features, 1);
+	error = NULL;
+	test_assert(imap_state_import_enabled_feature(&client, name, sizeof(name),
+						 &skip, &error) == IMAP_STATE_INCONSISTENT);
+	test_assert(error != NULL);
+
+	imap_features_deinit();
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -285,6 +312,7 @@ int main(void)
 		test_import_state_searchres_duplicate,
 		test_import_state_compress_unknown,
 		test_import_state_enabled_feature_unknown,
+		test_import_state_enabled_feature_disabled,
 		NULL
 	};
 
