@@ -203,6 +203,14 @@ static struct client *test_client_create(int *peer_fd_r)
 	test_assert(mail_storage_service_lookup_next(storage_service, &input,
 						     &mail_user, &error) == 1);
 
+	if (master_service_get_client_limit(master_service) == 0) {
+		/* The previous client's destroy used up the std client.
+		   Account for a new one. */
+		master_service_set_client_limit(master_service, 1);
+		master_service_set_restart_request_count(master_service, 1);
+		master_service_client_connection_created(master_service);
+	}
+
 	int client_fds[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, client_fds) < 0)
 		i_fatal("socketpair() failed: %m");
