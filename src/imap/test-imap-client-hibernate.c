@@ -216,22 +216,15 @@ static struct client *test_client_create(int *peer_fd_r)
 	return client;
 }
 
-static void test_imap_client_hibernate(void)
+static void
+test_imap_client_hibernate_idle(struct test_imap_client_hibernate *ctx)
 {
 	struct client *client;
-	struct test_imap_client_hibernate ctx;
 	const char *error;
 	int peer_fd;
 
-	storage_service = mail_storage_service_init(master_service,
-		MAIL_STORAGE_SERVICE_FLAG_ALLOW_ROOT |
-		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
-		MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR |
-		MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS);
-	i_zero(&ctx);
-
 	client = test_client_create(&peer_fd);
-	ctx.client = client;
+	ctx->client = client;
 
 	/* can't hibernate without IDLE */
 	test_begin("imap client hibernate: non-IDLE");
@@ -264,15 +257,15 @@ static void test_imap_client_hibernate(void)
 	/* imap-hibernate socket times out */
 	const char *socket_path = t_strdup_printf("%s/imap-hibernate",
 						  test_dir_get());
-	ctx.fd_listen = net_listen_unix(socket_path, 1);
-	if (ctx.fd_listen == -1)
+	ctx->fd_listen = net_listen_unix(socket_path, 1);
+	if (ctx->fd_listen == -1)
 		i_fatal("net_listen_unix(%s) failed: %m", socket_path);
-	fd_set_nonblock(ctx.fd_listen, FALSE);
+	fd_set_nonblock(ctx->fd_listen, FALSE);
 
 	/* imap-hibernate socket returns failure */
 	test_begin("imap client hibernate: error returned");
-	ctx.reply = "-notgood\n";
-	test_subprocess_fork(imap_hibernate_server, &ctx, FALSE);
+	ctx->reply = "-notgood\n";
+	test_subprocess_fork(imap_hibernate_server, ctx, FALSE);
 
 	test_expect_error_string("/imap-hibernate returned failure: notgood");
 	test_assert(!imap_client_hibernate(&client, &error));
@@ -340,20 +333,34 @@ static void test_imap_client_hibernate(void)
 
 	/* successful hibernation */
 	test_begin("imap client hibernate: success");
-	ctx.reply = "+\n";
-	ctx.has_mailbox = TRUE;
-	ctx.has_notify_fd = TRUE;
-	test_subprocess_fork(imap_hibernate_server, &ctx, FALSE);
+	ctx->reply = "+\n";
+	ctx->has_mailbox = TRUE;
+	ctx->has_notify_fd = TRUE;
+	test_subprocess_fork(imap_hibernate_server, ctx, FALSE);
 	/* start notification only after forking or we'll have trouble
 	   deinitializing cleanly */
 	mailbox_notify_changes(client->mailbox, mailbox_notify_callback, client);
 	test_assert(imap_client_hibernate(&client, &error));
 	test_subprocess_kill_all(SERVER_KILL_TIMEOUT_SECS);
-
 	test_end();
 
-	i_close_fd(&ctx.fd_listen);
 	i_close_fd(&peer_fd);
+}
+
+static void test_imap_client_hibernate(void)
+{
+	struct test_imap_client_hibernate ctx;
+
+	storage_service = mail_storage_service_init(master_service,
+		MAIL_STORAGE_SERVICE_FLAG_ALLOW_ROOT |
+		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
+		MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR |
+		MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS);
+	i_zero(&ctx);
+
+	test_imap_client_hibernate_idle(&ctx);
+
+	i_close_fd(&ctx.fd_listen);
 	mail_storage_service_deinit(&storage_service);
 }
 
