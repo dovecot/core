@@ -7,6 +7,7 @@
 struct dict;
 struct oauth2_request;
 struct oauth2_validation_key_cache;
+struct var_expand_program;
 
 struct oauth2_field {
 	const char *name;
@@ -81,6 +82,25 @@ typedef void
 oauth2_request_callback_t(struct oauth2_request_result*, void*);
 
 bool oauth2_valid_token(const char *token);
+
+/* Check where url_template places its variables, looking only at its literal
+   text: %{access_token} must be in the URL path or query, and a variable that
+   is part of the scheme, host or port must use the safe filter, because
+   oauth2_url_template_expand() escapes all other variables. A variable in the
+   userinfo (before "@") is escaped as usual. Returns 0 if fine, otherwise -1
+   with error_r set. */
+int oauth2_url_template_check(const struct var_expand_program *url_template,
+			      const char **error_r);
+/* Expand url_template with %{access_token} set to token, appending the
+   result to dest. Every variable except those with the safe filter is
+   percent-encoded, so filters see the raw token. Fails if a variable
+   expands to "." or ".." (a dot segment, which would escape the intended URL
+   path on a server that resolves them), if %{access_token} doesn't follow
+   scheme://authority/ (or ?) after expansion, or if the template's own
+   expansion fails. */
+int oauth2_url_template_expand(const struct var_expand_program *url_template,
+			       const char *token, string_t *dest,
+			       const char **error_r);
 
 struct oauth2_request*
 oauth2_passwd_grant_start(const struct oauth2_settings *set,
