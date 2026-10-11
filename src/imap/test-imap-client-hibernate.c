@@ -178,7 +178,8 @@ static void test_client_set_mailbox_modseq(struct client *client)
 static void test_imap_client_hibernate(void)
 {
 	struct client *client;
-	struct smtp_submit_settings smtp_set;
+	/* the client keeps a pointer to this */
+	static struct smtp_submit_settings smtp_set;
 	struct mail_user *mail_user;
 	struct test_imap_client_hibernate ctx;
 	const char *error;
@@ -209,7 +210,6 @@ static void test_imap_client_hibernate(void)
 	test_assert(net_addr2ip("127.0.0.2", &input.remote_ip) == 0);
 	test_assert(mail_storage_service_lookup_next(storage_service, &input,
 						     &mail_user, &error) == 1);
-	i_zero(&smtp_set);
 	i_zero(&ctx);
 
 	struct event *event = event_create(NULL);
