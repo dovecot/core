@@ -178,7 +178,8 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 					"Invalid state base64 value: %s", value);
 				return -1;
 			}
-			state_r->state = state_buf->data;
+			state_r->state =
+				buffer_get_modifiable_data(state_buf, NULL);
 			state_r->state_size = state_buf->used;
 		} else if (strcmp(key, "fetch_hdr_count") == 0) {
 			if (str_to_uint(value, &state_r->logout_stats.fetch_hdr_count) < 0) {

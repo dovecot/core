@@ -23,7 +23,7 @@ struct imap_client_state {
 	ino_t peer_ino;
 
 	char *tag;
-	const unsigned char *state;
+	unsigned char *state;
 	size_t state_size;
 
 	struct imap_logout_stats logout_stats;

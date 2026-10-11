@@ -644,7 +644,6 @@ int imap_client_create(int fd, const struct imap_client_state *state,
 	};
 	struct imap_client *client;
 	pool_t pool = pool_alloconly_create("imap client", 256);
-	void *statebuf;
 	const char *error;
 
 	i_assert(state->username != NULL);
@@ -696,8 +695,11 @@ int imap_client_create(int fd, const struct imap_client_state *state,
 		event_add_int(client->event, "remote_port", state->remote_port);
 
 	if (state->state_size > 0) {
-		client->state.state = statebuf = p_malloc(pool, state->state_size);
-		memcpy(statebuf, state->state, state->state_size);
+		/* Allocate the state separately from the pool. It can be
+		   relatively large, and allocating it from the pool would
+		   often grow the pool to its next (doubled) block size,
+		   which wastes memory for each hibernated client. */
+		client->state.state = i_memdup(state->state, state->state_size);
 		client->state.state_size = state->state_size;
 	}
 
@@ -744,6 +746,7 @@ int imap_client_create(int fd, const struct imap_client_state *state,
 	if (ret < 0) {
 		e_error(client->event, "%s", *error_r);
 		event_unref(&client->event);
+		i_free(client->state.state);
 		pool_unref(&pool);
 		return -1;
 	}
@@ -827,6 +830,7 @@ void imap_client_destroy(struct imap_client **_client, const char *reason)
 
 	if (client->state.tag != NULL)
 		i_free(client->state.tag);
+	i_free(client->state.state);
 
 	if (client->shutdown_fd_on_destroy) {
 		if (shutdown(client->fd, SHUT_RDWR) < 0)
