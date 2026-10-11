@@ -136,7 +136,7 @@ struct service {
 	/* when process_limit is reached, wait for a while until we actually
 	   start dropping pending connections */
 	struct timeout *to_drop;
-	/* delayed process_limit reached warning with SERVICE_TYPE_WORKER */
+	/* delayed process_limit reached warning for non-login services */
 	struct timeout *to_drop_warning;
 	/* next time to try to kill idling processes */
 	struct timeout *to_idle;

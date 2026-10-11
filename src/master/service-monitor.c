@@ -414,10 +414,8 @@ static void service_drop_connections(struct service_listener *l)
 	struct service *service = l->service;
 	int fd;
 
-	if (service->type != SERVICE_TYPE_WORKER)
-		service_log_drop_warning(service);
-
 	if (service->type == SERVICE_TYPE_LOGIN) {
+		service_log_drop_warning(service);
 		/* reached process limit, notify processes that they
 		   need to start killing existing connections if they
 		   reach connection limit */
@@ -426,16 +424,18 @@ static void service_drop_connections(struct service_listener *l)
 		service_monitor_listen_pending(service);
 	} else if (!service->listen_pending) {
 		/* maybe this is a temporary peak, stop for a while and
-		   see if it goes away */
+		   see if it goes away. Delay the warning also, because a
+		   process may have just become available without master
+		   knowing it yet, e.g. when a client disconnects and
+		   immediately reconnects. */
 		service_monitor_listen_pending(service);
-		if (service->to_drop_warning == NULL &&
-		    service->type == SERVICE_TYPE_WORKER) {
-			service->to_drop_warning =
-				timeout_add_short(SERVICE_LOG_DROP_WARNING_DELAY_MSECS,
-						  service_drop_warning_timeout,
-						  service);
-		}
+		i_assert(service->to_drop_warning == NULL);
+		service->to_drop_warning =
+			timeout_add_short(SERVICE_LOG_DROP_WARNING_DELAY_MSECS,
+					  service_drop_warning_timeout, service);
 	} else {
+		if (service->type != SERVICE_TYPE_WORKER)
+			service_log_drop_warning(service);
 		/* this has been happening for a while now. just accept and
 		   close the connection, so it's clear that this is happening
 		   because of the limit, rather than because the service
