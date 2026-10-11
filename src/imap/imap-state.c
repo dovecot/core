@@ -474,11 +474,15 @@ import_send_expunges(struct client *client,
 	seq_range_array_add_range(&uids_filter, 1, state->uidnext-1);
 	if (!mailbox_get_expunged_uids(client->mailbox, state->highest_modseq,
 				       &uids_filter, &expunged_uids)) {
+		/* The transaction log no longer goes back to the saved
+		   modseq, or reading it failed. lib-index has already logged
+		   the read errors. Either way the expunges can't be found,
+		   so the client must relogin. */
 		*error_r = t_strdup_printf(
-			"Couldn't get recently expunged UIDs "
+			"Couldn't find expunges since hibernation "
 			"(uidnext=%u highest_modseq=%"PRIu64")",
 			state->uidnext, state->highest_modseq);
-		return IMAP_STATE_ERROR;
+		return IMAP_STATE_INCONSISTENT;
 	}
 	seq_range_array_iter_init(&iter, &expunged_uids);
 
