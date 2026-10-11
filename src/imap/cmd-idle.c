@@ -186,6 +186,8 @@ static void idle_hibernate_timeout(struct cmd_idle_context *ctx)
 		/* client may be destroyed now */
 	} else {
 		/* failed - don't bother retrying */
+		e_debug(client->event, "IDLE hibernation not possible: %s",
+			reason);
 		timeout_remove(&ctx->to_hibernate);
 	}
 }
