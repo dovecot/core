@@ -96,6 +96,8 @@ struct imap_client {
 	bool unhibernate_queued;
 	bool input_pending;
 	bool shutdown_fd_on_destroy;
+	/* A change notification arrived while the client wasn't in IDLE */
+	bool mailbox_changed;
 };
 
 static struct imap_client *imap_clients;
@@ -654,7 +656,18 @@ static void imap_client_add_inactivity_timeout(struct imap_client *client)
 
 static void imap_client_input_notify(struct imap_client *client)
 {
-	imap_client_move_back(client);
+	if (client->state.idle_cmd) {
+		imap_client_move_back(client);
+		return;
+	}
+	/* Nobody is waiting for the changes. Remember that something may have
+	   changed, so commands that would have to send the changes are
+	   forwarded to the imap process. The notify fds aren't needed after
+	   this. */
+	e_debug(client->event, "Mailbox changed while not in IDLE");
+	client->mailbox_changed = TRUE;
+	imap_client_stop_notify_listening(client);
+	array_clear(&client->notifys);
 }
 
 static void keepalive_timeout(struct imap_client *client)
