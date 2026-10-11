@@ -5,6 +5,7 @@
 #include "ostream.h"
 #include "crc32.h"
 #include "mail-storage-settings.h"
+#include "mailbox-watch.h"
 #include "imap-commands.h"
 #include "imap-keepalive.h"
 #include "imap-sync.h"
@@ -174,15 +175,67 @@ static void idle_add_keepalive_timeout(struct cmd_idle_context *ctx)
 	ctx->keepalive_to = timeout_add(interval, keepalive_timeout, ctx);
 }
 
+/* Create the notify fd for imap-hibernate and sync the mailbox. Returns TRUE
+   if the client can be hibernated with the returned fd_notify_r. Returns
+   FALSE if the hibernation isn't possible now, or if the client was
+   destroyed. */
+static bool
+idle_hibernate_sync(struct cmd_idle_context *ctx, int *fd_notify_r)
+{
+	struct client *client = ctx->client;
+	const char *reason;
+	int fd_notify;
+
+	/* Create the notify fd for imap-hibernate before the last sync.
+	   Changes before this are seen by the sync, and changes after it are
+	   notified by the new fd. The sync also sends the changes whose
+	   notification is still delayed by mailbox-watch. */
+	fd_notify = mailbox_watch_extract_notify_fd(client->mailbox, &reason);
+	if (fd_notify == -1) {
+		/* don't bother retrying */
+		struct event_passthrough *e =
+			imap_client_hibernated_event(client)->
+			add_str("error", reason);
+		e_debug(e->event(), "Couldn't hibernate imap client: "
+			"Couldn't extract notifications fd: %s", reason);
+		return FALSE;
+	}
+	uoff_t orig_offset = client->output->offset;
+	ctx->manual_cork = TRUE;
+	if (idle_sync_now(client->mailbox, ctx) || client->disconnected) {
+		i_close_fd(&fd_notify);
+		if (client->disconnected)
+			client_destroy(client, NULL);
+		return FALSE;
+	}
+	if (ctx->sync_ctx != NULL || client->output->offset != orig_offset) {
+		/* The sync is unfinished or it sent changes to the client.
+		   Don't hibernate now: the output may still be buffered,
+		   and imap_client_hibernate() would fail without a retry.
+		   The hibernate timeout was added back after the sync, so
+		   this is retried after the next quiet period. */
+		i_close_fd(&fd_notify);
+		return FALSE;
+	}
+	*fd_notify_r = fd_notify;
+	return TRUE;
+}
+
 static void idle_hibernate_timeout(struct cmd_idle_context *ctx)
 {
 	struct client *client = ctx->client;
 	const char *reason;
+	int fd_notify = -1;
 
 	i_assert(ctx->sync_ctx == NULL);
 	i_assert(!ctx->sync_pending);
 
-	if (imap_client_hibernate(&client, -1, &reason)) {
+	timeout_remove(&ctx->to_hibernate);
+	if (client->mailbox != NULL &&
+	    !idle_hibernate_sync(ctx, &fd_notify))
+		return;
+
+	if (imap_client_hibernate(&client, fd_notify, &reason)) {
 		/* client may be destroyed now */
 	} else {
 		/* failed - don't bother retrying */
