@@ -437,7 +437,7 @@ int imap_state_import_string(const unsigned char **data,
 	return 0;
 }
 
-static int
+static enum imap_state_result
 import_send_expunges(struct client *client,
 		     const struct mailbox_import_state *state,
 		     unsigned int *expunge_count_r,
@@ -461,11 +461,11 @@ import_send_expunges(struct client *client,
 	if (state->messages == 0) {
 		/* the mailbox was empty originally - there couldn't be any
 		   pending expunges. */
-		return 0;
+		return IMAP_STATE_OK;
 	}
 	if (state->uidnext <= 1) {
 		*error_r = "Invalid UIDNEXT";
-		return -1;
+		return IMAP_STATE_ERROR;
 	}
 
 	/* get all the message UIDs expunged since the last known modseq */
@@ -478,7 +478,7 @@ import_send_expunges(struct client *client,
 			"Couldn't get recently expunged UIDs "
 			"(uidnext=%u highest_modseq=%"PRIu64")",
 			state->uidnext, state->highest_modseq);
-		return -1;
+		return IMAP_STATE_ERROR;
 	}
 	seq_range_array_iter_init(&iter, &expunged_uids);
 
@@ -525,7 +525,7 @@ import_send_expunges(struct client *client,
 	}
 	(void)mailbox_transaction_commit(&trans);
 	if (ret < 0)
-		return -1;
+		return IMAP_STATE_ERROR;
 
 	seqs = array_get(&expunged_seqs, &expunge_count);
 	if (client->messages_count + expunge_count < state->messages) {
@@ -533,12 +533,12 @@ import_send_expunges(struct client *client,
 					   "handling expunges (%u < %u)",
 					   client->messages_count + expunge_count,
 					   state->messages);
-		return -1;
+		return IMAP_STATE_ERROR;
 	}
 	if (crc != state->uids_crc32) {
 		*error_r = t_strdup_printf("Message UIDs CRC32 mismatch (%u != %u)",
 					   crc, state->uids_crc32);
-		return -1;
+		return IMAP_STATE_ERROR;
 	}
 
 	if (!client_has_enabled(client, imap_feature_qresync)) {
@@ -557,7 +557,7 @@ import_send_expunges(struct client *client,
 		str_free(&str);
 	}
 	*expunge_count_r = expunge_count;
-	return 0;
+	return IMAP_STATE_OK;
 }
 
 static int
@@ -767,8 +767,9 @@ import_state_mailbox_open(struct client *client,
 	client->uidvalidity = status.uidvalidity;
 	client->notify_uidnext = status.uidnext;
 
-	if (import_send_expunges(client, state, &expunge_count, error_r) < 0)
-		return IMAP_STATE_ERROR;
+	result = import_send_expunges(client, state, &expunge_count, error_r);
+	if (result != IMAP_STATE_OK)
+		return result;
 	i_assert(expunge_count <= state->messages);
 	if (state->messages - expunge_count > client->messages_count) {
 		*error_r = t_strdup_printf("Mailbox message count shrank %u -> %u",
