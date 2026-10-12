@@ -436,14 +436,9 @@ static void imapc_search_set_matches(struct mail_search_arg *arg)
 }
 
 static bool
-imapc_search_next_uid(struct mail_search_context *ctx, uint32_t uid)
+imapc_search_next_seq(struct mail_search_context *ctx, uint32_t seq)
 {
-	/* The remote sequences may have changed while the results were being
-	   handled, so map the UID to the local sequence only now. Messages
-	   that aren't in the local index yet aren't visible to the client
-	   either, so they're skipped. */
-	if (!mail_index_lookup_seq(ctx->transaction->view, uid, &ctx->seq))
-		return FALSE;
+	ctx->seq = seq;
 	ctx->progress_cur = ctx->seq;
 	/* The args that were sent to the remote server are already marked as
 	   matched. Evaluate the rest of the args that can be looked up from
@@ -457,6 +452,20 @@ imapc_search_next_uid(struct mail_search_context *ctx, uint32_t uid)
 		return FALSE;
 	}
 	return TRUE;
+}
+
+static bool
+imapc_search_next_uid(struct mail_search_context *ctx, uint32_t uid)
+{
+	uint32_t seq;
+
+	/* The remote sequences may have changed while the results were being
+	   handled, so map the UID to the local sequence only now. Messages
+	   that aren't in the local index yet aren't visible to the client
+	   either, so they're skipped. */
+	if (!mail_index_lookup_seq(ctx->transaction->view, uid, &seq))
+		return FALSE;
+	return imapc_search_next_seq(ctx, seq);
 }
 
 bool imapc_search_next_update_seq(struct mail_search_context *ctx)
