@@ -2145,6 +2145,106 @@ static const char input_msg[] =
 	test_end();
 }
 
+struct test_part_snapshot {
+	uoff_t header_physical_size, header_virtual_size, header_lines;
+	uoff_t body_physical_size, body_virtual_size, body_lines;
+	unsigned int children_count;
+};
+
+static void
+test_part_snapshot(struct message_part *part, struct test_part_snapshot *snaps,
+		   unsigned int *count)
+{
+	for (; part != NULL; part = part->next) {
+		struct test_part_snapshot *snap = &snaps[(*count)++];
+
+		snap->header_physical_size = part->header_size.physical_size;
+		snap->header_virtual_size = part->header_size.virtual_size;
+		snap->header_lines = part->header_size.lines;
+		snap->body_physical_size = part->body_size.physical_size;
+		snap->body_virtual_size = part->body_size.virtual_size;
+		snap->body_lines = part->body_size.lines;
+		snap->children_count = part->children_count;
+		test_part_snapshot(part->children, snaps, count);
+	}
+}
+
+static void test_message_parser_preparsed_stop_early(void)
+{
+	static const char input_msg[] =
+"Content-Type: multipart/mixed; boundary=\"b\"\n"
+"\n"
+"--b\n"
+"Content-Type: text/plain\n"
+"\n"
+"first\n"
+"--b\n"
+"Content-Type: multipart/alternative; boundary=\"a\"\n"
+"\n"
+"--a\n"
+"Content-Type: text/plain\n"
+"\n"
+"plain\n"
+"--a\n"
+"Content-Type: text/html\n"
+"\n"
+"<p>html</p>\n"
+"--a--\n"
+"--b\n"
+"Content-Type: text/plain\n"
+"\n"
+"last\n"
+"--b--\n";
+	struct test_part_snapshot before[16] = {}, after[16] = {};
+	struct message_parser_ctx *parser;
+	struct istream *input;
+	struct message_part *parts, *parts2, *stop_part;
+	struct message_block block;
+	unsigned int before_count = 0, after_count;
+	const char *error;
+	pool_t pool;
+
+	test_begin("message parser preparsed stop early");
+	pool = pool_alloconly_create("message parser", 10240);
+	input = test_istream_create(input_msg);
+
+	parser = message_parser_init(pool, input, &set_empty);
+	while (message_parser_parse_next_block(parser, &block) > 0) ;
+	message_parser_deinit(&parser, &parts);
+
+	/* the text/html part inside multipart/alternative */
+	stop_part = parts->children->next->children->next;
+	test_assert(stop_part->children == NULL && stop_part->parent != parts);
+	test_part_snapshot(parts, before, &before_count);
+	test_assert(before_count == 6);
+
+	/* Stopping a preparsed parse inside a nested part must not change the
+	   tree, no matter how many times it is done. */
+	for (unsigned int i = 0; i < 3; i++) {
+		i_stream_seek(input, 0);
+		parser = message_parser_init_from_parts(parts, input, &set_empty);
+		while (message_parser_parse_next_block(parser, &block) > 0) {
+			if (block.part == stop_part && block.hdr == NULL &&
+			    block.size > 0)
+				break;
+		}
+		test_assert_idx(block.part == stop_part, i);
+		test_assert_idx(message_parser_deinit_from_parts(
+			&parser, &parts2, &error) == 0, i);
+
+		after_count = 0;
+		memset(after, 0, sizeof(after));
+		test_part_snapshot(parts, after, &after_count);
+		test_assert_idx(after_count == before_count, i);
+		test_assert_idx(memcmp(before, after,
+				       sizeof(before[0]) * before_count) == 0, i);
+	}
+
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -2179,6 +2279,7 @@ int main(void)
 		test_message_parser_preparsed_epilogue_boundary_dashes,
 		test_message_parser_preparsed_epilogue_boundary_long_line,
 		test_message_parser_preparsed_tree_unchanged,
+		test_message_parser_preparsed_stop_early,
 		NULL
 	};
 	return test_run(test_functions);
