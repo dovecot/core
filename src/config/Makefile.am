@@ -21,6 +21,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-var-expand \
 	-I$(top_srcdir)/src/lib-url \
+	-I$(top_srcdir)/src/lib-oauth2 \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	-DPKG_STATEDIR=\""$(statedir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \

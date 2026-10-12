@@ -345,6 +345,273 @@ void test_db_oauth2(void)
 	test_end();
 }
 
+#define OAUTH2_SETTINGS_ERROR_PREFIX \
+	"auth_oauth2 settings: Invalid settings: "
+
+struct oauth2_url_check_case {
+	const char *name;
+	const char *const *settings;
+	bool expect_success;
+	const char *error;
+};
+
+void test_db_oauth2_url_check(void)
+{
+	const struct oauth2_url_check_case cases[] = {
+		{
+			"tokeninfo_url without %{access_token} is rejected",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "post",
+				"oauth2_tokeninfo_url", "http://h/?access_token=",
+				NULL
+			},
+			FALSE,
+			"oauth2_tokeninfo_url must contain %{access_token}",
+		},
+		{
+			"tokeninfo_url with %{access_token} is accepted",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "post",
+				"oauth2_tokeninfo_url",
+				"http://h/?access_token=%{access_token}",
+				NULL
+			},
+			TRUE, NULL,
+		},
+		{
+			"introspection_url without %{access_token} is "
+			"rejected with mode=get",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "get",
+				"oauth2_introspection_url", "http://h/i",
+				NULL
+			},
+			FALSE,
+			"oauth2_introspection_url must contain %{access_token}",
+		},
+		{
+			"introspection_url with %{access_token} is rejected "
+			"with mode=post",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "post",
+				"oauth2_introspection_url",
+				"http://h/i?t=%{access_token}",
+				NULL
+			},
+			FALSE,
+			"oauth2_introspection_url can't contain %{access_token} with "
+			"oauth2_introspection_mode=post",
+		},
+		{
+			"%{access_token} in the host is rejected",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "auth",
+				"oauth2_tokeninfo_url",
+				"http://%{access_token}.h/",
+				NULL
+			},
+			FALSE,
+			"oauth2_tokeninfo_url: "
+			"%{access_token} must be in the URL path or query",
+		},
+		{
+			"an unsupported variable is rejected",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "post",
+				"oauth2_tokeninfo_url",
+				"http://h/?t=%{access_token}&u=%{user}",
+				NULL
+			},
+			FALSE,
+			"oauth2_tokeninfo_url: Unsupported variable %{user}",
+		},
+		{
+			"%{access_token} in the userinfo is rejected",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "auth",
+				"oauth2_tokeninfo_url",
+				"http://u:%{access_token}@h/",
+				NULL
+			},
+			FALSE,
+			"oauth2_tokeninfo_url: "
+			"%{access_token} must be in the URL path or query",
+		},
+		{
+			"%{access_token} in the port is rejected",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "auth",
+				"oauth2_tokeninfo_url",
+				"http://h:%{access_token}/",
+				NULL
+			},
+			FALSE,
+			"oauth2_tokeninfo_url: "
+			"%{access_token} must be in the URL path or query",
+		},
+		{
+			"%{access_token} after a variable's // is rejected",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "auth",
+				"oauth2_tokeninfo_url",
+				"%{env:OAUTH2_UNUSED|safe}//%{access_token}/",
+				NULL
+			},
+			FALSE,
+			"oauth2_tokeninfo_url: "
+			"%{access_token} must be in the URL path or query",
+		},
+		{
+			"%{access_token} appended to a variable is rejected",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "auth",
+				"oauth2_tokeninfo_url",
+				"%{env:OAUTH2_UNUSED|safe}%{access_token}",
+				NULL
+			},
+			FALSE,
+			"oauth2_tokeninfo_url: "
+			"%{access_token} must be in the URL path or query",
+		},
+		{
+			"a base URL variable is accepted without being set",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "auth",
+				"oauth2_tokeninfo_url",
+				"%{env:OAUTH2_UNUSED|safe}/tokeninfo?"
+				"t=%{access_token}",
+				NULL
+			},
+			TRUE, NULL,
+		},
+		{
+			"a port variable is accepted without being set",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "auth",
+				"oauth2_tokeninfo_url",
+				"http://h:%{env:OAUTH2_UNUSED|safe}/tokeninfo?"
+				"t=%{access_token}",
+				NULL
+			},
+			TRUE, NULL,
+		},
+		{
+			"userinfo variables are accepted without safe",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "auth",
+				"oauth2_tokeninfo_url",
+				"http://%{env:OAUTH2_UNUSED}:%{env:OAUTH2_UNUSED2}"
+				"@h/?t=%{access_token}",
+				NULL
+			},
+			TRUE, NULL,
+		},
+		{
+			"a base URL variable without safe is rejected",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "auth",
+				"oauth2_tokeninfo_url",
+				"%{env:OAUTH2_UNUSED}/tokeninfo?t=%{access_token}",
+				NULL
+			},
+			FALSE,
+			"oauth2_tokeninfo_url: %{env:OAUTH2_UNUSED} is part of "
+			"the URL scheme or host and needs the safe filter, "
+			"use %{env:OAUTH2_UNUSED|safe}",
+		},
+		{
+			"a port variable without safe is rejected",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "auth",
+				"oauth2_tokeninfo_url",
+				"http://h:%{env:OAUTH2_UNUSED}/tokeninfo?"
+				"t=%{access_token}",
+				NULL
+			},
+			FALSE,
+			"oauth2_tokeninfo_url: %{env:OAUTH2_UNUSED} is part of "
+			"the URL scheme or host and needs the safe filter, "
+			"use %{env:OAUTH2_UNUSED|safe}",
+		},
+		{
+			"a URL without a scheme is rejected",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "auth",
+				"oauth2_tokeninfo_url",
+				"htp//h/?t=%{access_token}",
+				NULL
+			},
+			FALSE,
+			"Invalid oauth2_tokeninfo_url: Relative HTTP URL not allowed",
+		},
+		{
+			"a syntax error is rejected",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "post",
+				"oauth2_tokeninfo_url",
+				"http://h/?t=%{access_token",
+				NULL
+			},
+			FALSE,
+			"Invalid oauth2_tokeninfo_url: syntax error, unexpected end of "
+			"file, expecting CCBRACE or PIPE",
+		},
+		{
+			"userinfo in introspection_url is still accepted",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "post",
+				"oauth2_introspection_url",
+				"http://id:secret@h/i",
+				NULL
+			},
+			TRUE, NULL,
+		},
+		{
+			"a filter on %{access_token} doesn't hide the "
+			"variable from the check",
+			(const char *const[]) {
+				"oauth2_introspection_mode", "get",
+				"oauth2_introspection_url",
+				"http://h/i?t=%{access_token | lower}",
+				NULL
+			},
+			TRUE, NULL,
+		},
+	};
+
+	for (unsigned int i = 0; i < N_ELEMENTS(cases); i++) {
+		const struct oauth2_url_check_case *c = &cases[i];
+		struct settings_simple set;
+		const struct auth_oauth2_settings *oset;
+		const char *error;
+
+		test_begin(t_strdup_printf("db-oauth2: %s", c->name));
+
+		settings_simple_init(&set, c->settings);
+		int ret = settings_get(set.event, &auth_oauth2_setting_parser_info,
+				       0, &oset, &error);
+		if (c->expect_success) {
+			test_assert_idx(ret == 0, i);
+			if (ret < 0)
+				i_error("%s", error);
+			else
+				settings_free(oset);
+		} else {
+			test_assert_idx(ret < 0, i);
+			if (ret < 0) {
+				test_assert_strcmp_idx(error, t_strconcat(
+					OAUTH2_SETTINGS_ERROR_PREFIX, c->error,
+					NULL), i);
+			} else {
+				settings_free(oset);
+			}
+		}
+		settings_simple_deinit(&set);
+
+		test_end();
+	}
+}
+
 static void
 test_lookup_cb_stop(struct db_oauth2_request *req, enum passdb_result result,
 		    const char *error, struct test_cb_ctx *ctx)
@@ -358,7 +625,7 @@ void test_db_oauth2_grant_url_unset(void)
 	const char *const settings[] = {
 		"oauth2_introspection_mode", "auth",
 		"oauth2_tokeninfo_url",
-		"http://127.0.0.1:1/?access_token=",
+		"http://127.0.0.1:1/?access_token=%{access_token}",
 		NULL
 	};
 	struct settings_simple set;
@@ -403,6 +670,42 @@ void test_db_oauth2_grant_url_unset(void)
 		event_unref(&ar->event);
 		pool_unref(&pool);
 		db_oauth2_deinit();
+	}
+	settings_simple_deinit(&set);
+
+	test_end();
+}
+
+void test_db_oauth2_url_check_no_expand(void)
+{
+	/* %{env:OAUTH2_UNUSED} makes the template have a variable other
+	   than access_token; SETTINGS_EVENT_NO_EXPAND simulates a plain
+	   "doveconf -n" settings dump. The %{access_token} host placement
+	   must still be rejected here, not only with -x/-F. */
+	const char *const settings[] = {
+		"oauth2_introspection_mode", "auth",
+		"oauth2_tokeninfo_url",
+		"http://%{access_token}@h/?x=%{env:OAUTH2_UNUSED}",
+		NULL
+	};
+	struct settings_simple set;
+	const struct auth_oauth2_settings *oset;
+	const char *error;
+
+	test_begin("db-oauth2: %{access_token} in host is rejected under "
+		  "SETTINGS_EVENT_NO_EXPAND");
+
+	settings_simple_init(&set, settings);
+	event_add_str(set.event, SETTINGS_EVENT_NO_EXPAND, "yes");
+	int ret = settings_get(set.event, &auth_oauth2_setting_parser_info,
+			       0, &oset, &error);
+	test_assert(ret < 0);
+	if (ret < 0) {
+		test_assert_strcmp(error, OAUTH2_SETTINGS_ERROR_PREFIX
+			"oauth2_tokeninfo_url: %{access_token} must be in "
+			"the URL path or query");
+	} else {
+		settings_free(oset);
 	}
 	settings_simple_deinit(&set);
 

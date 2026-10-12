@@ -15,6 +15,7 @@ print '#include "array.h"'."\n";
 print '#include "str.h"'."\n";
 print '#include "ipwd.h"'."\n";
 print '#include "var-expand.h"'."\n";
+print '#include "oauth2.h"'."\n";
 print '#include "file-lock.h"'."\n";
 print '#include "fsync-mode.h"'."\n";
 print '#include "hash-format.h"'."\n";

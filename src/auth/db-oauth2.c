@@ -78,6 +78,109 @@ static const struct auth_oauth2_settings auth_oauth2_default_settings = {
 
 /* <settings checks> */
 
+/* Substituted for %{access_token} when parsing a template that has no other
+   variables: never actually sent anywhere. */
+#define AUTH_OAUTH2_URL_TEMPLATE_MARKER "dovecot-access-token"
+
+enum auth_oauth2_url_template_req {
+	AUTH_OAUTH2_URL_TEMPLATE_REQUIRED,
+	AUTH_OAUTH2_URL_TEMPLATE_FORBIDDEN,
+	AUTH_OAUTH2_URL_TEMPLATE_ANY,
+};
+
+/* Check that value (an oauth2_tokeninfo_url or oauth2_introspection_url
+   setting) is empty, or a syntactically valid var-expand URL template
+   using only %{access_token} and builtin variable providers, with
+   %{access_token} required/forbidden/either per req, and - if present -
+   placed in the URL's path or query, never in its host or userinfo. The
+   placement is decided from the template's text alone, so this gives the
+   same result in doveconf and in the auth process. */
+static bool
+auth_oauth2_url_template_check(const char *name, const char *value,
+			       enum auth_oauth2_url_template_req req,
+			       const char *introspection_mode,
+			       const char **error_r)
+{
+	struct var_expand_program *prog;
+	const char *error = NULL;
+
+	if (*value == '\0')
+		return TRUE;
+
+	if (var_expand_program_create(value, &prog, &error) < 0) {
+		*error_r = t_strdup_printf("Invalid %s: %s", name, error);
+		return FALSE;
+	}
+
+	bool has_access_token =
+		var_expand_program_has_variable(prog, "access_token", FALSE);
+
+	if (req == AUTH_OAUTH2_URL_TEMPLATE_REQUIRED && !has_access_token) {
+		error = t_strdup_printf("%s must contain %%{access_token}",
+					name);
+	} else if (req == AUTH_OAUTH2_URL_TEMPLATE_FORBIDDEN &&
+		   has_access_token) {
+		error = t_strdup_printf(
+			"%s can't contain %%{access_token} with "
+			"oauth2_introspection_mode=%s", name,
+			introspection_mode);
+	} else {
+		const char *const *vars = var_expand_program_variables(prog);
+		for (; error == NULL && *vars != NULL; vars++) {
+			if (strcmp(*vars, "access_token") == 0)
+				continue;
+			const char *colon = strchr(*vars, ':');
+			const char *prefix = colon == NULL ? *vars :
+				t_strdup_until(*vars, colon);
+			if (!var_expand_provider_is_builtin(prefix)) {
+				error = t_strdup_printf(
+					"%s: Unsupported variable %%{%s}",
+					name, *vars);
+			}
+		}
+	}
+
+	if (error == NULL && oauth2_url_template_check(prog, &error) < 0)
+		error = t_strdup_printf("%s: %s", name, error);
+
+	/* With no variables other than %{access_token} the URL can be
+	   checked completely, because the token only expands to unreserved
+	   characters. Otherwise what the variables expand to is not known
+	   here. If the filters can't handle the marker, the template is
+	   left unparsed. */
+	const char *const *vars = var_expand_program_variables(prog);
+	if (error == NULL &&
+	    (*vars == NULL ||
+	     (strcmp(*vars, "access_token") == 0 && vars[1] == NULL))) {
+		const struct var_expand_table table[] = {
+			{ .key = "access_token",
+			  .value = AUTH_OAUTH2_URL_TEMPLATE_MARKER },
+			VAR_EXPAND_TABLE_END
+		};
+		const struct var_expand_params params = { .table = table };
+		string_t *dest = t_str_new(128);
+		struct http_url *url;
+		const char *expand_error;
+
+		if (var_expand_program_execute(dest, prog, &params,
+					       &expand_error) == 0 &&
+		    http_url_parse(str_c(dest), NULL,
+				   HTTP_URL_ALLOW_USERINFO_PART,
+				   pool_datastack_create(), &url,
+				   &expand_error) < 0) {
+			error = t_strdup_printf("Invalid %s: %s", name,
+						expand_error);
+		}
+	}
+
+	var_expand_program_free(&prog);
+	if (error != NULL) {
+		*error_r = error;
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static bool auth_oauth2_settings_check(struct event *event ATTR_UNUSED, void *_set,
 				       pool_t pool ATTR_UNUSED, const char **error_r)
 {
@@ -116,6 +219,26 @@ static bool auth_oauth2_settings_check(struct event *event ATTR_UNUSED, void *_s
 		*error_r = "Cannot have empty active_attribute if active_value is set";
 		return FALSE;
 	}
+
+	if (!auth_oauth2_url_template_check(
+		"oauth2_tokeninfo_url", set->tokeninfo_url,
+		AUTH_OAUTH2_URL_TEMPLATE_REQUIRED, set->introspection_mode,
+		error_r))
+		return FALSE;
+
+	enum auth_oauth2_url_template_req introspection_req;
+	if (strcmp(set->introspection_mode, "get") == 0)
+		introspection_req = AUTH_OAUTH2_URL_TEMPLATE_REQUIRED;
+	else if (strcmp(set->introspection_mode, "auth") == 0 ||
+		 strcmp(set->introspection_mode, "post") == 0)
+		introspection_req = AUTH_OAUTH2_URL_TEMPLATE_FORBIDDEN;
+	else
+		introspection_req = AUTH_OAUTH2_URL_TEMPLATE_ANY;
+
+	if (!auth_oauth2_url_template_check(
+		"oauth2_introspection_url", set->introspection_url,
+		introspection_req, set->introspection_mode, error_r))
+		return FALSE;
 
 	return TRUE;
 }
