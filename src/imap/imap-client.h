@@ -365,6 +365,9 @@ enum mailbox_feature client_enabled_mailbox_features(struct client *client);
 /* Returns all enabled features as strings. */
 const char *const *client_enabled_features(struct client *client);
 
+/* Returns the imap_client_hibernated event for a hibernation attempt. */
+struct event_passthrough *imap_client_hibernated_event(struct client *client);
+
 /* Send client processing to imap-idle process. If successful, returns TRUE
    and destroys the client. If hibernation failed, the exact reason is
    returned (mainly for unit tests). fd_notify is the mailbox notification

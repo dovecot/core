@@ -259,6 +259,18 @@ imap_hibernate_process_send(struct client *client, const buffer_t *state,
 }
 #endif
 
+struct event_passthrough *imap_client_hibernated_event(struct client *client)
+{
+	struct event_passthrough *e =
+		event_create_passthrough(client->event)->
+		set_name("imap_client_hibernated")->
+		add_str("reason", client->command_queue != NULL ?
+			"idle" : "inactivity");
+	if (client->mailbox != NULL)
+		e->add_str("mailbox", mailbox_get_vname(client->mailbox));
+	return e;
+}
+
 static bool
 imap_client_hibernate_int(struct client **_client, int *fd_notify,
 			  const char **reason_r)
@@ -292,13 +304,7 @@ imap_client_hibernate_int(struct client **_client, int *fd_notify,
 		return FALSE;
 	}
 
-	struct event_passthrough *e =
-		event_create_passthrough(client->event)->
-		set_name("imap_client_hibernated")->
-		add_str("reason", client->command_queue != NULL ?
-			"idle" : "inactivity");
-	if (client->mailbox != NULL)
-		e->add_str("mailbox", mailbox_get_vname(client->mailbox));
+	struct event_passthrough *e = imap_client_hibernated_event(client);
 
 	state = buffer_create_dynamic(default_pool, 1024);
 	ret = imap_state_export_internal(client, state, &error);
