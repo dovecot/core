@@ -172,10 +172,22 @@ static void test_imap_seq_set_ordered_parse(void)
 		{ "0:1", "", -1 },
 		{ "*", "", -1 },
 		{ "1:*", "", -1 },
-		{ "1", "1", 0 },
-		{ "3:4,1:2,5,700,500:503", "3 4 1 2 5 700 500 501 502 503", 0 },
+		{ "1", "1:1", 0 },
+		{ "3:4,1:2,5,700,500:503", "3:4 1:2 5:5 700:700 500:503", 0 },
+		/* ranges are not expanded, merged or sorted */
+		{ "1:4294967294", "1:4294967294", 0 },
+		{ "1:2,3:4", "1:2 3:4", 0 },
+		{ "1:3,2:4", "1:3 2:4", 0 },
+		{ "2,2", "2:2 2:2", 0 },
+		/* descending range is the same as the ascending one */
+		{ "5:1", "1:5", 0 },
+		{ "8:2,1", "2:8 1:1", 0 },
+		/* 4294967295 is clamped to 4294967294 */
+		{ "4294967295", "4294967294:4294967294", 0 },
+		{ "1:4294967295", "1:4294967294", 0 },
+		{ "4294967295:1", "1:4294967294", 0 },
 	};
-	ARRAY_TYPE(uint32_t) dest;
+	ARRAY_TYPE(seq_range) dest;
 	string_t *str = t_str_new(64);
 
 	test_begin("imap_seq_set_ordered_parse()");
@@ -187,9 +199,11 @@ static void test_imap_seq_set_ordered_parse(void)
 		test_assert_idx(ret == tests[i].ret, i);
 		if (ret == 0) {
 			str_truncate(str, 0);
-			const uint32_t *seqp;
-			array_foreach(&dest, seqp)
-				str_printfa(str, " %u", *seqp);
+			const struct seq_range *range;
+			array_foreach(&dest, range) {
+				str_printfa(str, " %u:%u",
+					    range->seq1, range->seq2);
+			}
 			test_assert_strcmp_idx(str_c(str) + 1, tests[i].output, i);
 		}
 	}

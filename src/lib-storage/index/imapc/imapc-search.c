@@ -118,7 +118,11 @@ struct imapc_search_context {
 	union mail_search_module_context module_ctx;
 
 	ARRAY_TYPE(seq_range) uids;
-	ARRAY_TYPE(uint32_t) sorted_uids;
+	/* Ranges in the reply order. They are not merged and may overlap, so
+	   this is not a seq-range-array. */
+	ARRAY_TYPE(seq_range) sorted_uids;
+	/* Local sequences left to return from the current sorted_uids range */
+	uint32_t range_seq, range_last_seq;
 	struct seq_range_iter iter;
 	unsigned int n;
 	bool finished;
@@ -468,19 +472,40 @@ imapc_search_next_uid(struct mail_search_context *ctx, uint32_t uid)
 	return imapc_search_next_seq(ctx, seq);
 }
 
+/* Advance to the next sorted_uids range that has messages in the local index.
+   Map the range to the local sequences with one lookup, since it may be huge.
+   The sequences are returned in UID order, which is also the order within the
+   range. Returns FALSE if there are no more ranges. */
+static bool
+imapc_search_next_range(struct mail_search_context *ctx,
+			struct imapc_search_context *ictx)
+{
+	const struct seq_range *range;
+
+	while (ictx->n < array_count(&ictx->sorted_uids)) {
+		range = array_idx(&ictx->sorted_uids, ictx->n++);
+		if (mail_index_lookup_seq_range(ctx->transaction->view,
+						range->seq1, range->seq2,
+						&ictx->range_seq,
+						&ictx->range_last_seq))
+			return TRUE;
+	}
+	return FALSE;
+}
+
 bool imapc_search_next_update_seq(struct mail_search_context *ctx)
 {
 	struct imapc_search_context *ictx = IMAPC_SEARCHCTX(ctx);
-	const uint32_t *uidp;
 	uint32_t uid;
 
 	if (ictx == NULL || !ictx->success)
 		return index_storage_search_next_update_seq(ctx);
 
 	if (ictx->sorted) {
-		while (ictx->n < array_count(&ictx->sorted_uids)) {
-			uidp = array_idx(&ictx->sorted_uids, ictx->n++);
-			if (imapc_search_next_uid(ctx, *uidp))
+		while ((ictx->range_seq != 0 &&
+			ictx->range_seq <= ictx->range_last_seq) ||
+		       imapc_search_next_range(ctx, ictx)) {
+			if (imapc_search_next_seq(ctx, ictx->range_seq++))
 				return TRUE;
 		}
 		return FALSE;
@@ -581,7 +606,7 @@ void imapc_search_reply_sort(const struct imap_arg *args,
 {
 	struct event *event = mbox->box.event;
 	const char *atom;
-	uint32_t uid;
+	struct seq_range range;
 
 	if (mbox->search_ctx == NULL || !mbox->search_ctx->sorted) {
 		e_error(event, "Unexpected SORT reply");
@@ -590,10 +615,11 @@ void imapc_search_reply_sort(const struct imap_arg *args,
 
 	for (unsigned int i = 0; args[i].type != IMAP_ARG_EOL; i++) {
 		if (!imap_arg_get_atom(&args[i], &atom) ||
-		    str_to_uint32(atom, &uid) < 0 || uid == 0) {
+		    str_to_uint32(atom, &range.seq1) < 0 || range.seq1 == 0) {
 			e_error(event, "Invalid SORT reply");
 			break;
 		}
-		array_push_back(&mbox->search_ctx->sorted_uids, &uid);
+		range.seq2 = range.seq1;
+		array_push_back(&mbox->search_ctx->sorted_uids, &range);
 	}
 }
