@@ -258,7 +258,6 @@ oauth2_request_start(const struct oauth2_settings *set,
 		i_stream_unref(&is);
 	}
 	if (add_auth_bearer &&
-	    http_client_request_get_origin_url(req->req)->user == NULL &&
 	    set->introspection_mode == INTROSPECTION_MODE_GET_AUTH) {
 		http_client_request_add_header(req->req,
 					       "Authorization",
