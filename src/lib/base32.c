@@ -329,14 +329,15 @@ base32_decode_with_alphabet(const unsigned char *alph,
 int base32_decode(const void *src, size_t src_size,
 		  size_t *src_pos_r, buffer_t *dest)
 {
-	return base32_decode_with_alphabet
-		(b32dec, src, src_size, src_pos_r, dest);
+	return base32_decode_with_alphabet(b32dec, src, src_size,
+					   src_pos_r, dest);
 }
+
 int base32hex_decode(const void *src, size_t src_size,
-		  size_t *src_pos_r, buffer_t *dest)
+		     size_t *src_pos_r, buffer_t *dest)
 {
-	return base32_decode_with_alphabet
-		(b32hexdec, src, src_size, src_pos_r, dest);
+	return base32_decode_with_alphabet(b32hexdec, src, src_size,
+					   src_pos_r, dest);
 }
 
 int base32crockford_decode(const void *src, size_t src_size, buffer_t *dest)
