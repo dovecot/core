@@ -73,7 +73,7 @@ doveadm_module_LTLIBRARIES = \
 lib20_doveadm_fts_plugin_la_SOURCES = \
 	doveadm-fts.c
 
-test_programs = test-fts-search-args
+test_programs = test-fts-search-args test-fts-search
 
 test_fts_search_args_SOURCES = test-fts-search-args.c
 test_fts_search_args_CPPFLAGS = $(AM_CPPFLAGS) -I$(top_srcdir)/src/lib-test
@@ -82,5 +82,12 @@ test_fts_search_args_LDADD = \
 	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT)
 test_fts_search_args_DEPENDENCIES = $(LIBDOVECOT_DEPS) $(LIBDOVECOT_STORAGE_DEPS) $(LIBDOVECOT_LIBLANG_DEPS)
+
+test_fts_search_SOURCES = \
+	test-fts-search.c \
+	fts-search-scores.c
+test_fts_search_CPPFLAGS = $(AM_CPPFLAGS) -I$(top_srcdir)/src/lib-test
+test_fts_search_LDADD = $(LIBDOVECOT)
+test_fts_search_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 include $(top_srcdir)/Makefile.test.include
