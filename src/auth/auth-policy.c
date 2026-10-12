@@ -580,16 +580,18 @@ auth_policy_create_json(struct policy_lookup_ctx *context,
 static void auth_policy_url(struct policy_lookup_ctx *context,
 			    const char *command)
 {
-	size_t len = strlen(context->set->policy_server_url);
-	if (context->set->policy_server_url[len-1] == '&') {
-		context->url = p_strdup_printf(
-			context->pool, "%scommand=%s",
-			context->set->policy_server_url, command);
-	} else {
-		context->url = p_strdup_printf(
-			context->pool, "%s?command=%s",
-			context->set->policy_server_url, command);
-	}
+	const char *base_url = context->set->policy_server_url;
+	size_t len = strlen(base_url);
+	const char *separator;
+
+	if (strchr(base_url, '?') == NULL)
+		separator = "?";
+	else if (base_url[len-1] == '?' || base_url[len-1] == '&')
+		separator = "";
+	else
+		separator = "&";
+	context->url = p_strdup_printf(context->pool, "%s%scommand=%s",
+				       base_url, separator, command);
 }
 
 void auth_policy_check(struct auth_request *request, const char *password,
