@@ -34,7 +34,7 @@ struct policy_lookup_ctx {
 	struct http_client_request *http_request;
 	struct json_istream *json_input;
 	const struct auth_settings *set;
-	const char *url;
+	struct http_url url;
 	bool expect_result;
 	int result;
 	const char *message;
@@ -389,21 +389,10 @@ auth_policy_process_response(const struct http_response *response, void *ctx)
 
 static void auth_policy_send_request(struct policy_lookup_ctx *context)
 {
-	const char *error;
-	struct http_url *url;
-
 	auth_request_ref(context->request);
-	if (http_url_parse(context->url, NULL, HTTP_URL_ALLOW_USERINFO_PART,
-			   context->pool, &url, &error) != 0) {
-		e_error(context->event,
-			"Could not parse url %s: %s", context->url, error);
-		auth_policy_callback(context);
-		auth_policy_finish(context);
-		return;
-	}
 
 	context->http_request = http_client_request_url(http_client,
-		"POST", url, auth_policy_process_response, (void*)context);
+		"POST", &context->url, auth_policy_process_response, (void*)context);
 	http_client_request_set_destroy_callback(
 		context->http_request, auth_policy_finish, context);
 	http_client_request_add_header(context->http_request,
@@ -423,11 +412,11 @@ static void auth_policy_send_request(struct policy_lookup_ctx *context)
 				context->set->policy_server_api_header);
 		}
 	}
-	if (url->user != NULL) {
+	if (context->url.user != NULL) {
 		/* allow empty password */
 		http_client_request_set_auth_simple(
-			context->http_request, url->user,
-			(url->password != NULL ? url->password : ""));
+			context->http_request, context->url.user,
+			(context->url.password != NULL ? context->url.password : ""));
 	}
 
 	struct istream *is = i_stream_create_from_buffer(context->json);
@@ -580,25 +569,27 @@ auth_policy_create_json(struct policy_lookup_ctx *context,
 static void auth_policy_url(struct policy_lookup_ctx *context,
 			    const char *command)
 {
-	const char *base_url = context->set->policy_server_url;
-	size_t len = strlen(base_url);
-	const char *separator;
+	string_t *query = t_str_new(64);
 
-	if (strchr(base_url, '?') == NULL)
-		separator = "?";
-	else if (base_url[len-1] == '?' || base_url[len-1] == '&')
-		separator = "";
-	else
-		separator = "&";
-	context->url = p_strdup_printf(context->pool, "%s%scommand=%s",
-				       base_url, separator, command);
+	http_url_copy_with_userinfo(context->pool, &context->url,
+				    &context->set->policy_server_url);
+	if (context->url.enc_query != NULL &&
+	    context->url.enc_query[0] != '\0') {
+		str_append(query, context->url.enc_query);
+		char last = str_c(query)[str_len(query)-1];
+		if (last != '&' && last != '?')
+			str_append_c(query, '&');
+	}
+	str_append(query, "command=");
+	http_url_escape_param(query, command);
+	context->url.enc_query = p_strdup(context->pool, str_c(query));
 }
 
 void auth_policy_check(struct auth_request *request, const char *password,
 	auth_policy_callback_t cb, void *context)
 {
 	if (request->master != NULL ||
-	    *(request->set->policy_server_url) == '\0') {
+	    http_url_is_empty(&request->set->policy_server_url)) {
 		cb(0, context);
 		return;
 	}
@@ -618,7 +609,7 @@ void auth_policy_check(struct auth_request *request, const char *password,
 	event_set_append_log_prefix(ctx->event, "policy: ");
 	auth_policy_url(ctx, "allow");
 	ctx->result = (ctx->set->policy_reject_on_fail ? -1 : 0);
-	e_debug(ctx->event, "Policy request %s", ctx->url);
+	e_debug(ctx->event, "Policy request %s", http_url_create(&ctx->url));
 	T_BEGIN {
 		auth_policy_create_json(ctx, password, FALSE);
 	} T_END;
@@ -630,7 +621,7 @@ void auth_policy_report(struct auth_request *request)
 	if (request->master != NULL)
 		return;
 
-	if (*(request->set->policy_server_url) == '\0')
+	if (http_url_is_empty(&request->set->policy_server_url))
 		return;
 
 	pool_t pool = pool_alloconly_create("auth policy", 512);
@@ -645,7 +636,7 @@ void auth_policy_report(struct auth_request *request)
 	event_add_str(ctx->event, "mode", "report");
 	event_set_append_log_prefix(ctx->event, "policy: ");
 	auth_policy_url(ctx, "report");
-	e_debug(ctx->event, "Policy request %s", ctx->url);
+	e_debug(ctx->event, "Policy request %s", http_url_create(&ctx->url));
 	T_BEGIN {
 		auth_policy_create_json(ctx, request->mech_password, TRUE);
 	} T_END;
