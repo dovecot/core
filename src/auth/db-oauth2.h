@@ -6,13 +6,14 @@ struct oauth2_request;
 struct db_oauth2_request;
 
 #include "passdb.h"
+#include "http-url.h"
 
 struct auth_oauth2_settings {
 	pool_t pool;
 	/* tokeninfo endpoint, format https://endpoint/somewhere?token= */
 	const char *tokeninfo_url;
 	/* password grant endpoint, format https://endpoint/somewhere */
-	const char *grant_url;
+	struct http_url grant_url;
 	/* introspection endpoint, format https://endpoint/somewhere */
 	const char *introspection_url;
 	/* expected scope(s), optional */

@@ -10,6 +10,7 @@
 #include "sha2.h"
 #include "base64.h"
 #include "randgen.h"
+#include "ioloop.h"
 #include "str.h"
 #include "settings.h"
 #include "dict.h"
@@ -341,5 +342,69 @@ void test_db_oauth2(void)
 	test_assert(run_lookup(db, "user@example.com", token) ==
 		    PASSDB_RESULT_USER_DISABLED);
 	deinit_local_db();
+	test_end();
+}
+
+static void
+test_lookup_cb_stop(struct db_oauth2_request *req, enum passdb_result result,
+		    const char *error, struct test_cb_ctx *ctx)
+{
+	test_lookup_cb(req, result, error, ctx);
+	io_loop_stop(current_ioloop);
+}
+
+void test_db_oauth2_grant_url_unset(void)
+{
+	const char *const settings[] = {
+		"oauth2_introspection_mode", "auth",
+		"oauth2_tokeninfo_url",
+		"http://127.0.0.1:1/?access_token=",
+		NULL
+	};
+	struct settings_simple set;
+	struct db_oauth2 *db;
+	const char *error = NULL;
+
+	test_begin("db-oauth2: grant password with unset grant_url fails the request");
+
+	settings_simple_init(&set, settings);
+	if (db_oauth2_init(set.event, TRUE, &db, &error) < 0)
+		test_failed(error);
+	else {
+		/* oauth2_passwd_grant_start() must fail the request instead
+		   of passing the unset (all-zero) grant_url into
+		   http_client_request_url(), which asserts on its NULL host
+		   name. */
+		pool_t pool = pool_alloconly_create("test-oauth2-req", 4096);
+		struct db_oauth2_request *req =
+			p_new(pool, struct db_oauth2_request, 1);
+		req->pool = pool;
+
+		struct auth_request *ar = p_new(pool, struct auth_request, 1);
+		ar->pool = pool;
+		ar->refcount = 1;
+		ar->event = event_create(auth_event);
+		event_add_category(ar->event, &event_category_auth);
+		/* Debug logging must not stringify the unset grant_url. */
+		event_set_forced_debug(ar->event, TRUE);
+		ar->fields.extra_fields = auth_fields_init(pool);
+		p_array_init(&ar->authdb_event, pool, 2);
+		ar->fields.user = p_strdup(pool, "user");
+		ar->mech_password = p_strdup(pool, "pass");
+
+		struct test_cb_ctx ctx = { .done = FALSE };
+		db_oauth2_lookup(db, req, "pass", ar, test_lookup_cb_stop, &ctx);
+		/* The failure is reported from a zero timeout. */
+		if (!ctx.done)
+			io_loop_run(current_ioloop);
+		test_assert(ctx.done);
+		test_assert(ctx.result == PASSDB_RESULT_INTERNAL_FAILURE);
+
+		event_unref(&ar->event);
+		pool_unref(&pool);
+		db_oauth2_deinit();
+	}
+	settings_simple_deinit(&set);
+
 	test_end();
 }

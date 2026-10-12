@@ -2,6 +2,7 @@
 #define OAUTH2_H
 
 #include "net.h"
+#include "http-url.h"
 
 struct dict;
 struct oauth2_request;
@@ -20,12 +21,15 @@ struct oauth2_settings {
 	   http://some.host/path?access_token= */
 	const char *tokeninfo_url;
 	/* POST grant password here, needs user credentials and client_*
-	   settings */
-	const char *grant_url;
+	   settings. Points into the settings struct that owns it and is
+	   never NULL; use http_url_is_empty() to test for unset. */
+	const struct http_url *grant_url;
 	/* GET more information from this URL, uses Bearer authentication */
 	const char *introspection_url;
-	/* POST refresh here, needs refresh token and client_* settings */
-	const char *refresh_url;
+	/* POST refresh here, needs refresh token and client_* settings.
+	   Never assigned by any caller today; oauth2_refresh_start() is
+	   unreachable. */
+	const struct http_url *refresh_url;
 	/* client identifier for oauth2 server */
 	const char *client_id;
 	/* client secret for oauth2 server */

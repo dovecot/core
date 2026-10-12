@@ -30,7 +30,8 @@ liboauth2_la_DEPENDENCIES = \
 
 test_programs = \
 	test-oauth2-json \
-	test-oauth2-jwt
+	test-oauth2-jwt \
+	test-oauth2-request
 
 test_libs = \
 	$(noinst_LTLIBRARIES) \
@@ -82,3 +83,7 @@ test_oauth2_jwt_LDFLAGS = \
 	-Wl,$(LD_WHOLE_ARCHIVE),../lib-json/.libs/libjson.a,../lib-ssl-iostream/.libs/libssl_iostream.a,$(LD_NO_WHOLE_ARCHIVE)
 endif
 test_oauth2_jwt_DEPENDENCIES = $(test_deps)
+
+test_oauth2_request_SOURCES = test-oauth2-request.c
+test_oauth2_request_LDADD = $(test_libs) $(SSL_LIBS) $(LIBDOVECOT_TEST_LIBS)
+test_oauth2_request_DEPENDENCIES = $(test_deps)

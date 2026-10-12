@@ -319,15 +319,22 @@ oauth2_refresh_start(const struct oauth2_settings *set,
 		     const struct oauth2_request_input *input,
 		     oauth2_request_callback_t *callback, void *context)
 {
+	if (set->refresh_url == NULL ||
+	    http_url_is_empty(set->refresh_url)) {
+		return oauth2_request_start_failed(
+			set, callback, context, NULL,
+			"oauth2_refresh_url must be set");
+	}
+
 	pool_t pool = pool_alloconly_create_clean("oauth2 request", 1024);
 	string_t *payload = str_new(pool, 128);
 
 	str_append(payload, "grant_type=refresh_token&refresh_token=");
 	http_url_escape_param(payload, input->token);
 
-	return oauth2_request_start_str_url(set, input, callback, context,
-					    pool, "POST", set->refresh_url,
-					    payload, FALSE, FALSE);
+	return oauth2_request_start(set, input, callback, context,
+				    pool, "POST", set->refresh_url,
+				    payload, FALSE, FALSE);
 }
 
 #undef oauth2_introspection_start
@@ -402,6 +409,12 @@ oauth2_passwd_grant_start(const struct oauth2_settings *set,
 			  const char *username, const char *password,
 			  oauth2_request_callback_t *callback, void *context)
 {
+	if (http_url_is_empty(set->grant_url)) {
+		return oauth2_request_start_failed(
+			set, callback, context, NULL,
+			"oauth2_grant_url must be set");
+	}
+
 	pool_t pool = pool_alloconly_create_clean("oauth2 request", 1024);
 	string_t *payload = str_new(pool, 128);
 
@@ -423,9 +436,9 @@ oauth2_passwd_grant_start(const struct oauth2_settings *set,
 		http_url_escape_param(payload, set->scope);
 	}
 
-	return oauth2_request_start_str_url(set, input, callback, context,
-					    pool, "POST", set->grant_url,
-					    payload, FALSE, FALSE);
+	return oauth2_request_start(set, input, callback, context,
+				    pool, "POST", set->grant_url,
+				    payload, FALSE, FALSE);
 }
 
 #undef oauth2_client_secret_start
@@ -436,6 +449,12 @@ oauth2_client_secret_start(const struct oauth2_settings *set,
 			  oauth2_request_callback_t *callback,
 			  void *context)
 {
+	if (http_url_is_empty(set->grant_url)) {
+		return oauth2_request_start_failed(
+			set, callback, context, NULL,
+			"oauth2_grant_url must be set");
+	}
+
 	pool_t pool = pool_alloconly_create_clean("oauth2 request", 1024);
 	string_t *payload = str_new(pool, 128);
 
@@ -451,9 +470,9 @@ oauth2_client_secret_start(const struct oauth2_settings *set,
 	str_append(payload, "&resource=");
 	http_url_escape_param(payload, resource);
 
-	return oauth2_request_start_str_url(set, input, callback, context,
-					    pool, "POST", set->grant_url,
-					    payload, FALSE, TRUE);
+	return oauth2_request_start(set, input, callback, context,
+				    pool, "POST", set->grant_url,
+				    payload, FALSE, TRUE);
 }
 
 #undef oauth2_jwt_bearer_grant_start
@@ -464,6 +483,12 @@ oauth2_jwt_bearer_grant_start(const struct oauth2_settings *set,
 			      oauth2_request_callback_t *callback,
 			      void *context)
 {
+	if (http_url_is_empty(set->grant_url)) {
+		return oauth2_request_start_failed(
+			set, callback, context, NULL,
+			"oauth2_grant_url must be set");
+	}
+
 	pool_t pool = pool_alloconly_create_clean("oauth2 request", 1024);
 	string_t *payload = str_new(pool, 128);
 
@@ -485,9 +510,9 @@ oauth2_jwt_bearer_grant_start(const struct oauth2_settings *set,
 		http_url_escape_param(payload, set->scope);
 	}
 
-	return oauth2_request_start_str_url(set, input, callback, context,
-					    pool, "POST", set->grant_url,
-					    payload, FALSE, TRUE);
+	return oauth2_request_start(set, input, callback, context,
+				    pool, "POST", set->grant_url,
+				    payload, FALSE, TRUE);
 }
 
 void oauth2_request_abort(struct oauth2_request **_req)

@@ -9,6 +9,7 @@
 #include "oauth2.h"
 #include "http-client.h"
 #include "http-url.h"
+#include "settings-parser-http-url.h"
 #include "iostream-ssl.h"
 #include "auth-request.h"
 #include "auth-settings.h"
@@ -30,7 +31,7 @@ static time_t last_warned_aud_fallback = 0;
 
 static const struct setting_define auth_oauth2_setting_defines[] = {
 	DEF(STR, tokeninfo_url),
-	DEF(STR, grant_url),
+	DEF(HTTP_URL_AUTH, grant_url),
 	DEF(STR, introspection_url),
 	DEF(BOOLLIST, scope),
 	DEF(BOOLLIST, audience),
@@ -55,7 +56,7 @@ static const struct setting_define auth_oauth2_setting_defines[] = {
 
 static const struct auth_oauth2_settings auth_oauth2_default_settings = {
 	.tokeninfo_url = "",
-	.grant_url = "",
+	.grant_url = HTTP_URL_INIT_EMPTY,
 	.introspection_url = "",
 	.scope = ARRAY_INIT,
 	.audience = ARRAY_INIT,
@@ -82,7 +83,7 @@ static bool auth_oauth2_settings_check(struct event *event ATTR_UNUSED, void *_s
 	const struct auth_oauth2_settings *set = _set;
 
 	if (*set->introspection_mode == '\0') {
-		if (*set->grant_url != '\0' ||
+		if (!http_url_is_empty(&set->grant_url) ||
 		    *set->tokeninfo_url != '\0' ||
 		    *set->introspection_url != '\0') {
 			*error_r = "Missing oauth2_introspection_mode";
@@ -98,7 +99,7 @@ static bool auth_oauth2_settings_check(struct event *event ATTR_UNUSED, void *_s
 		}
 	}
 
-	if (*set->grant_url != '\0' && *set->client_id == '\0') {
+	if (!http_url_is_empty(&set->grant_url) && *set->client_id == '\0') {
 		*error_r = "oauth2_client_id is required with oauth2_grant_url";
 		return FALSE;
 	}
@@ -199,8 +200,8 @@ static int db_oauth2_setup(struct db_oauth2 *db, const char **error_r)
 
 	i_zero(&db->oauth2_set);
 	db->oauth2_set.client = db->client;
-	db->oauth2_set.tokeninfo_url = db->set->tokeninfo_url,
-	db->oauth2_set.grant_url = db->set->grant_url,
+	db->oauth2_set.tokeninfo_url = db->set->tokeninfo_url;
+	db->oauth2_set.grant_url = &db->set->grant_url;
 	db->oauth2_set.introspection_url = db->set->introspection_url;
 	db->oauth2_set.client_id = db->set->client_id;
 	db->oauth2_set.client_secret = db->set->client_secret;
@@ -879,9 +880,11 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 
 	}
 	if (db->oauth2_set.use_grant_password) {
-		e_debug(authdb_event(req->auth_request),
-			"Making grant url request to %s",
-			db->set->grant_url);
+		if (!http_url_is_empty(&db->set->grant_url)) {
+			e_debug(authdb_event(req->auth_request),
+				"Making grant url request to %s",
+				http_url_create(&db->set->grant_url));
+		}
 		/* There is no valid token until grant looks it up. */
 		req->token = NULL;
 		req->req = oauth2_passwd_grant_start(&db->oauth2_set, &input,

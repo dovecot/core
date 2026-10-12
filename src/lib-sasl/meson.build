@@ -1,4 +1,4 @@
-deps = [dep_lib, dep_settings, dep_auth, dep_json, dep_ssl_iostream, dep_oauth2]
+deps = [dep_lib, dep_url, dep_settings, dep_auth, dep_json, dep_ssl_iostream, dep_oauth2]
 
 client_mechanisms = [
   'dsasl-client-mech-anonymous.c',

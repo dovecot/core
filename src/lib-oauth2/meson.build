@@ -27,7 +27,7 @@ test_deps = [
   dep_dcrypt_openssl_static,
   dep_ssl_iostream_openssl_static,
 ]
-tests = ['json', 'jwt']
+tests = ['json', 'jwt', 'request']
 
 foreach test_name : tests
   exe = f'test-oauth2-@test_name@'
