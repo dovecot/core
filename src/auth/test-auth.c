@@ -26,7 +26,7 @@ static const char *const settings[] = {
 	"auth_anonymous_username", "anonuser",
 	/* For oauth2 tests */
 	"oauth2_introspection_mode", "auth",
-	"oauth2_tokeninfo_url", "http://127.0.0.1:1/?access_token=",
+	"oauth2_tokeninfo_url", "http://127.0.0.1:1/?access_token=%{access_token}",
 	"oauth2_client_id", "foo",
 	"oauth2_client_secret", "foo",
 	"oauth2_use_worker", "no",

@@ -18,15 +18,19 @@ ARRAY_DEFINE_TYPE(oauth2_field, struct oauth2_field);
 
 struct oauth2_settings {
 	struct http_client *client;
-	/* GET tokeninfo from this URL, token is appended to URL
-	   http://some.host/path?access_token= */
-	const char *tokeninfo_url;
+	/* GET tokeninfo from this URL template, which must contain
+	   %{access_token}. NULL when unset. */
+	const struct var_expand_program *tokeninfo_url;
 	/* POST grant password here, needs user credentials and client_*
 	   settings. Points into the settings struct that owns it and is
 	   never NULL; use http_url_is_empty() to test for unset. */
 	const struct http_url *grant_url;
-	/* GET more information from this URL, uses Bearer authentication */
-	const char *introspection_url;
+	/* GET or POST more information from this URL template. With
+	   introspection_mode get the template must contain %{access_token};
+	   with auth or post the token goes into the Authorization header or
+	   the POST body instead, and the template must not contain it.
+	   NULL when unset. */
+	const struct var_expand_program *introspection_url;
 	/* POST refresh here, needs refresh token and client_* settings.
 	   Never assigned by any caller today; oauth2_refresh_start() is
 	   unreachable. */

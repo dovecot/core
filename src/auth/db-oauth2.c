@@ -6,6 +6,7 @@
 #include "strescape.h"
 #include "env-util.h"
 #include "settings.h"
+#include "var-expand.h"
 #include "oauth2.h"
 #include "http-client.h"
 #include "http-url.h"
@@ -30,9 +31,9 @@
 static time_t last_warned_aud_fallback = 0;
 
 static const struct setting_define auth_oauth2_setting_defines[] = {
-	DEF(STR, tokeninfo_url),
+	DEF(STR_NOVARS, tokeninfo_url),
 	DEF(HTTP_URL_AUTH, grant_url),
-	DEF(STR, introspection_url),
+	DEF(STR_NOVARS, introspection_url),
 	DEF(BOOLLIST, scope),
 	DEF(BOOLLIST, audience),
 	DEF(ENUM, introspection_mode),
@@ -178,6 +179,16 @@ struct db_oauth2 {
 	struct http_client *client;
 	struct oauth2_settings oauth2_set;
 
+	/* Owns the programs oauth2_set.tokeninfo_url/introspection_url
+	   point to; oauth2_set's fields are const, so they can't be freed
+	   directly. */
+	struct var_expand_program *tokeninfo_url_template;
+	struct var_expand_program *introspection_url_template;
+	/* Templates expanded with an empty token and stripped of userinfo,
+	   for debug logging; never the actual request URL. */
+	const char *tokeninfo_url_log;
+	const char *introspection_url_log;
+
 	struct db_oauth2_request *head;
 };
 
@@ -187,6 +198,24 @@ static void db_oauth2_callback(struct db_oauth2_request *req,
 			       enum passdb_result result,
 			       const char *error_prefix, const char *error);
 static void db_oauth2_free(struct db_oauth2 **_db);
+
+/* Expand template with an empty token and strip its userinfo, for safe
+   debug logging of a request URL that may be built from %{access_token}
+   or %{env:user:password@...}. Falls back to "(invalid)" on failure,
+   which should not happen since the config-time check already passed. */
+static const char *
+db_oauth2_template_log_string(const struct var_expand_program *template)
+{
+	string_t *dest = t_str_new(64);
+	struct http_url *url;
+	const char *error;
+
+	if (oauth2_url_template_expand(template, "", dest, &error) < 0 ||
+	    http_url_parse(str_c(dest), NULL, HTTP_URL_ALLOW_USERINFO_PART,
+			   pool_datastack_create(), &url, &error) < 0)
+		return "(invalid)";
+	return http_url_create(url);
+}
 
 static int db_oauth2_setup(struct db_oauth2 *db, const char **error_r)
 {
@@ -200,9 +229,25 @@ static int db_oauth2_setup(struct db_oauth2 *db, const char **error_r)
 
 	i_zero(&db->oauth2_set);
 	db->oauth2_set.client = db->client;
-	db->oauth2_set.tokeninfo_url = db->set->tokeninfo_url;
+	if (*db->set->tokeninfo_url != '\0') {
+		if (var_expand_program_create(db->set->tokeninfo_url,
+					      &db->tokeninfo_url_template,
+					      error_r) < 0)
+			return -1;
+		db->oauth2_set.tokeninfo_url = db->tokeninfo_url_template;
+		db->tokeninfo_url_log = p_strdup(db->pool,
+			db_oauth2_template_log_string(db->tokeninfo_url_template));
+	}
 	db->oauth2_set.grant_url = &db->set->grant_url;
-	db->oauth2_set.introspection_url = db->set->introspection_url;
+	if (*db->set->introspection_url != '\0') {
+		if (var_expand_program_create(db->set->introspection_url,
+					      &db->introspection_url_template,
+					      error_r) < 0)
+			return -1;
+		db->oauth2_set.introspection_url = db->introspection_url_template;
+		db->introspection_url_log = p_strdup(db->pool,
+			db_oauth2_template_log_string(db->introspection_url_template));
+	}
 	db->oauth2_set.client_id = db->set->client_id;
 	db->oauth2_set.client_secret = db->set->client_secret;
 	db->oauth2_set.send_auth_headers = db->set->send_auth_headers;
@@ -352,6 +397,8 @@ static void db_oauth2_free(struct db_oauth2 **_db)
 	if (db->oauth2_set.key_dict != NULL)
 		dict_deinit(&db->oauth2_set.key_dict);
 	oauth2_validation_key_cache_deinit(&db->oauth2_set.key_cache);
+	var_expand_program_free(&db->tokeninfo_url_template);
+	var_expand_program_free(&db->introspection_url_template);
 	settings_free(db->set);
 	event_unref(&db->event);
 	pool_unref(&db->pool);
@@ -713,7 +760,7 @@ static void db_oauth2_lookup_introspect(struct db_oauth2_request *req)
 
 	e_debug(authdb_event(req->auth_request),
 		"Making introspection request to %s",
-		req->db->set->introspection_url);
+		req->db->introspection_url_log);
 	input.token = req->token;
 	input.local_ip = req->auth_request->fields.local_ip;
 	input.local_port = req->auth_request->fields.local_port;
@@ -890,16 +937,16 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 		req->req = oauth2_passwd_grant_start(&db->oauth2_set, &input,
 						     request->fields.user, request->mech_password,
 						     db_oauth2_lookup_passwd_grant, req);
-	} else if (*db->oauth2_set.tokeninfo_url == '\0') {
+	} else if (db->oauth2_set.tokeninfo_url == NULL) {
 		e_debug(authdb_event(req->auth_request),
 			"Making introspection request to %s",
-			db->set->introspection_url);
+			db->introspection_url_log);
 		req->req = oauth2_introspection_start(&req->db->oauth2_set, &input,
 						      db_oauth2_introspect_continue, req);
 	} else {
 		e_debug(authdb_event(req->auth_request),
 			"Making token validation lookup to %s",
-			db->oauth2_set.tokeninfo_url);
+			db->tokeninfo_url_log);
 		req->req = oauth2_token_validation_start(&db->oauth2_set, &input,
 							 db_oauth2_lookup_continue, req);
 	}

@@ -290,29 +290,6 @@ oauth2_request_start(const struct oauth2_settings *set,
 	return req;
 }
 
-/* Like oauth2_request_start(), but parses url first. */
-static struct oauth2_request *
-oauth2_request_start_str_url(const struct oauth2_settings *set,
-			     const struct oauth2_request_input *input,
-			     oauth2_request_callback_t *callback,
-			     void *context, pool_t p, const char *method,
-			     const char *url, const string_t *payload,
-			     bool add_auth_bearer, bool no_token)
-{
-	struct http_url *parsed_url;
-	const char *error;
-
-	if (http_url_parse(url, NULL, HTTP_URL_ALLOW_USERINFO_PART,
-			   pool_datastack_create(), &parsed_url, &error) < 0) {
-		return oauth2_request_start_failed(
-			set, callback, context, p,
-			t_strdup_printf("Invalid URL: %s", error));
-	}
-	return oauth2_request_start(set, input, callback, context, p, method,
-				    parsed_url, payload, add_auth_bearer,
-				    no_token);
-}
-
 #undef oauth2_refresh_start
 struct oauth2_request *
 oauth2_refresh_start(const struct oauth2_settings *set,
@@ -337,36 +314,78 @@ oauth2_refresh_start(const struct oauth2_settings *set,
 				    payload, FALSE, FALSE);
 }
 
+/* Expand url_template with the request's access token and parse the
+   result, for use as the request URL. Returns a request that fails
+   asynchronously with a descriptive error on expansion or parse
+   failure; p is used for the eventual oauth2_request_start() pool if
+   given, same as there. */
+static struct oauth2_request *
+oauth2_url_template_start(const struct oauth2_settings *set,
+			  const struct oauth2_request_input *input,
+			  oauth2_request_callback_t *callback, void *context,
+			  pool_t p, const char *setting_name,
+			  const struct var_expand_program *url_template,
+			  struct http_url **url_r)
+{
+	string_t *dest = t_str_new(64);
+	const char *error;
+
+	if (oauth2_url_template_expand(url_template, input->token, dest,
+				       &error) < 0 ||
+	    http_url_parse(str_c(dest), NULL, HTTP_URL_ALLOW_USERINFO_PART,
+			   pool_datastack_create(), url_r, &error) < 0) {
+		return oauth2_request_start_failed(
+			set, callback, context, p,
+			t_strdup_printf("%s: %s", setting_name, error));
+	}
+	return NULL;
+}
+
 #undef oauth2_introspection_start
 struct oauth2_request *
 oauth2_introspection_start(const struct oauth2_settings *set,
 			   const struct oauth2_request_input *input,
 			   oauth2_request_callback_t *callback, void *context)
 {
-	string_t *enc;
-	const char *url;
+	struct http_url *url;
 	const char *method;
 	string_t *payload = NULL;
 	pool_t p = NULL;
+	struct oauth2_request *failed;
+
+	if (!oauth2_valid_token(input->token))
+		return oauth2_request_start_failed(set, callback, context,
+						   NULL, NULL);
+
+	failed = oauth2_url_template_start(set, input, callback, context,
+					   NULL, "oauth2_introspection_url",
+					   set->introspection_url, &url);
+	if (failed != NULL)
+		return failed;
 
 	switch (set->introspection_mode) {
-	case INTROSPECTION_MODE_GET:
-		enc = t_str_new(64);
-		str_append(enc, set->introspection_url);
-		http_url_escape_param(enc, input->token);
+	case INTROSPECTION_MODE_GET: {
+		string_t *enc = t_str_new(64);
+
+		if (url->enc_query != NULL)
+			str_append(enc, url->enc_query);
 		if (*set->client_id != '\0') {
-			str_append(enc, "&client_id=");
+			if (str_len(enc) > 0)
+				str_append_c(enc, '&');
+			str_append(enc, "client_id=");
 			http_url_escape_param(enc, set->client_id);
 		}
 		if (*set->client_secret != '\0') {
-			str_append(enc, "&client_secret=");
+			if (str_len(enc) > 0)
+				str_append_c(enc, '&');
+			str_append(enc, "client_secret=");
 			http_url_escape_param(enc, set->client_secret);
 		}
-		url = str_c(enc);
+		url->enc_query = str_len(enc) > 0 ? str_c(enc) : NULL;
 		method = "GET";
 		break;
+	}
 	case INTROSPECTION_MODE_GET_AUTH:
-		url = set->introspection_url;
 		method = "GET";
 		break;
 	case INTROSPECTION_MODE_POST:
@@ -374,15 +393,14 @@ oauth2_introspection_start(const struct oauth2_settings *set,
 		payload = str_new(p, strlen(input->token)+6);
 		str_append(payload, "token=");
 		http_url_escape_param(payload, input->token);
-		url = set->introspection_url;
 		method = "POST";
 		break;
 	default:
 		i_unreached();
 	}
 
-	return oauth2_request_start_str_url(set, input, callback, context, p,
-					    method, url, payload, TRUE, FALSE);
+	return oauth2_request_start(set, input, callback, context, p,
+				    method, url, payload, TRUE, FALSE);
 }
 
 #undef oauth2_token_validation_start
@@ -392,14 +410,21 @@ oauth2_token_validation_start(const struct oauth2_settings *set,
 			      oauth2_request_callback_t *callback,
 			      void *context)
 {
-	string_t *enc = t_str_new(64);
+	struct http_url *url;
+	struct oauth2_request *failed;
 
-	str_append(enc, set->tokeninfo_url);
-	http_url_escape_param(enc, input->token);
+	if (!oauth2_valid_token(input->token))
+		return oauth2_request_start_failed(set, callback, context,
+						   NULL, NULL);
 
-	return oauth2_request_start_str_url(set, input, callback, context,
-					    NULL, "GET", str_c(enc), NULL,
-					    TRUE, FALSE);
+	failed = oauth2_url_template_start(set, input, callback, context,
+					   NULL, "oauth2_tokeninfo_url",
+					   set->tokeninfo_url, &url);
+	if (failed != NULL)
+		return failed;
+
+	return oauth2_request_start(set, input, callback, context,
+				    NULL, "GET", url, NULL, TRUE, FALSE);
 }
 
 #undef oauth2_passwd_grant_start
