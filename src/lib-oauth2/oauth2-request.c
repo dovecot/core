@@ -184,10 +184,32 @@ static void
 oauth2_request_fail(struct oauth2_request *req)
 {
 	struct oauth2_request_result res = {
-		.error = "No token provided",
+		.error = req->delayed_error != NULL ?
+			 req->delayed_error : "No token provided",
 		.valid = FALSE,
 	};
 	oauth2_request_callback(req, &res);
+}
+
+/* Allocate a request that fails asynchronously with error, without ever
+   issuing an HTTP request. error == NULL means "No token provided".
+   db-oauth2.c asserts that every lookup returns a non-NULL request. */
+static struct oauth2_request *
+oauth2_request_start_failed(const struct oauth2_settings *set,
+			    oauth2_request_callback_t *callback, void *context,
+			    pool_t p, const char *error)
+{
+	pool_t pool = (p == NULL) ?
+		pool_alloconly_create_clean("oauth2 request", 1024) : p;
+	struct oauth2_request *req = p_new(pool, struct oauth2_request, 1);
+
+	req->pool = pool;
+	req->set = set;
+	req->req_callback = callback;
+	req->req_context = context;
+	req->delayed_error = p_strdup(pool, error);
+	req->to_delayed_error = timeout_add_short(0, oauth2_request_fail, req);
+	return req;
 }
 
 static void
@@ -221,11 +243,16 @@ oauth2_request_start(const struct oauth2_settings *set,
 		     void *context,
 		     pool_t p,
 		     const char *method,
-		     const char *url,
+		     const struct http_url *url,
 		     const string_t *payload,
 		     bool add_auth_bearer,
 		     bool no_token)
 {
+	if (!no_token && !oauth2_valid_token(input->token)) {
+		return oauth2_request_start_failed(set, callback, context, p,
+						   NULL);
+	}
+
 	pool_t pool = (p == NULL) ?
 		pool_alloconly_create_clean("oauth2 request", 1024) : p;
 	struct oauth2_request *req =
@@ -236,14 +263,8 @@ oauth2_request_start(const struct oauth2_settings *set,
 	req->req_callback = callback;
 	req->req_context = context;
 
-	if (!no_token && !oauth2_valid_token(input->token)) {
-		req->to_delayed_error =
-			timeout_add_short(0, oauth2_request_fail, req);
-		return req;
-	}
-
-	req->req = http_client_request_url_str(req->set->client, method, url,
-					       oauth2_request_response, req);
+	req->req = http_client_request_url(req->set->client, method, url,
+					   oauth2_request_response, req);
 
 	oauth2_request_set_headers(req, input);
 
@@ -269,6 +290,29 @@ oauth2_request_start(const struct oauth2_settings *set,
 	return req;
 }
 
+/* Like oauth2_request_start(), but parses url first. */
+static struct oauth2_request *
+oauth2_request_start_str_url(const struct oauth2_settings *set,
+			     const struct oauth2_request_input *input,
+			     oauth2_request_callback_t *callback,
+			     void *context, pool_t p, const char *method,
+			     const char *url, const string_t *payload,
+			     bool add_auth_bearer, bool no_token)
+{
+	struct http_url *parsed_url;
+	const char *error;
+
+	if (http_url_parse(url, NULL, HTTP_URL_ALLOW_USERINFO_PART,
+			   pool_datastack_create(), &parsed_url, &error) < 0) {
+		return oauth2_request_start_failed(
+			set, callback, context, p,
+			t_strdup_printf("Invalid URL: %s", error));
+	}
+	return oauth2_request_start(set, input, callback, context, p, method,
+				    parsed_url, payload, add_auth_bearer,
+				    no_token);
+}
+
 #undef oauth2_refresh_start
 struct oauth2_request *
 oauth2_refresh_start(const struct oauth2_settings *set,
@@ -281,9 +325,9 @@ oauth2_refresh_start(const struct oauth2_settings *set,
 	str_append(payload, "grant_type=refresh_token&refresh_token=");
 	http_url_escape_param(payload, input->token);
 
-	return oauth2_request_start(set, input, callback, context,
-				    pool, "POST", set->refresh_url,
-				    payload, FALSE, FALSE);
+	return oauth2_request_start_str_url(set, input, callback, context,
+					    pool, "POST", set->refresh_url,
+					    payload, FALSE, FALSE);
 }
 
 #undef oauth2_introspection_start
@@ -330,8 +374,8 @@ oauth2_introspection_start(const struct oauth2_settings *set,
 		i_unreached();
 	}
 
-	return oauth2_request_start(set, input, callback, context, p,
-				    method, url, payload, TRUE, FALSE);
+	return oauth2_request_start_str_url(set, input, callback, context, p,
+					    method, url, payload, TRUE, FALSE);
 }
 
 #undef oauth2_token_validation_start
@@ -346,8 +390,9 @@ oauth2_token_validation_start(const struct oauth2_settings *set,
 	str_append(enc, set->tokeninfo_url);
 	http_url_escape_param(enc, input->token);
 
-	return oauth2_request_start(set, input, callback, context,
-				    NULL, "GET", str_c(enc), NULL, TRUE, FALSE);
+	return oauth2_request_start_str_url(set, input, callback, context,
+					    NULL, "GET", str_c(enc), NULL,
+					    TRUE, FALSE);
 }
 
 #undef oauth2_passwd_grant_start
@@ -378,9 +423,9 @@ oauth2_passwd_grant_start(const struct oauth2_settings *set,
 		http_url_escape_param(payload, set->scope);
 	}
 
-	return oauth2_request_start(set, input, callback, context,
-				    pool, "POST", set->grant_url,
-				    payload, FALSE, FALSE);
+	return oauth2_request_start_str_url(set, input, callback, context,
+					    pool, "POST", set->grant_url,
+					    payload, FALSE, FALSE);
 }
 
 #undef oauth2_client_secret_start
@@ -406,9 +451,9 @@ oauth2_client_secret_start(const struct oauth2_settings *set,
 	str_append(payload, "&resource=");
 	http_url_escape_param(payload, resource);
 
-	return oauth2_request_start(set, input, callback, context,
-				    pool, "POST", set->grant_url,
-				    payload, FALSE, TRUE);
+	return oauth2_request_start_str_url(set, input, callback, context,
+					    pool, "POST", set->grant_url,
+					    payload, FALSE, TRUE);
 }
 
 #undef oauth2_jwt_bearer_grant_start
@@ -440,9 +485,9 @@ oauth2_jwt_bearer_grant_start(const struct oauth2_settings *set,
 		http_url_escape_param(payload, set->scope);
 	}
 
-	return oauth2_request_start(set, input, callback, context,
-				    pool, "POST", set->grant_url,
-				    payload, FALSE, TRUE);
+	return oauth2_request_start_str_url(set, input, callback, context,
+					    pool, "POST", set->grant_url,
+					    payload, FALSE, TRUE);
 }
 
 void oauth2_request_abort(struct oauth2_request **_req)
