@@ -36,6 +36,7 @@ lib20_fts_plugin_la_SOURCES = \
 	fts-plugin.c \
 	fts-search.c \
 	fts-search-args.c \
+	fts-search-scores.c \
 	fts-search-serialize.c \
 	fts-settings.c \
 	fts-storage.c \
@@ -56,6 +57,7 @@ noinst_HEADERS = \
 	fts-build-mail.h \
 	fts-plugin.h \
 	fts-search-args.h \
+	fts-search-scores.h \
 	fts-search-serialize.h
 
 pkglibexec_PROGRAMS = xml2text
