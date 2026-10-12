@@ -368,7 +368,11 @@ static void test_dns_lookup_cached(void)
 	io_loop_run(current_ioloop);
 	test_assert_cmp(test_server.lookup_counter, ==, 1);
 
-	to = timeout_add(3*1000, io_loop_stop, test_server.loop);
+	/* The cache uses ioloop_time, so with a 4s TTL the entry is refreshed
+	   when its age in whole seconds is 2..3 and expires at 4. Waiting
+	   2.5s gives an age of 2 or 3 regardless of where within the second
+	   the entry was added. Waiting 3s would randomly give 4. */
+	to = timeout_add(2500, io_loop_stop, test_server.loop);
 	io_loop_run(current_ioloop);
 	timeout_remove(&to);
 
@@ -413,7 +417,7 @@ static void test_dns_lookup_cached(void)
 	io_loop_run(current_ioloop);
 	test_assert_cmp(test_server.lookup_counter, ==, 6);
 
-	to = timeout_add(3*1000, io_loop_stop, test_server.loop);
+	to = timeout_add(2500, io_loop_stop, test_server.loop);
 	io_loop_run(current_ioloop);
 	timeout_remove(&to);
 
