@@ -134,8 +134,15 @@ imap_notify_next(struct imap_notify_namespace *notify_ns,
 			mailbox_flags = 0;
 		} else if (mailbox_list_mailbox(notify_ns->ns->list,
 						rec->storage_name,
-						&mailbox_flags) < 0)
+						&mailbox_flags) < 0 ||
+			   (mailbox_flags & MAILBOX_NONEXISTENT) != 0) {
+			/* Lookup failed, or the mailbox was already deleted
+			   but the deletion hasn't yet been synced to the
+			   mailbox list index. Don't report the creation with
+			   \NonExistent - the delete event is sent separately
+			   once the deletion is noticed. */
 			mailbox_flags = 0;
+		}
 		if ((ret = imap_notify_list(notify_ns, rec, mailbox_flags)) <= 0)
 			return ret;
 	}
