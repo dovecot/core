@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "imap-common.h"
+#include "fd-util.h"
 #include "istream.h"
 #include "ostream.h"
 #include "crc32.h"
@@ -214,6 +215,20 @@ idle_hibernate_sync(struct cmd_idle_context *ctx, int *fd_notify_r)
 		   and imap_client_hibernate() would fail without a retry.
 		   The hibernate timeout was added back after the sync, so
 		   this is retried after the next quiet period. */
+		i_close_fd(&fd_notify);
+		return FALSE;
+	}
+	if (fd_is_readable_now(fd_notify)) {
+		/* The watched files were changed after the notify fd was
+		   created, without anything sent to the client (e.g. by the
+		   sync itself). imap-hibernate would unhibernate immediately,
+		   so retry after the next quiet period instead. The hibernate
+		   timeout was already added back after the sync. The client
+		   is told about the change normally: the mailbox's own
+		   notify IOs saw it as well, so idle_callback() syncs the
+		   mailbox. */
+		e_debug(client->event, "IDLE hibernation postponed: "
+			"Mailbox changed during the hibernation sync");
 		i_close_fd(&fd_notify);
 		return FALSE;
 	}
