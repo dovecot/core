@@ -6,6 +6,7 @@
 
 #include <unistd.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <sys/stat.h>
 #include <sys/un.h>
 
@@ -119,6 +120,25 @@ void fd_set_nonblock(int fd, bool nonblock)
 
 	if (fcntl(fd, F_SETFL, flags) < 0)
 		i_fatal("fcntl(%d, F_SETFL) failed: %m", fd);
+}
+
+bool fd_is_readable_now(int fd)
+{
+	struct pollfd pfd = {
+		.fd = fd,
+		.events = POLLIN,
+	};
+	int ret;
+
+	i_assert(fd > -1);
+
+	ret = poll(&pfd, 1, 0);
+	if (ret < 0) {
+		if (errno != EINTR)
+			i_error("poll(%d) failed: %m", fd);
+		return FALSE;
+	}
+	return ret > 0;
 }
 
 void fd_close_maybe_stdio(int *fd_in, int *fd_out)

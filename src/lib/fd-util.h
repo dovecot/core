@@ -10,6 +10,10 @@ void fd_debug_verify_leaks(int first_fd, int last_fd);
 /* Set file descriptor to blocking/nonblocking state */
 void fd_set_nonblock(int fd, bool nonblock);
 
+/* Returns TRUE if reading the fd wouldn't block now (there is input, EOF or
+   an error). Doesn't wait. */
+bool fd_is_readable_now(int fd);
+
 /* Close fd_in and fd_out, unless they're already -1. They can point to the
    same fd, in which case they're closed only once. If they point to stdin
    or stdout, they're replaced with /dev/null. */
