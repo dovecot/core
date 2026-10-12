@@ -121,10 +121,10 @@ struct imapc_search_context {
 	/* Ranges in the reply order. They are not merged and may overlap, so
 	   this is not a seq-range-array. */
 	ARRAY_TYPE(seq_range) sorted_uids;
-	/* Local sequences left to return from the current sorted_uids range */
-	uint32_t range_seq, range_last_seq;
-	struct seq_range_iter iter;
+	/* Next range to look up in uids or sorted_uids */
 	unsigned int n;
+	/* Local sequences left to return from the current range */
+	uint32_t range_seq, range_last_seq;
 	bool finished;
 	bool success;
 	bool sorted;
@@ -348,7 +348,6 @@ static void imapc_search_callback(const struct imapc_command_reply *reply,
 
 	ictx->finished = TRUE;
 	if (reply->state == IMAPC_COMMAND_STATE_OK) {
-		seq_range_array_iter_init(&ictx->iter, &ictx->uids);
 		ictx->success = TRUE;
 	} else if (reply->state == IMAPC_COMMAND_STATE_NO) {
 		imapc_copy_error_from_reply(mbox->storage, MAIL_ERROR_PARAMS,
@@ -458,32 +457,19 @@ imapc_search_next_seq(struct mail_search_context *ctx, uint32_t seq)
 	return TRUE;
 }
 
-static bool
-imapc_search_next_uid(struct mail_search_context *ctx, uint32_t uid)
-{
-	uint32_t seq;
-
-	/* The remote sequences may have changed while the results were being
-	   handled, so map the UID to the local sequence only now. Messages
-	   that aren't in the local index yet aren't visible to the client
-	   either, so they're skipped. */
-	if (!mail_index_lookup_seq(ctx->transaction->view, uid, &seq))
-		return FALSE;
-	return imapc_search_next_seq(ctx, seq);
-}
-
-/* Advance to the next sorted_uids range that has messages in the local index.
+/* Advance to the next range in uids that has messages in the local index.
    Map the range to the local sequences with one lookup, since it may be huge.
    The sequences are returned in UID order, which is also the order within the
    range. Returns FALSE if there are no more ranges. */
 static bool
 imapc_search_next_range(struct mail_search_context *ctx,
-			struct imapc_search_context *ictx)
+			struct imapc_search_context *ictx,
+			const ARRAY_TYPE(seq_range) *uids)
 {
 	const struct seq_range *range;
 
-	while (ictx->n < array_count(&ictx->sorted_uids)) {
-		range = array_idx(&ictx->sorted_uids, ictx->n++);
+	while (ictx->n < array_count(uids)) {
+		range = array_idx(uids, ictx->n++);
 		if (mail_index_lookup_seq_range(ctx->transaction->view,
 						range->seq1, range->seq2,
 						&ictx->range_seq,
@@ -496,23 +482,20 @@ imapc_search_next_range(struct mail_search_context *ctx,
 bool imapc_search_next_update_seq(struct mail_search_context *ctx)
 {
 	struct imapc_search_context *ictx = IMAPC_SEARCHCTX(ctx);
-	uint32_t uid;
+	const ARRAY_TYPE(seq_range) *uids;
 
 	if (ictx == NULL || !ictx->success)
 		return index_storage_search_next_update_seq(ctx);
 
-	if (ictx->sorted) {
-		while ((ictx->range_seq != 0 &&
-			ictx->range_seq <= ictx->range_last_seq) ||
-		       imapc_search_next_range(ctx, ictx)) {
-			if (imapc_search_next_seq(ctx, ictx->range_seq++))
-				return TRUE;
-		}
-		return FALSE;
-	}
-
-	while (seq_range_array_iter_nth(&ictx->iter, ictx->n++, &uid)) {
-		if (imapc_search_next_uid(ctx, uid))
+	uids = ictx->sorted ? &ictx->sorted_uids : &ictx->uids;
+	/* The remote sequences may have changed while the results were being
+	   handled, so map the UIDs to the local sequences only now. Messages
+	   that aren't in the local index yet aren't visible to the client
+	   either, so they're skipped. */
+	while ((ictx->range_seq != 0 &&
+		ictx->range_seq <= ictx->range_last_seq) ||
+	       imapc_search_next_range(ctx, ictx, uids)) {
+		if (imapc_search_next_seq(ctx, ictx->range_seq++))
 			return TRUE;
 	}
 	return FALSE;
