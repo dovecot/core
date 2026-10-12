@@ -18,12 +18,10 @@ int main(void) {
      bits = 40;
   }
 
-#ifdef TIME_T_SIGNED
   if (bits == 32) {
-    /* Signed 32-bit time_t is the same as unsigned 31-bit time_t */
+    /* Signed 32-bit time_t is essentially the same as unsigned 31-bit time_t */
     bits = 31;
   }
-#endif
 
   printf("%d", bits);
   return 0;

@@ -15,7 +15,6 @@ time_t_types = [
 
 fs = import('fs')
 time_test_template = fs.read('time-test.c')
-time_t_signed = false
 foreach type : time_t_types
   name = type['name']
   dspec = type['dspec']
@@ -26,9 +25,11 @@ foreach type : time_t_types
     time_test_template.format(name),
     name: f'time_t is @name@ check',
   ).returncode() == 0
+    if not signed
+      error('Dovecot requires a signed time_t')
+    endif
     conf.set_quoted('PRIdTIME_T', dspec)
     conf.set_quoted('PRIxTIME_T', xspec)
-    time_t_signed = signed
 
     break
   endif
@@ -39,10 +40,8 @@ if not conf.has('PRIdTIME_T')
 endif
 
 # How large time_t values gmtime() accepts.
-time_size_args = time_t_signed ? ['-DTIME_T_SIGNED'] : []
 time_size_res = cc.run(
   fs.read('time_size.c'),
-  args: time_size_args,
   name: 'time_t bits',
 )
 if time_size_res.compiled() and time_size_res.returncode() == 0
