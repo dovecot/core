@@ -16,20 +16,6 @@
 
 #define XXH64_ROTL(x, r) (((x) << (r)) | ((x) >> (64 - (r))))
 
-static inline uint64_t xxh64_read64(const void *p)
-{
-	uint64_t v;
-	memcpy(&v, p, sizeof(v));
-	return v;
-}
-
-static inline uint32_t xxh64_read32(const void *p)
-{
-	uint32_t v;
-	memcpy(&v, p, sizeof(v));
-	return v;
-}
-
 static uint64_t ATTR_UNSIGNED_WRAPS xxh64_round(uint64_t acc, uint64_t input)
 {
 	acc += input * XXH64_PRIME2;
@@ -75,18 +61,22 @@ void ATTR_UNSIGNED_WRAPS xxh64_loop(struct xxh64_context *ctx, const void *data,
 		i_assert(fill <= size);
 		memcpy(ctx->buf + ctx->buf_used, p, fill);
 		p += fill;
-		ctx->v1 = xxh64_round(ctx->v1, xxh64_read64(ctx->buf));
-		ctx->v2 = xxh64_round(ctx->v2, xxh64_read64(ctx->buf + 8));
-		ctx->v3 = xxh64_round(ctx->v3, xxh64_read64(ctx->buf + 16));
-		ctx->v4 = xxh64_round(ctx->v4, xxh64_read64(ctx->buf + 24));
+		ctx->v1 = xxh64_round(ctx->v1,
+			le64_to_cpu_unaligned(ctx->buf));
+		ctx->v2 = xxh64_round(ctx->v2,
+			le64_to_cpu_unaligned(ctx->buf + 8));
+		ctx->v3 = xxh64_round(ctx->v3,
+			le64_to_cpu_unaligned(ctx->buf + 16));
+		ctx->v4 = xxh64_round(ctx->v4,
+			le64_to_cpu_unaligned(ctx->buf + 24));
 		ctx->buf_used = 0;
 	}
 
 	while (p + 32 <= end) {
-		ctx->v1 = xxh64_round(ctx->v1, xxh64_read64(p));
-		ctx->v2 = xxh64_round(ctx->v2, xxh64_read64(p + 8));
-		ctx->v3 = xxh64_round(ctx->v3, xxh64_read64(p + 16));
-		ctx->v4 = xxh64_round(ctx->v4, xxh64_read64(p + 24));
+		ctx->v1 = xxh64_round(ctx->v1, le64_to_cpu_unaligned(p));
+		ctx->v2 = xxh64_round(ctx->v2, le64_to_cpu_unaligned(p + 8));
+		ctx->v3 = xxh64_round(ctx->v3, le64_to_cpu_unaligned(p + 16));
+		ctx->v4 = xxh64_round(ctx->v4, le64_to_cpu_unaligned(p + 24));
 		p += 32;
 	}
 
@@ -116,12 +106,12 @@ uint64_t ATTR_UNSIGNED_WRAPS xxh64_result(struct xxh64_context *ctx)
 	h64 += ctx->total_len;
 
 	while (p + 8 <= end) {
-		h64 ^= xxh64_round(0, xxh64_read64(p));
+		h64 ^= xxh64_round(0, le64_to_cpu_unaligned(p));
 		h64 = XXH64_ROTL(h64, 27) * XXH64_PRIME1 + XXH64_PRIME4;
 		p += 8;
 	}
 	if (p + 4 <= end) {
-		h64 ^= (uint64_t)xxh64_read32(p) * XXH64_PRIME1;
+		h64 ^= (uint64_t)le32_to_cpu_unaligned(p) * XXH64_PRIME1;
 		h64 = XXH64_ROTL(h64, 23) * XXH64_PRIME2 + XXH64_PRIME3;
 		p += 4;
 	}
