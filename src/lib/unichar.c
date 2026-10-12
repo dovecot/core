@@ -32,7 +32,7 @@ uni_utf8_parse_char(const void *_buffer, size_t size, bool cstr,
 		    unichar_t *chr_r)
 {
 	static unichar_t lowest_valid_chr_table[] =
-		{ 0, 0, 0x80, 0x800, 0x10000, 0x200000, 0x4000000 };
+		{ 0, 0, 0x80, 0x800, 0x10000 };
 	const unsigned char *input = _buffer;
 	unichar_t chr, lowest_valid_chr;
 	unsigned int i, len;
@@ -57,14 +57,18 @@ uni_utf8_parse_char(const void *_buffer, size_t size, bool cstr,
 		chr &= 0x0f;
 		break;
 	case 4:
+		if (*input > 0xf4) {
+			/* Above U+10FFFF no matter what follows. */
+			return -1;
+		}
 		chr &= 0x07;
 		break;
 	case 5:
-		chr &= 0x03;
-		break;
 	case 6:
-		chr &= 0x01;
-		break;
+		/* RFC 3629 dropped the 5 and 6 byte sequences. No continuation
+		   bytes can make these valid, so don't ask for more input
+		   when the sequence is truncated. */
+		return -1;
 	default:
 		/* only 7bit chars should have len==1 */
 		i_assert(len == 1);
