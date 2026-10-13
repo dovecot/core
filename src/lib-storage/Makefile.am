@@ -132,6 +132,7 @@ libstorage_la_LIBADD = $(shlibs)
 libstorage_la_DEPENDENCIES = $(shlibs)
 
 test_programs = \
+	test-mail-autoexpunge \
 	test-mail-search-args-imap \
 	test-mail-search-args-simplify \
 	test-mail \
@@ -160,6 +161,10 @@ test_mailbox_get_DEPENDENCIES = $(noinst_LTLIBRARIES) $(test_libs)
 test_mail_SOURCES = test-mail.c
 test_mail_LDADD = libstorage.la $(LIBDOVECOT)
 test_mail_DEPENDENCIES = libstorage.la $(LIBDOVECOT_DEPS)
+
+test_mail_autoexpunge_SOURCES = test-mail-autoexpunge.c
+test_mail_autoexpunge_LDADD = libstorage.la $(LIBDOVECOT)
+test_mail_autoexpunge_DEPENDENCIES = libstorage.la $(LIBDOVECOT_DEPS)
 
 test_mail_storage_SOURCES = test-mail-storage.c
 test_mail_storage_LDADD = libstorage.la $(LIBDOVECOT)

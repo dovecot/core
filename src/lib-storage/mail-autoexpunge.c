@@ -15,6 +15,11 @@ struct mail_autoexpunge_context {
 	struct mail_user *user;
 	struct file_lock *lock;
 	unsigned int expunged_count;
+
+	/* Locking was already attempted */
+	bool lock_tried:1;
+	/* Another process is already autoexpunging */
+	bool lock_busy:1;
 };
 
 static bool mailbox_autoexpunge_lock(struct mail_autoexpunge_context *ctx)
@@ -22,8 +27,9 @@ static bool mailbox_autoexpunge_lock(struct mail_autoexpunge_context *ctx)
 	const char *error;
 	int ret;
 
-	if (ctx->lock != NULL)
-		return TRUE;
+	if (ctx->lock_tried)
+		return !ctx->lock_busy;
+	ctx->lock_tried = TRUE;
 
 	/* Try to lock the autoexpunging. If the lock already exists, another
 	   process is already busy with expunging, so we don't have to do it.
@@ -42,6 +48,7 @@ static bool mailbox_autoexpunge_lock(struct mail_autoexpunge_context *ctx)
 		return TRUE;
 	} else if (ret == 0) {
 		/* another process is autoexpunging, so we don't need to. */
+		ctx->lock_busy = TRUE;
 		return FALSE;
 	} else {
 		return TRUE;
@@ -172,6 +179,10 @@ mailbox_autoexpunge(struct mail_autoexpunge_context *ctx, struct mailbox *box,
 					 expire_time);
 	if (ret <= 0)
 		return ret;
+	/* Lock only once something actually needs to be expunged. This
+	   avoids creating the lock file at every logout and delivery. */
+	if (!mailbox_autoexpunge_lock(ctx))
+		return 0;
 
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST) < 0)
 		return -1;
@@ -218,7 +229,8 @@ mailbox_autoexpunge_wildcards(struct mail_autoexpunge_context *ctx,
 				      MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 				      MAILBOX_LIST_ITER_SKIP_ALIASES |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
-	while ((info = mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
+	while (!ctx->lock_busy &&
+	       (info = mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
 		mailbox_autoexpunge_set(ctx, ns, info->vname,
 					set->autoexpunge,
 					set->autoexpunge_max_mails);
@@ -263,12 +275,15 @@ mail_namespace_autoexpunge(struct mail_autoexpunge_context *ctx,
 		if (box_set->autoexpunge == 0 &&
 		    box_set->autoexpunge_max_mails == 0) {
 			/* no autoexpunging needed */
-		} else if (!mailbox_autoexpunge_lock(ctx)) {
-			/* another process is already autoexpunging */
-			return FALSE;
-		} else T_BEGIN {
+			continue;
+		}
+		T_BEGIN {
 			mailbox_autoexpunge_name(ctx, ns, box_set);
 		} T_END;
+		if (ctx->lock_busy) {
+			/* another process is already autoexpunging */
+			return FALSE;
+		}
 	}
 	return TRUE;
 }
