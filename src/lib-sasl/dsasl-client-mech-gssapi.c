@@ -233,6 +233,9 @@ mech_gssapi_gs1_sec_context(struct gssapi_sasl_session *gsession,
 	if (ret < 0)
 		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 
+	/* The last step may have no token, and the previous one is not sent
+	   again. */
+	buffer_clear(gsession->out_buf);
 	buffer_append(gsession->out_buf, out_buf.value, out_buf.length);
 	(void)gss_release_buffer(&minor_status, &out_buf);
 
