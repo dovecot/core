@@ -1044,6 +1044,50 @@ static void test_iostream_ssl_finish(void)
 	test_end();
 }
 
+static void test_iostream_ssl_channel_binding(void)
+{
+	static const char line[] = "hello world\n";
+	struct test_endpoint *server, *client;
+	struct ioloop *ioloop;
+	const buffer_t *client_data, *server_data;
+	const char *error;
+
+	test_begin("ssl: channel binding tls-server-end-point");
+
+	ioloop = io_loop_create();
+	test_ssl_endpoints_create(&server, &client);
+
+	/* not available before the handshake */
+	test_assert(ssl_iostream_get_channel_binding(client->iostream,
+		SSL_CHANNEL_BIND_TYPE_TLS_SERVER_END_POINT,
+		&client_data, &error) < 0);
+
+	server->io = io_add_istream(server->input,
+				    handshake_server_input_callback, server);
+	client->io = io_add_istream(client->input, cork_input_callback,
+				    client);
+	o_stream_nsend_str(server->output, line);
+	buffer_append(client->last_write, line, strlen(line));
+	test_assert(ssl_iostream_handshake(client->iostream) == 0);
+	test_iostream_ssl_cork_wait(client);
+
+	test_assert(ssl_iostream_get_channel_binding(client->iostream,
+		SSL_CHANNEL_BIND_TYPE_TLS_SERVER_END_POINT,
+		&client_data, &error) == 0);
+	test_assert(ssl_iostream_get_channel_binding(server->iostream,
+		SSL_CHANNEL_BIND_TYPE_TLS_SERVER_END_POINT,
+		&server_data, &error) == 0);
+	if (!test_has_failed()) {
+		/* A certificate signed with SHA-256 or stronger */
+		test_assert(client_data->used >= 32);
+		test_assert(buffer_cmp(client_data, server_data));
+	}
+
+	test_ssl_endpoints_destroy(&server, &client);
+	io_loop_destroy(&ioloop);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -1054,6 +1098,7 @@ int main(void)
 		test_iostream_ssl_cork,
 		test_iostream_ssl_flush_before_handshake,
 		test_iostream_ssl_finish,
+		test_iostream_ssl_channel_binding,
 		NULL
 	};
 	ssl_iostream_openssl_init();

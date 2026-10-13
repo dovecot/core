@@ -986,6 +986,86 @@ openssl_iostream_get_cb_tls_unique(struct ssl_iostream *ssl_io,
 }
 
 static int
+openssl_iostream_get_cb_tls_server_end_point(struct ssl_iostream *ssl_io,
+					     const buffer_t **data_r,
+					     const char **error_r)
+{
+	/* RFC 5929, Section 4.1:
+
+	   The hash function is selected as follows:
+
+	   o  if the certificate's signatureAlgorithm uses a single hash
+	      function and that hash function is either MD5 or SHA-1, then use
+	      SHA-256;
+
+	   o  if the certificate's signatureAlgorithm uses a single hash
+	      function and that hash function neither MD5 nor SHA-1, then use
+	      the hash function associated with the certificate's
+	      signatureAlgorithm;
+
+	   o  if the certificate's signatureAlgorithm uses no hash functions or
+	      uses multiple hash functions, then this channel binding type's
+	      channel bindings are undefined at this time.
+	 */
+	X509 *cert;
+	int sig_nid, md_nid, pk_nid;
+	const EVP_MD *md;
+
+	if (ssl_io->ctx->client_ctx) {
+#ifdef HAVE_SSL_get1_peer_certificate
+		cert = SSL_get0_peer_certificate(ssl_io->ssl);
+#else
+		cert = SSL_get_peer_certificate(ssl_io->ssl);
+		/* This returned a new reference. The SSL still holds the
+		   certificate, so drop ours to avoid leaking it. */
+		X509_free(cert);
+#endif
+	} else {
+		cert = SSL_get_certificate(ssl_io->ssl);
+	}
+	if (cert == NULL) {
+		*error_r = "Channel binding type 'tls-server-end-point' not "
+			"available: No server certificate";
+		return -1;
+	}
+
+	sig_nid = X509_get_signature_nid(cert);
+	if (OBJ_find_sigid_algs(sig_nid, &md_nid, &pk_nid) != 1 ||
+	    md_nid == NID_undef) {
+		*error_r = t_strdup_printf(
+			"Channel binding type 'tls-server-end-point' not "
+			"defined: Certificate signature algorithm %s has "
+			"no hash function", OBJ_nid2ln(sig_nid));
+		return -1;
+	}
+	if (md_nid == NID_md5 || md_nid == NID_sha1)
+		md_nid = NID_sha256;
+	md = EVP_get_digestbynid(md_nid);
+	if (md == NULL) {
+		*error_r = t_strdup_printf(
+			"Channel binding type 'tls-server-end-point' not "
+			"available: Hash function %s is not supported",
+			OBJ_nid2ln(md_nid));
+		return -1;
+	}
+
+	buffer_t *buf = t_buffer_create(EVP_MAX_MD_SIZE);
+	unsigned int size = EVP_MAX_MD_SIZE;
+	void *data = buffer_get_space_unsafe(buf, 0, size);
+
+	if (X509_digest(cert, md, data, &size) != 1) {
+		*error_r = t_strdup_printf(
+			"Failed to compose channel binding "
+			"'tls-server-end-point': %s", openssl_iostream_error());
+		return -1;
+	}
+	buffer_set_used_size(buf, size);
+
+	*data_r = buf;
+	return 0;
+}
+
+static int
 openssl_iostream_get_channel_binding(struct ssl_iostream *ssl_io,
 				     const char *type, const buffer_t **data_r,
 				     const char **error_r)
@@ -1003,6 +1083,10 @@ openssl_iostream_get_channel_binding(struct ssl_iostream *ssl_io,
 			ssl_io, data_r, error_r);
 	} else if (strcmp(type, SSL_CHANNEL_BIND_TYPE_TLS_EXPORTER) == 0) {
 		return openssl_iostream_get_cb_tls_exporter(
+			ssl_io, data_r, error_r);
+	} else if (strcmp(type,
+			  SSL_CHANNEL_BIND_TYPE_TLS_SERVER_END_POINT) == 0) {
+		return openssl_iostream_get_cb_tls_server_end_point(
 			ssl_io, data_r, error_r);
 	}
 

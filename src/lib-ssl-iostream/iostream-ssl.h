@@ -9,6 +9,7 @@ struct ssl_iostream_context;
 
 #define SSL_CHANNEL_BIND_TYPE_TLS_UNIQUE "tls-unique"
 #define SSL_CHANNEL_BIND_TYPE_TLS_EXPORTER "tls-exporter"
+#define SSL_CHANNEL_BIND_TYPE_TLS_SERVER_END_POINT "tls-server-end-point"
 
 enum ssl_iostream_protocol_version {
 	/* Version not yet known at this protocol stage */
