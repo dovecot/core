@@ -697,7 +697,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 	pop3_refresh_proctitle();
 	if (!master_service_is_killed(master_service) &&
 	    !master_service_is_master_stopped(master_service))
-		mail_user_autoexpunge(client->user);
+		mail_user_autoexpunge(client->user, NULL);
 	mail_user_deinit(&client->user);
 	settings_free(client->set);
 	settings_free(client->mail_set);

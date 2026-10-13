@@ -14,6 +14,11 @@
 struct mail_autoexpunge_context {
 	struct mail_user *user;
 	struct file_lock *lock;
+	/* Earliest time when a mail in the checked mailboxes is known to
+	   expire, or 0 if none. */
+	time_t next_expire;
+	/* Smallest autoexpunge interval in the settings, or 0 if none. */
+	unsigned int min_interval;
 	unsigned int expunged_count;
 
 	/* Locking was already attempted */
@@ -53,6 +58,14 @@ static bool mailbox_autoexpunge_lock(struct mail_autoexpunge_context *ctx)
 	} else {
 		return TRUE;
 	}
+}
+
+static void
+mail_autoexpunge_update_next_expire(struct mail_autoexpunge_context *ctx,
+				    time_t expire)
+{
+	if (ctx->next_expire == 0 || expire < ctx->next_expire)
+		ctx->next_expire = expire;
 }
 
 /* returns -1 on error, 0 when done, and 1 when there is more to do */
@@ -104,7 +117,11 @@ mailbox_autoexpunge_batch(struct mail_autoexpunge_context *ctx,
 			done = TRUE;
 			break;
 		} else if (mail_get_save_date(mail, &timestamp) >= 0) {
-			if (I_MAX(last_rename_stamp, timestamp) > expire_time) {
+			timestamp = I_MAX(last_rename_stamp, timestamp);
+			if (timestamp > expire_time) {
+				/* this is the next mail to expire */
+				mail_autoexpunge_update_next_expire(ctx,
+					timestamp + interval_time);
 				done = TRUE;
 				break;
 			}
@@ -134,13 +151,17 @@ mailbox_autoexpunge_batch(struct mail_autoexpunge_context *ctx,
 }
 
 /* Check quickly from mailbox list index if the mailbox has anything to
-   autoexpunge, without opening it. Returns 1 if yes, 0 if not, -1 on error. */
+   autoexpunge, without opening it. Returns 1 if yes, 0 if not, -1 on error.
+   first_save_date_r is set if it was looked up, otherwise it's -1. */
 static int
 mailbox_autoexpunge_needed(struct mailbox *box, unsigned int interval_time,
-			   unsigned int max_mails, time_t expire_time)
+			   unsigned int max_mails, time_t expire_time,
+			   time_t *first_save_date_r)
 {
 	struct mailbox_metadata metadata;
 	struct mailbox_status status;
+
+	*first_save_date_r = (time_t)-1;
 
 	if (mailbox_get_status(box, STATUS_MESSAGES, &status) < 0) {
 		if (mailbox_get_last_mail_error(box) == MAIL_ERROR_NOTFOUND) {
@@ -156,6 +177,7 @@ mailbox_autoexpunge_needed(struct mailbox *box, unsigned int interval_time,
 		if (mailbox_get_metadata(box, MAILBOX_METADATA_FIRST_SAVE_DATE,
 					 &metadata) < 0)
 			return -1;
+		*first_save_date_r = metadata.first_save_date;
 		if (metadata.first_save_date == (time_t)-1 ||
 		    metadata.first_save_date > expire_time)
 			return 0;
@@ -167,7 +189,7 @@ static int
 mailbox_autoexpunge(struct mail_autoexpunge_context *ctx, struct mailbox *box,
 		    unsigned int interval_time, unsigned int max_mails)
 {
-	time_t expire_time;
+	time_t expire_time, first_save_date;
 	int ret;
 
 	if (ioloop_time32 < interval_time)
@@ -176,7 +198,14 @@ mailbox_autoexpunge(struct mail_autoexpunge_context *ctx, struct mailbox *box,
 		expire_time = ioloop_time - interval_time;
 
 	ret = mailbox_autoexpunge_needed(box, interval_time, max_mails,
-					 expire_time);
+					 expire_time, &first_save_date);
+	if (ret == 0 && interval_time > 0 && first_save_date != (time_t)-1) {
+		/* The first mail is the next one to expire. An empty
+		   mailbox doesn't need to be checked until mails are saved
+		   to it. That is covered by the maximum check interval. */
+		mail_autoexpunge_update_next_expire(ctx,
+			first_save_date + interval_time);
+	}
 	if (ret <= 0)
 		return ret;
 	/* Lock only once something actually needs to be expunged. This
@@ -277,6 +306,10 @@ mail_namespace_autoexpunge(struct mail_autoexpunge_context *ctx,
 			/* no autoexpunging needed */
 			continue;
 		}
+		if (box_set->autoexpunge > 0 &&
+		    (ctx->min_interval == 0 ||
+		     box_set->autoexpunge < ctx->min_interval))
+			ctx->min_interval = box_set->autoexpunge;
 		T_BEGIN {
 			mailbox_autoexpunge_name(ctx, ns, box_set);
 		} T_END;
@@ -288,7 +321,28 @@ mail_namespace_autoexpunge(struct mail_autoexpunge_context *ctx,
 	return TRUE;
 }
 
-unsigned int mail_user_autoexpunge(struct mail_user *user)
+static time_t
+mail_autoexpunge_get_next_check(const struct mail_autoexpunge_context *ctx)
+{
+	unsigned int interval = MAIL_AUTOEXPUNGE_CHECK_MAX_INTERVAL_SECS;
+	time_t next_check;
+
+	if (ctx->lock_busy) {
+		/* not all mailboxes were checked */
+		return 0;
+	}
+	/* Mails saved later on and mailboxes that failed are checked at
+	   least within the smallest autoexpunge interval. */
+	if (ctx->min_interval > 0 && ctx->min_interval < interval)
+		interval = ctx->min_interval;
+	next_check = ioloop_time + interval;
+	if (ctx->next_expire != 0 && ctx->next_expire < next_check)
+		next_check = ctx->next_expire;
+	return next_check;
+}
+
+unsigned int mail_user_autoexpunge(struct mail_user *user,
+				   time_t *next_check_r)
 {
 	struct mail_autoexpunge_context ctx = {
 		.user = user,
@@ -305,5 +359,8 @@ unsigned int mail_user_autoexpunge(struct mail_user *user)
 	}
 	event_reason_end(&reason);
 	file_lock_free(&ctx.lock);
+
+	if (next_check_r != NULL)
+		*next_check_r = mail_autoexpunge_get_next_check(&ctx);
 	return ctx.expunged_count;
 }

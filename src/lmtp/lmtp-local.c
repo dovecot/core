@@ -677,7 +677,7 @@ lmtp_local_deliver_to_rcpts(struct lmtp_local *local,
 		    /* failed. try the next one. */
 		    (ret != 0 && local->rcpt_user != NULL)) {
 			if (i == (count - 1))
-				mail_user_autoexpunge(local->rcpt_user);
+				mail_user_autoexpunge(local->rcpt_user, NULL);
 			mail_storage_service_io_deactivate_user(local->rcpt_user->service_user);
 			mail_user_deinit(&local->rcpt_user);
 		} else if (ret == 0) {
@@ -768,7 +768,7 @@ void lmtp_local_data(struct client *client,
 		mail_free(&mail);
 		mailbox_transaction_rollback(&trans);
 		mailbox_free(&box);
-		mail_user_autoexpunge(user);
+		mail_user_autoexpunge(user, NULL);
 		mail_storage_service_io_deactivate_user(user->service_user);
 		mail_user_deinit(&user);
 	}

@@ -586,7 +586,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 		if (!master_service_is_killed(master_service) &&
 		    !master_service_is_master_stopped(master_service)) {
 			client->logout_stats.autoexpunged_count =
-				mail_user_autoexpunge(client->user);
+				mail_user_autoexpunge(client->user, NULL);
 		}
 		client_log_disconnect(client, reason);
 	}
