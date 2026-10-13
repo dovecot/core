@@ -368,6 +368,10 @@ enum mailbox_feature client_enabled_mailbox_features(struct client *client);
 /* Returns all enabled features as strings. */
 const char *const *client_enabled_features(struct client *client);
 
+/* Run autoexpunging before the client is hibernated, if the next check
+   time has been reached. The hibernated session may end without being
+   unhibernated, so the autoexpunging at logout can't be relied on. */
+void imap_client_hibernate_autoexpunge(struct client *client);
 /* Returns the imap_client_hibernated event for a hibernation attempt. */
 struct event_passthrough *imap_client_hibernated_event(struct client *client);
 

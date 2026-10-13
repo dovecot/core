@@ -246,6 +246,10 @@ static void idle_hibernate_timeout(struct cmd_idle_context *ctx)
 	i_assert(!ctx->sync_pending);
 
 	timeout_remove(&ctx->to_hibernate);
+	/* Autoexpunge before the last sync, so the sync sends any EXPUNGEs
+	   it caused in the selected mailbox. Hibernation is then retried
+	   after the next quiet period. */
+	imap_client_hibernate_autoexpunge(client);
 	if (client->mailbox != NULL &&
 	    !idle_hibernate_sync(ctx, &fd_notify))
 		return;

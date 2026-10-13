@@ -12,7 +12,9 @@
 #include "strescape.h"
 #include "version.h"
 #include "compression.h"
+#include "master-service.h"
 #include "mailbox-watch.h"
+#include "mail-autoexpunge.h"
 #include "imap-state.h"
 #include "imap-client.h"
 
@@ -262,6 +264,33 @@ imap_hibernate_process_send(struct client *client, const buffer_t *state,
 	return 0;
 }
 #endif
+
+void imap_client_hibernate_autoexpunge(struct client *client)
+{
+	unsigned int count;
+
+	/* A next check time further away than the maximum interval means
+	   that the clock moved backwards. This can happen while the client
+	   is hibernated, because imap-hibernate doesn't die or wait like imap
+	   does. Check it now rather than delaying it by the time jump. */
+	if (client->autoexpunge_next_check > ioloop_time &&
+	    client->autoexpunge_next_check <=
+	    ioloop_time + MAIL_AUTOEXPUNGE_CHECK_MAX_INTERVAL_SECS)
+		return;
+	/* Same as with logout: Don't autoexpunge during shutdown to avoid
+	   load spikes. */
+	if (master_service_is_killed(master_service) ||
+	    master_service_is_master_stopped(master_service))
+		return;
+
+	count = mail_user_autoexpunge(client->user,
+				      &client->autoexpunge_next_check);
+	client->logout_stats.autoexpunged_count += count;
+	e_debug(client->event, "Autoexpunge check before hibernation: "
+		"%u mails expunged, next check in %"PRIdTIME_T" secs", count,
+		client->autoexpunge_next_check == 0 ? 0 :
+		client->autoexpunge_next_check - ioloop_time);
+}
 
 struct event_passthrough *imap_client_hibernated_event(struct client *client)
 {

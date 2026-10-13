@@ -4,6 +4,7 @@
 #include "test-common.h"
 #include "test-dir.h"
 #include "test-subprocess.h"
+#include "ioloop.h"
 #include "istream.h"
 #include "istream-unix.h"
 #include "strescape.h"
@@ -15,6 +16,7 @@
 #include "smtp-submit.h"
 #include "mail-storage-service.h"
 #include "mail-storage-private.h"
+#include "mail-autoexpunge.h"
 #include "buffer.h"
 #include "seq-range-array.h"
 #include "imap-common.h"
@@ -642,6 +644,38 @@ test_imap_client_hibernate_nonidle_mailbox(
 	i_close_fd(&peer_fd);
 }
 
+static void test_imap_client_hibernate_autoexpunge(void)
+{
+	struct client *client;
+	int peer_fd;
+
+	client = test_client_create(&peer_fd);
+
+	test_begin("imap client hibernate: autoexpunge next check not reached");
+	client->autoexpunge_next_check = ioloop_time + 60;
+	imap_client_hibernate_autoexpunge(client);
+	test_assert(client->autoexpunge_next_check == ioloop_time + 60);
+	test_end();
+
+	test_begin("imap client hibernate: autoexpunge next check reached");
+	client->autoexpunge_next_check = ioloop_time;
+	imap_client_hibernate_autoexpunge(client);
+	test_assert(client->autoexpunge_next_check == ioloop_time +
+		    MAIL_AUTOEXPUNGE_CHECK_MAX_INTERVAL_SECS);
+	test_end();
+
+	test_begin("imap client hibernate: autoexpunge after time moved backwards");
+	client->autoexpunge_next_check = ioloop_time +
+		MAIL_AUTOEXPUNGE_CHECK_MAX_INTERVAL_SECS + 1;
+	imap_client_hibernate_autoexpunge(client);
+	test_assert(client->autoexpunge_next_check == ioloop_time +
+		    MAIL_AUTOEXPUNGE_CHECK_MAX_INTERVAL_SECS);
+	test_end();
+
+	client_destroy(client, NULL);
+	i_close_fd(&peer_fd);
+}
+
 static void test_imap_client_hibernate(void)
 {
 	struct test_imap_client_hibernate ctx;
@@ -657,6 +691,7 @@ static void test_imap_client_hibernate(void)
 	test_imap_client_hibernate_idle_fd(&ctx);
 	test_imap_client_hibernate_nonidle_no_mailbox(&ctx);
 	test_imap_client_hibernate_nonidle_mailbox(&ctx);
+	test_imap_client_hibernate_autoexpunge();
 
 	i_close_fd(&ctx.fd_listen);
 	mail_storage_service_deinit(&storage_service);

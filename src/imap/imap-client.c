@@ -573,9 +573,11 @@ static void client_default_destroy(struct client *client, const char *reason)
 	   because this is background work and shouldn't really be counted
 	   as an active IMAP session for the user.
 
-	   Don't autoexpunge if the client is hibernated - it shouldn't be any
-	   different from the non-hibernating IDLE case. For frequent
-	   hibernations it could also be doing unnecessarily much work.
+	   Don't autoexpunge if the client is hibernated. It was already done
+	   before the hibernation by imap_client_hibernate_autoexpunge(), which
+	   also rate limits it for frequent hibernations. Doing it here would
+	   stall the client, because imap-hibernate waits for this process to
+	   finish before it starts handling the client.
 
 	   Don't perform autoexpunging if whole Dovecot is shutting down. This
 	   could lead to a load spike and unnecessarily slowing down the
@@ -585,7 +587,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 	if (!client->hibernated) {
 		if (!master_service_is_killed(master_service) &&
 		    !master_service_is_master_stopped(master_service)) {
-			client->logout_stats.autoexpunged_count =
+			client->logout_stats.autoexpunged_count +=
 				mail_user_autoexpunge(client->user, NULL);
 		}
 		client_log_disconnect(client, reason);
@@ -1057,6 +1059,7 @@ static void client_hibernate_timeout(struct client *client)
 		client_hibernate_timeout_start(client);
 		return;
 	}
+	imap_client_hibernate_autoexpunge(client);
 	if (!imap_client_hibernate(&client, -1, &reason)) {
 		/* retried the next time the command queue becomes empty */
 		e_debug(client->event, "Hibernation not possible: %s",
