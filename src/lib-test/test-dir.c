@@ -14,10 +14,16 @@ static char *test_dir = NULL;
 #undef test_dir_init
 void test_dir_init(const char *top_test_dir, const char *name)
 {
+	const char *override;
 	string_t *dir;
 	int ret;
 
 	i_assert(test_dir == NULL);
+
+	/* Allows shortening the path to stay within sun_path limits. */
+	override = getenv("DOVECOT_TEST_DIR_OVERRIDE");
+	if (override != NULL && *override != '\0')
+		top_test_dir = override;
 
 	test_init();
 	test_init_signals();
