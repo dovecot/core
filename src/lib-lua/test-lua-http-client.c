@@ -565,6 +565,12 @@ static void test_large_payload(void)
 	test_end();
 }
 
+static const char *test_lua_error_strip_traceback(const char *error)
+{
+	const char *p = strstr(error, " - stack traceback: ");
+	return p == NULL ? error : t_strdup_until(error, p);
+}
+
 static void test_bad_settings(void)
 {
 	struct dlua_script *script;
@@ -586,20 +592,20 @@ static void test_bad_settings(void)
 
 	int ret = dlua_pcall(script->L, "test_invalid_set_name", 0, 0, &error);
 	test_assert(ret < 0);
-	error = t_strcut(error, '\n');
+	error = test_lua_error_strip_traceback(error);
 	/* check the error is there */
 	test_assert_strcmp(error, "lua_pcall(test_invalid_set_name, 0, 0) failed: "
 				  "Invalid HTTP client setting: timeout is unknown setting");
 
 	ret = dlua_pcall(script->L, "test_invalid_set_value_1", 0, 0, &error);
 	test_assert(ret < 0);
-	error = t_strcut(error, '\n');
+	error = test_lua_error_strip_traceback(error);
 	test_assert_strcmp(error, "lua_pcall(test_invalid_set_value_1, 0, 0) failed: "
 				  "Invalid HTTP client setting: auto_retry=cow: Invalid boolean value: cow (use yes or no)");
 
 	ret = dlua_pcall(script->L, "test_invalid_set_value_2", 0, 0, &error);
 	test_assert(ret < 0);
-	error = t_strcut(error, '\n');
+	error = test_lua_error_strip_traceback(error);
 	test_assert_strcmp(error, "lua_pcall(test_invalid_set_value_2, 0, 0) failed: "
 				  "Invalid HTTP client setting: request_max_attempts=three: Invalid number three: Not a valid number");
 
@@ -697,7 +703,7 @@ static void test_request_settings(void)
 	lua_pushstring(script->L, url);
 	test_assert(dlua_pcall(script->L, "test_request_invalid_timeout",
 			       1, 0, &error) < 0);
-	error = test_lua_error_strip_location(t_strcut(error, '\n'));
+	error = test_lua_error_strip_location(test_lua_error_strip_traceback(error));
 	test_assert_strcmp(error,
 		"bad argument #1 to 'set_timeout' (Invalid time interval: cow)");
 
@@ -705,7 +711,7 @@ static void test_request_settings(void)
 	test_assert(dlua_pcall(script->L,
 			       "test_request_invalid_absolute_timeout",
 			       1, 0, &error) < 0);
-	error = test_lua_error_strip_location(t_strcut(error, '\n'));
+	error = test_lua_error_strip_location(test_lua_error_strip_traceback(error));
 	test_assert_strcmp(error,
 		"bad argument #1 to 'set_absolute_timeout' "
 		"(Time interval '10' is missing units (add e.g. 's' for seconds))");
@@ -713,7 +719,7 @@ static void test_request_settings(void)
 	lua_pushstring(script->L, url);
 	test_assert(dlua_pcall(script->L, "test_request_invalid_max_attempts",
 			       1, 0, &error) < 0);
-	error = test_lua_error_strip_location(t_strcut(error, '\n'));
+	error = test_lua_error_strip_location(test_lua_error_strip_traceback(error));
 	test_assert_strcmp(error,
 		"bad argument #1 to 'set_max_attempts' (Must be 1..4294967295)");
 

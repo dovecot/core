@@ -39,42 +39,26 @@ static void queue_resume_callback(lua_State *L, int status)
 	if (status != LUA_OK) {
 		int ret;
 
-		/* error occurred: run debug.traceback() */
+		/* error occurred: append the traceback */
 
 		/* stack: ..., error (top) */
-		lua_getglobal(L, "debug");
+		lua_pushcfunction(L, dlua_traceback_handler);
 
-		/* stack: ..., error, debug table (top) */
-		lua_getfield(L, -1, "traceback");
-
-		/* stack: ..., error, debug table, traceback function (top) */
-		lua_remove(L, -2);
-
-		/* stack: ..., error, traceback function (top) */
+		/* stack: ..., error, traceback handler (top) */
 		lua_pushvalue(L, -2); /* duplicate original error */
 
-		/* stack: ..., error, traceback function, error (top) */
+		/* stack: ..., error, traceback handler, error (top) */
 
 		/*
 		 * Note that we kept the original error on the stack as well
-		 * as passed it to debug.traceback().  The reason for that
-		 * is that debug.traceback() itself can fail.  If it fails,
-		 * it'll generate its own error - which, ultimately, we
-		 * don't care about.  For example, consider the following
-		 * function:
-		 *
-		 * function foo()
-		 *   debug.traceback = nil
-		 *   error("abc")
-		 * end
-		 *
-		 * If we executed this function, it would error out - but
-		 * it'd also cause our pcall to debug.traceback() to fail
-		 * with "attempt to call a nil value".  We want to discard
-		 * the nil error, and just use the original ("abc").  This
-		 * is ok because debug.traceback() simply "improves" the
-		 * passed in error message to include a traceback and no
-		 * traceback is better than a very mysterious error message.
+		 * as passed it to the traceback handler.  The reason for that
+		 * is that the handler itself can fail.  If it fails, it'll
+		 * generate its own error - which, ultimately, we don't care
+		 * about.  We want to discard that error and just use the
+		 * original one.  This is ok because the handler simply
+		 * "improves" the passed in error message to include a
+		 * traceback and no traceback is better than a very
+		 * mysterious error message.
 		 */
 		ret = lua_pcall(L, 1, 1, 0);
 

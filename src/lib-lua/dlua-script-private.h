@@ -31,6 +31,11 @@
 			        .type = DLUA_TABLE_VALUE_NULL }
 #define DLUA_TABLE_END { .name = NULL }
 
+/* lua_pcall() message handler: appends the Lua stack traceback to a string
+   error, flattened to a single line (frames joined with " -> ", innermost
+   first). Non-string errors are returned unchanged. */
+int dlua_traceback_handler(lua_State *L);
+
 #define DLUA_REQUIRE_ARGS_IN(L, x, y) \
 	STMT_START { \
 		if (lua_gettop(L) < (x) || lua_gettop(L) > (y)) { \

@@ -103,6 +103,76 @@ struct dlua_script *dlua_script_from_state(lua_State *L)
 	return script;
 }
 
+static void dlua_traceback_flatten(string_t *dest, const char *traceback)
+{
+	/* debug.traceback() returns:
+	     stack traceback:
+	     \t<innermost frame>
+	     \t<frame>
+	     ...
+	   Join the frames into a single line, innermost first, in the same
+	   style as Dovecot's own backtraces. */
+	const char *const *lines = t_strsplit(traceback, "\n");
+	bool header_seen = FALSE, first = TRUE;
+
+	for (; *lines != NULL; lines++) {
+		const char *line = *lines + strspn(*lines, "\t");
+
+		if (*line == '\0')
+			continue;
+		if (!header_seen) {
+			/* "stack traceback:" */
+			header_seen = TRUE;
+			continue;
+		}
+		if (!first)
+			str_append(dest, " -> ");
+		first = FALSE;
+		str_append(dest, t_str_replace(line, '\t', ' '));
+	}
+}
+
+int dlua_traceback_handler(lua_State *L)
+{
+	/* stack: error (top) */
+	if (!lua_isstring(L, 1)) {
+		/* not a string, leave it as is */
+		return 1;
+	}
+
+	lua_getglobal(L, "debug");
+	if (!lua_istable(L, -1)) {
+		lua_settop(L, 1);
+		return 1;
+	}
+	lua_getfield(L, -1, "traceback");
+	lua_remove(L, -2);
+	/* stack: error, debug.traceback (top) */
+	lua_pushliteral(L, "");
+	/* level 2 skips debug.traceback() itself and this handler */
+	lua_pushinteger(L, 2);
+	if (lua_pcall(L, 2, 1, 0) != LUA_OK || !lua_isstring(L, -1)) {
+		/* debug.traceback() failed (e.g. the script replaced it),
+		   keep the original error */
+		lua_settop(L, 1);
+		return 1;
+	}
+	/* stack: error, traceback (top) */
+	const char *flat;
+	T_BEGIN {
+		string_t *str = t_str_new(256);
+
+		str_append(str, lua_tostring(L, 1));
+		str_append(str, " - stack traceback: ");
+		dlua_traceback_flatten(str, lua_tostring(L, -1));
+		flat = str_c(str);
+	} T_END_PASS_STR(&flat);
+	/* outside the T frame: lua_pushstring() longjmps on Lua OOM and
+	   would skip T_END */
+	lua_pushstring(L, flat);
+	return 1;
+}
+
 int dlua_pcall(lua_State *L, const char *func_name, int nargs, int nresults,
 	       const char **error_r)
 {
@@ -122,9 +192,7 @@ int dlua_pcall(lua_State *L, const char *func_name, int nargs, int nresults,
 			func
 			args <-- top
 		*/
-		lua_getglobal(L, "debug");
-		lua_getfield(L, -1, "traceback");
-		lua_replace(L, -2);
+		lua_pushcfunction(L, dlua_traceback_handler);
 		/* stack now
 			func
 			args
@@ -276,14 +344,12 @@ static struct dlua_script *dlua_create_script(const char *name,
 static int dlua_run_script(struct dlua_script *script, const char **error_r)
 {
 	/* put the error handler before script being called */
-	lua_getglobal(script->L, "debug");
-	lua_getfield(script->L, -1, "traceback");
-	lua_replace(script->L, -2);
+	lua_pushcfunction(script->L, dlua_traceback_handler);
 	lua_insert(script->L, -2);
 
 	/* we don't want anything to be returned here */
 	/* stack before lua_pcall
-		debug.traceback
+		traceback handler
 		loaded script as function
 	*/
 	int err = lua_pcall(script->L, 0, 0, 1);
