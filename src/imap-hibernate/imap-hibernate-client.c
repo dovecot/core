@@ -156,6 +156,12 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 					"Invalid session_created value: %s", value);
 				return -1;
 			}
+		} else if (strcmp(key, "autoexpunge_next_check") == 0) {
+			if (str_to_time(value, &state_r->autoexpunge_next_check) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid autoexpunge_next_check value: %s", value);
+				return -1;
+			}
 		} else if (strcmp(key, "last_input") == 0) {
 			if (str_to_time(value, &state_r->last_input) < 0) {
 				*error_r = t_strdup_printf(

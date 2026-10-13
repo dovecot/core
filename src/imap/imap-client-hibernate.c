@@ -78,6 +78,10 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 		str_printfa(cmd, "\tsession_created=%s",
 			    dec2str(user->session_create_time));
 	}
+	if (client->autoexpunge_next_check != 0) {
+		str_printfa(cmd, "\tautoexpunge_next_check=%"PRIdTIME_T,
+			    client->autoexpunge_next_check);
+	}
 	if (user->conn.local_ip != NULL)
 		str_printfa(cmd, "\tlip=%s", net_ip2addr(user->conn.local_ip));
 	if (user->conn.local_port != 0)

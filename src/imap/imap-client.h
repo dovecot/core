@@ -204,6 +204,9 @@ struct client {
 	ARRAY(bool) enabled_features;
 
 	time_t last_input, last_output;
+	/* Time when autoexpunging should be checked again at hibernation,
+	   0 = at the next hibernation. Preserved across hibernations. */
+	time_t autoexpunge_next_check;
 	unsigned int bad_counter;
 
 	/* one parser is kept here to be used for new commands */

@@ -41,6 +41,8 @@ struct imap_master_input {
 	const char *tag;
 	/* Timestamp when hibernation started */
 	struct timeval hibernation_start_time;
+	/* Time when autoexpunging should be checked again */
+	time_t autoexpunge_next_check;
 
 	const char *auth_token;
 	const char *session_pid;
@@ -153,6 +155,12 @@ imap_master_client_parse_input(const char *const *args, pool_t pool,
 			if (str_to_time(value, &input_r->session_create_time) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid session_created value: %s", value);
+				return -1;
+			}
+		} else if (strcmp(key, "autoexpunge_next_check") == 0) {
+			if (str_to_time(value, &master_input_r->autoexpunge_next_check) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid autoexpunge_next_check value: %s", value);
 				return -1;
 			}
 		} else if (strcmp(key, "hibernation_started") == 0) {
@@ -481,6 +489,8 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	struct event *event = event_create(imap_client->event);
 	event_set_name(event, "imap_client_unhibernated");
 	event_add_int(event, "hibernation_usecs", hibernation_usecs);
+	imap_client->autoexpunge_next_check =
+		master_input.autoexpunge_next_check;
 	imap_client->state_import_bad_idle_done =
 		master_input.state_import_bad_idle_done;
 	imap_client->state_import_idle_continue =

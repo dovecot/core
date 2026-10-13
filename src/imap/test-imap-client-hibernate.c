@@ -112,6 +112,7 @@ static int imap_hibernate_server(struct test_imap_client_hibernate *ctx)
 	test_assert(str_begins_with(args[i++], "peer_ino="));
 	test_assert_strcmp(args[i++], "session="EVILSTR"session");
 	test_assert(str_begins_with(args[i++], "session_created="));
+	test_assert_strcmp(args[i++], "autoexpunge_next_check=1234567890");
 	test_assert_strcmp(args[i++], "lip=127.0.0.1");
 	test_assert_strcmp(args[i++], "lport=1234");
 	test_assert_strcmp(args[i++], "rip=127.0.0.2");
@@ -226,6 +227,7 @@ static struct client *test_client_create(int *peer_fd_r)
 			      mail_user, imap_setting_parser_info.defaults,
 			      &smtp_set, NULL);
 	event_unref(&event);
+	client->autoexpunge_next_check = 1234567890;
 	*peer_fd_r = client_fds[1];
 	return client;
 }

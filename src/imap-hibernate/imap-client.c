@@ -183,6 +183,10 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 		str_printfa(str, "\tsession_created=%s",
 			    dec2str(state->session_created));
 	}
+	if (state->autoexpunge_next_check != 0) {
+		str_printfa(str, "\tautoexpunge_next_check=%"PRIdTIME_T,
+			    state->autoexpunge_next_check);
+	}
 	if (state->tag != NULL)
 		str_printfa(str, "\ttag=%s", client->state.tag);
 	if (state->local_ip.family != 0)
@@ -705,6 +709,7 @@ int imap_client_create(int fd, const struct imap_client_state *state,
 	client->state.local_port = state->local_port;
 	client->state.remote_port = state->remote_port;
 	client->state.session_created = state->session_created;
+	client->state.autoexpunge_next_check = state->autoexpunge_next_check;
 	client->state.last_input = state->last_input;
 
 	client->state.uid = state->uid;
