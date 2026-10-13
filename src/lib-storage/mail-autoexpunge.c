@@ -126,22 +126,15 @@ mailbox_autoexpunge_batch(struct mail_autoexpunge_context *ctx,
 	return (done || count == 0) ? 0 : 1;
 }
 
+/* Check quickly from mailbox list index if the mailbox has anything to
+   autoexpunge, without opening it. Returns 1 if yes, 0 if not, -1 on error. */
 static int
-mailbox_autoexpunge(struct mail_autoexpunge_context *ctx, struct mailbox *box,
-		    unsigned int interval_time, unsigned int max_mails)
+mailbox_autoexpunge_needed(struct mailbox *box, unsigned int interval_time,
+			   unsigned int max_mails, time_t expire_time)
 {
 	struct mailbox_metadata metadata;
 	struct mailbox_status status;
-	time_t expire_time;
-	int ret;
 
-	if (ioloop_time32 < interval_time)
-		expire_time = 0;
-	else
-		expire_time = ioloop_time - interval_time;
-
-	/* first try to check quickly from mailbox list index if we should
-	   bother opening this mailbox. */
 	if (mailbox_get_status(box, STATUS_MESSAGES, &status) < 0) {
 		if (mailbox_get_last_mail_error(box) == MAIL_ERROR_NOTFOUND) {
 			/* autocreated mailbox doesn't exist yet */
@@ -160,6 +153,25 @@ mailbox_autoexpunge(struct mail_autoexpunge_context *ctx, struct mailbox *box,
 		    metadata.first_save_date > expire_time)
 			return 0;
 	}
+	return 1;
+}
+
+static int
+mailbox_autoexpunge(struct mail_autoexpunge_context *ctx, struct mailbox *box,
+		    unsigned int interval_time, unsigned int max_mails)
+{
+	time_t expire_time;
+	int ret;
+
+	if (ioloop_time32 < interval_time)
+		expire_time = 0;
+	else
+		expire_time = ioloop_time - interval_time;
+
+	ret = mailbox_autoexpunge_needed(box, interval_time, max_mails,
+					 expire_time);
+	if (ret <= 0)
+		return ret;
 
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST) < 0)
 		return -1;
