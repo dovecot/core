@@ -444,6 +444,42 @@ static int db_oauth2_setup(struct db_oauth2 *db, const char **error_r)
 	return 0;
 }
 
+/* Warn once per process if an oauth2_fields value uses the deprecated
+   %{token}. The values can't be checked when they are expanded, because the
+   settings check can only fail, not warn. */
+static void db_oauth2_warn_token_alias(struct db_oauth2 *db)
+{
+	static bool warned = FALSE;
+	const struct auth_oauth2_post_settings *set;
+	const char *error;
+
+	if (warned)
+		return;
+	/* A failure is reported by the first lookup. */
+	if (settings_get(db->event, &auth_oauth2_post_setting_parser_info,
+			 SETTINGS_GET_FLAG_NO_EXPAND, &set, &error) < 0)
+		return;
+
+	unsigned int n = 0;
+	const char *const *fields = array_is_empty(&set->fields) ? NULL :
+		array_get(&set->fields, &n);
+	for (unsigned int i = 0; i + 1 < n && !warned; i += 2) {
+		struct var_expand_program *prog;
+
+		if (var_expand_program_create(fields[i + 1], &prog,
+					      &error) < 0)
+			continue;
+		if (var_expand_program_has_variable(prog, "token", FALSE)) {
+			e_warning(db->event, "oauth2_fields %s uses the "
+				  "deprecated %%{token}, use %%{access_token}",
+				  fields[i]);
+			warned = TRUE;
+		}
+		var_expand_program_free(&prog);
+	}
+	settings_free(set);
+}
+
 int db_oauth2_init(struct event *event, bool use_grant_password, struct db_oauth2 **db_r,
 		   const char **error_r)
 {
@@ -486,6 +522,7 @@ int db_oauth2_init(struct event *event, bool use_grant_password, struct db_oauth
 		return -1;
 	}
 	db->oauth2_set.use_grant_password = use_grant_password;
+	db_oauth2_warn_token_alias(db);
 
 	*db_r = db;
 	return 0;
@@ -570,12 +607,15 @@ db_oauth2_add_extra_fields(struct db_oauth2_request *req, const char **error_r)
 		{ "oauth2", db_oauth2_var_expand_func_oauth2 },
 		{ NULL, NULL }
 	};
-	/* include token */
-	unsigned int count = 1;
+	/* include access_token and the deprecated token alias */
+	unsigned int count = 2;
 	struct var_expand_table *table =
 		auth_request_get_var_expand_table_full(req->auth_request, req->username, &count);
-	table[0].key = "token";
+	table[0].key = "access_token";
 	table[0].value = req->token;
+	/* deprecated: use access_token */
+	table[1].key = "token";
+	table[1].value = req->token;
 	struct var_expand_params params = {
 		.table = table,
 		.providers = func_table,

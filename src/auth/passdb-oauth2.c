@@ -21,6 +21,9 @@ oauth2_verify_plain_continue(struct db_oauth2_request *req,
 		e_info(authdb_event(request), "oauth2 failed: %s",
 		       error);
 	else {
+		auth_request_set_field(request, "access_token", req->token,
+				       "PLAIN");
+		/* deprecated: use access_token */
 		auth_request_set_field(request, "token", req->token, "PLAIN");
 	}
 	req->verify_callback(result, request);

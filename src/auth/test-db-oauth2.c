@@ -180,7 +180,8 @@ test_lookup_cb(struct db_oauth2_request *req ATTR_UNUSED,
 }
 
 static enum passdb_result
-run_lookup(struct db_oauth2 *db, const char *user, const char *token)
+run_lookup_field(struct db_oauth2 *db, const char *user, const char *token,
+		 const char *field_name, const char **field_value_r)
 {
 	pool_t pool = pool_alloconly_create("test-oauth2-req", 4096);
 
@@ -194,6 +195,9 @@ run_lookup(struct db_oauth2 *db, const char *user, const char *token)
 	ar->refcount = 1;
 	ar->event = event_create(auth_event);
 	event_add_category(ar->event, &event_category_auth);
+	event_set_ptr(ar->event, SETTINGS_EVENT_ROOT, oauth2_local_set.root);
+	event_set_ptr(ar->event, SETTINGS_EVENT_INSTANCE,
+		      oauth2_local_set.instance);
 	ar->fields.extra_fields = auth_fields_init(pool);
 	p_array_init(&ar->authdb_event, pool, 2);
 	ar->fields.user = p_strdup(pool, user);
@@ -202,9 +206,19 @@ run_lookup(struct db_oauth2 *db, const char *user, const char *token)
 	db_oauth2_lookup(db, req, token, ar, test_lookup_cb, &ctx);
 	i_assert(ctx.done);
 
+	if (field_name != NULL) {
+		*field_value_r = t_strdup(auth_fields_find(
+			ar->fields.extra_fields, field_name));
+	}
 	event_unref(&ar->event);
 	pool_unref(&pool);
 	return ctx.result;
+}
+
+static enum passdb_result
+run_lookup(struct db_oauth2 *db, const char *user, const char *token)
+{
+	return run_lookup_field(db, user, token, NULL, NULL);
 }
 
 void test_db_oauth2(void)
@@ -342,6 +356,53 @@ void test_db_oauth2(void)
 	test_assert(run_lookup(db, "user@example.com", token) ==
 		    PASSDB_RESULT_USER_DISABLED);
 	deinit_local_db();
+	test_end();
+
+	test_begin("db-oauth2: oauth2_fields - access_token and token");
+	const char *a_tok, *b_tok;
+	init_local_db(NULL, &db);
+	/* DEFAULT overrides get their values expanded, CODE ones don't */
+	settings_root_override(oauth2_local_set.root, "oauth2_fields/a_tok",
+			       "%{access_token}", SETTINGS_OVERRIDE_TYPE_DEFAULT);
+	settings_root_override(oauth2_local_set.root, "oauth2_fields/b_tok",
+			       "%{token}", SETTINGS_OVERRIDE_TYPE_DEFAULT);
+	token = build_jwt(now + 3600, "user@example.com", NULL, NULL, FALSE);
+	test_assert(run_lookup_field(db, "user@example.com", token,
+				     "a_tok", &a_tok) == PASSDB_RESULT_OK);
+	test_assert(run_lookup_field(db, "user@example.com", token,
+				     "b_tok", &b_tok) == PASSDB_RESULT_OK);
+	test_assert_strcmp(a_tok, token);
+	test_assert_strcmp(b_tok, token);
+	deinit_local_db();
+	test_end();
+}
+
+void test_db_oauth2_token_alias_warning(void)
+{
+	/* The warning is given once per process, so no earlier test may
+	   initialize a db with %{token} in oauth2_fields. */
+	const char *const access_token_settings[] = {
+		"oauth2_fields/x", "%{access_token}", NULL
+	};
+	const char *const token_settings[] = {
+		"oauth2_fields/x", "%{token}", NULL
+	};
+	struct db_oauth2 *db;
+
+	test_begin("db-oauth2: oauth2_fields %{token} warns once");
+
+	/* any warning here fails the test */
+	init_local_db(access_token_settings, &db);
+	deinit_local_db();
+
+	test_expect_error_string("oauth2_fields x uses the deprecated "
+				 "%{token}, use %{access_token}");
+	for (unsigned int i = 0; i < 2; i++) {
+		init_local_db(token_settings, &db);
+		deinit_local_db();
+	}
+	test_expect_no_more_errors();
+
 	test_end();
 }
 

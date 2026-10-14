@@ -16,6 +16,7 @@ void test_db_dict_parse_cache_key(void);
 void test_username_filter(void);
 void test_db_lua(void);
 void test_db_oauth2(void);
+void test_db_oauth2_token_alias_warning(void);
 void test_db_oauth2_url_check(void);
 void test_db_oauth2_grant_url_unset(void);
 void test_db_oauth2_url_check_no_expand(void);
