@@ -9,7 +9,8 @@ struct mail_user_settings;
 enum imap_client_workarounds {
 	WORKAROUND_DELAY_NEWMAIL		= 0x01,
 	WORKAROUND_TB_EXTRA_MAILBOX_SEP		= 0x08,
-	WORKAROUND_TB_LSUB_FLAGS		= 0x10
+	WORKAROUND_TB_LSUB_FLAGS		= 0x10,
+	WORKAROUND_EMPTY_PARTIAL_AS_QUOTED	= 0x20
 };
 
 enum imap_client_fetch_failure {
