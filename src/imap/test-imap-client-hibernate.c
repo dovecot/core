@@ -276,12 +276,19 @@ static void test_mail_expunge_first(struct mail_user *user, const char *vname)
 	mailbox_free(&box);
 }
 
-static int test_mail_expunge_first_child(struct mail_user *user)
+static int test_mail_expunge_first_child(struct test_imap_client_hibernate *ctx)
 {
-	test_mail_expunge_first(user, "nonidlebox");
-	/* The inherited client and mail user can't be freed here, so skip
-	   lib_deinit() and its leak checks. */
-	_exit(test_has_failed() ? 1 : 0);
+	test_mail_expunge_first(ctx->client->user, "nonidlebox");
+
+	/* Free the client and mail user inherited from the parent. Mark the
+	   client hibernated, so destroying it doesn't shutdown() the socket
+	   shared with the parent, autoexpunge or log a disconnect. */
+	ctx->client->hibernated = TRUE;
+	client_destroy(ctx->client, NULL);
+
+	mail_storage_service_deinit(&storage_service);
+	master_service_deinit_forked(&master_service);
+	return test_has_failed() ? 1 : 0;
 }
 
 static void test_mailbox_sync_no_expunges(struct mailbox *box)
@@ -554,8 +561,7 @@ test_imap_client_hibernate_nonidle_mailbox(
 	test_begin("imap client hibernate: non-IDLE expunge by another process");
 	/* The expunge is committed by another process, so it isn't in this
 	   process's index map until the index is refreshed. */
-	test_subprocess_fork(test_mail_expunge_first_child, client->user,
-			     FALSE);
+	test_subprocess_fork(test_mail_expunge_first_child, ctx, FALSE);
 	test_subprocess_wait_all(SERVER_KILL_TIMEOUT_SECS);
 	test_assert(!imap_client_hibernate(&client, &error));
 	test_assert_strcmp(error, "Expunges not sent to client yet");
