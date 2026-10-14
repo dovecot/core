@@ -4,6 +4,7 @@
 #include "settings.h"
 #include "dict-private.h"
 #include "test-common.h"
+#include "test-dir.h"
 
 static void test_dict_escape(void)
 {
@@ -106,7 +107,7 @@ static void test_dict_file_lookup(struct dict *dict, const char *key,
 				  const char *expected_value)
 {
 	const struct dict_op_settings set = { };
-	const char *value, *error;
+	const char *value = NULL, *error;
 
 	test_assert(dict_lookup(dict, &set, pool_datastack_create(), key,
 				&value, &error) == 1);
@@ -172,16 +173,134 @@ static void test_dict_file_atomic_inc_non_numeric(void)
 	test_end();
 }
 
+struct test_dict_file {
+	struct settings_simple set;
+	struct dict *dict;
+};
+
+static void
+test_dict_file_init(struct test_dict_file *ctx, const char *path,
+		    const char *lock_method)
+{
+	const char *const settings[] = {
+		"dict", "file",
+		"dict/file/path", path,
+		"dict/file/lock_method", lock_method,
+		NULL
+	};
+	const char *error;
+
+	settings_simple_init(&ctx->set, settings);
+	if (dict_init_auto(ctx->set.event, &ctx->dict, &error) <= 0)
+		i_fatal("dict_init_auto(%s) failed: %s", path, error);
+}
+
+static void test_dict_file_deinit(struct test_dict_file *ctx)
+{
+	dict_deinit(&ctx->dict);
+	settings_simple_deinit(&ctx->set);
+}
+
+static void test_dict_file_lookup_missing(struct dict *dict, const char *key)
+{
+	const struct dict_op_settings set = { };
+	const char *value, *error;
+
+	test_assert(dict_lookup(dict, &set, pool_datastack_create(), key,
+				&value, &error) == 0);
+}
+
+/* Finish the iteration and check that it returned exactly the expected
+   key/value pairs. */
+static void
+test_dict_file_iterate_finish(struct dict_iterate_context **iter,
+			      const char *const *expected, int expected_ret)
+{
+	unsigned int count = 0;
+	const char *key, *value, *error;
+
+	while (dict_iterate(*iter, &key, &value)) {
+		const char *const *pair = expected;
+		while (pair[0] != NULL && strcmp(pair[0], key) != 0)
+			pair += 2;
+		if (pair[0] == NULL)
+			test_failed(t_strdup_printf("Unexpected key %s", key));
+		else
+			test_assert_strcmp(value, pair[1]);
+		count++;
+	}
+	test_assert(count == str_array_length(expected) / 2);
+	test_assert(dict_iterate_deinit(iter, &error) == expected_ret);
+}
+
+static struct dict_iterate_context *
+test_dict_file_iterate_init(struct dict *dict)
+{
+	const struct dict_op_settings set = { };
+
+	return dict_iterate_init(dict, &set, DICT_PATH_SHARED,
+				 DICT_ITERATE_FLAG_RECURSE);
+}
+
+static void test_dict_file_iterate_commit(void)
+{
+	const struct dict_op_settings op_set = { };
+	struct dict_transaction_context *trans;
+	struct test_dict_file ctx;
+	const char *error;
+
+	test_begin("dict file commit while iterating");
+	test_dict_file_init(&ctx, t_strconcat(test_dir_get(),
+					      "/iterate-commit", NULL),
+			    "dotlock");
+	struct dict *dict = ctx.dict;
+	test_dict_file_set(dict, DICT_PATH_SHARED"a", "1");
+	test_dict_file_set(dict, DICT_PATH_SHARED"b", "1");
+	test_dict_file_set(dict, DICT_PATH_SHARED"s", "foo");
+	test_dict_file_set(dict, DICT_PATH_SHARED"n", "5");
+
+	struct dict_iterate_context *iter = test_dict_file_iterate_init(dict);
+	trans = dict_transaction_begin(dict, &op_set);
+	dict_set(trans, DICT_PATH_SHARED"a", "2");
+	dict_unset(trans, DICT_PATH_SHARED"b");
+	dict_set(trans, DICT_PATH_SHARED"c", "1");
+	dict_atomic_inc(trans, DICT_PATH_SHARED"n", 1);
+	test_assert(dict_transaction_commit(&trans, &error) == 1);
+
+	trans = dict_transaction_begin(dict, &op_set);
+	dict_set(trans, DICT_PATH_SHARED"d", "1");
+	dict_atomic_inc(trans, DICT_PATH_SHARED"s", 1);
+	test_assert(dict_transaction_commit(&trans, &error) < 0);
+
+	test_dict_file_lookup(dict, DICT_PATH_SHARED"a", "2");
+	test_dict_file_lookup_missing(dict, DICT_PATH_SHARED"b");
+	test_dict_file_lookup(dict, DICT_PATH_SHARED"c", "1");
+	test_dict_file_lookup_missing(dict, DICT_PATH_SHARED"d");
+	test_dict_file_lookup(dict, DICT_PATH_SHARED"n", "6");
+	test_dict_file_iterate_finish(&iter, (const char *const []) {
+		DICT_PATH_SHARED"a", "1",
+		DICT_PATH_SHARED"b", "1",
+		DICT_PATH_SHARED"n", "5",
+		DICT_PATH_SHARED"s", "foo",
+		NULL
+	}, 0);
+
+	test_dict_file_deinit(&ctx);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_dict_escape,
 		test_dict_async_lookup,
 		test_dict_file_atomic_inc_non_numeric,
+		test_dict_file_iterate_commit,
 		NULL
 	};
 	int ret;
 
+	test_dir_init("dict");
 	dict_driver_register(&dict_driver_file);
 	ret = test_run(test_functions);
 	dict_driver_unregister(&dict_driver_file);

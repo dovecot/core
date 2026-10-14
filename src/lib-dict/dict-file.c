@@ -123,6 +123,27 @@ static void file_dict_snapshot_unref(struct file_dict_snapshot **_snapshot)
 	i_free(snapshot);
 }
 
+/* Make dict->snapshot private to the dict, so changes to it aren't seen by
+   iterators. */
+static void file_dict_snapshot_unshare(struct file_dict *dict)
+{
+	if (dict->snapshot->refcount == 1)
+		return;
+
+	struct file_dict_snapshot *copy = file_dict_snapshot_create();
+	struct hash_iterate_context *iter =
+		hash_table_iterate_init(dict->snapshot->hash);
+	char *key, *value;
+
+	while (hash_table_iterate(iter, dict->snapshot->hash, &key, &value)) {
+		hash_table_insert(copy->hash, p_strdup(copy->pool, key),
+				  p_strdup(copy->pool, value));
+	}
+	hash_table_iterate_deinit(&iter);
+	file_dict_snapshot_unref(&dict->snapshot);
+	dict->snapshot = copy;
+}
+
 static int
 file_dict_ensure_path_home_dir(struct file_dict *dict, const char *home_dir,
 			       const char **error_r)
@@ -250,13 +271,11 @@ static int file_dict_refresh(struct file_dict *dict, const char **error_r)
 
 	if (file_dict_open_latest(dict, error_r) < 0)
 		return -1;
-	if (dict->refreshed || dict->dict.iter_count > 0)
+	if (dict->refreshed)
 		return 0;
 
-	struct file_dict_snapshot *snapshot = dict->snapshot;
-	hash_table_clear(snapshot->hash, TRUE);
-	p_clear(snapshot->pool);
-
+	/* Iterators keep using the old snapshot */
+	struct file_dict_snapshot *snapshot = file_dict_snapshot_create();
 	if (dict->fd != -1) {
 		input = i_stream_create_fd(dict->fd, SIZE_MAX);
 
@@ -272,6 +291,8 @@ static int file_dict_refresh(struct file_dict *dict, const char **error_r)
 		}
 		i_stream_destroy(&input);
 	}
+	file_dict_snapshot_unref(&dict->snapshot);
+	dict->snapshot = snapshot;
 	dict->refreshed = TRUE;
 	return 0;
 }
@@ -407,6 +428,10 @@ static int file_dict_apply_changes(struct dict_transaction_memory_context *ctx,
 	size_t new_len;
 	long long diff;
 
+	/* An iterator may still be using the snapshot. Copy it first, so the
+	   iterator doesn't see these changes, or those of a commit that
+	   fails. */
+	file_dict_snapshot_unshare(dict);
 	array_foreach(&ctx->changes, change) {
 		if (hash_table_lookup_full(dict->snapshot->hash, change->key,
 					   &orig_key, &orig_value)) {
