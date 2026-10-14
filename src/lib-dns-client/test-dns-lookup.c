@@ -650,6 +650,74 @@ static void test_dns_lookup_init_failure_switch_ioloop(void)
 	test_end();
 }
 
+static void test_dns_lookup_deferred_switch_ioloop(void)
+{
+	static const char *const set_missing_socket[] = {
+		"dns_client_socket_path", "/nonexistent/dns-client",
+		"base_dir", "",
+		NULL
+	};
+	struct test_deferred_ctx ctx = { .ret = -100 };
+	struct dns_lookup *lookup = NULL;
+	struct ioloop *old_ioloop;
+
+	test_begin("dns lookup (deferred, switch ioloop)");
+	old_ioloop = io_loop_create();
+	settings_simple_update(&test_set, set_missing_socket);
+
+	dns_lookup("localhost", NULL, test_set.event,
+		   test_deferred_callback, &ctx, &lookup);
+	test_assert(lookup != NULL);
+	struct ioloop *new_ioloop = io_loop_create();
+	dns_lookup_switch_ioloop(lookup);
+	test_run_ioloop_briefly(new_ioloop);
+	test_assert_ucmp(ctx.calls, ==, 1);
+	test_assert(ctx.ioloop == new_ioloop);
+	test_assert_cmp(ctx.ret, ==, EAI_FAIL);
+	io_loop_destroy(&new_ioloop);
+
+	/* Flush the lookup in case it stayed in the old ioloop. */
+	test_run_ioloop_briefly(old_ioloop);
+	test_assert_ucmp(ctx.calls, ==, 1);
+
+	settings_simple_update(&test_set, set_dns_test);
+	io_loop_destroy(&old_ioloop);
+	test_end();
+}
+
+static void test_dns_lookup_deferred_switch_ioloop_shared(void)
+{
+	struct test_deferred_ctx ctx = { .ret = -100 };
+	struct dns_lookup *lookup = NULL;
+	struct dns_client *client;
+	struct ioloop *old_ioloop;
+	const char *error;
+
+	test_begin("dns lookup (deferred, switch ioloop, shared client)");
+	old_ioloop = io_loop_create();
+	settings_simple_update(&test_set, set_dns_test);
+	test_assert_cmp(dns_client_init(NULL, test_set.event, &client,
+					&error), ==, 0);
+
+	dns_client_lookup(client, "127.0.0.1", test_set.event,
+			  test_deferred_callback, &ctx, &lookup);
+	test_assert(lookup != NULL);
+	struct ioloop *new_ioloop = io_loop_create();
+	dns_client_switch_ioloop(client);
+	test_run_ioloop_briefly(new_ioloop);
+	test_assert_ucmp(ctx.calls, ==, 1);
+	test_assert(ctx.ioloop == new_ioloop);
+	test_assert_cmp(ctx.ret, ==, 0);
+	io_loop_destroy(&new_ioloop);
+
+	test_run_ioloop_briefly(old_ioloop);
+	test_assert_ucmp(ctx.calls, ==, 1);
+
+	dns_client_deinit(&client);
+	io_loop_destroy(&old_ioloop);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -665,6 +733,8 @@ int main(void)
 		test_dns_lookup_reconnect_pending,
 		test_dns_lookup_closed_private,
 		test_dns_lookup_init_failure_switch_ioloop,
+		test_dns_lookup_deferred_switch_ioloop,
+		test_dns_lookup_deferred_switch_ioloop_shared,
 		NULL
 	};
 

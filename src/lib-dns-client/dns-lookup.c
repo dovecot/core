@@ -26,6 +26,9 @@ struct dns_lookup {
 	pool_t pool;
 	bool ptr_lookup;
 	bool cached;
+	/* The result is already known and lookup->to delivers it. Such
+	   lookups with a client are also in client->deferred_head list. */
+	bool deferred;
 
 	struct timeout *to;
 
@@ -44,6 +47,7 @@ struct dns_client {
 	struct connection conn;
 	struct connection_list *clist;
 	struct dns_lookup *head, *tail;
+	struct dns_lookup *deferred_head, *deferred_tail;
 	struct timeout *to_idle;
 	char *path;
 	struct dns_client_cache *cache;
@@ -160,6 +164,11 @@ dns_lookup_async_finish(struct dns_lookup *lookup,
 	*lookup_r = lookup;
 	lookup->to = timeout_add_short_to(ioloop, 0,
 					  dns_lookup_callback_deferred, lookup);
+	lookup->deferred = TRUE;
+	if (lookup->client != NULL) {
+		DLLIST2_APPEND(&lookup->client->deferred_head,
+			       &lookup->client->deferred_tail, lookup);
+	}
 }
 
 static void dns_client_disconnect(struct dns_client *client, const char *error)
@@ -407,6 +416,10 @@ static void dns_lookup_free(struct dns_lookup **_lookup)
 	*_lookup = NULL;
 
 	timeout_remove(&lookup->to);
+	if (lookup->deferred && client != NULL) {
+		DLLIST2_REMOVE(&client->deferred_head, &client->deferred_tail,
+			       lookup);
+	}
 	if (client != NULL) {
 		if (client->deinit_client_at_free)
 			dns_client_deinit(&client);
@@ -704,6 +717,9 @@ void dns_client_switch_ioloop_to(struct dns_client *client,
 	client->to_idle = io_loop_move_timeout_to(ioloop, &client->to_idle);
 
 	for (lookup = client->head; lookup != NULL; lookup = lookup->next)
+		dns_lookup_switch_ioloop_real(lookup, ioloop);
+	for (lookup = client->deferred_head; lookup != NULL;
+	     lookup = lookup->next)
 		dns_lookup_switch_ioloop_real(lookup, ioloop);
 }
 
