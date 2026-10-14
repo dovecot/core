@@ -1035,6 +1035,9 @@ openssl_iostream_get_peer_cert_fingerprint(struct ssl_iostream *ssl_io,
 	X509 *cert = SSL_get0_peer_certificate(ssl);
 #else
 	X509 *cert = SSL_get_peer_certificate(ssl);
+	/* This returned a new reference. The SSL still holds the certificate,
+	   so drop ours to avoid leaking it. */
+	X509_free(cert);
 #endif
 	if (cert == NULL)
 		return 0;
