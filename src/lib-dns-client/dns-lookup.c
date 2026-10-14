@@ -202,7 +202,9 @@ static void dns_client_destroy(struct connection *conn)
 	dns_client_disconnect(client, connection_disconnect_reason(&client->conn));
 	client->connected = FALSE;
 	timeout_remove(&client->to_idle);
-	connection_deinit(conn);
+	/* Keep the connection initialized so that a shared client can
+	   reconnect on its next lookup. dns_client_deinit() frees it. */
+	connection_disconnect(conn);
 
 	if (deinit_client_at_free) {
 		client->deinit_client_at_free = TRUE;
@@ -525,6 +527,7 @@ void dns_client_deinit(struct dns_client **_client)
 
 	/* dns_client_disconnect() is supposed to clear out all queries */
 	i_assert(client->head == NULL);
+	connection_deinit(&client->conn);
 	connection_list_deinit(&clist);
 
 	dns_client_cache_deinit(&client->cache);
