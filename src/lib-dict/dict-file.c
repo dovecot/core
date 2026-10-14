@@ -262,6 +262,7 @@ static int file_dict_refresh(struct file_dict *dict, const char **error_r)
 {
 	struct istream *input;
 	char *key, *value;
+	int ret = 0;
 
 	if (file_dict_open_latest(dict, error_r) < 0)
 		return -1;
@@ -283,12 +284,26 @@ static int file_dict_refresh(struct file_dict *dict, const char **error_r)
 			value = str_tabunescape(p_strdup(snapshot->pool, value));
 			hash_table_update(snapshot->hash, key, value);
 		}
+		if (input->stream_errno != 0) {
+			*error_r = t_strdup_printf("read(%s) failed: %s",
+				dict->path, i_stream_get_error(input));
+			ret = -1;
+		}
 		i_stream_destroy(&input);
+	}
+	if (ret < 0) {
+		/* Leave refreshed=FALSE so the next call reads the file
+		   again. Writing out a partial snapshot would delete the rest
+		   of the file's keys, and new iterators mustn't see it
+		   either. */
+		file_dict_snapshot_unref(&snapshot);
+		snapshot = file_dict_snapshot_create();
+	} else {
+		dict->refreshed = TRUE;
 	}
 	file_dict_snapshot_unref(&dict->snapshot);
 	dict->snapshot = snapshot;
-	dict->refreshed = TRUE;
-	return 0;
+	return ret;
 }
 
 static int file_dict_lookup(struct dict *_dict,

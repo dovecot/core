@@ -6,6 +6,9 @@
 #include "test-common.h"
 #include "test-dir.h"
 
+#include <unistd.h>
+#include <sys/stat.h>
+
 static void test_dict_escape(void)
 {
 	static const char *input[] = {
@@ -361,6 +364,61 @@ static void test_dict_file_iterate_replaced_commit(void)
 	test_end();
 }
 
+static int test_dict_file_try_set(struct dict *dict, const char *key)
+{
+	const struct dict_op_settings op_set = { };
+	struct dict_transaction_context *trans;
+	const char *error;
+
+	trans = dict_transaction_begin(dict, &op_set);
+	dict_set(trans, key, "new");
+	return dict_transaction_commit(&trans, &error);
+}
+
+static void test_dict_file_read_error(void)
+{
+	const struct dict_op_settings op_set = { };
+	struct test_dict_file ctx;
+	struct stat st;
+	const char *dir, *path, *value, *error;
+
+	test_begin("dict file read error");
+	dir = t_strconcat(test_dir_get(), "/dir", NULL);
+	path = t_strconcat(test_dir_get(), "/dict", NULL);
+	test_dict_file_init(&ctx, path, "dotlock");
+	struct dict *dict = ctx.dict;
+	test_dict_file_set(dict, DICT_PATH_SHARED"a", "1");
+	struct dict_iterate_context *iter = test_dict_file_iterate_init(dict);
+
+	/* A symlink to a directory opens read-only for dotlocks, and reading
+	   it fails with EISDIR. A commit that wrote the dict from what it read
+	   would replace the symlink with a new file. */
+	if (mkdir(dir, 0700) < 0)
+		i_fatal("mkdir(%s) failed: %m", dir);
+	i_unlink(path);
+	if (symlink(dir, path) < 0)
+		i_fatal("symlink(%s) failed: %m", path);
+
+	test_assert(dict_lookup(dict, &op_set, pool_datastack_create(),
+				DICT_PATH_SHARED"a", &value, &error) < 0);
+	test_assert(test_dict_file_try_set(dict, DICT_PATH_SHARED"a") < 0);
+	test_assert(lstat(path, &st) == 0 && S_ISLNK(st.st_mode));
+
+	/* the iterator started before the error still finishes */
+	test_dict_file_iterate_finish(&iter, (const char *const []) {
+		DICT_PATH_SHARED"a", "1",
+		NULL
+	}, 0);
+	/* an iterator started after it fails */
+	iter = test_dict_file_iterate_init(dict);
+	test_dict_file_iterate_finish(&iter, (const char *const []) {
+		NULL
+	}, -1);
+
+	test_dict_file_deinit(&ctx);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -370,6 +428,7 @@ int main(void)
 		test_dict_file_iterate_commit,
 		test_dict_file_iterate_replaced,
 		test_dict_file_iterate_replaced_commit,
+		test_dict_file_read_error,
 		NULL
 	};
 	int ret;
