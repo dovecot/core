@@ -4,6 +4,7 @@
 #include "array.h"
 #include "hash.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "strescape.h"
 #include "connection.h"
 #include "ioloop.h"
@@ -737,6 +738,12 @@ doveadm_mail_cmd_extra_fields_parse(struct doveadm_mail_cmd_context *ctx)
 				e_error(ctx->cctx->event,
 					"Invalid proxy-ttl value: %s", value);
 		} else if (strcmp(key, "forward") == 0) {
+			if (!auth_forward_field_line_is_valid(value)) {
+				e_warning(ctx->cctx->event,
+					  "Ignoring invalid forward field: %s",
+					  str_sanitize(t_strcut(value, '='), 64));
+				continue;
+			}
 			if (!array_is_created(&ctx->proxy_forward_fields)) {
 				p_array_init(&ctx->proxy_forward_fields,
 					     ctx->pool, 8);

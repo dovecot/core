@@ -7,6 +7,7 @@
 #include "base64.h"
 #include "hex-binary.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "strescape.h"
 #include "var-expand.h"
 #include "randgen.h"
@@ -436,6 +437,9 @@ auth_user_info_parse_arg(struct auth_user_info *info, const char *arg,
 		if (net_str2port(value, &info->real_remote_port) < 0)
 			i_fatal("real_rport: Invalid port number");
 	} else if (str_begins(arg, "forward_", &key)) {
+		if (!auth_forward_field_line_is_valid(key))
+			i_fatal("forward field: Invalid characters: %s",
+				str_sanitize(t_strcut(key, '='), 64));
 		array_push_back(forward_fields, &key);
 	} else {
 		if (!array_is_created(&info->extra_fields))
