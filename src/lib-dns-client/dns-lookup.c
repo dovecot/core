@@ -701,7 +701,7 @@ void dns_client_switch_ioloop_to(struct dns_client *client,
 	struct dns_lookup *lookup;
 
 	connection_switch_ioloop_to(&client->conn, ioloop);
-	client->to_idle = io_loop_move_timeout(&client->to_idle);
+	client->to_idle = io_loop_move_timeout_to(ioloop, &client->to_idle);
 
 	for (lookup = client->head; lookup != NULL; lookup = lookup->next)
 		dns_lookup_switch_ioloop_real(lookup, ioloop);

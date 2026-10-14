@@ -43,6 +43,7 @@ static struct test_server {
 	int fd;
 	unsigned int lookup_counter;
 	bool once_host_seen;
+	bool quit_seen;
 } test_server;
 
 struct test_expect_result {
@@ -62,8 +63,10 @@ test_dns_client_input_args(struct connection *client, const char *const *args)
 {
 	const char *value;
 
-	if (strcmp(args[0], "QUIT") == 0)
+	if (strcmp(args[0], "QUIT") == 0) {
+		test_server.quit_seen = TRUE;
 		return 0;
+	}
 	if (strcmp(args[0], "IP") != 0 && strcmp(args[0], "NAME") != 0)
 		return -1;
 	test_server.lookup_counter++;
@@ -341,6 +344,47 @@ static void test_dns_lookup_malformed(void)
 	test_end();
 }
 
+static void test_dns_client_switch_ioloop_to_idle(void)
+{
+	struct dns_client *client;
+	struct dns_lookup *lookup;
+	struct test_expect_result ctx = {
+		.ret = 0,
+		.result = "127.0.0.1\t::1",
+	};
+	const struct dns_client_parameters params = {
+		.idle_timeout_msecs = 300,
+	};
+	const char *error;
+
+	test_begin("dns client (switch ioloop to non-current, idle timeout)");
+	create_dns_server(&test_server);
+	struct ioloop *server_ioloop = test_server.loop;
+
+	test_assert_cmp(dns_client_init(&params, test_set.event, &client,
+					&error), ==, 0);
+	dns_client_lookup(client, "localhost", test_set.event,
+			  test_callback_ips, &ctx, &lookup);
+	io_loop_run(server_ioloop);
+
+	/* The idle timeout must follow the requested ioloop, not the
+	   current one. */
+	struct ioloop *other_ioloop = io_loop_create();
+	dns_client_switch_ioloop_to(client, server_ioloop);
+	io_loop_destroy(&other_ioloop);
+	io_loop_set_current(server_ioloop);
+
+	struct timeout *to = timeout_add_short(1000, io_loop_stop,
+					       server_ioloop);
+	io_loop_run(server_ioloop);
+	timeout_remove(&to);
+	test_assert(test_server.quit_seen);
+
+	dns_client_deinit(&client);
+	destroy_dns_server(&test_server);
+	test_end();
+}
+
 static void test_dns_lookup_cached(void)
 {
 	struct test_expect_result ctx;
@@ -557,6 +601,7 @@ int main(void)
 		test_dns_lookup_timeout,
 		test_dns_lookup_abort,
 		test_dns_lookup_malformed,
+		test_dns_client_switch_ioloop_to_idle,
 		test_dns_lookup_cached,
 		test_dns_lookup_reconnect,
 		test_dns_lookup_reconnect_pending,
