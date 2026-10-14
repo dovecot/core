@@ -276,14 +276,15 @@ oauth2_refresh_start(const struct oauth2_settings *set,
 		     const struct oauth2_request_input *input,
 		     oauth2_request_callback_t *callback, void *context)
 {
-	string_t *payload = t_str_new(128);
+	pool_t pool = pool_alloconly_create_clean("oauth2 request", 1024);
+	string_t *payload = str_new(pool, 128);
 
 	str_append(payload, "grant_type=refresh_token&refresh_token=");
 	http_url_escape_param(payload, input->token);
 
-	return oauth2_request_start(set, input, callback, context, NULL,
-				    "POST", set->refresh_url, NULL, FALSE,
-				    FALSE);
+	return oauth2_request_start(set, input, callback, context,
+				    pool, "POST", set->refresh_url,
+				    payload, FALSE, FALSE);
 }
 
 #undef oauth2_introspection_start
