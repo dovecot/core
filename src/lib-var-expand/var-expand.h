@@ -115,6 +115,11 @@ const char *const *var_expand_program_variables(const struct var_expand_program 
 */
 bool var_expand_program_has_variable(const struct var_expand_program *program,
 				     const char *variable, bool first_program_only);
+/* Checks if the first program applies the filter (as in %{var|filter}) to
+   its value. The variable or provider at the start of the chain is not a
+   filter. */
+bool var_expand_program_has_filter(const struct var_expand_program *program,
+				   const char *filter);
 /* Dumps the program into a dest for debugging */
 void var_expand_program_dump(const struct var_expand_program *program, string_t *dest);
 /* Executes the program with given params. Params can be left NULL, in which case

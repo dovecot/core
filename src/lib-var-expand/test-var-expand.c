@@ -1095,6 +1095,40 @@ static int test_filter(const struct var_expand_statement *stmt,
 }
 
 
+static void test_var_expand_has_filter(void)
+{
+	static const struct {
+		const char *input;
+		bool safe;
+		bool upper;
+	} tests[] = {
+		{ "%{a}", FALSE, FALSE },
+		{ "%{a|safe}", TRUE, FALSE },
+		{ "%{env:a|safe}", TRUE, FALSE },
+		{ "%{a|upper|safe}", TRUE, TRUE },
+		{ "%{a|upper}", FALSE, TRUE },
+		{ "%{safe}", FALSE, FALSE },
+		{ "%{a|default(safe)}", FALSE, FALSE },
+	};
+
+	test_begin("var_expand_program_has_filter");
+
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		struct var_expand_program *prog;
+		const char *error;
+
+		test_assert_idx(var_expand_program_create(tests[i].input, &prog,
+							  &error) == 0, i);
+		test_assert_idx(var_expand_program_has_filter(prog, "safe") ==
+				tests[i].safe, i);
+		test_assert_idx(var_expand_program_has_filter(prog, "upper") ==
+				tests[i].upper, i);
+		var_expand_program_free(&prog);
+	}
+
+	test_end();
+}
+
 static void test_var_expand_parameter_sorted(void)
 {
 	const struct var_expand_test tests[] = {
@@ -1723,6 +1757,7 @@ int main(int argc, char *const argv[])
 		test_var_expand_value_func,
 		test_var_expand_value_func_arr,
 		test_var_expand_variables,
+		test_var_expand_has_filter,
 		test_var_expand_parameter_sorted,
 		test_var_expand_perc,
 		test_var_expand_set_copy,

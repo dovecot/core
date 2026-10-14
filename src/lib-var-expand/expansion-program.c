@@ -259,6 +259,19 @@ bool var_expand_program_has_variable(const struct var_expand_program *program,
 	return FALSE;
 }
 
+bool var_expand_program_has_filter(const struct var_expand_program *program,
+				   const char *filter)
+{
+	const struct var_expand_statement *stmt = program->first;
+	if (stmt == NULL)
+		return FALSE;
+	for (stmt = stmt->next; stmt != NULL; stmt = stmt->next) {
+		if (strcmp(stmt->function, filter) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 void var_expand_program_free(struct var_expand_program **_program)
 {
 	struct var_expand_program *program = *_program;
