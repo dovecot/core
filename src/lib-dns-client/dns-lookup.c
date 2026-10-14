@@ -452,7 +452,7 @@ void dns_lookup_switch_ioloop_to(struct dns_lookup *lookup,
 				 struct ioloop *ioloop)
 {
 	/* dns client ioloop switch switches all lookups too */
-	if (lookup->client->deinit_client_at_free)
+	if (lookup->client != NULL && lookup->client->deinit_client_at_free)
 		dns_client_switch_ioloop_to(lookup->client, ioloop);
 	else
 		dns_lookup_switch_ioloop_real(lookup, ioloop);

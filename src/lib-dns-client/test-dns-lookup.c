@@ -592,6 +592,64 @@ static void test_dns_lookup_closed_private(void)
 	test_end();
 }
 
+struct test_deferred_ctx {
+	unsigned int calls;
+	int ret;
+	struct ioloop *ioloop;
+};
+
+static void test_deferred_callback(const struct dns_lookup_result *result,
+				   struct test_deferred_ctx *ctx)
+{
+	ctx->calls++;
+	ctx->ret = result->ret;
+	ctx->ioloop = current_ioloop;
+	io_loop_stop(current_ioloop);
+}
+
+/* Run the ioloop for a short while, even if nothing stops it earlier. */
+static void test_run_ioloop_briefly(struct ioloop *ioloop)
+{
+	struct timeout *to = timeout_add_short_to(ioloop, 200, io_loop_stop,
+						  ioloop);
+	io_loop_run(ioloop);
+	timeout_remove(&to);
+}
+
+static void test_dns_lookup_init_failure_switch_ioloop(void)
+{
+	static const char *const set_invalid[] = {
+		"dns_client_timeout", "invalid",
+		"base_dir", "",
+		NULL
+	};
+	struct test_deferred_ctx ctx = { .ret = -100 };
+	struct dns_lookup *lookup = NULL;
+	struct ioloop *old_ioloop;
+
+	test_begin("dns lookup (client init failure, switch ioloop)");
+	old_ioloop = io_loop_create();
+	settings_simple_update(&test_set, set_invalid);
+
+	dns_lookup("localhost", NULL, test_set.event,
+		   test_deferred_callback, &ctx, &lookup);
+	test_assert(lookup != NULL);
+	struct ioloop *new_ioloop = io_loop_create();
+	dns_lookup_switch_ioloop(lookup);
+	test_run_ioloop_briefly(new_ioloop);
+	test_assert_ucmp(ctx.calls, ==, 1);
+	test_assert(ctx.ioloop == new_ioloop);
+	test_assert_cmp(ctx.ret, ==, EAI_FAIL);
+	io_loop_destroy(&new_ioloop);
+
+	test_run_ioloop_briefly(old_ioloop);
+	test_assert_ucmp(ctx.calls, ==, 1);
+
+	settings_simple_update(&test_set, set_dns_test);
+	io_loop_destroy(&old_ioloop);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -606,6 +664,7 @@ int main(void)
 		test_dns_lookup_reconnect,
 		test_dns_lookup_reconnect_pending,
 		test_dns_lookup_closed_private,
+		test_dns_lookup_init_failure_switch_ioloop,
 		NULL
 	};
 
