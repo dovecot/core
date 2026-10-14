@@ -289,6 +289,78 @@ static void test_dict_file_iterate_commit(void)
 	test_end();
 }
 
+static void test_dict_file_iterate_replaced_one(const char *lock_method)
+{
+	struct test_dict_file ctx1, ctx2;
+	const char *path;
+
+	path = t_strdup_printf("%s/iterate-replaced-%s", test_dir_get(),
+			       lock_method);
+	test_dict_file_init(&ctx1, path, lock_method);
+	test_dict_file_init(&ctx2, path, lock_method);
+	test_dict_file_set(ctx1.dict, DICT_PATH_SHARED"a", "1");
+
+	/* The other dict replaces the file. Lookups see its changes while
+	   the iterator keeps returning what it started with. */
+	struct dict_iterate_context *iter =
+		test_dict_file_iterate_init(ctx1.dict);
+	test_dict_file_set(ctx2.dict, DICT_PATH_SHARED"b", "1");
+	test_dict_file_lookup(ctx1.dict, DICT_PATH_SHARED"b", "1");
+	test_dict_file_iterate_finish(&iter, (const char *const []) {
+		DICT_PATH_SHARED"a", "1",
+		NULL
+	}, 0);
+
+	test_dict_file_deinit(&ctx1);
+	test_dict_file_deinit(&ctx2);
+}
+
+static void test_dict_file_iterate_replaced(void)
+{
+	test_begin("dict file replaced while iterating");
+	test_dict_file_iterate_replaced_one("dotlock");
+	test_dict_file_iterate_replaced_one("fcntl");
+	test_end();
+}
+
+static void test_dict_file_iterate_replaced_commit_one(const char *lock_method)
+{
+	struct test_dict_file ctx1, ctx2;
+	const char *path;
+
+	path = t_strdup_printf("%s/iterate-replaced-commit-%s",
+			       test_dir_get(), lock_method);
+	test_dict_file_init(&ctx1, path, lock_method);
+	test_dict_file_init(&ctx2, path, lock_method);
+	test_dict_file_set(ctx1.dict, DICT_PATH_SHARED"a", "1");
+
+	/* A commit while iterating must include the changes of the file
+	   that the other dict wrote. */
+	struct dict_iterate_context *iter =
+		test_dict_file_iterate_init(ctx1.dict);
+	test_dict_file_set(ctx2.dict, DICT_PATH_SHARED"b", "1");
+	test_dict_file_set(ctx1.dict, DICT_PATH_SHARED"c", "1");
+	test_dict_file_iterate_finish(&iter, (const char *const []) {
+		DICT_PATH_SHARED"a", "1",
+		NULL
+	}, 0);
+
+	test_dict_file_lookup(ctx2.dict, DICT_PATH_SHARED"a", "1");
+	test_dict_file_lookup(ctx2.dict, DICT_PATH_SHARED"b", "1");
+	test_dict_file_lookup(ctx2.dict, DICT_PATH_SHARED"c", "1");
+
+	test_dict_file_deinit(&ctx1);
+	test_dict_file_deinit(&ctx2);
+}
+
+static void test_dict_file_iterate_replaced_commit(void)
+{
+	test_begin("dict file commit after replace while iterating");
+	test_dict_file_iterate_replaced_commit_one("dotlock");
+	test_dict_file_iterate_replaced_commit_one("fcntl");
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -296,6 +368,8 @@ int main(void)
 		test_dict_async_lookup,
 		test_dict_file_atomic_inc_non_numeric,
 		test_dict_file_iterate_commit,
+		test_dict_file_iterate_replaced,
+		test_dict_file_iterate_replaced_commit,
 		NULL
 	};
 	int ret;

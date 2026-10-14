@@ -207,12 +207,6 @@ static bool file_dict_need_refresh(struct file_dict *dict)
 {
 	struct stat st1, st2;
 
-	if (dict->dict.iter_count > 0) {
-		/* Change nothing while there are iterators or they can crash
-		   because the hash table content recreated. */
-		return FALSE;
-	}
-
 	if (dict->fd == -1)
 		return TRUE;
 
