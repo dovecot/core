@@ -51,6 +51,14 @@ acl_shared_namespace_add(struct mail_namespace *ns,
 	shared_storage_ns_prefix_expand(sstorage, str, userdomain);
 
 	mailbox = str_c(str);
+	if (mail_namespace_find_prefix(ns->user->namespaces,
+				       t_strconcat(ns->prefix, mailbox,
+						   NULL)) != NULL) {
+		/* The namespace was already created, e.g. by opening one of
+		   the user's mailboxes. It may be in use, so it must not be
+		   destroyed here. */
+		return;
+	}
 	if (shared_storage_get_namespace(&new_ns, &mailbox) < 0)
 		return;
 
