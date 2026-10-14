@@ -674,6 +674,7 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 		*error_r = t_strdup_printf("write(%s) failed: %s", temp_path,
 					   o_stream_get_error(output));
 		o_stream_destroy(&output);
+		dict->refreshed = FALSE;
 		if (dotlock != NULL)
 			file_dotlock_delete(&dotlock);
 		else {
@@ -689,12 +690,14 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 				DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) < 0) {
 			*error_r = t_strdup_printf("file_dotlock_replace() failed: %m");
 			i_close_fd(&fd);
+			dict->refreshed = FALSE;
 			return -1;
 		}
 	} else {
 		if (rename(temp_path, dict->path) < 0) {
 			*error_r = t_strdup_printf("rename(%s, %s) failed: %m",
 						   temp_path, dict->path);
+			dict->refreshed = FALSE;
 			file_unlock(&lock);
 			i_close_fd(&fd);
 			return -1;
