@@ -22,15 +22,22 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+/* The dict contents in a hash table. Iterators keep a reference to the
+   snapshot they were started on. */
+struct file_dict_snapshot {
+	int refcount;
+	pool_t pool;
+	HASH_TABLE(char *, char *) hash;
+};
+
 struct file_dict {
 	struct dict dict;
-	pool_t hash_pool;
 	enum file_lock_method lock_method;
 
 	char *path;
 	char *home_dir;
 	bool dict_path_checked;
-	HASH_TABLE(char *, char *) hash;
+	struct file_dict_snapshot *snapshot;
 	int fd;
 
 	bool refreshed;
@@ -40,6 +47,7 @@ struct file_dict_iterate_context {
 	struct dict_iterate_context ctx;
 	pool_t pool;
 
+	struct file_dict_snapshot *snapshot;
 	struct hash_iterate_context *iter;
 	const char *path;
 	size_t path_len;
@@ -84,6 +92,37 @@ static struct dotlock_settings file_dict_dotlock_settings = {
 	.use_io_notify = TRUE
 };
 
+static struct file_dict_snapshot *file_dict_snapshot_create(void)
+{
+	struct file_dict_snapshot *snapshot =
+		i_new(struct file_dict_snapshot, 1);
+
+	snapshot->refcount = 1;
+	snapshot->pool = pool_alloconly_create("file dict", 1024);
+	hash_table_create(&snapshot->hash, snapshot->pool, 0,
+			  str_hash, strcmp);
+	return snapshot;
+}
+
+static void file_dict_snapshot_ref(struct file_dict_snapshot *snapshot)
+{
+	i_assert(snapshot->refcount > 0);
+	snapshot->refcount++;
+}
+
+static void file_dict_snapshot_unref(struct file_dict_snapshot **_snapshot)
+{
+	struct file_dict_snapshot *snapshot = *_snapshot;
+
+	*_snapshot = NULL;
+	i_assert(snapshot->refcount > 0);
+	if (--snapshot->refcount > 0)
+		return;
+	hash_table_destroy(&snapshot->hash);
+	pool_unref(&snapshot->pool);
+	i_free(snapshot);
+}
+
 static int
 file_dict_ensure_path_home_dir(struct file_dict *dict, const char *home_dir,
 			       const char **error_r)
@@ -125,8 +164,7 @@ file_dict_init(const struct dict *dict_driver, struct event *event,
 	settings_free(set);
 
 	dict->dict = *dict_driver;
-	dict->hash_pool = pool_alloconly_create("file dict", 1024);
-	hash_table_create(&dict->hash, dict->hash_pool, 0, str_hash, strcmp);
+	dict->snapshot = file_dict_snapshot_create();
 	dict->fd = -1;
 
 	*dict_r = &dict->dict;
@@ -138,8 +176,7 @@ static void file_dict_deinit(struct dict *_dict)
 	struct file_dict *dict = (struct file_dict *)_dict;
 
 	i_close_fd_path(&dict->fd, dict->path);
-	hash_table_destroy(&dict->hash);
-	pool_unref(&dict->hash_pool);
+	file_dict_snapshot_unref(&dict->snapshot);
 	i_free(dict->path);
 	i_free(dict->home_dir);
 	i_free(dict);
@@ -216,21 +253,22 @@ static int file_dict_refresh(struct file_dict *dict, const char **error_r)
 	if (dict->refreshed || dict->dict.iter_count > 0)
 		return 0;
 
-	hash_table_clear(dict->hash, TRUE);
-	p_clear(dict->hash_pool);
+	struct file_dict_snapshot *snapshot = dict->snapshot;
+	hash_table_clear(snapshot->hash, TRUE);
+	p_clear(snapshot->pool);
 
 	if (dict->fd != -1) {
 		input = i_stream_create_fd(dict->fd, SIZE_MAX);
 
 		while ((key = i_stream_read_next_line(input)) != NULL) {
 			/* strdup() before the second read */
-			key = str_tabunescape(p_strdup(dict->hash_pool, key));
+			key = str_tabunescape(p_strdup(snapshot->pool, key));
 
 			if ((value = i_stream_read_next_line(input)) == NULL)
 				break;
 
-			value = str_tabunescape(p_strdup(dict->hash_pool, value));
-			hash_table_update(dict->hash, key, value);
+			value = str_tabunescape(p_strdup(snapshot->pool, value));
+			hash_table_update(snapshot->hash, key, value);
 		}
 		i_stream_destroy(&input);
 	}
@@ -252,7 +290,7 @@ static int file_dict_lookup(struct dict *_dict,
 	if (file_dict_refresh(dict, error_r) < 0)
 		return -1;
 
-	value = hash_table_lookup(dict->hash, key);
+	value = hash_table_lookup(dict->snapshot->hash, key);
 	if (value == NULL)
 		return 0;
 
@@ -285,7 +323,9 @@ file_dict_iterate_init(struct dict *_dict,
 	    file_dict_refresh(dict, &error) < 0)
 		ctx->error = p_strdup(pool, error);
 
-	ctx->iter = hash_table_iterate_init(dict->hash);
+	ctx->snapshot = dict->snapshot;
+	file_dict_snapshot_ref(ctx->snapshot);
+	ctx->iter = hash_table_iterate_init(ctx->snapshot->hash);
 	return &ctx->ctx;
 }
 
@@ -306,8 +346,7 @@ static bool file_dict_iterate(struct dict_iterate_context *_ctx,
 		(struct file_dict_iterate_context *)_ctx;
 	char *key, *value;
 
-	while (hash_table_iterate(ctx->iter,
-				  ((struct file_dict *)_ctx->dict)->hash,
+	while (hash_table_iterate(ctx->iter, ctx->snapshot->hash,
 				  &key, &value)) {
 		if (!file_dict_iterate_key_matches(ctx, key))
 			continue;
@@ -339,6 +378,7 @@ static int file_dict_iterate_deinit(struct dict_iterate_context *_ctx,
 
 	*error_r = t_strdup(ctx->error);
 	hash_table_iterate_deinit(&ctx->iter);
+	file_dict_snapshot_unref(&ctx->snapshot);
 	pool_unref(&ctx->pool);
 	return ret;
 }
@@ -368,7 +408,7 @@ static int file_dict_apply_changes(struct dict_transaction_memory_context *ctx,
 	long long diff;
 
 	array_foreach(&ctx->changes, change) {
-		if (hash_table_lookup_full(dict->hash, change->key,
+		if (hash_table_lookup_full(dict->snapshot->hash, change->key,
 					   &orig_key, &orig_value)) {
 			key = orig_key;
 			old_value = orig_value;
@@ -395,7 +435,7 @@ static int file_dict_apply_changes(struct dict_transaction_memory_context *ctx,
 			tmp = t_strdup_printf("%lld", diff);
 			new_len = strlen(tmp);
 			if (old_value == NULL || new_len > strlen(old_value))
-				value = p_strdup(dict->hash_pool, tmp);
+				value = p_strdup(dict->snapshot->pool, tmp);
 			else {
 				memcpy(old_value, tmp, new_len + 1);
 				value = old_value;
@@ -403,16 +443,16 @@ static int file_dict_apply_changes(struct dict_transaction_memory_context *ctx,
 			/* fall through */
 		case DICT_CHANGE_TYPE_SET:
 			if (key == NULL)
-				key = p_strdup(dict->hash_pool, change->key);
+				key = p_strdup(dict->snapshot->pool, change->key);
 			if (value == NULL) {
-				value = p_strdup(dict->hash_pool,
+				value = p_strdup(dict->snapshot->pool,
 						 change->value.str);
 			}
-			hash_table_update(dict->hash, key, value);
+			hash_table_update(dict->snapshot->hash, key, value);
 			break;
 		case DICT_CHANGE_TYPE_UNSET:
 			if (old_value != NULL)
-				hash_table_remove(dict->hash, key);
+				hash_table_remove(dict->snapshot->hash, key);
 			break;
 		}
 	}
@@ -645,7 +685,7 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	}
 	if (file_dict_apply_changes(ctx, atomic_inc_not_found_r, error_r) < 0) {
 		/* Some of the changes may have already been applied to
-		   dict->hash. Make sure they get dropped. */
+		   dict->snapshot. Make sure they get dropped. */
 		dict->refreshed = FALSE;
 		if (dotlock != NULL)
 			file_dotlock_delete(&dotlock);
@@ -658,9 +698,9 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 
 	output = o_stream_create_fd(fd, 0);
 	o_stream_cork(output);
-	iter = hash_table_iterate_init(dict->hash);
+	iter = hash_table_iterate_init(dict->snapshot->hash);
 	str = t_str_new(256);
-	while (hash_table_iterate(iter, dict->hash, &key, &value)) {
+	while (hash_table_iterate(iter, dict->snapshot->hash, &key, &value)) {
 		str_truncate(str, 0);
 		str_append_tabescaped(str, key);
 		str_append_c(str, '\n');
