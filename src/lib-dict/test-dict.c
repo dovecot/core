@@ -113,7 +113,7 @@ static void test_dict_file_lookup(struct dict *dict, const char *key,
 	test_assert_strcmp(value, expected_value);
 }
 
-static void test_dict_file_atomic_inc_non_numeric(void)
+static void test_dict_file_atomic_inc_non_numeric_one(const char *lock_method)
 {
 	const struct dict_op_settings set = { };
 	struct dict_transaction_context *t;
@@ -121,11 +121,11 @@ static void test_dict_file_atomic_inc_non_numeric(void)
 	struct dict *dict;
 	const char *error;
 
-	test_begin("dict-file atomic_inc non-numeric");
 	i_unlink_if_exists(".test-dict-file");
 	settings_simple_init(&test_set, (const char *const []) {
 		"dict", "file",
 		"dict/file/path", ".test-dict-file",
+		"dict/file/lock_method", lock_method,
 		NULL,
 	});
 	if (dict_init_auto(test_set.event, &dict, &error) <= 0)
@@ -162,6 +162,13 @@ static void test_dict_file_atomic_inc_non_numeric(void)
 
 	settings_simple_deinit(&test_set);
 	i_unlink(".test-dict-file");
+}
+
+static void test_dict_file_atomic_inc_non_numeric(void)
+{
+	test_begin("dict-file atomic_inc non-numeric");
+	test_dict_file_atomic_inc_non_numeric_one("dotlock");
+	test_dict_file_atomic_inc_non_numeric_one("fcntl");
 	test_end();
 }
 
