@@ -72,7 +72,8 @@ void dns_lookup_ptr(const struct ip_addr *ip,
 			const struct dns_lookup_result *, typeof(context))), \
 		params, event_parent, \
 		(dns_lookup_callback_t *)callback, context, lookup_r)
-/* Abort the DNS lookup without calling the callback. */
+/* Abort the DNS lookup. The callback, if set, is called once with
+   EAI_CANCELED before this returns. */
 void dns_lookup_abort(struct dns_lookup **lookup);
 
 void dns_lookup_switch_ioloop_to(struct dns_lookup *lookup,

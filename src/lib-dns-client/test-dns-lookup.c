@@ -9,7 +9,9 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
+#include "net.h"
 #include "connection.h"
+#include "lib-event-private.h"
 #include "dns-lookup.h"
 #include "settings.h"
 #include <unistd.h>
@@ -49,6 +51,7 @@ static struct test_server {
 struct test_expect_result {
 	int ret;
 	const char *result;
+	unsigned int calls;
 };
 
 static void server_handle_timeout(struct connection *client)
@@ -127,6 +130,9 @@ static void test_dns_client_connected(struct test_server *server)
 {
 	int fd = accept(server->fd, NULL, NULL);
 	i_assert(fd > -1);
+	/* Don't block on reading when the client keeps the connection open
+	   after the delayed reply. */
+	net_set_nonblock(fd, TRUE);
 	struct connection *conn = i_new(struct connection, 1);
 	connection_init_server(test_dns_clients, conn, "test client", fd, fd);
 }
@@ -169,6 +175,7 @@ static void test_callback_ips(const struct dns_lookup_result *result,
 			      struct test_expect_result *expected)
 {
 	io_loop_stop(current_ioloop);
+	expected->calls++;
 	test_assert_cmp(result->ret, ==, expected->ret);
 	if (result->ret != 0)
 		return;
@@ -301,14 +308,53 @@ static void test_dns_lookup_timeout(void)
 	test_end();
 }
 
+static struct {
+	unsigned int count;
+	int error_code;
+} finished_events;
+
+static bool
+test_finished_event_callback(struct event *event,
+			     enum event_callback_type type,
+			     struct failure_context *ctx ATTR_UNUSED,
+			     const char *fmt ATTR_UNUSED,
+			     va_list args ATTR_UNUSED)
+{
+	const struct event_field *field;
+
+	if (type != EVENT_CALLBACK_TYPE_SEND || event->sending_name == NULL ||
+	    strcmp(event->sending_name, "dns_request_finished") != 0)
+		return TRUE;
+	finished_events.count++;
+	field = event_find_field_nonrecursive(event, "error_code");
+	finished_events.error_code = field == NULL ? 0 :
+		(int)field->value.intmax;
+	/* don't log the event */
+	return FALSE;
+}
+
+static void test_finished_events_start(void)
+{
+	i_zero(&finished_events);
+	event_register_callback(test_finished_event_callback);
+	event_set_forced_debug(test_set.event, TRUE);
+}
+
+static void test_finished_events_stop(void)
+{
+	event_set_forced_debug(test_set.event, FALSE);
+	event_unregister_callback(test_finished_event_callback);
+}
+
 static void test_dns_lookup_abort(void)
 {
 	test_begin("dns lookup (abort)");
 	create_dns_server(&test_server);
+	test_finished_events_start();
 
 	struct dns_lookup *lookup;
 	struct test_expect_result ctx = {
-		.ret = -4,
+		.ret = EAI_CANCELED,
 		.result = NULL,
 	};
 
@@ -317,6 +363,92 @@ static void test_dns_lookup_abort(void)
 	io_loop_run(current_ioloop);
 	timeout_remove(&to);
 	dns_lookup_abort(&lookup);
+	test_assert_ucmp(ctx.calls, ==, 1);
+	test_assert_ucmp(finished_events.count, ==, 1);
+	test_assert_cmp(finished_events.error_code, ==, EAI_CANCELED);
+
+	test_finished_events_stop();
+	destroy_dns_server(&test_server);
+	test_end();
+}
+
+struct test_abort_ctx {
+	unsigned int calls;
+	int ret;
+	/* Deinitialized by the callback, if non-NULL. */
+	struct dns_client *client;
+};
+
+static void test_abort_callback(const struct dns_lookup_result *result,
+				struct test_abort_ctx *ctx)
+{
+	ctx->calls++;
+	ctx->ret = result->ret;
+	if (ctx->client != NULL)
+		dns_client_deinit(&ctx->client);
+}
+
+static void test_run_server_loop_for(unsigned int msecs)
+{
+	struct timeout *to = timeout_add_short(msecs, io_loop_stop,
+					       current_ioloop);
+	io_loop_run(current_ioloop);
+	timeout_remove(&to);
+}
+
+static void test_dns_lookup_abort_shared(void)
+{
+	struct test_abort_ctx ctx = { .ret = -100 };
+	struct dns_lookup *lookup;
+	struct dns_client *client;
+	const char *error;
+
+	test_begin("dns lookup (shared client, abort in flight)");
+	settings_simple_update(&test_set, set_dns_test);
+	create_dns_server(&test_server);
+	test_finished_events_start();
+	test_assert_cmp(dns_client_init(NULL, test_set.event, &client,
+					&error), ==, 0);
+
+	dns_client_lookup(client, "waitfor300", test_set.event,
+			  test_abort_callback, &ctx, &lookup);
+	test_run_server_loop_for(100);
+	dns_lookup_abort(&lookup);
+	test_assert_ucmp(ctx.calls, ==, 1);
+	test_assert_cmp(ctx.ret, ==, EAI_CANCELED);
+
+	/* The server's late reply must not call the callback or send the
+	   finished event again. */
+	test_run_server_loop_for(500);
+	test_assert_ucmp(ctx.calls, ==, 1);
+	test_assert_ucmp(finished_events.count, ==, 1);
+	test_assert_cmp(finished_events.error_code, ==, EAI_CANCELED);
+
+	dns_client_deinit(&client);
+	test_finished_events_stop();
+	destroy_dns_server(&test_server);
+	test_end();
+}
+
+static void test_dns_lookup_abort_deinit_client(void)
+{
+	struct test_abort_ctx ctx = { .ret = -100 };
+	struct dns_lookup *lookup;
+	const char *error;
+
+	test_begin("dns lookup (shared client, deinit in abort callback)");
+	settings_simple_update(&test_set, set_dns_test);
+	create_dns_server(&test_server);
+	test_assert_cmp(dns_client_init(NULL, test_set.event, &ctx.client,
+					&error), ==, 0);
+
+	dns_client_lookup(ctx.client, "waitfor300", test_set.event,
+			  test_abort_callback, &ctx, &lookup);
+	test_run_server_loop_for(100);
+	dns_lookup_abort(&lookup);
+	test_assert_ucmp(ctx.calls, ==, 1);
+	test_assert_cmp(ctx.ret, ==, EAI_CANCELED);
+	test_assert(ctx.client == NULL);
 
 	destroy_dns_server(&test_server);
 	test_end();
@@ -726,6 +858,8 @@ int main(void)
 		test_dns_lookup_ip,
 		test_dns_lookup_timeout,
 		test_dns_lookup_abort,
+		test_dns_lookup_abort_shared,
+		test_dns_lookup_abort_deinit_client,
 		test_dns_lookup_malformed,
 		test_dns_client_switch_ioloop_to_idle,
 		test_dns_lookup_cached,

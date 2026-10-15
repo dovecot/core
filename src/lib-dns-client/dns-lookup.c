@@ -26,6 +26,9 @@ struct dns_lookup {
 	pool_t pool;
 	bool ptr_lookup;
 	bool cached;
+	/* dns_lookup_abort() was called. The callback and the finished
+	   event have already been dealt with. */
+	bool canceled;
 	/* The result is already known and lookup->to delivers it. Such
 	   lookups with a client are also in client->deferred_head list. */
 	bool deferred;
@@ -141,7 +144,9 @@ static void dns_lookup_callback(struct dns_lookup *lookup)
 		dns_client_cache_entry(lookup->client->cache, lookup->cache_key,
 				       &lookup->result);
 	}
-	dns_lookup_send_finished_event(lookup);
+	/* A canceled lookup has already sent its event. */
+	if (!lookup->canceled)
+		dns_lookup_send_finished_event(lookup);
 	if (lookup->callback != NULL)
 		lookup->callback(&lookup->result, lookup->context);
 }
@@ -440,11 +445,17 @@ static void dns_lookup_free(struct dns_lookup **_lookup)
 
 static void dns_lookup_cancel(struct dns_lookup *lookup)
 {
-	dns_lookup_save_msecs(lookup);
+	dns_lookup_callback_t *callback = lookup->callback;
+
+	/* Clear the callback first, so it is never called again, e.g. by
+	   dns_client_disconnect(). */
+	lookup->callback = NULL;
+	lookup->canceled = TRUE;
 	lookup->result.ret = EAI_CANCELED;
 	lookup->result.error = "Lookup canceled";
-	lookup->callback(&lookup->result, lookup->context);
-	lookup->callback = NULL;
+	dns_lookup_send_finished_event(lookup);
+	if (callback != NULL)
+		callback(&lookup->result, lookup->context);
 }
 
 void dns_lookup_abort(struct dns_lookup **_lookup)
@@ -456,10 +467,12 @@ void dns_lookup_abort(struct dns_lookup **_lookup)
 	*_lookup = NULL;
 
 	struct dns_client *client = lookup->client;
-	if (client != NULL && client->deinit_client_at_free)
+	bool deinit_client = client != NULL && client->deinit_client_at_free;
+
+	/* The callback may free a shared client and the lookup with it. */
+	dns_lookup_cancel(lookup);
+	if (deinit_client)
 		dns_client_deinit(&client);
-	else if (lookup->callback != NULL)
-		dns_lookup_cancel(lookup);
 }
 
 static void
