@@ -317,7 +317,7 @@ static void test_istream_seekable_temp_file_end(void)
 	i_stream_seek(input, 677);
 	for (done = 0; done < 45; ) {
 		test_assert(i_stream_read(input) > 0);
-		data = i_stream_get_data(input, &size);
+		size = i_stream_get_data_size(input);
 		if (size == 0)
 			break;
 		if (size > 45 - done)
