@@ -5,6 +5,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "auth-request.h"
+#include "auth-fields.h"
 
 struct test_auth_request_field {
 	const char *internal_name;
@@ -168,11 +169,44 @@ static void test_auth_request_export_import(void)
 	test_assert_strcmp(str_c(exported_a), str_c(exported_b));
 }
 
+static void test_auth_fields_invalid_key(void)
+{
+	pool_t pool = pool_alloconly_create("test auth fields", 256);
+	struct auth_fields *fields = auth_fields_init(pool);
+
+	const char *const args[] = {
+		"a\033b=1", "a\tb=2", "=3", "del\177", "ok=a\033b", NULL
+	};
+
+	test_assert(auth_fields_key_is_valid("ok"));
+	test_assert(!auth_fields_key_is_valid(""));
+	test_assert(!auth_fields_key_is_valid("a\033b"));
+	test_assert(!auth_fields_key_is_valid("a\tb"));
+	test_assert(!auth_fields_key_is_valid("a\nb"));
+	test_assert(!auth_fields_key_is_valid("del\177"));
+
+	/* invalid keys are skipped and reported, valid ones still imported,
+	   also with a control char in the value */
+	test_assert(auth_fields_import_args(fields, args, 0) < 0);
+	test_assert_strcmp(auth_fields_find(fields, "ok"), "a\033b");
+	test_assert(auth_fields_find(fields, "a\033b") == NULL);
+	test_assert(auth_fields_find(fields, "a\tb") == NULL);
+	test_assert(auth_fields_find(fields, "del\177") == NULL);
+
+	/* the prefix must not rescue an empty key */
+	auth_fields_reset(fields);
+	test_assert(auth_fields_import_prefixed(fields, "forward_", "=x", 0) < 0);
+	test_assert(auth_fields_is_empty(fields));
+
+	pool_unref(&pool);
+}
+
 void test_auth_request_fields(void)
 {
 	test_begin("auth request fields");
 	test_auth_request_fields_list();
 	test_auth_request_fields_secured();
 	test_auth_request_export_import();
+	test_auth_fields_invalid_key();
 	test_end();
 }

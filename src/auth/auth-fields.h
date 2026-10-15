@@ -17,6 +17,10 @@ struct auth_field {
 ARRAY_DEFINE_TYPE(auth_field, struct auth_field);
 
 struct auth_fields *auth_fields_init(pool_t pool);
+/* Returns TRUE if key is non-empty and has no control characters. Keys
+   from outside auth (clients, passdbs, userdbs) must be checked with this
+   before auth_fields_add(), which asserts it. */
+bool auth_fields_key_is_valid(const char *key);
 void auth_fields_add(struct auth_fields *fields,
 		     const char *key, const char *value,
 		     enum auth_field_flags flags) ATTR_NULL(3);
