@@ -649,6 +649,12 @@ static void db_oauth2_fields_merge(struct db_oauth2_request *req,
 		req->fields = auth_fields_init(req->pool);
 
 	array_foreach(fields, field) {
+		if (!auth_fields_key_is_valid(field->name)) {
+			e_error(authdb_event(req->auth_request),
+				"Invalid field name in token response: %s",
+				field->name);
+			continue;
+		}
 		e_debug(authdb_event(req->auth_request),
 			"Processing field %s",
 			field->name);
