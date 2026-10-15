@@ -102,47 +102,6 @@ module_check_wrong_binary_dependency(const struct module_dir_load_settings *set,
 }
 
 static bool
-module_check_missing_plugin_dependencies(const struct module_dir_load_settings *set,
-					 struct module *module,
-					 struct module *all_modules,
-					 const char **error_r)
-{
-	const char **deps;
-	struct module *m;
-	string_t *errmsg;
-	size_t len;
-
-	deps = dlsym(module->handle,
-		     t_strconcat(module->name, "_dependencies", NULL));
-	if (deps == NULL)
-		return TRUE;
-
-	for (; *deps != NULL; deps++) {
-		len = strlen(*deps);
-		for (m = all_modules; m != NULL; m = m->next) {
-			if (strncmp(m->name, *deps, len) == 0 &&
-			    (m->name[len] == '\0' ||
-			     strcmp(m->name+len, "_plugin") == 0))
-				break;
-		}
-		if (m == NULL) {
-			errmsg = t_str_new(128);
-			str_printfa(errmsg, "Plugin %s must be loaded also",
-				    *deps);
-			if (set->setting_name != NULL) {
-				str_printfa(errmsg,
-					    " (you must set: %s=$%s %s)",
-					    set->setting_name,
-					    set->setting_name, *deps);
-			}
-			*error_r = str_c(errmsg);
-			return FALSE;
-		}
-	}
-	return TRUE;
-}
-
-static bool
 module_check_required_plugins(const struct module_dir_load_settings *set,
 			      const char *name, struct module *all_modules,
 			      const char **error_r)
@@ -239,8 +198,12 @@ module_load(const char *path, const char *name,
 			*error_r = t_strdup_printf("dlopen() failed: %s",
 						   dlerror());
 #ifdef RTLD_LAZY
-			/* try to give a better error message by lazily loading
-			   the plugin and checking its dependencies */
+			/* The plugin probably has undefined symbols. Try to
+			   give a better error message by lazily loading it
+			   and checking its ABI version and binary dependency.
+			   If those are fine, the dlopen() error is used.
+			   Note that undefined data symbols still fail the
+			   lazy loading. */
 			handle = dlopen(path, RTLD_LAZY);
 			if (handle == NULL)
 				return -1;
@@ -285,9 +248,6 @@ module_load(const char *path, const char *name,
 			"Module doesn't have %s function",
 			module->init == NULL ? "init" : "deinit");
 	} else if (!module_check_wrong_binary_dependency(set, module, error_r)) {
-		/* failed */
-	} else if (!module_check_missing_plugin_dependencies(set, module,
-							     all_modules, error_r)) {
 		/* failed */
 	}
 
