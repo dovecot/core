@@ -365,6 +365,12 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			return -1;
 		return 0;
 	} else if (*line == '+') {
+		if (HAS_ALL_BITS(imap_client->proxy_sent_state,
+				 IMAP_PROXY_SENT_STATE_ID)) {
+			/* literal continuation for the pipelined ID command;
+			   its tagged reply clears the flag */
+			return 0;
+		}
 		/* AUTHENTICATE started. finish it. */
 		if (client->proxy_sasl_client == NULL) {
 			/* used literals with LOGIN command, just ignore. */
