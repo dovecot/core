@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
+#include "abnf.h"
 #include "array.h"
 #include "istream.h"
 #include "connection.h"
@@ -177,6 +178,11 @@ void smtp_server_cmd_xclient(struct smtp_server_cmd_ctx *cmd,
 		} else if (strcmp(param.keyword, "LOGIN") == 0) {
 			if (strcasecmp(param.value, "[UNAVAILABLE]") == 0)
 				continue;
+			if (abnf_contains_ascii_ctrl(param.value)) {
+				smtp_server_reply(cmd, 501, "5.5.4",
+						  "Invalid LOGIN parameter");
+				return;
+			}
 			proxy_data->login = p_strdup(cmd->pool, param.value);
 		} else if (strcmp(param.keyword, "PORT") == 0) {
 			if (strcasecmp(param.value, "[UNAVAILABLE]") == 0)
@@ -223,6 +229,11 @@ void smtp_server_cmd_xclient(struct smtp_server_cmd_ctx *cmd,
 		} else if (strcmp(param.keyword, "CLIENT-TRANSPORT") == 0) {
 			if (strcasecmp(param.value, "[UNAVAILABLE]") == 0)
 				continue;
+			if (abnf_contains_ascii_ctrl(param.value)) {
+				smtp_server_reply(cmd, 501, "5.5.4",
+					"Invalid CLIENT-TRANSPORT parameter");
+				return;
+			}
 			proxy_data->client_transport =
 				p_strdup(cmd->pool, param.value);
 		} else if (strcmp(param.keyword, "DESTNAME") == 0) {
