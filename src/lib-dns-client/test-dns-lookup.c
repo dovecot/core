@@ -850,6 +850,96 @@ static void test_dns_lookup_deferred_switch_ioloop_shared(void)
 	test_end();
 }
 
+static void test_dns_lookup_deferred_client_deinit(void)
+{
+	struct test_deferred_ctx ctx = { .ret = -100 };
+	struct dns_lookup *lookup = NULL;
+	struct dns_client *client;
+	struct ioloop *old_ioloop;
+	const char *error;
+
+	test_begin("dns lookup (deferred, client deinit)");
+	old_ioloop = io_loop_create();
+	settings_simple_update(&test_set, set_dns_test);
+	test_assert_cmp(dns_client_init(NULL, test_set.event, &client,
+					&error), ==, 0);
+
+	dns_client_lookup(client, "127.0.0.1", test_set.event,
+			  test_deferred_callback, &ctx, &lookup);
+	test_assert(lookup != NULL);
+	dns_client_deinit(&client);
+	test_run_ioloop_briefly(old_ioloop);
+	test_assert_ucmp(ctx.calls, ==, 1);
+	test_assert_cmp(ctx.ret, ==, 0);
+
+	/* A detached lookup can still be aborted. */
+	ctx.calls = 0;
+	ctx.ret = -100;
+	test_assert_cmp(dns_client_init(NULL, test_set.event, &client,
+					&error), ==, 0);
+	dns_client_lookup(client, "127.0.0.1", test_set.event,
+			  test_deferred_callback, &ctx, &lookup);
+	test_assert(lookup != NULL);
+	dns_client_deinit(&client);
+	dns_lookup_abort(&lookup);
+	test_run_ioloop_briefly(old_ioloop);
+	test_assert_ucmp(ctx.calls, ==, 1);
+	test_assert_cmp(ctx.ret, ==, EAI_CANCELED);
+	io_loop_destroy(&old_ioloop);
+	test_end();
+}
+
+static void test_dns_lookup_deferred_cache_refresh(void)
+{
+	struct test_deferred_ctx ctx = { .ret = -100 };
+	struct dns_lookup *lookup = NULL;
+	struct dns_client *client;
+	const struct dns_client_parameters params = {
+		.cache_ttl_secs = 4,
+	};
+	const char *error;
+
+	test_begin("dns lookup (deferred, failed cache refresh, client deinit)");
+	settings_simple_update(&test_set, set_dns_test);
+	create_dns_server(&test_server);
+	struct ioloop *ioloop = test_server.loop;
+
+	test_assert_cmp(dns_client_init(&params, test_set.event, &client,
+					&error), ==, 0);
+	struct test_expect_result expected = {
+		.ret = 0,
+		.result = "127.0.0.1\t::1",
+	};
+	dns_client_lookup(client, "localhost", test_set.event,
+			  test_callback_ips, &expected, &lookup);
+	io_loop_run(ioloop);
+
+	/* Wait until the cache entry is due for a refresh. The client also
+	   disconnects from the dns server because it is idle. */
+	struct timeout *to = timeout_add_short_to(ioloop, 2500, io_loop_stop,
+						  ioloop);
+	io_loop_run(ioloop);
+	timeout_remove(&to);
+
+	/* Make the dns server unreachable, so that the background refresh
+	   fails immediately. */
+	connection_list_deinit(&test_dns_clients);
+	io_remove(&test_server.io);
+	i_unlink(TEST_SOCKET_NAME);
+
+	/* The cache hit starts the refresh, which fails asynchronously. */
+	dns_client_lookup(client, "localhost", test_set.event,
+			  test_deferred_callback, &ctx, &lookup);
+	test_assert(lookup != NULL);
+	dns_client_deinit(&client);
+	test_run_ioloop_briefly(ioloop);
+	test_assert_ucmp(ctx.calls, ==, 1);
+
+	i_zero(&test_server.io);
+	destroy_dns_server(&test_server);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -869,6 +959,8 @@ int main(void)
 		test_dns_lookup_init_failure_switch_ioloop,
 		test_dns_lookup_deferred_switch_ioloop,
 		test_dns_lookup_deferred_switch_ioloop_shared,
+		test_dns_lookup_deferred_client_deinit,
+		test_dns_lookup_deferred_cache_refresh,
 		NULL
 	};
 

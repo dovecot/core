@@ -562,6 +562,16 @@ void dns_client_deinit(struct dns_client **_client)
 
 	/* dns_client_disconnect() is supposed to clear out all queries */
 	i_assert(client->head == NULL);
+
+	/* Deferred lookups already have their result. Let them deliver it
+	   without the client. */
+	while (client->deferred_head != NULL) {
+		struct dns_lookup *lookup = client->deferred_head;
+
+		DLLIST2_REMOVE(&client->deferred_head, &client->deferred_tail,
+			       lookup);
+		lookup->client = NULL;
+	}
 	connection_deinit(&client->conn);
 	connection_list_deinit(&clist);
 
