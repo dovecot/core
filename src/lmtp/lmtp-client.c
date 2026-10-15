@@ -94,6 +94,7 @@ static void client_load_modules(struct client *client)
         mod_set.abi_version = DOVECOT_ABI_VERSION;
         mod_set.require_init_funcs = TRUE;
         mod_set.binary_name = "lmtp";
+        mod_set.get_required_plugins = mail_storage_service_get_required_plugins;
 
         /* pre-load all configured mail plugins */
         mail_storage_service_modules =

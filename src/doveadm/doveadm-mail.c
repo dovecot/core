@@ -855,6 +855,7 @@ void doveadm_mail_init_finish(void)
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = doveadm_debug;
 	mod_set.binary_name = "doveadm";
+	mod_set.get_required_plugins = mail_storage_service_get_required_plugins;
 
 	/* load all configured mail plugins */
 	if (array_is_created(&doveadm_settings->mail_plugins) &&

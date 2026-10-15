@@ -136,6 +136,12 @@ extern struct module *mail_storage_service_modules;
    required plugin is missing. */
 int mail_storage_service_check_mail_plugins(const char *const *plugins,
 					    const char **error_r);
+/* Returns the plugins required by the given mail plugin from the binary
+   config. This can be used as module_dir_load_settings.get_required_plugins
+   callback when loading mail_plugins. */
+const char *const *
+mail_storage_service_get_required_plugins(const char *plugin_name,
+					  void *context);
 
 /* Stored here, since it's used by both obox and fts_dovecot plugins.
    It's better not to have to link fts_dovecot with obox plugin. */

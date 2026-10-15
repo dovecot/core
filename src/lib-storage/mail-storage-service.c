@@ -955,11 +955,19 @@ mail_storage_service_first_init(struct mail_storage_service_ctx *ctx,
 		auth_master_init(user_set->auth_socket_path, flags));
 }
 
-int mail_storage_service_check_mail_plugins(const char *const *plugins,
-					   const char **error_r)
+const char *const *
+mail_storage_service_get_required_plugins(const char *plugin_name,
+					  void *context ATTR_UNUSED)
 {
 	struct settings_root *root =
 		master_service_get_settings_root(master_service);
+
+	return settings_root_get_required_plugins(root, plugin_name);
+}
+
+int mail_storage_service_check_mail_plugins(const char *const *plugins,
+					   const char **error_r)
+{
 	const char **names, *const *required;
 	unsigned int i, j, count = str_array_length(plugins);
 
@@ -969,7 +977,8 @@ int mail_storage_service_check_mail_plugins(const char *const *plugins,
 		names[i] = module_file_get_name(plugins[i]);
 
 	for (i = 0; i < count; i++) {
-		required = settings_root_get_required_plugins(root, names[i]);
+		required = mail_storage_service_get_required_plugins(names[i],
+								     NULL);
 		if (required == NULL)
 			continue;
 		for (j = 0; required[j] != NULL; j++) {
@@ -1007,6 +1016,7 @@ mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.binary_name = master_service_get_name(ctx->service);
 	mod_set.setting_name = "mail_plugins";
+	mod_set.get_required_plugins = mail_storage_service_get_required_plugins;
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = user_set->mail_debug;
 
