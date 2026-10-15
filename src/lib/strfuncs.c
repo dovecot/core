@@ -529,12 +529,7 @@ const char *p_str_trim(pool_t pool, const char *str, const char *chars)
 
 const char *str_ltrim(const char *str, const char *chars)
 {
-	const char *begin, *end;
-
-	str_trim_parse(str, chars, STR_TRIM_LEFT, &begin, &end);
-	if (begin == NULL)
-		return "";
-	return begin;
+	return str + strspn(str, chars);
 }
 
 const char *t_str_ltrim(const char *str, const char *chars)
