@@ -5,11 +5,14 @@
 #include "mail-storage.h"
 #include "quota-private.h"
 #include "quota-plugin.h"
+#include "quota-status.h"
 #include "quota-status-plugin.h"
 
-enum quota_alloc_result
-quota_status_check(struct mail_user *user, uoff_t mail_size,
-		   const char **error_r)
+const char *quota_status_plugin_version = DOVECOT_ABI_VERSION;
+
+static enum quota_alloc_result
+quota_status_plugin_check(struct mail_user *user, uoff_t mail_size,
+			  const char **error_r)
 {
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
 	struct mail_namespace *ns;
@@ -40,3 +43,16 @@ quota_status_check(struct mail_user *user, uoff_t mail_size,
 	mailbox_free(&box);
 	return ret;
 }
+
+void quota_status_plugin_init(struct module *module ATTR_UNUSED)
+{
+	quota_status_set_check(quota_status_plugin_check);
+}
+
+void quota_status_plugin_deinit(void)
+{
+	quota_status_set_check(NULL);
+}
+
+const char *quota_status_plugin_dependencies[] = { "quota", NULL };
+const char quota_status_plugin_binary_dependency[] = "quota-status";

@@ -14,7 +14,7 @@
 #include "mail-storage-settings.h"
 #include "mail-storage-service.h"
 #include "smtp-address.h"
-#include "quota-status-plugin.h"
+#include "quota-status.h"
 #include "quota-status-settings.h"
 
 enum quota_protocol {
@@ -72,10 +72,17 @@ static struct event_category event_category_quota_status = {
 	.name = "quota-status"
 };
 
+static quota_status_check_func_t *quota_status_check = NULL;
+
 static const struct quota_status_settings *quota_status_settings;
 static enum quota_protocol protocol;
 static struct mail_storage_service_ctx *storage_service;
 static struct connection_list *clients;
+
+void quota_status_set_check(quota_status_check_func_t *check)
+{
+	quota_status_check = check;
+}
 
 static void client_connected(struct master_service_connection *conn)
 {
@@ -118,10 +125,11 @@ static int client_check_mta_state(struct quota_client *client)
 
 static void client_handle_request(struct quota_client *client)
 {
-	/* The quota plugin is needed for the quota check, so load it even if
-	   it's not in mail_plugins. */
+	/* The quota check is done by the quota_status plugin, which requires
+	   the quota plugin. Load them even if they're not in mail_plugins. */
 	static const char *const code_override_fields[] = {
 		"mail_plugins/quota=yes",
+		"mail_plugins/quota_status=yes",
 		NULL
 	};
 	struct mail_storage_service_input input;
@@ -175,6 +183,7 @@ static void client_handle_request(struct quota_client *client)
 		e_debug(client->event, "User `%s' not found", input.username);
 		value = quota_status_settings->quota_status_nouser;
 	} else if (ret > 0) {
+		i_assert(quota_status_check != NULL);
 		enum quota_alloc_result qret =
 			quota_status_check(user, client->size, &error);
 		if (qret == QUOTA_ALLOC_RESULT_OK) {

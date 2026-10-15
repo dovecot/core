@@ -30,9 +30,11 @@ AM_CPPFLAGS = \
 NOPLUGIN_LDFLAGS =
 lib10_doveadm_quota_plugin_la_LDFLAGS = -module -avoid-version
 lib10_quota_plugin_la_LDFLAGS = -module -avoid-version
+lib11_quota_status_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = \
-	lib10_quota_plugin.la
+	lib10_quota_plugin.la \
+	lib11_quota_status_plugin.la
 
 lib10_quota_plugin_la_SOURCES = \
 	quota.c \
@@ -47,6 +49,9 @@ lib10_quota_plugin_la_SOURCES = \
 nodist_lib10_quota_plugin_la_SOURCES = $(RQUOTA_XDR)
 lib10_quota_plugin_la_LIBADD = $(QUOTA_LIBS)
 
+lib11_quota_status_plugin_la_SOURCES = \
+	quota-status-plugin.c
+
 doveadm_module_LTLIBRARIES = \
 	lib10_doveadm_quota_plugin.la
 
@@ -55,18 +60,15 @@ lib10_doveadm_quota_plugin_la_SOURCES = \
 
 quota_status_SOURCES = \
 	quota-status.c \
-	quota-status-plugin.c \
 	quota-status-settings.c
 
 quota_status_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
-quota_status_LDADD = \
-	lib10_quota_plugin.la \
-	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT) \
-	$(QUOTA_LIBS) \
+quota_status_LDFLAGS = -export-dynamic \
 	$(BINARY_LDFLAGS)
+quota_status_LDADD = \
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT)
 quota_status_DEPENDENCIES = \
-	lib10_quota_plugin.la \
 	$(LIBDOVECOT_STORAGE_DEPS) \
 	$(LIBDOVECOT_DEPS)
 
@@ -110,6 +112,7 @@ pkginc_lib_HEADERS = \
 	quota-private.h \
 	quota-settings.h
 noinst_HEADERS = \
+	quota-status.h \
 	quota-status-plugin.h \
 	quota-status-settings.h
 
