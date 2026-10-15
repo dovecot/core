@@ -51,6 +51,12 @@ passwd_file_add_extra_fields(struct auth_request *request,
 		}
 		if (key[0] == '\0')
 			continue;
+		if (!auth_fields_key_is_valid(key)) {
+			e_error(authdb_event(request),
+				"Invalid extra field key: %s",
+				key);
+			continue;
+		}
 		if (request->passdb->set->fields_import_all)
 			auth_request_set_field(request, key, value, NULL);
 		auth_fields_add(pwd_fields, key, value, 0);

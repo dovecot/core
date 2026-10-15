@@ -58,11 +58,18 @@ passwd_file_add_extra_fields(struct auth_request *request,
 		} else {
 			value = "";
 		}
+		if (key[0] == '\0')
+			continue;
+		if (!auth_fields_key_is_valid(key)) {
+			e_error(authdb_event(request),
+				"Invalid extra field key: %s",
+				key);
+			continue;
+		}
 		if (request->userdb->set->fields_import_all &&
 		    str_begins(key, "userdb_", &key) && key[0] != '\0')
 			auth_request_set_userdb_field(request, key, value);
-		if (key[0] != '\0')
-			auth_fields_add(pwd_fields, key, value, 0);
+		auth_fields_add(pwd_fields, key, value, 0);
 	}
 	if (ret == 0 && auth_request_set_userdb_fields_ex(request, pwd_fields,
 							  db_passwd_file_var_expand_fn) < 0)
