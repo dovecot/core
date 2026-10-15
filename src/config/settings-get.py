@@ -85,9 +85,13 @@ def add_weak(line):
     return WEAK_RE.sub(r"\1 __attribute__((weak))\2", line, count=1)
 
 
+def ifdefs_begin(ifdefs):
+    return "".join(ifdef + "\n" for ifdef in ifdefs)
+
+
 def ifdefs_wrap(ifdefs, text):
     """Wrap text inside the given #if conditions."""
-    return "\n".join(ifdefs) + "\n" + text + "#endif\n" * len(ifdefs)
+    return ifdefs_begin(ifdefs) + text + "#endif\n" * len(ifdefs)
 
 
 class Conditionals:
@@ -163,7 +167,7 @@ class SettingsFile:
 
     def write_contents(self, line, block_ends):
         if len(self.ifdefs) > 0 and self.ifdefs_open == 0:
-            self.contents += "\n".join(self.ifdefs) + "\n"
+            self.contents += ifdefs_begin(self.ifdefs)
             self.ifdefs_open = len(self.ifdefs)
         self.contents += line
         if block_ends and self.ifdefs_open > 0:
@@ -197,7 +201,7 @@ class SettingsFile:
             line = add_weak(line)
             state = self.parse_block
         elif CHECKS_BEGIN in line:
-            self.code += "\n".join(self.ifdefs) + "\n" + line
+            self.code += ifdefs_begin(self.ifdefs) + line
             self.ifdefs_open = len(self.ifdefs)
             return self.parse_checks
 
