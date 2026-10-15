@@ -16,6 +16,13 @@ struct module_dir_load_settings {
 	/* If non-NULL, load only modules where filter_callback returns TRUE */
 	bool (*filter_callback)(const char *name, void *context);
 	void *filter_context;
+	/* If non-NULL, returns the plugins that must be loaded before the
+	   given plugin, or NULL if there are none. The plugin names are
+	   without the "lib<nn>_" prefix and "_plugin" suffix. Loading a
+	   plugin fails if its required plugins aren't already loaded. */
+	const char *const *(*get_required_plugins)(const char *plugin_name,
+						   void *context);
+	void *get_required_plugins_context;
 
 	/* Require all plugins to have <plugin_name>_init() function */
 	bool require_init_funcs:1;

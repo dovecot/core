@@ -142,6 +142,31 @@ module_check_missing_plugin_dependencies(const struct module_dir_load_settings *
 	return TRUE;
 }
 
+static bool
+module_check_required_plugins(const struct module_dir_load_settings *set,
+			      const char *name, struct module *all_modules,
+			      const char **error_r)
+{
+	const char *const *required;
+
+	if (set->get_required_plugins == NULL)
+		return TRUE;
+	required = set->get_required_plugins(module_name_drop_suffix(name),
+					     set->get_required_plugins_context);
+	if (required == NULL)
+		return TRUE;
+	for (; *required != NULL; required++) {
+		if (module_dir_find(all_modules, *required) == NULL) {
+			*error_r = t_strdup_printf(
+				"Plugin %s must be loaded before this plugin "
+				"(plugins are loaded in filename order)",
+				*required);
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
 static void *quiet_dlopen(const char *path, int flags)
 {
 #ifndef __OpenBSD__
@@ -190,6 +215,11 @@ module_load(const char *path, const char *name,
 
 	*module_r = NULL;
 	*error_r = NULL;
+
+	/* Check this before dlopen(), which would fail with a less clear
+	   error about undefined symbols. */
+	if (!module_check_required_plugins(set, name, all_modules, error_r))
+		return -1;
 
 	if (set->ignore_dlopen_errors) {
 		handle = quiet_dlopen(path, RTLD_GLOBAL | RTLD_NOW);
