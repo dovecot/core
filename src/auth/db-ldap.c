@@ -1249,6 +1249,12 @@ ldap_query_get_fields(pool_t pool,
 	ldap_iter = db_ldap_result_iterate_init(conn, ldap_request, res,
 						skip_null_values);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
+		if (!auth_fields_key_is_valid(name)) {
+			e_error(authdb_event(ldap_request->request.auth_request),
+				"Invalid attribute name in LDAP result: %s",
+				name);
+			continue;
+		}
 		/* normalize to lower case, as ldap names are case-insensitive. */
 		name = t_str_lcase(name);
 		auth_fields_add(fields, name, values[0], 0);
