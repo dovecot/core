@@ -92,12 +92,12 @@ pkginclude_HEADERS = \
 	config-parser-private.h \
 	config-request.h
 
-all-settings.c: $(SETTING_FILES) $(SETTING_LINKED_FILES) $(top_srcdir)/src/config/settings-get.pl
-	$(AM_V_GEN)$(top_srcdir)/src/config/settings-get.pl $(SETTING_FILES) -- $(SETTING_LINKED_FILES) > all-settings.c || rm -f all-settings.c
+all-settings.c: $(SETTING_FILES) $(SETTING_LINKED_FILES) $(top_srcdir)/src/config/settings-get.py
+	$(AM_V_GEN)$(PYTHON) $(top_srcdir)/src/config/settings-get.py $(SETTING_FILES) -- $(SETTING_LINKED_FILES) > all-settings.c || rm -f all-settings.c
 
 EXTRA_DIST = \
 	config-settings.c \
-	settings-get.pl
+	settings-get.py
 
 test_programs = \
 	test-config-dump-full \

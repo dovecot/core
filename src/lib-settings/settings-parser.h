@@ -194,7 +194,7 @@ struct setting_parser_info {
 	   inside "<name> { .. }", but never inside any other filter.
 
 	   The array must be named <prefix>_never_inherited_by[] so that
-	   settings-get.pl copies it into all-settings.c. */
+	   settings-get.py copies it into all-settings.c. */
 	const char *const *never_inherited_by;
 
 	const struct setting_define *defines;
