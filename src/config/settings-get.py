@@ -68,8 +68,9 @@ DEF_MACRO_RES = [
 ]
 CHECKS_BEGIN = "/* <settings checks> */"
 CHECKS_END = "/* </settings checks> */"
-IF_RE = re.compile(r"^(#ifdef .*)$|^(#if .*)$")
-ENDIF_RE = re.compile(r"^#endif")
+CONDITIONAL_RE = re.compile(
+    r"^#\s*(ifdef|ifndef|if|elif|else|endif)\b\s*(.*?)\s*$")
+DEFINE_RE = re.compile(r"^#\s*define\s+(\w+)\b")
 STATIC_RE = re.compile(r"^\s*static\b")
 WEAK_RE = re.compile(r"(\w+(?:\[\])?)(\s*=\s*\{)")
 SERVICE_NAME_RE = re.compile(r"^(.*)_service_settings$")
@@ -87,6 +88,45 @@ def add_weak(line):
 def ifdefs_wrap(ifdefs, text):
     """Wrap text inside the given #if conditions."""
     return "\n".join(ifdefs) + "\n" + text + "#endif\n" * len(ifdefs)
+
+
+class Conditionals:
+    """Track the currently open preprocessor conditionals. Each one is
+    stored as the lines needed to reopen it, e.g. "#ifdef FOO\n#else"
+    for the #else branch. Header guards are ignored."""
+
+    def __init__(self):
+        self.stack = []
+        # #ifndef name, if the previous line was "#ifndef name"
+        self.ifndef_name = None
+
+    def update(self, line):
+        ifndef_name, self.ifndef_name = self.ifndef_name, None
+        m = DEFINE_RE.search(line)
+        if m is not None and m.group(1) == ifndef_name:
+            # header guard - forget about it
+            self.stack[-1] = None
+            return
+
+        m = CONDITIONAL_RE.search(line)
+        if m is None:
+            return
+        directive, arg = m.group(1), m.group(2)
+        if directive in ("ifdef", "ifndef", "if"):
+            self.stack.append(line.rstrip("\n"))
+            if directive == "ifndef":
+                self.ifndef_name = arg
+        elif len(self.stack) == 0:
+            # Unbalanced #endif etc. - ignore
+            pass
+        elif directive == "endif":
+            self.stack.pop()
+        elif self.stack[-1] is not None:
+            # #else or #elif
+            self.stack[-1] += "\n" + line.rstrip("\n")
+
+    def get(self):
+        return [cond for cond in self.stack if cond is not None]
 
 
 class SettingsFile:
@@ -108,6 +148,7 @@ class SettingsFile:
         self.service_defaults = set()
 
         # Currently open #if conditions
+        self.conditionals = Conditionals()
         self.ifdefs = []
         # Number of #if conditions written to contents/code, which still
         # need to be closed with #endif.
@@ -130,11 +171,8 @@ class SettingsFile:
             self.ifdefs_open = 0
 
     def parse_root(self, line):
-        m = IF_RE.search(line)
-        if m is not None:
-            self.ifdefs.append(m.group(1) or m.group(2))
-        elif ENDIF_RE.search(line) and len(self.ifdefs) > 0:
-            self.ifdefs.pop()
+        self.conditionals.update(line)
+        self.ifdefs = self.conditionals.get()
 
         state = self.parse_root
         if any(r.search(line) for r in SETTINGS_BLOCK_RES):
