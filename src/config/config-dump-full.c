@@ -9,6 +9,7 @@
 #include "wildcard-match.h"
 #include "safe-mkstemp.h"
 #include "ostream.h"
+#include "module-dir.h"
 #include "settings.h"
 #include "config-bin-filter.h"
 #include "master-service-settings.h"
@@ -43,6 +44,9 @@
 
    <32bit: all setting keys size>
    <all setting keys - see below>
+
+   <32bit: plugin infos size>
+   <plugin infos - see below>
 
    <0..3 bytes for 32bit alignment>
    <32bit: filter count>
@@ -117,6 +121,20 @@
    <32bit: enum setting_type>
    <32bit: setting blocks count>
      <32bit: setting block name index>
+
+   Plugin infos
+   ------------
+
+   Information about the plugins loaded via mail_plugins setting (struct
+   setting_plugin_info). Only plugins that have required plugins are
+   written. The plugin names are the names used in mail_plugins setting,
+   i.e. without the "lib<nn>_" prefix and "_plugin" suffix. The
+   <plugin infos> contents are:
+
+   Repeat until "plugin infos size" is reached:
+     <NUL-terminated string: plugin name>
+     <NUL-terminated string: required plugin name>[1..n]
+     <NUL: end of required plugins>
 
    Filters
    -------
@@ -478,6 +496,34 @@ config_dump_full_write_all_keys(struct ostream *output,
 	o_stream_nsend(output, &set_size, sizeof(set_size));
 	o_stream_nsend(output, buf->data, buf->used);
 	buffer_free(&buf);
+}
+
+static void config_dump_full_write_plugin_infos(struct ostream *output)
+{
+	buffer_t *buf = t_buffer_create(256);
+	const char *const *required;
+
+	for (unsigned int i = 0; all_plugin_infos[i] != NULL; i++) {
+		const struct setting_plugin_info *info = all_plugin_infos[i];
+
+		if (info->required_plugins == NULL ||
+		    info->required_plugins[0] == NULL)
+			continue;
+		const char *name = module_file_get_plugin_name(info->plugin);
+		i_assert(name[0] != '\0');
+		buffer_append(buf, name, strlen(name) + 1);
+		for (required = info->required_plugins; *required != NULL;
+		     required++) {
+			i_assert((*required)[0] != '\0');
+			buffer_append(buf, *required, strlen(*required) + 1);
+		}
+		buffer_append_c(buf, '\0');
+	}
+
+	i_assert(buf->used <= UINT32_MAX);
+	uint32_t size = buf->used;
+	o_stream_nsend(output, &size, sizeof(size));
+	o_stream_nsend(output, buf->data, buf->used);
 }
 
 static void
@@ -1025,6 +1071,7 @@ int config_dump_full(struct config_parsed *config,
 		if (cache_path != NULL)
 			final_path = cache_path;
 		config_dump_full_write_all_keys(output, config);
+		config_dump_full_write_plugin_infos(output);
 		config_bin_filters_write(output, ctx.filters, ctx.pool,
 					 &ctx.filter_primary_names);
 	}

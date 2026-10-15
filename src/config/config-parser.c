@@ -68,6 +68,8 @@ int (*hook_config_parser_end)(struct config_parser_context *ctx,
 
 static ARRAY_TYPE(config_service) services_free_at_deinit = ARRAY_INIT;
 static ARRAY_TYPE(setting_parser_info_p) infos_free_at_deinit = ARRAY_INIT;
+static ARRAY_TYPE(setting_plugin_info_p) plugin_infos_free_at_deinit =
+	ARRAY_INIT;
 /* Settings infos that were dropped, because their plugin isn't installed */
 static ARRAY_TYPE(setting_parser_info_p) missing_plugin_infos = ARRAY_INIT;
 static string_t *config_import;
@@ -1533,11 +1535,15 @@ config_key_can_autoprefix(struct config_parser_context *ctx, const char *key)
 	return def->type != SET_FILTER_NAME;
 }
 
+static const char *config_plugin_path(const char *plugin)
+{
+	return t_strconcat(MODULEDIR"/", plugin, MODULE_SUFFIX, NULL);
+}
+
 static const char *
 config_info_dependency_path(const struct setting_parser_info *info)
 {
-	return t_strconcat(MODULEDIR"/", info->plugin_dependency,
-			   MODULE_SUFFIX, NULL);
+	return config_plugin_path(info->plugin_dependency);
 }
 
 static void
@@ -4485,6 +4491,26 @@ void config_parser_add_available_infos(ARRAY_TYPE(setting_parser_info_p) *infos)
 	}
 }
 
+static bool config_have_plugin(const char *plugin)
+{
+	struct stat st;
+	return stat(config_plugin_path(plugin), &st) == 0;
+}
+
+static void
+config_parser_add_available_plugin_infos(
+	ARRAY_TYPE(setting_plugin_info_p) *dest,
+	const ARRAY_TYPE(setting_plugin_info_p) *infos)
+{
+	const struct setting_plugin_info *info;
+
+	/* drop infos for plugins that don't exist */
+	array_foreach_elem(infos, info) {
+		if (config_have_plugin(info->plugin))
+			array_push_back(dest, &info);
+	}
+}
+
 static void
 config_parse_load_module_paths(const char *const *paths,
 			       const struct module_dir_load_settings *mod_set)
@@ -4533,12 +4559,25 @@ void config_parse_load_modules(bool dump_config_import)
 	config_parser_add_available_infos(&new_infos);
 
 	i_array_init(&new_services, 64);
+	ARRAY_TYPE(setting_plugin_info_p) plugin_infos;
+	t_array_init(&plugin_infos, 16);
+	for (i = 0; all_plugin_infos[i] != NULL; i++)
+		array_push_back(&plugin_infos, &all_plugin_infos[i]);
 	for (m = modules; m != NULL; m = m->next) {
 		infos = module_get_symbol_quiet(m,
 			t_strdup_printf("%s_set_infos", m->name));
 		if (infos != NULL) {
 			for (i = 0; infos[i] != NULL; i++)
 				array_push_back(&new_infos, &infos[i]);
+		}
+		const struct setting_plugin_info *const *module_plugin_infos =
+			module_get_symbol_quiet(m,
+				t_strdup_printf("%s_plugin_infos", m->name));
+		if (module_plugin_infos != NULL) {
+			for (i = 0; module_plugin_infos[i] != NULL; i++) {
+				array_push_back(&plugin_infos,
+						&module_plugin_infos[i]);
+			}
 		}
 
 		const char *const *import = module_get_symbol_quiet(m,
@@ -4567,6 +4606,14 @@ void config_parse_load_modules(bool dump_config_import)
 	all_infos = array_front(&new_infos);
 	infos_free_at_deinit = new_infos;
 
+	ARRAY_TYPE(setting_plugin_info_p) new_plugin_infos;
+	i_array_init(&new_plugin_infos, array_count(&plugin_infos) + 1);
+	config_parser_add_available_plugin_infos(&new_plugin_infos,
+						 &plugin_infos);
+	array_append_zero(&new_plugin_infos);
+	all_plugin_infos = array_front(&new_plugin_infos);
+	plugin_infos_free_at_deinit = new_plugin_infos;
+
 	if (array_count(&new_services) > 0) {
 		/* module added new services. update the defaults. */
 		for (i = 0; config_all_services[i].set != NULL; i++)
@@ -4588,6 +4635,8 @@ void config_parser_deinit(void)
 		array_free(&services_free_at_deinit);
 	if (array_is_created(&infos_free_at_deinit))
 		array_free(&infos_free_at_deinit);
+	if (array_is_created(&plugin_infos_free_at_deinit))
+		array_free(&plugin_infos_free_at_deinit);
 	if (array_is_created(&missing_plugin_infos))
 		array_free(&missing_plugin_infos);
 	str_free(&config_import);

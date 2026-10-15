@@ -220,6 +220,25 @@ struct setting_parser_info {
 };
 ARRAY_DEFINE_TYPE(setting_parser_info, struct setting_parser_info);
 
+/* Defined for external plugins to check whether struct setting_plugin_info
+   is supported. */
+#define HAVE_SETTING_PLUGIN_INFO
+
+/* Information about a plugin loaded via the mail_plugins setting. The config
+   process writes these to the binary config, and they are checked before the
+   plugins are loaded. Settings plugins can export these in a NULL-terminated
+   <module>_plugin_infos[] array. */
+struct setting_plugin_info {
+	/* Plugin's filename in the module directory without the ".so" suffix,
+	   e.g. "lib02_imap_acl_plugin". The plugin name used in the
+	   mail_plugins setting is derived from it (e.g. "imap_acl"). The info is
+	   ignored if the plugin doesn't exist. */
+	const char *plugin;
+	/* NULL-terminated list of plugins that must also be loaded whenever
+	   this plugin is loaded. */
+	const char *const *required_plugins;
+};
+
 enum settings_parser_flags {
 	SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS	= 0x01,
 	/* Filters are added in reverse order. New filters are inserted to the

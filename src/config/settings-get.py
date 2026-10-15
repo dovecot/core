@@ -12,7 +12,7 @@ the source files into a single all-settings.c:
 
  - the settings structs (struct *_settings { ... })
  - the setting_define arrays and the DEF() etc. macros that they use
- - the default settings and the setting_parser_infos
+ - the default settings, setting_parser_infos and setting_plugin_infos
  - the service settings and their default settings
  - the code inside "/* <settings checks> */" .. "/* </settings checks> */"
 
@@ -27,6 +27,8 @@ Finally the arrays listing all the found infos and services are written:
 
  - all_default_infos[]: all setting_parser_infos
  - config_default_services[]: all service_settings and their defaults
+ - all_default_plugin_infos[]: all setting_plugin_infos, which specify the
+   plugins that must be loaded before each plugin
 
 The source files are parsed line by line with simple regexps, so they must
 follow the usual coding style. For example, a block that is copied ends at
@@ -92,6 +94,12 @@ SERVICE_DEFAULTS_RE = re.compile(
 )
 # The setting_parser_infos are added to all_default_infos[]
 PARSER_INFO_RE = re.compile(r"^const struct setting_parser_info (.*) = \{")
+# setting_plugin_infos are added to all_default_plugin_infos[]. They must be
+# visible to all-settings.c, so they can't be static.
+PLUGIN_INFO_RE = re.compile(r"^const struct setting_plugin_info (.*) = \{")
+STATIC_PLUGIN_INFO_RE = re.compile(
+    r"^static const struct setting_plugin_info (.*) = \{"
+)
 # Macros used for the setting_define arrays. These are copied as single lines,
 # or until the end of a multi-line macro.
 DEF_MACRO_RES = [
@@ -199,6 +207,9 @@ class SettingsFile:
         self.externs = ""
         # setting_parser_info name => &name, entry for all_default_infos[]
         self.infos = {}
+        # setting_plugin_info name => &name, entry for
+        # all_default_plugin_infos[]
+        self.plugin_infos = {}
         # struct service_settings name => its conditionals
         self.services = {}
         # names of the setting_keyvalue *_defaults[] arrays
@@ -243,6 +254,8 @@ class SettingsFile:
         service_m = SERVICE_SETTINGS_RE.search(line)
         defaults_m = SERVICE_DEFAULTS_RE.search(line)
         info_m = PARSER_INFO_RE.search(line)
+        plugin_info_m = PLUGIN_INFO_RE.search(line)
+        static_plugin_info_m = STATIC_PLUGIN_INFO_RE.search(line)
         if any(r.search(line) for r in SETTINGS_BLOCK_RES):
             # Only variables can be weak, not type definitions
             if "= {" in line:
@@ -256,6 +269,18 @@ class SettingsFile:
             line = add_weak(line)
             self.service_defaults.add(defaults_m.group(1))
             state = self.parse_block
+        elif plugin_info_m is not None:
+            name = plugin_info_m.group(1)
+            self.plugin_infos[name] = ifdefs_wrap(self.ifdefs, "\t&%s,\n" % name)
+            line = add_weak(line)
+            state = self.parse_block
+        elif static_plugin_info_m is not None:
+            # The plugin info must be visible to all-settings.c, so it can
+            # be added to all_plugin_infos[].
+            sys.exit(
+                "%s: struct setting_plugin_info %s must not be static"
+                % (self.path, static_plugin_info_m.group(1))
+            )
         elif info_m is not None:
             name = info_m.group(1)
             self.infos[name] = ifdefs_wrap(self.ifdefs, "\t&%s,\n" % name)
@@ -326,6 +351,7 @@ def main():
     services = {}
     service_defaults = set()
     infos = {}
+    plugin_infos = {}
 
     # Files after "--" are linked files.
     linked_file = False
@@ -339,6 +365,7 @@ def main():
         services.update(f.services)
         service_defaults |= f.service_defaults
         infos.update(f.infos)
+        plugin_infos.update(f.plugin_infos)
 
         # Write each file's parts in the same order as the files are given,
         # so that the headers' type definitions come first.
@@ -369,6 +396,18 @@ def main():
     out.write("};\n")
     out.write(
         "const struct setting_parser_info *const *all_infos = all_default_infos;\n"
+    )
+
+    # Write a list of all plugin infos, sorted by the variable name.
+    out.write(
+        "const struct setting_plugin_info *all_default_plugin_infos[] = {\n"
+    )
+    for name in sorted(plugin_infos):
+        out.write(plugin_infos[name])
+    out.write("\tNULL\n")
+    out.write("};\n")
+    out.write(
+        "const struct setting_plugin_info *const *all_plugin_infos = all_default_plugin_infos;\n"
     )
     out.write(
         "const struct config_service *config_all_services = config_default_services;\n"

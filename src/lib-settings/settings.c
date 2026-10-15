@@ -117,6 +117,10 @@ struct settings_mmap {
 	uint32_t block_names_count;
 	const uint32_t *block_names_rel_offsets;
 
+	/* struct setting_plugin_info records - see config-dump-full.c */
+	const char *plugin_infos;
+	uint32_t plugin_infos_size;
+
 	/* Filter records directly in the mmap */
 	struct settings_bin_filters filters;
 
@@ -396,6 +400,67 @@ settings_read_all_keys(struct settings_mmap *mmap,
 }
 
 static int
+settings_read_plugin_infos(struct settings_mmap *mmap,
+			   size_t *offset, const char **error_r)
+{
+	uint32_t size;
+	if (settings_block_read_uint32(mmap, offset, mmap->mmap_size,
+				       "plugin infos size", &size,
+				       error_r) < 0)
+		return -1;
+	if (size > mmap->mmap_size - *offset) {
+		*error_r = t_strdup_printf(
+			"Plugin infos size %u points outside file "
+			"(offset=%zu, file_size=%zu)", size, *offset,
+			mmap->mmap_size);
+		return -1;
+	}
+	const char *plugin_infos = CONST_PTR_OFFSET(mmap->mmap_base, *offset);
+	if (size > 0 && plugin_infos[size - 1] != '\0') {
+		*error_r = "Plugin infos don't end with NUL";
+		return -1;
+	}
+
+	/* Verify the records, so lookups don't need to */
+	size_t end_offset = *offset + size;
+	while (*offset < end_offset) {
+		const char *name;
+		if (settings_block_read_str(mmap, offset, end_offset,
+					    "plugin name", &name,
+					    error_r) < 0)
+			return -1;
+		if (name[0] == '\0') {
+			*error_r = "Plugin infos contain an empty plugin name";
+			return -1;
+		}
+		const char *required;
+		unsigned int count = 0;
+		do {
+			if (*offset >= end_offset) {
+				*error_r = t_strdup_printf(
+					"Plugin infos are missing end of "
+					"required plugins for plugin %s", name);
+				return -1;
+			}
+			if (settings_block_read_str(mmap, offset, end_offset,
+						    "required plugin name",
+						    &required, error_r) < 0)
+				return -1;
+			count++;
+		} while (required[0] != '\0');
+		if (count == 1) {
+			*error_r = t_strdup_printf(
+				"Plugin infos have no required plugins "
+				"for plugin %s", name);
+			return -1;
+		}
+	}
+	mmap->plugin_infos = plugin_infos;
+	mmap->plugin_infos_size = size;
+	return 0;
+}
+
+static int
 settings_read_filter_table(struct settings_mmap *mmap,
 			   const char *service_name,
 			   enum settings_read_flags flags, size_t *offset,
@@ -641,6 +706,8 @@ settings_mmap_parse(struct settings_mmap *mmap, const char *service_name,
 	if ((ret = settings_read_config_paths(mmap, flags, &offset, error_r)) <= 0)
 		return ret;
 	if (settings_read_all_keys(mmap, &offset, error_r) < 0)
+		return -1;
+	if (settings_read_plugin_infos(mmap, &offset, error_r) < 0)
 		return -1;
 	if (settings_read_filter_table(mmap, service_name, flags, &offset,
 				       &protocols, error_r) < 0)
@@ -1420,6 +1487,38 @@ int settings_read(struct settings_root *root, int fd, const char *path,
 bool settings_has_mmap(struct settings_root *root)
 {
 	return root->mmap != NULL;
+}
+
+const char *const *
+settings_root_get_required_plugins(struct settings_root *root,
+				   const char *plugin_name)
+{
+	struct settings_mmap *mmap = root->mmap;
+
+	if (mmap == NULL)
+		return NULL;
+
+	/* The records were already verified by settings_read_plugin_infos() */
+	const char *p = mmap->plugin_infos;
+	const char *end = p + mmap->plugin_infos_size;
+	while (p < end) {
+		bool found = strcmp(p, plugin_name) == 0;
+		p += strlen(p) + 1;
+		if (!found) {
+			while (*p != '\0')
+				p += strlen(p) + 1;
+			p++;
+			continue;
+		}
+
+		ARRAY_TYPE(const_string) required;
+		t_array_init(&required, 4);
+		for (; *p != '\0'; p += strlen(p) + 1)
+			array_push_back(&required, &p);
+		array_append_zero(&required);
+		return array_front(&required);
+	}
+	return NULL;
 }
 
 static const char *settings_mmap_pool_get_name(pool_t pool)

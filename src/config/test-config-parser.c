@@ -111,6 +111,9 @@ static const struct setting_parser_info *const infos[] = {
 
 const struct setting_parser_info *const *all_infos = infos;
 
+static const struct setting_plugin_info *const plugin_infos[] = { NULL };
+const struct setting_plugin_info *const *all_plugin_infos = plugin_infos;
+
 struct test_missing_plugin_settings {
 	pool_t pool;
 	const char *missing_plugin_key;

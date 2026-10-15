@@ -169,6 +169,30 @@ static const struct setting_parser_info *const infos[] = {
 
 const struct setting_parser_info *const *all_infos = infos;
 
+static const struct setting_plugin_info test_plugin_info_foo = {
+	.plugin = "lib01_foo_plugin",
+	.required_plugins = (const char *const []) { "bar", NULL },
+};
+static const struct setting_plugin_info test_plugin_info_bar = {
+	.plugin = "lib01_bar_plugin",
+};
+static const struct setting_plugin_info test_plugin_info_baz = {
+	.plugin = "lib01_baz_plugin",
+	.required_plugins = (const char *const []) { "foo", "bar", NULL },
+};
+static const struct setting_plugin_info test_plugin_info_empty = {
+	.plugin = "lib01_empty_plugin",
+	.required_plugins = (const char *const []) { NULL },
+};
+static const struct setting_plugin_info *const plugin_infos[] = {
+	&test_plugin_info_foo,
+	&test_plugin_info_bar,
+	&test_plugin_info_baz,
+	&test_plugin_info_empty,
+	NULL
+};
+const struct setting_plugin_info *const *all_plugin_infos = plugin_infos;
+
 static const char *test_config =
 "dovecot_config_version = "DOVECOT_CONFIG_VERSION"\n"
 "key = global\n"
@@ -589,10 +613,41 @@ static void test_config_dump_full_overrides(void)
 	test_end();
 }
 
+static void test_config_dump_full_required_plugins(void)
+{
+	const char *const *required;
+
+	test_begin("config dump full - required plugins");
+	struct settings_root *root = test_settings_read(NULL, "imap");
+
+	required = settings_root_get_required_plugins(root, "foo");
+	test_assert(required != NULL &&
+		    strcmp(t_strarray_join(required, ","), "bar") == 0);
+	required = settings_root_get_required_plugins(root, "baz");
+	test_assert(required != NULL &&
+		    strcmp(t_strarray_join(required, ","), "foo,bar") == 0);
+	test_assert(settings_root_get_required_plugins(root, "bar") == NULL);
+	test_assert(settings_root_get_required_plugins(root, "empty") == NULL);
+	test_assert(settings_root_get_required_plugins(root, "fo") == NULL);
+	test_assert(settings_root_get_required_plugins(root, "nonexistent") == NULL);
+
+	settings_root_deinit(&root);
+
+	/* no binary config */
+	root = settings_root_init();
+	test_assert(settings_root_get_required_plugins(root, "foo") == NULL);
+	settings_root_deinit(&root);
+	test_end();
+}
+
 static void test_corrupted_lookups(struct settings_root *root)
 {
 	const struct test_settings *set;
 	const char *error;
+
+	(void)settings_root_get_required_plugins(root, "foo");
+	(void)settings_root_get_required_plugins(root, "baz");
+	(void)settings_root_get_required_plugins(root, "nonexistent");
 
 	struct event *event = test_event_create(root);
 	if (settings_get(event, &test_settings_info, 0, &set, &error) == 0)
@@ -731,6 +786,7 @@ int main(void)
 		test_config_dump_full_service,
 		test_config_dump_full_groups,
 		test_config_dump_full_overrides,
+		test_config_dump_full_required_plugins,
 		test_config_dump_full_corruption,
 		test_config_dump_full_defaults_cache,
 		NULL

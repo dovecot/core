@@ -301,6 +301,14 @@ int settings_read(struct settings_root *root, int fd, const char *path,
 		  const char *const **specific_protocols_r,
 		  const char **error_r);
 bool settings_has_mmap(struct settings_root *root);
+/* Returns NULL-terminated list of plugins that are required to be loaded
+   whenever the given plugin is loaded. Returns NULL if there are no required
+   plugins or if the binary config hasn't been read. The returned array is
+   allocated from the data stack. The strings point to the mmaped config, so
+   they're valid only until the settings are re-read. */
+const char *const *
+settings_root_get_required_plugins(struct settings_root *root,
+				   const char *plugin_name);
 
 struct settings_root *settings_root_init(void);
 void settings_root_deinit(struct settings_root **root);

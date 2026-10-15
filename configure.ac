@@ -780,7 +780,7 @@ libdovecot_headers=
 libdovecot_c_files=
 non_libdovecot_headers=
 non_libdovecot_c_files=
-all_files=`find $srcdir/src -name '*.[[ch]]' | $GREP -v '/src/config/all-settings.c' | $GREP -v '/src/lib-settings/' | $GREP -v '/test-' | xargs $GREP -e 'struct setting_parser_info [[a-z]]' -e 'struct service_settings [[a-z]]' -e '<settings checks>' | $SED 's/:.*//' | sort | uniq`
+all_files=`find $srcdir/src -name '*.[[ch]]' | $GREP -v '/src/config/all-settings.c' | $GREP -v '/src/lib-settings/' | $GREP -v '/test-' | xargs $GREP -e 'struct setting_parser_info [[a-z]]' -e 'struct setting_plugin_info [[a-z]]' -e 'struct service_settings [[a-z]]' -e '<settings checks>' | $SED 's/:.*//' | sort | uniq`
 for file in $all_files; do
   dir=`echo "$file" | $SED 's:/[[^/]]*$::'`
   if echo "$libdovecot_dirs" | $GREP "$dir" >/dev/null; then

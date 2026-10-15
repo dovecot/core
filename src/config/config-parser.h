@@ -21,6 +21,7 @@ struct config_parsed;
 struct setting_parser_context;
 
 ARRAY_DEFINE_TYPE(setting_parser_info_p, const struct setting_parser_info *);
+ARRAY_DEFINE_TYPE(setting_plugin_info_p, const struct setting_plugin_info *);
 
 enum config_parse_flags {
 	CONFIG_PARSE_FLAG_EXPAND_VALUES	= BIT(0),
