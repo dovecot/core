@@ -70,6 +70,12 @@ static int sql_query_save_results(struct sql_result *result,
 
 		if (*name == '\0')
 			continue;
+		if (!auth_fields_key_is_valid(name)) {
+			e_error(authdb_event(auth_request),
+				"Invalid column name in query result: %s",
+				name);
+			continue;
+		}
 
 		auth_fields_add(fields, name, value, 0);
 		if (!auth_request->passdb->set->fields_import_all)
