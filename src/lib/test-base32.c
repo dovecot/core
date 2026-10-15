@@ -278,8 +278,8 @@ static void test_base32crockford_is_valid_char(void)
 	test_begin("base32crockford_is_valid_char()");
 	for (c = 0; c < 256; c++) {
 		bool expected = c != '\0' && strchr(valid, c) != NULL;
-		test_assert_idx(base32crockford_is_valid_char(c) == expected,
-				c);
+		bool ret = base32crockford_is_valid_char((char)c);
+		test_assert_idx(ret == expected, c);
 	}
 	test_end();
 }
