@@ -724,6 +724,12 @@ static void test_dns_lookup_closed_private(void)
 	test_end();
 }
 
+static const char *const set_invalid[] = {
+	"dns_client_timeout", "invalid",
+	"base_dir", "",
+	NULL
+};
+
 struct test_deferred_ctx {
 	unsigned int calls;
 	int ret;
@@ -750,11 +756,6 @@ static void test_run_ioloop_briefly(struct ioloop *ioloop)
 
 static void test_dns_lookup_init_failure_switch_ioloop(void)
 {
-	static const char *const set_invalid[] = {
-		"dns_client_timeout", "invalid",
-		"base_dir", "",
-		NULL
-	};
 	struct test_deferred_ctx ctx = { .ret = -100 };
 	struct dns_lookup *lookup = NULL;
 	struct ioloop *old_ioloop;
@@ -846,6 +847,85 @@ static void test_dns_lookup_deferred_switch_ioloop_shared(void)
 	test_assert_ucmp(ctx.calls, ==, 1);
 
 	dns_client_deinit(&client);
+	io_loop_destroy(&old_ioloop);
+	test_end();
+}
+
+static void test_dns_lookup_deferred_abort(void)
+{
+	struct test_deferred_ctx ctx = { .ret = -100 };
+	struct dns_lookup *lookup = NULL;
+	struct dns_client *client;
+	struct ioloop *old_ioloop;
+	const char *error;
+
+	test_begin("dns lookup (deferred, abort)");
+	old_ioloop = io_loop_create();
+	settings_simple_update(&test_set, set_dns_test);
+
+	/* private client */
+	dns_lookup("127.0.0.1", NULL, test_set.event,
+		   test_deferred_callback, &ctx, &lookup);
+	test_assert(lookup != NULL);
+	dns_lookup_abort(&lookup);
+	test_run_ioloop_briefly(old_ioloop);
+	test_assert_ucmp(ctx.calls, ==, 1);
+	test_assert_cmp(ctx.ret, ==, EAI_CANCELED);
+
+	ctx.calls = 0;
+	ctx.ret = -100;
+
+	/* shared client */
+	test_assert_cmp(dns_client_init(NULL, test_set.event, &client,
+					&error), ==, 0);
+	dns_client_lookup(client, "127.0.0.1", test_set.event,
+			  test_deferred_callback, &ctx, &lookup);
+	test_assert(lookup != NULL);
+	dns_lookup_abort(&lookup);
+	test_run_ioloop_briefly(old_ioloop);
+	test_assert_ucmp(ctx.calls, ==, 1);
+	test_assert_cmp(ctx.ret, ==, EAI_CANCELED);
+	dns_client_deinit(&client);
+
+	ctx.calls = 0;
+	ctx.ret = -100;
+
+	/* client init failure */
+	settings_simple_update(&test_set, set_invalid);
+	dns_lookup("localhost", NULL, test_set.event,
+		   test_deferred_callback, &ctx, &lookup);
+	test_assert(lookup != NULL);
+	dns_lookup_abort(&lookup);
+	test_run_ioloop_briefly(old_ioloop);
+	test_assert_ucmp(ctx.calls, ==, 1);
+	test_assert_cmp(ctx.ret, ==, EAI_CANCELED);
+	settings_simple_update(&test_set, set_dns_test);
+	io_loop_destroy(&old_ioloop);
+	test_end();
+}
+
+static void test_dns_lookup_deferred_abort_deinit_client(void)
+{
+	struct test_abort_ctx ctx = { .ret = -100 };
+	struct dns_lookup *lookup = NULL;
+	struct ioloop *old_ioloop;
+	const char *error;
+
+	test_begin("dns lookup (deferred, deinit client in abort callback)");
+	old_ioloop = io_loop_create();
+	settings_simple_update(&test_set, set_dns_test);
+	test_assert_cmp(dns_client_init(NULL, test_set.event, &ctx.client,
+					&error), ==, 0);
+
+	dns_client_lookup(ctx.client, "127.0.0.1", test_set.event,
+			  test_abort_callback, &ctx, &lookup);
+	test_assert(lookup != NULL);
+	dns_lookup_abort(&lookup);
+	test_assert_ucmp(ctx.calls, ==, 1);
+	test_assert_cmp(ctx.ret, ==, EAI_CANCELED);
+	test_assert(ctx.client == NULL);
+	test_run_ioloop_briefly(old_ioloop);
+	test_assert_ucmp(ctx.calls, ==, 1);
 	io_loop_destroy(&old_ioloop);
 	test_end();
 }
@@ -959,6 +1039,8 @@ int main(void)
 		test_dns_lookup_init_failure_switch_ioloop,
 		test_dns_lookup_deferred_switch_ioloop,
 		test_dns_lookup_deferred_switch_ioloop_shared,
+		test_dns_lookup_deferred_abort,
+		test_dns_lookup_deferred_abort_deinit_client,
 		test_dns_lookup_deferred_client_deinit,
 		test_dns_lookup_deferred_cache_refresh,
 		NULL

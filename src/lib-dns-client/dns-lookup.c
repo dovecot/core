@@ -469,11 +469,17 @@ void dns_lookup_abort(struct dns_lookup **_lookup)
 
 	struct dns_client *client = lookup->client;
 	bool deinit_client = client != NULL && client->deinit_client_at_free;
+	bool deferred = lookup->deferred;
 
 	/* The callback may free a shared client and the lookup with it. */
 	dns_lookup_cancel(lookup);
-	if (deinit_client)
+	if (deferred) {
+		/* Nothing else will complete the lookup. Free it now, so
+		   its timeout won't fire later. */
+		dns_lookup_free(&lookup);
+	} else if (deinit_client) {
 		dns_client_deinit(&client);
+	}
 }
 
 static void
