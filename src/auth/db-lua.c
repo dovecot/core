@@ -522,9 +522,10 @@ static void auth_lua_export_table(lua_State *L, struct auth_request *req,
 			lua_pop(L, 1);
 			continue;
 		}
-		if (strpbrk(key, "\t\n\r") != NULL) {
+		if (!auth_fields_key_is_valid(key)) {
 			e_warning(authdb_event(req),
-				  "db-lua: Field key cannot contain <CR>, <LF> or <TAB> - ignoring");
+				  "db-lua: Invalid field key - ignoring: %s",
+				  key);
 			lua_pop(L, 1);
 			continue;
 		}

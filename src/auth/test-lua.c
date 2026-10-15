@@ -138,45 +138,53 @@ static void test_db_lua_auth_lookup(void)
 
 static void test_db_lua_auth_lookup_bad_keyname(void)
 {
+	static const struct {
+		const char *key;
+		const char *warning;
+	} tests[] = {
+		{ "", "db-lua: Field key cannot be empty" },
+		{ "\\t", "db-lua: Invalid field key - ignoring: \t" },
+		{ "\\n", "db-lua: Invalid field key - ignoring: \n" },
+	};
 	const char *scheme,*pass;
-
-	struct auth_request *req = test_db_lua_auth_request_new();
-
-	static const char *luascript =
-"function auth_passdb_lookup(req)\n"
-"  req:log_debug(\"user \" .. req.user)\n"
-"  return dovecot.auth.PASSDB_RESULT_OK, {"
-"[\"\"]=\"1\","
-"[\"\\t\"]=\"2\","
-"[\"\\n\"]=\"3\","
-"[\"password\"]=\"pass\""
-"}\n"
-"end\n";
-	const char *error = NULL;
-	struct dlua_script *script = NULL;
 
 	test_begin("auth db lua bad keyname");
 
-	test_assert(dlua_script_create_string(luascript, &script, NULL, &error) == 0);
-	if (script != NULL) {
-		const struct auth_lua_script_parameters params = {
-			.script = script,
-		};
-		test_assert(auth_lua_script_init(&params, &error) == 0);
-		test_expect_error_string_n_times("db-lua: Field key", 3);
-		test_assert(auth_lua_call_passdb_lookup(script, req, &scheme, &pass, &error) == 1);
-		dlua_script_unref(&script);
-		test_assert_strcmp(pass, "pass");
-		const ARRAY_TYPE(auth_field) *fields =
-			auth_fields_export(req->fields.extra_fields);
-		test_assert(array_count(fields) == 0);
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		struct auth_request *req = test_db_lua_auth_request_new();
+		const char *luascript = t_strdup_printf(
+"function auth_passdb_lookup(req)\n"
+"  req:log_debug(\"user \" .. req.user)\n"
+"  return dovecot.auth.PASSDB_RESULT_OK, {"
+"[\"%s\"]=\"1\","
+"[\"password\"]=\"pass\""
+"}\n"
+"end\n", tests[i].key);
+		const char *error = NULL;
+		struct dlua_script *script = NULL;
+
+		test_assert_idx(dlua_script_create_string(luascript, &script, NULL, &error) == 0, i);
+		if (script != NULL) {
+			const struct auth_lua_script_parameters params = {
+				.script = script,
+			};
+			test_assert_idx(auth_lua_script_init(&params, &error) == 0, i);
+			test_expect_error_string(tests[i].warning);
+			test_assert_idx(auth_lua_call_passdb_lookup(script, req, &scheme, &pass, &error) == 1, i);
+			test_expect_no_more_errors();
+			dlua_script_unref(&script);
+			test_assert_strcmp_idx(pass, "pass", i);
+			const ARRAY_TYPE(auth_field) *fields =
+				auth_fields_export(req->fields.extra_fields);
+			test_assert_idx(array_count(fields) == 0, i);
+		}
+		if (error != NULL) {
+			i_error("Test failed: %s", error);
+		}
+		i_free(req->passdb);
+		auth_request_passdb_lookup_end(req, PASSDB_RESULT_OK);
+		auth_request_unref(&req);
 	}
-	if (error != NULL) {
-		i_error("Test failed: %s", error);
-	}
-	i_free(req->passdb);
-	auth_request_passdb_lookup_end(req, PASSDB_RESULT_OK);
-	auth_request_unref(&req);
 
 	test_end();
 }
