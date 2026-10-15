@@ -14,8 +14,7 @@
 #include "mail-storage-settings.h"
 #include "mail-storage-service.h"
 #include "smtp-address.h"
-#include "quota-private.h"
-#include "quota-plugin.h"
+#include "quota-status-plugin.h"
 #include "quota-status-settings.h"
 
 enum quota_protocol {
@@ -100,39 +99,6 @@ static void client_reset(struct quota_client *client)
 	i_free(client->recipient);
 }
 
-static enum quota_alloc_result
-quota_check(struct mail_user *user, uoff_t mail_size, const char **error_r)
-{
-	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
-	struct mail_namespace *ns;
-	struct mailbox *box;
-	struct quota_transaction_context *ctx;
-	enum quota_alloc_result ret;
-
-	if (quser == NULL) {
-		/* no quota for user */
-		e_debug(user->event, "User has no quota");
-		*error_r = quota_alloc_result_errstr(QUOTA_ALLOC_RESULT_OK,
-						     NULL);
-		return QUOTA_ALLOC_RESULT_OK;
-	}
-
-	ns = mail_namespace_find_inbox(user->namespaces);
-	box = mailbox_alloc(ns->list, "INBOX", MAILBOX_FLAG_POST_SESSION);
-
-	ctx = quota_transaction_begin(box);
-	const char *internal_error;
-	ret = quota_test_alloc(ctx, I_MAX(1, mail_size), NULL, 0,
-			       QUOTA_ALLOC_FLAGS_NONE, NULL, &internal_error);
-	if (ret == QUOTA_ALLOC_RESULT_TEMPFAIL)
-		e_error(user->event, "quota check failed: %s", internal_error);
-	*error_r = quota_alloc_result_errstr(ret, ctx);
-	quota_transaction_rollback(&ctx);
-
-	mailbox_free(&box);
-	return ret;
-}
-
 static int client_check_mta_state(struct quota_client *client)
 {
 	if (client->state == NULL ||
@@ -209,8 +175,8 @@ static void client_handle_request(struct quota_client *client)
 		e_debug(client->event, "User `%s' not found", input.username);
 		value = quota_status_settings->quota_status_nouser;
 	} else if (ret > 0) {
-		enum quota_alloc_result qret = quota_check(user, client->size,
-							   &error);
+		enum quota_alloc_result qret =
+			quota_status_check(user, client->size, &error);
 		if (qret == QUOTA_ALLOC_RESULT_OK) {
 			e_debug(client->event,
 				"Message is acceptable");

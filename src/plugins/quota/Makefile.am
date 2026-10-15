@@ -55,6 +55,7 @@ lib10_doveadm_quota_plugin_la_SOURCES = \
 
 quota_status_SOURCES = \
 	quota-status.c \
+	quota-status-plugin.c \
 	quota-status-settings.c
 
 quota_status_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
@@ -109,6 +110,7 @@ pkginc_lib_HEADERS = \
 	quota-private.h \
 	quota-settings.h
 noinst_HEADERS = \
+	quota-status-plugin.h \
 	quota-status-settings.h
 
 EXTRA_DIST = rquota.x
