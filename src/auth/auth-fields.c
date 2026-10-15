@@ -67,9 +67,9 @@ void auth_fields_add(struct auth_fields *fields,
 	struct auth_field *field;
 	unsigned int idx;
 
-	i_assert(*key != '\0');
-	i_assert(strchr(key, '\t') == NULL &&
-		 strchr(key, '\n') == NULL);
+	/* callers must validate keys from outside auth before adding;
+	   keys from config settings are trusted as-is */
+	i_assert(auth_fields_key_is_valid(key));
 
 	if (!auth_fields_find_idx(fields, key, &idx)) {
 		if (!array_is_created(&fields->fields))
