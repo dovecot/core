@@ -93,7 +93,10 @@ pkginclude_HEADERS = \
 	config-request.h
 
 all-settings.c: $(SETTING_FILES) $(SETTING_LINKED_FILES) $(top_srcdir)/src/config/settings-get.py
-	$(AM_V_GEN)$(PYTHON) $(top_srcdir)/src/config/settings-get.py $(SETTING_FILES) -- $(SETTING_LINKED_FILES) > all-settings.c || rm -f all-settings.c
+	$(AM_V_GEN)$(PYTHON) $(top_srcdir)/src/config/settings-get.py $(SETTING_FILES) -- $(SETTING_LINKED_FILES) > all-settings.c.tmp && \
+	mv all-settings.c.tmp all-settings.c
+
+CLEANFILES = all-settings.c.tmp
 
 EXTRA_DIST = \
 	config-settings.c \
