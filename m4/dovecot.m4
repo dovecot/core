@@ -6,7 +6,7 @@ dnl This file is free software; the authors give
 dnl unlimited permission to copy and/or distribute it, with or without
 dnl modifications, as long as this notice is preserved.
 
-# serial 49
+# serial 50
 
 dnl
 dnl Check for support for D_FORTIFY_SOURCE=2
@@ -317,20 +317,6 @@ AC_DEFUN([DC_DOVECOT_MODULEDIR],[
 	AC_SUBST(moduledir)
 ])
 
-AC_DEFUN([DC_PLUGIN_DEPS],[
-	_plugin_deps=yes
-	AC_MSG_CHECKING([whether OS supports plugin dependencies])
-	case "$host_os" in
-	  darwin*)
-	    dnl OSX loads the plugins twice, which breaks stuff
-	    _plugin_deps=no
-	    ;;
-	esac
-	AC_MSG_RESULT([$_plugin_deps])
-	AM_CONDITIONAL([DOVECOT_PLUGIN_DEPS], [test "x$_plugin_deps" = "xyes"])
-	unset _plugin_deps
-])
-
 AC_DEFUN([DC_DOVECOT_TEST_WRAPPER],[
   AC_REQUIRE_AUX_FILE([run-test.sh.in])
   AC_ARG_VAR([VALGRIND], [Path to valgrind])
@@ -489,7 +475,6 @@ AC_DEFUN([DC_DOVECOT],[
 
 	AM_CONDITIONAL(DOVECOT_INSTALLED, test "$DOVECOT_INSTALLED" = "yes")
 
-	DC_PLUGIN_DEPS
 	DC_DOVECOT_TEST_WRAPPER
 ])
 
