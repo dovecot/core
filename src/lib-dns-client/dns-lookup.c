@@ -16,7 +16,7 @@ static struct event_category event_category_dns = {
 };
 
 struct dns_cache_lookup {
-	struct dns_client *client;
+	struct event *event;
 	char *key;
 };
 
@@ -67,6 +67,7 @@ static void dns_cache_lookup_free(struct dns_cache_lookup **_ctx)
 	struct dns_cache_lookup *ctx = *_ctx;
 	*_ctx = NULL;
 
+	event_unref(&ctx->event);
 	i_free(ctx->key);
 	i_free(ctx);
 }
@@ -75,7 +76,7 @@ static void dns_client_cache_callback(const struct dns_lookup_result *result,
 				      struct dns_cache_lookup *ctx)
 {
 	if (result->ret < 0)
-		e_debug(ctx->client->conn.event,
+		e_debug(ctx->event,
 			"Background entry refresh failed for %s '%s': %s",
 			*ctx->key == 'I' ? "IP" : "name",
 			ctx->key + 1, result->error);
@@ -94,13 +95,13 @@ static void dns_client_cache_refresh(const char *cache_key,
 			i_unreached();
 		ctx = i_new(struct dns_cache_lookup, 1);
 		ctx->key = i_strdup(cache_key);
-		ctx->client = client;
+		ctx->event = event_ref(client->conn.event);
 		dns_client_lookup_ptr(client, &ip, client->conn.event,
 				      dns_client_cache_callback, ctx, &lookup);
 	} else if (*cache_key == 'N') {
 		ctx = i_new(struct dns_cache_lookup, 1);
 		ctx->key = i_strdup(cache_key);
-		ctx->client = client;
+		ctx->event = event_ref(client->conn.event);
 		dns_client_lookup(client, cache_key + 1, client->conn.event,
 				  dns_client_cache_callback, ctx, &lookup);
 	} else {
