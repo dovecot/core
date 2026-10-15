@@ -152,6 +152,12 @@ static int client_check_mta_state(struct quota_client *client)
 
 static void client_handle_request(struct quota_client *client)
 {
+	/* The quota plugin is needed for the quota check, so load it even if
+	   it's not in mail_plugins. */
+	static const char *const code_override_fields[] = {
+		"mail_plugins/quota=yes",
+		NULL
+	};
 	struct mail_storage_service_input input;
 	struct mail_user *user;
 	struct smtp_address *rcpt;
@@ -192,6 +198,7 @@ static void client_handle_request(struct quota_client *client)
 
 	i_zero(&input);
 	input.event_parent = client->event;
+	input.code_override_fields = code_override_fields;
 	smtp_address_detail_parse_temp(quota_status_settings->recipient_delimiter,
 				       rcpt, &input.username, &delim,
 				       &detail);
