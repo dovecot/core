@@ -683,7 +683,7 @@ test_nf_write_cps(const ARRAY_TYPE(uint32_t) *in, enum unicode_nf_type type,
 static void
 test_nf_append_n(ARRAY_TYPE(uint32_t) *arr, uint32_t cp, unsigned int n)
 {
-	while (n-- > 0)
+	for (; n > 0; n--)
 		array_push_back(arr, &cp);
 }
 
