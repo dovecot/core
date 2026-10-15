@@ -340,6 +340,53 @@ static void test_t_str_rtrim(void)
 	test_end();
 }
 
+static void test_str_skip_lwsp(void)
+{
+	const struct {
+		const char *input;
+		const char *output;
+	} tests[] = {
+		{ "", "" },
+		{ "foo", "foo" },
+		{ "  foo", "foo" },
+		{ "\tfoo", "foo" },
+		{ " \t foo", "foo" },
+		{ " \t", "" },
+		{ "\nfoo", "\nfoo" },
+		{ " \nfoo", "\nfoo" },
+	};
+
+	test_begin("str_skip_lwsp()");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		test_assert_strcmp_idx(str_skip_lwsp(tests[i].input),
+					tests[i].output, i);
+	}
+	test_end();
+}
+
+static void test_str_skip_nonlwsp(void)
+{
+	const struct {
+		const char *input;
+		const char *output;
+	} tests[] = {
+		{ "", "" },
+		{ "foo", "" },
+		{ "foo bar", " bar" },
+		{ "foo\tbar", "\tbar" },
+		{ "foo   bar", "   bar" },
+		{ " ", " " },
+		{ "foo\n", "" },
+	};
+
+	test_begin("str_skip_nonlwsp()");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		test_assert_strcmp_idx(str_skip_nonlwsp(tests[i].input),
+					tests[i].output, i);
+	}
+	test_end();
+}
+
 static const char *const test_strarray_input[] = {
 	"", "hello", "world", "", "yay", "", NULL
 };
@@ -816,6 +863,8 @@ void test_strfuncs(void)
 	test_t_str_trim();
 	test_t_str_ltrim();
 	test_t_str_rtrim();
+	test_str_skip_lwsp();
+	test_str_skip_nonlwsp();
 	test_t_strarray_join();
 	test_p_array_const_string_join();
 	test_i_memrchr();

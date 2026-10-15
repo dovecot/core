@@ -5,6 +5,9 @@
    intmax_t number in base 10. This value includes the trailing \0. */
 #define MAX_INT_STRLEN ((sizeof(uintmax_t) * CHAR_BIT + 2) / 3 + 1)
 
+/* Linear whitespace: space and tab. */
+#define STRFUNCS_LWSP " \t"
+
 extern const unsigned char uchar_nul; /* (const unsigned char *)"" */
 extern const unsigned char *uchar_empty_ptr; /* non-NULL pointer that shouldn't be dereferenced. */
 extern const char *const empty_str_array[];
@@ -83,6 +86,16 @@ const char *t_str_ltrim(const char *str, const char *chars);
 const char *p_str_ltrim(pool_t pool, const char *str, const char *chars);
 const char *t_str_rtrim(const char *str, const char *chars);
 const char *p_str_rtrim(pool_t pool, const char *str, const char *chars);
+
+static inline const char *str_skip_lwsp(const char *str)
+{
+	return str_ltrim(str, STRFUNCS_LWSP);
+}
+
+static inline const char *str_skip_nonlwsp(const char *str)
+{
+	return str + strcspn(str, STRFUNCS_LWSP);
+}
 
 int null_strcmp(const char *s1, const char *s2) ATTR_PURE;
 int null_strcasecmp(const char *s1, const char *s2) ATTR_PURE;
