@@ -582,7 +582,6 @@ mail_user_try_load_class_plugin(struct mail_user *user, const char *name)
 	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.binary_name = master_service_get_name(master_service);
-	mod_set.setting_name = "<built-in storage lookup>";
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = event_want_debug(user->event);
 

@@ -10,8 +10,6 @@ struct module_dir_load_settings {
 	/* Binary name used for checking if plugin is tried to be loaded for
 	   wrong binary. */
 	const char *binary_name;
-	/* Setting name used in plugin dependency error message */
-	const char *setting_name;
 
 	/* If non-NULL, load only modules where filter_callback returns TRUE */
 	bool (*filter_callback)(const char *name, void *context);

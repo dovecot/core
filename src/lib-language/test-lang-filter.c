@@ -853,7 +853,6 @@ static struct module *test_lang_filter_module_preload(void)
 	/* load the module like mail_plugins does */
 	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
-	mod_set.setting_name = "mail_plugins";
 	mod_set.require_init_funcs = TRUE;
 	modules = module_dir_load(TEST_MODULE_DIR, module_names, &mod_set);
 	module_dir_init(modules);

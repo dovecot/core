@@ -99,7 +99,6 @@ int lang_filter_module_load(const char *module_name,
 
 	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
-	mod_set.setting_name = "<built-in lib-language lookup>";
 	mod_set.require_init_funcs = TRUE;
 	mod_set.ignore_missing = TRUE;
 	if (module_dir_try_load_missing(&lang_filter_modules,

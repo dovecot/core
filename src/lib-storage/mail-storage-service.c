@@ -1015,7 +1015,6 @@ mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.binary_name = master_service_get_name(ctx->service);
-	mod_set.setting_name = "mail_plugins";
 	mod_set.get_required_plugins = mail_storage_service_get_required_plugins;
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = user_set->mail_debug;
