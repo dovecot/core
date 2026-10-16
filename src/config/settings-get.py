@@ -5,14 +5,40 @@ source files.
 
 Usage: settings-get.py <files> [-- <linked files>]
 
-The settings structs, setting_parser_infos, service settings and the code
-inside "/* <settings checks> */" .. "/* </settings checks> */" are copied
-from the files. The linked files are already linked into the config binaries
-via libdovecot.so, so only extern declarations are written for them."""
+The config process and doveconf need to know about all the settings, including
+the ones used only by other binaries and by the plugins. Instead of linking
+all of that code into them, this script copies the settings-related parts of
+the source files into a single all-settings.c:
+
+ - the settings structs (struct *_settings { ... })
+ - the setting_define arrays and the DEF() etc. macros that they use
+ - the default settings and the setting_parser_infos
+ - the service settings and their default settings
+ - the code inside "/* <settings checks> */" .. "/* </settings checks> */"
+
+The <files> list should have the headers first, so the types are defined
+before they're used by the .c files.
+
+The <linked files> are already linked into the config binaries via
+libdovecot.so, so their contents aren't copied. Only extern declarations are
+written for their setting_parser_infos.
+
+Finally the arrays listing all the found infos and services are written:
+
+ - all_default_infos[]: all setting_parser_infos
+ - config_default_services[]: all service_settings and their defaults
+
+The source files are parsed line by line with simple regexps, so they must
+follow the usual coding style. For example, a block that is copied ends at
+the first line containing "};"."""
 
 import re
 import sys
 
+# Written to the beginning of all-settings.c. CONFIG_BINARY allows the copied
+# code to leave out parts that are needed only by the real binaries.
+# PLUGIN_BUILD includes the settings of the LDAP and Lua code, which can be
+# built either as plugins or into the binaries (BUILTIN_LDAP, BUILTIN_LUA).
 HEADER = """\
 /* WARNING: THIS FILE IS GENERATED - DO NOT PATCH!
    It's not enough alone in any case, because the defaults may be
@@ -49,6 +75,7 @@ HEADER = """\
 """
 
 # Settings-related structures, which are copied until the end of the block.
+# These match both type definitions (in headers) and variable definitions.
 SETTINGS_BLOCK_RES = [
     re.compile(r"struct .*_settings \{"),
     re.compile(r"struct setting_define.*\{"),
@@ -56,36 +83,51 @@ SETTINGS_BLOCK_RES = [
     re.compile(r"struct .*_default_settings = \{"),
     re.compile(r"struct setting_keyvalue.*_default_settings_keyvalue\[\] = \{"),
 ]
+# struct service_settings <name>_service_settings = {
 SERVICE_SETTINGS_RE = re.compile(r"^struct service_settings (.*) = \{")
+# Default settings for a service: <name>_service_settings_defaults[]
 SERVICE_DEFAULTS_RE = re.compile(
     r"^const struct setting_keyvalue (.*_defaults)\[\] = \{")
+# The setting_parser_infos are added to all_default_infos[]
 PARSER_INFO_RE = re.compile(r"^const struct setting_parser_info (.*) = \{")
-# Macros used for the setting_define arrays.
+# Macros used for the setting_define arrays. These are copied as single lines,
+# or until the end of a multi-line macro.
 DEF_MACRO_RES = [
     re.compile(r"#define.*DEF"),
     re.compile(r"^#undef.*DEF"),
     re.compile(r"ARRAY_DEFINE_TYPE.*_settings"),
 ]
+# Code between these markers is copied as-is. It contains code needed by the
+# setting_parser_infos, e.g. check_func() implementations.
 CHECKS_BEGIN = "/* <settings checks> */"
 CHECKS_END = "/* </settings checks> */"
+# Preprocessor conditionals: directive and its argument
 CONDITIONAL_RE = re.compile(
     r"^#\s*(ifdef|ifndef|if|elif|else|endif)\b\s*(.*?)\s*$")
 DEFINE_RE = re.compile(r"^#\s*define\s+(\w+)\b")
 STATIC_RE = re.compile(r"^\s*static\b")
+# Variable name (optionally array) followed by "= {"
 WEAK_RE = re.compile(r"(\w+(?:\[\])?)(\s*=\s*\{)")
 SERVICE_NAME_RE = re.compile(r"^(.*)_service_settings$")
 
 
 def add_weak(line):
-    """Add __attribute__((weak)) to a non-static variable definition, so
-    ASAN doesn't report ODR violations when the same symbol is also present
-    in a dlopen()'d plugin .so."""
+    """Add __attribute__((weak)) to a non-static variable definition.
+
+    The variables copied to all-settings.c are also defined in the plugins,
+    which doveconf and config dlopen() at runtime. ASAN reports such
+    duplicate definitions as ODR violations, but not when one of them is
+    weak. The plugin's strong definition then takes precedence at runtime.
+
+    Static variables are skipped, because clang rejects the weak attribute
+    for them (and they can't conflict anyway)."""
     if STATIC_RE.search(line):
         return line
     return WEAK_RE.sub(r"\1 __attribute__((weak))\2", line, count=1)
 
 
 def ifdefs_begin(ifdefs):
+    """Return lines that open the given #if conditions."""
     return "".join(ifdef + "\n" for ifdef in ifdefs)
 
 
@@ -97,7 +139,12 @@ def ifdefs_wrap(ifdefs, text):
 class Conditionals:
     """Track the currently open preprocessor conditionals. Each one is
     stored as the lines needed to reopen it, e.g. "#ifdef FOO\n#else"
-    for the #else branch. Header guards are ignored."""
+    for the #else branch. Header guards are ignored.
+
+    The copied parts are written to all-settings.c inside the same
+    conditionals as they were in the original file. Only the conditionals
+    are copied, not the rest of the code between them, so they need to be
+    reopened for each copied part."""
 
     def __init__(self):
         self.stack = []
@@ -105,6 +152,7 @@ class Conditionals:
         self.ifndef_name = None
 
     def update(self, line):
+        """Update the conditionals stack with the given line."""
         ifndef_name, self.ifndef_name = self.ifndef_name, None
         m = DEFINE_RE.search(line)
         if m is not None and m.group(1) == ifndef_name:
@@ -130,11 +178,15 @@ class Conditionals:
             self.stack[-1] += "\n" + line.rstrip("\n")
 
     def get(self):
+        """Return the currently open conditionals, outermost first."""
         return [cond for cond in self.stack if cond is not None]
 
 
 class SettingsFile:
-    """Settings parsed from a single source file."""
+    """Settings parsed from a single source file.
+
+    The file is parsed with a state machine: each parse_*() method handles
+    a single line and returns the method for parsing the next line."""
 
     def __init__(self, path):
         self.path = path
@@ -153,6 +205,7 @@ class SettingsFile:
 
         # Currently open #if conditions
         self.conditionals = Conditionals()
+        # Conditions that were open when the current block began
         self.ifdefs = []
         # Number of #if conditions written to contents/code, which still
         # need to be closed with #endif.
@@ -166,6 +219,9 @@ class SettingsFile:
                 state = state(line)
 
     def write_contents(self, line, block_ends):
+        """Copy a line of a block to contents. The block is wrapped inside
+        the conditionals that were open when it began: they are written
+        before its first line and closed after its last line."""
         if len(self.ifdefs) > 0 and self.ifdefs_open == 0:
             self.contents += ifdefs_begin(self.ifdefs)
             self.ifdefs_open = len(self.ifdefs)
@@ -175,11 +231,16 @@ class SettingsFile:
             self.ifdefs_open = 0
 
     def parse_root(self, line):
+        """Parse a line outside any copied block. Track the conditionals
+        and look for the beginning of something to copy."""
+        # The conditionals are tracked only here, so any conditionals
+        # inside a copied block are copied as-is.
         self.conditionals.update(line)
         self.ifdefs = self.conditionals.get()
 
         state = self.parse_root
         if any(r.search(line) for r in SETTINGS_BLOCK_RES):
+            # Only variables can be weak, not type definitions
             if "= {" in line:
                 line = add_weak(line)
             state = self.parse_block
@@ -201,11 +262,14 @@ class SettingsFile:
             line = add_weak(line)
             state = self.parse_block
         elif CHECKS_BEGIN in line:
+            # The code may contain #ifs of its own, so the whole region is
+            # wrapped inside the conditionals instead of each block.
             self.code += ifdefs_begin(self.ifdefs) + line
             self.ifdefs_open = len(self.ifdefs)
             return self.parse_checks
 
         if state == self.parse_block:
+            # Copy the block's first line (and maybe also the last).
             return self.parse_block(line)
 
         if any(r.search(line) for r in DEF_MACRO_RES):
@@ -245,6 +309,7 @@ class SettingsFile:
 
 
 def service_name(name):
+    """Return service name from <name>_service_settings."""
     m = SERVICE_NAME_RE.search(name)
     if m is None:
         sys.exit("unexpected service name %s" % name)
@@ -259,6 +324,7 @@ def main():
     service_defaults = set()
     infos = {}
 
+    # Files after "--" are linked files.
     linked_file = False
     for path in sys.argv[1:]:
         if path == "--":
@@ -271,13 +337,16 @@ def main():
         service_defaults |= f.service_defaults
         infos.update(f.infos)
 
+        # Write each file's parts in the same order as the files are given,
+        # so that the headers' type definitions come first.
         out.write("/* %s */\n" % path)
         out.write(f.externs)
         if not linked_file:
             out.write(f.code)
             out.write(f.contents)
 
-    # Write an array of default services and their default settings.
+    # Write an array of default services and their default settings,
+    # sorted by the service name.
     out.write("static const struct config_service config_default_services[] = {\n")
     for service in sorted(services, key=service_name):
         defaults = service + "_defaults"
@@ -287,7 +356,7 @@ def main():
     out.write("\t{ NULL, NULL }\n")
     out.write("};\n")
 
-    # Write a list of all settings infos.
+    # Write a list of all settings infos, sorted by the variable name.
     out.write("const struct setting_parser_info *all_default_infos[] = {\n")
     for name in sorted(infos):
         out.write(infos[name])
