@@ -490,7 +490,13 @@ static int worker_input_args(struct connection *conn, const char *const *args)
 		auth_worker_deinit(&worker, "Max requests limit", TRUE);
 		ret = 0;
 	} else if (worker->shutdown) {
-		auth_worker_deinit(&worker, "Idle kill", FALSE);
+		/* The worker wants to exit. If there are still queued requests,
+		   create a replacement worker for them. Otherwise they would
+		   stay in the queue forever once the last worker is gone,
+		   because new requests are only queued while the queue is
+		   non-empty. */
+		auth_worker_deinit(&worker, "Idle kill",
+				   aqueue_count(worker_request_queue) > 0);
 		ret = 0;
 	} else {
 		auth_worker_request_send_next(worker);
