@@ -397,6 +397,8 @@ struct client *clients_get_first_fd_proxy(void);
 
 void client_add_forward_field(struct client *client, const char *key,
 			      const char *value);
+bool client_forward_field_check(struct client *client, const char *field)
+	ATTR_WARN_UNUSED_RESULT;
 bool client_forward_decode_base64(struct client *client, const char *value);
 void client_set_title(struct client *client);
 bool client_get_extra_disconnect_reason(struct client *client,

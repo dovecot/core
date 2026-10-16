@@ -38,6 +38,8 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 		string_t *fwd = t_str_new(128);
                 for(const char *const *ptr = client->common.auth_passdb_args;*ptr != NULL; ptr++) {
                         if (str_begins_icase(*ptr, "forward_", &value)) {
+				if (!client_forward_field_check(&client->common, value))
+					continue;
                                 if (str_len(fwd) > 0)
                                         str_append_c(fwd, '\t');
                                 str_append_tabescaped(fwd, value);

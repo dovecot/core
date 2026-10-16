@@ -1080,6 +1080,20 @@ void client_add_forward_field(struct client *client, const char *key,
 	array_push_back(&client->forward_fields, &entry);
 }
 
+bool client_forward_field_check(struct client *client, const char *field)
+{
+	/* the backend rejects a forward field with control characters:
+	   imap-login (ID) and LMTP (XRCPTFORWARD) drop just the field, the
+	   XCLIENT FORWARD backends reject the whole command. Warn here too,
+	   so the bad passdb value shows up on the proxy as well */
+	if (auth_forward_field_line_is_valid(field))
+		return TRUE;
+	e_warning(client->event,
+		  "Ignoring invalid passdb field forward_%s",
+		  str_sanitize(t_strcut(field, '='), 64));
+	return FALSE;
+}
+
 bool client_forward_decode_base64(struct client *client, const char *value)
 {
 	size_t value_len = strlen(value);
