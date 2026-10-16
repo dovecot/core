@@ -14,6 +14,7 @@
 #include "time-util.h"
 #include "failures-private.h"
 
+#include <ctype.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <syslog.h>
@@ -790,6 +791,25 @@ const char *i_get_failure_prefix(void)
 	return log_prefix != NULL ? log_prefix : "";
 }
 
+static size_t
+internal_split_pos(const char *text, size_t text_len, size_t pos)
+{
+	/* log_message_sanitize() writes control characters as <0xNN>.
+	   Don't cut one in the middle: move the split before its '<'. The
+	   escape is 6 bytes, so the '<' is within the 5 bytes before pos. */
+	if (pos >= text_len)
+		return pos;
+	for (size_t i = pos; i > 0 && pos - i < 6; ) {
+		i--;
+		if (text[i] == '<' && text_len - i >= 6 && i + 6 > pos &&
+		    text[i+1] == '0' && text[i+2] == 'x' &&
+		    i_isxdigit(text[i+3]) && i_isxdigit(text[i+4]) &&
+		    text[i+5] == '>')
+			return i;
+	}
+	return pos;
+}
+
 static int internal_send_split(string_t *full_str, size_t prefix_len)
 {
 	/* This function splits the log line into PIPE_BUF sized blocks, so
@@ -820,12 +840,15 @@ static int internal_send_split(string_t *full_str, size_t prefix_len)
 	while (pos < str_len(full_str)) {
 		str_truncate(str, prefix_len);
 		const char *text = str_c(full_str) + pos;
-		str_append_max(str, text, max_text_len);
+		size_t text_len = str_len(full_str) - pos;
+		size_t line_len = internal_split_pos(text, text_len,
+			I_MIN(text_len, max_text_len));
+		str_append_data(str, text, line_len);
 		str_append_c(str, '\n');
 		if (log_fd_write(STDERR_FILENO,
 				 str_data(str), str_len(str)) < 0)
 			return -1;
-		pos += max_text_len;
+		pos += line_len;
 	}
 	return 0;
 }
