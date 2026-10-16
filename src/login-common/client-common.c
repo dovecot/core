@@ -26,6 +26,7 @@
 #include "master-service.h"
 #include "login-client.h"
 #include "auth-client.h"
+#include "auth-master.h"
 #include "dsasl-client.h"
 #include "login-proxy.h"
 #include "settings-parser.h"
@@ -1094,6 +1095,10 @@ bool client_forward_decode_base64(struct client *client, const char *value)
 	char **_fields = p_strsplit_tabescaped(client->preproxy_pool,
 					       str_c(str));
 	const char *const *fields = (const char *const *)_fields;
+	for (unsigned int i = 0; fields[i] != NULL; i++) {
+		if (!auth_forward_field_line_is_valid(fields[i]))
+			return FALSE;
+	}
 	unsigned int fields_count = str_array_length(fields);
 	if (!array_is_created(&client->forward_fields)) {
 		p_array_init(&client->forward_fields,
