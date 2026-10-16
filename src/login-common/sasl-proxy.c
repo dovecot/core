@@ -158,6 +158,9 @@ login_callback(const struct login_reply *reply, void *context)
 	enum sasl_proxy_reply sasl_reply = SASL_PROXY_REPLY_MASTER_FAILED;
 	const char *data = NULL;
 
+	/* The backend replies only after receiving the passed descriptor.
+	   Closing it before that can cause an early EOF on macOS. */
+	i_close_fd(&client->pending_plaintext_fd);
 	client->master_tag = 0;
 	client->authenticating = FALSE;
 	if (reply != NULL) {
@@ -230,10 +233,12 @@ static int master_send_request(struct anvil_request *anvil_request)
 	params.socket_path = client->postlogin_socket_path;
 	params.request = req;
 	params.data = buf->data;
+	if (close_fd) {
+		i_assert(client->pending_plaintext_fd == -1);
+		client->pending_plaintext_fd = fd;
+	}
 	login_client_request(login_client_list, &params, login_callback,
 			     client, &client->master_tag);
-	if (close_fd)
-		i_close_fd(&fd);
 	return 0;
 }
 
