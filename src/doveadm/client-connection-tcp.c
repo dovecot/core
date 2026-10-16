@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "lib-signals.h"
 #include "str.h"
+#include "abnf.h"
 #include "base64.h"
 #include "ioloop.h"
 #include "istream.h"
@@ -70,9 +71,6 @@ doveadm_server_log_handler(const struct failure_context *ctx,
 	    conn->log_out != NULL) T_BEGIN {
 		struct ioloop *prev_ioloop = current_ioloop;
 		struct ostream *log_out = conn->log_out;
-		char c;
-		const char *ptr;
-		bool corked;
 		va_list va;
 
 		/* prevent re-entering this code if
@@ -87,33 +85,18 @@ doveadm_server_log_handler(const struct failure_context *ctx,
 		const char *log_prefix =
 			ctx->log_prefix != NULL ? ctx->log_prefix :
 			i_get_failure_prefix();
-		size_t log_prefix_len = strlen(log_prefix);
-		c = doveadm_log_type_to_char(ctx->type);
-		corked = o_stream_is_corked(log_out);
 
 		va_copy(va, args);
 		const char *str = t_strdup_vprintf(format, va);
 		va_end(va);
 
-		if (!corked)
-			o_stream_cork(log_out);
-		for (;;) {
-			ptr = strchr(str, '\n');
-			size_t len = ptr == NULL ? strlen(str) :
-				(size_t)(ptr - str);
+		string_t *line = t_str_new(strlen(log_prefix) + strlen(str) + 16);
+		str_append_c(line, doveadm_log_type_to_char(ctx->type));
+		str_append_ctrl_escaped(line, log_prefix, abnf_is_ascii_ctrl);
+		str_append_log_escaped(line, str);
+		str_append_c(line, '\n');
 
-			o_stream_nsend(log_out, &c, 1);
-			o_stream_nsend(log_out, log_prefix, log_prefix_len);
-			o_stream_nsend(log_out, str, len);
-			o_stream_nsend(log_out, "\n", 1);
-
-			if (ptr == NULL)
-				break;
-			str = ptr+1;
-		}
-		o_stream_uncork(log_out);
-		if (corked)
-			o_stream_cork(log_out);
+		o_stream_nsend(log_out, str_data(line), str_len(line));
 		io_loop_set_current(prev_ioloop);
 
 		log_recursing = FALSE;
