@@ -3894,13 +3894,15 @@ dcrypt_openssl_sign(struct dcrypt_private_key *key, const char *algorithm,
 		ret = dcrypt_openssl_error(error_r);
 	} else {
 		i_assert(siglen > 0);
+		size_t offset = signature_r->used;
 		/* @UNSAFE */
 		unsigned char *buf =
 			buffer_append_space_unsafe(signature_r, siglen);
 		if (EVP_DigestSign(dctx, buf, &siglen, data, data_len) != 1) {
+			buffer_set_used_size(signature_r, offset);
 			ret = dcrypt_openssl_error(error_r);
 		} else {
-			buffer_set_used_size(signature_r, siglen);
+			buffer_set_used_size(signature_r, offset + siglen);
 			ret = TRUE;
 		}
 	}

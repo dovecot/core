@@ -1865,6 +1865,34 @@ static void test_sign_verify_x962_curves(void)
 	test_end();
 }
 
+static void test_sign_dss_append(void)
+{
+	const char *data = "signed data";
+	struct dcrypt_keypair pair;
+	buffer_t *signature = t_buffer_create(256);
+	const char *error;
+	bool valid;
+
+	test_begin("sign (dss) appends to the signature buffer");
+	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0,
+				     SN_X9_62_prime256v1, &error))
+		i_fatal("%s", error);
+	buffer_append(signature, "prefix", 6);
+	test_assert(dcrypt_sign(pair.priv, SN_sha256,
+				DCRYPT_SIGNATURE_FORMAT_DSS,
+				data, strlen(data), signature, 0, &error));
+	test_assert(signature->used > 6);
+	test_assert(memcmp(signature->data, "prefix", 6) == 0);
+	test_assert(dcrypt_verify(pair.pub, SN_sha256,
+				  DCRYPT_SIGNATURE_FORMAT_DSS,
+				  data, strlen(data),
+				  CONST_PTR_OFFSET(signature->data, 6),
+				  signature->used - 6, &valid, 0, &error) &&
+		    valid);
+	dcrypt_keypair_unref(&pair);
+	test_end();
+}
+
 static void test_static_verify_ecdsa(void)
 {
 	test_begin("static verify (ecdsa)");
@@ -2628,6 +2656,7 @@ int main(void)
 		test_sign_verify_x962,
 		test_sign_verify_x962_fixed_width,
 		test_sign_verify_x962_curves,
+		test_sign_dss_append,
 		test_static_verify_ecdsa,
 		test_static_verify_rsa,
 		test_static_verify_ecdsa_x962,
