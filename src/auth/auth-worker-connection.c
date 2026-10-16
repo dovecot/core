@@ -593,9 +593,32 @@ void auth_worker_connection_init(void)
 					   &auth_worker_connection_funcs);
 }
 
+static void auth_worker_request_queue_abort(void)
+{
+	struct auth_worker_request *request;
+	const char *const args[] = {
+		"FAIL",
+		t_strdup_printf("%d", PASSDB_RESULT_INTERNAL_FAILURE),
+		NULL,
+	};
+
+	while (aqueue_count(worker_request_queue) > 0) {
+		request = array_idx_elem(&worker_request_array,
+					 aqueue_idx(worker_request_queue, 0));
+		aqueue_delete_tail(worker_request_queue);
+		e_debug(auth_event, "auth-worker: Aborted queued %s request for %s: Shutting down",
+			t_strcut(request->data, '\t'), request->username);
+		request->callback(NULL, args, request->context);
+	}
+}
+
 void auth_worker_connection_deinit(void)
 {
 	timeout_remove(&to_worker_refill);
+	/* Fail the requests that never got dispatched to a worker. Otherwise
+	   their auth requests would be leaked. Do this while the connections
+	   still exist, in case the callbacks try to send new requests. */
+	auth_worker_request_queue_abort();
 	connection_list_deinit(&connections);
 
 	aqueue_deinit(&worker_request_queue);
