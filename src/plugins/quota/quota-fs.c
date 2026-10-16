@@ -13,6 +13,41 @@
 #include "quota-private.h"
 #include "quota-fs.h"
 
+struct quota_fs_settings {
+	pool_t pool;
+
+	const char *quota_fs_mount_path;
+	const char *quota_fs_type;
+	bool quota_fs_message_limit;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct quota_fs_settings)
+static const struct setting_define quota_fs_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "quota_fs" },
+	DEF(STR, quota_fs_mount_path),
+	DEF(ENUM, quota_fs_type),
+	DEF(BOOL, quota_fs_message_limit),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct quota_fs_settings quota_fs_default_settings = {
+	.quota_fs_mount_path = "",
+	.quota_fs_type = "any:user:group",
+	.quota_fs_message_limit = FALSE,
+};
+
+const struct setting_parser_info quota_fs_setting_parser_info = {
+	.name = "quota_fs",
+	.plugin_dependency = "lib10_quota_plugin",
+	.defines = quota_fs_setting_defines,
+	.defaults = &quota_fs_default_settings,
+	.struct_size = sizeof(struct quota_fs_settings),
+	.pool_offset1 = 1 + offsetof(struct quota_fs_settings, pool),
+};
+
 #ifdef HAVE_FS_QUOTA
 
 #include <stdio.h>
@@ -94,41 +129,6 @@ struct fs_quota_root {
 #ifdef FS_QUOTA_NETBSD
 	struct quotahandle *qh;
 #endif
-};
-
-struct quota_fs_settings {
-	pool_t pool;
-
-	const char *quota_fs_mount_path;
-	const char *quota_fs_type;
-	bool quota_fs_message_limit;
-};
-
-#undef DEF
-#define DEF(type, name) \
-	SETTING_DEFINE_STRUCT_##type(#name, name, struct quota_fs_settings)
-static const struct setting_define quota_fs_setting_defines[] = {
-	{ .type = SET_FILTER_NAME, .key = "quota_fs" },
-	DEF(STR, quota_fs_mount_path),
-	DEF(ENUM, quota_fs_type),
-	DEF(BOOL, quota_fs_message_limit),
-
-	SETTING_DEFINE_LIST_END
-};
-
-static const struct quota_fs_settings quota_fs_default_settings = {
-	.quota_fs_mount_path = "",
-	.quota_fs_type = "any:user:group",
-	.quota_fs_message_limit = FALSE,
-};
-
-const struct setting_parser_info quota_fs_setting_parser_info = {
-	.name = "quota_fs",
-	.plugin_dependency = "lib10_quota_plugin",
-	.defines = quota_fs_setting_defines,
-	.defaults = &quota_fs_default_settings,
-	.struct_size = sizeof(struct quota_fs_settings),
-	.pool_offset1 = 1 + offsetof(struct quota_fs_settings, pool),
 };
 
 extern struct quota_backend quota_backend_fs;
