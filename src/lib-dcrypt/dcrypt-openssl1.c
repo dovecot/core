@@ -3852,8 +3852,8 @@ dcrypt_openssl_sign(struct dcrypt_private_key *key, const char *algorithm,
 	case DCRYPT_SIGNATURE_FORMAT_DSS:
 		break;
 	case DCRYPT_SIGNATURE_FORMAT_X962:
-		if (EVP_PKEY_base_id(key->key) == EVP_PKEY_RSA) {
-			*error_r = "Format does not support RSA";
+		if (EVP_PKEY_base_id(key->key) != EVP_PKEY_EC) {
+			*error_r = "Format requires an EC key";
 			return FALSE;
 		}
 		return dcrypt_openssl_sign_ecdsa(key, algorithm,
@@ -3983,8 +3983,8 @@ dcrypt_openssl_verify(struct dcrypt_public_key *key, const char *algorithm,
 	case DCRYPT_SIGNATURE_FORMAT_DSS:
 		break;
 	case DCRYPT_SIGNATURE_FORMAT_X962:
-		if (EVP_PKEY_base_id(key->key) == EVP_PKEY_RSA) {
-			*error_r = "Format does not support RSA";
+		if (EVP_PKEY_base_id(key->key) != EVP_PKEY_EC) {
+			*error_r = "Format requires an EC key";
 			return FALSE;
 		}
 		return dcrypt_openssl_verify_ecdsa(key, algorithm,

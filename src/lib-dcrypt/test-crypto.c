@@ -2240,6 +2240,33 @@ static void test_sign_verify_ed25519(void)
 	test_end();
 }
 
+static void test_sign_verify_x962_ed25519(void)
+{
+	const char *data = "signed data";
+	struct dcrypt_keypair pair;
+	buffer_t *signature = t_buffer_create(128);
+	unsigned char sig[64] = { 0 };
+	const char *error;
+	bool valid;
+
+	test_begin("sign and verify (x9.62) reject ed25519");
+	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, SN_ED25519,
+				     &error))
+		i_fatal("%s", error);
+	test_assert(!dcrypt_sign(pair.priv, SN_sha256,
+				 DCRYPT_SIGNATURE_FORMAT_X962,
+				 data, strlen(data), signature, 0, &error));
+	test_assert_strcmp(error, "Format requires an EC key");
+	test_assert(signature->used == 0);
+	test_assert(!dcrypt_verify(pair.pub, SN_sha256,
+				   DCRYPT_SIGNATURE_FORMAT_X962,
+				   data, strlen(data), sig, sizeof(sig),
+				   &valid, 0, &error));
+	test_assert_strcmp(error, "Format requires an EC key");
+	dcrypt_keypair_unref(&pair);
+	test_end();
+}
+
 static void test_static_verify_ed25519(void)
 {
 	const char *error = NULL;
@@ -2662,6 +2689,7 @@ int main(void)
 		test_static_verify_ecdsa_x962,
 #ifdef HAVE_X25519
 		test_sign_verify_ed25519,
+		test_sign_verify_x962_ed25519,
 		test_sign_verify_ed448,
 		test_static_verify_ed25519,
 		test_static_verify_ed448,
