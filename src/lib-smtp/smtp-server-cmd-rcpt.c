@@ -149,8 +149,7 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 		/* no whitespace */
 	} else if ((set->workarounds &
 		    SMTP_SERVER_WORKAROUND_WHITESPACE_BEFORE_PATH) != 0) {
-		while (*params == ' ' || *params == '\t')
-			params++;
+		params = str_skip_lwsp(params);
 	} else {
 		smtp_server_reply(cmd, 501, "5.5.4",
 				  "Invalid TO: "

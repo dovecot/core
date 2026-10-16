@@ -339,8 +339,7 @@ acl_right_names_parse(pool_t pool, const char *acl, const char **error_r)
 	unsigned int i;
 
 	/* parse IMAP ACL list */
-	while (*acl == ' ' || *acl == '\t')
-		acl++;
+	acl = str_skip_lwsp(acl);
 
 	t_array_init(&rights, 64);
 	while (*acl != '\0' && *acl != ' ' && *acl != '\t' && *acl != ':') {
@@ -357,7 +356,7 @@ acl_right_names_parse(pool_t pool, const char *acl, const char **error_r)
 		array_push_back(&rights, &acl_letter_map[i].name);
 		acl++;
 	}
-	while (*acl == ' ' || *acl == '\t') acl++;
+	acl = str_skip_lwsp(acl);
 
 	if (*acl != '\0') {
 		/* parse our own extended ACLs */
