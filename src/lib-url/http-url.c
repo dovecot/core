@@ -479,7 +479,8 @@ int http_url_parse(const char *url, struct http_url *base,
 	}
 	*url_r = url_parser.url;
 	/* http_url_is_empty() relies on this being set on every success. */
-	i_assert(url_parser.url->host.name != NULL);
+	i_assert(url_parser.url != NULL &&
+		 url_parser.url->host.name != NULL);
 	return 0;
 }
 
