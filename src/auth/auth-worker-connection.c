@@ -235,6 +235,9 @@ static void auth_worker_destroy(struct connection *conn)
 
 static struct auth_worker_connection *auth_worker_create(void)
 {
+	if (shutting_down)
+		return NULL;
+
 	/* first connection will negotiate auth_worker_process_limit
 	   via handshake */
 	if (auth_worker_process_limit > 0 &&
@@ -548,9 +551,11 @@ void auth_worker_call(pool_t pool, const char *username, const char *data,
 	request->callback = callback;
 	request->context = context;
 
-	if (aqueue_count(worker_request_queue) > 0) {
+	if (aqueue_count(worker_request_queue) > 0 ||
+	    shutting_down) {
 		/* requests are already being queued, no chance of
-		   finding/creating a worker */
+		   finding/creating a worker. While shutting down the
+		   request is queued so it gets failed at deinit. */
 		worker = NULL;
 	} else {
 		worker = auth_worker_find_free();
@@ -614,12 +619,15 @@ static void auth_worker_request_queue_abort(void)
 
 void auth_worker_connection_deinit(void)
 {
+	/* Aborting a request may continue it to the next passdb or userdb,
+	   which sends a new request to a worker. auth_worker_call() queues
+	   such requests while shutting_down, so they get failed below. */
+	i_assert(shutting_down);
 	timeout_remove(&to_worker_refill);
-	/* Fail the requests that never got dispatched to a worker. Otherwise
-	   their auth requests would be leaked. Do this while the connections
-	   still exist, in case the callbacks try to send new requests. */
-	auth_worker_request_queue_abort();
 	connection_list_deinit(&connections);
+	/* Fail the requests that never got dispatched to a worker. Otherwise
+	   their auth requests would be leaked. */
+	auth_worker_request_queue_abort();
 
 	aqueue_deinit(&worker_request_queue);
 	array_free(&worker_request_array);
