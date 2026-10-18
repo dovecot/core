@@ -170,7 +170,11 @@ static int auth_worker_handshake_args(struct connection *conn,
 		}
 
 		e_debug(conn->event, "Worker sent process limit '%s'", args[1]);
-		auth_workers_throttle_count = auth_worker_process_limit;
+		/* Don't undo the throttling while workers are failing.
+		   auth_worker_success() grows it back once they recover. */
+		if (auth_workers_throttle_count == 0 ||
+		    auth_workers_with_errors == 0)
+			auth_workers_throttle_count = auth_worker_process_limit;
 	}
 
 	if (auth_workers_throttle_count == 0) {
