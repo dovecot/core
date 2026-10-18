@@ -66,7 +66,7 @@ static const char *worker_socket_path;
 static struct timeout *to_worker_refill;
 
 static void auth_worker_deinit(struct auth_worker_connection **worker,
-			       const char *reason, bool restart) ATTR_NULL(2);
+			       const char *reason, bool restart);
 static void auth_worker_refill_workers(void);
 static void auth_worker_refill_timeout(void *context);
 
@@ -75,7 +75,7 @@ static void auth_worker_idle_timeout(struct auth_worker_connection *worker)
 	i_assert(worker->request == NULL);
 
 	if (idle_count > 1)
-		auth_worker_deinit(&worker, NULL, FALSE);
+		auth_worker_deinit(&worker, "Idle timeout", FALSE);
 	else
 		timeout_reset(worker->to_lookup);
 }
