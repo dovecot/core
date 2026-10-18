@@ -11,6 +11,7 @@
 #include "lib.h"
 #include "str.h"
 #include "crc32.h"
+#include "hash.h"
 #include "seq-range-array.h"
 #include "fuzzer.h"
 #include "mail-storage-private.h"
@@ -35,6 +36,13 @@ struct fuzz_mail {
 
 static struct fuzz_mail fuzz_mails[FUZZ_MAILS_COUNT];
 static bool fuzz_mails_initialized = FALSE;
+/* mail_search_arg -> opaque predicate hash. The hash is needed for each
+   evaluated mail, which nested INTHREADs multiply, so calculating it from
+   long strings every time would be too slow. The cached hashes are valid
+   only as long as the evaluated args aren't modified. This holds because
+   nothing is evaluated after the final mail_search_args_simplify()
+   idempotence check, which may modify them. */
+static HASH_TABLE(const struct mail_search_arg *, void *) fuzz_opaque_hashes;
 
 static uint32_t ATTR_NO_SANITIZE_INTEGER
 fuzz_mix(uint32_t x)
@@ -163,9 +171,7 @@ static bool fuzz_args_initialized(const struct mail_search_arg *args)
 /* Opaque predicate: A hash of everything that mail_search_arg_one_equals()
    compares, so that equal args are the same predicate and different args
    are (almost certainly) different predicates. */
-static bool ATTR_NO_SANITIZE_INTEGER
-fuzz_opaque_match(const struct mail_search_arg *arg,
-		  const struct fuzz_mail *mail)
+static uint32_t fuzz_opaque_hash(const struct mail_search_arg *arg)
 {
 	unsigned char fuzzy = arg->fuzzy ? 1 : 0;
 	uint32_t hash;
@@ -174,14 +180,38 @@ fuzz_opaque_match(const struct mail_search_arg *arg,
 	hash = crc32_data_more(hash, &arg->value.search_flags,
 			       sizeof(arg->value.search_flags));
 	hash = crc32_data_more(hash, &fuzzy, sizeof(fuzzy));
-	if (arg->hdr_field_name != NULL)
-		hash = crc32_str_more(hash, t_str_lcase(arg->hdr_field_name));
-	if (arg->value.str != NULL) {
-		/* keywords are case-insensitive, like in
-		   mail_search_arg_one_equals() */
-		const char *value = arg->type == SEARCH_KEYWORDS ?
-			t_str_lcase(arg->value.str) : arg->value.str;
-		hash = crc32_str_more(hash, value);
+	T_BEGIN {
+		if (arg->hdr_field_name != NULL) {
+			hash = crc32_str_more(hash,
+				t_str_lcase(arg->hdr_field_name));
+		}
+		if (arg->value.str != NULL) {
+			/* keywords are case-insensitive, like in
+			   mail_search_arg_one_equals() */
+			const char *value = arg->type == SEARCH_KEYWORDS ?
+				t_str_lcase(arg->value.str) : arg->value.str;
+			hash = crc32_str_more(hash, value);
+		}
+	} T_END;
+	return hash;
+}
+
+static bool ATTR_NO_SANITIZE_INTEGER
+fuzz_opaque_match(const struct mail_search_arg *arg,
+		  const struct fuzz_mail *mail)
+{
+	const struct mail_search_arg *orig_arg;
+	void *value;
+	uint32_t hash;
+
+	/* value 0 is stored as NULL, so hash_table_lookup() can't tell it
+	   apart from a missing key */
+	if (hash_table_lookup_full(fuzz_opaque_hashes, arg,
+				   &orig_arg, &value))
+		hash = POINTER_CAST_TO(value, uint32_t);
+	else {
+		hash = fuzz_opaque_hash(arg);
+		hash_table_insert(fuzz_opaque_hashes, arg, POINTER_CAST(hash));
 	}
 	return (fuzz_mix(hash + mail->seq) & 1) != 0;
 }
@@ -350,6 +380,7 @@ static void fuzz_search_args(const char *input)
 	i_assert(args != NULL);
 
 	box.index = mail_index_alloc(NULL, NULL, "dovecot.index.");
+	hash_table_create_direct(&fuzz_opaque_hashes, default_pool, 0);
 
 	/* reference: initialize without simplifying */
 	ref_args->simplified = TRUE;
@@ -371,7 +402,8 @@ static void fuzz_search_args(const char *input)
 	}
 
 	/* simplifying already simplified and initialized args must not
-	   change anything */
+	   change anything. The args must not be evaluated after this, because
+	   fuzz_opaque_hashes may then be stale. */
 	mail_search_args_simplify(args);
 	simplified2 = fuzz_args_to_imap(args);
 	if (strcmp(simplified, simplified2) != 0) {
@@ -383,6 +415,7 @@ static void fuzz_search_args(const char *input)
 			input, simplified);
 	}
 
+	hash_table_destroy(&fuzz_opaque_hashes);
 	mail_search_args_deinit(args);
 	mail_search_args_unref(&args);
 	mail_search_args_deinit(ref_args);
