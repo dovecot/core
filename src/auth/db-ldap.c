@@ -1000,16 +1000,19 @@ void db_ldap_get_attribute_names(pool_t pool,
 				 const ARRAY_TYPE(const_string) *attrlist,
 				 const char *const **attr_names_r,
 				 const char *const **sensitive_r,
-				 const char *skip_attr)
+				 bool skip_password,
+				 const char *const **skipped_r)
 {
 	unsigned int count = array_is_empty(attrlist) ? 0 : array_count(attrlist);
 	i_assert(count % 2 == 0);
 
 	ARRAY_TYPE(const_string) attr_names;
 	ARRAY_TYPE(const_string) sensitive_attr_names;
+	ARRAY_TYPE(const_string) skipped_attr_names;
 
 	p_array_init(&attr_names, pool, count / 2);
 	p_array_init(&sensitive_attr_names, pool, 2);
+	p_array_init(&skipped_attr_names, pool, 2);
 	string_t *tmp_str = t_str_new(128);
 
 	for (unsigned int index = 0; index < count; ) {
@@ -1017,8 +1020,11 @@ void db_ldap_get_attribute_names(pool_t pool,
 		const char *name = array_idx_elem(attrlist, index++);
 		const char *value = array_idx_elem(attrlist, index++);
 
-		if (skip_attr != NULL && strcmp(skip_attr, name) == 0)
-			continue;
+		bool skip = skip_password &&
+			    (strcmp(name, "password") == 0 ||
+			     strcmp(name, "password_noscheme") == 0);
+		ARRAY_TYPE(const_string) *dest =
+			skip ? &skipped_attr_names : &attr_names;
 
 		const char *error ATTR_UNUSED;
 		str_truncate(tmp_str, 0);
@@ -1042,12 +1048,12 @@ void db_ldap_get_attribute_names(pool_t pool,
 				/* when we free program, this name
 				   would be invalid, so dup it here. */
 				ldap_attr = p_strdup(pool, ldap_attr);
-				array_push_back(&attr_names, &ldap_attr);
+				array_push_back(dest, &ldap_attr);
 			}
 		}
 		var_expand_program_free(&prog);
 
-		if (!db_ldap_is_sensitive_field(name))
+		if (skip || !db_ldap_is_sensitive_field(name))
 			continue;
 
 		/* We want to mark as sensitive ALL the LDAP attributes involved
@@ -1071,6 +1077,18 @@ void db_ldap_get_attribute_names(pool_t pool,
 	*attr_names_r = array_front(&attr_names);
 	if (sensitive_r != NULL)
 		*sensitive_r = array_front(&sensitive_attr_names);
+	if (skipped_r != NULL) {
+		/* An attribute that another field requests is not skipped. */
+		ARRAY_TYPE(const_string) skipped_only;
+		p_array_init(&skipped_only, pool, 2);
+		const char *attr;
+		array_foreach_elem(&skipped_attr_names, attr) {
+			if (!str_array_icase_find(*attr_names_r, attr))
+				array_push_back(&skipped_only, &attr);
+		}
+		array_append_zero(&skipped_only);
+		*skipped_r = array_front(&skipped_only);
+	}
 }
 
 static bool
@@ -1191,6 +1209,15 @@ const char *db_ldap_attribute_as_multi(const char *name)
 	return t_strconcat(DB_LDAP_ATTR_MULTI_PREFIX, name, NULL);
 }
 
+static bool
+db_ldap_attribute_skipped(const struct db_ldap_field_expand_context *ctx,
+			  const char *field_name)
+{
+	if (ctx->skipped_attributes == NULL)
+		return FALSE;
+	return str_array_icase_find(ctx->skipped_attributes, field_name);
+}
+
 static int
 db_ldap_field_multi_expand(const char *data, const char **value_r,
 			   void *context, const char **error_r)
@@ -1199,6 +1226,10 @@ db_ldap_field_multi_expand(const char *data, const char **value_r,
 	struct auth_fields *fields = ctx->fields;
 	const char *field_name = t_str_lcase(data);
 
+	if (db_ldap_attribute_skipped(ctx, field_name)) {
+		*value_r = "";
+		return 0;
+	}
 	if (fields == NULL) {
 		*error_r = "No LDAP result";
 		return -1;
@@ -1225,6 +1256,10 @@ db_ldap_field_single_expand(const char *data, const char **value_r,
 	struct auth_fields *fields = ctx->fields;
 	const char *field_name = t_str_lcase(data);
 
+	if (db_ldap_attribute_skipped(ctx, field_name)) {
+		*value_r = "";
+		return 0;
+	}
 	if (fields == NULL) {
 		*error_r = "No LDAP result";
 		return -1;

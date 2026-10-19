@@ -147,6 +147,10 @@ struct ldap_connection {
 struct db_ldap_field_expand_context {
 	struct event *event;
 	struct auth_fields *fields;
+	/* Non-NULL with passdb_ldap_bind=yes: the attributes only the
+	   password fields use. They aren't requested, so they expand to an
+	   empty value instead of failing. */
+	const char *const *skipped_attributes;
 };
 
 extern const struct var_expand_provider db_ldap_field_expand_fn_table[];
@@ -159,7 +163,8 @@ void db_ldap_get_attribute_names(pool_t pool,
 				 const ARRAY_TYPE(const_string) *attrlist,
 				 const char *const **attributes_r,
 				 const char *const **sensitive_r,
-				 const char *skip_attr) ATTR_NULL(4,5);
+				 bool skip_password,
+				 const char *const **skipped_r) ATTR_NULL(4,6);
 
 struct ldap_connection *db_ldap_init(struct event *event);
 void db_ldap_unref(struct ldap_connection **conn);

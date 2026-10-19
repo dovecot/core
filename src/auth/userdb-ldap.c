@@ -359,9 +359,11 @@ userdb_ldap_preinit(pool_t pool, struct event *event,
 
 	db_ldap_get_attribute_names(pool, &auth_post->fields,
 				    &module->attributes,
-				    &module->sensitive_attr_names, NULL);
+				    &module->sensitive_attr_names,
+				    FALSE, NULL);
 	db_ldap_get_attribute_names(pool, &ldap_post->iterate_fields,
-				    &module->iterate_attributes, NULL, NULL);
+				    &module->iterate_attributes, NULL,
+				    FALSE, NULL);
 
 	const char *query = t_strconcat(ldap_pre->ldap_base,
 					ldap_pre->userdb_ldap_filter, NULL);

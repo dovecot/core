@@ -8,6 +8,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
+#include "safe-memset.h"
 #include "password-scheme.h"
 #include "settings.h"
 #include "auth-settings.h"
@@ -24,6 +25,7 @@ struct ldap_passdb_module {
 	struct ldap_connection *conn;
 	const char *const *attributes;
 	const char *const *sensitive_attr_names;
+	const char *const *skipped_attributes;
 };
 
 struct passdb_ldap_request {
@@ -41,6 +43,7 @@ struct passdb_ldap_request {
 
 	unsigned int entries;
 	bool require_password:1;
+	bool bind:1;
 	bool failed:1;
 };
 
@@ -48,11 +51,17 @@ static int
 ldap_query_save_result(struct ldap_connection *conn,
 		       struct auth_request *auth_request,
 		       struct ldap_request_search *ldap_request,
-		       LDAPMessage *res)
+		       LDAPMessage *res, bool bind_mode)
 {
 	struct db_ldap_field_expand_context ctx = {
 		.event = authdb_event(auth_request),
 	};
+	if (bind_mode) {
+		struct ldap_passdb_module *module =
+			container_of(auth_request->passdb->passdb,
+				     struct ldap_passdb_module, module);
+		ctx.skipped_attributes = module->skipped_attributes;
+	}
 	if (res != NULL) {
 		ctx.fields = ldap_query_get_fields(auth_request->pool, conn,
 						   ldap_request, res, FALSE);
@@ -61,9 +70,17 @@ ldap_query_save_result(struct ldap_connection *conn,
 	const char *default_password_scheme =
 		auth_request->passdb->set->default_password_scheme;
 
-	return auth_request_set_passdb_fields_ex(auth_request, &ctx,
-						 default_password_scheme,
-						 db_ldap_field_expand_fn_table);
+	int ret;
+	ret = auth_request_set_passdb_fields_ex(auth_request, &ctx,
+						default_password_scheme,
+						db_ldap_field_expand_fn_table);
+	/* The password is never used with bind. */
+	if (bind_mode && auth_request->passdb_password != NULL) {
+		safe_memset(auth_request->passdb_password, 0,
+			    strlen(auth_request->passdb_password));
+		auth_request->passdb_password = NULL;
+	}
+	return ret;
 }
 
 static void
@@ -131,7 +148,8 @@ ldap_lookup_pass_callback(struct ldap_connection *conn,
 	if (ldap_request->entries++ == 0) {
 		/* first entry */
 		if (ldap_query_save_result(conn, auth_request,
-					   &ldap_request->request.search, res) < 0)
+					   &ldap_request->request.search, res,
+					   ldap_request->bind) < 0)
 			ldap_request->failed = TRUE;
 	}
 }
@@ -267,7 +285,8 @@ static void ldap_bind_lookup_dn_callback(struct ldap_connection *conn,
 
 		/* first entry */
 		ldap_query_save_result(conn, auth_request,
-				       &passdb_ldap_request->request.search, res);
+				       &passdb_ldap_request->request.search,
+				       res, TRUE);
 
 		/* save dn */
 		dn = ldap_get_dn(conn->ld, res);
@@ -308,6 +327,7 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 	struct ldap_request_search *srequest = &request->request.search;
 
 	request->require_password = require_password;
+	request->bind = !require_password;
 	srequest->request.type = LDAP_REQUEST_TYPE_SEARCH;
 	srequest->base = p_strdup(auth_request->pool, ldap_set->ldap_base);
 	srequest->filter = p_strdup(auth_request->pool,
@@ -365,7 +385,7 @@ ldap_verify_plain_auth_bind_userdn(struct auth_request *auth_request,
 	struct ldap_connection *conn = module->conn;
 	struct ldap_request_bind *brequest = &request->request.bind;
 
-	ldap_query_save_result(conn, auth_request, NULL, NULL);
+	ldap_query_save_result(conn, auth_request, NULL, NULL, TRUE);
 
 	brequest->request.type = LDAP_REQUEST_TYPE_BIND;
 	brequest->dn = p_strdup(auth_request->pool, ldap_set->passdb_ldap_bind_userdn);
@@ -485,8 +505,8 @@ passdb_ldap_preinit(pool_t pool, struct event *event,
 	db_ldap_get_attribute_names(pool, &auth_post->fields,
 				    &module->attributes,
 				    &module->sensitive_attr_names,
-				    ldap_pre->passdb_ldap_bind ?
-				    	"password" : NULL);
+				    ldap_pre->passdb_ldap_bind,
+				    &module->skipped_attributes);
 
 	const char *query = t_strconcat(ldap_pre->ldap_base,
 					ldap_pre->passdb_ldap_bind_userdn,
