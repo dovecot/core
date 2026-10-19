@@ -32,6 +32,10 @@ struct test_sasl {
 
 	unsigned int repeat;
 
+	/* The client is expected to fail with this error, instead of the
+	   authentication succeeding. */
+	const char *client_error;
+
 	bool failure:1;
 	bool no_cbind:1;
 	bool server_no_plus:1;
@@ -240,6 +244,15 @@ test_server_request_lookup_credentials(
 }
 
 static void
+test_client_expect_error(struct test_sasl_context *tctx,
+			 enum dsasl_client_result result, const char *error)
+{
+	test_assert(result == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
+	test_assert_strcmp(error, tctx->test->client_error);
+	tctx->finished = TRUE;
+}
+
+static void
 test_server_request_output(struct sasl_server_req_ctx *rctx,
 			   const struct sasl_server_output *output)
 {
@@ -283,6 +296,10 @@ test_server_request_output(struct sasl_server_req_ctx *rctx,
 
 		result = dsasl_client_session_input(
 			tctx->session, output->data, output->data_size, &error);
+		if (test->client_error != NULL) {
+			test_client_expect_error(tctx, result, error);
+			return;
+		}
 		test_out_reason_quiet("client input",
 				      result == DSASL_CLIENT_RESULT_OK, error);
 	}
@@ -364,6 +381,11 @@ static void test_sasl_interact(struct test_sasl_context *tctx)
 	if (tctx->auth_initial) {
 		result = dsasl_client_session_output(
 			tctx->session, &sasl_data, &sasl_data_size, &error);
+		if (result != DSASL_CLIENT_RESULT_OK &&
+		    tctx->test->client_error != NULL) {
+			test_client_expect_error(tctx, result, error);
+			return;
+		}
 		test_out_reason_quiet("client initial",
 				      result == DSASL_CLIENT_RESULT_OK, error);
 		if (test_has_failed())
@@ -380,6 +402,11 @@ static void test_sasl_interact(struct test_sasl_context *tctx)
 			result = dsasl_client_session_output(
 				tctx->session, &sasl_data, &sasl_data_size,
 				&error);
+			if (result != DSASL_CLIENT_RESULT_OK &&
+			    tctx->test->client_error != NULL) {
+				test_client_expect_error(tctx, result, error);
+				return;
+			}
 			test_out_reason_quiet("client output",
 					      result == DSASL_CLIENT_RESULT_OK,
 					      error);
@@ -504,9 +531,13 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 		server_realms[i++] = test->client.realm;
 	server_realms[i] = NULL;
 
-	test_begin(t_strdup_printf("sasl %s %s%s",
+	test_begin(t_strdup_printf("sasl %s %s%s%s%s",
 				   label, test->mech,
-				   (auth_initial ? " (initial)" : "")));
+				   (auth_initial ? " (initial)" : ""),
+				   (test->client_error != NULL ?
+				    " client error: " : ""),
+				   (test->client_error != NULL ?
+				    test->client_error : "")));
 
 	const struct sasl_server_settings server_set = {
 		.realms = server_realms,
