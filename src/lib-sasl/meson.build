@@ -90,6 +90,15 @@ if have_gssapi
   sasl_gssapi_test_deps = [dep_auth_gssapi]
 endif
 
+# test-sasl-client only needs the client mechs.
+sasl_gssapi_client_test_sources = []
+if have_gssapi
+  sasl_gssapi_client_test_sources = [
+    'gssapi-dummy.c',
+    'dsasl-client-mech-gssapi.c',
+  ]
+endif
+
 tests = ['client', 'oauth2']
 
 foreach test_name : tests
@@ -100,7 +109,11 @@ foreach test_name : tests
     executable(
       exe,
       src,
-      dependencies: test_deps,
+      test_name == 'client' ? sasl_gssapi_client_test_sources : [],
+      dependencies: [
+        test_deps,
+        test_name == 'client' ? sasl_gssapi_test_deps : [],
+      ],
     ),
     suite: 'sasl',
   )

@@ -385,7 +385,7 @@ mech_gssapi_gs1_auth_output(struct dsasl_client_mech_session *msession,
 
 static const struct dsasl_client_mech dsasl_client_mech_gssapi = {
 	.name = "GSSAPI",
-	.flags = DSASL_MECH_SEC_ALLOW_NULS,
+	.flags = DSASL_MECH_SEC_ALLOW_NULS | DSASL_MECH_SEC_NO_PASSWORD,
 
 	.auth_new = mech_gssapi_auth_new,
 	.auth_free = mech_gssapi_auth_free,
@@ -396,7 +396,7 @@ static const struct dsasl_client_mech dsasl_client_mech_gssapi = {
 
 static const struct dsasl_client_mech dsasl_client_mech_gss_spnego = {
 	.name = "GSS-SPNEGO",
-	.flags = DSASL_MECH_SEC_ALLOW_NULS,
+	.flags = DSASL_MECH_SEC_ALLOW_NULS | DSASL_MECH_SEC_NO_PASSWORD,
 
 	.auth_new = mech_gssapi_auth_new,
 	.auth_free = mech_gssapi_auth_free,

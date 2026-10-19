@@ -128,6 +128,15 @@ test_sasl_oauth2_DEPENDENCIES = $(test_deps)
 test_sasl_client_SOURCES = test-sasl-client.c
 test_sasl_client_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 test_sasl_client_DEPENDENCIES = $(test_deps)
+if HAVE_GSSAPI
+test_sasl_client_SOURCES += \
+	gssapi-dummy.c \
+	dsasl-client-mech-gssapi.c
+test_sasl_client_LDADD += \
+       ../lib-auth/libauth-gssapi.la
+test_sasl_client_DEPENDENCIES += \
+       ../lib-auth/libauth-gssapi.la
+endif
 
 test_sasl_authentication_SOURCES = \
 	dsasl-client-mech-ntlm-dummy.c \

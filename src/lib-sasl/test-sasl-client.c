@@ -1033,6 +1033,95 @@ static void test_sasl_client_digest_md5_unexpected_input(void)
 	test_end();
 }
 
+#ifdef HAVE_GSSAPI
+static void test_sasl_client_gssapi_no_password(void)
+{
+	static const char *const mechs[] = { "GSSAPI", "GSS-SPNEGO" };
+	struct settings_simple test_set;
+	struct dsasl_client *client;
+	struct dsasl_client_parameters params;
+	struct dsasl_client_session *session;
+	const char *error;
+
+	for (unsigned int i = 0; i < N_ELEMENTS(mechs); i++) T_BEGIN {
+		test_begin(t_strdup_printf(
+			"sasl client check settings - %s without password",
+			mechs[i]));
+		const char *settings[] = {
+			"client_auth_mechanism", mechs[i],
+			"client_auth_authid", "",
+			"client_auth_authzid", "",
+			"client_auth_password", "",
+			NULL,
+		};
+		settings_simple_init(&test_set, settings);
+		event_set_forced_debug(test_set.event, debug);
+
+		client = dsasl_client_create(test_set.event);
+		dsasl_client_init_gssapi(client);
+		error = NULL;
+		test_assert(dsasl_client_check_settings(client, &error) == 0);
+		test_assert_strcmp(error, NULL);
+
+		dsasl_client_unref(&client);
+		settings_simple_deinit(&test_set);
+		test_end();
+	} T_END;
+
+	test_begin("sasl client check settings - PLAIN without password");
+	static const char *settings_plain[] = {
+		"client_auth_mechanism", "PLAIN",
+		"client_auth_authid", "",
+		"client_auth_authzid", "testuser",
+		"client_auth_password", "",
+		NULL,
+	};
+	settings_simple_init(&test_set, settings_plain);
+	event_set_forced_debug(test_set.event, debug);
+
+	client = dsasl_client_create(test_set.event);
+	dsasl_client_init_gssapi(client);
+	test_assert(dsasl_client_check_settings(client, &error) < 0);
+	test_assert_strcmp(error, "Missing client_auth_password");
+
+	dsasl_client_unref(&client);
+	settings_simple_deinit(&test_set);
+	test_end();
+
+	test_begin("sasl client mech select - GSSAPI is not a default");
+	static const char *settings_default[] = {
+		"client_auth_mechanism", "",
+		"client_auth_authid", "",
+		"client_auth_authzid", "testuser",
+		"client_auth_password", "frop",
+		NULL,
+	};
+	settings_simple_init(&test_set, settings_default);
+	event_set_forced_debug(test_set.event, debug);
+
+	client = dsasl_client_create(NULL);
+	dsasl_client_init_gssapi(client);
+
+	static const char *server_mechs[] = {
+		"GSSAPI", "GSS-SPNEGO", "LOGIN", NULL,
+	};
+	i_zero(&params);
+	params.server_mechanisms = server_mechs;
+
+	session = NULL;
+	test_assert(dsasl_client_session_create_auto(
+		client, test_set.event, &params, &session, &error) > 0);
+	if (session != NULL) {
+		test_assert_strcmp(dsasl_client_session_get_mech_name(session),
+				   "LOGIN");
+		dsasl_client_session_destroy(&session);
+	}
+	dsasl_client_unref(&client);
+	settings_simple_deinit(&test_set);
+	test_end();
+}
+#endif
+
 int main(int argc ATTR_UNUSED, char *argv[])
 {
 	int c;
@@ -1050,6 +1139,9 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		test_sasl_client_is_finished,
 		test_sasl_client_is_finished_unverified,
 		test_sasl_client_digest_md5_unexpected_input,
+#ifdef HAVE_GSSAPI
+		test_sasl_client_gssapi_no_password,
+#endif
 		NULL
 	};
 
