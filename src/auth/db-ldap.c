@@ -978,6 +978,7 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 static bool
 db_ldap_is_sensitive_field(const char *name)
 {
+	name = t_str_lcase(name);
 	return strstr(name, "nonce") != NULL ||
 	       strstr(name, "password") != NULL ||
 	       strstr(name, "secret") != NULL ||
