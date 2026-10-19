@@ -110,6 +110,43 @@ if have_gssapi
     )
   endforeach
 
+  # Used by the GSS-SPNEGO client to avoid a security layer.
+  conf.set(
+    'HAVE_GSS_SET_CRED_OPTION',
+    cc.has_function('gss_set_cred_option', dependencies: ext_gssapi),
+    description: 'Have gss_set_cred_option',
+  )
+
+  # Used by the GSS-SPNEGO client to negotiate only Kerberos.
+  conf.set(
+    'HAVE_GSS_SET_NEG_MECHS',
+    cc.has_function('gss_set_neg_mechs', dependencies: ext_gssapi),
+    description: 'Have gss_set_neg_mechs',
+  )
+
+  # Like auth-gssapi.h, include gssapi.h first in case gssapi_krb5.h doesn't.
+  gssapi_prefix = '#include <@0@>'.format(
+    conf.get('HAVE_GSSAPI_GSSAPI_H') ? 'gssapi/gssapi.h' : 'gssapi.h',
+  )
+
+  have_no_ci_flags = false
+  foreach header : ['gssapi/gssapi_krb5.h', 'gssapi_krb5.h']
+    if not have_no_ci_flags
+      have_no_ci_flags = cc.has_header_symbol(
+        header,
+        'GSS_KRB5_CRED_NO_CI_FLAGS_X',
+        prefix: gssapi_prefix,
+        dependencies: ext_gssapi,
+      )
+    endif
+  endforeach
+
+  conf.set(
+    'HAVE_GSS_KRB5_CRED_NO_CI_FLAGS_X',
+    have_no_ci_flags,
+    description: 'GSS_KRB5_CRED_NO_CI_FLAGS_X is declared',
+  )
+
   # TODO: HAVE_GSSAPI_SPNEGO and GSSAPI_PLUGIN are only consumed by src/auth and
   # src/doveadm, neither of which is ported yet. SPNEGO needs a run probe of
   # gss_indicate_mechs(), so it is left out until there is a consumer.

@@ -49,6 +49,26 @@ AC_DEFUN([DOVECOT_WANT_GSSAPI], [
           AC_CHECK_FUNCS(gsskrb5_register_acceptor_identity krb5_gss_register_acceptor_identity)
           AC_CHECK_FUNCS(krb5_free_context)
 
+          # Used by the GSS-SPNEGO client to avoid a security layer.
+          AC_CHECK_FUNCS(gss_set_cred_option)
+          # Used by the GSS-SPNEGO client to negotiate only Kerberos.
+          AC_CHECK_FUNCS(gss_set_neg_mechs)
+          AC_CHECK_DECL([GSS_KRB5_CRED_NO_CI_FLAGS_X], [
+            AC_DEFINE(HAVE_GSS_KRB5_CRED_NO_CI_FLAGS_X,,
+              [GSS_KRB5_CRED_NO_CI_FLAGS_X is declared])
+          ], [], [[
+            #ifdef HAVE_GSSAPI_GSSAPI_H
+            #  include <gssapi/gssapi.h>
+            #else
+            #  include <gssapi.h>
+            #endif
+            #ifdef HAVE_GSSAPI_GSSAPI_KRB5_H
+            #  include <gssapi/gssapi_krb5.h>
+            #elif defined (HAVE_GSSAPI_KRB5_H)
+            #  include <gssapi_krb5.h>
+            #endif
+          ]])
+
           # does the kerberos library support SPNEGO?
           AC_CACHE_CHECK([whether GSSAPI supports SPNEGO],i_cv_gssapi_spnego,[
             AC_RUN_IFELSE([AC_LANG_PROGRAM([[
