@@ -114,18 +114,13 @@ static void dns_lookup_free(struct dns_lookup **_lookup);
 
 static void dns_lookup_save_msecs(struct dns_lookup *lookup);
 
-static void dns_lookup_callback(struct dns_lookup *lookup)
+static void dns_lookup_send_finished_event(struct dns_lookup *lookup)
 {
 	struct event_passthrough *e =
 		event_create_passthrough(lookup->event)->
 		set_name("dns_request_finished");
 
-	if (!lookup->cached && lookup->client != NULL) {
-		dns_client_cache_entry(lookup->client->cache, lookup->cache_key,
-				       &lookup->result);
-	}
 	dns_lookup_save_msecs(lookup);
-
 	if (lookup->result.ret != 0) {
 		i_assert(lookup->result.error != NULL);
 		e->add_int("error_code", lookup->result.ret);
@@ -138,6 +133,15 @@ static void dns_lookup_callback(struct dns_lookup *lookup)
 			lookup->result.msecs);
 		i_assert(lookup->ptr_lookup || lookup->result.ips_count > 0);
 	}
+}
+
+static void dns_lookup_callback(struct dns_lookup *lookup)
+{
+	if (!lookup->cached && lookup->client != NULL) {
+		dns_client_cache_entry(lookup->client->cache, lookup->cache_key,
+				       &lookup->result);
+	}
+	dns_lookup_send_finished_event(lookup);
 	if (lookup->callback != NULL)
 		lookup->callback(&lookup->result, lookup->context);
 }
