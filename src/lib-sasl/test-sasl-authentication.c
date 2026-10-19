@@ -35,6 +35,16 @@ struct test_sasl {
 	/* The client is expected to fail with this error, instead of the
 	   authentication succeeding. */
 	const char *client_error;
+	/* GSSAPI dummy behavior */
+	struct {
+		/* Flags the dummy adds to and removes from the context flags
+		   it returns. */
+		unsigned int ret_flags_add, ret_flags_remove;
+		/* The dummy fails acquiring the initiator credential or
+		   restricting the negotiated mechanisms. */
+		bool fail_acquire_cred:1;
+		bool fail_set_neg_mechs:1;
+	} gss;
 
 	bool failure:1;
 	bool no_cbind:1;
@@ -491,8 +501,17 @@ test_sasl_run_once(const struct test_sasl *test,
 	};
 	if (dsasl_client_session_create_auto(tctx.client, event,
 					     &client_params, &tctx.session,
-					     &error) < 0)
-		i_fatal("Failed to create SASL session: %s", error);
+					     &error) < 0) {
+		if (test->client_error == NULL)
+			i_fatal("Failed to create SASL session: %s", error);
+		test_assert_strcmp(error, test->client_error);
+		event_unref(&event);
+		settings_root_deinit(&set_root);
+		dsasl_client_unref(&tctx.client);
+		sasl_server_request_destroy(&tctx.ssrctx);
+		pool_unref(&tctx.pool);
+		return;
+	}
 	i_assert(tctx.session != NULL);
 
 	if (!test->no_cbind) {
@@ -522,6 +541,20 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 	struct sasl_server *server;
 	struct sasl_server_instance *server_inst;
 	unsigned int i;
+
+#if defined(HAVE_GSSAPI) && !defined(HAVE_GSS_SET_NEG_MECHS)
+	struct test_sasl no_neg_mechs_test;
+
+	/* The client can't restrict GSS-SPNEGO to Kerberos, so it refuses
+	   to start. */
+	if (strcasecmp(test->mech, SASL_MECH_NAME_GSS_SPNEGO) == 0) {
+		no_neg_mechs_test = *test;
+		no_neg_mechs_test.client_error =
+			"GSS-SPNEGO can't be restricted to Kerberos "
+			"(gss_set_neg_mechs() not available in the GSSAPI library)";
+		test = &no_neg_mechs_test;
+	}
+#endif
 
 	i = 0;
 	if (test->server.realm != NULL)
@@ -587,6 +620,21 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 	if (strcasecmp(test->mech, SASL_MECH_NAME_GSSAPI) == 0 ||
 	    strcasecmp(test->mech, SASL_MECH_NAME_GSS_SPNEGO) == 0) {
 		gss_dummy_add_principal(test->server.authid);
+		OM_uint32 ret_flags_remove = test->gss.ret_flags_remove;
+#ifndef HAVE_GSS_SET_CRED_OPTION
+		/* The client can't ask for a credential without the integrity
+		   and confidentiality flags. Pretend the library doesn't set
+		   them. */
+		if (strcasecmp(test->mech, SASL_MECH_NAME_GSS_SPNEGO) == 0) {
+			ret_flags_remove |= GSS_C_INTEG_FLAG |
+					    GSS_C_CONF_FLAG;
+		}
+#endif
+		gss_dummy_set_ret_flags(test->gss.ret_flags_add,
+					ret_flags_remove);
+		gss_dummy_set_initiator_cred_failures(
+			test->gss.fail_acquire_cred,
+			test->gss.fail_set_neg_mechs);
 		gss_dummy_kinit(test->client.authid != NULL ?
 				test->client.authid : test->server.authid);
 	}
@@ -609,6 +657,17 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 /*
  * Successful authentication
  */
+
+#ifdef HAVE_GSSAPI
+#  ifdef HAVE_GSS_SET_CRED_OPTION
+#    define GSS_SPNEGO_LAYER_ERROR \
+	"GSS-SPNEGO security layer is not supported"
+#  else
+#    define GSS_SPNEGO_LAYER_ERROR \
+	"GSS-SPNEGO security layer is not supported " \
+	"(gss_set_cred_option() not available in the GSSAPI library)"
+#  endif
+#endif
 
 static const struct test_sasl success_tests[] = {
 	/* PLAIN */
@@ -883,6 +942,9 @@ static const struct test_sasl success_tests[] = {
 			.password = "",
 		},
 	},
+	/* GSS-SPNEGO: The server still offers the GSSAPI security layer, which
+	   the client rejects. Change this to expect success once the server
+	   is fixed. */
 	{
 		.mech = "GSS-SPNEGO",
 		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
@@ -890,6 +952,50 @@ static const struct test_sasl success_tests[] = {
 			.authid = "user",
 			.password = "",
 		},
+		.client_error =
+			"Server sent unexpected data",
+	},
+	{
+		.mech = "GSS-SPNEGO",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.gss = { .ret_flags_add = GSS_C_INTEG_FLAG },
+		.client_error = GSS_SPNEGO_LAYER_ERROR,
+	},
+	{
+		.mech = "GSS-SPNEGO",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.gss = { .ret_flags_remove = GSS_C_MUTUAL_FLAG },
+		.client_error = "GSS-SPNEGO server was not authenticated",
+	},
+	{
+		.mech = "GSS-SPNEGO",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.gss = { .fail_acquire_cred = TRUE },
+		.client_error = "While acquiring the initiator credential: "
+			"No valid credentials.; Kerberos5 dummy says no.",
+	},
+	{
+		.mech = "GSS-SPNEGO",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.gss = { .fail_set_neg_mechs = TRUE },
+		.client_error = "While restricting the negotiation to Kerberos: "
+			"Kerberos5 dummy says no.",
 	},
 #endif
 	/* NTLM */

@@ -32,10 +32,21 @@ struct gssapi_sasl_session {
 	} state;
 
 	gss_name_t gss_principal;
+	gss_cred_id_t gss_cred;
 	gss_ctx_id_t gss_ctx;
 
 	buffer_t *out_buf;
 };
+
+#ifdef HAVE_GSS_SET_CRED_OPTION
+#ifndef HAVE_GSS_KRB5_CRED_NO_CI_FLAGS_X
+/* 1.2.752.43.13.29, the OID of GSS_KRB5_CRED_NO_CI_FLAGS_X */
+static gss_OID_desc no_ci_flags_oid_desc = {
+	6, (void *)"\x2a\x85\x70\x2b\x0d\x1d"
+};
+static const gss_OID GSS_KRB5_CRED_NO_CI_FLAGS_X = &no_ci_flags_oid_desc;
+#endif
+#endif
 
 static const struct dsasl_client_mech dsasl_client_mech_gssapi;
 static const struct dsasl_client_mech dsasl_client_mech_gss_spnego;
@@ -57,6 +68,8 @@ static void mech_gssapi_auth_free(struct dsasl_client_mech_session *msession)
 		(void)gss_delete_sec_context(&minor_status, &gsession->gss_ctx,
 					     GSS_C_NO_BUFFER);
 	}
+	if (gsession->gss_cred != GSS_C_NO_CREDENTIAL)
+		(void)gss_release_cred(&minor_status, &gsession->gss_cred);
 	if (gsession->gss_principal != GSS_C_NO_NAME)
 		(void)gss_release_name(&minor_status, &gsession->gss_principal);
 	buffer_free(&gsession->out_buf);
@@ -74,6 +87,13 @@ mech_gssapi_auth_check(struct dsasl_client_mech_session *msession,
 		*error_r = "host not set";
 		return -1;
 	}
+#ifndef HAVE_GSS_SET_NEG_MECHS
+	if (msession->mech == &dsasl_client_mech_gss_spnego) {
+		*error_r = "GSS-SPNEGO can't be restricted to Kerberos "
+			"(gss_set_neg_mechs() not available in the GSSAPI library)";
+		return -1;
+	}
+#endif
 	return 0;
 }
 
@@ -131,6 +151,7 @@ mech_gssapi_gs1_init(struct gssapi_sasl_session *gsession, gss_buffer_t in_buf,
 	gss_buffer_desc namebuf;
 
 	gsession->gss_ctx = GSS_C_NO_CONTEXT;
+	gsession->gss_cred = GSS_C_NO_CREDENTIAL;
 	gsession->gss_principal = GSS_C_NO_NAME;
 
 	if (in_buf->length > 0) {
@@ -163,6 +184,64 @@ mech_gssapi_gs1_init(struct gssapi_sasl_session *gsession, gss_buffer_t in_buf,
 }
 
 static int
+mech_gssapi_spnego_cred(struct gssapi_sasl_session *gsession,
+			const char **error_r)
+{
+	OM_uint32 major_status, minor_status;
+	gss_OID_set_desc mechs;
+
+	mechs.count = 1;
+	mechs.elements = (gss_OID)auth_gssapi_mech_spnego_oid;
+	major_status = gss_acquire_cred(&minor_status, GSS_C_NO_NAME,
+					0, &mechs,
+					GSS_C_INITIATE, &gsession->gss_cred,
+					NULL, NULL);
+	if (GSS_ERROR(major_status) != 0) {
+		gsession->gss_cred = GSS_C_NO_CREDENTIAL;
+		*error_r = mech_gssapi_error(
+			"acquiring the initiator credential",
+			major_status, minor_status);
+		return -1;
+	}
+
+	/* Without this the server could pick any mechanism that SPNEGO
+	   supports, such as NTLM, and get a token for it before the mechanism
+	   is checked. */
+#ifdef HAVE_GSS_SET_NEG_MECHS
+	gss_OID_set_desc neg_mechs;
+
+	neg_mechs.count = 1;
+	neg_mechs.elements = (gss_OID)auth_gssapi_mech_krb5_oid;
+	major_status = gss_set_neg_mechs(&minor_status, gsession->gss_cred,
+					 &neg_mechs);
+	if (GSS_ERROR(major_status) != 0) {
+		*error_r = mech_gssapi_error(
+			"restricting the negotiation to Kerberos",
+			major_status, minor_status);
+		return -1;
+	}
+#endif
+
+#ifdef HAVE_GSS_SET_CRED_OPTION
+	gss_buffer_desc empty = GSS_C_EMPTY_BUFFER;
+
+	/* Kerberos sets the integrity and confidentiality flags, which would
+	   make the server start a security layer after GSS-SPNEGO. If this
+	   isn't supported, the flags returned for the context tell whether
+	   there is a security layer. */
+	major_status = gss_set_cred_option(&minor_status, &gsession->gss_cred,
+					   GSS_KRB5_CRED_NO_CI_FLAGS_X,
+					   &empty);
+	if (GSS_ERROR(major_status) != 0) {
+		e_debug(gsession->session.event, "%s", mech_gssapi_error(
+			"setting the credential option",
+			major_status, minor_status));
+	}
+#endif
+	return 0;
+}
+
+static int
 mech_gssapi_sec_context(struct gssapi_sasl_session *gsession,
 			gss_buffer_t in_buf, gss_buffer_t out_buf,
 			const char **error_r)
@@ -170,24 +249,31 @@ mech_gssapi_sec_context(struct gssapi_sasl_session *gsession,
 	struct dsasl_client_mech_session *msession = &gsession->session;
 	OM_uint32 major_status, minor_status;
 	OM_uint32 req_flags = GSS_C_REPLAY_FLAG | GSS_C_MUTUAL_FLAG |
-			      GSS_C_SEQUENCE_FLAG | GSS_C_INTEG_FLAG;
+			      GSS_C_SEQUENCE_FLAG;
+	OM_uint32 ret_flags = 0;
 	gss_OID_desc mech_oid;
 	gss_OID ret_mech_oid = GSS_C_NO_OID;
 
-	if (msession->mech == &dsasl_client_mech_gssapi)
+	if (msession->mech == &dsasl_client_mech_gssapi) {
 		mech_oid = *auth_gssapi_mech_krb5_oid;
-	else if (msession->mech == &dsasl_client_mech_gss_spnego)
+		req_flags |= GSS_C_INTEG_FLAG;
+	} else if (msession->mech == &dsasl_client_mech_gss_spnego) {
 		mech_oid = *auth_gssapi_mech_spnego_oid;
-	else
+		if (gsession->gss_ctx == GSS_C_NO_CONTEXT &&
+		    gsession->gss_cred == GSS_C_NO_CREDENTIAL &&
+		    mech_gssapi_spnego_cred(gsession, error_r) < 0)
+			return -1;
+	} else {
 		i_unreached();
+	}
 
-	major_status = gss_init_sec_context(&minor_status, GSS_C_NO_CREDENTIAL,
+	major_status = gss_init_sec_context(&minor_status, gsession->gss_cred,
 					    &gsession->gss_ctx,
 					    gsession->gss_principal,
 					    &mech_oid, req_flags,
 					    0, GSS_C_NO_CHANNEL_BINDINGS,
 					    in_buf, &ret_mech_oid, out_buf,
-					    NULL, NULL);
+					    &ret_flags, NULL);
 	if(GSS_ERROR(major_status) != 0) {
 		(void)gss_release_buffer(&minor_status, out_buf);
 		*error_r = mech_gssapi_error((in_buf->length == 0 ?
@@ -206,10 +292,43 @@ mech_gssapi_sec_context(struct gssapi_sasl_session *gsession,
 			*error_r = "GSSAPI mechanism not Kerberos5";
 			return -1;
 		}
+		if (msession->mech == &dsasl_client_mech_gss_spnego) {
+			/* Without a security layer exchange, the mutual
+			   authentication is the only proof of the server. */
+			if ((ret_flags & GSS_C_MUTUAL_FLAG) == 0) {
+				(void)gss_release_buffer(&minor_status, out_buf);
+				*error_r = "GSS-SPNEGO server was not authenticated";
+				return -1;
+			}
+			if ((ret_flags & (GSS_C_INTEG_FLAG |
+					  GSS_C_CONF_FLAG)) != 0) {
+				(void)gss_release_buffer(&minor_status, out_buf);
+#ifdef HAVE_GSS_SET_CRED_OPTION
+				*error_r = "GSS-SPNEGO security layer is not supported";
+#else
+				*error_r = "GSS-SPNEGO security layer is not supported "
+					"(gss_set_cred_option() not available "
+					"in the GSSAPI library)";
+#endif
+				return -1;
+			}
+		}
 		e_debug(msession->event,
 			"Security context state completed");
 		break;
 	case GSS_S_CONTINUE_NEEDED:
+		/* Don't give the server a chance to get a token for another
+		   mechanism. SPNEGO is the mechanism until it is selected. */
+		if (ret_mech_oid != GSS_C_NO_OID &&
+		    !auth_gssapi_oid_equal(ret_mech_oid,
+					   auth_gssapi_mech_krb5_oid) &&
+		    (msession->mech != &dsasl_client_mech_gss_spnego ||
+		     !auth_gssapi_oid_equal(ret_mech_oid,
+					    auth_gssapi_mech_spnego_oid))) {
+			(void)gss_release_buffer(&minor_status, out_buf);
+			*error_r = "GSSAPI mechanism not Kerberos5";
+			return -1;
+		}
 		e_debug(msession->event,
 			"Processed incoming packet correctly, "
 			"waiting for another");
@@ -242,8 +361,13 @@ mech_gssapi_gs1_sec_context(struct gssapi_sasl_session *gsession,
 	buffer_append(gsession->out_buf, out_buf.value, out_buf.length);
 	(void)gss_release_buffer(&minor_status, &out_buf);
 
-	if (ret > 0)
-		gsession->state.gs1 = GSSAPI_GS1_CLIENT_STATE_UNWRAP;
+	if (ret > 0) {
+		/* GSS-SPNEGO has no security layer negotiation. */
+		if (gsession->session.mech == &dsasl_client_mech_gss_spnego)
+			gsession->state.gs1 = GSSAPI_GS1_CLIENT_STATE_END;
+		else
+			gsession->state.gs1 = GSSAPI_GS1_CLIENT_STATE_UNWRAP;
+	}
 
 	return DSASL_CLIENT_RESULT_OK;
 }
@@ -378,9 +502,8 @@ mech_gssapi_gs1_auth_output(struct dsasl_client_mech_session *msession,
 	case GSSAPI_GS1_CLIENT_STATE_SEC_CONTEXT:
 	case GSSAPI_GS1_CLIENT_STATE_UNWRAP:
 	case GSSAPI_GS1_CLIENT_STATE_WRAP:
-		break;
 	case GSSAPI_GS1_CLIENT_STATE_END:
-		i_unreached();
+		break;
 	}
 
 	*output_r = gsession->out_buf->data;

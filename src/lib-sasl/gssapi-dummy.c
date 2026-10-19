@@ -185,6 +185,16 @@ gss_init_sec_context(OM_uint32 *minor_status,
 	i_assert(time_req == 0); // Not implemented
 	i_assert(time_rec == NULL); // Not implemented
 
+	*output_token = (gss_buffer_desc)GSS_C_EMPTY_BUFFER;
+	/* SPNEGO would let the server choose any mechanism, unless the
+	   credential restricts it to Kerberos. */
+	if (auth_gssapi_oid_equal(mech_type, auth_gssapi_mech_spnego_oid) &&
+	    (claimant_cred_handle == GSS_C_NO_CREDENTIAL ||
+	     !claimant_cred_handle->neg_krb5_only)) {
+		*minor_status = GSS_KRB5_DUMMY_FAIL_CODE;
+		return GSS_S_NO_CRED;
+	}
+
 	pool = pool_alloconly_create(MEMPOOL_GROWING"gss_ctx_id", 256);
 	ctx = p_new(pool, struct gss_ctx_id_struct, 1);
 	ctx->pool = pool;
