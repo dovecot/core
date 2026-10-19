@@ -205,6 +205,9 @@ struct client {
 	ARRAY_TYPE(const_string) forward_fields;
 
 	int fd;
+	/* TLS socketpair endpoint passed to the post-login process. macOS
+	   needs it kept open until the receiver has it. */
+	int pending_plaintext_fd;
 	struct istream *input;
 	struct ostream *output;
 	/* The rawlog streams don't hold any references */
