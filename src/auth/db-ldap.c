@@ -1073,7 +1073,7 @@ db_ldap_field_hide_password(struct db_ldap_result_iterate_context *ctx,
 	if (ctx->sensitive_attr_names == NULL)
 		return FALSE;
 
-	return str_array_find(ctx->sensitive_attr_names, attr);
+	return str_array_icase_find(ctx->sensitive_attr_names, attr);
 }
 
 static void
