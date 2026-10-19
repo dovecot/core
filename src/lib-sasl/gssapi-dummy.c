@@ -177,8 +177,8 @@ _decode_uint32(const unsigned char **_input, size_t *_input_left,
 	if (input_left < 4)
 		return -1;
 
-	*num_r = (OM_uint32)(input[0] << 24) | (OM_uint32)(input[1] << 16) |
-		 (OM_uint32)(input[2] << 8) | (OM_uint32)(input[3] << 0);
+	*num_r = ((OM_uint32)input[0] << 24) | ((OM_uint32)input[1] << 16) |
+		 ((OM_uint32)input[2] << 8) | ((OM_uint32)input[3] << 0);
 
 	*_input += 4;
 	*_input_left -= 4;
