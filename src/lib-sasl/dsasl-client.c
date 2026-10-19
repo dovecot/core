@@ -5,6 +5,7 @@
 #include "array.h"
 #include "safe-memset.h"
 #include "settings.h"
+#include "module-dir.h"
 #include "dsasl-client-private.h"
 
 struct event_category event_category_sasl_client = {
@@ -71,6 +72,7 @@ void dsasl_client_unref(struct dsasl_client **_client)
 		return;
 
 	array_free(&client->mechanisms);
+	module_dir_unload(&client->modules);
 	event_unref(&client->event);
 	pool_unref(&client->pool);
 }

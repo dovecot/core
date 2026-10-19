@@ -16,6 +16,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-json \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-auth \
+	-DMODULE_DIR=\""$(moduledir)"\" \
 	-DTEST_WINBIND_HELPER_PATH=\""$(abs_builddir)/ntlm_dummy"\"
 
 client_mechanisms = \
@@ -44,6 +45,7 @@ libsasl_la_SOURCES = \
 	sasl-oauth2.c \
 	$(client_mechanisms) \
 	dsasl-client.c \
+	dsasl-client-module-load.c \
 	$(server_mechanisms) \
 	sasl-server-mech.c \
 	sasl-server-request.c \

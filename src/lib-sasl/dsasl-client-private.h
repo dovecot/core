@@ -3,6 +3,8 @@
 
 #include "dsasl-client-protected.h"
 
+struct module;
+
 struct dsasl_client_session {
 	pool_t pool;
 	int refcount;
@@ -20,6 +22,29 @@ struct dsasl_client {
 	struct event *event;
 
 	ARRAY(const struct dsasl_client_mech *) mechanisms;
+
+	/* Modules loaded by dsasl_client_module_load(). Their mechanisms are in
+	   the mechanisms array, so they are unloaded only after the last
+	   session is gone. */
+	struct module *modules;
 };
+
+/* A module that registers SASL mechanisms in the client. */
+struct dsasl_client_module {
+	/* Name of the module, e.g. "dovecot-gssapi". */
+	const char *name;
+	/* Symbol of the function in the module that registers the mechanisms:
+	   void init(struct dsasl_client *client). */
+	const char *init_symbol;
+	/* Names of the mechanisms that the function registers. Ended with
+	   NULL. */
+	const char *const *mech_names;
+};
+
+/* Load the module and register its mechanisms. The module is unloaded when
+   the client is freed. Returns -1 with an error if this fails. */
+int dsasl_client_module_load(struct dsasl_client *client,
+			     const struct dsasl_client_module *module,
+			     const char **error_r);
 
 #endif
