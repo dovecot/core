@@ -252,7 +252,7 @@ ldap_bind_lookup_dn_fail(struct auth_request *auth_request,
 {
 	enum passdb_result passdb_result;
 
-	if (res == NULL)
+	if (res == NULL || request->failed)
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 	else if (request->entries == 0) {
 		passdb_result = PASSDB_RESULT_USER_UNKNOWN;
@@ -284,15 +284,17 @@ static void ldap_bind_lookup_dn_callback(struct ldap_connection *conn,
 		}
 
 		/* first entry */
-		ldap_query_save_result(conn, auth_request,
-				       &passdb_ldap_request->request.search,
-				       res, TRUE);
+		if (ldap_query_save_result(conn, auth_request,
+					   &passdb_ldap_request->request.search,
+					   res, TRUE) < 0)
+			passdb_ldap_request->failed = TRUE;
 
 		/* save dn */
 		dn = ldap_get_dn(conn->ld, res);
 		passdb_ldap_request->dn = p_strdup(auth_request->pool, dn);
 		ldap_memfree(dn);
-	} else if (res == NULL || passdb_ldap_request->entries != 1) {
+	} else if (res == NULL || passdb_ldap_request->failed ||
+		   passdb_ldap_request->entries != 1) {
 		/* failure */
 		ldap_bind_lookup_dn_fail(auth_request, passdb_ldap_request, res);
 	} else if (auth_request->fields.skip_password_check) {
@@ -385,7 +387,11 @@ ldap_verify_plain_auth_bind_userdn(struct auth_request *auth_request,
 	struct ldap_connection *conn = module->conn;
 	struct ldap_request_bind *brequest = &request->request.bind;
 
-	ldap_query_save_result(conn, auth_request, NULL, NULL, TRUE);
+	if (ldap_query_save_result(conn, auth_request, NULL, NULL, TRUE) < 0) {
+		passdb_ldap_request_fail(request,
+					 PASSDB_RESULT_INTERNAL_FAILURE);
+		return;
+	}
 
 	brequest->request.type = LDAP_REQUEST_TYPE_BIND;
 	brequest->dn = p_strdup(auth_request->pool, ldap_set->passdb_ldap_bind_userdn);
