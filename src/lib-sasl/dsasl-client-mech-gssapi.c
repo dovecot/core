@@ -172,7 +172,7 @@ mech_gssapi_sec_context(struct gssapi_sasl_session *gsession,
 	OM_uint32 req_flags = GSS_C_REPLAY_FLAG | GSS_C_MUTUAL_FLAG |
 			      GSS_C_SEQUENCE_FLAG | GSS_C_INTEG_FLAG;
 	gss_OID_desc mech_oid;
-	gss_OID ret_mech_oid;
+	gss_OID ret_mech_oid = GSS_C_NO_OID;
 
 	if (msession->mech == &dsasl_client_mech_gssapi)
 		mech_oid = *auth_gssapi_mech_krb5_oid;
@@ -199,8 +199,8 @@ mech_gssapi_sec_context(struct gssapi_sasl_session *gsession,
 
 	switch (major_status) {
 	case GSS_S_COMPLETE:
-		i_assert(ret_mech_oid != NULL);
-		if (!auth_gssapi_oid_equal(ret_mech_oid,
+		if (ret_mech_oid == GSS_C_NO_OID ||
+		    !auth_gssapi_oid_equal(ret_mech_oid,
 					   auth_gssapi_mech_krb5_oid)) {
 			(void)gss_release_buffer(&minor_status, out_buf);
 			*error_r = "GSSAPI mechanism not Kerberos5";
@@ -215,7 +215,10 @@ mech_gssapi_sec_context(struct gssapi_sasl_session *gsession,
 			"waiting for another");
 		return 0;
 	default:
-		i_unreached();
+		(void)gss_release_buffer(&minor_status, out_buf);
+		*error_r = mech_gssapi_error("processing incoming data",
+					     major_status, minor_status);
+		return -1;
 	}
 
 	return 1;
@@ -345,8 +348,8 @@ mech_gssapi_gs1_auth_input(struct dsasl_client_mech_session *msession,
 		break;
 	case GSSAPI_GS1_CLIENT_STATE_WRAP:
 	case GSSAPI_GS1_CLIENT_STATE_END:
-	default:
-		i_unreached();
+		*error_r = "Server sent unexpected data";
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
 	return result;
 }
@@ -377,7 +380,6 @@ mech_gssapi_gs1_auth_output(struct dsasl_client_mech_session *msession,
 	case GSSAPI_GS1_CLIENT_STATE_WRAP:
 		break;
 	case GSSAPI_GS1_CLIENT_STATE_END:
-	default:
 		i_unreached();
 	}
 
