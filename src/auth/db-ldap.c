@@ -1110,7 +1110,7 @@ get_ldap_fields(struct db_ldap_result_iterate_context *ctx,
 			str_append(ctx->debug, ldap_value->values[0]);
 			for (i = 1; i < count; i++) {
 				str_printfa(ctx->debug, ",%s",
-					    ldap_value->values[0]);
+					    ldap_value->values[i]);
 			}
 		}
 		hash_table_insert(ctx->ldap_attrs,
