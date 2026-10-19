@@ -64,6 +64,7 @@ struct db_ldap_result_iterate_context {
 	string_t *var, *debug;
 
 	bool skip_null_values;
+	bool no_attributes;
 	LDAPMessage *ldap_msg;
 	LDAP *ld;
 };
@@ -204,9 +205,15 @@ static int db_ldap_request_search(struct ldap_connection *conn,
 	i_assert(conn->conn_state == LDAP_CONN_STATE_BOUND_DEFAULT);
 	i_assert(request->msgid == -1);
 
+	/* An empty attribute list would return all attributes. None of them
+	   would be used, so request none (RFC 4511 section 4.5.1.8). */
+	static const char *const no_attributes[] = { "1.1", NULL };
+	const char *const *attributes = srequest->attributes[0] == NULL ?
+		no_attributes : srequest->attributes;
+
 	ldap_search_ext(
 		conn->ld, *srequest->base == '\0' ? NULL : srequest->base,
-		conn->set->parsed_scope, srequest->filter, (char **)srequest->attributes,
+		conn->set->parsed_scope, srequest->filter, (char **)attributes,
 		0, NULL, NULL, 0, 0, &request->msgid);
 	if (request->msgid == -1) {
 		e_error(authdb_event(request->auth_request),
@@ -1142,6 +1149,7 @@ db_ldap_result_iterate_init_full(struct ldap_connection *conn,
 	ctx->attr_next = ldap_request->attributes;
 	ctx->sensitive_attr_names = ldap_request->sensitive_attr_names;
 	ctx->skip_null_values = skip_null_values;
+	ctx->no_attributes = ldap_request->attributes[0] == NULL;
 	hash_table_create(&ctx->ldap_attrs, pool, 0, strcase_hash, strcasecmp);
 	ctx->var = str_new(ctx->pool, 256);
 	ctx->debug = t_str_new(256);
@@ -1328,8 +1336,10 @@ db_ldap_result_finish_debug(struct db_ldap_result_iterate_context *ctx)
 	i_assert(ctx->debug != NULL);
 	orig_len = str_len(ctx->debug);
 	if (orig_len == 0) {
-		e_debug(authdb_event(ctx->ldap_request->auth_request),
-		        "no fields returned by the server");
+		const char *msg = ctx->no_attributes ?
+			"no attributes requested" :
+			"no fields returned by the server";
+		e_debug(authdb_event(ctx->ldap_request->auth_request), "%s", msg);
 		return;
 	}
 
