@@ -1199,6 +1199,11 @@ db_ldap_field_multi_expand(const char *data, const char **value_r,
 	struct auth_fields *fields = ctx->fields;
 	const char *field_name = t_str_lcase(data);
 
+	if (fields == NULL) {
+		*error_r = "No LDAP result";
+		return -1;
+	}
+
 	const char *value = auth_fields_find(fields,
 					     db_ldap_attribute_as_multi(field_name));
 	if (value == NULL || *value == '\0')
@@ -1220,6 +1225,11 @@ db_ldap_field_single_expand(const char *data, const char **value_r,
 	struct auth_fields *fields = ctx->fields;
 	const char *field_name = t_str_lcase(data);
 
+	if (fields == NULL) {
+		*error_r = "No LDAP result";
+		return -1;
+	}
+
 	if (strcmp(field_name, "dn") == 0) {
 		/* DN must be always there */
 		*value_r = auth_fields_find(fields, DB_LDAP_ATTR_DN);
@@ -1227,9 +1237,7 @@ db_ldap_field_single_expand(const char *data, const char **value_r,
 		return 0;
 	}
 
-	*value_r = NULL;
-	if (fields != NULL)
-		*value_r = auth_fields_find(fields, field_name);
+	*value_r = auth_fields_find(fields, field_name);
 
 	if (*value_r == NULL || **value_r == '\0') {
 		*error_r = t_strdup_printf("No such attribute '%s'", field_name);
