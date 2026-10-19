@@ -438,6 +438,15 @@ static void dns_lookup_free(struct dns_lookup **_lookup)
 	pool_unref(&lookup->pool);
 }
 
+static void dns_lookup_cancel(struct dns_lookup *lookup)
+{
+	dns_lookup_save_msecs(lookup);
+	lookup->result.ret = EAI_CANCELED;
+	lookup->result.error = "Lookup canceled";
+	lookup->callback(&lookup->result, lookup->context);
+	lookup->callback = NULL;
+}
+
 void dns_lookup_abort(struct dns_lookup **_lookup)
 {
 	struct dns_lookup *lookup = *_lookup;
@@ -449,13 +458,8 @@ void dns_lookup_abort(struct dns_lookup **_lookup)
 	struct dns_client *client = lookup->client;
 	if (client != NULL && client->deinit_client_at_free)
 		dns_client_deinit(&client);
-	else if (lookup->callback != NULL) {
-		dns_lookup_save_msecs(lookup);
-		lookup->result.ret = EAI_CANCELED,
-		lookup->result.error = "Lookup canceled";
-		lookup->callback(&lookup->result, lookup->context);
-		lookup->callback = NULL;
-	}
+	else if (lookup->callback != NULL)
+		dns_lookup_cancel(lookup);
 }
 
 static void
