@@ -14,6 +14,8 @@ struct gss_name_struct {
 struct gss_cred_id_struct {
 	pool_t pool;
 	const char *desired_name;
+	bool no_ci_flags;
+	bool neg_krb5_only;
 };
 
 struct gss_ctx_id_struct {
@@ -32,11 +34,16 @@ static gss_OID_desc GSS_KRB5_NT_PRINCIPAL_NAME_DESC =
 	{ .length = 1, .elements = "\x02" };
 gss_OID GSS_C_NT_HOSTBASED_SERVICE = &GSS_C_NT_HOSTBASED_SERVICE_DESC;
 const gss_OID GSS_KRB5_NT_PRINCIPAL_NAME = &GSS_KRB5_NT_PRINCIPAL_NAME_DESC;
+static gss_OID_desc GSS_KRB5_CRED_NO_CI_FLAGS_X_DESC =
+	{ .length = 6, .elements = "\x2a\x85\x70\x2b\x0d\x1d" };
+const gss_OID GSS_KRB5_CRED_NO_CI_FLAGS_X = &GSS_KRB5_CRED_NO_CI_FLAGS_X_DESC;
 
 static void gss_alloc_buffer(gss_buffer_t buffer, size_t length);
 
 static char *client_principal = NULL;
 static char *server_principal = NULL;
+static OM_uint32 ret_flags_add, ret_flags_remove;
+static bool fail_acquire_cred, fail_set_neg_mechs;
 
 void gss_dummy_kinit(const char *principal)
 {
@@ -50,8 +57,22 @@ void gss_dummy_add_principal(const char *principal)
 	server_principal = i_strdup(principal);
 }
 
+void gss_dummy_set_ret_flags(OM_uint32 add, OM_uint32 remove)
+{
+	ret_flags_add = add;
+	ret_flags_remove = remove;
+}
+
+void gss_dummy_set_initiator_cred_failures(bool acquire, bool set_neg_mechs)
+{
+	fail_acquire_cred = acquire;
+	fail_set_neg_mechs = set_neg_mechs;
+}
+
 void gss_dummy_deinit(void)
 {
+	ret_flags_add = ret_flags_remove = 0;
+	fail_acquire_cred = fail_set_neg_mechs = FALSE;
 	i_free(client_principal);
 	i_free(server_principal);
 }
@@ -66,15 +87,26 @@ gss_acquire_cred(OM_uint32 *minor_status, gss_name_t desired_name,
 	gss_cred_id_t cred_handle;
 
 	i_assert(time_req == 0); // Not implemented
-	i_assert(desired_mechs == GSS_C_NULL_OID_SET); // Not implemented
 	i_assert(actual_mechs == NULL); // Not implemented
 	i_assert(time_rec == NULL); // Not implemented
-	i_assert(cred_usage == GSS_C_ACCEPT); // Not implemented
+	/* Only the acceptor looks for a name, and only the initiator
+	   restricts the mechanisms. */
+	i_assert((cred_usage == GSS_C_ACCEPT &&
+		  desired_mechs == GSS_C_NULL_OID_SET &&
+		  desired_name != GSS_C_NO_NAME) ||
+		 (cred_usage == GSS_C_INITIATE &&
+		  desired_name == GSS_C_NO_NAME)); // Not implemented
+
+	if (cred_usage == GSS_C_INITIATE && fail_acquire_cred) {
+		*minor_status = GSS_KRB5_DUMMY_FAIL_CODE;
+		return GSS_S_NO_CRED;
+	}
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"gss_cred_id", 256);
 	cred_handle = p_new(pool, struct gss_cred_id_struct, 1);
 	cred_handle->pool = pool;
-	cred_handle->desired_name = p_strdup(pool, desired_name->name);
+	if (desired_name != GSS_C_NO_NAME)
+		cred_handle->desired_name = p_strdup(pool, desired_name->name);
 
 	*output_cred_handle = cred_handle;
 	*minor_status = 0;
@@ -88,6 +120,36 @@ gss_release_cred(OM_uint32 *minor_status, gss_cred_id_t *cred_handle)
 	*cred_handle = NULL;
 
 	*minor_status = 0;
+	return 0;
+}
+
+OM_uint32 KRB5_CALLCONV
+gss_set_cred_option(OM_uint32 *minor_status, gss_cred_id_t *cred,
+		    const gss_OID desired_object,
+		    const gss_buffer_t value ATTR_UNUSED)
+{
+	*minor_status = 0;
+	if (*cred == GSS_C_NO_CREDENTIAL ||
+	    !auth_gssapi_oid_equal(desired_object, GSS_KRB5_CRED_NO_CI_FLAGS_X))
+		return GSS_S_UNAVAILABLE;
+	(*cred)->no_ci_flags = TRUE;
+	return 0;
+}
+
+OM_uint32 KRB5_CALLCONV
+gss_set_neg_mechs(OM_uint32 *minor_status, gss_cred_id_t cred_handle,
+		  const gss_OID_set mech_set)
+{
+	*minor_status = 0;
+	if (cred_handle == GSS_C_NO_CREDENTIAL)
+		return GSS_S_NO_CRED;
+	if (fail_set_neg_mechs) {
+		*minor_status = GSS_KRB5_DUMMY_FAIL_CODE;
+		return GSS_S_FAILURE;
+	}
+	cred_handle->neg_krb5_only = mech_set->count == 1 &&
+		auth_gssapi_oid_equal(&mech_set->elements[0],
+				      auth_gssapi_mech_krb5_oid);
 	return 0;
 }
 
@@ -120,10 +182,8 @@ gss_init_sec_context(OM_uint32 *minor_status,
 	pool_t pool;
 	struct gss_ctx_id_struct *ctx;
 
-	i_assert(claimant_cred_handle == GSS_C_NO_CREDENTIAL); // Not implemented
 	i_assert(time_req == 0); // Not implemented
 	i_assert(time_req == 0); // Not implemented
-	i_assert(ret_flags == NULL); // Not implemented
 	i_assert(time_rec == NULL); // Not implemented
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"gss_ctx_id", 256);
@@ -164,6 +224,15 @@ gss_init_sec_context(OM_uint32 *minor_status,
 	memcpy(output_token->value, output->data, output->used);
 
 	*context_handle = ctx;
+	if (ret_flags != NULL) {
+		/* Like Kerberos, set the integrity and confidentiality flags
+		   unless the credential says not to. */
+		OM_uint32 flags = req_flags;
+		if (claimant_cred_handle == GSS_C_NO_CREDENTIAL ||
+		    !claimant_cred_handle->no_ci_flags)
+			flags |= GSS_C_INTEG_FLAG | GSS_C_CONF_FLAG;
+		*ret_flags = (flags & ~ret_flags_remove) | ret_flags_add;
+	}
 	if (actual_mech_type != NULL)
 		*actual_mech_type = &ctx->mech_type;
 
