@@ -85,6 +85,7 @@ struct test_sasl_context {
 	buffer_t *cbind_data;
 
 	bool server_cbinding:1;
+	bool client_failed:1;
 	bool auth_initial:1;
 	bool out_of_band_cycle:1;
 	bool finished:1;
@@ -276,6 +277,7 @@ test_client_expect_error(struct test_sasl_context *tctx,
 {
 	test_assert(result == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
 	test_assert_strcmp(error, tctx->test->client_error);
+	tctx->client_failed = TRUE;
 	tctx->finished = TRUE;
 }
 
@@ -323,7 +325,8 @@ test_server_request_output(struct sasl_server_req_ctx *rctx,
 
 		result = dsasl_client_session_input(
 			tctx->session, output->data, output->data_size, &error);
-		if (test->client_error != NULL) {
+		if (result != DSASL_CLIENT_RESULT_OK &&
+		    test->client_error != NULL) {
 			test_client_expect_error(tctx, result, error);
 			return;
 		}
@@ -610,6 +613,7 @@ test_sasl_run_once(const struct test_sasl *test,
 	sasl_server_request_destroy(&tctx.ssrctx);
 
 	test_assert(test->expect_cbind == tctx.server_cbinding);
+	test_assert((test->client_error != NULL) == tctx.client_failed);
 
 	pool_unref(&tctx.pool);
 }
