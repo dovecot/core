@@ -7,7 +7,7 @@ AC_DEFUN([DOVECOT_WANT_LUA], [
       LUAPCS=$($PKG_CONFIG --list-all | $EGREP "lua-?...? " | sort -r)
       dnl Then we pick suitable one
       for LUAPC in $LUAPCS lua; do
-        PKG_CHECK_MODULES([LUA], [$LUAPC >= 5.1 $LUAPC != 5.2], [
+        PKG_CHECK_MODULES([LUA], [$LUAPC >= 5.3], [
           have_lua=yes
           AC_MSG_NOTICE([using library $LUAPC])
           break
