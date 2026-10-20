@@ -7,6 +7,7 @@
 #include "hex-binary.h"
 #include "hash.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "sql-api-private.h"
 #include "dict-private.h"
 #include "dict-sql-settings.h"
@@ -515,7 +516,11 @@ sql_dict_result_unescape(enum dict_sql_type type, pool_t pool,
 		value = sql_result_get_field_value(result, result_idx);
 		if (value == NULL)
 			return "";
-		guid_128_from_uuid_string(value, guid);
+		if (guid_128_from_uuid_string(value, guid) < 0) {
+			e_error(result->event, "Value not uuid: %s",
+				str_sanitize(value, 128));
+			return p_strdup(pool, value);
+		}
 		return p_strdup(pool, guid_128_to_uuid_string(guid, FORMAT_RECORD));
 	case DICT_SQL_TYPE_HEXBLOB:
 		break;
