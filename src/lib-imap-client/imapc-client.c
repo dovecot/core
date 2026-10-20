@@ -101,6 +101,7 @@ int imapc_client_init(const struct imapc_parameters *params,
 	if (dsasl_client_check_settings(sasl_client, error_r) < 0) {
 		dsasl_client_unref(&sasl_client);
 		settings_instance_free(&set_instance);
+		settings_free(ssl_set);
 		settings_free(set);
 		event_unref(&event);
 		return -1;
