@@ -5,6 +5,9 @@
 #  include "auth-gssapi.h"
 #endif
 
+/* The acceptor's token for an initiator that asked for mutual authentication */
+#define GSS_DUMMY_MUTUAL_TOKEN "dummy-mutual"
+
 void gss_dummy_kinit(const char *principal);
 void gss_dummy_add_principal(const char *principal);
 

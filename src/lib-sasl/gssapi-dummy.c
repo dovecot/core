@@ -190,7 +190,7 @@ static void _encode_buffer(buffer_t *output, gss_buffer_t buf)
 /* Create the context and the initiator's token for the acceptor. */
 static struct gss_ctx_id_struct *
 gss_init_new_context(gss_name_t target_name, gss_OID mech_type,
-		     OM_uint32 req_flags,
+		     OM_uint32 flags,
 		     gss_channel_bindings_t input_chan_bindings,
 		     gss_buffer_t output_token)
 {
@@ -202,7 +202,7 @@ gss_init_new_context(gss_name_t target_name, gss_OID mech_type,
 	ctx->pool = pool;
 	ctx->src_name = p_strdup(pool, client_principal);
 	ctx->dst_name = p_strdup(pool, target_name->name);
-	ctx->req_flags = req_flags;
+	ctx->req_flags = flags;
 	ctx->mech_type = *mech_type;
 
 	/* Morph SPNEGO into normal Kerberos5 */
@@ -218,11 +218,12 @@ gss_init_new_context(gss_name_t target_name, gss_OID mech_type,
 			input_chan_bindings->application_data.length;
 	}
 	buffer_t *output = t_buffer_create(
-		4 + ctx->mech_type.length + 4 + src_name_len + cbind_len);
+		4 + ctx->mech_type.length + 4 + src_name_len + 4 + cbind_len);
 	_encode_uint32(output, ctx->mech_type.length);
 	buffer_append(output, ctx->mech_type.elements, ctx->mech_type.length);
 	_encode_uint32(output, src_name_len);
 	buffer_append(output, ctx->src_name, src_name_len);
+	_encode_uint32(output, flags);
 	if (input_chan_bindings != GSS_C_NO_CHANNEL_BINDINGS) {
 		_encode_uint32(output, input_chan_bindings->initiator_addrtype);
 		_encode_uint32(output, input_chan_bindings->acceptor_addrtype);
@@ -237,6 +238,21 @@ gss_init_new_context(gss_name_t target_name, gss_OID mech_type,
 	return ctx;
 }
 
+/* Check the acceptor's reply to mutual authentication. */
+static OM_uint32
+gss_init_mutual_reply(OM_uint32 *minor_status, gss_buffer_t input_token,
+		      size_t input_token_len, gss_buffer_t output_token)
+{
+	if (input_token_len != strlen(GSS_DUMMY_MUTUAL_TOKEN) ||
+	    memcmp(input_token->value, GSS_DUMMY_MUTUAL_TOKEN,
+		   input_token_len) != 0) {
+		*minor_status = GSS_KRB5_DUMMY_FAIL_CODE;
+		return GSS_S_DEFECTIVE_TOKEN;
+	}
+	gss_alloc_buffer(output_token, 0);
+	return GSS_S_COMPLETE;
+}
+
 OM_uint32 KRB5_CALLCONV
 gss_init_sec_context(OM_uint32 *minor_status,
 		     gss_cred_id_t claimant_cred_handle,
@@ -244,12 +260,15 @@ gss_init_sec_context(OM_uint32 *minor_status,
 		     gss_OID mech_type, OM_uint32 req_flags,
 		     OM_uint32 time_req,
 		     gss_channel_bindings_t input_chan_bindings,
-		     gss_buffer_t input_token ATTR_UNUSED,
+		     gss_buffer_t input_token,
 		     gss_OID *actual_mech_type,
 		     gss_buffer_t output_token, OM_uint32 *ret_flags,
 		     OM_uint32 *time_rec)
 {
 	struct gss_ctx_id_struct *ctx;
+	OM_uint32 flags = req_flags;
+	size_t input_token_len = input_token == GSS_C_NO_BUFFER ? 0 :
+		input_token->length;
 
 	i_assert(time_req == 0); // Not implemented
 	i_assert(time_rec == NULL); // Not implemented
@@ -264,23 +283,36 @@ gss_init_sec_context(OM_uint32 *minor_status,
 		return GSS_S_NO_CRED;
 	}
 
-	ctx = gss_init_new_context(target_name, mech_type, req_flags,
-				   input_chan_bindings, output_token);
-	*context_handle = ctx;
-	if (ret_flags != NULL) {
-		/* Like Kerberos, set the integrity and confidentiality flags
-		   unless the credential says not to. */
-		OM_uint32 flags = req_flags;
-		if (claimant_cred_handle == GSS_C_NO_CREDENTIAL ||
-		    !claimant_cred_handle->no_ci_flags)
-			flags |= GSS_C_INTEG_FLAG | GSS_C_CONF_FLAG;
-		*ret_flags = (flags & ~ret_flags_remove) | ret_flags_add;
+	/* Like Kerberos, set the integrity and confidentiality flags unless
+	   the credential says not to. */
+	if (claimant_cred_handle == GSS_C_NO_CREDENTIAL ||
+	    !claimant_cred_handle->no_ci_flags)
+		flags |= GSS_C_INTEG_FLAG | GSS_C_CONF_FLAG;
+
+	if (*context_handle != GSS_C_NO_CONTEXT) {
+		OM_uint32 ret;
+
+		ctx = *context_handle;
+		ret = gss_init_mutual_reply(minor_status, input_token,
+					    input_token_len, output_token);
+		if (ret != GSS_S_COMPLETE)
+			return ret;
+	} else {
+		ctx = gss_init_new_context(target_name, mech_type, flags,
+					   input_chan_bindings, output_token);
+		*context_handle = ctx;
 	}
+
+	if (ret_flags != NULL)
+		*ret_flags = (flags & ~ret_flags_remove) | ret_flags_add;
 	if (actual_mech_type != NULL)
 		*actual_mech_type = &ctx->mech_type;
 
 	*minor_status = 0;
-	return 0;
+	/* Mutual authentication needs the acceptor's reply */
+	if ((flags & GSS_C_MUTUAL_FLAG) != 0 && input_token_len == 0)
+		return GSS_S_CONTINUE_NEEDED;
+	return GSS_S_COMPLETE;
 }
 
 static int
@@ -353,6 +385,9 @@ gss_parse_sec_context(struct gss_ctx_id_struct *ctx,
 	ctx->src_name = p_strndup(ctx->pool, (const char *)input, src_name_len);
 	input += src_name_len;
 	input_left -= src_name_len;
+
+	if (_decode_uint32(&input, &input_left, &ctx->req_flags) < 0)
+		return GSS_S_BAD_MECH;
 
 	/* Like Kerberos, ignore the channel bindings of the initiator if the
 	   acceptor doesn't give any. A required binding models an acceptor
@@ -435,7 +470,6 @@ gss_accept_sec_context(OM_uint32 *minor_status, gss_ctx_id_t *context_handle,
 
 	*minor_status = 0;
 
-	i_assert(ret_flags == NULL);
 	i_assert(time_rec == NULL);
 	i_assert(delegated_cred_handle == NULL);
 
@@ -464,7 +498,15 @@ gss_accept_sec_context(OM_uint32 *minor_status, gss_ctx_id_t *context_handle,
 	*context_handle = ctx;
 	*src_name = name;
 	*mech_type = &ctx->mech_type;
-	gss_alloc_buffer(output_token, 0);
+	if ((ctx->req_flags & GSS_C_MUTUAL_FLAG) != 0) {
+		gss_alloc_buffer(output_token, strlen(GSS_DUMMY_MUTUAL_TOKEN));
+		memcpy(output_token->value, GSS_DUMMY_MUTUAL_TOKEN,
+		       output_token->length);
+	} else {
+		gss_alloc_buffer(output_token, 0);
+	}
+	if (ret_flags != NULL)
+		*ret_flags = ctx->req_flags;
 
 	return accept_status;
 }

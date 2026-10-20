@@ -1308,12 +1308,18 @@ static void test_sasl_client_gss_spnego_is_finished(void)
 	size_t olen;
 
 	i_assert(session != NULL);
-	/* the context is established with the first token */
+	/* the context is established with the acceptor's reply to the first
+	   token */
 	test_assert(!dsasl_client_session_is_finished(session));
 	test_assert(dsasl_client_session_output(session, &output, &olen,
 						&error) ==
 		    DSASL_CLIENT_RESULT_OK);
 	test_assert(olen > 0);
+	test_assert(!dsasl_client_session_is_finished(session));
+	test_assert(dsasl_client_session_input(
+			session, (const unsigned char *)GSS_DUMMY_MUTUAL_TOKEN,
+			strlen(GSS_DUMMY_MUTUAL_TOKEN), &error) ==
+		    DSASL_CLIENT_RESULT_OK);
 	test_assert(dsasl_client_session_is_finished(session));
 	/* there is no security layer negotiation */
 	test_assert(dsasl_client_session_input(session, output, olen,
