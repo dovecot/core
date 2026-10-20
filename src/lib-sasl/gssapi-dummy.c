@@ -42,7 +42,7 @@ static void gss_alloc_buffer(gss_buffer_t buffer, size_t length);
 
 static char *client_principal = NULL;
 static char *server_principal = NULL;
-static OM_uint32 ret_flags_add, ret_flags_remove;
+static OM_uint32 ret_flags_add, ret_flags_remove, accept_status;
 static bool fail_acquire_cred, fail_set_neg_mechs;
 static buffer_t *required_cbind, *token_cbind;
 
@@ -62,6 +62,11 @@ void gss_dummy_set_ret_flags(OM_uint32 add, OM_uint32 remove)
 {
 	ret_flags_add = add;
 	ret_flags_remove = remove;
+}
+
+void gss_dummy_set_accept_status(OM_uint32 status)
+{
+	accept_status = status;
 }
 
 void gss_dummy_set_initiator_cred_failures(bool acquire, bool set_neg_mechs)
@@ -84,7 +89,7 @@ const buffer_t *gss_dummy_get_token_channel_bindings(void)
 
 void gss_dummy_deinit(void)
 {
-	ret_flags_add = ret_flags_remove = 0;
+	ret_flags_add = ret_flags_remove = accept_status = 0;
 	fail_acquire_cred = fail_set_neg_mechs = FALSE;
 	buffer_free(&required_cbind);
 	buffer_free(&token_cbind);
@@ -447,7 +452,7 @@ gss_accept_sec_context(OM_uint32 *minor_status, gss_ctx_id_t *context_handle,
 	*mech_type = &ctx->mech_type;
 	gss_alloc_buffer(output_token, 0);
 
-	return 0;
+	return accept_status;
 }
 
 OM_uint32 KRB5_CALLCONV

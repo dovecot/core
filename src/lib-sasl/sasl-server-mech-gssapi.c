@@ -285,6 +285,7 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 	default:
 		e_error(auth_request->event,
 			"Received unexpected major status %d", major_status);
+		ret = -1;
 		break;
 	}
 

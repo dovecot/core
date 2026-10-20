@@ -16,6 +16,12 @@ void gss_dummy_add_principal(const char *principal);
 void gss_dummy_set_ret_flags(OM_uint32 add, OM_uint32 remove);
 #endif
 
+/* Make a successful gss_accept_sec_context() return this major status
+   instead of GSS_S_COMPLETE, e.g. a supplementary status bit. */
+#ifdef HAVE_GSSAPI
+void gss_dummy_set_accept_status(OM_uint32 status);
+#endif
+
 /* Make gss_acquire_cred() of an initiator credential and/or
    gss_set_neg_mechs() fail. */
 #ifdef HAVE_GSSAPI

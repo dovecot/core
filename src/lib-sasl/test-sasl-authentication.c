@@ -35,11 +35,15 @@ struct test_sasl {
 	/* The client is expected to fail with this error, instead of the
 	   authentication succeeding. */
 	const char *client_error;
+	/* The server is expected to log this error. */
+	const char *server_error;
 	/* GSSAPI dummy behavior */
 	struct {
 		/* Flags the dummy adds to and removes from the context flags
 		   it returns. */
 		unsigned int ret_flags_add, ret_flags_remove;
+		/* The major status that the acceptor returns on success. */
+		unsigned int accept_status;
 		/* The acceptor requires this application data in the channel
 		   bindings. */
 		const char *require_cbind_data;
@@ -599,7 +603,11 @@ test_sasl_run_once(const struct test_sasl *test,
 			test_client_channel_binding_callback, &tctx);
 	}
 
+	if (test->server_error != NULL)
+		test_expect_error_string(test->server_error);
 	test_sasl_interact(&tctx);
+	if (test->server_error != NULL)
+		test_expect_no_more_errors();
 #ifdef HAVE_GSSAPI
 	if (strcasecmp(test->mech, SASL_MECH_NAME_GSSAPI) == 0 ||
 	    strcasecmp(test->mech, SASL_MECH_NAME_GSS_SPNEGO) == 0)
@@ -717,6 +725,7 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 #endif
 		gss_dummy_set_ret_flags(test->gss.ret_flags_add,
 					ret_flags_remove);
+		gss_dummy_set_accept_status(test->gss.accept_status);
 		gss_dummy_set_initiator_cred_failures(
 			test->gss.fail_acquire_cred,
 			test->gss.fail_set_neg_mechs);
@@ -1981,6 +1990,19 @@ static const struct test_sasl bad_creds_tests[] = {
 		.client = {
 			.authid = "userb",
 		},
+		.expect_cbind = TRUE,
+		.failure = TRUE,
+	},
+	/* GSSAPI: the acceptor returns an unexpected status */
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.gss = { .accept_status = GSS_S_DUPLICATE_TOKEN },
+		.server_error = "Received unexpected major status",
 		.expect_cbind = TRUE,
 		.failure = TRUE,
 	},
