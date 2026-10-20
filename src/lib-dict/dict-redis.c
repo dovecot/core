@@ -515,11 +515,11 @@ static const char *
 redis_dict_get_full_key(struct redis_dict *dict, const char *username,
 			const char *key)
 {
-	const char *username_sp = strchr(username, DICT_USERNAME_SEPARATOR);
-
 	if (str_begins(key, DICT_PATH_SHARED, &key))
 		;
 	else if (str_begins(key, DICT_PATH_PRIVATE, &key)) {
+		const char *username_sp =
+			strchr(username, DICT_USERNAME_SEPARATOR);
 		key = t_strdup_printf("%s%c%s",
 				      username_sp == NULL ? username :
 						redis_escape_username(username),
