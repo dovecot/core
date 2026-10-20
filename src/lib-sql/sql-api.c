@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "llist.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "time-util.h"
 #include "settings.h"
 #include "settings-parser.h"
@@ -1181,8 +1182,11 @@ static void sql_result_fetch(struct sql_result *result)
 			break;
 		}
 		case SQL_TYPE_UUID: {
-			if (value != NULL)
-				guid_128_from_uuid_string(value, *((guid_128_t *)ptr));
+			guid_128_t *guid = ptr;
+			if (value != NULL &&
+			    guid_128_from_uuid_string(value, *guid) < 0)
+				e_error(result->event, "Value not uuid: %s",
+					str_sanitize(value, 128));
 			break;
 		}
 		}
