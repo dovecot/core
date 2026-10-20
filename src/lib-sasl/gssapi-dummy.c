@@ -288,10 +288,10 @@ _decode_buffer(const unsigned char **_input, size_t *_input_left,
 static bool
 _gss_buffer_cmp(gss_buffer_t buf1, gss_buffer_t buf2)
 {
-	if (buf1->length == 0 || buf2->length == 0)
-		return (buf1->length == buf2->length);
-	return (memcmp(buf1->value, buf2->value,
-		       I_MIN(buf1->length, buf2->length)) == 0);
+	if (buf1->length != buf2->length)
+		return FALSE;
+	return buf1->length == 0 ||
+		memcmp(buf1->value, buf2->value, buf1->length) == 0;
 }
 
 static OM_uint32
