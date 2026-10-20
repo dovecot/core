@@ -40,16 +40,25 @@ struct test_sasl {
 		/* Flags the dummy adds to and removes from the context flags
 		   it returns. */
 		unsigned int ret_flags_add, ret_flags_remove;
+		/* The acceptor requires this application data in the channel
+		   bindings. */
+		const char *require_cbind_data;
 		/* The dummy fails acquiring the initiator credential or
 		   restricting the negotiated mechanisms. */
 		bool fail_acquire_cred:1;
 		bool fail_set_neg_mechs:1;
+		/* The acceptor requires the tls-server-end-point channel
+		   binding with the data that the client got from its
+		   callback. */
+		bool require_cbind:1;
 	} gss;
 
 	bool failure:1;
 	bool no_cbind:1;
 	bool server_no_plus:1;
 	bool expect_cbind:1;
+	/* The channel binding callback fails. */
+	bool cbind_callback_fails:1;
 };
 
 struct test_sasl_context {
@@ -374,12 +383,47 @@ test_client_channel_binding_callback(const char *type, void *context,
 {
 	struct test_sasl_context *tctx = context;
 
+	if (tctx->test->cbind_callback_fails) {
+		*error_r = "Channel binding not available";
+		return -1;
+	}
 	*error_r = NULL;
 
 	test_create_channel_binding_data(tctx, type);
 	*data_r = tctx->cbind_data;
+#ifdef HAVE_GSSAPI
+	if (tctx->test->gss.require_cbind) {
+		const char *app_data = t_strdup_printf(
+			"%s:%s", type, str_c(tctx->cbind_data));
+		gss_dummy_require_channel_bindings(app_data, strlen(app_data));
+	}
+#endif
 	return 0;
 }
+
+#ifdef HAVE_GSSAPI
+static void test_gss_check_channel_binding(struct test_sasl_context *tctx)
+{
+	const struct test_sasl *test = tctx->test;
+	const buffer_t *token_cbind = gss_dummy_get_token_channel_bindings();
+
+	/* The GSSAPI acceptor has no server callbacks. The binding was used if
+	   the token had one. */
+	tctx->server_cbinding = token_cbind != NULL;
+	if (test->no_cbind || test->cbind_callback_fails)
+		test_assert(token_cbind == NULL);
+	if (token_cbind == NULL)
+		return;
+
+	test_assert_strcmp(tctx->cbind_type, "tls-server-end-point");
+	if (tctx->cbind_data != NULL) {
+		test_assert_strcmp(
+			t_strndup(token_cbind->data, token_cbind->used),
+			t_strdup_printf("tls-server-end-point:%s",
+					str_c(tctx->cbind_data)));
+	}
+}
+#endif
 
 static void test_sasl_interact(struct test_sasl_context *tctx)
 {
@@ -521,6 +565,11 @@ test_sasl_run_once(const struct test_sasl *test,
 	}
 
 	test_sasl_interact(&tctx);
+#ifdef HAVE_GSSAPI
+	if (strcasecmp(test->mech, SASL_MECH_NAME_GSSAPI) == 0 ||
+	    strcasecmp(test->mech, SASL_MECH_NAME_GSS_SPNEGO) == 0)
+		test_gss_check_channel_binding(&tctx);
+#endif
 
 	dsasl_client_session_destroy(&tctx.session);
 	event_unref(&event);
@@ -635,6 +684,11 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 		gss_dummy_set_initiator_cred_failures(
 			test->gss.fail_acquire_cred,
 			test->gss.fail_set_neg_mechs);
+		if (test->gss.require_cbind_data != NULL) {
+			gss_dummy_require_channel_bindings(
+				test->gss.require_cbind_data,
+				strlen(test->gss.require_cbind_data));
+		}
 		gss_dummy_kinit(test->client.authid != NULL ?
 				test->client.authid : test->server.authid);
 	}
@@ -667,6 +721,9 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 	"GSS-SPNEGO security layer is not supported " \
 	"(gss_set_cred_option() not available in the GSSAPI library)"
 #  endif
+#  define GSS_CBIND_ERROR \
+	"Failed to get the TLS channel binding: " \
+	"Channel binding not available"
 #endif
 
 static const struct test_sasl success_tests[] = {
@@ -941,6 +998,7 @@ static const struct test_sasl success_tests[] = {
 			.authid = "user",
 			.password = "",
 		},
+		.expect_cbind = TRUE,
 	},
 	/* GSS-SPNEGO: The server still offers the GSSAPI security layer, which
 	   the client rejects. Change this to expect success once the server
@@ -952,6 +1010,58 @@ static const struct test_sasl success_tests[] = {
 			.authid = "user",
 			.password = "",
 		},
+		.expect_cbind = TRUE,
+		.client_error =
+			"Server sent unexpected data",
+	},
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.gss = { .require_cbind = TRUE },
+		.expect_cbind = TRUE,
+	},
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.no_cbind = TRUE,
+	},
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.cbind_callback_fails = TRUE,
+		.client_error = GSS_CBIND_ERROR,
+	},
+	{
+		.mech = "GSS-SPNEGO",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.cbind_callback_fails = TRUE,
+		.client_error = GSS_CBIND_ERROR,
+	},
+	{
+		.mech = "GSS-SPNEGO",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.gss = { .require_cbind = TRUE },
+		.expect_cbind = TRUE,
 		.client_error =
 			"Server sent unexpected data",
 	},
@@ -1734,6 +1844,7 @@ static const struct test_sasl bad_creds_tests[] = {
 		.client = {
 			.authid = "userb",
 		},
+		.expect_cbind = TRUE,
 		.failure = TRUE,
 	},
 	/* GSS-SPNEGO */
@@ -1747,7 +1858,55 @@ static const struct test_sasl bad_creds_tests[] = {
 		.client = {
 			.authid = "userb",
 		},
+		.expect_cbind = TRUE,
 		.failure = TRUE,
+	},
+	/* GSSAPI: wrong channel binding */
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.gss = { .require_cbind_data = "tls-server-end-point:wrong" },
+		.expect_cbind = TRUE,
+		.failure = TRUE,
+	},
+	{
+		.mech = "GSS-SPNEGO",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.gss = { .require_cbind_data = "tls-server-end-point:wrong" },
+		.expect_cbind = TRUE,
+		.failure = TRUE,
+	},
+	/* GSSAPI: required channel binding, but no TLS */
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.gss = { .require_cbind_data = "tls-server-end-point:wrong" },
+		.no_cbind = TRUE,
+		.failure = TRUE,
+	},
+	/* GSSAPI: required channel binding, but getting it fails */
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.gss = { .require_cbind_data = "tls-server-end-point:wrong" },
+		.cbind_callback_fails = TRUE,
+		.client_error = GSS_CBIND_ERROR,
 	},
 #endif
 	/* NTLM */

@@ -34,6 +34,8 @@ struct gssapi_sasl_session {
 	gss_name_t gss_principal;
 	gss_cred_id_t gss_cred;
 	gss_ctx_id_t gss_ctx;
+	struct gss_channel_bindings_struct gss_cbind;
+	bool have_cbind;
 
 	buffer_t *out_buf;
 };
@@ -47,6 +49,9 @@ static gss_OID_desc no_ci_flags_oid_desc = {
 static const gss_OID GSS_KRB5_CRED_NO_CI_FLAGS_X = &no_ci_flags_oid_desc;
 #endif
 #endif
+
+/* RFC 5056 section 2.1: channel bindings start with the type and a colon */
+#define GSSAPI_CBIND_PREFIX SSL_CHANNEL_BIND_TYPE_TLS_SERVER_END_POINT ":"
 
 static const struct dsasl_client_mech dsasl_client_mech_gssapi;
 static const struct dsasl_client_mech dsasl_client_mech_gss_spnego;
@@ -141,6 +146,40 @@ mech_gssapi_error(const char *description, OM_uint32 major_status,
 	return str_c(msg);
 }
 
+static int
+mech_gssapi_init_channel_binding(struct gssapi_sasl_session *gsession,
+				 const char **error_r)
+{
+	struct dsasl_client_mech_session *msession = &gsession->session;
+	const size_t prefix_len = strlen(GSSAPI_CBIND_PREFIX);
+	const buffer_t *cbind_data;
+	const char *error;
+	unsigned char *app_data;
+
+	/* Without TLS there is nothing to bind to. */
+	if (!dsasl_client_session_channel_binding_available(msession))
+		return 0;
+	/* The server may enforce the binding. Continuing without it would let
+	   a man in the middle with a certificate that has no binding relay the
+	   authentication to the server. */
+	if (dsasl_client_session_get_channel_binding(
+			msession, SSL_CHANNEL_BIND_TYPE_TLS_SERVER_END_POINT,
+			&cbind_data, &error) < 0) {
+		*error_r = t_strdup_printf(
+			"Failed to get the TLS channel binding: %s", error);
+		return -1;
+	}
+
+	app_data = p_malloc(msession->pool, prefix_len + cbind_data->used);
+	memcpy(app_data, GSSAPI_CBIND_PREFIX, prefix_len);
+	memcpy(app_data + prefix_len, cbind_data->data, cbind_data->used);
+	gsession->gss_cbind.application_data.value = app_data;
+	gsession->gss_cbind.application_data.length =
+		prefix_len + cbind_data->used;
+	gsession->have_cbind = TRUE;
+	return 0;
+}
+
 static enum dsasl_client_result
 mech_gssapi_gs1_init(struct gssapi_sasl_session *gsession, gss_buffer_t in_buf,
 		     const char **error_r)
@@ -177,6 +216,9 @@ mech_gssapi_gs1_init(struct gssapi_sasl_session *gsession, gss_buffer_t in_buf,
 	}
 
 	e_debug(msession->event, "Successfully imported principal name");
+
+	if (mech_gssapi_init_channel_binding(gsession, error_r) < 0)
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 
 	gsession->out_buf = buffer_create_dynamic(default_pool, 1024);
 	gsession->state.gs1 = GSSAPI_GS1_CLIENT_STATE_SEC_CONTEXT;
@@ -271,7 +313,9 @@ mech_gssapi_sec_context(struct gssapi_sasl_session *gsession,
 					    &gsession->gss_ctx,
 					    gsession->gss_principal,
 					    &mech_oid, req_flags,
-					    0, GSS_C_NO_CHANNEL_BINDINGS,
+					    0, (gsession->have_cbind ?
+						&gsession->gss_cbind :
+						GSS_C_NO_CHANNEL_BINDINGS),
 					    in_buf, &ret_mech_oid, out_buf,
 					    &ret_flags, NULL);
 	if(GSS_ERROR(major_status) != 0) {
