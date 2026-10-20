@@ -22,6 +22,15 @@ void gss_dummy_set_ret_flags(OM_uint32 add, OM_uint32 remove);
 void gss_dummy_set_initiator_cred_failures(bool acquire, bool set_neg_mechs);
 #endif
 
+/* Make gss_accept_sec_context() fail with GSS_S_BAD_BINDINGS unless the
+   initiator gave channel bindings with this application data and no
+   addresses. Otherwise the acceptor ignores the channel bindings of the
+   initiator. */
+void gss_dummy_require_channel_bindings(const void *data, size_t size);
+/* Returns the application data of the channel bindings in the last token that
+   gss_accept_sec_context() parsed, or NULL if the token had none. */
+const buffer_t *gss_dummy_get_token_channel_bindings(void);
+
 void gss_dummy_deinit(void);
 
 #endif

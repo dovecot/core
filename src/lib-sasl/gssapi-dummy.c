@@ -44,6 +44,7 @@ static char *client_principal = NULL;
 static char *server_principal = NULL;
 static OM_uint32 ret_flags_add, ret_flags_remove;
 static bool fail_acquire_cred, fail_set_neg_mechs;
+static buffer_t *required_cbind, *token_cbind;
 
 void gss_dummy_kinit(const char *principal)
 {
@@ -69,10 +70,24 @@ void gss_dummy_set_initiator_cred_failures(bool acquire, bool set_neg_mechs)
 	fail_set_neg_mechs = set_neg_mechs;
 }
 
+void gss_dummy_require_channel_bindings(const void *data, size_t size)
+{
+	buffer_free(&required_cbind);
+	required_cbind = buffer_create_dynamic(default_pool, size + 1);
+	buffer_append(required_cbind, data, size);
+}
+
+const buffer_t *gss_dummy_get_token_channel_bindings(void)
+{
+	return token_cbind;
+}
+
 void gss_dummy_deinit(void)
 {
 	ret_flags_add = ret_flags_remove = 0;
 	fail_acquire_cred = fail_set_neg_mechs = FALSE;
+	buffer_free(&required_cbind);
+	buffer_free(&token_cbind);
 	i_free(client_principal);
 	i_free(server_principal);
 }
@@ -320,9 +335,24 @@ gss_parse_sec_context(struct gss_ctx_id_struct *ctx,
 	input += src_name_len;
 	input_left -= src_name_len;
 
-	if (input_chan_bindings == GSS_C_NO_CHANNEL_BINDINGS) {
-		if (input_left != 0)
-			return GSS_S_BAD_MECH;
+	/* Like Kerberos, ignore the channel bindings of the initiator if the
+	   acceptor doesn't give any. A required binding models an acceptor
+	   that enforces them, like Active Directory. */
+	struct gss_channel_bindings_struct required;
+
+	if (input_chan_bindings == GSS_C_NO_CHANNEL_BINDINGS &&
+	    required_cbind != NULL) {
+		i_zero(&required);
+		required.application_data.value =
+			buffer_get_modifiable_data(required_cbind, NULL);
+		required.application_data.length = required_cbind->used;
+		input_chan_bindings = &required;
+	}
+
+	buffer_free(&token_cbind);
+	if (input_left == 0) {
+		if (input_chan_bindings != GSS_C_NO_CHANNEL_BINDINGS)
+			return GSS_S_BAD_BINDINGS;
 	} else {
 		OM_uint32 initiator_addrtype;
 		OM_uint32 acceptor_addrtype;
@@ -344,6 +374,13 @@ gss_parse_sec_context(struct gss_ctx_id_struct *ctx,
 		if (_decode_buffer(&input, &input_left, &application_data) < 0)
 			return GSS_S_BAD_MECH;
 
+		token_cbind = buffer_create_dynamic(
+			default_pool, application_data.length + 1);
+		buffer_append(token_cbind, application_data.value,
+			      application_data.length);
+
+		if (input_chan_bindings == GSS_C_NO_CHANNEL_BINDINGS)
+			return 0;
 		if (initiator_addrtype !=
 		    input_chan_bindings->initiator_addrtype)
 			return GSS_S_BAD_BINDINGS;
