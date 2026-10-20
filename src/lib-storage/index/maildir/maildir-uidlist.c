@@ -1092,11 +1092,39 @@ uint32_t maildir_uidlist_get_next_uid(struct maildir_uidlist *uidlist)
 	return !uidlist->initial_hdr_read ? 0 : uidlist->next_uid;
 }
 
+static int
+maildir_uidlist_read_header_guid(struct maildir_uidlist *uidlist)
+{
+	struct istream *input;
+	int fd, ret;
+
+	fd = nfs_safe_open(uidlist->path, O_RDONLY);
+	if (fd == -1) {
+		if (errno == ENOENT)
+			return 0;
+		mailbox_set_critical(uidlist->box,
+			"open(%s) failed: %m", uidlist->path);
+		return -1;
+	}
+	input = i_stream_create_fd_autoclose(&fd, 1024);
+	ret = maildir_uidlist_read_header(uidlist, input);
+	i_stream_destroy(&input);
+	return ret > 0 && uidlist->have_mailbox_guid ? 1 : 0;
+}
+
 int maildir_uidlist_get_mailbox_guid(struct maildir_uidlist *uidlist,
 				     guid_128_t mailbox_guid)
 {
-	if (!uidlist->initial_hdr_read) {
-		if (maildir_uidlist_refresh(uidlist) < 0)
+	int ret;
+
+	if (!uidlist->initial_hdr_read && !uidlist->have_mailbox_guid) {
+		/* Avoid reading the whole uidlist when only the GUID is
+		   needed. If it's not found from the header, fall back to
+		   the full refresh, which also handles errors. */
+		ret = maildir_uidlist_read_header_guid(uidlist);
+		if (ret < 0)
+			return -1;
+		if (ret == 0 && maildir_uidlist_refresh(uidlist) < 0)
 			return -1;
 	}
 	if (!uidlist->have_mailbox_guid) {
