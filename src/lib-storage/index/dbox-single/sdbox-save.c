@@ -296,6 +296,12 @@ int sdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		sdbox_transaction_save_rollback(_ctx);
 		return -1;
 	}
+	if (ctx->sync_ctx == NULL) {
+		/* index isn't writable */
+		mailbox_set_index_error(&ctx->mbox->box);
+		sdbox_transaction_save_rollback(_ctx);
+		return -1;
+	}
 
 	/* update dbox header flags */
 	dbox_save_update_header_flags(&ctx->ctx, ctx->sync_ctx->sync_view,
