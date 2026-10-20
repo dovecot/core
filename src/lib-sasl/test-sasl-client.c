@@ -9,7 +9,7 @@
 #include "md5.h"
 #include "auth-digest.h"
 #include "client-auth-settings.h"
-#include "dsasl-client.h"
+#include "dsasl-client-private.h"
 #ifdef HAVE_GSSAPI
 #  include "gssapi-dummy.h"
 #endif
@@ -1180,6 +1180,139 @@ static void test_sasl_client_gssapi_no_password(void)
 }
 #endif
 
+#ifdef HAVE_GSSAPI
+static unsigned int module_load_calls;
+static const struct dsasl_client_module *module_load_last;
+static const char *module_load_error;
+
+/* Replaces the real function, which loads the installed module. */
+int dsasl_client_module_load(struct dsasl_client *client,
+			     const struct dsasl_client_module *module,
+			     const char **error_r)
+{
+	module_load_calls++;
+	module_load_last = module;
+	if (module_load_error != NULL) {
+		*error_r = module_load_error;
+		return -1;
+	}
+	dsasl_client_init_gssapi(client);
+	return 0;
+}
+
+static void test_sasl_client_gssapi_load(void)
+{
+	static const char *const mechs[] = { "GSSAPI", "gss-spnego" };
+	struct settings_simple test_set;
+	struct dsasl_client *client;
+	const char *error;
+
+	for (unsigned int i = 0; i < N_ELEMENTS(mechs); i++) T_BEGIN {
+		test_begin(t_strdup_printf("sasl client load GSSAPI - %s",
+					   mechs[i]));
+		const char *const settings[] = {
+			"client_auth_mechanism", mechs[i],
+			"client_auth_authid", "",
+			"client_auth_authzid", "",
+			"client_auth_password", "",
+			NULL,
+		};
+		settings_simple_init(&test_set, settings);
+		event_set_forced_debug(test_set.event, debug);
+
+		/* The mechanism is loaded when it is configured. */
+		client = dsasl_client_create(test_set.event);
+		module_load_calls = 0;
+		module_load_error = NULL;
+		error = NULL;
+		test_assert(dsasl_client_check_settings(client, &error) == 0);
+		test_assert_strcmp(error, NULL);
+		test_assert_ucmp(module_load_calls, ==, 1);
+		i_assert(module_load_last != NULL);
+		test_assert_strcmp(module_load_last->name, "dovecot-gssapi");
+		test_assert_strcmp(module_load_last->init_symbol,
+				   "dsasl_client_init_gssapi");
+
+		/* It isn't loaded again. */
+		test_assert(dsasl_client_check_settings(client, &error) == 0);
+		test_assert_ucmp(module_load_calls, ==, 1);
+		dsasl_client_unref(&client);
+
+		/* It isn't loaded if it's already registered. */
+		client = dsasl_client_create(test_set.event);
+		dsasl_client_init_gssapi(client);
+		module_load_calls = 0;
+		test_assert(dsasl_client_check_settings(client, &error) == 0);
+		test_assert_ucmp(module_load_calls, ==, 0);
+		dsasl_client_unref(&client);
+
+		/* The error is returned if it can't be loaded. */
+		client = dsasl_client_create(test_set.event);
+		module_load_error = "Failed to load SASL mechanism module test";
+		test_assert(dsasl_client_check_settings(client, &error) < 0);
+		test_assert_strcmp(error, module_load_error);
+		dsasl_client_unref(&client);
+
+		settings_simple_deinit(&test_set);
+		test_end();
+	} T_END;
+}
+
+static void test_sasl_client_non_gssapi_not_loaded(void)
+{
+	static const char *const settings[] = {
+		"client_auth_mechanism", "FROP",
+		"client_auth_authid", "",
+		"client_auth_authzid", "",
+		"client_auth_password", "",
+		NULL,
+	};
+	struct settings_simple test_set;
+	struct dsasl_client *client;
+	const char *error = NULL;
+
+	test_begin("sasl client check settings - unknown mechanism");
+	settings_simple_init(&test_set, settings);
+	event_set_forced_debug(test_set.event, debug);
+
+	client = dsasl_client_create(test_set.event);
+	module_load_calls = 0;
+	test_assert(dsasl_client_check_settings(client, &error) < 0);
+	test_assert_strcmp(error, "Configured SASL mechanism 'FROP' is not supported by client");
+	test_assert_ucmp(module_load_calls, ==, 0);
+
+	dsasl_client_unref(&client);
+	settings_simple_deinit(&test_set);
+	test_end();
+}
+#else
+static void test_sasl_client_gssapi_not_built(void)
+{
+	static const char *const settings[] = {
+		"client_auth_mechanism", "GSSAPI",
+		"client_auth_authid", "",
+		"client_auth_authzid", "",
+		"client_auth_password", "",
+		NULL,
+	};
+	struct settings_simple test_set;
+	struct dsasl_client *client;
+	const char *error = NULL;
+
+	test_begin("sasl client check settings - GSSAPI not built");
+	settings_simple_init(&test_set, settings);
+	event_set_forced_debug(test_set.event, debug);
+
+	client = dsasl_client_create(test_set.event);
+	test_assert(dsasl_client_check_settings(client, &error) < 0);
+	test_assert_strcmp(error, "Configured SASL mechanism 'GSSAPI' is not supported by client");
+
+	dsasl_client_unref(&client);
+	settings_simple_deinit(&test_set);
+	test_end();
+}
+#endif
+
 int main(int argc ATTR_UNUSED, char *argv[])
 {
 	int c;
@@ -1200,6 +1333,10 @@ int main(int argc ATTR_UNUSED, char *argv[])
 #ifdef HAVE_GSSAPI
 		test_sasl_client_gss_spnego_is_finished,
 		test_sasl_client_gssapi_no_password,
+		test_sasl_client_gssapi_load,
+		test_sasl_client_non_gssapi_not_loaded,
+#else
+		test_sasl_client_gssapi_not_built,
 #endif
 		NULL
 	};

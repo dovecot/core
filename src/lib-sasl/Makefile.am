@@ -45,6 +45,7 @@ libsasl_la_SOURCES = \
 	sasl-oauth2.c \
 	$(client_mechanisms) \
 	dsasl-client.c \
+	dsasl-client-module.c \
 	dsasl-client-module-load.c \
 	$(server_mechanisms) \
 	sasl-server-mech.c \

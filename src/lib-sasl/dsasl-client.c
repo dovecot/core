@@ -151,6 +151,13 @@ dsasl_client_require_mech(struct dsasl_client *client, const char *mech_name,
 	*error_r = NULL;
 
 	mech = dsasl_client_mech_find(client, mech_name);
+	if (mech == NULL) {
+		/* The mechanisms in modules are loaded only when they are
+		   used. */
+		if (dsasl_client_module_load_mech(client, mech_name, error_r) < 0)
+			return -1;
+		mech = dsasl_client_mech_find(client, mech_name);
+	}
 	if (mech != NULL) {
 		*mech_r = mech;
 		return 0;

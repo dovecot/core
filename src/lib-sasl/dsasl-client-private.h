@@ -47,4 +47,10 @@ int dsasl_client_module_load(struct dsasl_client *client,
 			     const struct dsasl_client_module *module,
 			     const char **error_r);
 
+/* Load the module that has the mechanism, if there is one. Returns 1 if the
+   module was loaded, 0 if the mechanism isn't in any module and -1 with an
+   error if loading failed. */
+int dsasl_client_module_load_mech(struct dsasl_client *client,
+				  const char *mech_name, const char **error_r);
+
 #endif
