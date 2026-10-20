@@ -355,8 +355,10 @@ int imapc_storage_client_create(struct mailbox_list *list,
 	mail_user_set_get_temp_prefix(str, ns->user->set);
 	params.temp_path_prefix = str_c(str);
 
-	if (imapc_client_init(&params, list_event, &imap_client, error_r) < 0)
+	if (imapc_client_init(&params, list_event, &imap_client, error_r) < 0) {
+		settings_free(imapc_set);
 		return -1;
+	}
 
 	client = i_new(struct imapc_storage_client, 1);
 	client->refcount = 1;
