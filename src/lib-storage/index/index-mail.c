@@ -2381,10 +2381,11 @@ void index_mail_cache_parse_continue(struct mail *_mail)
 	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct message_block block;
 
-	i_assert(mail->data.parser_ctx != NULL);
-
-	while (message_parser_parse_next_block(mail->data.parser_ctx,
-					       &block) > 0) {
+	for (;;) {
+		i_assert(mail->data.parser_ctx != NULL);
+		if (message_parser_parse_next_block(mail->data.parser_ctx,
+						    &block) <= 0)
+			break;
 		if (mail->data.snippet_ctx != NULL) {
 			(void)message_snippet_more(mail->data.snippet_ctx,
 						   &block);
