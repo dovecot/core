@@ -1205,8 +1205,9 @@ int index_storage_expunged_sync_begin(struct mailbox *box,
 		if (ret < 0) {
 			if (box->index->last_error.code ==
 			    MAIL_INDEX_ERROR_CODE_NO_ACCESS)
-		    		return 0;
-			mailbox_set_index_error(box);
+				ret = 0;
+			else
+				mailbox_set_index_error(box);
 		}
 		index_storage_expunging_deinit(box);
 		return ret;
