@@ -179,6 +179,7 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 			LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
 		return -1;
 	}
+	login_proxy_sasl_enable_channel_binding(&client->common);
 	mech_name = dsasl_client_session_get_mech_name(
 		client->common.proxy_sasl_session);
 

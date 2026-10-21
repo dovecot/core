@@ -104,6 +104,9 @@ void login_proxy_redirect_finish(struct login_proxy *proxy,
 bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
 			enum login_proxy_failure_type type, const char *reason);
 
+/* Enable TLS channel binding for client->proxy_sasl_session, if the connection
+   to the backend uses TLS. Call after creating the session. */
+void login_proxy_sasl_enable_channel_binding(struct client *client);
 /* Handle SASL input in str, and write the SASL output to str. */
 int login_proxy_sasl_step(struct client *client, string_t *str);
 /* Call when the backend reports a successful SASL authentication. Fails the

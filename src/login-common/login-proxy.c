@@ -924,6 +924,28 @@ bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
 	return FALSE;
 }
 
+static int
+login_proxy_channel_bind_callback(const char *type, void *context,
+				  const buffer_t **data_r, const char **error_r)
+{
+	struct login_proxy *proxy = context;
+
+	return ssl_iostream_get_channel_binding(proxy->server_ssl_iostream,
+						type, data_r, error_r);
+}
+
+void login_proxy_sasl_enable_channel_binding(struct client *client)
+{
+	struct login_proxy *proxy = client->login_proxy;
+
+	if (proxy->server_ssl_iostream == NULL)
+		return;
+	dsasl_client_session_enable_channel_binding(
+		client->proxy_sasl_session,
+		ssl_iostream_get_protocol_version(proxy->server_ssl_iostream),
+		login_proxy_channel_bind_callback, proxy);
+}
+
 int login_proxy_sasl_step(struct client *client, string_t *str)
 {
 	const unsigned char *data;
