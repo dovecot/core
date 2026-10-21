@@ -523,6 +523,64 @@ static void test_json_generate_buffer(void)
 	str_truncate(buffer, 0);
 	output->offset = 0;
 
+	/* [ "frop", "" ] */
+	test_begin("json write array - [ \"frop\", \"\" ]");
+	generator = json_generator_init(output, 0);
+	json_generate_array_open(generator);
+	ret = json_generate_string(generator, "frop");
+	test_assert(ret > 0);
+	json_generate_string_open(generator);
+	ret = json_generate_string_write_close(generator);
+	test_assert(ret > 0);
+	ret = json_generate_array_close(generator);
+	test_assert(ret > 0);
+	ret = json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert_strcmp("[\"frop\",\"\"]", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* [ "", "" ] */
+	test_begin("json write array - [ \"\", \"\" ]");
+	generator = json_generator_init(output, 0);
+	json_generate_array_open(generator);
+	json_generate_string_open(generator);
+	ret = json_generate_string_write_close(generator);
+	test_assert(ret > 0);
+	json_generate_string_open(generator);
+	ret = json_generate_string_write_close(generator);
+	test_assert(ret > 0);
+	ret = json_generate_array_close(generator);
+	test_assert(ret > 0);
+	ret = json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert_strcmp("[\"\",\"\"]", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	/* [ 1, "" ] */
+	test_begin("json write array - [ 1, \"\" ]");
+	generator = json_generator_init(output, 0);
+	json_generate_array_open(generator);
+	ret = json_generate_number(generator, 1);
+	test_assert(ret > 0);
+	json_generate_string_open(generator);
+	ret = json_generate_string_write_close(generator);
+	test_assert(ret > 0);
+	ret = json_generate_array_close(generator);
+	test_assert(ret > 0);
+	ret = json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert_strcmp("[1,\"\"]", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
 	/* [ 1, 2, 3 ] */
 	test_begin("json write array - [ 1, 2, 3 ]");
 	generator = json_generator_init(output, 0);
@@ -1894,6 +1952,23 @@ static void test_json_generate_stream(void)
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[\"\"]", str_c(buffer)) == 0);
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
+	test_begin("json write string stream - empty nested in array, second");
+	generator = json_generator_init(output, 0);
+	json_generate_array_open(generator);
+	ret = json_generate_string(generator, "frop");
+	test_assert(ret > 0);
+	str_stream = json_generate_string_open_stream(generator);
+	o_stream_unref(&str_stream);
+	ret = json_generate_array_close(generator);
+	test_assert(ret > 0);
+	ret = json_generator_flush(generator);
+	test_assert(ret > 0);
+	json_generator_deinit(&generator);
+	test_assert_strcmp("[\"frop\",\"\"]", str_c(buffer));
 	test_end();
 	str_truncate(buffer, 0);
 	output->offset = 0;

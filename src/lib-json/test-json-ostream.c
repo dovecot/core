@@ -154,6 +154,25 @@ static void test_json_ostream_write(void)
 	str_truncate(buffer, 0);
 	output->offset = 0;
 
+	/* [ string, empty string ] */
+	test_begin("json ostream write - array [ string, empty string ]");
+	joutput = json_ostream_create(output, 0);
+	ret = json_ostream_descend_array(joutput, NULL);
+	i_assert(ret > 0);
+	ret = json_ostream_write_string(joutput, NULL, "frop");
+	i_assert(ret > 0);
+	ret = json_ostream_write_string(joutput, NULL, "");
+	i_assert(ret > 0);
+	ret = json_ostream_ascend_array(joutput);
+	i_assert(ret > 0);
+	ret = json_ostream_flush(joutput);
+	i_assert(ret > 0);
+	json_ostream_unref(&joutput);
+	test_assert_strcmp("[\"frop\",\"\"]", str_c(buffer));
+	test_end();
+	str_truncate(buffer, 0);
+	output->offset = 0;
+
 	/* [ string string stream ] */
 	test_begin("json ostream write - array [ string stream ]");
 	joutput = json_ostream_create(output, 0);

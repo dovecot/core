@@ -471,9 +471,13 @@ int json_generator_flush(struct json_generator *generator)
 				return ret;
 			break;
 		}
+		/* Write the comma once the next value has started. An empty
+		   string is opened and closed without a flush in between,
+		   so only string_empty shows that it started. */
 		if (generator->state != JSON_GENERATOR_STATE_STRING &&
 		    generator->state != JSON_GENERATOR_STATE_TEXT &&
-		    generator->state != JSON_GENERATOR_STATE_SPACE)
+		    generator->state != JSON_GENERATOR_STATE_SPACE &&
+		    !generator->string_empty)
 			break;
 		generator->write_state = JSON_GENERATOR_STATE_VALUE_NEXT;
 		/* Fall through */
