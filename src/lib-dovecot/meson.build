@@ -5,6 +5,7 @@ libdovecot_modules = [
   'charset',
   'dcrypt',
   'dict',
+  'dict_extra',
   'dns',
   'dns_client',
   'fs',
