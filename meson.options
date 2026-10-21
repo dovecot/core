@@ -18,6 +18,7 @@ option('systemd', type: 'feature', value: 'auto', description: 'Build with syste
 option('sodium', type: 'feature', value: 'auto', description: 'Build with libsodium support (enables argon2)')
 option('pcre', type: 'feature', value: 'auto', description: 'Build with libpcre2 support (enables regular expressions)')
 option('bzlib', type: 'feature', value: 'auto', description: 'Build with bzlib compression support')
+option('lz4', type: 'feature', value: 'auto', description: 'Build with LZ4 compression support')
 option('gssapi', type: 'combo', choices: ['disabled', 'enabled', 'auto', 'plugin'], value: 'disabled', description: 'Build with GSSAPI authentication support')
 option('fuzzing', type: 'boolean', value: false, description: 'Build with clang fuzzer')
 option('fuzzing-local', type: 'boolean', value: false, description: 'Enable fuzzer aspects suitable only for local use (not for e.g. OSS-Fuzz)')
