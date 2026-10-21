@@ -690,7 +690,14 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		break;
 	case MAIL_TRANSACTION_KEYWORD_UPDATE: {
 		const struct mail_transaction_keyword_update *rec = data;
-		unsigned int seqset_offset =
+		unsigned int seqset_offset;
+
+		if (rec_size < sizeof(*rec)) {
+			mail_transaction_log_file_set_corrupted(file,
+				"Keyword update record too small");
+			return FALSE;
+		}
+		seqset_offset =
 			mail_transaction_keyword_update_get_uids_offset(rec);
 
 		if (rec->name_size == 0) {
