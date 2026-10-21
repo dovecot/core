@@ -3,6 +3,7 @@
 #include "test-lib.h"
 #include "test-common.h"
 #include "str.h"
+#include "net.h"
 #include "str-sanitize.h"
 #include "uri-util.h"
 
@@ -955,6 +956,53 @@ static void test_uri_iax(void)
 	test_end();
 }
 
+static void test_uri_ip_literal(void)
+{
+	static const struct {
+		const char *input;
+		const char *error;
+	} invalid_tests[] = {
+		{ "[1.2.3.4]", "Invalid IPv6 host address '1.2.3.4'" },
+		{ "[127.0.0.1]:80", "Invalid IPv6 host address '127.0.0.1'" },
+		{ "[127.1]", "Invalid IPv6 host address '127.1'" },
+	};
+	static const struct {
+		const char *input;
+		const char *name;
+		const char *ip;
+		in_port_t port;
+	} valid_tests[] = {
+		{ "[::1]", "[::1]", "::1", 0 },
+		{ "[::ffff:1.2.3.4]:80", "[::ffff:1.2.3.4]",
+		  "::ffff:1.2.3.4", 80 },
+	};
+
+	test_begin("uri ip-literal");
+	for (unsigned int i = 0; i < N_ELEMENTS(invalid_tests); i++) {
+		struct uri_parser parser;
+		struct uri_authority auth;
+
+		uri_parser_init(&parser, pool_datastack_create(),
+				invalid_tests[i].input);
+		test_assert_idx(uri_parse_host_authority(&parser, &auth) < 0, i);
+		test_assert_strcmp_idx(parser.error, invalid_tests[i].error, i);
+	}
+	for (unsigned int i = 0; i < N_ELEMENTS(valid_tests); i++) {
+		struct uri_parser parser;
+		struct uri_authority auth;
+		struct ip_addr ip;
+
+		test_assert_idx(net_addr2ip(valid_tests[i].ip, &ip) == 0, i);
+		uri_parser_init(&parser, pool_datastack_create(),
+				valid_tests[i].input);
+		test_assert_idx(uri_parse_host_authority(&parser, &auth) > 0, i);
+		test_assert_strcmp_idx(auth.host.name, valid_tests[i].name, i);
+		test_assert_idx(auth.host.ip.family == AF_INET6, i);
+		test_assert_idx(net_ip_compare(&auth.host.ip, &ip), i);
+		test_assert_ucmp_idx(auth.port, ==, valid_tests[i].port, i);
+	}
+	test_end();
+}
 
 int main(void)
 {
@@ -967,6 +1015,7 @@ int main(void)
 		test_uri_escape,
 		test_uri_aaa,
 		test_uri_iax,
+		test_uri_ip_literal,
 		NULL
 	};
 	return test_run(test_functions);

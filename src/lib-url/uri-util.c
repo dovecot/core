@@ -640,7 +640,7 @@ uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 			"Future IP host address '%s' not supported", address);
 		return -1;
 	}
-	if (net_addr2ip(address, &ip6) < 0) {
+	if (net_addr2ip(address, &ip6) < 0 || ip6.family != AF_INET6) {
 		parser->error = p_strdup_printf(
 			parser->pool, "Invalid IPv6 host address '%s'",
 			address);
