@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "base64.h"
 #include "hostpid.h"
 #include "ioloop.h"
 #include "istream.h"
@@ -4181,6 +4182,130 @@ static void test_invalid_ssl_certificate(void)
 }
 
 /*
+ * Channel binding
+ */
+
+/* server */
+
+static int
+test_channel_binding_input_line(struct server_connection *conn,
+				const char *line)
+{
+	const char *const *args;
+	buffer_t *buf;
+
+	switch (conn->state) {
+	case SERVER_CONNECTION_STATE_EHLO:
+		o_stream_nsend_str(conn->conn.output,
+				   "250-testserver\r\n"
+				   "250-PIPELINING\r\n"
+				   "250-ENHANCEDSTATUSCODES\r\n"
+				   "250-AUTH SCRAM-SHA-256-PLUS\r\n"
+				   "250 DSN\r\n");
+		conn->state = SERVER_CONNECTION_STATE_MAIL_FROM;
+		return 1;
+	case SERVER_CONNECTION_STATE_MAIL_FROM:
+		args = t_strsplit(line, " ");
+		if (str_array_length(args) != 3 ||
+		    strcmp(args[0], "AUTH") != 0) {
+			o_stream_nsend_str(conn->conn.output,
+					   "500 5.5.1 Unexpected command\r\n");
+			return 1;
+		}
+		/* The GS2 header of the client tells whether it uses channel
+		   binding. */
+		buf = t_buffer_create(64);
+		if (base64_decode(args[2], strlen(args[2]), buf) < 0 ||
+		    !str_begins_with(t_strndup(buf->data, buf->used),
+				     "p=tls-")) {
+			o_stream_nsend_str(
+				conn->conn.output,
+				"504 5.5.4 No channel binding\r\n");
+			return 1;
+		}
+		o_stream_nsend_str(
+			conn->conn.output,
+			"535 5.7.8 Authentication credentials invalid\r\n");
+		return 1;
+	default:
+		break;
+	}
+	return 0;
+}
+
+static void test_server_channel_binding(unsigned int index)
+{
+	test_server_ssl = TRUE;
+	test_server_input_line = test_channel_binding_input_line;
+	test_server_run(index);
+}
+
+/* client */
+
+static void
+test_client_channel_binding_login_cb(const struct smtp_reply *reply,
+				     void *context)
+{
+	struct smtp_client_connection *conn = context;
+
+	if (debug)
+		i_debug("LOGIN REPLY: %s", smtp_reply_log(reply));
+
+	/* the server replies only if the client asked for channel binding */
+	test_assert_cmp(reply->status, ==, 535);
+	smtp_client_connection_unref(&conn);
+	io_loop_stop(ioloop);
+}
+
+static bool
+test_client_channel_binding(const struct smtp_client_settings *client_set)
+{
+	struct smtp_client_connection *conn;
+	struct smtp_client_settings smtp_set;
+
+	test_expect_errors(1);
+
+	smtp_client = smtp_client_init(client_set);
+
+	i_zero(&smtp_set);
+	smtp_set.username = "peter.wolfsen";
+	smtp_set.password = "crybaby";
+	smtp_set.sasl_mechanisms = "SCRAM-SHA-256-PLUS";
+	smtp_set.ssl = client_set->ssl;
+	smtp_set.ssl_allow_invalid_cert = TRUE;
+
+	conn = smtp_client_connection_create(
+		smtp_client, SMTP_PROTOCOL_SMTP, "example.com",
+		bind_ports[0], SMTP_CLIENT_SSL_MODE_IMMEDIATE, &smtp_set);
+	smtp_client_connection_connect(
+		conn, test_client_channel_binding_login_cb, conn);
+	return TRUE;
+}
+
+/* test */
+
+static void test_channel_binding(void)
+{
+	struct smtp_client_settings smtp_client_set;
+	struct ssl_iostream_settings ssl_set;
+
+	/* the test server's certificate isn't valid for its address */
+	ssl_iostream_test_settings_client(&ssl_set);
+	ssl_set.allow_invalid_cert = TRUE;
+
+	test_client_defaults(&smtp_client_set, NULL);
+	smtp_client_set.ssl = &ssl_set;
+
+	test_begin("authentication channel binding");
+	test_run_client_server(&smtp_client_set,
+			       test_client_channel_binding,
+			       test_server_channel_binding, 1,
+			       test_dns_invalid_ssl_certificate);
+	ssl_iostream_context_cache_free();
+	test_end();
+}
+
+/*
  * All tests
  */
 
@@ -4208,6 +4333,7 @@ static void (*const test_functions[])(void) = {
 	test_transaction_timeout,
 	test_close_in_failure,
 	test_invalid_ssl_certificate,
+	test_channel_binding,
 	NULL
 };
 

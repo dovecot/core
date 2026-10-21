@@ -925,6 +925,17 @@ smtp_client_connection_get_sasl_mech(struct smtp_client_connection *conn,
 	return -1;
 }
 
+static int
+smtp_client_connection_channel_bind_callback(const char *type, void *context,
+					     const buffer_t **data_r,
+					     const char **error_r)
+{
+	struct smtp_client_connection *conn = context;
+
+	return ssl_iostream_get_channel_binding(conn->ssl_iostream,
+						type, data_r, error_r);
+}
+
 static void
 smtp_client_connection_send_auth(struct smtp_client_connection *conn,
 				 const char *mech_name, const char *init_resp)
@@ -1018,6 +1029,13 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 		return FALSE;
 	}
 	mech_name = dsasl_client_session_get_mech_name(conn->sasl_session);
+
+	if (conn->ssl_iostream != NULL) {
+		dsasl_client_session_enable_channel_binding(
+			conn->sasl_session,
+			ssl_iostream_get_protocol_version(conn->ssl_iostream),
+			smtp_client_connection_channel_bind_callback, conn);
+	}
 
 	if (dsasl_client_session_output(conn->sasl_session,
 					&sasl_output, &sasl_output_len,
