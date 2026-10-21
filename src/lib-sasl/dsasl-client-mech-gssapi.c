@@ -226,7 +226,7 @@ mech_gssapi_gs1_sec_context(struct gssapi_sasl_session *gsession,
 			    gss_buffer_t in_buf, const char **error_r)
 {
 	OM_uint32 minor_status;
-	gss_buffer_desc out_buf;
+	gss_buffer_desc out_buf = GSS_C_EMPTY_BUFFER;
 	int ret;
 
 	ret = mech_gssapi_sec_context(gsession, in_buf, &out_buf, error_r);
