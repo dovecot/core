@@ -12,9 +12,14 @@
    and it's been checked to work correctly with memcpy(). */
 #undef memcpy
 
-/* sized_by(alloc): byte bound for w_buffer. Empty when unsupported so
-   default builds are unchanged. */
-#if defined(__has_attribute) && __has_attribute(sized_by)
+/* sized_by(alloc): byte bound for w_buffer. Only expands when compiling
+   with -fbounds-safety, which permits referencing a later field. Elsewhere
+   (including compilers that merely know the attribute) it is empty, so
+   default builds and the struct layout are unchanged. */
+#ifndef __has_feature
+#  define __has_feature(x) 0
+#endif
+#if __has_feature(bounds_safety)
 #  define ATTR_SIZED_BY(member) __attribute__((sized_by(member)))
 #else
 #  define ATTR_SIZED_BY(member)
