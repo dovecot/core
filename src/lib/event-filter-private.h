@@ -87,6 +87,11 @@ struct event_filter_node {
 		} category;
 		struct event_field field;
 	};
+	/* The field value as it was written in the filter. The value may have
+	   been parsed into a non-string value, e.g. "4.2.2" is a valid IP
+	   address, but it's still compared as written against string
+	   fields. */
+	const char *field_value_str;
 
 	bool ambiguous_unit:1;
 	bool warned_ambiguous_unit:1;

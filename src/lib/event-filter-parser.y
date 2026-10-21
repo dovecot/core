@@ -83,6 +83,7 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 		break;
 	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD: {
 		node->field.key = p_strdup(state->pool, a);
+		node->field_value_str = p_strdup(state->pool, b);
 
 		/* Filter currently supports only comparing strings
 		   and numbers. */

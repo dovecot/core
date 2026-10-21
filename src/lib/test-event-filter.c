@@ -2,6 +2,7 @@
 
 #include "test-lib.h"
 #include "ioloop.h"
+#include "str.h"
 #include "event-filter-private.h"
 
 #ifdef __FreeBSD__
@@ -869,6 +870,63 @@ static void test_event_filter_ips(void)
 	test_end();
 }
 
+static void test_event_filter_parsed_values_as_strings(void)
+{
+	static const struct {
+		const char *filter;
+		const char *match;
+		const char *nonmatch;
+	} tests[] = {
+		/* "4.2.2" is a valid IPv4 address (4.2.0.2) */
+		{ "code = 4.2.2", "4.2.2", "4.2.0.2" },
+		{ "size = 1k", "1k", "1024" },
+		{ "time = 5s", "5s", "5000000" },
+	};
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+	struct event_filter *filter, *filter2;
+	const char *error;
+
+	test_begin("event filter: parsed values matched as strings");
+	struct event *e = event_create(NULL);
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		const char *key = t_strcut(tests[i].filter, ' ');
+
+		filter = event_filter_create();
+		test_assert_idx(event_filter_parse(tests[i].filter, filter,
+						   &error) == 0, i);
+		event_add_str(e, key, tests[i].match);
+		test_assert_idx(event_filter_match(filter, e, &failure_ctx), i);
+		event_add_str(e, key, tests[i].nonmatch);
+		test_assert_idx(!event_filter_match(filter, e, &failure_ctx), i);
+
+		/* the exported filter must match the same way */
+		string_t *str = t_str_new(64);
+		event_filter_export(filter, str);
+		filter2 = event_filter_create();
+		test_assert_idx(event_filter_import(filter2, str_c(str),
+						    &error), i);
+		event_add_str(e, key, tests[i].match);
+		test_assert_idx(event_filter_match(filter2, e, &failure_ctx), i);
+		event_add_str(e, key, tests[i].nonmatch);
+		test_assert_idx(!event_filter_match(filter2, e, &failure_ctx), i);
+		event_filter_unref(&filter2);
+		event_filter_unref(&filter);
+	}
+
+	filter = event_filter_create();
+	test_assert(event_filter_parse("NOT code = 4.2.2", filter, &error) == 0);
+	event_add_str(e, "code", "4.2.2");
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	event_add_str(e, "code", "4.4.3");
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	event_unref(&e);
+	test_end();
+}
+
 static void test_event_filter_size_values(void)
 {
 	const char *error;
@@ -1235,6 +1293,7 @@ void test_event_filter(void)
 	test_event_filter_duration();
 	test_event_filter_numbers();
 	test_event_filter_ips();
+	test_event_filter_parsed_values_as_strings();
 	test_event_filter_size_values();
 	test_event_filter_interval_values();
 	test_event_filter_ambiguous_units();

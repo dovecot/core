@@ -121,6 +121,15 @@ wanted_field_value_str(const struct event_field *wanted_field)
 	i_unreached();
 }
 
+static const char *
+event_filter_node_value_str(const struct event_filter_node *node)
+{
+	if (node->field.value_type == EVENT_FIELD_VALUE_TYPE_STR ||
+	    node->field_value_str == NULL)
+		return wanted_field_value_str(&node->field);
+	return node->field_value_str;
+}
+
 /*
  * Look for an existing query with the same context pointer and return it.
  *
@@ -418,6 +427,7 @@ clone_expr(pool_t pool, struct event_filter_node *old)
 	default:
 		new->field.key = p_strdup(pool, old->field.key);
 		new->field.value_type = old->field.value_type;
+		new->field_value_str = p_strdup(pool, old->field_value_str);
 
 		switch (old->field.value_type) {
 		case EVENT_FIELD_VALUE_TYPE_STR:
@@ -621,7 +631,7 @@ event_filter_export_query_expr(const struct event_filter_query_internal *query,
 		str_append(dest, event_filter_export_query_expr_op(node->op));
 		str_append_c(dest, '"');
 		event_filter_append_escaped(dest,
-			wanted_field_value_str(&node->field),
+			event_filter_node_value_str(node),
 			node->type != EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT);
 		str_append_c(dest, '"');
 		break;
@@ -734,10 +744,10 @@ cmp_str(const char *value, const char *wanted_value, enum cmp_flags flags)
 }
 
 static bool
-cmp_value(const char *value, const struct event_field *wanted_field,
+cmp_value(const char *value, const struct event_filter_node *node,
 	  enum cmp_flags flags)
 {
-	return cmp_str(value, wanted_field_value_str(wanted_field), flags);
+	return cmp_str(value, event_filter_node_value_str(node), flags);
 }
 
 static bool
@@ -765,10 +775,11 @@ event_match_strlist_recursive(struct event *event,
 }
 
 static bool
-event_match_strlist(struct event *event, const struct event_field *wanted_field,
+event_match_strlist(struct event *event, const struct event_filter_node *node,
 		    enum cmp_flags cmp_flags)
 {
-	const char *wanted_value = wanted_field_value_str(wanted_field);
+	const struct event_field *wanted_field = &node->field;
+	const char *wanted_value = event_filter_node_value_str(node);
 	bool seen = FALSE;
 
 	if (event_match_strlist_recursive(event, wanted_field->key, wanted_value,
@@ -870,9 +881,9 @@ event_match_field(struct event_filter *filter, struct event *event,
 			if (filter->cmp_key != NULL &&
 			    strcmp(wanted_field->key, filter->cmp_key) == 0) {
 				ret = filter->cmp_key_func(field->value.str,
-					wanted_field_value_str(wanted_field));
+					event_filter_node_value_str(node));
 			} else {
-				ret = cmp_value(field->value.str, wanted_field, cmp_flags);
+				ret = cmp_value(field->value.str, node, cmp_flags);
 			}
 		} T_END;
 		return ret;
@@ -1019,7 +1030,7 @@ event_match_field(struct event_filter *filter, struct event *event,
 			return FALSE;
 		}
 		T_BEGIN {
-			ret = event_match_strlist(event, wanted_field, cmp_flags);
+			ret = event_match_strlist(event, node, cmp_flags);
 		} T_END;
 		return ret;
 	}
