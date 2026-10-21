@@ -17,6 +17,7 @@ AC_DEFUN([DOVECOT_WANT_ZSTD], [
     AC_DEFINE(HAVE_ZSTD,, [Define if you have ZSTD library])
 
     AC_CHECK_DECLS([ZSTD_error_parameter_unsupported, ZSTD_minCLevel], [], [], [[
+      #include <zstd.h>
       #include <zstd_errors.h>
     ]])
     AC_CHECK_LIB(zstd, ZSTD_getErrorCode, [
