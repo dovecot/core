@@ -467,6 +467,59 @@ static void virtual_sync_ext_header_update(struct virtual_sync_context *ctx)
 }
 
 static int
+virtual_sync_apply_backend_change(struct virtual_mailbox *mbox,
+				  struct virtual_backend_box *bbox,
+				  uint32_t real_uid, const char *const *kw_all,
+				  const struct mail_index_sync_rec *sync_rec)
+{
+	enum mail_flags flags;
+	struct mail_keywords *keywords;
+	enum modify_type modify_type;
+	const char *kw_names[2];
+
+	if (!bbox->box->opened) {
+		if (virtual_backend_box_open(mbox, bbox) < 0) {
+			virtual_box_copy_error(&mbox->box, bbox->box);
+			return -1;
+		}
+	} else {
+		virtual_backend_box_accessed(mbox, bbox);
+	}
+
+	virtual_backend_box_sync_mail_set(bbox);
+	if (!mail_set_uid(bbox->sync_mail, real_uid)) {
+		/* message is already expunged from backend mailbox. */
+		return 0;
+	}
+
+	switch (sync_rec->type) {
+	case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
+		mail_expunge(bbox->sync_mail);
+		break;
+	case MAIL_INDEX_SYNC_TYPE_FLAGS:
+		flags = sync_rec->add_flags & MAIL_FLAGS_NONRECENT;
+		if (flags != 0)
+			mail_update_flags(bbox->sync_mail, MODIFY_ADD, flags);
+		flags = sync_rec->remove_flags & MAIL_FLAGS_NONRECENT;
+		if (flags != 0)
+			mail_update_flags(bbox->sync_mail, MODIFY_REMOVE, flags);
+		break;
+	case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
+	case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
+		kw_names[0] = kw_all[sync_rec->keyword_idx];
+		kw_names[1] = NULL;
+		keywords = mailbox_keywords_create_valid(bbox->box, kw_names);
+
+		modify_type = sync_rec->type == MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD ?
+			MODIFY_ADD : MODIFY_REMOVE;
+		mail_update_keywords(bbox->sync_mail, modify_type, keywords);
+		mailbox_keywords_unref(&keywords);
+		break;
+	}
+	return 0;
+}
+
+static int
 virtual_sync_index_rec(struct virtual_mailbox *mbox,
 		       struct mail_index_view *sync_view,
 		       const char *const *kw_all,
@@ -476,10 +529,6 @@ virtual_sync_index_rec(struct virtual_mailbox *mbox,
 	struct virtual_backend_box *bbox;
 	const struct virtual_mail_index_record *vrec;
 	const void *data;
-	enum mail_flags flags;
-	struct mail_keywords *keywords;
-	enum modify_type modify_type;
-	const char *kw_names[2];
 	uint32_t vseq, seq1, seq2;
 
 	switch (sync_rec->type) {
@@ -502,52 +551,10 @@ virtual_sync_index_rec(struct virtual_mailbox *mbox,
 
 		if (!virtual_backend_box_lookup(mbox, vrec->mailbox_id, &bbox))
 			continue;
-		if (!bbox->box->opened) {
-			if (virtual_backend_box_open(mbox, bbox) < 0) {
-				virtual_box_copy_error(&mbox->box, bbox->box);
-				return -1;
-			}
-		} else {
-			virtual_backend_box_accessed(mbox, bbox);
-		}
-
-		virtual_backend_box_sync_mail_set(bbox);
-		if (!mail_set_uid(bbox->sync_mail, vrec->real_uid)) {
-			/* message is already expunged from backend mailbox. */
-			continue;
-		}
-
-		switch (sync_rec->type) {
-		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
-			mail_expunge(bbox->sync_mail);
-			break;
-		case MAIL_INDEX_SYNC_TYPE_FLAGS:
-			flags = sync_rec->add_flags & MAIL_FLAGS_NONRECENT;
-			if (flags != 0) {
-				mail_update_flags(bbox->sync_mail,
-						  MODIFY_ADD, flags);
-			}
-			flags = sync_rec->remove_flags & MAIL_FLAGS_NONRECENT;
-			if (flags != 0) {
-				mail_update_flags(bbox->sync_mail,
-						  MODIFY_REMOVE, flags);
-			}
-			break;
-		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
-		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
-			kw_names[0] = kw_all[sync_rec->keyword_idx];
-			kw_names[1] = NULL;
-			keywords = mailbox_keywords_create_valid(bbox->box,
-								 kw_names);
-
-			modify_type = sync_rec->type ==
-				MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD ?
-				MODIFY_ADD : MODIFY_REMOVE;
-			mail_update_keywords(bbox->sync_mail,
-					     modify_type, keywords);
-			mailbox_keywords_unref(&keywords);
-			break;
-		}
+		if (virtual_sync_apply_backend_change(mbox, bbox,
+						      vrec->real_uid, kw_all,
+						      sync_rec) < 0)
+			return -1;
 	}
 	return 0;
 }
