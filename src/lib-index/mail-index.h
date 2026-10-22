@@ -417,6 +417,10 @@ int mail_index_unlink(struct mail_index *index);
 
 /* Returns TRUE if index is currently in memory. */
 bool mail_index_is_in_memory(struct mail_index *index);
+/* Returns TRUE if the index can't be written to, either because it was opened
+   with MAIL_INDEX_OPEN_FLAG_READONLY or because its transaction log couldn't
+   be opened for writing. */
+bool mail_index_is_readonly(struct mail_index *index);
 /* Move the index into memory. Returns 0 if ok, -1 if error occurred. */
 int mail_index_move_to_memory(struct mail_index *index);
 

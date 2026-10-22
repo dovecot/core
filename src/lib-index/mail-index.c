@@ -925,6 +925,11 @@ bool mail_index_is_in_memory(struct mail_index *index)
 	return MAIL_INDEX_IS_IN_MEMORY(index);
 }
 
+bool mail_index_is_readonly(struct mail_index *index)
+{
+	return index->readonly;
+}
+
 static void mail_index_set_as_in_memory(struct mail_index *index)
 {
 	i_free_and_null(index->dir);
