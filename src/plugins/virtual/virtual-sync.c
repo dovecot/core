@@ -28,6 +28,8 @@ struct virtual_sync_mail {
 struct virtual_backend_change {
 	struct virtual_backend_box *bbox;
 	uint32_t real_uid;
+	/* order in which the changes were gathered */
+	unsigned int idx;
 	enum mail_index_sync_type type;
 	enum mail_flags add_flags, remove_flags;
 	/* keyword name for MAIL_INDEX_SYNC_TYPE_KEYWORD_{ADD,REMOVE} */
@@ -514,6 +516,7 @@ virtual_sync_gather_index_rec(struct virtual_mailbox *mbox,
 			continue;
 
 		change = array_append_space(changes);
+		change->idx = array_count(changes) - 1;
 		change->bbox = bbox;
 		change->real_uid = vrec->real_uid;
 		change->type = sync_rec->type;
@@ -535,6 +538,26 @@ virtual_sync_gather_index_rec(struct virtual_mailbox *mbox,
 	}
 }
 
+static int
+virtual_backend_change_cmp(const struct virtual_backend_change *c1,
+			   const struct virtual_backend_change *c2)
+{
+	if (c1->bbox->mailbox_id < c2->bbox->mailbox_id)
+		return -1;
+	if (c1->bbox->mailbox_id > c2->bbox->mailbox_id)
+		return 1;
+	if (c1->real_uid < c2->real_uid)
+		return -1;
+	if (c1->real_uid > c2->real_uid)
+		return 1;
+	/* the changes to the same mail must stay in the same order */
+	if (c1->idx < c2->idx)
+		return -1;
+	if (c1->idx > c2->idx)
+		return 1;
+	return 0;
+}
+
 static void
 virtual_sync_gather_changes(struct virtual_mailbox *mbox,
 			    struct mail_index_sync_ctx *index_sync_ctx,
@@ -551,6 +574,10 @@ virtual_sync_gather_changes(struct virtual_mailbox *mbox,
 		virtual_sync_gather_index_rec(mbox, sync_view, kw_all,
 					      &sync_rec, pool, changes);
 	}
+	/* Apply the changes one backend mailbox at a time, and in UID order
+	   within the mailbox. The sync records were gathered in virtual UID
+	   order, which can map to backend mailboxes in any order. */
+	array_sort(changes, virtual_backend_change_cmp);
 }
 
 static int
