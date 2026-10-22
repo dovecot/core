@@ -5,6 +5,9 @@
 #include "strfuncs.h"
 #include "settings.h"
 #include "test-common.h"
+#include "hash-method.h"
+#include "md5.h"
+#include "auth-digest.h"
 #include "client-auth-settings.h"
 #include "dsasl-client.h"
 
@@ -910,6 +913,126 @@ static void test_sasl_client_is_finished_unverified(void)
 	test_end();
 }
 
+static void
+test_sasl_client_digest_md5_rspauth(const char *response, string_t *rspauth_r)
+{
+	char *copy = t_strdup_noconst(response);
+	const char *key, *value;
+	const char *username = NULL, *realm = NULL, *nonce = NULL;
+	const char *cnonce = NULL, *nc = NULL, *qop = NULL, *uri = NULL;
+	unsigned char a1_secret[MD5_RESULTLEN];
+
+	while (*copy != '\0') {
+		if (auth_digest_parse_keyvalue(&copy, &key, &value)) {
+			if (strcmp(key, "username") == 0)
+				username = value;
+			else if (strcmp(key, "realm") == 0)
+				realm = value;
+			else if (strcmp(key, "nonce") == 0)
+				nonce = value;
+			else if (strcmp(key, "cnonce") == 0)
+				cnonce = value;
+			else if (strcmp(key, "nc") == 0)
+				nc = value;
+			else if (strcmp(key, "qop") == 0)
+				qop = value;
+			else if (strcmp(key, "digest-uri") == 0)
+				uri = value;
+		}
+		if (*copy == ',')
+			copy++;
+	}
+	i_assert(username != NULL && realm != NULL && nonce != NULL &&
+		 cnonce != NULL && nc != NULL && qop != NULL && uri != NULL);
+
+	auth_digest_get_hash_a1_secret(&hash_method_md5, username, realm,
+				       "testpassword", a1_secret);
+	const char *a1_hex = auth_digest_get_hash_a1(&hash_method_md5,
+						     a1_secret, nonce, cnonce,
+						     NULL);
+	str_append(rspauth_r, "rspauth=");
+	str_append(rspauth_r, auth_digest_get_server_response(
+		&hash_method_md5, a1_hex, uri, qop, nonce, nc, cnonce, NULL));
+}
+
+static void test_sasl_client_digest_md5_unexpected_input(void)
+{
+	static const char *const sasl_set[] = {
+		"client_auth_mechanism=DIGEST-MD5",
+		"client_auth_authid=testuser@example.com",
+		"client_auth_password=testpassword",
+		NULL
+	};
+	static const struct dsasl_client_parameters params = {
+		.protocol = "imap",
+		.host = "example.com",
+	};
+	static const char challenge[] =
+		"realm=\"example.com\",nonce=\"OA6MG9tEQGm2hh\",qop=\"auth\","
+		"charset=utf-8,algorithm=md5-sess";
+	const unsigned char *chal = (const unsigned char *)challenge;
+	size_t chal_len = sizeof(challenge) - 1;
+	struct dsasl_client *client;
+	struct dsasl_client_session *session;
+	const unsigned char *output;
+	size_t olen;
+	const char *error;
+
+	test_begin("sasl client DIGEST-MD5 unexpected input");
+
+	client = dsasl_client_create(NULL);
+
+	/* second challenge before the client response */
+	session = test_init_sasl_session_params(client, &params, sasl_set,
+						&error);
+	i_assert(session != NULL);
+	test_assert(dsasl_client_session_input(session, chal, chal_len,
+		&error) == DSASL_CLIENT_RESULT_OK);
+	error = NULL;
+	test_assert(dsasl_client_session_input(session, chal, chal_len,
+		&error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
+	test_assert_strcmp(error, "Server sent unexpected data");
+	/* the rejected input doesn't change the state */
+	test_assert(dsasl_client_session_output(session, &output, &olen,
+		&error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(olen > 0 &&
+		    str_begins_with(t_strndup(output, olen),
+				    "realm=\"example.com\",username=\"testuser\","));
+	dsasl_client_session_destroy(&session);
+
+	/* more data after the completed exchange */
+	session = test_init_sasl_session_params(client, &params, sasl_set,
+						&error);
+	i_assert(session != NULL);
+	test_assert(dsasl_client_session_input(session, chal, chal_len,
+		&error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(dsasl_client_session_output(session, &output, &olen,
+		&error) == DSASL_CLIENT_RESULT_OK);
+
+	string_t *rspauth = t_str_new(64);
+	test_sasl_client_digest_md5_rspauth(t_strndup(output, olen), rspauth);
+	test_assert(dsasl_client_session_input(session, rspauth->data,
+		rspauth->used, &error) == DSASL_CLIENT_RESULT_OK);
+
+	/* second rspauth before the client's empty response */
+	error = NULL;
+	test_assert(dsasl_client_session_input(session, rspauth->data,
+		rspauth->used, &error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
+	test_assert_strcmp(error, "Server sent unexpected data");
+
+	test_assert(dsasl_client_session_output(session, &output, &olen,
+		&error) == DSASL_CLIENT_RESULT_OK);
+	test_assert(olen == 0);
+	error = NULL;
+	test_assert(dsasl_client_session_input(session, uchar_empty_ptr, 0,
+		&error) == DSASL_CLIENT_RESULT_ERR_PROTOCOL);
+	test_assert_strcmp(error, "Server didn't finish authentication");
+	dsasl_client_session_destroy(&session);
+
+	dsasl_client_unref(&client);
+	test_end();
+}
+
 int main(int argc ATTR_UNUSED, char *argv[])
 {
 	int c;
@@ -926,6 +1049,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		test_sasl_client_mech_select,
 		test_sasl_client_is_finished,
 		test_sasl_client_is_finished_unverified,
+		test_sasl_client_digest_md5_unexpected_input,
 		NULL
 	};
 

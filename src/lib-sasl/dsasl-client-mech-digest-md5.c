@@ -481,13 +481,15 @@ mech_digest_md5_auth_input(struct dsasl_client_mech_session *msession,
 		}
 		dsession->state = DIGEST_MD5_STATE_CLIENT_FIRST;
 		return DSASL_CLIENT_RESULT_OK;
-	case DIGEST_MD5_STATE_CLIENT_FIRST:
-		i_unreached();
 	case DIGEST_MD5_STATE_SERVER_FINAL:
 		break;
+	case DIGEST_MD5_STATE_CLIENT_FIRST:
 	case DIGEST_MD5_STATE_CLIENT_FINAL:
+		*error_r = "Server sent unexpected data";
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	case DIGEST_MD5_STATE_END:
-		i_unreached();
+		*error_r = "Server didn't finish authentication";
+		return DSASL_CLIENT_RESULT_ERR_PROTOCOL;
 	}
 
 	ret = mech_digest_md5_input_final(dsession, input, input_len, error_r);
