@@ -555,6 +555,7 @@ tester_sources = [
   'test-hash-method.c',
   'test-hash.c',
   'test-hex-binary.c',
+  'test-hex-dec.c',
   'test-hmac.c',
   'test-idna.c',
   'test-idna-punycode.c',

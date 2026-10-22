@@ -24,7 +24,9 @@ int hex2dec_case(const void *data, unsigned int len,
 	uintmax_t value = 0;
 
 	for (unsigned int i = 0; i < len; i++) {
-		value *= 0x10;
+		if (value > UINTMAX_MAX >> 4)
+			return -1;
+		value <<= 4;
 		if (p[i] >= '0' && p[i] <= '9')
 			value += p[i] - '0';
 		else if (HAS_ANY_BITS(allowed_case, HEX_ALLOWED_CASE_UPPER) &&
