@@ -635,23 +635,73 @@ virtual_sync_apply_backend_change(struct virtual_mailbox *mbox,
 	return 0;
 }
 
-static int virtual_sync_index_changes(struct virtual_sync_context *ctx)
+/* Apply the changes to the backend mailboxes and commit the backend
+   transactions. */
+static int
+virtual_sync_apply_backend_changes(struct virtual_mailbox *mbox,
+				   const ARRAY_TYPE(virtual_backend_change) *changes)
 {
-	ARRAY_TYPE(virtual_backend_change) changes;
 	const struct virtual_backend_change *change;
-	pool_t pool;
+	struct virtual_backend_box *bbox;
 	int ret = 0;
 
-	pool = pool_alloconly_create("virtual sync changes", 1024);
-	p_array_init(&changes, pool, 16);
-	virtual_sync_gather_changes(ctx->mbox, ctx->index_sync_ctx,
-				    ctx->sync_view, pool, &changes);
-	array_foreach(&changes, change) {
-		if (virtual_sync_apply_backend_change(ctx->mbox, change) < 0) {
+	array_foreach(changes, change) {
+		if (virtual_sync_apply_backend_change(mbox, change) < 0) {
 			ret = -1;
 			break;
 		}
 	}
+	array_foreach_elem(&mbox->backend_boxes, bbox)
+		virtual_backend_box_sync_mail_unset(bbox);
+	return ret;
+}
+
+/* Apply the virtual index's changes (expunges, flag and keyword changes) to
+   the backend mailboxes. The changes are read without locking the virtual
+   index, and its sync is rolled back. The following sync commits the
+   changes up to the returned transaction log position, which marks them
+   synced. The changes after it are left for the next sync.
+
+   The backend mailboxes are accessed while the virtual index isn't locked.
+   Committing changes to them can take a long time, and e.g. with obox it
+   can lock the metacache upload lock, while another process may be holding
+   it and waiting for the virtual index's transaction log lock. */
+static int
+virtual_sync_apply_index_changes(struct virtual_mailbox *mbox,
+				 uint32_t *log_seq_r, uoff_t *log_offset_r)
+{
+	struct mail_index_sync_ctx *index_sync_ctx;
+	struct mail_index_view *sync_view;
+	struct mail_index_transaction *trans;
+	ARRAY_TYPE(virtual_backend_change) changes;
+	uint32_t seq1;
+	uoff_t offset1;
+	pool_t pool;
+	bool broken;
+	int ret;
+
+	if (mail_index_sync_begin(mbox->box.index, &index_sync_ctx,
+				  &sync_view, &trans,
+				  MAIL_INDEX_SYNC_FLAG_READ_ONLY) < 0) {
+		mailbox_set_index_error(&mbox->box);
+		return -1;
+	}
+	/* The backend mailboxes are looked up by their mailbox_ids, which
+	   come from the header. Brokenness is handled later by the sync. */
+	if (virtual_mailbox_ext_header_read(mbox, sync_view, &broken) < 0) {
+		mail_index_sync_rollback(&index_sync_ctx);
+		return -1;
+	}
+
+	pool = pool_alloconly_create("virtual sync changes", 1024);
+	p_array_init(&changes, pool, 16);
+	virtual_sync_gather_changes(mbox, index_sync_ctx, sync_view,
+				    pool, &changes);
+	mail_index_sync_get_offsets(index_sync_ctx, &seq1, &offset1,
+				    log_seq_r, log_offset_r);
+	mail_index_sync_rollback(&index_sync_ctx);
+
+	ret = virtual_sync_apply_backend_changes(mbox, &changes);
 	pool_unref(&pool);
 	return ret;
 }
@@ -2041,9 +2091,11 @@ virtual_sync_backend_boxes_set_no_autocreate(struct virtual_mailbox *mbox,
 	/* Backend mailboxes must not be autocreated while the virtual
 	   mailbox's transaction log is locked. mailbox_create() locks the
 	   mailbox list first and the transaction log only afterwards, so the
-	   two would deadlock. A backend mailbox that doesn't exist yet is
-	   skipped by the sync instead, and it's created when it's next
-	   accessed outside syncing. */
+	   two would deadlock. Applying the virtual index's changes to a
+	   backend mailbox that was deleted in the meantime must not recreate
+	   it either. A backend mailbox that doesn't exist is skipped by the
+	   sync instead, and it's created when it's next accessed outside
+	   syncing. */
 	array_foreach(&mbox->backend_boxes, bboxp) {
 		if (set)
 			(*bboxp)->box->flags |= MAILBOX_FLAG_NO_AUTOCREATE;
@@ -2059,7 +2111,6 @@ static int virtual_sync_finish(struct virtual_sync_context *ctx, bool success)
 	struct event *event = ctx->mbox->box.event;
 	int ret = success ? 0 : -1;
 
-	virtual_sync_backend_boxes_set_no_autocreate(ctx->mbox, FALSE);
 	virtual_sync_backend_boxes_finish(ctx);
 	if (success) {
 		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
@@ -2115,10 +2166,12 @@ static int virtual_sync_lock(struct virtual_mailbox *mbox,
 }
 
 static int virtual_sync_run(struct virtual_mailbox *mbox,
-			    enum mailbox_sync_flags flags)
+			    enum mailbox_sync_flags flags,
+			    uint32_t log_seq, uoff_t log_offset)
 {
 	struct virtual_sync_context *ctx;
 	enum mail_index_sync_flags index_sync_flags;
+	struct mail_index_sync_rec sync_rec;
 	bool broken;
 	int ret;
 
@@ -2134,13 +2187,16 @@ static int virtual_sync_run(struct virtual_mailbox *mbox,
 			       MAILBOX_SYNC_FLAG_FIX_INCONSISTENT)) != 0;
 
 	index_sync_flags = MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY |
-		MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES;
+		MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES |
+		MAIL_INDEX_SYNC_FLAG_STOP_AT_OFFSET;
 	if ((mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) != 0)
 		index_sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 
-	ret = mail_index_sync_begin(ctx->index, &ctx->index_sync_ctx,
-				    &ctx->sync_view, &ctx->trans,
-				    index_sync_flags);
+	/* Sync only the changes that virtual_sync_apply_index_changes()
+	   already applied to the backend mailboxes. */
+	ret = mail_index_sync_begin_to(ctx->index, &ctx->index_sync_ctx,
+				       &ctx->sync_view, &ctx->trans,
+				       log_seq, log_offset, index_sync_flags);
 	if (ret <= 0) {
 		if (ret < 0)
 			mailbox_set_index_error(&mbox->box);
@@ -2148,16 +2204,15 @@ static int virtual_sync_run(struct virtual_mailbox *mbox,
 		return ret;
 	}
 
-	virtual_sync_backend_boxes_set_no_autocreate(mbox, TRUE);
-
 	ret = virtual_mailbox_ext_header_read(mbox, ctx->sync_view, &broken);
 	if (ret < 0)
 		return virtual_sync_finish(ctx, FALSE);
 	if (broken)
 		ctx->index_broken = TRUE;
-	/* apply changes from virtual index to backend mailboxes */
-	if (virtual_sync_index_changes(ctx) < 0)
-		return virtual_sync_finish(ctx, FALSE);
+	/* The changes were already applied to the backend mailboxes, but the
+	   sync records still need to be read. Otherwise
+	   mail_index_sync_commit() doesn't mark them synced. */
+	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) ;
 	/* update list of UIDs in backend mailboxes */
 	if (virtual_sync_backend_boxes(ctx) < 0)
 		return virtual_sync_finish(ctx, FALSE);
@@ -2170,11 +2225,17 @@ static int virtual_sync(struct virtual_mailbox *mbox,
 			enum mailbox_sync_flags flags)
 {
 	struct file_lock *lock;
+	uint32_t log_seq;
+	uoff_t log_offset;
 	int ret;
 
 	if (virtual_sync_lock(mbox, &lock) < 0)
 		return -1;
-	ret = virtual_sync_run(mbox, flags);
+	virtual_sync_backend_boxes_set_no_autocreate(mbox, TRUE);
+	ret = virtual_sync_apply_index_changes(mbox, &log_seq, &log_offset);
+	if (ret == 0)
+		ret = virtual_sync_run(mbox, flags, log_seq, log_offset);
+	virtual_sync_backend_boxes_set_no_autocreate(mbox, FALSE);
 	file_lock_free(&lock);
 	return ret;
 }
