@@ -622,11 +622,93 @@ static void test_auth_server_error(void)
 	test_end();
 }
 
+/*
+ * Unexpected server input
+ */
+
+static const struct {
+	const char *name;
+	/* Input before anything has been output */
+	bool input_first;
+	/* Number of complete client/server round trips to run */
+	unsigned int rounds;
+	/* Send the final empty client response */
+	bool finish;
+	const char *error;
+} unexpected_input_tests[] = {
+	{
+		.name = "before client-first output",
+		.input_first = TRUE,
+		.error = "Server sent unexpected data",
+	},
+	{
+		.name = "after server-first",
+		.rounds = 1,
+		.error = "Server sent unexpected data",
+	},
+	{
+		.name = "after server-final",
+		.rounds = 2,
+		.error = "Server didn't finish authentication",
+	},
+	{
+		.name = "after authentication",
+		.rounds = 2,
+		.finish = TRUE,
+		.error = "Server didn't finish authentication",
+	},
+};
+
+static void test_auth_unexpected_input(void)
+{
+	test_begin("auth unexpected input");
+	for (unsigned int i = 0; i < N_ELEMENTS(unexpected_input_tests); i++) {
+		const char *error = NULL;
+		struct backend_context *bctx;
+		const unsigned char *data;
+		size_t data_size;
+
+		bctx = test_auth_init(&hash_method_sha1, "user", NULL, "frop",
+				      NULL);
+
+		if (unexpected_input_tests[i].input_first) {
+			test_assert_idx(test_auth_client_input(
+				bctx, uchar_empty_ptr, 0, &error) == 0, i);
+		}
+		for (unsigned int r = 0;
+		     r < unexpected_input_tests[i].rounds; r++) {
+			enum auth_scram_server_error error_code;
+
+			test_auth_client_output(bctx, &data, &data_size);
+			test_assert_idx(auth_scram_server_input(
+				&bctx->asserver, data, data_size,
+				&error_code, &error) >= 0, i);
+			(void)auth_scram_server_output(&bctx->asserver, &data,
+						       &data_size);
+			test_assert_idx(test_auth_client_input(
+				bctx, data, data_size, &error) >= 0, i);
+		}
+		if (unexpected_input_tests[i].finish) {
+			test_auth_client_output(bctx, &data, &data_size);
+			test_assert_idx(data_size == 0, i);
+		}
+
+		error = NULL;
+		test_assert_idx(test_auth_client_input(
+			bctx, uchar_empty_ptr, 0, &error) < 0, i);
+		test_assert_strcmp_idx(error, unexpected_input_tests[i].error, i);
+
+		test_auth_deinit(&bctx);
+	}
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_auth_success,
 		test_auth_server_error,
+		test_auth_unexpected_input,
 		NULL
 	};
 	return test_run(test_functions);
