@@ -239,21 +239,25 @@ class SettingsFile:
         self.ifdefs = self.conditionals.get()
 
         state = self.parse_root
+        # Python 3.6 compatible: no assignment expressions
+        service_m = SERVICE_SETTINGS_RE.search(line)
+        defaults_m = SERVICE_DEFAULTS_RE.search(line)
+        info_m = PARSER_INFO_RE.search(line)
         if any(r.search(line) for r in SETTINGS_BLOCK_RES):
             # Only variables can be weak, not type definitions
             if "= {" in line:
                 line = add_weak(line)
             state = self.parse_block
-        elif (m := SERVICE_SETTINGS_RE.search(line)) is not None:
+        elif service_m is not None:
             line = add_weak(line)
-            self.services.append(m.group(1))
+            self.services.append(service_m.group(1))
             state = self.parse_block
-        elif (m := SERVICE_DEFAULTS_RE.search(line)) is not None:
+        elif defaults_m is not None:
             line = add_weak(line)
-            self.service_defaults.add(m.group(1))
+            self.service_defaults.add(defaults_m.group(1))
             state = self.parse_block
-        elif (m := PARSER_INFO_RE.search(line)) is not None:
-            name = m.group(1)
+        elif info_m is not None:
+            name = info_m.group(1)
             self.infos[name] = ifdefs_wrap(self.ifdefs, "\t&%s,\n" % name)
             # Add forward declaration for the info struct. This may be
             # needed by the ext_check() functions.
