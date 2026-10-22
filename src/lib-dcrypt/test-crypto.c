@@ -1944,6 +1944,119 @@ static void test_verify_x962_wrong_length(void)
 	test_end();
 }
 
+/* Signatures of "signed data" made with the openssl command line:
+   openssl dgst -<digest> -sign <key> (DER). The x9.62 form is r and s
+   padded to the curve order length. The P-256 and P-384 values have the top
+   bit set in r and s, so their DER integers have a leading zero byte. P-521
+   uses all 521 bits of r and s, and its DER is longer than 127 bytes. */
+static void test_static_verify_x962_curves(void)
+{
+	static const struct {
+		const char *digest;
+		const char *pub_key;
+		const char *x962_hex;
+		const char *der_hex;
+	} tests[] = {
+		{
+			"sha256",
+"-----BEGIN PUBLIC KEY-----\n"
+"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZorxe39DhRDed92iPMEy24py8BZk\n"
+"Tzj6WbT/7Zgs4PgiaaU7/fXLhD53rA0sAe8WzMYiijcEQEopG8d3RtkE8w==\n"
+"-----END PUBLIC KEY-----",
+			"f951faeb67ac9585e382937f19e8bb886ab28bdeb532bbea154f6fdd2f29b6c7"
+			"e66ddbe274e5df122eda9b7ae66c78c2dee5b2a1816a954c5a8b3dfe0fb296e4",
+			"3046022100f951faeb67ac9585e382937f19e8bb886ab28bdeb532bbea154f6f"
+			"dd2f29b6c7022100e66ddbe274e5df122eda9b7ae66c78c2dee5b2a1816a954c"
+			"5a8b3dfe0fb296e4"
+		}, {
+			"sha384",
+"-----BEGIN PUBLIC KEY-----\n"
+"MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAE5BhPtXGt6FzEJ9nex6sxgzvEQdzH5K0M\n"
+"/y+FqtM7XPwMf/TcDqw+fVrcrLFWQDWdr/aKjZ2vaq1F2i1x/9sWJX3IzZmJViX1\n"
+"+J0wJQKPaPOarJfg2Z91gCT1mjR3LgNK\n"
+"-----END PUBLIC KEY-----",
+			"f24978cb30982affc700fd50c2c670b39d989447018e6c2f1f148fc0cf3c3661"
+			"981f6f70c4f62b3016b00019fed39819"
+			"cdb98b801545e37269ccf51ef9307a06330a246c172abb4a8064dc788a49e601"
+			"5237c597afd08f7d074e6852b57242f3",
+			"3066023100f24978cb30982affc700fd50c2c670b39d989447018e6c2f1f148f"
+			"c0cf3c3661981f6f70c4f62b3016b00019fed39819023100cdb98b801545e372"
+			"69ccf51ef9307a06330a246c172abb4a8064dc788a49e6015237c597afd08f7d"
+			"074e6852b57242f3"
+		}, {
+			"sha512",
+"-----BEGIN PUBLIC KEY-----\n"
+"MIGbMBAGByqGSM49AgEGBSuBBAAjA4GGAAQA4YhRLCq+gZWIvP3r3udST/ZTJXzh\n"
+"Fuj4s/o+2gCjSMl2WGNoQrpQGfaYTnh/SgXc4khzvxty4g9y2QsmUy2vflsASHvb\n"
+"YgR+C5eg/hsUV5NbeE0aahyFcq9kqUG9hyiHnYpVsUtdv9x8PXuBZBvsJ1vz+s0h\n"
+"bIlljsF8gdY2Hhlbgfk=\n"
+"-----END PUBLIC KEY-----",
+			"0132696d1984677e52c7fb7ad302348932cf61b9a290002b63fe153cf2c9cc92"
+			"f586cd5faacb8cb069a7a343752a9d67cd379450ae2682377367e5910c52c2c1"
+			"9158"
+			"0198b061d9b5a5723e4ade36164d462067e6a4e262b6a4a0b628d65aea4cb4b2"
+			"88c6e6cdb77b1c8316bd9c171700c09ce86a53c767e5c48cce93eacbe627a041"
+			"417f",
+			"30818802420132696d1984677e52c7fb7ad302348932cf61b9a290002b63fe15"
+			"3cf2c9cc92f586cd5faacb8cb069a7a343752a9d67cd379450ae2682377367e5"
+			"910c52c2c1915802420198b061d9b5a5723e4ade36164d462067e6a4e262b6a4"
+			"a0b628d65aea4cb4b288c6e6cdb77b1c8316bd9c171700c09ce86a53c767e5c4"
+			"8cce93eacbe627a041417f"
+		}
+	};
+	const char *data = "signed data";
+	const char *error;
+	bool valid;
+
+	test_begin("static verify (ecdsa x9.62 and dss, P-256 P-384 P-521)");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) T_BEGIN {
+		struct dcrypt_public_key *pub_key = NULL;
+		buffer_t *x962 = t_buffer_create(160);
+		buffer_t *der = t_buffer_create(160);
+
+		test_assert_idx(dcrypt_key_load_public(&pub_key,
+				tests[i].pub_key, &error), i);
+		test_assert_cmp_idx(hex_to_binary(tests[i].x962_hex, x962),
+				    ==, 0, i);
+		test_assert_cmp_idx(hex_to_binary(tests[i].der_hex, der),
+				    ==, 0, i);
+
+		valid = FALSE;
+		test_assert_idx(dcrypt_verify(pub_key, tests[i].digest,
+					      DCRYPT_SIGNATURE_FORMAT_X962,
+					      data, strlen(data), x962->data,
+					      x962->used, &valid, 0, &error), i);
+		test_assert_idx(valid, i);
+		valid = FALSE;
+		test_assert_idx(dcrypt_verify(pub_key, tests[i].digest,
+					      DCRYPT_SIGNATURE_FORMAT_DSS,
+					      data, strlen(data), der->data,
+					      der->used, &valid, 0, &error), i);
+		test_assert_idx(valid, i);
+
+		/* a modified s is a valid length, but an invalid signature */
+		unsigned char *sig = buffer_get_modifiable_data(x962, NULL);
+		sig[x962->used - 1] ^= 1;
+		valid = TRUE;
+		test_assert_idx(dcrypt_verify(pub_key, tests[i].digest,
+					      DCRYPT_SIGNATURE_FORMAT_X962,
+					      data, strlen(data), x962->data,
+					      x962->used, &valid, 0, &error), i);
+		test_assert_idx(!valid, i);
+
+		/* zero r and s */
+		memset(sig, 0, x962->used);
+		valid = TRUE;
+		test_assert_idx(dcrypt_verify(pub_key, tests[i].digest,
+					      DCRYPT_SIGNATURE_FORMAT_X962,
+					      data, strlen(data), x962->data,
+					      x962->used, &valid, 0, &error), i);
+		test_assert_idx(!valid, i);
+		dcrypt_key_unref_public(&pub_key);
+	} T_END;
+	test_end();
+}
+
 static void test_sign_dss_append(void)
 {
 	const char *data = "signed data";
@@ -2763,6 +2876,7 @@ int main(void)
 		test_sign_verify_x962_fixed_width,
 		test_sign_verify_x962_curves,
 		test_verify_x962_wrong_length,
+		test_static_verify_x962_curves,
 		test_sign_dss_append,
 		test_static_verify_ecdsa,
 		test_static_verify_rsa,
