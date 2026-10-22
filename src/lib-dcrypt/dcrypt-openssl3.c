@@ -4082,7 +4082,8 @@ dcrypt_openssl_verify(struct dcrypt_public_key *key, const char *algorithm,
 			*error_r = "Format requires an EC key";
 			return FALSE;
 		}
-		if ((signature_len % 2) != 0) {
+		size_t rs_len = dcrypt_openssl_ec_rs_len(key->key);
+		if (signature_len != 2 * rs_len) {
 			*error_r = "Invalid x9.62 signature";
 			return FALSE;
 		}

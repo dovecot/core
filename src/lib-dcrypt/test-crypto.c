@@ -1865,6 +1865,85 @@ static void test_sign_verify_x962_curves(void)
 	test_end();
 }
 
+static void test_verify_x962_wrong_length(void)
+{
+	static const struct {
+		const char *curve;
+		const char *digest;
+		size_t rs_len;
+	} tests[] = {
+		{ SN_X9_62_prime256v1, "sha256", 32 },
+		{ SN_secp384r1, "sha384", 48 },
+		{ SN_secp521r1, "sha512", 66 },
+	};
+	const char *data = "signed data";
+	const char *error;
+	bool valid;
+
+	test_begin("verify (x9.62) wrong signature length");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) T_BEGIN {
+		const size_t rs_len = tests[i].rs_len;
+		struct dcrypt_keypair pair;
+		buffer_t *signature = t_buffer_create(256);
+		buffer_t *bad = t_buffer_create(256);
+
+		if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0,
+					     tests[i].curve, &error))
+			i_fatal("%s", error);
+		test_assert_idx(dcrypt_sign(pair.priv, tests[i].digest,
+					    DCRYPT_SIGNATURE_FORMAT_X962,
+					    data, strlen(data), signature, 0,
+					    &error), i);
+		test_assert_ucmp_idx(signature->used, ==, 2 * rs_len, i);
+		const unsigned char *sig = signature->data;
+
+		valid = FALSE;
+		test_assert_idx(dcrypt_verify(pair.pub, tests[i].digest,
+					      DCRYPT_SIGNATURE_FORMAT_X962,
+					      data, strlen(data), sig,
+					      2 * rs_len, &valid, 0, &error), i);
+		test_assert_idx(valid, i);
+
+		/* a zero byte in front of both halves is the same r and s */
+		buffer_append_c(bad, '\0');
+		buffer_append(bad, sig, rs_len);
+		buffer_append_c(bad, '\0');
+		buffer_append(bad, sig + rs_len, rs_len);
+		test_assert_idx(!dcrypt_verify(pair.pub, tests[i].digest,
+					       DCRYPT_SIGNATURE_FORMAT_X962,
+					       data, strlen(data), bad->data,
+					       bad->used, &valid, 0, &error), i);
+		test_assert_strcmp_idx(error, "Invalid x9.62 signature", i);
+
+		/* one byte missing from each half */
+		buffer_set_used_size(bad, 0);
+		buffer_append(bad, sig + 1, rs_len - 1);
+		buffer_append(bad, sig + rs_len + 1, rs_len - 1);
+		test_assert_idx(!dcrypt_verify(pair.pub, tests[i].digest,
+					       DCRYPT_SIGNATURE_FORMAT_X962,
+					       data, strlen(data), bad->data,
+					       bad->used, &valid, 0, &error), i);
+		test_assert_strcmp_idx(error, "Invalid x9.62 signature", i);
+
+		/* odd length */
+		test_assert_idx(!dcrypt_verify(pair.pub, tests[i].digest,
+					       DCRYPT_SIGNATURE_FORMAT_X962,
+					       data, strlen(data), sig,
+					       2 * rs_len - 1, &valid, 0,
+					       &error), i);
+		test_assert_strcmp_idx(error, "Invalid x9.62 signature", i);
+
+		/* empty */
+		test_assert_idx(!dcrypt_verify(pair.pub, tests[i].digest,
+					       DCRYPT_SIGNATURE_FORMAT_X962,
+					       data, strlen(data), sig, 0,
+					       &valid, 0, &error), i);
+		test_assert_strcmp_idx(error, "Invalid x9.62 signature", i);
+		dcrypt_keypair_unref(&pair);
+	} T_END;
+	test_end();
+}
+
 static void test_sign_dss_append(void)
 {
 	const char *data = "signed data";
@@ -2683,6 +2762,7 @@ int main(void)
 		test_sign_verify_x962,
 		test_sign_verify_x962_fixed_width,
 		test_sign_verify_x962_curves,
+		test_verify_x962_wrong_length,
 		test_sign_dss_append,
 		test_static_verify_ecdsa,
 		test_static_verify_rsa,

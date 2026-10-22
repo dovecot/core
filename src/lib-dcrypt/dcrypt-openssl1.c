@@ -3923,14 +3923,15 @@ dcrypt_openssl_verify_ecdsa(struct dcrypt_public_key *key, const char *algorithm
 			    const unsigned char *signature, size_t signature_len,
 			    bool *valid_r, const char **error_r)
 {
-        if ((signature_len % 2) != 0) {
-                *error_r = "Truncated signature";
-                return FALSE;
-        }
-
 	EVP_PKEY *pkey = key->key;
 	EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
+	size_t rs_len = dcrypt_openssl_ec_rs_len(ec_key);
 	int ec;
+
+	if (signature_len != 2 * rs_len) {
+		*error_r = "Invalid x9.62 signature";
+		return FALSE;
+	}
 
 	/* digest data */
 	buffer_t *digest = t_buffer_create(64);
