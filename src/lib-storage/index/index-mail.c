@@ -1200,6 +1200,8 @@ index_mail_parse_body_finish(struct index_mail *mail,
 	const char *error = NULL;
 	int ret;
 
+	i_assert(mail->data.parser_ctx != NULL);
+
 	if (parser_input == NULL) {
 		ret = message_parser_deinit_from_parts(&mail->data.parser_ctx,
 			&mail->data.parts, &error) < 0 ? 0 : 1;
