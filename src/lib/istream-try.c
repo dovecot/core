@@ -122,6 +122,7 @@ i_stream_try_read(struct istream_private *stream)
 		if ((ret = i_stream_try_detect(tstream)) <= 0)
 			return ret;
 	}
+	i_assert(stream->parent != NULL);
 
 	i_stream_seek(stream->parent, stream->parent_start_offset +
 		      stream->istream.v_offset);
