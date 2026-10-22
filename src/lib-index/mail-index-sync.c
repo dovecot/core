@@ -336,12 +336,13 @@ mail_index_sync_begin_init(struct mail_index *index,
 	const struct mail_index_header *hdr;
 	uint32_t seq;
 	uoff_t offset;
+	bool read_only = (flags & MAIL_INDEX_SYNC_FLAG_READ_ONLY) != 0;
 	bool locked = FALSE;
 	int ret;
 
 	/* if we require changes, don't lock transaction log yet. first check
 	   if there's anything to sync. */
-	if ((flags & MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES) == 0) {
+	if ((flags & MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES) == 0 && !read_only) {
 		if (mail_transaction_log_sync_lock(index->log, "syncing",
 						   &seq, &offset) < 0)
 			return -1;
@@ -381,6 +382,8 @@ mail_index_sync_begin_init(struct mail_index *index,
 		}
 		seq = index->log->head->hdr.file_seq;
 		offset = index->log->head->sync_offset;
+	} else if (read_only) {
+		mail_transaction_log_get_head(index->log, &seq, &offset);
 	}
 
 	if (!mail_index_need_sync(index, flags, log_file_seq, log_file_offset) &&
@@ -390,7 +393,7 @@ mail_index_sync_begin_init(struct mail_index *index,
 		return 0;
 	}
 
-	if (!locked) {
+	if (!locked && !read_only) {
 		/* it looks like we have something to sync. lock the file and
 		   check again. */
 		flags &= ENUM_NEGATE(MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES);
@@ -414,7 +417,10 @@ mail_index_sync_begin_init(struct mail_index *index,
 		mail_index_set_error(index,
 			"broken sync positions in index file %s",
 			index->filepath);
-		mail_index_fsck_locked(index);
+		if (locked)
+			mail_index_fsck_locked(index);
+		else if (mail_index_fsck(index) < 0)
+			return -1;
 	}
 	return 1;
 }
@@ -480,7 +486,12 @@ mail_index_sync_begin_to2(struct mail_index *index,
 	if (ret == 0) {
 		/* if a log file is missing, there's nothing we can do except
 		   to skip over it. fix the problem with fsck and try again. */
-		mail_index_fsck_locked(index);
+		if ((flags & MAIL_INDEX_SYNC_FLAG_READ_ONLY) == 0)
+			mail_index_fsck_locked(index);
+		else if (mail_index_fsck(index) < 0) {
+			mail_index_sync_rollback(&ctx);
+			return -1;
+		}
 		mail_index_sync_rollback(&ctx);
 		*retry_r = TRUE;
 		return 0;
@@ -791,7 +802,8 @@ static void mail_index_sync_end(struct mail_index_sync_ctx **_ctx)
 		lock_reason = ctx->reason;
 	else
 		lock_reason = "Mailbox was synchronized";
-	mail_transaction_log_sync_unlock(ctx->index->log, lock_reason);
+	if ((ctx->flags & MAIL_INDEX_SYNC_FLAG_READ_ONLY) == 0)
+		mail_transaction_log_sync_unlock(ctx->index->log, lock_reason);
 
 	mail_index_view_close(&ctx->view);
 	mail_index_transaction_rollback(&ctx->sync_trans);
@@ -904,6 +916,8 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	uint32_t next_uid;
 	bool want_rotate, index_undeleted, delete_index;
 	int ret = 0, ret2;
+
+	i_assert((ctx->flags & MAIL_INDEX_SYNC_FLAG_READ_ONLY) == 0);
 
 	index_undeleted = ctx->ext_trans->index_undeleted;
 	delete_index = index->index_delete_requested && !index_undeleted &&

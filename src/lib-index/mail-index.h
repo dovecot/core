@@ -244,7 +244,14 @@ enum mail_index_sync_flags {
 	MAIL_INDEX_SYNC_FLAG_TRY_DELETING_INDEX	= 0x40,
 	/* Update header's tail_offset to head_offset, even if it's the only
 	   thing we do and there's no strict need for it. */
-	MAIL_INDEX_SYNC_FLAG_UPDATE_TAIL_OFFSET	= 0x80
+	MAIL_INDEX_SYNC_FLAG_UPDATE_TAIL_OFFSET	= 0x80,
+	/* Don't lock the transaction log. The sync can only be used for
+	   reading the sync records, and it must be rolled back. Other
+	   processes can write to the transaction log during the sync, but
+	   the sync doesn't see their changes. If the index is found to be
+	   broken, it's still fscked, which locks the transaction log for the
+	   duration of the fsck. */
+	MAIL_INDEX_SYNC_FLAG_READ_ONLY		= 0x100,
 };
 
 enum mail_index_view_sync_flags {
@@ -529,7 +536,9 @@ bool mail_index_sync_have_any(struct mail_index *index,
 			      enum mail_index_sync_flags flags);
 /* Returns TRUE if it currently looks like syncing would return expunges. */
 bool mail_index_sync_have_any_expunges(struct mail_index *index);
-/* Returns the log file seq+offsets for the area which this sync is handling. */
+/* Returns the log file seq+offsets for the area which this sync is handling.
+   With MAIL_INDEX_SYNC_FLAG_READ_ONLY the transaction log may already
+   have newer changes. */
 void mail_index_sync_get_offsets(struct mail_index_sync_ctx *ctx,
 				 uint32_t *seq1_r, uoff_t *offset1_r,
 				 uint32_t *seq2_r, uoff_t *offset2_r);

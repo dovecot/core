@@ -529,6 +529,184 @@ static void test_mail_index_map_fsck_fail_restores_map(void)
 	test_end();
 }
 
+static void
+test_mail_index_sync_add_flag(struct mail_index *index, uint32_t seq,
+			      enum mail_flags flag)
+{
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view, 0);
+	mail_index_update_flags(trans, seq, MODIFY_ADD, flag);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	mail_index_view_close(&view);
+}
+
+/* Read all the sync records. Returns the number of records. If there was
+   exactly one record, its first UID is returned in uid_r. */
+static unsigned int
+test_mail_index_sync_read(struct mail_index_sync_ctx *sync_ctx, uint32_t *uid_r)
+{
+	struct mail_index_sync_rec sync_rec;
+	unsigned int count = 0;
+
+	*uid_r = 0;
+	while (mail_index_sync_next(sync_ctx, &sync_rec)) {
+		test_assert(sync_rec.type == MAIL_INDEX_SYNC_TYPE_FLAGS);
+		*uid_r = sync_rec.uid1;
+		count++;
+	}
+	return count;
+}
+
+static void
+test_mail_index_sync_full(struct mail_index *index,
+			  unsigned int expected_count, uint32_t expected_uid)
+{
+	struct mail_index_sync_ctx *sync_ctx;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	uint32_t uid;
+
+	test_assert(mail_index_sync_begin(index, &sync_ctx, &view, &trans,
+					  0) == 1);
+	test_assert(test_mail_index_sync_read(sync_ctx, &uid) == expected_count);
+	if (expected_count == 1)
+		test_assert(uid == expected_uid);
+	test_assert(mail_index_sync_commit(&sync_ctx) == 0);
+}
+
+static struct mail_index *test_mail_index_sync_init(void)
+{
+	struct mail_index *index;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	uint32_t seq, uid_validity = 1;
+
+	index = test_mail_index_init(TRUE);
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view, 0);
+	mail_index_update_header(trans,
+		offsetof(struct mail_index_header, uid_validity),
+		&uid_validity, sizeof(uid_validity), TRUE);
+	mail_index_append(trans, 1, &seq);
+	mail_index_append(trans, 2, &seq);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	mail_index_view_close(&view);
+
+	test_mail_index_sync_full(index, 0, 0);
+	return index;
+}
+
+static void test_mail_index_sync_read_only(void)
+{
+	struct mail_index *index;
+	struct mail_index_sync_ctx *sync_ctx;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	uint32_t uid, log_seq, seq1, seq2;
+	uoff_t log_offset, offset1, offset2;
+
+	test_begin("mail index sync read-only");
+	index = test_mail_index_sync_init();
+	test_mail_index_sync_add_flag(index, 1, MAIL_SEEN);
+	mail_transaction_log_get_head(index->log, &log_seq, &log_offset);
+
+	test_assert(mail_index_sync_begin(index, &sync_ctx, &view, &trans,
+					  MAIL_INDEX_SYNC_FLAG_READ_ONLY) == 1);
+	test_assert(!mail_index_is_locked(index));
+	/* the transaction log can be written to during the sync, but the
+	   sync doesn't see the change */
+	test_mail_index_sync_add_flag(index, 2, MAIL_FLAGGED);
+	test_assert(test_mail_index_sync_read(sync_ctx, &uid) == 1);
+	test_assert(uid == 1);
+	mail_index_sync_get_offsets(sync_ctx, &seq1, &offset1, &seq2, &offset2);
+	test_assert(seq2 == log_seq && offset2 == log_offset);
+	mail_index_sync_rollback(&sync_ctx);
+
+	/* the changes are still waiting to be synced */
+	test_mail_index_sync_full(index, 2, 0);
+	test_mail_index_sync_full(index, 0, 0);
+
+	test_mail_index_deinit(&index);
+	test_end();
+}
+
+/* Write the index with a tail offset beyond the head offset and close it */
+static void test_mail_index_sync_break_tail_offset(struct mail_index **index)
+{
+	struct mail_index_sync_ctx *sync_ctx;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	const char *idx_path;
+	uint32_t tail_offset;
+	int fd;
+
+	test_assert(mail_index_sync_begin(*index, &sync_ctx, &view, &trans,
+					  0) == 1);
+	mail_index_write(*index, FALSE, "test");
+	test_assert(mail_index_sync_commit(&sync_ctx) == 0);
+	tail_offset = (*index)->map->hdr.log_file_head_offset + 100;
+	test_mail_index_close(index);
+
+	idx_path = t_strconcat(test_mail_index_get_dir(),
+			       "/test.dovecot.index", NULL);
+	fd = open(idx_path, O_RDWR);
+	if (fd == -1)
+		i_fatal("open(%s) failed: %m", idx_path);
+	if (pwrite(fd, &tail_offset, sizeof(tail_offset),
+		   offsetof(struct mail_index_header,
+			    log_file_tail_offset)) != (ssize_t)sizeof(tail_offset))
+		i_fatal("pwrite(%s) failed: %m", idx_path);
+	i_close_fd(&fd);
+}
+
+static void test_mail_index_sync_read_only_fsck(void)
+{
+	struct mail_index *index;
+	struct mail_index_sync_ctx *sync_ctx;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	const struct mail_index_header *hdr;
+	uint32_t uid;
+
+	test_begin("mail index sync read-only fsck");
+	index = test_mail_index_sync_init();
+	test_mail_index_sync_add_flag(index, 1, MAIL_SEEN);
+	test_mail_index_sync_break_tail_offset(&index);
+
+	/* the broken sync positions are fixed even though the sync doesn't
+	   otherwise lock the transaction log */
+	index = test_mail_index_open(FALSE);
+	test_expect_errors(3);
+	test_assert(mail_index_sync_begin(index, &sync_ctx, &view, &trans,
+					  MAIL_INDEX_SYNC_FLAG_READ_ONLY) == 1);
+	test_expect_no_more_errors();
+	test_assert(!mail_index_is_locked(index));
+	hdr = &index->map->hdr;
+	test_assert(hdr->log_file_tail_offset <= hdr->log_file_head_offset);
+	test_assert(test_mail_index_sync_read(sync_ctx, &uid) == 0);
+	mail_index_sync_rollback(&sync_ctx);
+	test_mail_index_close(&index);
+
+	/* the fsck fails if the transaction log can't be locked */
+	index = test_mail_index_sync_init();
+	test_mail_index_sync_add_flag(index, 1, MAIL_SEEN);
+	test_mail_index_sync_break_tail_offset(&index);
+	index = mail_index_alloc(NULL, test_mail_index_get_dir(),
+				 "test.dovecot.index");
+	test_assert(mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY) == 1);
+	test_expect_errors(3);
+	test_assert(mail_index_sync_begin(index, &sync_ctx, &view, &trans,
+					  MAIL_INDEX_SYNC_FLAG_READ_ONLY) < 0);
+	test_expect_no_more_errors();
+	test_assert(!mail_index_is_locked(index));
+
+	test_mail_index_deinit(&index);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -540,6 +718,8 @@ int main(void)
 		test_mail_index_log_garbage_at_eof,
 		test_mail_index_log_rotate_at_close,
 		test_mail_index_map_fsck_fail_restores_map,
+		test_mail_index_sync_read_only,
+		test_mail_index_sync_read_only_fsck,
 		NULL
 	};
 	test_dir_init("mail-index");
