@@ -8,6 +8,8 @@
 
 #include "http-transfer.h"
 
+#include <ctype.h>
+
 #define MIN_CHUNK_SIZE_WITH_EXTRA 6
 
 /*
@@ -69,13 +71,7 @@ http_transfer_chunked_parse_size(struct http_transfer_chunked_istream *tcstream)
 	/* chunk-size     = 1*HEXDIG */
 
 	while (tcstream->cur < tcstream->end) {
-		if (*tcstream->cur >= '0' && *tcstream->cur <= '9')
-			size = *tcstream->cur-'0';
-		else if (*tcstream->cur >= 'A' && *tcstream->cur <= 'F')
-			size = *tcstream->cur-'A' + 10;
-		else if (*tcstream->cur >= 'a' && *tcstream->cur <= 'f')
-			size = *tcstream->cur-'a' + 10;
-		else {
+		if (!i_isxdigit(*tcstream->cur)) {
 			if (tcstream->parsed_chars == 0) {
 				io_stream_set_error(
 					&tcstream->istream.iostream,
@@ -87,6 +83,10 @@ http_transfer_chunked_parse_size(struct http_transfer_chunked_istream *tcstream)
 			tcstream->parsed_chars = 0;
 			return 1;
 		}
+		if (*tcstream->cur <= '9')
+			size = *tcstream->cur - '0';
+		else
+			size = (*tcstream->cur | 0x20) - 'a' + 10;
 		if (tcstream->chunk_size > (uoff_t)-1 >> 4) {
 			io_stream_set_error(&tcstream->istream.iostream,
 					    "Chunk size exceeds integer limit");

@@ -175,6 +175,11 @@ invalid_transfer_chunked_input_tests[] = {
 	"FFFFFFFFFFFFFFFFF\r\n"
 	"\r\n"
 	"0\r\n"
+	"\r\n",
+	// non-ASCII byte instead of size digit
+	"\x80\r\n"
+	"\r\n"
+	"0\r\n"
 	"\r\n"
 };
 
