@@ -17,11 +17,11 @@ enum hex_allowed_case {
 void dec2hex(unsigned char *hexstr, uintmax_t dec, unsigned int hexstr_size);
 
 /* Parses hex string, returns 0 if succeeded and -1 if failed */
-int hex2dec_case(const unsigned char *data, unsigned int len,
+int hex2dec_case(const void *data, unsigned int len,
 		 enum hex_allowed_case allowed_case, uintmax_t *value_r);
 
 /* Parses hex string and returns its decimal value, or 0 in case of errors */
-static inline uintmax_t hex2dec(const unsigned char *data, unsigned int len)
+static inline uintmax_t hex2dec(const void *data, unsigned int len)
 {
 	uintmax_t value;
 	return hex2dec_case(data, len, HEX_ALLOWED_CASE_BOTH, &value) < 0 ?

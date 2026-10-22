@@ -569,8 +569,7 @@ dsync_mailbox_name_part_unescape(const char **_part, char escape_char)
 	str_append_data(str, part, p - part);
 	while (*p != '\0') {
 		if (*p == escape_char &&
-		    hex2dec_case((const unsigned char *)(p+1), 2,
-				 HEX_ALLOWED_CASE_LOWER, &chr) == 0 &&
+		    hex2dec_case(p + 1, 2, HEX_ALLOWED_CASE_LOWER, &chr) == 0 &&
 		    chr < 0x80) {
 			/* Decode only escapes of valid-UTF-8 (ASCII) bytes.
 			   Escapes of invalid UTF-8 bytes (>= 0x80) are kept

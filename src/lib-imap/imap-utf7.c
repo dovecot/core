@@ -74,8 +74,7 @@ int imap_escaped_utf8_hex_to_char(const char *str, unsigned char *chr_r)
 
 	/* NOTE: Only lowercase hex characters are allowed so the output is
 	   reversible. */
-	if (hex2dec_case((const unsigned char *)str, 2,
-			 HEX_ALLOWED_CASE_LOWER, &value) < 0)
+	if (hex2dec_case(str, 2, HEX_ALLOWED_CASE_LOWER, &value) < 0)
 		return -1;
 	*chr_r = (unsigned char)value;
 	return 0;

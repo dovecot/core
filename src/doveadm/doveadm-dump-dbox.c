@@ -18,7 +18,7 @@ dump_timestamp(struct istream *input, const char *name, const char *value)
 	if (strcmp(value, "0") == 0)
 		t = 0;
 	else {
-		t = hex2dec((const void *)value, strlen(value));
+		t = hex2dec(value, strlen(value));
 		if (t == 0) {
 			i_fatal("Invalid %s at %"PRIuUOFF_T": %s",
 				name, input->v_offset, value);
@@ -35,7 +35,7 @@ dump_size(struct istream *input, const char *name, const char *value)
 	if (strcmp(value, "0") == 0)
 		size = 0;
 	else {
-		size = hex2dec((const void *)value, strlen(value));
+		size = hex2dec(value, strlen(value));
 		if (size == 0) {
 			i_fatal("Invalid %s at %"PRIuUOFF_T": %s",
 				name, input->v_offset, value);
@@ -65,8 +65,7 @@ static unsigned int dump_file_hdr(struct istream *input)
 	for (; *arg != NULL; arg++) {
 		switch (**arg) {
 		case DBOX_HEADER_MSG_HEADER_SIZE:
-			msg_hdr_size = hex2dec((const void *)(*arg + 1),
-					       strlen(*arg + 1));
+			msg_hdr_size = hex2dec(*arg + 1, strlen(*arg + 1));
 			if (msg_hdr_size == 0) {
 				i_fatal("Invalid msg_header_size header: %s",
 					*arg + 1);
