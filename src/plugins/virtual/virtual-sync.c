@@ -41,10 +41,14 @@ ARRAY_DEFINE_TYPE(virtual_backend_change, struct virtual_backend_change);
 
 struct virtual_sync_context {
 	struct virtual_mailbox *mbox;
-        struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index *index;
+	/* Private view of the virtual index. The sync is done against it
+	   without locking the virtual index. */
 	struct mail_index_view *view;
+	/* External transaction for view, committed at the end of the sync
+	   while the virtual index is locked. */
 	struct mail_index_transaction *trans;
+	enum mail_index_sync_flags index_sync_flags;
 
 	/* messages expunged within this sync */
 	ARRAY_TYPE(seq_range) sync_expunges;
@@ -58,6 +62,11 @@ struct virtual_sync_context {
 
 	enum mailbox_sync_flags flags;
 	uint32_t uid_validity;
+
+	/* The virtual index's transaction log position up to which its
+	   changes have already been applied to the backend mailboxes. */
+	uint32_t log_seq;
+	uoff_t log_offset;
 
 	bool ext_header_changed:1;
 	bool expunge_removed:1;
@@ -2088,14 +2097,11 @@ virtual_sync_backend_boxes_set_no_autocreate(struct virtual_mailbox *mbox,
 {
 	struct virtual_backend_box *const *bboxp;
 
-	/* Backend mailboxes must not be autocreated while the virtual
-	   mailbox's transaction log is locked. mailbox_create() locks the
-	   mailbox list first and the transaction log only afterwards, so the
-	   two would deadlock. Applying the virtual index's changes to a
-	   backend mailbox that was deleted in the meantime must not recreate
-	   it either. A backend mailbox that doesn't exist is skipped by the
-	   sync instead, and it's created when it's next accessed outside
-	   syncing. */
+	/* Backend mailboxes aren't autocreated while syncing. Applying the
+	   virtual index's changes to a backend mailbox that was deleted in
+	   the meantime must not recreate it. A backend mailbox that doesn't
+	   exist is skipped by the sync instead, and it's created when it's
+	   next accessed outside syncing. */
 	array_foreach(&mbox->backend_boxes, bboxp) {
 		if (set)
 			(*bboxp)->box->flags |= MAILBOX_FLAG_NO_AUTOCREATE;
@@ -2106,19 +2112,156 @@ virtual_sync_backend_boxes_set_no_autocreate(struct virtual_mailbox *mbox,
 	}
 }
 
+/* Forget the in-memory sync state, which may not match the virtual index
+   after a sync was rolled back. The following sync rebuilds the state from
+   the virtual index, the same as when the virtual mailbox is opened. The
+   mailbox_ids are kept, because mails are accessed with them also outside
+   syncing. The following virtual_mailbox_ext_header_read() reassigns them
+   from the header anyway. */
+static void virtual_sync_reset_state(struct virtual_mailbox *mbox)
+{
+	struct virtual_backend_box *bbox;
+
+	array_foreach_elem(&mbox->backend_boxes, bbox) {
+		if (bbox->search_result != NULL)
+			mailbox_search_result_free(&bbox->search_result);
+		array_clear(&bbox->uids);
+		array_clear(&bbox->sync_pending_removes);
+		if (array_is_created(&bbox->sync_outside_expunges))
+			array_clear(&bbox->sync_outside_expunges);
+
+		bbox->sync_mailbox_idx1 = 0;
+		bbox->sync_uid_validity = 0;
+		bbox->sync_next_uid = 0;
+		bbox->sync_highest_modseq = 0;
+		bbox->ondisk_highest_modseq = 0;
+		guid_128_empty(bbox->sync_guid);
+
+		bbox->sync_seen = FALSE;
+		bbox->uids_nonsorted = FALSE;
+		bbox->deleted = FALSE;
+		bbox->first_sync = FALSE;
+	}
+	mbox->uids_mapped = FALSE;
+	mbox->sync_initialized = FALSE;
+	mbox->sync_virtual_next_uid = 0;
+}
+
+static void virtual_sync_drop_recent(struct virtual_sync_context *ctx)
+{
+	const struct mail_index_header *hdr = mail_index_get_header(ctx->view);
+	uint32_t next_uid = ctx->mbox->sync_virtual_next_uid;
+
+	/* This is normally done by mail_index_sync_commit(), but it doesn't
+	   see the messages appended by ctx->trans. */
+	if (hdr->first_recent_uid < next_uid) {
+		mail_index_update_header(ctx->trans,
+			offsetof(struct mail_index_header, first_recent_uid),
+			&next_uid, sizeof(next_uid), FALSE);
+	}
+}
+
+/* Returns -1 if the virtual index was changed in a way that doesn't allow
+   committing the transaction on top of it. */
+static int
+virtual_sync_check_new_changes(struct virtual_sync_context *ctx,
+			       struct mail_index_view *sync_view)
+{
+	const struct mail_index_header *hdr = mail_index_get_header(ctx->view);
+	const struct mail_index_header *sync_hdr =
+		mail_index_get_header(sync_view);
+
+	/* Other sessions can only add flag and keyword changes and expunge
+	   requests. Messages are added and expunged only by virtual syncs,
+	   which are serialized by the virtual sync lock. */
+	if (hdr->uid_validity != sync_hdr->uid_validity ||
+	    hdr->next_uid != sync_hdr->next_uid ||
+	    hdr->messages_count != sync_hdr->messages_count) {
+		/* Messages were added or expunged by a process that doesn't
+		   use the virtual sync lock. */
+		mail_storage_set_error(ctx->mbox->box.storage, MAIL_ERROR_TEMP,
+			"Virtual index was modified by another process during sync");
+		return -1;
+	}
+	return 0;
+}
+
+/* Lock the virtual index and commit the sync. */
+static int virtual_sync_commit(struct virtual_sync_context *ctx)
+{
+	struct mail_index_sync_ctx *index_sync_ctx;
+	struct mail_index_view *sync_view;
+	struct mail_index_transaction *sync_trans;
+	struct mail_index_sync_rec sync_rec;
+	enum mail_index_sync_flags index_sync_flags = ctx->index_sync_flags;
+	int ret;
+
+	/* DROP_RECENT is handled by virtual_sync_drop_recent() */
+	index_sync_flags &= ENUM_NEGATE(MAIL_INDEX_SYNC_FLAG_DROP_RECENT);
+	/* Sync only the changes that virtual_sync_apply_index_changes()
+	   already applied to the backend mailboxes. The newer changes are
+	   left for the next sync. */
+	ret = mail_index_sync_begin_to(ctx->index, &index_sync_ctx, &sync_view,
+				       &sync_trans, ctx->log_seq, ctx->log_offset,
+				       index_sync_flags);
+	if (ret <= 0) {
+		if (ret < 0)
+			mailbox_set_index_error(&ctx->mbox->box);
+		else {
+			/* The transaction log was rotated after
+			   log_seq/log_offset, or it needs to be rotated. */
+			mail_storage_set_error(ctx->mbox->box.storage,
+				MAIL_ERROR_TEMP,
+				"Virtual index couldn't be synced up to the already applied log position");
+		}
+		mail_index_transaction_rollback(&ctx->trans);
+		virtual_sync_reset_state(ctx->mbox);
+		return -1;
+	}
+	/* The sync records still need to be read. Otherwise
+	   mail_index_sync_commit() doesn't mark them synced. */
+	while (mail_index_sync_next(index_sync_ctx, &sync_rec)) ;
+
+	if (virtual_sync_check_new_changes(ctx, sync_view) < 0) {
+		mail_index_sync_rollback(&index_sync_ctx);
+		mail_index_transaction_rollback(&ctx->trans);
+		virtual_sync_reset_state(ctx->mbox);
+		return -1;
+	}
+
+	virtual_sync_index_finish(ctx);
+	if ((ctx->index_sync_flags & MAIL_INDEX_SYNC_FLAG_DROP_RECENT) != 0)
+		virtual_sync_drop_recent(ctx);
+
+	/* The transaction log is locked by the sync, so this commit doesn't
+	   try to lock it again. The changes are mapped by
+	   mail_index_sync_commit(). */
+	if (mail_index_transaction_commit(&ctx->trans) < 0) {
+		mailbox_set_index_error(&ctx->mbox->box);
+		mail_index_sync_rollback(&index_sync_ctx);
+		virtual_sync_reset_state(ctx->mbox);
+		return -1;
+	}
+	ret = 0;
+	if (mail_index_sync_commit(&index_sync_ctx) < 0) {
+		mailbox_set_index_error(&ctx->mbox->box);
+		ret = -1;
+	}
+	ctx->mbox->ext_header_rewrite = FALSE;
+	return ret;
+}
+
 static int virtual_sync_finish(struct virtual_sync_context *ctx, bool success)
 {
 	struct event *event = ctx->mbox->box.event;
-	int ret = success ? 0 : -1;
+	int ret;
 
+	/* commit the backend mailbox transactions before locking the virtual
+	   index */
 	virtual_sync_backend_boxes_finish(ctx);
-	if (success) {
-		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
-			mailbox_set_index_error(&ctx->mbox->box);
-			ret = -1;
-		}
-		ctx->mbox->ext_header_rewrite = FALSE;
-	} else {
+	if (success)
+		ret = virtual_sync_commit(ctx);
+	else {
 		if (ctx->index_broken) {
 			/* make sure we don't complain about the same errors
 			   over and over again. */
@@ -2129,8 +2272,11 @@ static int virtual_sync_finish(struct virtual_sync_context *ctx, bool success)
 					mailbox_get_path(&ctx->mbox->box));
 			}
 		}
-		mail_index_sync_rollback(&ctx->index_sync_ctx);
+		mail_index_transaction_rollback(&ctx->trans);
+		ret = -1;
 	}
+	i_assert(ctx->trans == NULL);
+	mail_index_view_close(&ctx->view);
 	virtual_sync_deinit(&ctx);
 	return ret;
 }
@@ -2170,8 +2316,6 @@ static int virtual_sync_run(struct virtual_mailbox *mbox,
 			    uint32_t log_seq, uoff_t log_offset)
 {
 	struct virtual_sync_context *ctx;
-	enum mail_index_sync_flags index_sync_flags;
-	struct mail_index_sync_rec sync_rec;
 	bool broken;
 	int ret;
 
@@ -2179,6 +2323,8 @@ static int virtual_sync_run(struct virtual_mailbox *mbox,
 	ctx->mbox = mbox;
 	ctx->flags = flags;
 	ctx->index = mbox->box.index;
+	ctx->log_seq = log_seq;
+	ctx->log_offset = log_offset;
 	/* Removed messages are expunged when
 	   a) EXPUNGE is used
 	   b) Mailbox is being opened (FIX_INCONSISTENT is set) */
@@ -2186,38 +2332,37 @@ static int virtual_sync_run(struct virtual_mailbox *mbox,
 		(ctx->flags & (MAILBOX_SYNC_FLAG_EXPUNGE |
 			       MAILBOX_SYNC_FLAG_FIX_INCONSISTENT)) != 0;
 
-	index_sync_flags = MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY |
+	ctx->index_sync_flags = MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY |
 		MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES |
 		MAIL_INDEX_SYNC_FLAG_STOP_AT_OFFSET;
 	if ((mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) != 0)
-		index_sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
+		ctx->index_sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 
-	/* Sync only the changes that virtual_sync_apply_index_changes()
-	   already applied to the backend mailboxes. */
-	ret = mail_index_sync_begin_to(ctx->index, &ctx->index_sync_ctx,
-				       &ctx->view, &ctx->trans,
-				       log_seq, log_offset, index_sync_flags);
-	if (ret <= 0) {
-		if (ret < 0)
-			mailbox_set_index_error(&mbox->box);
+	/* Sync against a private view instead of the view returned by
+	   mail_index_sync_begin(), so the virtual index doesn't need to be
+	   locked. Internal flag changes are already applied to the index map
+	   and internal expunges are only requests, so a refreshed view has the
+	   same contents as the sync's view. The view may already have changes
+	   after log_seq/log_offset, but they can only be flag and keyword
+	   changes and expunge requests. They're left for the next sync. */
+	if (mail_index_refresh(ctx->index) < 0) {
+		mailbox_set_index_error(&mbox->box);
 		virtual_sync_deinit(&ctx);
-		return ret;
+		return -1;
 	}
+	ctx->view = mail_index_view_open(ctx->index);
+	ctx->trans = mail_index_transaction_begin(ctx->view,
+		MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL |
+		MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES);
 
 	ret = virtual_mailbox_ext_header_read(mbox, ctx->view, &broken);
 	if (ret < 0)
 		return virtual_sync_finish(ctx, FALSE);
 	if (broken)
 		ctx->index_broken = TRUE;
-	/* The changes were already applied to the backend mailboxes, but the
-	   sync records still need to be read. Otherwise
-	   mail_index_sync_commit() doesn't mark them synced. */
-	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) ;
 	/* update list of UIDs in backend mailboxes */
 	if (virtual_sync_backend_boxes(ctx) < 0)
 		return virtual_sync_finish(ctx, FALSE);
-
-	virtual_sync_index_finish(ctx);
 	return virtual_sync_finish(ctx, TRUE);
 }
 
