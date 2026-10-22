@@ -253,14 +253,13 @@ test_auth_client_output(struct backend_context *bctx,
  * Success
  */
 
-static void
-test_auth_success_one(const struct hash_method *hmethod, const char *authid,
-		      const char *authzid, const char *password,
-		      const char *cbind_type)
+static struct backend_context *
+test_auth_init(const struct hash_method *hmethod, const char *authid,
+	       const char *authzid, const char *password,
+	       const char *cbind_type)
 {
 	struct backend_context *bctx;
 	pool_t pool;
-	int ret;
 
 	pool = pool_alloconly_create_clean(
 		MEMPOOL_GROWING"auth_scram_client", 1024);
@@ -310,6 +309,28 @@ test_auth_success_one(const struct hash_method *hmethod, const char *authid,
 	}
 
 	auth_scram_server_init(&bctx->asserver, pool, &server_set, &backend);
+	return bctx;
+}
+
+static void test_auth_deinit(struct backend_context **_bctx)
+{
+	struct backend_context *bctx = *_bctx;
+	pool_t pool = bctx->pool;
+
+	*_bctx = NULL;
+	auth_scram_server_deinit(&bctx->asserver);
+	auth_scram_client_deinit(&bctx->asclient);
+	pool_unref(&pool);
+}
+
+static void
+test_auth_success_one(const struct hash_method *hmethod, const char *authid,
+		      const char *authzid, const char *password,
+		      const char *cbind_type)
+{
+	struct backend_context *bctx =
+		test_auth_init(hmethod, authid, authzid, password, cbind_type);
+	int ret;
 
 	while (!test_has_failed()) {
 		const unsigned char *data;
@@ -343,10 +364,7 @@ test_auth_success_one(const struct hash_method *hmethod, const char *authid,
 	}
 	test_assert(auth_scram_client_is_finished(&bctx->asclient));
 
-	auth_scram_server_deinit(&bctx->asserver);
-	auth_scram_client_deinit(&bctx->asclient);
-
-	pool_unref(&pool);
+	test_auth_deinit(&bctx);
 }
 
 static void test_auth_success(void)
