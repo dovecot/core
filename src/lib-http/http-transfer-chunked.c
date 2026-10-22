@@ -352,17 +352,21 @@ http_transfer_chunked_parse_next(struct http_transfer_chunked_istream *tcstream)
 
 		if (ret > 0) {
 			if (tcstream->state == HTTP_CHUNKED_PARSE_STATE_DATA) {
+				uoff_t limit = tcstream->max_size > 0 ?
+					tcstream->max_size : UOFF_T_MAX;
+
 				tcstream->chunk_v_offset = input->v_offset;
 
-				tcstream->size += tcstream->chunk_size;
-				if (tcstream->max_size > 0 &&
-				    tcstream->size > tcstream->max_size) {
+				i_assert(tcstream->size <= limit);
+				if (tcstream->chunk_size >
+				    limit - tcstream->size) {
 					io_stream_set_error(
 						&tcstream->istream.iostream,
 						"Total chunked payload size exceeds maximum");
 					stream->istream.stream_errno = EMSGSIZE;
 					return -1;
 				}
+				tcstream->size += tcstream->chunk_size;
 			}
 			return ret;
 		}

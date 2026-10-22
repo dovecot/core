@@ -214,6 +214,98 @@ static void test_http_transfer_chunked_input_invalid(void)
 	buffer_free(&payload_buffer);
 }
 
+/* Chunk sizes that individually fit in uoff_t, but whose sum does not */
+static void test_http_transfer_chunked_input_total_overflow(void)
+{
+	static const char in[] =
+		"1\r\n"
+		"X\r\n"
+		"FFFFFFFFFFFFFFFF\r\n"
+		"\r\n"
+		"0\r\n"
+		"\r\n";
+	static const uoff_t max_sizes[] = { 0, 10 };
+	struct istream *input, *chunked;
+	struct ostream *output;
+	buffer_t *payload_buffer;
+	unsigned int i;
+
+	payload_buffer = buffer_create_dynamic(default_pool, 1024);
+
+	for (i = 0; i < N_ELEMENTS(max_sizes); i++) T_BEGIN {
+		test_begin(t_strdup_printf("http transfer_chunked input total overflow [%u]", i));
+
+		input = i_stream_create_from_data(in, sizeof(in) - 1);
+		chunked = http_transfer_chunked_istream_create(
+			input, max_sizes[i], NULL, FALSE);
+		i_stream_unref(&input);
+
+		buffer_set_used_size(payload_buffer, 0);
+		output = o_stream_create_buffer(payload_buffer);
+		o_stream_nsend_istream(output, chunked);
+		test_assert_cmp(chunked->stream_errno, ==, EMSGSIZE);
+		test_assert_strcmp(i_stream_get_error(chunked),
+				   "Total chunked payload size exceeds maximum");
+		i_stream_unref(&chunked);
+		o_stream_destroy(&output);
+
+		test_end();
+	} T_END;
+
+	buffer_free(&payload_buffer);
+}
+
+/* A finite max_size is accepted up to and including the total payload size */
+static void test_http_transfer_chunked_input_max_size(void)
+{
+	static const char in[] =
+		"3\r\n"
+		"abc\r\n"
+		"2\r\n"
+		"de\r\n"
+		"0\r\n"
+		"\r\n";
+	static const struct {
+		uoff_t max_size;
+		int stream_errno;
+	} tests[] = {
+		{ 5, 0 },
+		{ 4, EMSGSIZE },
+	};
+	struct istream *input, *chunked;
+	struct ostream *output;
+	buffer_t *payload_buffer;
+	unsigned int i;
+
+	payload_buffer = buffer_create_dynamic(default_pool, 1024);
+
+	for (i = 0; i < N_ELEMENTS(tests); i++) T_BEGIN {
+		test_begin(t_strdup_printf("http transfer_chunked input max size [%u]", i));
+
+		input = i_stream_create_from_data(in, sizeof(in) - 1);
+		chunked = http_transfer_chunked_istream_create(
+			input, tests[i].max_size, NULL, FALSE);
+		i_stream_unref(&input);
+
+		buffer_set_used_size(payload_buffer, 0);
+		output = o_stream_create_buffer(payload_buffer);
+		o_stream_nsend_istream(output, chunked);
+		test_assert_cmp(chunked->stream_errno, ==, tests[i].stream_errno);
+		if (tests[i].stream_errno == 0) {
+			test_assert_strcmp(str_c(payload_buffer), "abcde");
+		} else {
+			test_assert_strcmp(i_stream_get_error(chunked),
+					   "Total chunked payload size exceeds maximum");
+		}
+		i_stream_unref(&chunked);
+		o_stream_destroy(&output);
+
+		test_end();
+	} T_END;
+
+	buffer_free(&payload_buffer);
+}
+
 /* Strict-mode transfer_chunked input tests: bare LF must be rejected */
 static const char *strict_transfer_chunked_input_tests[] = {
 	/* bare LF after chunk size */
@@ -486,6 +578,8 @@ int main(void)
 	static void (*const test_functions[])(void) = {
 		test_http_transfer_chunked_input_valid,
 		test_http_transfer_chunked_input_invalid,
+		test_http_transfer_chunked_input_total_overflow,
+		test_http_transfer_chunked_input_max_size,
 		test_http_transfer_chunked_input_strict,
 		test_http_transfer_chunked_output_valid,
 		test_http_transfer_chunked_input_trailer_limit,
