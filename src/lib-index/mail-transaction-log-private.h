@@ -197,6 +197,8 @@ void mail_transaction_log_file_set_garbage_at_eof(
 	ATTR_FORMAT(2, 3);
 bool mail_transaction_log_want_rotate(struct mail_transaction_log *log,
 				      const char **reason_r);
+/* Returns TRUE if the log needs to be rotated due to garbage_at_eof. */
+bool mail_transaction_log_rotate_is_pending(const struct mail_transaction_log *log);
 /* Rotate the log if a rotation is pending due to garbage_at_eof and it can be
    done safely. The log must be locked. Returns 0 if ok (also when nothing was
    done), -1 if the rotation failed. */

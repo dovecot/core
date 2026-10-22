@@ -707,6 +707,160 @@ static void test_mail_index_sync_read_only_fsck(void)
 	test_end();
 }
 
+static void test_mail_index_sync_stop_at_offset(void)
+{
+	struct mail_index *index;
+	struct mail_index_sync_ctx *sync_ctx;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	const struct mail_index_header *hdr;
+	uint32_t log_seq, uid, seq1, seq2;
+	uoff_t log_offset, offset1, offset2;
+
+	test_begin("mail index sync stop at offset");
+	index = test_mail_index_sync_init();
+
+	/* nothing to sync - the sync is still started */
+	mail_transaction_log_get_head(index->log, &log_seq, &log_offset);
+	test_assert(mail_index_sync_begin_to(index, &sync_ctx, &view, &trans,
+			log_seq, log_offset,
+			MAIL_INDEX_SYNC_FLAG_STOP_AT_OFFSET) == 1);
+	test_assert(test_mail_index_sync_read(sync_ctx, &uid) == 0);
+	test_assert(mail_index_sync_commit(&sync_ctx) == 0);
+
+	test_mail_index_sync_add_flag(index, 1, MAIL_SEEN);
+	mail_transaction_log_get_head(index->log, &log_seq, &log_offset);
+	test_mail_index_sync_add_flag(index, 2, MAIL_FLAGGED);
+
+	/* only the change before the offset is synced */
+	test_assert(mail_index_sync_begin_to(index, &sync_ctx, &view, &trans,
+			log_seq, log_offset,
+			MAIL_INDEX_SYNC_FLAG_STOP_AT_OFFSET) == 1);
+	mail_index_sync_get_offsets(sync_ctx, &seq1, &offset1, &seq2, &offset2);
+	test_assert(seq2 == log_seq && offset2 == log_offset);
+	test_assert(test_mail_index_sync_read(sync_ctx, &uid) == 1);
+	test_assert(uid == 1);
+	test_assert(mail_index_sync_commit(&sync_ctx) == 0);
+
+	hdr = &index->map->hdr;
+	test_assert(hdr->log_file_seq == log_seq);
+	test_assert(hdr->log_file_tail_offset == log_offset);
+
+	/* the change after the offset is synced by the next sync */
+	test_mail_index_sync_full(index, 1, 2);
+
+	/* the offset is already synced */
+	test_assert(mail_index_sync_begin_to(index, &sync_ctx, &view, &trans,
+			log_seq, log_offset,
+			MAIL_INDEX_SYNC_FLAG_STOP_AT_OFFSET) == 1);
+	test_assert(test_mail_index_sync_read(sync_ctx, &uid) == 0);
+	test_assert(mail_index_sync_commit(&sync_ctx) == 0);
+
+	test_mail_index_deinit(&index);
+	test_end();
+}
+
+static void test_mail_index_sync_stop_at_offset_write(bool rotate)
+{
+	struct mail_index *index, *index2;
+	struct mail_index_sync_ctx *sync_ctx;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	uint32_t log_seq, uid;
+	uoff_t log_offset;
+
+	test_begin(rotate ? "mail index sync stop at offset rotate" :
+		   "mail index sync stop at offset write");
+	index = test_mail_index_sync_init();
+	/* make the sync want to rewrite the index or rotate the log */
+	if (rotate)
+		index->optimization_set.log.max_size = 0;
+	else
+		index->optimization_set.index.rewrite_max_log_bytes = 0;
+
+	test_mail_index_sync_add_flag(index, 1, MAIL_SEEN);
+	mail_transaction_log_get_head(index->log, &log_seq, &log_offset);
+	test_mail_index_sync_add_flag(index, 2, MAIL_FLAGGED);
+
+	test_assert(mail_index_sync_begin_to(index, &sync_ctx, &view, &trans,
+			log_seq, log_offset,
+			MAIL_INDEX_SYNC_FLAG_STOP_AT_OFFSET) == 1);
+	test_assert(test_mail_index_sync_read(sync_ctx, &uid) == 1);
+	test_assert(uid == 1);
+	test_assert(mail_index_sync_commit(&sync_ctx) == 0);
+
+	/* another process still sees the change after the offset */
+	index2 = test_mail_index_open(FALSE);
+	test_mail_index_sync_full(index2, 1, 2);
+	test_mail_index_deinit(&index2);
+
+	test_mail_index_deinit(&index);
+	test_end();
+}
+
+static void test_mail_index_sync_stop_at_offset_index_write(void)
+{
+	test_mail_index_sync_stop_at_offset_write(FALSE);
+}
+
+static void test_mail_index_sync_stop_at_offset_rotate(void)
+{
+	test_mail_index_sync_stop_at_offset_write(TRUE);
+}
+
+static void test_mail_index_sync_stop_at_offset_log_garbage(void)
+{
+	static const unsigned char garbage[8] = { 0 };
+	struct mail_index *index;
+	struct mail_index_sync_ctx *sync_ctx;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	const char *path;
+	uint32_t log_seq, old_file_seq, uid;
+	uoff_t log_offset;
+	int fd;
+
+	test_begin("mail index sync stop at offset log garbage");
+	index = test_mail_index_sync_init();
+	old_file_seq = index->log->head->hdr.file_seq;
+
+	test_mail_index_sync_add_flag(index, 1, MAIL_SEEN);
+	mail_transaction_log_get_head(index->log, &log_seq, &log_offset);
+	test_mail_index_sync_add_flag(index, 2, MAIL_FLAGGED);
+
+	/* Simulate a transaction that another process couldn't write fully */
+	path = t_strconcat(test_mail_index_get_dir(),
+			   "/test.dovecot.index.log", NULL);
+	fd = open(path, O_RDWR | O_APPEND);
+	if (fd == -1)
+		i_fatal("open(%s) failed: %m", path);
+	test_assert(write_full(fd, garbage, sizeof(garbage)) == 0);
+	i_close_fd(&fd);
+
+	/* The log needs to be rotated, but the sync would stop in the old
+	   log file. */
+	test_assert(mail_index_sync_begin_to(index, &sync_ctx, &view, &trans,
+			log_seq, log_offset,
+			MAIL_INDEX_SYNC_FLAG_STOP_AT_OFFSET) == 0);
+	test_assert(index->log->head->hdr.file_seq == old_file_seq);
+	test_assert(!mail_index_is_locked(index));
+
+	/* Syncing up to the head rotates the log */
+	mail_transaction_log_get_head(index->log, &log_seq, &log_offset);
+	test_assert(mail_index_sync_begin_to(index, &sync_ctx, &view, &trans,
+			log_seq, log_offset,
+			MAIL_INDEX_SYNC_FLAG_STOP_AT_OFFSET) == 1);
+	test_assert(index->log->head->hdr.file_seq == old_file_seq + 1);
+	test_assert(test_mail_index_sync_read(sync_ctx, &uid) == 2);
+	test_assert(mail_index_sync_commit(&sync_ctx) == 0);
+
+	/* nothing is left to sync */
+	test_mail_index_sync_full(index, 0, 0);
+
+	test_mail_index_deinit(&index);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -720,6 +874,10 @@ int main(void)
 		test_mail_index_map_fsck_fail_restores_map,
 		test_mail_index_sync_read_only,
 		test_mail_index_sync_read_only_fsck,
+		test_mail_index_sync_stop_at_offset,
+		test_mail_index_sync_stop_at_offset_index_write,
+		test_mail_index_sync_stop_at_offset_rotate,
+		test_mail_index_sync_stop_at_offset_log_garbage,
 		NULL
 	};
 	test_dir_init("mail-index");

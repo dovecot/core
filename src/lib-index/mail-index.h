@@ -252,6 +252,10 @@ enum mail_index_sync_flags {
 	   broken, it's still fscked, which locks the transaction log for the
 	   duration of the fsck. */
 	MAIL_INDEX_SYNC_FLAG_READ_ONLY		= 0x100,
+	/* With mail_index_sync_begin_to(), return sync records only up to
+	   the given log_file_seq+offset and update the tail offset only up
+	   to it. The changes after it are left for the following syncs. */
+	MAIL_INDEX_SYNC_FLAG_STOP_AT_OFFSET	= 0x200,
 };
 
 enum mail_index_view_sync_flags {
@@ -524,7 +528,13 @@ int mail_index_sync_begin(struct mail_index *index,
    synchronized up to the given log_file_seq+offset, the synchronization isn't
    started and this function returns 0. This should be done when you wish to
    sync your committed transaction instead of doing a full mailbox
-   synchronization. */
+   synchronization.
+
+   With MAIL_INDEX_SYNC_FLAG_STOP_AT_OFFSET the synchronization is started
+   even if there is nothing to sync, and it syncs only up to the given
+   log_file_seq+offset. It returns 0 if the synchronization can't stop at the
+   given position, because the transaction log was rotated after it or needs
+   to be rotated. The caller should then sync up to the log head. */
 int mail_index_sync_begin_to(struct mail_index *index,
 			     struct mail_index_sync_ctx **ctx_r,
 			     struct mail_index_view **view_r,

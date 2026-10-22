@@ -251,8 +251,7 @@ bool mail_transaction_log_want_rotate(struct mail_transaction_log *log,
 	return FALSE;
 }
 
-static bool
-mail_transaction_log_rotate_is_pending(const struct mail_transaction_log *log)
+bool mail_transaction_log_rotate_is_pending(const struct mail_transaction_log *log)
 {
 	return log->head != NULL && log->head->garbage_at_eof &&
 		!log->index->readonly &&
