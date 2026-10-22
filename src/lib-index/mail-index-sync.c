@@ -23,6 +23,9 @@ struct mail_index_sync_ctx {
 
 	ARRAY(struct mail_index_sync_list) sync_list;
 	uint32_t next_uid;
+	/* the log position up to which this sync handles the changes */
+	uint32_t log_end_seq;
+	uoff_t log_end_offset;
 
 	bool no_warning:1;
 	bool seen_external_expunges:1;
@@ -285,17 +288,18 @@ static int
 mail_index_sync_set_log_view(struct mail_index_sync_ctx *ctx,
 			     uint32_t start_file_seq, uoff_t start_file_offset)
 {
-	uint32_t log_seq;
-	uoff_t log_offset;
 	const char *reason;
 	bool reset;
 	int ret;
 
-	mail_transaction_log_get_head(ctx->index->log, &log_seq, &log_offset);
+	mail_transaction_log_get_head(ctx->index->log, &ctx->log_end_seq,
+				      &ctx->log_end_offset);
 
 	ret = mail_transaction_log_view_set(ctx->view->log_view,
                                             start_file_seq, start_file_offset,
-					    log_seq, log_offset, &reset, &reason);
+					    ctx->log_end_seq,
+					    ctx->log_end_offset,
+					    &reset, &reason);
 	if (ret < 0)
 		return -1;
 	if (ret == 0) {
@@ -634,7 +638,8 @@ void mail_index_sync_get_offsets(struct mail_index_sync_ctx *ctx,
 	*offset1_r = ctx->view->map->hdr.log_file_tail_offset != 0 ?
 		ctx->view->map->hdr.log_file_tail_offset :
 		ctx->view->index->log->head->hdr.hdr_size;
-	mail_transaction_log_get_head(ctx->view->index->log, seq2_r, offset2_r);
+	*seq2_r = ctx->log_end_seq;
+	*offset2_r = ctx->log_end_offset;
 }
 
 static void
