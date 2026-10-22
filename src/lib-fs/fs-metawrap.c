@@ -305,6 +305,7 @@ static void fs_metawrap_write_metadata(void *context)
 {
 	struct metawrap_fs_file *file = context;
 
+	i_assert(file->file.output != NULL);
 	fs_metawrap_write_metadata_to(file, file->file.output);
 }
 
