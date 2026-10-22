@@ -3938,25 +3938,20 @@ dcrypt_openssl_verify_ecdsa(struct dcrypt_public_key *key, const char *algorithm
 	if (!dcrypt_openssl_digest(algorithm, data, data_len, digest, error_r))
 		return FALSE;
 
-	BIGNUM *r = BN_new();
-	BIGNUM *s = BN_new();
-	/* attempt to decode BIGNUMs */
-	if (BN_bin2bn(signature, signature_len / 2, r) == NULL) {
-		BN_free(r);
-		BN_free(s);
-		return dcrypt_openssl_error(error_r);
-	}
-	/* then next */
-	if (BN_bin2bn(CONST_PTR_OFFSET(signature, signature_len / 2),
-		      signature_len / 2, s) == NULL) {
-		BN_free(r);
-		BN_free(s);
-		return dcrypt_openssl_error(error_r);
-	}
-
-	/* reconstruct signature */
+	BIGNUM *r = BN_bin2bn(signature, rs_len, NULL);
+	BIGNUM *s = BN_bin2bn(CONST_PTR_OFFSET(signature, rs_len), rs_len,
+			      NULL);
 	ECDSA_SIG *ec_sig = ECDSA_SIG_new();
-	ECDSA_SIG_set0(ec_sig, r, s);
+
+	/* reconstruct signature. ECDSA_SIG_set0() takes the ownership of the
+	   BIGNUMs on success. */
+	if (r == NULL || s == NULL || ec_sig == NULL ||
+	    ECDSA_SIG_set0(ec_sig, r, s) != 1) {
+		BN_free(r);
+		BN_free(s);
+		ECDSA_SIG_free(ec_sig);
+		return dcrypt_openssl_error(error_r);
+	}
 
 	/* verify it */
 	ec = ECDSA_do_verify(digest->data, digest->used, ec_sig, ec_key);
