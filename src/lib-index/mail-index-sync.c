@@ -282,7 +282,7 @@ mail_index_need_sync(struct mail_index *index, enum mail_index_sync_flags flags,
 }
 
 static int
-mail_index_sync_set_log_view(struct mail_index_view *view,
+mail_index_sync_set_log_view(struct mail_index_sync_ctx *ctx,
 			     uint32_t start_file_seq, uoff_t start_file_offset)
 {
 	uint32_t log_seq;
@@ -291,9 +291,9 @@ mail_index_sync_set_log_view(struct mail_index_view *view,
 	bool reset;
 	int ret;
 
-	mail_transaction_log_get_head(view->index->log, &log_seq, &log_offset);
+	mail_transaction_log_get_head(ctx->index->log, &log_seq, &log_offset);
 
-	ret = mail_transaction_log_view_set(view->log_view,
+	ret = mail_transaction_log_view_set(ctx->view->log_view,
                                             start_file_seq, start_file_offset,
 					    log_seq, log_offset, &reset, &reason);
 	if (ret < 0)
@@ -301,9 +301,9 @@ mail_index_sync_set_log_view(struct mail_index_view *view,
 	if (ret == 0) {
 		/* either corrupted or the file was deleted for
 		   some reason. either way, we can't go forward */
-		mail_index_set_error(view->index,
+		mail_index_set_error(ctx->index,
 			"Unexpected transaction log desync with index %s: %s",
-			view->index->filepath, reason);
+			ctx->index->filepath, reason);
 		return 0;
 	}
 	return 1;
@@ -467,7 +467,7 @@ mail_index_sync_begin_to2(struct mail_index *index,
 
 	/* we wish to see all the changes from last mailbox sync position to
 	   the end of the transaction log */
-	ret = mail_index_sync_set_log_view(ctx->view, hdr->log_file_seq,
+	ret = mail_index_sync_set_log_view(ctx, hdr->log_file_seq,
 					   hdr->log_file_tail_offset);
 	if (ret < 0) {
                 mail_index_sync_rollback(&ctx);
