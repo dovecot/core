@@ -649,7 +649,9 @@ static int maildir_uidlist_read_header(struct maildir_uidlist *uidlist,
 
 	switch (uidlist->version) {
 	case 1:
-		if (sscanf(line, "%u %u", &uid_validity, &next_uid) != 2) {
+		if (str_parse_uint(line, &uid_validity, &line) < 0 ||
+		    *line != ' ' ||
+		    str_parse_uint(line + 1, &next_uid, &line) < 0) {
 			maildir_uidlist_set_corrupted(uidlist,
 				"Corrupted header (version 1)");
 			return 0;
