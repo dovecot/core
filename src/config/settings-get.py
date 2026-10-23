@@ -199,8 +199,8 @@ class SettingsFile:
         self.externs = ""
         # setting_parser_info name => &name, entry for all_default_infos[]
         self.infos = {}
-        # struct service_settings names
-        self.services = []
+        # struct service_settings name => its conditionals
+        self.services = {}
         # names of the setting_keyvalue *_defaults[] arrays
         self.service_defaults = set()
 
@@ -250,7 +250,7 @@ class SettingsFile:
             state = self.parse_block
         elif service_m is not None:
             line = add_weak(line)
-            self.services.append(service_m.group(1))
+            self.services[service_m.group(1)] = self.ifdefs
             state = self.parse_block
         elif defaults_m is not None:
             line = add_weak(line)
@@ -323,7 +323,7 @@ def main():
     out = sys.stdout
     out.write(HEADER)
 
-    services = []
+    services = {}
     service_defaults = set()
     infos = {}
 
@@ -336,7 +336,7 @@ def main():
 
         f = SettingsFile(path)
         f.parse()
-        services += f.services
+        services.update(f.services)
         service_defaults |= f.service_defaults
         infos.update(f.infos)
 
@@ -355,7 +355,9 @@ def main():
         defaults = service + "_defaults"
         if defaults not in service_defaults:
             defaults = "NULL"
-        out.write("\t{ &%s, %s },\n" % (service, defaults))
+        out.write(
+            ifdefs_wrap(services[service], "\t{ &%s, %s },\n" % (service, defaults))
+        )
     out.write("\t{ NULL, NULL }\n")
     out.write("};\n")
 
