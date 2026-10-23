@@ -7,6 +7,7 @@
 
 #include <unistd.h>
 
+#ifdef BUILD_IMAP_HIBERNATE
 struct service_settings imap_hibernate_service_settings = {
 	.name = "imap-hibernate",
 	.protocol = "imap",
@@ -38,3 +39,4 @@ const struct setting_keyvalue imap_hibernate_service_settings_defaults[] = {
 
 	{ NULL, NULL }
 };
+#endif
