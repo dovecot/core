@@ -87,7 +87,7 @@ http_transfer_chunked_parse_size(struct http_transfer_chunked_istream *tcstream)
 			size = *tcstream->cur - '0';
 		else
 			size = (*tcstream->cur | 0x20) - 'a' + 10;
-		if (tcstream->chunk_size > (uoff_t)-1 >> 4) {
+		if (tcstream->chunk_size > UOFF_T_MAX >> 4) {
 			io_stream_set_error(&tcstream->istream.iostream,
 					    "Chunk size exceeds integer limit");
 			return -1;
