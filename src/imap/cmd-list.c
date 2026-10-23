@@ -318,8 +318,10 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 
 		/* send LIST/LSUB response */
 		ret = client_send_line_next(ctx->cmd->client, str_c(str));
-		if (ret < 0)
+		if (ret < 0) {
+			(void)mailbox_list_iter_deinit(&ctx->list_iter);
 			return TRUE;
+		}
 
 		/* send optional responses (if any) */
 		if (list_has_options(ctx)) {
