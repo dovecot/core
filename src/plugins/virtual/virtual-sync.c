@@ -53,6 +53,8 @@ struct virtual_sync_context {
 
 	/* messages expunged within this sync */
 	ARRAY_TYPE(seq_range) sync_expunges;
+	/* UIDs of the existing messages whose flags trans replaced */
+	ARRAY_TYPE(seq_range) replaced_flag_uids;
 
 	ARRAY(struct virtual_add_record) all_adds;
 
@@ -101,6 +103,15 @@ static void virtual_sync_external_flags(struct virtual_sync_context *ctx,
 		/* we may have reopened the mailbox, which could have
 		   caused the mail to be expunged already. */
 		return;
+	}
+
+	if (vseq <= mail_index_view_get_messages_count(ctx->view)) {
+		uint32_t vuid;
+
+		mail_index_lookup_uid(ctx->view, vseq, &vuid);
+		if (!array_is_created(&ctx->replaced_flag_uids))
+			i_array_init(&ctx->replaced_flag_uids, 32);
+		seq_range_array_add(&ctx->replaced_flag_uids, vuid);
 	}
 
 	/* copy flags */
@@ -1985,6 +1996,7 @@ static void virtual_sync_deinit(struct virtual_sync_context **_ctx)
 	*_ctx = NULL;
 
 	array_free(&ctx->sync_expunges);
+	array_free(&ctx->replaced_flag_uids);
 	array_free(&ctx->all_adds);
 	array_free(&ctx->all_mails);
 	i_free(ctx);
@@ -2189,6 +2201,226 @@ virtual_sync_check_new_changes(struct virtual_sync_context *ctx,
 	return 0;
 }
 
+/* Get the sequences of the messages in the UID range whose flags trans
+   replaced. */
+static void
+virtual_sync_get_replaced_seqs(struct virtual_sync_context *ctx,
+			       uint32_t uid1, uint32_t uid2,
+			       ARRAY_TYPE(seq_range) *seqs)
+{
+	const struct seq_range *range;
+	uint32_t seq1, seq2;
+
+	array_clear(seqs);
+	array_foreach(&ctx->replaced_flag_uids, range) {
+		if (range->seq1 > uid2)
+			break;
+		if (range->seq2 < uid1)
+			continue;
+		if (mail_index_lookup_seq_range(ctx->view,
+						I_MAX(range->seq1, uid1),
+						I_MIN(range->seq2, uid2),
+						&seq1, &seq2))
+			seq_range_array_add_range(seqs, seq1, seq2);
+	}
+}
+
+static unsigned int
+virtual_sync_replay_flag_update(struct virtual_sync_context *ctx,
+				const struct mail_transaction_flag_update *u,
+				ARRAY_TYPE(seq_range) *seqs)
+{
+	enum mail_flags add_flags = u->add_flags & MAIL_INDEX_FLAGS_MASK;
+	enum mail_flags remove_flags = u->remove_flags & MAIL_INDEX_FLAGS_MASK;
+	const struct seq_range *range;
+
+	virtual_sync_get_replaced_seqs(ctx, u->uid1, u->uid2, seqs);
+	array_foreach(seqs, range) {
+		/* Remove first. Replacing flags is done by removing all the
+		   other flags and adding the wanted ones. */
+		mail_index_update_flags_range(ctx->trans,
+					      range->seq1, range->seq2,
+					      MODIFY_REMOVE, remove_flags);
+		mail_index_update_flags_range(ctx->trans,
+					      range->seq1, range->seq2,
+					      MODIFY_ADD, add_flags);
+	}
+	return array_count(seqs);
+}
+
+static void
+virtual_sync_replay_keywords(struct virtual_sync_context *ctx,
+			     const ARRAY_TYPE(seq_range) *seqs,
+			     enum modify_type modify_type,
+			     struct mail_keywords *keywords)
+{
+	const struct seq_range *range;
+	uint32_t seq;
+
+	array_foreach(seqs, range) {
+		for (seq = range->seq1; seq <= range->seq2; seq++) {
+			mail_index_update_keywords(ctx->trans, seq,
+						   modify_type, keywords);
+		}
+	}
+}
+
+static unsigned int
+virtual_sync_replay_keyword_update(
+	struct virtual_sync_context *ctx,
+	const struct mail_transaction_header *hdr,
+	const struct mail_transaction_keyword_update *u,
+	ARRAY_TYPE(seq_range) *seqs)
+{
+	unsigned int i, count, replayed = 0;
+	const struct seq_range *uids =
+		mail_transaction_keyword_update_get_uids(u, hdr->size, &count);
+	const char *kw_names[2] = {
+		mail_transaction_keyword_update_get_name(u),
+		NULL
+	};
+	struct mail_keywords *keywords =
+		mail_index_keywords_create(ctx->index, kw_names);
+
+	for (i = 0; i < count; i++) {
+		virtual_sync_get_replaced_seqs(ctx, uids[i].seq1, uids[i].seq2,
+					       seqs);
+		virtual_sync_replay_keywords(ctx, seqs, u->modify_type,
+					     keywords);
+		replayed += array_count(seqs);
+	}
+	mail_index_keywords_unref(&keywords);
+	return replayed;
+}
+
+static unsigned int
+virtual_sync_replay_keyword_reset(
+	struct virtual_sync_context *ctx,
+	const struct mail_transaction_keyword_reset *u,
+	ARRAY_TYPE(seq_range) *seqs)
+{
+	struct mail_keywords *keywords;
+
+	virtual_sync_get_replaced_seqs(ctx, u->uid1, u->uid2, seqs);
+	if (array_count(seqs) == 0)
+		return 0;
+	keywords = mail_index_keywords_create(ctx->index, NULL);
+	virtual_sync_replay_keywords(ctx, seqs, MODIFY_REPLACE, keywords);
+	mail_index_keywords_unref(&keywords);
+	return array_count(seqs);
+}
+
+/* Replay a record returned by mail_transaction_log_view_next(). It has
+   already validated the record sizes and UID ranges. */
+static unsigned int
+virtual_sync_replay_rec(struct virtual_sync_context *ctx,
+			const struct mail_transaction_header *hdr,
+			const void *data, ARRAY_TYPE(seq_range) *seqs)
+{
+	unsigned int i, count, replayed = 0;
+
+	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
+	case MAIL_TRANSACTION_FLAG_UPDATE: {
+		const struct mail_transaction_flag_update *u = data;
+
+		count = hdr->size / sizeof(*u);
+		for (i = 0; i < count; i++) {
+			replayed += virtual_sync_replay_flag_update(ctx,
+							&u[i], seqs);
+		}
+		break;
+	}
+	case MAIL_TRANSACTION_KEYWORD_UPDATE:
+		T_BEGIN {
+			replayed = virtual_sync_replay_keyword_update(ctx,
+				hdr, data, seqs);
+		} T_END;
+		break;
+	case MAIL_TRANSACTION_KEYWORD_RESET: {
+		const struct mail_transaction_keyword_reset *u = data;
+
+		count = hdr->size / sizeof(*u);
+		for (i = 0; i < count; i++) {
+			replayed += virtual_sync_replay_keyword_reset(ctx,
+							&u[i], seqs);
+		}
+		break;
+	}
+	default:
+		break;
+	}
+	return replayed;
+}
+
+/* Other sessions may have changed flags or keywords in the virtual index
+   after the changes up to log_seq/log_offset were applied to the backend
+   mailboxes. trans replaces the flags of some messages with the backend
+   mailboxes' flags, which don't have these changes yet. Replay the changes
+   in the same order on top of them, so committing trans doesn't revert them
+   in the virtual index. The changes are applied to the backend mailboxes by
+   the next sync. */
+static int
+virtual_sync_replay_new_flag_changes(struct virtual_sync_context *ctx)
+{
+	struct mail_transaction_log_view *log_view;
+	const struct mail_transaction_header *hdr;
+	ARRAY_TYPE(seq_range) seqs;
+	const void *data;
+	const char *reason;
+	uint32_t head_seq;
+	uoff_t head_offset;
+	unsigned int replayed = 0;
+	bool reset;
+	int ret;
+
+	if (!array_is_created(&ctx->replaced_flag_uids))
+		return 0;
+
+	mail_transaction_log_get_head(ctx->index->log, &head_seq, &head_offset);
+	if (head_seq == ctx->log_seq && head_offset == ctx->log_offset)
+		return 0;
+
+	log_view = mail_transaction_log_view_open(ctx->index->log);
+	ret = mail_transaction_log_view_set(log_view,
+					    ctx->log_seq, ctx->log_offset,
+					    head_seq, head_offset,
+					    &reset, &reason);
+	if (ret <= 0) {
+		/* mail_index_sync_begin_to() already verified that
+		   log_seq/log_offset is in the locked head log file, so this
+		   is unexpected. */
+		if (ret < 0)
+			mailbox_set_index_error(&ctx->mbox->box);
+		else {
+			mailbox_set_critical(&ctx->mbox->box,
+				"Virtual index's transaction log can't be read after the sync position: %s",
+				reason);
+		}
+		mail_transaction_log_view_close(&log_view);
+		return -1;
+	}
+
+	i_array_init(&seqs, 8);
+	while ((ret = mail_transaction_log_view_next(log_view, &hdr,
+						     &data)) > 0) {
+		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0)
+			replayed += virtual_sync_replay_rec(ctx, hdr, data,
+							    &seqs);
+	}
+	array_free(&seqs);
+	mail_transaction_log_view_close(&log_view);
+	if (ret < 0) {
+		mailbox_set_index_error(&ctx->mbox->box);
+		return -1;
+	}
+	if (replayed > 0) {
+		e_debug(ctx->mbox->box.event,
+			"Virtual index has new flag changes - "
+			"replayed them on top of the sync");
+	}
+	return 0;
+}
+
 /* Lock the virtual index and commit the sync. Returns 1 if the sync needs to
    be done again, 0 if it was committed, -1 on error. */
 static int virtual_sync_commit(struct virtual_sync_context *ctx)
@@ -2232,7 +2464,8 @@ static int virtual_sync_commit(struct virtual_sync_context *ctx)
 	   mail_index_sync_commit() doesn't mark them synced. */
 	while (mail_index_sync_next(index_sync_ctx, &sync_rec)) ;
 
-	if (virtual_sync_check_new_changes(ctx, sync_view) < 0) {
+	if (virtual_sync_check_new_changes(ctx, sync_view) < 0 ||
+	    virtual_sync_replay_new_flag_changes(ctx) < 0) {
 		mail_index_sync_rollback(&index_sync_ctx);
 		mail_index_transaction_rollback(&ctx->trans);
 		virtual_sync_reset_state(ctx->mbox);
