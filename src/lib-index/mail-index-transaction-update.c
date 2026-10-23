@@ -1088,6 +1088,22 @@ int mail_index_atomic_inc_ext(struct mail_index_transaction *t,
 }
 
 static bool
+keyword_update_seq_has_updates(struct mail_index_transaction *t, uint32_t seq)
+{
+	const struct mail_index_transaction_keyword_update *u;
+
+	array_foreach(&t->keyword_updates, u) {
+		if (array_is_created(&u->add_seq) &&
+		    seq_range_exists(&u->add_seq, seq))
+			return TRUE;
+		if (array_is_created(&u->remove_seq) &&
+		    seq_range_exists(&u->remove_seq, seq))
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static bool
 keyword_update_has_changes(struct mail_index_transaction *t, uint32_t seq,
 			   enum modify_type modify_type,
 			   struct mail_keywords *keywords)
@@ -1096,6 +1112,13 @@ keyword_update_has_changes(struct mail_index_transaction *t, uint32_t seq,
 	const unsigned int *existing_idx;
 	unsigned int i, j, existing_count;
 	bool found;
+
+	/* The existing keywords are looked up from the index, so they don't
+	   include this transaction's earlier changes to the message. If there
+	   are any, this update may need to cancel them even if it doesn't
+	   change the keywords in the index. */
+	if (keyword_update_seq_has_updates(t, seq))
+		return TRUE;
 
 	t_array_init(&existing, 32);
 	if (seq < t->first_new_seq)

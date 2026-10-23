@@ -861,6 +861,76 @@ static void test_mail_index_sync_stop_at_offset_log_garbage(void)
 	test_end();
 }
 
+static bool
+test_mail_index_has_keyword(struct mail_index *index, uint32_t seq,
+			    unsigned int idx)
+{
+	struct mail_index_view *view;
+	ARRAY_TYPE(keyword_indexes) keywords;
+	const unsigned int *kw_idx;
+	bool found = FALSE;
+
+	t_array_init(&keywords, 4);
+	test_assert(mail_index_refresh(index) == 0);
+	view = mail_index_view_open(index);
+	mail_index_lookup_keywords(view, seq, &keywords);
+	array_foreach(&keywords, kw_idx) {
+		if (*kw_idx == idx)
+			found = TRUE;
+	}
+	mail_index_view_close(&view);
+	return found;
+}
+
+static void test_mail_index_keyword_update_avoid_after_replace(void)
+{
+	static const char *const kw_names[] = { "foo", NULL };
+	struct mail_index *index;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	struct mail_keywords *keywords, *no_keywords;
+
+	test_begin("mail index keyword update after replace with AVOID_FLAG_UPDATES");
+	index = test_mail_index_sync_init();
+	keywords = mail_index_keywords_create(index, kw_names);
+	no_keywords = mail_index_keywords_create(index, NULL);
+
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view, 0);
+	mail_index_update_keywords(trans, 1, MODIFY_ADD, keywords);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	mail_index_view_close(&view);
+	test_assert(test_mail_index_has_keyword(index, 1, keywords->idx[0]));
+
+	/* Replacing the keywords removes "foo", but adding it back within
+	   the same transaction must cancel the removal, even though the index
+	   already has it. */
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view,
+		MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES);
+	mail_index_update_keywords(trans, 1, MODIFY_REPLACE, no_keywords);
+	mail_index_update_keywords(trans, 1, MODIFY_ADD, keywords);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	mail_index_view_close(&view);
+	test_assert(test_mail_index_has_keyword(index, 1, keywords->idx[0]));
+
+	/* The same with removing a keyword that the index doesn't have
+	   after adding it within the same transaction. */
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view,
+		MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES);
+	mail_index_update_keywords(trans, 2, MODIFY_REPLACE, keywords);
+	mail_index_update_keywords(trans, 2, MODIFY_REMOVE, keywords);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	mail_index_view_close(&view);
+	test_assert(!test_mail_index_has_keyword(index, 2, keywords->idx[0]));
+
+	mail_index_keywords_unref(&keywords);
+	mail_index_keywords_unref(&no_keywords);
+	test_mail_index_deinit(&index);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -878,6 +948,7 @@ int main(void)
 		test_mail_index_sync_stop_at_offset_index_write,
 		test_mail_index_sync_stop_at_offset_rotate,
 		test_mail_index_sync_stop_at_offset_log_garbage,
+		test_mail_index_keyword_update_avoid_after_replace,
 		NULL
 	};
 	test_dir_init("mail-index");
