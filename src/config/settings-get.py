@@ -32,6 +32,7 @@ The source files are parsed line by line with simple regexps, so they must
 follow the usual coding style. For example, a block that is copied ends at
 the first line containing "};"."""
 
+import io
 import re
 import sys
 
@@ -373,5 +374,8 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.stdout.reconfigure(encoding="utf-8", errors="surrogateescape")
+    # sys.stdout.reconfigure() would require Python 3.7
+    sys.stdout = io.TextIOWrapper(
+        sys.stdout.buffer, encoding="utf-8", errors="surrogateescape"
+    )
     main()
