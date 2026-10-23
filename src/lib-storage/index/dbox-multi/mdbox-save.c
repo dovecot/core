@@ -12,6 +12,7 @@
 #include "write-full.h"
 #include "index-mail.h"
 #include "index-pop3-uidl.h"
+#include "index-mailbox-size.h"
 #include "mail-copy.h"
 #include "dbox-save.h"
 #include "mdbox-storage.h"
@@ -368,6 +369,8 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	} else {
 		mail_index_sync_set_reason(ctx->sync_ctx->index_sync_ctx, "saving");
 	}
+	index_mailbox_vsize_hdr_add_saved(_t, ctx->sync_ctx->index_sync_ctx,
+					  ctx->sync_ctx->sync_view);
 
 	_t->changes->uid_validity = hdr->uid_validity;
 	return 0;

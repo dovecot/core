@@ -10,10 +10,12 @@
 #include "index-mailbox-size.h"
 
 /*
-   Saving new mails: After transaction is committed and synced, trigger
-   vsize updating. Lock vsize updates. Check if the message count +
-   last-indexed-uid are still valid. If they are, add all the missing new
-   mails. Unlock.
+   Saving new mails: sdbox and mdbox add the saved mails to the header within
+   the save transaction, which they commit with the index sync-locked (see
+   index_mailbox_vsize_hdr_add_saved()). Otherwise, after transaction is
+   committed and synced, trigger vsize updating. Lock vsize updates. Check if
+   the message count + last-indexed-uid are still valid. If they are, add all
+   the missing new mails. Unlock.
 
    Fetching vsize: Lock vsize updates. Check if the message count +
    last-indexed-uid are still valid. If not, set them to zero. Add all
@@ -31,6 +33,11 @@
    locking. The final vsize header update requires committing a transaction,
    which internally is the same as a sync lock. So to avoid deadlocks we always
    need to lock vsize updates before sync.
+
+   The save transaction update doesn't take the vsize lock: it reads and
+   writes the header within the sync lock, which all writers need to commit.
+   A locked update written later replaces it with an older header that is
+   still consistent, and the next update adds the saved mails again.
 */
 
 #define VSIZE_LOCK_SUFFIX "dovecot-vsize.lock"
@@ -505,4 +512,62 @@ void index_mailbox_vsize_update_appends(struct mailbox *box)
 		}
 	}
 	index_mailbox_vsize_update_deinit(&update);
+}
+
+void index_mailbox_vsize_hdr_add_saved(struct mailbox_transaction_context *t,
+				       struct mail_index_sync_ctx *sync_ctx,
+				       struct mail_index_view *sync_view)
+{
+	struct mailbox *box = t->box;
+	const struct mail_index_header *hdr = mail_index_get_header(sync_view);
+	struct mailbox_index_vsize vsize_hdr;
+	const struct seq_range *range;
+	const void *data;
+	const uint32_t *vsize;
+	size_t size;
+	uint32_t seq, seq1, seq2, log_seq, head_seq;
+	uoff_t log_offset, head_offset;
+
+	mail_index_get_header_ext(sync_view, box->vsize_hdr_ext_id,
+				  &data, &size);
+	if (size != sizeof(vsize_hdr) ||
+	    array_count(&t->changes->saved_uids) != 1)
+		return;
+	memcpy(&vsize_hdr, data, sizeof(vsize_hdr));
+	range = array_front(&t->changes->saved_uids);
+	if (vsize_hdr.highest_uid == 0 ||
+	    vsize_hdr.highest_uid + 1 != range->seq1)
+		return;
+
+	/* Expunging syncs update the header themselves. The view must also
+	   still be at the log head, since mdbox commits expunges within the
+	   sync without updating the view. */
+	mail_index_sync_get_offsets(sync_ctx, &log_seq, &log_offset,
+				    &head_seq, &head_offset);
+	if (mail_index_sync_has_expunges(sync_ctx) ||
+	    hdr->log_file_seq != head_seq ||
+	    hdr->log_file_head_offset != head_offset)
+		return;
+
+	/* the same check as in index_mailbox_vsize_check_rebuild() */
+	if (!mail_index_lookup_seq_range(sync_view, 1, vsize_hdr.highest_uid,
+					 &seq1, &seq2))
+		seq2 = 0;
+	if (vsize_hdr.message_count != seq2 ||
+	    !mail_index_lookup_seq_range(t->view, range->seq1, range->seq2,
+					 &seq1, &seq2))
+		return;
+
+	for (seq = seq1; seq <= seq2; seq++) {
+		mail_index_lookup_ext(t->view, seq, box->mail_vsize_ext_id,
+				      &data, NULL);
+		vsize = data;
+		if (vsize == NULL || *vsize == 0)
+			return;
+		vsize_hdr.vsize += *vsize - 1;
+		vsize_hdr.message_count++;
+	}
+	vsize_hdr.highest_uid = range->seq2;
+	mail_index_update_header_ext(t->itrans, box->vsize_hdr_ext_id, 0,
+				     &vsize_hdr, sizeof(vsize_hdr));
 }
