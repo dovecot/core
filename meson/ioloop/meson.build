@@ -37,6 +37,9 @@ elif ((notify == 'best' and ioloop == 'kqueue') or notify == 'kqueue') and \
      conf.get('HAVE_KQUEUE', 0) == 1 and conf.get('HAVE_KEVENT', 0) == 1
   conf.set10('IOLOOP_NOTIFY_KQUEUE', true)
   notify = 'kqueue'
+
+  conf.set10('BUILD_IMAP_HIBERNATE', true)
+  build_imap_hibernate = true
 elif notify in ['best', 'none']
   conf.set10('IOLOOP_NOTIFY_NONE', true)
   notify = 'none'
