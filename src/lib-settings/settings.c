@@ -2251,6 +2251,10 @@ settings_default_overrides_add_info(const struct setting_parser_info *info)
 		set->type = SETTINGS_OVERRIDE_TYPE_DEFAULT;
 		set->key = set->orig_key = defaults[i].key;
 		set->value = defaults[i].value;
+		/* There is no persistent overrides_array to add filter array
+		   defaults into. Any needed defaults must be listed
+		   explicitly in the default_settings. */
+		set->array_default_added = TRUE;
 		int ret;
 		T_BEGIN {
 			ret = settings_override_parse(NULL, set, &error);
