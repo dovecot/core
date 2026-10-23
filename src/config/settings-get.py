@@ -87,7 +87,8 @@ SETTINGS_BLOCK_RES = [
 SERVICE_SETTINGS_RE = re.compile(r"^struct service_settings (.*) = \{")
 # Default settings for a service: <name>_service_settings_defaults[]
 SERVICE_DEFAULTS_RE = re.compile(
-    r"^const struct setting_keyvalue (.*_defaults)\[\] = \{")
+    r"^const struct setting_keyvalue (.*_defaults)\[\] = \{"
+)
 # The setting_parser_infos are added to all_default_infos[]
 PARSER_INFO_RE = re.compile(r"^const struct setting_parser_info (.*) = \{")
 # Macros used for the setting_define arrays. These are copied as single lines,
@@ -102,8 +103,7 @@ DEF_MACRO_RES = [
 CHECKS_BEGIN = "/* <settings checks> */"
 CHECKS_END = "/* </settings checks> */"
 # Preprocessor conditionals: directive and its argument
-CONDITIONAL_RE = re.compile(
-    r"^#\s*(ifdef|ifndef|if|elif|else|endif)\b\s*(.*?)\s*$")
+CONDITIONAL_RE = re.compile(r"^#\s*(ifdef|ifndef|if|elif|else|endif)\b\s*(.*?)\s*$")
 DEFINE_RE = re.compile(r"^#\s*define\s+(\w+)\b")
 STATIC_RE = re.compile(r"^\s*static\b")
 # Variable name (optionally array) followed by "= {"
@@ -213,8 +213,7 @@ class SettingsFile:
 
     def parse(self):
         state = self.parse_root
-        with open(self.path, encoding="utf-8",
-                  errors="surrogateescape") as f:
+        with open(self.path, encoding="utf-8", errors="surrogateescape") as f:
             for line in f:
                 state = state(line)
 
@@ -261,8 +260,7 @@ class SettingsFile:
             self.infos[name] = ifdefs_wrap(self.ifdefs, "\t&%s,\n" % name)
             # Add forward declaration for the info struct. This may be
             # needed by the ext_check() functions.
-            self.externs += \
-                "extern const struct setting_parser_info %s;\n" % name
+            self.externs += "extern const struct setting_parser_info %s;\n" % name
             line = add_weak(line)
             state = self.parse_block
         elif CHECKS_BEGIN in line:
@@ -366,8 +364,12 @@ def main():
         out.write(infos[name])
     out.write("\tNULL\n")
     out.write("};\n")
-    out.write("const struct setting_parser_info *const *all_infos = all_default_infos;\n")
-    out.write("const struct config_service *config_all_services = config_default_services;\n")
+    out.write(
+        "const struct setting_parser_info *const *all_infos = all_default_infos;\n"
+    )
+    out.write(
+        "const struct config_service *config_all_services = config_default_services;\n"
+    )
 
 
 if __name__ == "__main__":
