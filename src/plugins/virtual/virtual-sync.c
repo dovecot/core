@@ -15,6 +15,7 @@
 
 #define VIRTUAL_SYNC_LOCK_FNAME ".dovecot-virtual-sync.lock"
 #define VIRTUAL_SYNC_LOCK_TIMEOUT_SECS (3*60)
+#define VIRTUAL_SYNC_MAX_RETRIES 5
 
 struct virtual_add_record {
 	struct virtual_mail_index_record rec;
@@ -71,6 +72,8 @@ struct virtual_sync_context {
 	bool ext_header_changed:1;
 	bool expunge_removed:1;
 	bool index_broken:1;
+	/* fail instead of syncing again */
+	bool last_try:1;
 };
 
 static void virtual_sync_backend_box_deleted(struct virtual_sync_context *ctx,
@@ -2186,7 +2189,8 @@ virtual_sync_check_new_changes(struct virtual_sync_context *ctx,
 	return 0;
 }
 
-/* Lock the virtual index and commit the sync. */
+/* Lock the virtual index and commit the sync. Returns 1 if the sync needs to
+   be done again, 0 if it was committed, -1 on error. */
 static int virtual_sync_commit(struct virtual_sync_context *ctx)
 {
 	struct mail_index_sync_ctx *index_sync_ctx;
@@ -2205,18 +2209,24 @@ static int virtual_sync_commit(struct virtual_sync_context *ctx)
 				       &sync_trans, ctx->log_seq, ctx->log_offset,
 				       index_sync_flags);
 	if (ret <= 0) {
-		if (ret < 0)
+		mail_index_transaction_rollback(&ctx->trans);
+		virtual_sync_reset_state(ctx->mbox);
+		if (ret < 0) {
 			mailbox_set_index_error(&ctx->mbox->box);
-		else {
-			/* The transaction log was rotated after
-			   log_seq/log_offset, or it needs to be rotated. */
+			return -1;
+		}
+		/* The transaction log was rotated after log_seq/log_offset,
+		   or it needs to be rotated. The next round syncs up to the
+		   new head. */
+		if (ctx->last_try) {
 			mail_storage_set_error(ctx->mbox->box.storage,
 				MAIL_ERROR_TEMP,
 				"Virtual index couldn't be synced up to the already applied log position");
+			return -1;
 		}
-		mail_index_transaction_rollback(&ctx->trans);
-		virtual_sync_reset_state(ctx->mbox);
-		return -1;
+		e_debug(ctx->mbox->box.event,
+			"Virtual index can't be synced up to the already applied log position - syncing again");
+		return 1;
 	}
 	/* The sync records still need to be read. Otherwise
 	   mail_index_sync_commit() doesn't mark them synced. */
@@ -2313,7 +2323,7 @@ static int virtual_sync_lock(struct virtual_mailbox *mbox,
 
 static int virtual_sync_run(struct virtual_mailbox *mbox,
 			    enum mailbox_sync_flags flags,
-			    uint32_t log_seq, uoff_t log_offset)
+			    uint32_t log_seq, uoff_t log_offset, bool last_try)
 {
 	struct virtual_sync_context *ctx;
 	bool broken;
@@ -2325,6 +2335,7 @@ static int virtual_sync_run(struct virtual_mailbox *mbox,
 	ctx->index = mbox->box.index;
 	ctx->log_seq = log_seq;
 	ctx->log_offset = log_offset;
+	ctx->last_try = last_try;
 	/* Removed messages are expunged when
 	   a) EXPUNGE is used
 	   b) Mailbox is being opened (FIX_INCONSISTENT is set) */
@@ -2372,14 +2383,22 @@ static int virtual_sync(struct virtual_mailbox *mbox,
 	struct file_lock *lock;
 	uint32_t log_seq;
 	uoff_t log_offset;
+	unsigned int i;
 	int ret;
 
 	if (virtual_sync_lock(mbox, &lock) < 0)
 		return -1;
 	virtual_sync_backend_boxes_set_no_autocreate(mbox, TRUE);
-	ret = virtual_sync_apply_index_changes(mbox, &log_seq, &log_offset);
-	if (ret == 0)
-		ret = virtual_sync_run(mbox, flags, log_seq, log_offset);
+	for (i = 0;; i++) {
+		ret = virtual_sync_apply_index_changes(mbox, &log_seq,
+						       &log_offset);
+		if (ret < 0)
+			break;
+		ret = virtual_sync_run(mbox, flags, log_seq, log_offset,
+				       i == VIRTUAL_SYNC_MAX_RETRIES);
+		if (ret <= 0)
+			break;
+	}
 	virtual_sync_backend_boxes_set_no_autocreate(mbox, FALSE);
 	file_lock_free(&lock);
 	return ret;
