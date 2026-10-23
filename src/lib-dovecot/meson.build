@@ -1,7 +1,6 @@
 libdovecot_modules = [
   'auth',
   'auth_client',
-  'auth_crypt',
   'charset',
   'dcrypt',
   'dict',
