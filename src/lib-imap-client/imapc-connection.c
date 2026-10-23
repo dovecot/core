@@ -941,6 +941,7 @@ imapc_connection_proxyauth_login_cb(const struct imapc_command_reply *reply,
 	struct imapc_command *cmd;
 
 	if (reply->state == IMAPC_COMMAND_STATE_OK) {
+		i_assert(conn->auth_set != NULL);
 		cmd = imapc_connection_cmd(conn, imapc_connection_login_cb,
 					   conn);
 		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
