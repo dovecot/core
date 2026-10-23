@@ -930,6 +930,8 @@ int login_proxy_sasl_step(struct client *client, string_t *str)
 	size_t data_len;
 	const char *error;
 
+	i_assert(client->proxy_sasl_session != NULL);
+
 	enum dsasl_client_result sasl_res =
 		dsasl_client_session_input(client->proxy_sasl_session,
 					   str_data(str), str_len(str), &error);
