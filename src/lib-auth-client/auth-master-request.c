@@ -250,6 +250,7 @@ void auth_master_request_abort_invalid(struct auth_master_request **_req)
 
 	const struct auth_master_reply mreply = {
 		.reply = "NOTFOUND",
+		.args = empty_str_array,
 	};
 
 	i_assert(req->callback != NULL);
