@@ -783,7 +783,6 @@ non_libdovecot_c_files=
 all_files=`find $srcdir/src -name '*.[[ch]]' | $GREP -v '/src/config/all-settings.c' | $GREP -v '/src/lib-settings/' | $GREP -v '/test-' | xargs $GREP -e 'struct setting_parser_info [[a-z]]' -e 'struct service_settings [[a-z]]' -e '<settings checks>' | $SED 's/:.*//' | sort | uniq`
 for file in $all_files; do
   dir=`echo "$file" | $SED 's:/[[^/]]*$::'`
-  basefile=`basename $file`
   if echo "$libdovecot_dirs" | $GREP "$dir" >/dev/null; then
     dnl lib-dovecot
     if echo "$file" | $GREP '\.h$' >/dev/null; then
@@ -793,11 +792,7 @@ for file in $all_files; do
     fi
   else
     dnl not lib-dovecot
-    dnl ignore hibernation if not being built
-
-    if test "$BUILD_IMAP_HIBERNATE" = 0 && test "$basefile" = "imap-hibernate-settings.c"; then
-      continue
-    elif echo "$file" | $GREP '\.h$' >/dev/null; then
+    if echo "$file" | $GREP '\.h$' >/dev/null; then
       non_libdovecot_headers="$non_libdovecot_headers $file"
     else
       non_libdovecot_c_files="$non_libdovecot_c_files $file"
