@@ -811,8 +811,8 @@ void mail_index_lookup_ext(struct mail_index_view *view, uint32_t seq,
 void mail_index_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 				uint32_t ext_id, struct mail_index_map **map_r,
 				const void **data_r, bool *expunged_r);
-/* Get current extension sizes. Returns 1 if ok, 0 if extension doesn't exist
-   in view. Any of the _r parameters may be NULL. */
+/* Get current extension sizes. The sizes are 0 if the extension doesn't exist
+   in the map. */
 void mail_index_ext_get_size(struct mail_index_map *map, uint32_t ext_id,
 			     uint32_t *hdr_size_r, uint16_t *record_size_r,
 			     uint16_t *record_align_r);
