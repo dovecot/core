@@ -385,8 +385,7 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 		printf(" - modify=%d, name=%.*s, uids=",
 		       u->modify_type, u->name_size, (const char *)(u+1));
 
-		uid_offset = sizeof(*u) + u->name_size +
-			((u->name_size % 4) == 0 ? 0 : 4 - (u->name_size%4));
+		uid_offset = mail_transaction_keyword_update_get_uids_offset(u);
 		uid = (const uint32_t *)((const char *)u + uid_offset);
 		size -= uid_offset;
 
