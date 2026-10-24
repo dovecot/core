@@ -684,6 +684,13 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 				"Trying to use empty keyword");
 			return FALSE;
 		}
+		if (rec->modify_type != MODIFY_ADD &&
+		    rec->modify_type != MODIFY_REMOVE) {
+			mail_transaction_log_file_set_corrupted(file,
+				"Invalid keyword update modify type %u",
+				rec->modify_type);
+			return FALSE;
+		}
 		if (seqset_offset > rec_size) {
 			mail_transaction_log_file_set_corrupted(file,
 				"Invalid keyword update record size");
