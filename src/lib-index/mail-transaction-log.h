@@ -374,6 +374,47 @@ struct mail_transaction_log_append_ctx {
 #define LOG_IS_BEFORE(seq1, offset1, seq2, offset2) \
 	(((offset1) < (offset2) && (seq1) == (seq2)) || (seq1) < (seq2))
 
+/* Returns the keyword name of a keyword update record. The name is allocated
+   from data stack. */
+static inline const char *
+mail_transaction_keyword_update_get_name(
+	const struct mail_transaction_keyword_update *rec)
+{
+	return t_strndup(rec + 1, rec->name_size);
+}
+
+/* Returns the offset of the UID ranges in a keyword update record. They
+   follow the keyword name, aligned to 32 bits. */
+static inline unsigned int
+mail_transaction_keyword_update_get_uids_offset(
+	const struct mail_transaction_keyword_update *rec)
+{
+	unsigned int offset = sizeof(*rec) + rec->name_size;
+
+	if ((offset % 4) != 0)
+		offset += 4 - (offset % 4);
+	return offset;
+}
+
+/* Returns the UID ranges of a keyword update record. rec_size is the size of
+   the record (mail_transaction_header.size returned by
+   mail_transaction_log_view_next()). The record must have already been
+   validated by mail_transaction_log_view_next(). */
+static inline const struct seq_range *
+mail_transaction_keyword_update_get_uids(
+	const struct mail_transaction_keyword_update *rec, uint32_t rec_size,
+	unsigned int *count_r)
+{
+	unsigned int offset =
+		mail_transaction_keyword_update_get_uids_offset(rec);
+
+	i_assert(rec->name_size > 0);
+	i_assert(offset < rec_size);
+
+	*count_r = (rec_size - offset) / sizeof(struct seq_range);
+	return (const struct seq_range *)CONST_PTR_OFFSET(rec, offset);
+}
+
 struct mail_transaction_log *
 mail_transaction_log_alloc(struct mail_index *index);
 void mail_transaction_log_free(struct mail_transaction_log **log);
