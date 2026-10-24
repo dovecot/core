@@ -474,6 +474,14 @@ int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 			/* we can use the wanted UID */
 			ctx->next_uid = mdata->uid;
 		}
+		if (ctx->next_uid == UINT32_MAX) {
+			/* corrupted next_uid in index */
+			mailbox_set_critical(&ctx->mbox->box,
+				"Mailbox index next_uid=%u is too large",
+				ctx->next_uid);
+			ctx->failed = TRUE;
+			return -1;
+		}
 		if (ctx->output->offset == 0) {
 			/* writing the first mail. Insert X-IMAPbase as well. */
 			str_printfa(ctx->headers, "X-IMAPbase: %u %010u\n",
