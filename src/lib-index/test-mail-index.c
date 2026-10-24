@@ -1088,6 +1088,117 @@ static void test_mail_index_verify_records(void)
 	test_end();
 }
 
+static void
+test_mail_index_add_keyword(struct mail_index *index, const char *keyword)
+{
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	struct mail_keywords *keywords;
+	const char *keywords_arr[] = { keyword, NULL };
+
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view, 0);
+	keywords = mail_index_keywords_create(index, keywords_arr);
+	mail_index_update_keywords(trans, 1, MODIFY_ADD, keywords);
+	mail_index_keywords_unref(&keywords);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	mail_index_view_close(&view);
+}
+
+/* Create an index with one message having the given keywords and write it
+   to dovecot.index. Returns the path to dovecot.index. */
+static const char *
+test_mail_index_keywords_init(const char *const *keywords,
+			      uoff_t *ext_offset_r, uoff_t *hdr_offset_r,
+			      uint32_t *hdr_size_r, bool *last_ext_r)
+{
+	struct mail_index *index;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	struct mail_index_sync_ctx *sync_ctx;
+	const struct mail_index_ext *ext;
+	uint32_t seq, ext_map_idx;
+
+	index = test_mail_index_init(TRUE);
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view,
+			MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	uint32_t uid_validity = 1234;
+	mail_index_update_header(trans,
+		offsetof(struct mail_index_header, uid_validity),
+		&uid_validity, sizeof(uid_validity), TRUE);
+	mail_index_append(trans, 1, &seq);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	mail_index_view_close(&view);
+	for (; *keywords != NULL; keywords++)
+		test_mail_index_add_keyword(index, *keywords);
+
+	/* write dovecot.index */
+	test_assert(mail_index_sync_begin(index, &sync_ctx, &view,
+					  &trans, 0) > 0);
+	mail_index_write(index, FALSE, "test");
+	test_assert(mail_index_sync_commit(&sync_ctx) == 0);
+	test_assert(mail_index_map_lookup_ext(index->map,
+					      MAIL_INDEX_EXT_KEYWORDS,
+					      &ext_map_idx));
+	ext = array_idx(&index->map->extensions, ext_map_idx);
+	*ext_offset_r = ext->ext_offset;
+	*hdr_offset_r = ext->hdr_offset;
+	*hdr_size_r = ext->hdr_size;
+	*last_ext_r = ext->hdr_offset +
+		MAIL_INDEX_HEADER_SIZE_ALIGN(ext->hdr_size) ==
+		index->map->hdr.header_size;
+	test_mail_index_close(&index);
+
+	return t_strconcat(test_mail_index_get_dir(),
+			   "/test.dovecot.index", NULL);
+}
+
+static void test_mail_index_keywords_out_of_order(void)
+{
+	static const char *const keywords_arr[] = { "a", "b", NULL };
+	struct mail_index *index;
+	uoff_t ext_offset, hdr_offset;
+	uint32_t hdr_size;
+	bool last_ext;
+
+	test_begin("mail index keywords out of order");
+	const char *path =
+		test_mail_index_keywords_init(keywords_arr, &ext_offset,
+					      &hdr_offset, &hdr_size,
+					      &last_ext);
+	uoff_t kw_rec_offset = hdr_offset +
+		sizeof(struct mail_index_keyword_header);
+
+	/* swap the name_offsets, so the names are out of order */
+	int fd = open(path, O_RDWR);
+	if (fd == -1)
+		i_fatal("open(%s) failed: %m", path);
+	struct mail_index_keyword_header_rec kw_rec[2];
+	test_assert(pread(fd, kw_rec, sizeof(kw_rec), kw_rec_offset) ==
+		    sizeof(kw_rec));
+	test_assert(kw_rec[0].name_offset == 0 && kw_rec[1].name_offset == 2);
+	kw_rec[0].name_offset = 2;
+	kw_rec[1].name_offset = 0;
+	test_assert(pwrite(fd, kw_rec, sizeof(kw_rec), kw_rec_offset) ==
+		    sizeof(kw_rec));
+	i_close_fd(&fd);
+
+	/* the corruption error, fscking warning and fsck error */
+	test_expect_errors(3);
+	index = test_mail_index_open(FALSE);
+	test_expect_no_more_errors();
+	test_assert(mail_index_reset_fscked(index));
+
+	/* adding a new keyword keeps the existing ones */
+	test_mail_index_add_keyword(index, "c");
+	const ARRAY_TYPE(keywords) *keywords = mail_index_get_keywords(index);
+	test_assert(array_count(keywords) == 3);
+	test_assert(array_count(&index->map->keyword_idx_map) == 3);
+	test_mail_index_deinit(&index);
+	test_end();
+}
+
 static void test_mail_index_append_uid(struct mail_index *index, uint32_t uid)
 {
 	struct mail_index_view *view;
@@ -1285,6 +1396,7 @@ int main(void)
 		test_mail_index_commit_zero_uids,
 		test_mail_index_view_verify_records,
 		test_mail_index_verify_records_cache,
+		test_mail_index_keywords_out_of_order,
 		NULL
 	};
 	test_dir_init("mail-index");

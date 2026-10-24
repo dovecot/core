@@ -151,6 +151,7 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 	const char *name, *name_buffer, **name_array;
 	unsigned int i, j, name_pos, name_size, rec_pos, hdr_offset, diff;
 	unsigned int changed_count, keywords_count, name_base_pos, count;
+	unsigned int expected_name_offset;
 	ARRAY_TYPE(const_string) names;
 	buffer_t *dest;
 	bool changed = FALSE, hdr_broken;
@@ -190,13 +191,23 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 	/* create keyword name array. invalid keywords are added as
 	   empty strings */
 	t_array_init(&names, keywords_count);
-	for (i = 0; i < keywords_count; i++) {
+	for (i = 0, expected_name_offset = 0; i < keywords_count; i++) {
 		if (name_size == 0 ||
 		    !keyword_name_is_valid(name_buffer, kw_rec[i].name_offset,
 					   name_size))
 			name = "";
-		else
+		else {
 			name = name_buffer + kw_rec[i].name_offset;
+			if (kw_rec[i].name_offset != expected_name_offset &&
+			    !changed) {
+				/* the names must be in the same order as the
+				   records */
+				mail_index_fsck_error(index,
+					"Mismatching keyword name_offset");
+				changed = TRUE;
+			}
+			expected_name_offset += strlen(name) + 1;
+		}
 
 		if (*name != '\0' && array_has_name(&names, name)) {
 			/* duplicate */
@@ -226,8 +237,10 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 		return;
 	}
 
-	mail_index_fsck_error(index, "Renamed %u keywords to unknown-*",
-			      changed_count);
+	if (changed_count > 0) {
+		mail_index_fsck_error(index, "Renamed %u keywords to unknown-*",
+				      changed_count);
+	}
 
 	dest = buffer_create_dynamic(default_pool,
 				     I_MAX(ext_hdr->hdr_size, 128));

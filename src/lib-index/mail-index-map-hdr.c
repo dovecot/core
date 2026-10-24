@@ -147,12 +147,10 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 		unsigned int kw_idx;
 
 		if (kw_rec[i].name_offset != name_offset) {
-			/* this shouldn't happen, but the old code didn't check
-			   for this so for safety keep this as a warning. */
-			e_warning(index->event,
-				  "Corrupted index file %s: "
-				  "Mismatching keyword name_offset",
-				  index->filepath);
+			mail_index_set_error(index, "Corrupted index file %s: "
+					     "Mismatching keyword name_offset",
+					     index->filepath);
+			return -1;
 		}
 		name_offset += strlen(keyword) + 1;
 
@@ -173,12 +171,10 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 		unsigned int kw_idx;
 
 		if (kw_rec[i].name_offset != name_offset) {
-			/* this shouldn't happen, but the old code didn't check
-			   for this so for safety keep this as a warning. */
-			e_warning(index->event,
-				  "Corrupted index file %s: "
-				  "Mismatching keyword name_offset",
-				  index->filepath);
+			mail_index_set_error(index, "Corrupted index file %s: "
+					     "Mismatching keyword name_offset",
+					     index->filepath);
+			return -1;
 		}
 		name_offset += strlen(keyword) + 1;
 
