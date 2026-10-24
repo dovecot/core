@@ -67,10 +67,58 @@ static void test_mail_index_modseq_get_next_log_offset(void)
 	test_end();
 }
 
+static void test_mail_index_modseq_enable_broken_hdr_size(void)
+{
+	struct mail_index *index;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	const struct mail_index_modseq_header *modseq_hdr;
+	uint32_t seq, uid;
+
+	test_begin("mail_index_modseq_enable() with broken header size");
+	index = test_mail_index_init(TRUE);
+	view = mail_index_view_open(index);
+	mail_index_modseq_enable(index);
+	test_assert(mail_index_have_modseq_tracking(index));
+
+	trans = mail_index_transaction_begin(view, 0);
+	uid = 1234;
+	mail_index_update_header(trans,
+		offsetof(struct mail_index_header, uid_validity),
+		&uid, sizeof(uid), TRUE);
+	mail_index_append(trans, 1, &seq);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+
+	/* corrupt the modseq header size */
+	trans = mail_index_transaction_begin(view, 0);
+	mail_index_ext_resize_hdr(trans, index->modseq_ext_id, 8);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	test_assert(!mail_index_have_modseq_tracking(index));
+
+	/* enabling modseqs fixes the header size */
+	mail_index_modseq_enable(index);
+	test_assert(mail_index_have_modseq_tracking(index));
+	modseq_hdr = mail_index_map_get_modseq_header(index->map);
+	uint64_t highest_modseq = modseq_hdr->highest_modseq;
+	test_assert(highest_modseq > 0);
+
+	/* the header is updated again */
+	trans = mail_index_transaction_begin(view, 0);
+	mail_index_append(trans, 2, &seq);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	modseq_hdr = mail_index_map_get_modseq_header(index->map);
+	test_assert(modseq_hdr->highest_modseq > highest_modseq);
+
+	mail_index_view_close(&view);
+	test_mail_index_deinit(&index);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mail_index_modseq_get_next_log_offset,
+		test_mail_index_modseq_enable_broken_hdr_size,
 		NULL
 	};
 	test_dir_init("mail-index-modseq");

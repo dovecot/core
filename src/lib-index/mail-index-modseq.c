@@ -43,12 +43,20 @@ void mail_index_modseq_enable(struct mail_index *index)
 	struct mail_index_modseq_header hdr;
 	uint32_t ext_map_idx;
 
-	if (!mail_index_map_get_ext_idx(index->map, index->modseq_ext_id,
-					&ext_map_idx)) {
+	if (mail_index_map_get_modseq_header(index->map) == NULL) {
 		/* modseqs not enabled to the index yet, add them. */
 		view = mail_index_view_open(index);
 		trans = mail_index_transaction_begin(view, 0);
 
+		if (mail_index_map_get_ext_idx(index->map,
+					       index->modseq_ext_id,
+					       &ext_map_idx)) {
+			/* The header has an unexpected size, which can only
+			   happen if the index is corrupted. Fix the size, so
+			   the header can be updated again. */
+			mail_index_ext_resize_hdr(trans, index->modseq_ext_id,
+						  sizeof(hdr));
+		}
 		i_zero(&hdr);
 		hdr.highest_modseq = mail_index_modseq_get_head(index);
 		mail_index_update_header_ext(trans, index->modseq_ext_id,
