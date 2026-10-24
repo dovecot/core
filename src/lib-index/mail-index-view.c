@@ -298,9 +298,8 @@ mail_index_data_lookup_keywords(struct mail_index_map *map,
 		/* no keywords at all in index */
 		return;
 	}
-	(void)mail_index_ext_get_size(map, map->index->keywords_ext_id,
-				      &hdr_size, &record_size,
-				      &record_align);
+	mail_index_ext_get_size(map, map->index->keywords_ext_id,
+				&hdr_size, &record_size, &record_align);
 
 	/* keyword_idx_map[] contains file => index keyword mapping */
 	if (!array_is_created(&map->keyword_idx_map))
