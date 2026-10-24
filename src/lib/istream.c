@@ -26,13 +26,46 @@ const char *i_stream_get_name(struct istream *stream)
 	return stream->real_stream->iostream.name;
 }
 
+static void i_stream_close_set_io_pending(struct istream *stream,
+					  bool close_parents)
+{
+	struct istream *root = i_stream_get_root_io(stream);
+
+	if (root != stream && !close_parents) {
+		/* Only this istream was closed, while the root istream that
+		   owns the IO is still open (e.g. a literal limit-istream
+		   destroyed while the connection istream continues to be
+		   read). Don't wake up the IO. */
+		return;
+	}
+	/* Make sure the IO callback gets called, so it notices that the
+	   istream is closed. Otherwise it could wait forever for more input.
+	   If the IO isn't added yet, call it once it gets added. The IO is
+	   owned by the root istream. Closing the parents usually closes the
+	   root istream as well, but not always (e.g. istream-multiplex keeps
+	   its parent open until all channels are closed), so wake up the
+	   root istream's IO explicitly. */
+	if (root->real_stream->io != NULL)
+		io_set_pending(root->real_stream->io);
+	else
+		root->real_stream->io_pending = TRUE;
+}
+
 static void i_stream_close_full(struct istream *stream, bool close_parents)
 {
+	bool was_closed = stream->closed;
+
 	io_stream_close(&stream->real_stream->iostream, close_parents);
 	stream->closed = TRUE;
 
 	if (stream->stream_errno == 0)
 		stream->stream_errno = EPIPE;
+
+	/* Wake up the IO only when the istream becomes closed. Closing an
+	   already closed istream again shouldn't call the IO callback
+	   again. */
+	if (!was_closed)
+		i_stream_close_set_io_pending(stream, close_parents);
 }
 
 void i_stream_destroy(struct istream **stream)

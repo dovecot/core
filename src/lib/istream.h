@@ -122,7 +122,9 @@ const char *i_stream_get_error(struct istream *stream);
 const char *i_stream_get_disconnect_reason(struct istream *stream);
 
 /* Mark the stream and all of its parent streams closed. Any reads after this
-   will return -1. The data already read can still be used. */
+   will return -1. The data already read can still be used. If an IO is added
+   for the stream with io_add_istream(), its callback gets called so it notices
+   the stream is closed. */
 void i_stream_close(struct istream *stream);
 /* Sync the stream with the underlying backend, ie. if a file has been
    modified, flush any cached data. */

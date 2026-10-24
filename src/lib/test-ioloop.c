@@ -5,6 +5,7 @@
 #include "time-util.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "istream-multiplex.h"
 
 #include <unistd.h>
 
@@ -340,6 +341,177 @@ static void test_ioloop_pending_io(void)
 	test_end();
 }
 
+struct test_close_ctx {
+	struct istream *input;
+	struct io *io;
+	struct timeout *to;
+	unsigned int callback_count;
+	ssize_t last_ret;
+	bool keep_io;
+};
+
+static void test_ioloop_istream_close_callback(struct test_close_ctx *ctx)
+{
+	ctx->callback_count++;
+	ctx->last_ret = i_stream_read(ctx->input);
+	if (!ctx->keep_io)
+		io_remove(&ctx->io);
+	io_loop_stop(current_ioloop);
+}
+
+static void test_ioloop_istream_close_timeout(struct test_close_ctx *ctx)
+{
+	timeout_remove(&ctx->to);
+	i_stream_close(ctx->input);
+}
+
+static void test_ioloop_istream_close_run(struct test_close_ctx *ctx)
+{
+	struct timeout *to_fail =
+		timeout_add_short(5000, io_loop_stop, current_ioloop);
+	io_loop_run(current_ioloop);
+	timeout_remove(&to_fail);
+
+	test_assert(ctx->callback_count == 1);
+	test_assert(ctx->last_ret == -1);
+	test_assert(ctx->input->stream_errno == EPIPE);
+	test_assert((ctx->io == NULL) == !ctx->keep_io);
+	if (!ctx->keep_io) {
+		/* in case the callback wasn't called */
+		io_remove(&ctx->io);
+	}
+}
+
+static void test_ioloop_istream_close_simple(int fd)
+{
+	struct test_close_ctx ctx;
+
+	/* close the istream from another callback */
+	i_zero(&ctx);
+	ctx.input = i_stream_create_fd(fd, SIZE_MAX);
+	ctx.io = io_add_istream(ctx.input,
+				test_ioloop_istream_close_callback, &ctx);
+	ctx.to = timeout_add_short(0, test_ioloop_istream_close_timeout, &ctx);
+	test_ioloop_istream_close_run(&ctx);
+	i_stream_unref(&ctx.input);
+
+	/* close the istream while the IO isn't added */
+	i_zero(&ctx);
+	ctx.input = i_stream_create_fd(fd, SIZE_MAX);
+	i_stream_close(ctx.input);
+	ctx.io = io_add_istream(ctx.input,
+				test_ioloop_istream_close_callback, &ctx);
+	test_ioloop_istream_close_run(&ctx);
+	i_stream_unref(&ctx.input);
+}
+
+static void test_ioloop_istream_close_twice(int fd)
+{
+	struct test_close_ctx ctx;
+
+	/* closing an already closed istream doesn't call the IO again */
+	i_zero(&ctx);
+	ctx.keep_io = TRUE;
+	ctx.input = i_stream_create_fd(fd, SIZE_MAX);
+	ctx.io = io_add_istream(ctx.input,
+				test_ioloop_istream_close_callback, &ctx);
+	i_stream_close(ctx.input);
+	test_assert(io_is_pending(ctx.io));
+	test_ioloop_istream_close_run(&ctx);
+	test_assert(!io_is_pending(ctx.io));
+	i_stream_close(ctx.input);
+	test_assert(!io_is_pending(ctx.io));
+	io_remove(&ctx.io);
+	i_stream_unref(&ctx.input);
+}
+
+static void test_ioloop_istream_close_parent(int fd)
+{
+	struct test_close_ctx ctx;
+	struct istream *root;
+
+	/* close the parent istream, which owns the IO of its child */
+	i_zero(&ctx);
+	root = i_stream_create_fd(fd, SIZE_MAX);
+	ctx.input = i_stream_create_limit(root, UOFF_T_MAX);
+	ctx.io = io_add_istream(ctx.input,
+				test_ioloop_istream_close_callback, &ctx);
+	i_stream_close(root);
+	test_ioloop_istream_close_run(&ctx);
+	i_stream_unref(&ctx.input);
+	i_stream_unref(&root);
+}
+
+static void test_ioloop_istream_close_child(int fd)
+{
+	struct test_close_ctx ctx;
+	struct istream *child;
+
+	/* destroying a child istream doesn't wake up the parent's IO */
+	i_zero(&ctx);
+	ctx.input = i_stream_create_fd(fd, SIZE_MAX);
+	ctx.io = io_add_istream(ctx.input,
+				test_ioloop_istream_close_callback, &ctx);
+	child = i_stream_create_limit(ctx.input, 10);
+	i_stream_destroy(&child);
+	test_assert(!io_is_pending(ctx.io));
+	test_assert(!ctx.input->closed);
+	io_remove(&ctx.io);
+
+	/* same when the IO isn't added at the time */
+	child = i_stream_create_limit(ctx.input, 10);
+	i_stream_destroy(&child);
+	ctx.io = io_add_istream(ctx.input,
+				test_ioloop_istream_close_callback, &ctx);
+	test_assert(!io_is_pending(ctx.io));
+	io_remove(&ctx.io);
+	i_stream_unref(&ctx.input);
+}
+
+static void test_ioloop_istream_close_multiplex(int fd)
+{
+	struct test_close_ctx ctx;
+	struct istream *root, *channel1;
+
+	/* Multiplex channel 0's IO is owned by the multiplex parent istream,
+	   which stays open while channel 1 is still open. Closing channel 0
+	   must still call its IO. */
+	i_zero(&ctx);
+	root = i_stream_create_fd(fd, SIZE_MAX);
+	ctx.input = i_stream_create_multiplex(root, SIZE_MAX);
+	channel1 = i_stream_multiplex_add_channel(ctx.input, 1);
+	ctx.io = io_add_istream(ctx.input,
+				test_ioloop_istream_close_callback, &ctx);
+	ctx.to = timeout_add_short(0, test_ioloop_istream_close_timeout, &ctx);
+	test_ioloop_istream_close_run(&ctx);
+	test_assert(!root->closed);
+	test_assert(!channel1->closed);
+	i_stream_unref(&channel1);
+	i_stream_unref(&ctx.input);
+	i_stream_unref(&root);
+}
+
+static void test_ioloop_istream_close(void)
+{
+	int fd[2];
+
+	test_begin("ioloop istream close");
+	struct ioloop *ioloop = io_loop_create();
+	if (pipe(fd) < 0)
+		i_fatal("pipe() failed: %m");
+
+	test_ioloop_istream_close_simple(fd[0]);
+	test_ioloop_istream_close_twice(fd[0]);
+	test_ioloop_istream_close_parent(fd[0]);
+	test_ioloop_istream_close_child(fd[0]);
+	test_ioloop_istream_close_multiplex(fd[0]);
+
+	i_close_fd(&fd[0]);
+	i_close_fd(&fd[1]);
+	io_loop_destroy(&ioloop);
+	test_end();
+}
+
 static void test_ioloop_context_callback(struct ioloop_context *ctx)
 {
 	test_assert(io_loop_get_current_context(current_ioloop) == ctx);
@@ -443,6 +615,7 @@ void test_ioloop(void)
 	test_ioloop_find_fd_conditions();
 	test_ioloop_fd_multiple_conditions();
 	test_ioloop_pending_io();
+	test_ioloop_istream_close();
 	test_ioloop_fd();
 	test_ioloop_context();
 	test_ioloop_context_events();
