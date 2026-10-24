@@ -251,11 +251,8 @@ mail_index_modseq_update_old_rec(struct mail_index_modseq_sync *ctx,
 	}
 	case MAIL_TRANSACTION_KEYWORD_UPDATE: {
 		const struct mail_transaction_keyword_update *rec = tdata;
-		unsigned int seqset_offset;
-
-		seqset_offset = sizeof(*rec) + rec->name_size;
-		if ((seqset_offset % 4) != 0)
-			seqset_offset += 4 - (seqset_offset % 4);
+		unsigned int seqset_offset =
+			mail_transaction_keyword_update_get_uids_offset(rec);
 
 		buffer_create_from_const_data(&uid_buf,
 					 CONST_PTR_OFFSET(tdata, seqset_offset),

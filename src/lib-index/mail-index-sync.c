@@ -85,25 +85,19 @@ static void mail_index_sync_add_keyword_update(struct mail_index_sync_ctx *ctx)
 	const struct mail_transaction_keyword_update *u = ctx->data;
 	const char *keyword_names[2];
 	struct mail_keywords *keywords;
-	const uint32_t *uids;
+	const struct seq_range *uids;
+	unsigned int i, count;
 	uint32_t uid;
-	size_t uidset_offset, i, size;
 
-	i_assert(u->name_size > 0);
-
-	uidset_offset = sizeof(*u) + u->name_size;
-	if ((uidset_offset % 4) != 0)
-		uidset_offset += 4 - (uidset_offset % 4);
-	uids = CONST_PTR_OFFSET(u, uidset_offset);
-
-	keyword_names[0] = t_strndup(u + 1, u->name_size);
+	uids = mail_transaction_keyword_update_get_uids(u, ctx->hdr->size,
+							&count);
+	keyword_names[0] = mail_transaction_keyword_update_get_name(u);
 	keyword_names[1] = NULL;
 	keywords = mail_index_keywords_create(ctx->index, keyword_names);
 
-	size = (ctx->hdr->size - uidset_offset) / sizeof(uint32_t);
-	for (i = 0; i < size; i += 2) {
+	for (i = 0; i < count; i++) {
 		/* FIXME: mail_index_update_keywords_range() */
-		for (uid = uids[i]; uid <= uids[i+1]; uid++) {
+		for (uid = uids[i].seq1; uid <= uids[i].seq2; uid++) {
 			mail_index_update_keywords(ctx->sync_trans, uid,
 						   u->modify_type, keywords);
 		}

@@ -864,9 +864,8 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 
 		if (ctx->data_offset == 0) {
 			/* skip over the header and name */
-			ctx->data_offset = sizeof(*update) + update->name_size;
-			if ((ctx->data_offset % 4) != 0)
-				ctx->data_offset += 4 - (ctx->data_offset % 4);
+			ctx->data_offset =
+				mail_transaction_keyword_update_get_uids_offset(update);
 		}
 
 		uids = CONST_PTR_OFFSET(data, ctx->data_offset);

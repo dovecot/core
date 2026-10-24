@@ -676,11 +676,8 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		break;
 	case MAIL_TRANSACTION_KEYWORD_UPDATE: {
 		const struct mail_transaction_keyword_update *rec = data;
-		unsigned int seqset_offset;
-
-		seqset_offset = sizeof(*rec) + rec->name_size;
-		if ((seqset_offset % 4) != 0)
-			seqset_offset += 4 - (seqset_offset % 4);
+		unsigned int seqset_offset =
+			mail_transaction_keyword_update_get_uids_offset(rec);
 
 		if (rec->name_size == 0) {
 			mail_transaction_log_file_set_corrupted(file,
