@@ -6,6 +6,7 @@
 #include "service-settings.h"
 #include "master-service.h"
 #include "master-service-settings.h"
+#include "smtp-client-settings.h"
 #include "lda-settings.h"
 #include "lmtp-settings.h"
 #include "mail-storage-settings.h"
@@ -62,6 +63,10 @@ const struct setting_keyvalue lmtp_service_settings_defaults[] = {
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct lmtp_pre_mail_settings)
 
+#undef DEF_MSECS
+#define DEF_MSECS(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name##_msecs, struct lmtp_proxy_settings)
+
 static const struct setting_define lmtp_pre_mail_setting_defines[] = {
 	DEF(TIME, mail_max_lock_timeout),
 
@@ -89,11 +94,19 @@ const struct setting_parser_info lmtp_pre_mail_setting_parser_info = {
 static const struct setting_define lmtp_proxy_setting_defines[] = {
 	DEF(BOOL, lmtp_proxy),
 
+	DEF_MSECS(TIME_MSECS, lmtp_client_command_timeout),
+	DEF(IN_PORT, lmtp_client_port),
+	DEF(BOOL, lmtp_client_peer_trusted),
+
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct lmtp_proxy_settings lmtp_proxy_default_settings = {
 	.lmtp_proxy = FALSE,
+
+	.lmtp_client_command_timeout_msecs = SMTP_DEFAULT_COMMAND_TIMEOUT_MSECS,
+	.lmtp_client_port = 24,
+	.lmtp_client_peer_trusted = FALSE,
 };
 
 const struct setting_parser_info lmtp_proxy_setting_parser_info = {

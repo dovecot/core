@@ -8,7 +8,6 @@
 #include "smtp-client.h"
 
 #define LMTP_PROXY_DEFAULT_TTL 5
-#define LMTP_PROXY_DEFAULT_PORT 24
 
 #define CLIENT_TRANSPORT_TLS "TLS"
 #define CLIENT_TRANSPORT_INSECURE "insecure"

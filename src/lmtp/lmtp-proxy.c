@@ -79,6 +79,7 @@ struct lmtp_proxy_connection {
 struct lmtp_proxy {
 	struct client *client;
 	struct event *event;
+	struct settings_instance *set_instance;
 	const struct lmtp_proxy_settings *set;
 
 	struct smtp_client *lmtp_client;
@@ -108,6 +109,7 @@ static int
 lmtp_proxy_init(struct client *client, struct lmtp_proxy **proxy_r)
 {
 	struct event *event;
+	struct settings_instance *set_instance;
 	const struct lmtp_proxy_settings *set;
 	struct lmtp_proxy *proxy;
 	const char *error;
@@ -120,14 +122,34 @@ lmtp_proxy_init(struct client *client, struct lmtp_proxy **proxy_r)
 	event = event_create(client->event);
 	event_set_append_log_prefix(event, "proxy: ");
 
+	set_instance = settings_instance_new_from_event(event);
+	event_set_ptr(event, SETTINGS_EVENT_INSTANCE, set_instance);
+	settings_override(set_instance,
+			  "lmtp_client_port", "%{local_port | default(\"24\")}",
+			  SETTINGS_OVERRIDE_TYPE_DEFAULT);
+	settings_override(set_instance,
+			  "lmtp_client_max_reply_size", "4096",
+			  SETTINGS_OVERRIDE_TYPE_DEFAULT);
+	settings_override(set_instance,
+			  "lmtp_client_connect_timeout", "125s",
+			  SETTINGS_OVERRIDE_TYPE_DEFAULT);
+	settings_override(set_instance,
+			  "lmtp_client_command_timeout", "125s",
+			  SETTINGS_OVERRIDE_TYPE_DEFAULT);
+	settings_override(set_instance,
+			  "lmtp_client_peer_trusted", "yes",
+			  SETTINGS_OVERRIDE_TYPE_DEFAULT);
+
 	if (settings_get(event, &lmtp_proxy_setting_parser_info, 0,
 			 &set, &error) < 0) {
 		e_error(event, "%s", error);
+		settings_instance_free(&set_instance);
 		event_unref(&event);
 		return -1;
 	}
 	if (!set->lmtp_proxy) {
 		settings_free(set);
+		settings_instance_free(&set_instance);
 		event_unref(&event);
 		client->proxy_disabled = TRUE;
 		return 0;
@@ -136,6 +158,7 @@ lmtp_proxy_init(struct client *client, struct lmtp_proxy **proxy_r)
 	proxy = i_new(struct lmtp_proxy, 1);
 	proxy->client = client;
 	proxy->event = event;
+	proxy->set_instance = set_instance;
 	proxy->set = set;
 	i_array_init(&proxy->rcpt_to, 32);
 	i_array_init(&proxy->connections, 32);
@@ -184,6 +207,7 @@ void lmtp_proxy_deinit(struct lmtp_proxy **_proxy)
 	i_stream_unref(&proxy->data_input);
 	array_free(&proxy->rcpt_to);
 	array_free(&proxy->connections);
+	settings_instance_free(&proxy->set_instance);
 	event_unref(&proxy->event);
 	settings_free(proxy->set);
 	i_free(proxy);
@@ -971,6 +995,7 @@ lmtp_proxy_rcpt_user_lookup_cb(struct lmtp_proxy_recipient *lprcpt, int result,
 {
 	struct lmtp_recipient *lrcpt = lprcpt->rcpt;
 	struct client *client = lrcpt->client;
+	struct lmtp_proxy *proxy = client->proxy;
 	struct lmtp_proxy_rcpt_settings set;
 	struct lmtp_proxy_connection *conn;
 	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
@@ -998,9 +1023,9 @@ lmtp_proxy_rcpt_user_lookup_cb(struct lmtp_proxy_recipient *lprcpt, int result,
 	}
 
 	i_zero(&set);
-	set.set.port = (client->local_port != 0 ?
-			client->local_port : LMTP_PROXY_DEFAULT_PORT);
-	set.set.timeout_msecs = LMTP_PROXY_DEFAULT_TIMEOUT_MSECS;
+	set.set.timeout_msecs = proxy->set->lmtp_client_command_timeout_msecs;
+	set.set.port = proxy->set->lmtp_client_port;
+	set.set.remote_not_trusted = !proxy->set->lmtp_client_peer_trusted;
 	set.protocol = SMTP_PROTOCOL_LMTP;
 
 	ret = lmtp_proxy_rcpt_parse_fields(lprcpt, &set, fields, &username);

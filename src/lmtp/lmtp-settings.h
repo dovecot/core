@@ -27,6 +27,11 @@ struct lmtp_proxy_settings {
 	pool_t pool;
 
 	bool lmtp_proxy;
+
+	/* used as default for rcpt settings */
+	unsigned int lmtp_client_command_timeout_msecs;
+	in_port_t lmtp_client_port;
+	bool lmtp_client_peer_trusted;
 };
 
 struct lmtp_settings {
