@@ -353,6 +353,12 @@ int lmtp_local_rcpt(struct lmtp_recipient *lrcpt)
 	e_debug(event, "Recipient maps to local user %s",
 		service_user->input.username);
 
+	const struct var_expand_params *params =
+		mail_storage_service_get_var_expand_params(
+			storage_service, &service_user->input);
+	params = var_expand_clone_params(rcpt->pool, params);
+	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, (void *)params);
+
 	llrcpt = p_new(rcpt->pool, struct lmtp_local_recipient, 1);
 	llrcpt->event = event;
 	llrcpt->rcpt = lrcpt;
