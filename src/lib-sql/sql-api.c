@@ -291,6 +291,11 @@ enum sql_db_flags sql_get_flags(struct sql_db *db)
 		return db->flags;
 }
 
+enum sql_db_flags sql_get_static_flags(struct sql_db *db)
+{
+	return db->flags;
+}
+
 int sql_connect(struct sql_db *db)
 {
 	time_t now;

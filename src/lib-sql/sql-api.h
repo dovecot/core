@@ -109,8 +109,13 @@ int sql_init_auto(struct event *event, struct sql_db **db_r,
 void sql_ref(struct sql_db *db);
 void sql_unref(struct sql_db **db);
 
-/* Returns SQL database state flags. */
+/* Returns SQL database state flags. This may need to connect to the database
+   to find out the flags that depend on the server. */
 enum sql_db_flags sql_get_flags(struct sql_db *db);
+/* Returns the flags that are known without connecting to the database. The
+   flags that depend on the server (e.g. SQL_DB_FLAG_ON_CONFLICT_DO) may be
+   missing. */
+enum sql_db_flags sql_get_static_flags(struct sql_db *db);
 
 /* Explicitly connect to the database. It's not required to call this function
    though. Returns -1 if we're not connected, 0 if we started connecting or
