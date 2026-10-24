@@ -2338,6 +2338,7 @@ static void test_static_verify_ed448(void)
 	test_end();
 }
 
+#ifndef LIBRESSL_VERSION_NUMBER
 static void test_sign_verify_ed448(void)
 {
 	const char *error = NULL;
@@ -2364,6 +2365,7 @@ static void test_sign_verify_ed448(void)
 
 	test_end();
 }
+#endif
 
 static void test_xd_keypair(struct dcrypt_keypair *pair)
 {
@@ -2690,7 +2692,9 @@ int main(void)
 #ifdef HAVE_X25519
 		test_sign_verify_ed25519,
 		test_sign_verify_x962_ed25519,
+#ifndef LIBRESSL_VERSION_NUMBER
 		test_sign_verify_ed448,
+#endif
 		test_static_verify_ed25519,
 		test_static_verify_ed448,
 		test_xd25519_keypair,
