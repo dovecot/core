@@ -49,7 +49,6 @@ struct smtp_client_capability_extra {
 struct smtp_client_settings {
 	struct ip_addr my_ip;
 	const char *my_hostname;
-	const char *temp_path_prefix;
 
 	/* Capabilities that are assumed to be enabled no matter whether the
 	   server indicates support. */
