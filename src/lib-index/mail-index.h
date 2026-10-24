@@ -605,8 +605,10 @@ int mail_index_fsck(struct mail_index *index) ATTR_COLD;
    called after the index files may have been replaced with untrusted ones,
    e.g. when they were downloaded from a remote storage. If the records are
    invalid, the index is fsck'd. Views that are already open keep seeing the
-   old records until they're synced. Returns 1 if the records were valid,
-   0 if they were fixed with fsck, -1 if fsck failed. */
+   old records until they're synced. The records are verified only once,
+   so calling this again is cheap until the index is re-read from the file.
+   Returns 1 if the records were valid, 0 if they were fixed with fsck, -1
+   if fsck failed. */
 int mail_index_verify_records(struct mail_index *index);
 /* Like mail_index_verify_records(), but verify the records visible in the
    view. Returns TRUE if the records are valid. If not, the index is fsck'd

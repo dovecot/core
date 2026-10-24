@@ -427,6 +427,7 @@ struct mail_index_map *mail_index_map_clone(const struct mail_index_map *map)
 	}
 
 	mail_index_map_copy_header(mem_map, map);
+	mem_map->records_verified = map->records_verified;
 
 	/* copy extensions */
 	if (array_is_created(&map->ext_id_map)) {

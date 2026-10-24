@@ -1088,6 +1088,58 @@ static void test_mail_index_verify_records(void)
 	test_end();
 }
 
+static void test_mail_index_append_uid(struct mail_index *index, uint32_t uid)
+{
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	uint32_t seq;
+
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view,
+			MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	uint32_t uid_validity = 1234;
+	mail_index_update_header(trans,
+		offsetof(struct mail_index_header, uid_validity),
+		&uid_validity, sizeof(uid_validity), TRUE);
+	mail_index_append(trans, uid, &seq);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	mail_index_view_close(&view);
+}
+
+static void test_mail_index_verify_records_cache(void)
+{
+	struct mail_index *index;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	struct mail_index_sync_ctx *sync_ctx;
+
+	test_begin("mail index verify records cache");
+	index = test_mail_index_init(TRUE);
+	test_mail_index_append_uid(index, 1);
+	test_assert(!index->map->records_verified);
+	test_assert(mail_index_verify_records(index) == 1);
+	test_assert(index->map->records_verified);
+
+	/* syncing new records keeps the map verified */
+	test_mail_index_append_uid(index, 2);
+	test_assert(index->map->hdr.messages_count == 2);
+	test_assert(index->map->records_verified);
+
+	/* re-reading dovecot.index requires verifying again */
+	test_assert(mail_index_sync_begin(index, &sync_ctx, &view,
+					  &trans, 0) > 0);
+	mail_index_write(index, FALSE, "test");
+	test_assert(mail_index_sync_commit(&sync_ctx) == 0);
+	test_mail_index_close(&index);
+	index = test_mail_index_open(FALSE);
+	test_assert(index->map->hdr.messages_count == 2);
+	test_assert(!index->map->records_verified);
+	test_assert(mail_index_verify_records(index) == 1);
+	test_assert(index->map->records_verified);
+	test_mail_index_deinit(&index);
+	test_end();
+}
+
 static struct mail_index *test_mail_index_open_zero_uids(void)
 {
 	struct mail_index *index;
@@ -1232,6 +1284,7 @@ int main(void)
 		test_mail_index_verify_records,
 		test_mail_index_commit_zero_uids,
 		test_mail_index_view_verify_records,
+		test_mail_index_verify_records_cache,
 		NULL
 	};
 	test_dir_init("mail-index");

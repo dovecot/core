@@ -164,6 +164,10 @@ struct mail_index_map {
 	struct mail_index_modseq_header modseq_hdr_snapshot;
 
 	struct mail_index_record_map *rec_map;
+
+	/* The records have been verified to have valid UIDs. Syncing keeps
+	   them valid, so this is preserved when the map is cloned. */
+	bool records_verified;
 };
 
 struct mail_index_module_register {

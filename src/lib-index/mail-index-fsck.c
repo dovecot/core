@@ -533,6 +533,9 @@ mail_index_map_verify_records(struct mail_index_map *map,
 	const struct mail_index_record *rec;
 	uint32_t seq, prev_uid = 0;
 
+	if (map->records_verified)
+		return TRUE;
+
 	for (seq = 1; seq <= map->hdr.messages_count; seq++) {
 		rec = MAIL_INDEX_REC_AT_SEQ(map, seq);
 		if (rec->uid <= prev_uid) {
@@ -549,6 +552,7 @@ mail_index_map_verify_records(struct mail_index_map *map,
 		}
 		prev_uid = rec->uid;
 	}
+	map->records_verified = TRUE;
 	return TRUE;
 }
 
