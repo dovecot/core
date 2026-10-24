@@ -287,7 +287,7 @@ static void passdb_sql_init(struct passdb_module *_module)
 		container_of(_module, struct sql_passdb_module, module);
 	enum sql_db_flags flags;
 
-	flags = sql_get_flags(module->db);
+	flags = sql_get_static_flags(module->db);
 	if (!module->module.blocking)
 		module->module.blocking = (flags & SQL_DB_FLAG_BLOCKING) != 0;
 

@@ -349,7 +349,7 @@ static void userdb_sql_init(struct userdb_module *_module)
 		container_of(_module, struct sql_userdb_module, module);
 	enum sql_db_flags flags;
 
-	flags = sql_get_flags(module->db);
+	flags = sql_get_static_flags(module->db);
 	if (!_module->blocking)
 		_module->blocking = (flags & SQL_DB_FLAG_BLOCKING) != 0;
 
