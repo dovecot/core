@@ -345,6 +345,10 @@ int lmtp_local_rcpt(struct lmtp_recipient *lrcpt)
 	lrcpt->type = LMTP_RECIPIENT_TYPE_LOCAL;
 	lrcpt->backend_context = llrcpt;
 
+	smtp_server_recipient_add_hook(
+		rcpt, SMTP_SERVER_RECIPIENT_HOOK_DESTROY,
+		lmtp_local_rcpt_destroy, llrcpt);
+
 	if (settings_get(mail_storage_service_user_get_event(service_user),
 			 &lda_setting_parser_info,
 			 0, &llrcpt->lda_set, &error) < 0) {
@@ -354,9 +358,6 @@ int lmtp_local_rcpt(struct lmtp_recipient *lrcpt)
 		return -1;
 	}
 
-	smtp_server_recipient_add_hook(
-		rcpt, SMTP_SERVER_RECIPIENT_HOOK_DESTROY,
-		lmtp_local_rcpt_destroy, llrcpt);
 	smtp_server_recipient_add_hook(
 		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
 		lmtp_local_rcpt_approved, llrcpt);
