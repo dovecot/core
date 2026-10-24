@@ -54,15 +54,16 @@ static int script_execute(struct event *event, bool wait, const char **error_r)
 		.no_reply = !wait,
 	};
 
-	struct welcome_client_list *wclient = i_new(struct welcome_client_list, 1);
-	int ret = program_client_create_auto(event, &params,
-					     &wclient->client, error_r);
+	struct program_client *client;
+	int ret = program_client_create_auto(event, &params, &client, error_r);
 	if (ret <= 0) {
 		/* if execute { .. } is missing, assume it's intentional and
 		   don't log an error. */
 		return ret;
 	}
 
+	struct welcome_client_list *wclient = i_new(struct welcome_client_list, 1);
+	wclient->client = client;
 	if (wait) {
 		enum program_client_exit_status ret =
 			program_client_run(wclient->client);
