@@ -1184,6 +1184,61 @@ static void test_settings_filter_array_append_only(void)
 	test_end();
 }
 
+static void test_settings_instance_dup_filter_array(void)
+{
+	test_begin("settings_instance_dup - filter array item without settings");
+
+	struct settings_root *root = settings_root_init();
+	struct settings_instance *instance = settings_instance_new(root);
+	settings_override(instance, "test2_fruit+", "item1 item2 item3",
+			  SETTINGS_OVERRIDE_TYPE_CODE);
+	settings_override(instance, "test2_fruit/item1/eat", "yes",
+			  SETTINGS_OVERRIDE_TYPE_CODE);
+
+	struct event *event = event_create(NULL);
+	event_set_ptr(event, SETTINGS_EVENT_ROOT, root);
+	event_set_ptr(event, SETTINGS_EVENT_INSTANCE, instance);
+
+	/* Generate the default overrides for the filter array items before
+	   duplicating the instance. */
+	struct test2_settings *set;
+	const char *error;
+	test_assert(settings_get(event, &test2_setting_parser_info, 0,
+				 &set, &error) == 0);
+	test_assert(array_count(&set->fruits) == 3);
+	settings_free(set);
+
+	struct settings_instance *dup = settings_instance_dup(instance);
+	settings_instance_free(&instance);
+	event_set_ptr(event, SETTINGS_EVENT_INSTANCE, dup);
+
+	test_assert(settings_get(event, &test2_setting_parser_info, 0,
+				 &set, &error) == 0);
+	test_assert(array_count(&set->fruits) == 3);
+	settings_free(set);
+
+	struct test2_fruit_settings *fruit_set;
+	test_assert(settings_get_filter(event, "test2_fruit", "item1",
+				&test2_fruit_setting_parser_info, 0,
+				&fruit_set, &error) == 0);
+	test_assert_strcmp(fruit_set->name, "item1");
+	test_assert(fruit_set->eat);
+	settings_free(fruit_set);
+
+	/* item2 has no settings other than the generated name */
+	test_assert(settings_try_get_filter(event, "test2_fruit", "item2",
+				&test2_fruit_setting_parser_info, 0,
+				&fruit_set, &error) == 1);
+	test_assert_strcmp(fruit_set->name, "item2");
+	test_assert(!fruit_set->eat);
+	settings_free(fruit_set);
+
+	event_unref(&event);
+	settings_instance_free(&dup);
+	settings_root_deinit(&root);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -1200,6 +1255,7 @@ int main(void)
 		test_settings_history_translate_key,
 		test_settings_override_rename,
 		test_settings_filter_array_append_only,
+		test_settings_instance_dup_filter_array,
 		NULL
 	};
 	return test_run(test_functions);

@@ -3560,6 +3560,9 @@ settings_instance_dup(const struct settings_instance *src)
 		dest_set->pool = dest->pool;
 		dest_set->type = src_set->type;
 		dest_set->append = src_set->append;
+		/* The generated default overrides were copied as well, so
+		   don't generate them again. */
+		dest_set->array_default_added = src_set->array_default_added;
 		dest_set->orig_key = p_strdup(dest->pool, src_set->orig_key);
 		dest_set->key = dest_set->orig_key;
 		dest_set->value = p_strdup(dest->pool, src_set->value);
