@@ -527,6 +527,11 @@ static void test_dns_lookup_cached(void)
 	int init_res;
 	const char *err;
 
+	if (test_is_quick()) {
+		/* waits over 10 seconds for the cache TTLs */
+		return;
+	}
+
 	test_begin("dns lookup (cached)");
 	create_dns_server(&test_server);
 	const struct dns_client_parameters params = {
