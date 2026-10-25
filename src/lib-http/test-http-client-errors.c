@@ -2360,12 +2360,17 @@ static void test_dns_timeout(void)
 	http_client_set.connect_timeout_msecs = 2000;
 	settings_root_override(set_root, "dns_client_socket_path",
 			       "./dns-test", SETTINGS_OVERRIDE_TYPE_CODE);
+	/* the default 10s DNS timeout just makes the test slow */
+	settings_root_override(set_root, "dns_client_timeout",
+			       "1s", SETTINGS_OVERRIDE_TYPE_CODE);
 
 	test_begin("dns timeout");
 	test_run_client_server(&http_client_set,
 			       test_client_dns_timeout, NULL, 0,
 			       test_dns_dns_timeout);
 	test_end();
+	settings_root_override_remove(set_root, "dns_client_timeout",
+				      SETTINGS_OVERRIDE_TYPE_CODE);
 }
 
 /*
