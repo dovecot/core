@@ -52,6 +52,9 @@ struct test_sasl {
 		   callback. */
 		bool require_cbind:1;
 	} gss;
+	/* Settings of the mechanism: name and value pairs, ended with NULL. The
+	   names are inside the client_auth/<mechanism> filter. */
+	const char *const *mech_settings;
 
 	bool failure:1;
 	bool no_cbind:1;
@@ -59,6 +62,11 @@ struct test_sasl {
 	bool expect_cbind:1;
 	/* The channel binding callback fails. */
 	bool cbind_callback_fails:1;
+	/* Give the client_auth settings to the session as a struct, like some
+	   users do, instead of letting it read them from the event. */
+	bool manual_set:1;
+	/* The client event has no settings root. Needs manual_set. */
+	bool no_settings_root:1;
 };
 
 struct test_sasl_context {
@@ -534,8 +542,17 @@ test_sasl_run_once(const struct test_sasl *test,
 	settings_root_override(set_root,
 		t_strdup_printf("client_auth/%s/mechanism", test->mech),
 		test->mech, SETTINGS_OVERRIDE_TYPE_CODE);
+	for (unsigned int i = 0; test->mech_settings != NULL &&
+				 test->mech_settings[i] != NULL; i += 2) {
+		settings_root_override(set_root,
+			t_strdup_printf("client_auth/%s/%s", test->mech,
+					test->mech_settings[i]),
+			test->mech_settings[i + 1],
+			SETTINGS_OVERRIDE_TYPE_CODE);
+	}
 	event = event_create(test_event);
-	event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
+	if (!test->no_settings_root)
+		event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
 
 	struct dsasl_client_parameters client_params = {
 		.protocol = "imap",
@@ -543,9 +560,24 @@ test_sasl_run_once(const struct test_sasl *test,
 		.server_mechanisms =
 			sasl_server_instance_mech_get_list(server_inst),
 	};
-	if (dsasl_client_session_create_auto(tctx.client, event,
-					     &client_params, &tctx.session,
-					     &error) < 0) {
+	const struct client_auth_settings manual_set = {
+		.mechanism = test->mech,
+		.authid = authid,
+		.authzid = authzid,
+		.password = password,
+	};
+	int ret;
+
+	if (test->manual_set) {
+		ret = dsasl_client_session_create(tctx.client, event,
+						  &client_params, &manual_set,
+						  &tctx.session, &error);
+	} else {
+		ret = dsasl_client_session_create_auto(tctx.client, event,
+						       &client_params,
+						       &tctx.session, &error);
+	}
+	if (ret < 0) {
 		if (test->client_error == NULL)
 			i_fatal("Failed to create SASL session: %s", error);
 		test_assert_strcmp(error, test->client_error);
@@ -724,6 +756,13 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 #  define GSS_CBIND_ERROR \
 	"Failed to get the TLS channel binding: " \
 	"Channel binding not available"
+#endif
+
+#ifdef HAVE_GSSAPI
+static const char *const gssapi_no_cbind_settings[] = {
+	"gssapi_channel_binding", "no",
+	NULL
+};
 #endif
 
 static const struct test_sasl success_tests[] = {
@@ -1052,6 +1091,86 @@ static const struct test_sasl success_tests[] = {
 		},
 		.cbind_callback_fails = TRUE,
 		.client_error = GSS_CBIND_ERROR,
+	},
+	/* The setting is read also when the settings are given as a struct */
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.manual_set = TRUE,
+		.mech_settings = gssapi_no_cbind_settings,
+		.cbind_callback_fails = TRUE,
+	},
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.manual_set = TRUE,
+		.cbind_callback_fails = TRUE,
+		.client_error = GSS_CBIND_ERROR,
+	},
+	/* Without a settings root the binding is sent by default */
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.manual_set = TRUE,
+		.no_settings_root = TRUE,
+		.expect_cbind = TRUE,
+	},
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.manual_set = TRUE,
+		.no_settings_root = TRUE,
+		.cbind_callback_fails = TRUE,
+		.client_error = GSS_CBIND_ERROR,
+	},
+	/* gssapi_channel_binding=no: no binding is sent with TLS, not even
+	   to be able to fail getting it */
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.mech_settings = gssapi_no_cbind_settings,
+	},
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.mech_settings = gssapi_no_cbind_settings,
+		.cbind_callback_fails = TRUE,
+	},
+	{
+		.mech = "GSS-SPNEGO",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.mech_settings = gssapi_no_cbind_settings,
+		.cbind_callback_fails = TRUE,
+		.client_error =
+			"Server sent unexpected data",
 	},
 	{
 		.mech = "GSS-SPNEGO",
@@ -1894,6 +2013,18 @@ static const struct test_sasl bad_creds_tests[] = {
 		},
 		.gss = { .require_cbind_data = "tls-server-end-point:wrong" },
 		.no_cbind = TRUE,
+		.failure = TRUE,
+	},
+	/* GSSAPI: required channel binding, but it's disabled */
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.gss = { .require_cbind_data = "tls-server-end-point:wrong" },
+		.mech_settings = gssapi_no_cbind_settings,
 		.failure = TRUE,
 	},
 	/* GSSAPI: required channel binding, but getting it fails */

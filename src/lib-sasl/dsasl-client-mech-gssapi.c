@@ -4,9 +4,11 @@
 #include "str.h"
 #include "str-sanitize.h"
 #include "buffer.h"
+#include "settings.h"
 #include "auth-gssapi.h"
 
 #include "dsasl-client-protected.h"
+#include "dsasl-client-gssapi-settings.h"
 
 /* Non-zero flags defined in RFC 2222 */
 enum sasl_gssapi_qop {
@@ -36,6 +38,8 @@ struct gssapi_sasl_session {
 	gss_ctx_id_t gss_ctx;
 	struct gss_channel_bindings_struct gss_cbind;
 	bool have_cbind;
+	/* Send the channel binding with TLS */
+	bool channel_binding;
 
 	buffer_t *out_buf;
 };
@@ -91,9 +95,34 @@ static void mech_gssapi_auth_free(struct dsasl_client_mech_session *msession)
 }
 
 static int
+mech_gssapi_read_settings(struct gssapi_sasl_session *gsession,
+			  const char **error_r)
+{
+	const struct dsasl_client_gssapi_settings *set;
+
+	/* Without a settings root there are no settings to read, e.g. when
+	   the caller gave the client_auth settings as a struct. */
+	if (settings_root_find(gsession->session.event) == NULL) {
+		set = dsasl_client_gssapi_setting_parser_info.defaults;
+		gsession->channel_binding = set->channel_binding;
+		return 0;
+	}
+	if (settings_get(gsession->session.event,
+			 &dsasl_client_gssapi_setting_parser_info, 0,
+			 &set, error_r) < 0)
+		return -1;
+	gsession->channel_binding = set->channel_binding;
+	settings_free(set);
+	return 0;
+}
+
+static int
 mech_gssapi_auth_check(struct dsasl_client_mech_session *msession,
 		       const char **error_r)
 {
+	struct gssapi_sasl_session *gsession =
+		container_of(msession, struct gssapi_sasl_session, session);
+
 	if (msession->params.protocol == NULL) {
 		*error_r = "protocol not set";
 		return -1;
@@ -109,7 +138,7 @@ mech_gssapi_auth_check(struct dsasl_client_mech_session *msession,
 		return -1;
 	}
 #endif
-	return 0;
+	return mech_gssapi_read_settings(gsession, error_r);
 }
 
 static void
@@ -166,6 +195,8 @@ mech_gssapi_init_channel_binding(struct gssapi_sasl_session *gsession,
 	const char *error;
 	unsigned char *app_data;
 
+	if (!gsession->channel_binding)
+		return 0;
 	/* Without TLS there is nothing to bind to. */
 	if (!dsasl_client_session_channel_binding_available(msession))
 		return 0;
