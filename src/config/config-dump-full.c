@@ -261,9 +261,19 @@ config_dump_full_write_cache_paths(struct ostream *output,
 		return;
 	}
 
-	num32 = array_count(config_parsed_get_paths(config));
+	/* The defaults pseudo path can't be stat()ed by the reader, which
+	   would see the cache as always out of date. The defaults change
+	   only when the binaries change, which the cache doesn't track for
+	   config files either. */
+	num32 = 0;
+	array_foreach(config_parsed_get_paths(config), path) {
+		if (strcmp(path->path, MASTER_SERVICE_BINARY_CONFIG_DEFAULTS) != 0)
+			num32++;
+	}
 	o_stream_nsend(output, &num32, sizeof(num32));
 	array_foreach(config_parsed_get_paths(config), path) {
+		if (strcmp(path->path, MASTER_SERVICE_BINARY_CONFIG_DEFAULTS) == 0)
+			continue;
 		o_stream_nsend(output, path->path, strlen(path->path) + 1);
 		uint64_t num64 = path->st.st_ino;
 		o_stream_nsend(output, &num64, sizeof(num64));
