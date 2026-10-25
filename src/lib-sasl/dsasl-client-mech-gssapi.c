@@ -53,6 +53,16 @@ static const gss_OID GSS_KRB5_CRED_NO_CI_FLAGS_X = &no_ci_flags_oid_desc;
 /* RFC 5056 section 2.1: channel bindings start with the type and a colon */
 #define GSSAPI_CBIND_PREFIX SSL_CHANNEL_BIND_TYPE_TLS_SERVER_END_POINT ":"
 
+static bool
+mech_gssapi_auth_is_finished(struct dsasl_client_mech_session *msession)
+{
+	struct gssapi_sasl_session *gsession =
+		container_of(msession, struct gssapi_sasl_session, session);
+
+	return gsession->state.gs1 == GSSAPI_GS1_CLIENT_STATE_WRAP ||
+		gsession->state.gs1 == GSSAPI_GS1_CLIENT_STATE_END;
+}
+
 static const struct dsasl_client_mech dsasl_client_mech_gssapi;
 static const struct dsasl_client_mech dsasl_client_mech_gss_spnego;
 
@@ -564,6 +574,7 @@ static const struct dsasl_client_mech dsasl_client_mech_gssapi = {
 	.auth_check = mech_gssapi_auth_check,
 	.auth_input = mech_gssapi_gs1_auth_input,
 	.auth_output = mech_gssapi_gs1_auth_output,
+	.auth_is_finished = mech_gssapi_auth_is_finished,
 };
 
 static const struct dsasl_client_mech dsasl_client_mech_gss_spnego = {
@@ -575,6 +586,7 @@ static const struct dsasl_client_mech dsasl_client_mech_gss_spnego = {
 	.auth_check = mech_gssapi_auth_check,
 	.auth_input = mech_gssapi_gs1_auth_input,
 	.auth_output = mech_gssapi_gs1_auth_output,
+	.auth_is_finished = mech_gssapi_auth_is_finished,
 };
 
 void dsasl_client_init_gssapi(struct dsasl_client *client)

@@ -10,6 +10,9 @@
 #include "auth-digest.h"
 #include "client-auth-settings.h"
 #include "dsasl-client.h"
+#ifdef HAVE_GSSAPI
+#  include "gssapi-dummy.h"
+#endif
 
 #include <unistd.h>
 
@@ -1034,6 +1037,61 @@ static void test_sasl_client_digest_md5_unexpected_input(void)
 }
 
 #ifdef HAVE_GSSAPI
+static void test_sasl_client_gss_spnego_is_finished(void)
+{
+	static const char *const set[] = {
+		"client_auth_mechanism=GSS-SPNEGO",
+		NULL
+	};
+	static const struct dsasl_client_parameters params = {
+		.protocol = "imap",
+		.host = "mail.example.com",
+	};
+	struct dsasl_client *client;
+	struct dsasl_client_session *session;
+	const char *error;
+
+	test_begin("sasl client is finished - GSS-SPNEGO");
+	client = dsasl_client_create(NULL);
+	dsasl_client_init_gssapi(client);
+	gss_dummy_kinit("user@EXAMPLE.COM");
+#ifndef HAVE_GSS_SET_CRED_OPTION
+	/* Pretend the library doesn't set the integrity and confidentiality
+	   flags. */
+	gss_dummy_set_ret_flags(0, GSS_C_INTEG_FLAG | GSS_C_CONF_FLAG);
+#endif
+
+	session = test_init_sasl_session_params(client, &params, set, &error);
+#ifdef HAVE_GSS_SET_NEG_MECHS
+	const unsigned char *output;
+	size_t olen;
+
+	i_assert(session != NULL);
+	/* the context is established with the first token */
+	test_assert(!dsasl_client_session_is_finished(session));
+	test_assert(dsasl_client_session_output(session, &output, &olen,
+						&error) ==
+		    DSASL_CLIENT_RESULT_OK);
+	test_assert(olen > 0);
+	test_assert(dsasl_client_session_is_finished(session));
+	/* there is no security layer negotiation */
+	test_assert(dsasl_client_session_input(session, output, olen,
+					       &error) ==
+		    DSASL_CLIENT_RESULT_ERR_PROTOCOL);
+	test_assert_strcmp(error,
+			   "Server sent unexpected data");
+	dsasl_client_session_destroy(&session);
+#else
+	test_assert(session == NULL);
+	test_assert_strcmp(error, "GSS-SPNEGO can't be restricted to Kerberos "
+		"(gss_set_neg_mechs() not available in the GSSAPI library)");
+#endif
+
+	gss_dummy_deinit();
+	dsasl_client_unref(&client);
+	test_end();
+}
+
 static void test_sasl_client_gssapi_no_password(void)
 {
 	static const char *const mechs[] = { "GSSAPI", "GSS-SPNEGO" };
@@ -1140,6 +1198,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		test_sasl_client_is_finished_unverified,
 		test_sasl_client_digest_md5_unexpected_input,
 #ifdef HAVE_GSSAPI
+		test_sasl_client_gss_spnego_is_finished,
 		test_sasl_client_gssapi_no_password,
 #endif
 		NULL
