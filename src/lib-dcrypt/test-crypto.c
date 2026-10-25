@@ -2338,7 +2338,7 @@ static void test_static_verify_ed448(void)
 	test_end();
 }
 
-#ifndef LIBRESSL_VERSION_NUMBER
+#ifdef SN_ED448
 static void test_sign_verify_ed448(void)
 {
 	const char *error = NULL;
