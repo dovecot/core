@@ -52,6 +52,12 @@ bool test_has_failed(void)
 	return !test_success;
 }
 
+bool test_is_quick(void)
+{
+	const char *value = getenv("DOVECOT_TEST_QUICK");
+	return value != NULL && value[0] != '\0';
+}
+
 void test_assert_failed(const char *code, const char *file, unsigned int line)
 {
 	printf("%s:%u: Assert failed: %s\n", file, line, code);

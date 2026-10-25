@@ -132,6 +132,9 @@ void test_assert_failed_ucmp_intmax_idx(const char *code, const char *file,
 					const char *op, long long i)
 	ATTR_STATIC_CHECKER_NORETURN;
 bool test_has_failed(void);
+/* Returns TRUE if DOVECOT_TEST_QUICK environment is set to a non-empty value.
+   Slow tests can then be skipped or made smaller. */
+bool test_is_quick(void);
 /* If you're testing nasty cases which you want to warn, surround the noisy op with these */
 void test_expect_errors(unsigned int expected);
 void test_expect_error_string(const char *substr); /* expect just 1 message matching the printf format */
