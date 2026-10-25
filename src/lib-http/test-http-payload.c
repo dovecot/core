@@ -2072,8 +2072,11 @@ static void test_echo_server_nonblocking_sync(void)
 	tset.request_100_continue = TRUE;
 	tset.server_payload_handling = PAYLOAD_HANDLING_LOW_LEVEL;
 	test_run_sequential(test_client_echo);
-	test_run_pipeline(test_client_echo);
-	test_run_parallel(test_client_echo);
+	if (!test_is_quick()) {
+		/* each run waits for the 100-continue timeout */
+		test_run_pipeline(test_client_echo);
+		test_run_parallel(test_client_echo);
+	}
 	test_end();
 
 	test_begin("http payload echo "
@@ -2082,8 +2085,11 @@ static void test_echo_server_nonblocking_sync(void)
 	tset.request_100_continue = TRUE;
 	tset.server_payload_handling = PAYLOAD_HANDLING_HANDLER;
 	test_run_sequential(test_client_echo);
-	test_run_pipeline(test_client_echo);
-	test_run_parallel(test_client_echo);
+	if (!test_is_quick()) {
+		/* each run waits for the 100-continue timeout */
+		test_run_pipeline(test_client_echo);
+		test_run_parallel(test_client_echo);
+	}
 	test_end();
 
 	test_begin("http payload echo "
