@@ -105,10 +105,15 @@ test_run_client_server(struct smtp_server_settings *server_set,
 
 /* client */
 
-static void test_slow_server_input(struct client_connection *conn ATTR_UNUSED)
+static void test_slow_server_input(struct client_connection *conn)
 {
-	/* do nothing */
-	sleep(10);
+	struct istream *input = conn->conn.input;
+
+	/* ignore the replies */
+	while (i_stream_read(input) > 0)
+		i_stream_skip(input, i_stream_get_data_size(input));
+	if (input->eof)
+		io_loop_stop(ioloop);
 }
 
 static void test_slow_server_connected(struct client_connection *conn)
