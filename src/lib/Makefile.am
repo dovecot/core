@@ -555,6 +555,7 @@ test_lib_SOURCES = \
 	test-mempool.c \
 	test-mempool-allocfree.c \
 	test-mempool-alloconly.c \
+	test-module-dir.c \
 	test-pkcs5.c \
 	test-net.c \
 	test-numpack.c \

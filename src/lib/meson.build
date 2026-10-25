@@ -590,6 +590,7 @@ tester_sources = [
   'test-mempool-allocfree.c',
   'test-mempool-alloconly.c',
   'test-mempool.c',
+  'test-module-dir.c',
   'test-multiplex.c',
   'test-net.c',
   'test-numpack.c',

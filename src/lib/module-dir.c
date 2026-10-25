@@ -371,7 +371,7 @@ module_dir_load_real(struct module **_modules,
 {
 	DIR *dirp;
 	struct dirent *d;
-	const char *name, *p, *error, *const *names_p;
+	const char *name, *p, *error, *load_error = NULL, *const *names_p;
 	struct module *modules, *module, **module_pos, *old_modules = *_modules;
 	unsigned int i, count;
 	ARRAY_TYPE(const_string) names;
@@ -451,8 +451,9 @@ module_dir_load_real(struct module **_modules,
 			if (ret >= 0)
 				;
 			else if (module_names != NULL) {
-				*error_r = t_strdup_printf("Couldn't load required plugin %s: %s",
-							   path, error);
+				load_error = t_strdup_printf(
+					"Couldn't load required plugin %s: %s",
+					path, error);
 				i = count;
 			} else {
 				i_error("Couldn't load plugin %s: %s", path, error);
@@ -463,8 +464,10 @@ module_dir_load_real(struct module **_modules,
 			*module_pos = module;
 			module_pos = &module->next;
 		}
-	} T_END;
+	} T_END_PASS_STR_IF(load_error != NULL, &load_error);
 	pool_unref(&pool);
+	if (load_error != NULL)
+		*error_r = load_error;
 
 	if (module_names != NULL && *error_r == NULL && !set->ignore_missing) {
 		/* make sure all modules were found */
