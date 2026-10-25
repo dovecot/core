@@ -183,7 +183,6 @@ gss_init_sec_context(OM_uint32 *minor_status,
 	struct gss_ctx_id_struct *ctx;
 
 	i_assert(time_req == 0); // Not implemented
-	i_assert(time_req == 0); // Not implemented
 	i_assert(time_rec == NULL); // Not implemented
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"gss_ctx_id", 256);
