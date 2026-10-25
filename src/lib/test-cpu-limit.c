@@ -139,6 +139,12 @@ static void test_cpu_limit_nested(enum cpu_limit_type type, const char *type_str
 
 static void test_cpu_limit(void)
 {
+	if (test_is_quick()) {
+		/* These tests take over a minute to run. Run only a
+		   single sanity check unless the full test run is wanted. */
+		test_cpu_limit_simple(CPU_LIMIT_TYPE_ALL, "all");
+		return;
+	}
 	test_cpu_limit_simple(CPU_LIMIT_TYPE_USER, "user");
 	/* the system cpu-limit tests take too long with valgrind */
 	if (!ON_VALGRIND)
