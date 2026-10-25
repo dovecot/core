@@ -35,8 +35,8 @@ const gss_OID GSS_KRB5_NT_PRINCIPAL_NAME = &GSS_KRB5_NT_PRINCIPAL_NAME_DESC;
 
 static void gss_alloc_buffer(gss_buffer_t buffer, size_t length);
 
-char *client_principal = NULL;
-char *server_principal = NULL;
+static char *client_principal = NULL;
+static char *server_principal = NULL;
 
 void gss_dummy_kinit(const char *principal)
 {
