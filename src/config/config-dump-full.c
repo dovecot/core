@@ -944,10 +944,15 @@ int config_dump_full(struct config_parsed *config,
 		str_append_c(path, '.');
 		break;
 	}
-	case CONFIG_DUMP_FULL_DEST_TEMPDIR:
-		/* create an unlinked file to /tmp */
-		str_append(path, "/tmp/doveconf.");
+	case CONFIG_DUMP_FULL_DEST_TEMPDIR: {
+		/* Create an unlinked file to /tmp. If the binary config cache
+		   is written, create the file to the cache directory instead,
+		   so it can be renamed there. */
+		const char *cache_dir = config_get_cache_dir(flags);
+		str_append(path, cache_dir != NULL ? cache_dir : "/tmp");
+		str_append(path, "/doveconf.");
 		break;
+	}
 	case CONFIG_DUMP_FULL_DEST_STDOUT:
 		dump_ctx.output = o_stream_create_fd(STDOUT_FILENO, IO_BLOCK_SIZE);
 		o_stream_set_name(dump_ctx.output, "<stdout>");
