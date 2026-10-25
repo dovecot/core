@@ -132,7 +132,8 @@ test_istream_base64_io_random(void)
 	unsigned char in_buf[2048];
 	size_t in_buf_size;
 	buffer_t *out_buf;
-	unsigned int i, j, loop_count = ON_VALGRIND ? 100 : 4000;
+	unsigned int i, j, loop_count =
+		ON_VALGRIND || test_is_quick() ? 100 : 4000;
 	int ret;
 
 	out_buf = t_buffer_create(sizeof(in_buf));

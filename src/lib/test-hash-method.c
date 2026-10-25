@@ -524,6 +524,6 @@ void test_hash_method(void)
 {
 	test_hash_method_boundary();
 	test_hash_methods_fips();
-	if (!ON_VALGRIND)
+	if (!ON_VALGRIND && !test_is_quick())
 		test_hash_methods_large();
 }

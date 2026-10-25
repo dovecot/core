@@ -1306,7 +1306,7 @@ static void test_base64_encode_lines(void)
 
 void test_base64(void)
 {
-	loop_count = ON_VALGRIND ? 100 : 1000;
+	loop_count = ON_VALGRIND || test_is_quick() ? 100 : 1000;
 	test_base64_encode();
 	test_base64_decode();
 	test_base64_random();
