@@ -1189,6 +1189,7 @@ int config_dump_full(struct config_parsed *config,
 		if (rename(str_c(path), final_path) < 0) {
 			i_error("rename(%s, %s) failed: %m",
 				str_c(path), final_path);
+			i_unlink(str_c(path));
 			/* the fd is still readable, so don't return failure */
 		}
 	}
