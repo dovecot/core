@@ -214,15 +214,19 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
 	enum mail_index_sync_flags sync_flags;
+	int ret;
 
 	sync_flags = index_storage_get_sync_flags(&mbox->box);
 	/* don't drop recent messages if we're saving messages */
 	if (maildir_sync_ctx == NULL)
 		sync_flags &= ENUM_NEGATE(MAIL_INDEX_SYNC_FLAG_DROP_RECENT);
 
-	if (index_storage_expunged_sync_begin(_box, &sync_ctx, &view,
-					      &trans, sync_flags) < 0)
-		return -1;
+	ret = index_storage_expunged_sync_begin(_box, &sync_ctx, &view,
+						&trans, sync_flags);
+	if (ret <= 0) {
+		*ctx_r = NULL;
+		return ret;
+	}
 
 	ctx = i_new(struct maildir_index_sync_context, 1);
 	ctx->mbox = mbox;
@@ -238,7 +242,7 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 	ctx->start_time = time(NULL);
 
 	*ctx_r = ctx;
-	return 0;
+	return 1;
 }
 
 static bool

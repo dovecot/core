@@ -743,6 +743,10 @@ maildir_save_sync_index(struct maildir_save_context *ctx)
 
 	if (maildir_sync_index_begin(mbox, NULL, &ctx->sync_ctx) < 0)
 		return -1;
+	if (ctx->sync_ctx == NULL) {
+		mailbox_set_index_error(&mbox->box);
+		return -1;
+	}
 	ctx->keywords_sync_ctx =
 		maildir_sync_get_keywords_sync_ctx(ctx->sync_ctx);
 

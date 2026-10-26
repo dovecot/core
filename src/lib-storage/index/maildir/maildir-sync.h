@@ -27,6 +27,8 @@ int maildir_storage_sync_force(struct maildir_mailbox *mbox, uint32_t uid);
 
 int maildir_sync_header_refresh(struct maildir_mailbox *mbox);
 
+/* Returns 1 if ok, 0 if the index is read-only (*ctx_r is set to NULL),
+   -1 if error */
 int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 			     struct maildir_sync_context *maildir_sync_ctx,
 			     struct maildir_index_sync_context **ctx_r)
