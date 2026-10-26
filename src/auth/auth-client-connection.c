@@ -10,6 +10,7 @@
 #include "str-sanitize.h"
 #include "randgen.h"
 #include "master-service.h"
+#include "auth-secrets.h"
 #include "auth-sasl.h"
 #include "auth-request-handler.h"
 #include "auth-client-interface.h"
@@ -26,35 +27,6 @@ static void auth_client_connection_unref(struct auth_client_connection **_conn);
 
 static struct connection_list *auth_client_connections = NULL;
 
-static const char *reply_line_hide_pass(const char *line)
-{
-	string_t *newline;
-	const char *p, *p2;
-
-	if (strstr(line, "pass") == NULL)
-		return line;
-
-	newline = t_str_new(strlen(line));
-
-	const char *const *fields = t_strsplit_tabescaped(line);
-
-	while(*fields != NULL) {
-		p = strstr(*fields, "pass");
-		p2 = strchr(*fields, '=');
-		if (p == NULL || p2 == NULL || p2 < p) {
-			str_append_tabescaped(newline, *fields);
-		} else {
-			/* include = */
-			str_append_data(newline, *fields, (p2 - *fields)+1);
-			str_append(newline, PASSWORD_HIDDEN_STR);
-		}
-		str_append_c(newline, '\t');
-		fields++;
-	}
-
-	return str_c(newline);
-}
-
 static void auth_client_send(struct auth_client_connection *conn,
 			     const char *cmd)
 {
@@ -68,7 +40,7 @@ static void auth_client_send(struct auth_client_connection *conn,
 
 	e_debug(conn->conn.event, "client passdb out: %s",
 		conn->auth->protocol_set->debug_passwords ?
-		cmd : reply_line_hide_pass(cmd));
+		cmd : auth_field_line_hide_secrets(cmd));
 }
 
 static void auth_callback(const char *reply,
