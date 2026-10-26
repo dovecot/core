@@ -763,10 +763,14 @@ test_client_denied_second_rcpt(const struct smtp_submit_settings *submit_set)
 	smtp_submit_set.submission_timeout = 1000;
 
 	test_smtp_submit_input_init(&smtp_input);
-	smtp_submit = smtp_submit_init_simple(
+	ret = smtp_submit_init_simple(
 		&smtp_input, &smtp_submit_set, &((struct smtp_address){
 			.localpart = "sender",
-			.domain = "example.com"}));
+			.domain = "example.com"}),
+		&smtp_submit, &error);
+	test_out_reason_quiet("init (ret == 0)", ret == 0, error);
+	if (test_has_failed())
+		return FALSE;
 
 	smtp_submit_add_rcpt(smtp_submit, &((struct smtp_address){
 			.localpart = "rcpt",
@@ -1481,6 +1485,8 @@ test_client_parallel_delivery(const struct smtp_submit_settings *submit_set)
 	struct smtp_submit *smtp_submit1, *smtp_submit2;
 	struct ostream *output;
 	struct ioloop *ioloop;
+	const char *error;
+	int ret;
 
 	ioloop = io_loop_create();
 
@@ -1494,10 +1500,17 @@ test_client_parallel_delivery(const struct smtp_submit_settings *submit_set)
 	test_smtp_submit_input_init(&smtp_input);
 	smtp_submit_set.submission_host =
 		t_strdup_printf("127.0.0.1:%u",  bind_ports[0]);
-	smtp_submit1 = smtp_submit_init_simple(
+	ret = smtp_submit_init_simple(
 		&smtp_input, &smtp_submit_set, &((struct smtp_address){
 			.localpart = "sender",
-			.domain = "example.com"}));
+			.domain = "example.com"}),
+		&smtp_submit1, &error);
+	test_out_reason_quiet("init1 (ret == 0)", ret == 0, error);
+	if (test_has_failed()) {
+		i_free(ctx);
+		io_loop_destroy(&ioloop);
+		return FALSE;
+	}
 
 	smtp_submit_add_rcpt(
 		smtp_submit1, &((struct smtp_address){
@@ -1513,10 +1526,18 @@ test_client_parallel_delivery(const struct smtp_submit_settings *submit_set)
 	test_smtp_submit_input_init(&smtp_input);
 	smtp_submit_set.submission_host =
 		t_strdup_printf("127.0.0.1:%u",  bind_ports[1]);
-	smtp_submit2 = smtp_submit_init_simple(
+	ret = smtp_submit_init_simple(
 		&smtp_input, &smtp_submit_set, &((struct smtp_address){
 			.localpart = "sender",
-			.domain = "example.com"}));
+			.domain = "example.com"}),
+		&smtp_submit2, &error);
+	test_out_reason_quiet("init2 (ret == 0)", ret == 0, error);
+	if (test_has_failed()) {
+		smtp_submit_deinit(&smtp_submit1);
+		i_free(ctx);
+		io_loop_destroy(&ioloop);
+		return FALSE;
+	}
 
 	smtp_submit_add_rcpt(
 		smtp_submit2, &((struct smtp_address){
@@ -1594,10 +1615,14 @@ test_client_failed_sendmail(const struct smtp_submit_settings *submit_set)
 	smtp_submit_set.submission_timeout = 5;
 
 	test_smtp_submit_input_init(&smtp_input);
-	smtp_submit = smtp_submit_init_simple(
+	ret = smtp_submit_init_simple(
 		&smtp_input, &smtp_submit_set, &((struct smtp_address){
 			.localpart = "sender",
-			.domain = "example.com"}));
+			.domain = "example.com"}),
+		&smtp_submit, &error);
+	test_out_reason_quiet("init (ret == 0)", ret == 0, error);
+	if (test_has_failed())
+		return FALSE;
 
 	smtp_submit_add_rcpt(smtp_submit, &((struct smtp_address){
 		.localpart = "rcpt",
@@ -1654,10 +1679,14 @@ test_client_successful_sendmail(const struct smtp_submit_settings *submit_set)
 	smtp_submit_set.submission_timeout = 5;
 
 	test_smtp_submit_input_init(&smtp_input);
-	smtp_submit = smtp_submit_init_simple(
+	ret = smtp_submit_init_simple(
 		&smtp_input, &smtp_submit_set, &((struct smtp_address){
 			.localpart = "sender",
-			.domain = "example.com"}));
+			.domain = "example.com"}),
+		&smtp_submit, &error);
+	test_out_reason_quiet("init (ret == 0)", ret == 0, error);
+	if (test_has_failed())
+		return FALSE;
 
 	smtp_submit_add_rcpt(smtp_submit, &((struct smtp_address){
 			.localpart = "rcpt",
@@ -1723,6 +1752,8 @@ test_client_parallel_sendmail(const struct smtp_submit_settings *submit_set)
 	const char *sendmail_path1, *sendmail_path2;
 	const char *msg_path1, *msg_path2;
 	struct ioloop *ioloop;
+	const char *error;
+	int ret;
 
 	ctx = i_new(struct _parallel_sendmail_client, 1);
 	ctx->count = 2;
@@ -1743,10 +1774,17 @@ test_client_parallel_sendmail(const struct smtp_submit_settings *submit_set)
 	/* submit 1 */
 	test_smtp_submit_input_init(&smtp_input);
 	smtp_submit_set.sendmail_path = sendmail_path1;
-	smtp_submit1 = smtp_submit_init_simple(
+	ret = smtp_submit_init_simple(
 		&smtp_input, &smtp_submit_set, &((struct smtp_address){
 			.localpart = "sender",
-			.domain = "example.com"}));
+			.domain = "example.com"}),
+		&smtp_submit1, &error);
+	test_out_reason_quiet("init1 (ret == 0)", ret == 0, error);
+	if (test_has_failed()) {
+		i_free(ctx);
+		io_loop_destroy(&ioloop);
+		return FALSE;
+	}
 
 	smtp_submit_add_rcpt(
 		smtp_submit1, &((struct smtp_address){
@@ -1761,10 +1799,18 @@ test_client_parallel_sendmail(const struct smtp_submit_settings *submit_set)
 	/* submit 2 */
 	test_smtp_submit_input_init(&smtp_input);
 	smtp_submit_set.sendmail_path = sendmail_path2;
-	smtp_submit2 = smtp_submit_init_simple(
+	ret = smtp_submit_init_simple(
 		&smtp_input, &smtp_submit_set, &((struct smtp_address){
 			.localpart = "sender",
-			.domain = "example.com"}));
+			.domain = "example.com"}),
+		&smtp_submit2, &error);
+	test_out_reason_quiet("init2 (ret == 0)", ret == 0, error);
+	if (test_has_failed()) {
+		smtp_submit_deinit(&smtp_submit1);
+		i_free(ctx);
+		io_loop_destroy(&ioloop);
+		return FALSE;
+	}
 
 	smtp_submit_add_rcpt(
 		smtp_submit2, &((struct smtp_address){
@@ -1864,10 +1910,13 @@ test_client_smtp_send_simple(const struct smtp_submit_settings *smtp_set,
 	struct smtp_submit_input smtp_input = {
 		.event_parent = client_event,
 	};
-	smtp_submit = smtp_submit_init_simple(
+	ret = smtp_submit_init_simple(
 		&smtp_input, &smtp_submit_set, &((struct smtp_address){
 			.localpart = "sender",
-			.domain = "example.com"}));
+			.domain = "example.com"}),
+		&smtp_submit, error_r);
+	if (ret < 0)
+		return -1;
 
 	smtp_submit_add_rcpt(
 		smtp_submit, &((struct smtp_address){

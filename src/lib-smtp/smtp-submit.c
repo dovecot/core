@@ -61,9 +61,10 @@ struct smtp_submit {
 	bool simple:1;
 };
 
-struct smtp_submit_session *
-smtp_submit_session_init(const struct smtp_submit_input *input,
-			 const struct smtp_submit_settings *set)
+int smtp_submit_session_init(const struct smtp_submit_input *input,
+			     const struct smtp_submit_settings *set,
+			     struct smtp_submit_session **session_r,
+			     const char **error_r ATTR_UNUSED)
 {
 	struct smtp_submit_session *session;
 	pool_t pool;
@@ -86,7 +87,8 @@ smtp_submit_session_init(const struct smtp_submit_input *input,
 	event_set_forced_debug(session->event, set->mail_debug);
 	event_add_category(session->event, &event_category_smtp_submit);
 
-	return session;
+	*session_r = session;
+	return 0;
 }
 
 void smtp_submit_session_deinit(struct smtp_submit_session **_session)
@@ -132,18 +134,25 @@ smtp_submit_init(struct smtp_submit_session *session,
 	return subm;
 }
 
-struct smtp_submit *
-smtp_submit_init_simple(const struct smtp_submit_input *input,
-			const struct smtp_submit_settings *set,
-			const struct smtp_address *mail_from)
+int smtp_submit_init_simple(const struct smtp_submit_input *input,
+			    const struct smtp_submit_settings *set,
+			    const struct smtp_address *mail_from,
+			    struct smtp_submit **subm_r,
+			    const char **error_r)
 {
 	struct smtp_submit_session *session;
 	struct smtp_submit *subm;
 
-	session = smtp_submit_session_init(input, set);
+	*subm_r = NULL;
+	*error_r = NULL;
+
+	if (smtp_submit_session_init(input, set, &session, error_r) < 0)
+		return -1;
 	subm = smtp_submit_init(session, mail_from);
 	subm->simple = TRUE;
-	return subm;
+
+	*subm_r = subm;
+	return 0;
 }
 
 void smtp_submit_deinit(struct smtp_submit **_subm)

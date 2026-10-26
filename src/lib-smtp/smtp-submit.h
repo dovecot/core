@@ -29,18 +29,20 @@ smtp_submit_callback_t(const struct smtp_submit_result *result,
 
 /* Use submit session to reuse resources (e.g. SMTP connections) between
    submissions (FIXME: actually implement this) */
-struct smtp_submit_session *
-smtp_submit_session_init(const struct smtp_submit_input *input,
-			 const struct smtp_submit_settings *set);
+int smtp_submit_session_init(const struct smtp_submit_input *input,
+			     const struct smtp_submit_settings *set,
+			     struct smtp_submit_session **session_r,
+			     const char **error_r);
 void smtp_submit_session_deinit(struct smtp_submit_session **_session);
 
 struct smtp_submit *
 smtp_submit_init(struct smtp_submit_session *session,
 		 const struct smtp_address *mail_from);
-struct smtp_submit *
-smtp_submit_init_simple(const struct smtp_submit_input *input,
-			const struct smtp_submit_settings *set,
-			const struct smtp_address *mail_from);
+int smtp_submit_init_simple(const struct smtp_submit_input *input,
+			    const struct smtp_submit_settings *set,
+			    const struct smtp_address *mail_from,
+			    struct smtp_submit **subm_r,
+			    const char **error_r);
 void smtp_submit_deinit(struct smtp_submit **_submit);
 
 /* Add a new recipient */

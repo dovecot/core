@@ -99,7 +99,14 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 	};
 
 	i_zero(&smtp_input);
-	smtp_submit = smtp_submit_init_simple(&smtp_input, ctx->smtp_set, NULL);
+	if (smtp_submit_init_simple(&smtp_input, ctx->smtp_set, NULL,
+				    &smtp_submit, &error) < 0) {
+		e_error(ctx->event,
+			"msgid=%s: Failed to send rejection: %s",
+			orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
+			error);
+		return -1;
+	}
 	smtp_submit_add_rcpt(smtp_submit, return_addr);
 	output = smtp_submit_send(smtp_submit);
 
