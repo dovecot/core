@@ -3,6 +3,7 @@
 #include "login-common.h"
 #include "str.h"
 #include "strescape.h"
+#include "str-sanitize.h"
 #include "base64.h"
 #include "net.h"
 #include "ioloop.h"
@@ -69,8 +70,12 @@ static void imap_urlauth_client_handle_input(struct client *client)
 	args = t_strsplit_tabescaped(line);
 	if (str_array_length(args) < AUTH_ARG_COUNT ||
 	    strcmp(args[0], "AUTH") != 0 || str_to_pid(args[2], &pid) < 0) {
+		/* the line contains the auth token, so don't log it */
 		e_error(client->event,
-			"IMAP URLAUTH client sent unexpected AUTH input: %s", line);
+			"IMAP URLAUTH client sent unexpected AUTH input: "
+			"command=%s, %u fields",
+			args[0] == NULL ? "" : str_sanitize(args[0], 20),
+			str_array_length(args));
 		client_destroy(client, "Unexpected input");
 		return;
 	}
