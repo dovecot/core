@@ -657,6 +657,54 @@ static void test_mailbox_list_mbox(void)
 	test_end();
 }
 
+static void test_mailbox_invalid_utf8_name(void)
+{
+	struct test_mail_storage_ctx *ctx = test_mail_storage_init();
+	struct test_mail_storage_settings set = {
+		.driver = "maildir",
+		.hierarchy_sep = ".",
+	};
+	struct mail_namespace *ns;
+
+	test_begin("mailbox lookups with invalid UTF-8 name");
+	test_mail_storage_init_user(ctx, &set);
+
+	ns = mail_namespace_find(ctx->user->namespaces, "foo\xff");
+	test_assert(ns != NULL);
+	test_assert(ns == mail_namespace_find_inbox(ctx->user->namespaces));
+
+	/* "foo\xff" must not alias the existing "foo\xEF\xBF\xBD" */
+	struct mailbox *real = mailbox_alloc(ns->list, "foo\xEF\xBF\xBD", 0);
+	struct mailbox *box = mailbox_alloc(ns->list, "foo\xff", 0);
+	struct mailbox *other = mailbox_alloc(ns->list, "other", 0);
+	enum mailbox_existence existence;
+	enum mail_error error_code;
+
+	test_assert_cmp(mailbox_create(real, NULL, FALSE), ==, 0);
+
+	test_assert_cmp(mailbox_open(box), <, 0);
+	(void)mailbox_get_last_error(box, &error_code);
+	test_assert_cmp(error_code, ==, MAIL_ERROR_PARAMS);
+	test_assert_cmp(mailbox_create(box, NULL, FALSE), <, 0);
+	(void)mailbox_get_last_error(box, &error_code);
+	test_assert_cmp(error_code, ==, MAIL_ERROR_PARAMS);
+	test_assert_cmp(mailbox_exists(box, FALSE, &existence), <, 0);
+	test_assert_cmp(mailbox_rename(real, box), <, 0);
+	test_assert_cmp(mailbox_rename(box, other), <, 0);
+
+	test_assert_cmp(mailbox_exists(real, FALSE, &existence), ==, 0);
+	test_assert_cmp(existence, ==, MAILBOX_EXISTENCE_SELECT);
+	test_assert_cmp(mailbox_exists(other, FALSE, &existence), ==, 0);
+	test_assert_cmp(existence, ==, MAILBOX_EXISTENCE_NONE);
+	mailbox_free(&other);
+	mailbox_free(&box);
+	mailbox_free(&real);
+
+	test_mail_storage_deinit_user(ctx);
+	test_mail_storage_deinit(&ctx);
+	test_end();
+}
+
 static void test_mail_parse_human_timestamp(void)
 {
 	int ret;
@@ -737,6 +785,7 @@ int main(int argc, char **argv)
 		test_mailbox_verify_name,
 		test_mailbox_list_maildir,
 		test_mailbox_list_mbox,
+		test_mailbox_invalid_utf8_name,
 		test_mail_parse_human_timestamp,
 		test_mail_parse_human_timestamp_time_interval,
 		test_mail_parse_human_timestamp_fail,

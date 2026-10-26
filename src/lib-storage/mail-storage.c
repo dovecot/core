@@ -42,6 +42,7 @@
 
 #define MAILBOX_DELETE_RETRY_SECS 30
 #define MAILBOX_MAX_HIERARCHY_NAME_LENGTH 255
+#define MAILBOX_NAME_INVALID_UTF8_ERROR "Mailbox name is not valid UTF-8"
 
 extern struct mail_search_register *mail_search_register_imap4rev2;
 extern struct mail_search_register *mail_search_register_imap4rev1;
@@ -1104,6 +1105,17 @@ int mailbox_name_try_get_settings(struct mailbox_list *list, const char *vname,
 	return 1;
 }
 
+static const char *mailbox_name_get_valid_utf8(const char *vname)
+{
+	buffer_t *buf = t_buffer_create(strlen(vname) + 1);
+
+	if (uni_utf8_get_valid_data((const unsigned char *)vname,
+				    strlen(vname), buf))
+		return vname;
+	buffer_append_c(buf, '\0');
+	return buf->data;
+}
+
 struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 			      enum mailbox_flags flags)
 {
@@ -1141,12 +1153,24 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 	T_BEGIN {
 		const char *vname_raw = vname;
 		bool mailbox_name_changed_by_nfc = FALSE;
+		bool vname_invalid_utf8 = FALSE;
 
 		if (nfc && HAS_NO_BITS(flags, MAILBOX_FLAG_RAW_NAME)) {
-			ret = uni_utf8_to_nfc(vname, strlen(vname), &vname);
-			i_assert(ret >= 0);
-			mailbox_name_changed_by_nfc =
-				(strcmp(vname_raw, vname) != 0);
+			const char *nfc_vname;
+
+			ret = uni_utf8_to_nfc(vname, strlen(vname), &nfc_vname);
+			if (ret < 0) {
+				/* Fail the mailbox opening. Replace the
+				   invalid UTF-8 for the rest of the allocation. */
+				open_error = MAIL_ERROR_PARAMS;
+				errstr = MAILBOX_NAME_INVALID_UTF8_ERROR;
+				vname_invalid_utf8 = TRUE;
+				vname = mailbox_name_get_valid_utf8(vname);
+			} else {
+				vname = nfc_vname;
+				mailbox_name_changed_by_nfc =
+					(strcmp(vname_raw, vname) != 0);
+			}
 		}
 
 		const char *error, *orig_vname = vname;
@@ -1167,10 +1191,20 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 
 			vname_raw = orig_vname;
 			if (nfc && HAS_NO_BITS(flags, MAILBOX_FLAG_RAW_NAME)) {
-				ret = uni_utf8_to_nfc(vname, strlen(vname), &vname);
-				i_assert(ret >= 0);
-				mailbox_name_changed_by_nfc =
-					(strcmp(vname_raw, vname) != 0);
+				const char *nfc_vname;
+
+				ret = uni_utf8_to_nfc(vname, strlen(vname),
+						      &nfc_vname);
+				if (ret < 0) {
+					open_error = MAIL_ERROR_PARAMS;
+					errstr = MAILBOX_NAME_INVALID_UTF8_ERROR;
+					vname_invalid_utf8 = TRUE;
+					vname = mailbox_name_get_valid_utf8(vname);
+				} else {
+					vname = nfc_vname;
+					mailbox_name_changed_by_nfc =
+						(strcmp(vname_raw, vname) != 0);
+				}
 			}
 		}
 
@@ -1212,6 +1246,7 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 			box->vname_raw = p_strdup(box->pool, vname_raw);
 		box->mailbox_not_original = mailbox_not_original;
 		box->mailbox_name_changed_by_nfc = mailbox_name_changed_by_nfc;
+		box->vname_invalid_utf8 = vname_invalid_utf8;
 		rate_limit_init(&box->notify_rate_limit,
 				&mailbox_notify_rate_limit_set);
 		hook_mailbox_allocated(box);
@@ -1517,7 +1552,10 @@ mailbox_vname_normalize_ns_prefix_nfc(struct mailbox_list *list,
 	int ret;
 
 	ret = uni_utf8_write_nfc(*vname, p - *vname, str);
-	i_assert(ret >= 0);
+	if (ret < 0) {
+		/* invalid UTF-8 can't be normalized, keep the name as-is */
+		return;
+	}
 	str_append(str, p);
 
 	*vname = str_c(str);
@@ -1680,12 +1718,24 @@ mailbox_verify_name_prefix(struct mail_namespace *ns, const char **vnamep,
 	return TRUE;
 }
 
+static void mailbox_set_invalid_utf8_error(struct mailbox *box)
+{
+	mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
+			       MAILBOX_NAME_INVALID_UTF8_ERROR);
+}
+
 static int mailbox_verify_name_int(struct mailbox *box)
 {
 	struct mail_namespace *ns = box->list->ns;
 	const char *error, *vname = box->vname;
 	char list_sep, ns_sep;
 
+	if (box->vname_invalid_utf8) {
+		/* vname has the invalid bytes replaced, so it would refer to
+		   a different mailbox than the one that was requested. */
+		mailbox_set_invalid_utf8_error(box);
+		return -1;
+	}
 	if (box->inbox_user) {
 		/* this is INBOX - don't bother with further checks */
 		return 0;
@@ -1855,8 +1905,8 @@ int mailbox_verify_create_name(struct mailbox *box)
 {
 	const char *error;
 
-	/* mailbox_alloc() already checks that vname is valid UTF8,
-	   so we don't need to verify that.
+	/* mailbox_verify_name() rejects names that weren't valid UTF-8 in
+	   mailbox_alloc(), so we don't need to verify that.
 
 	   check vname instead of storage name, because vname is what is
 	   visible to users, while storage name may be a fixed length GUID. */
@@ -1978,6 +2028,10 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 	if (box->opened)
 		return 0;
 
+	if (box->vname_invalid_utf8) {
+		mailbox_set_invalid_utf8_error(box);
+		return -1;
+	}
 	switch (box->open_error) {
 	case 0:
 		e_debug(box->event, "Mailbox opened");

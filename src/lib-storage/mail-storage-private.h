@@ -557,6 +557,9 @@ struct mailbox {
 	/* The mailbox name provided through mailbox_alloc() changed through NFC
 	   normalization */
 	bool mailbox_name_changed_by_nfc:1;
+	/* The mailbox name provided through mailbox_alloc() wasn't valid UTF-8.
+	   vname has the invalid bytes replaced, so it must not be used. */
+	bool vname_invalid_utf8:1;
 	/* Already handling mailbox NFC normalization notification. */
 	bool notifying_nfc_name_change:1;
 };

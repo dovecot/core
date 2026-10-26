@@ -771,8 +771,12 @@ mail_namespace_find_mask(struct mail_namespace *namespaces, const char *box,
 	int ret;
 
 	if (nfc) {
-		ret = uni_utf8_to_nfc(box, strlen(box), &box);
-		i_assert(ret >= 0);
+		/* Invalid UTF-8 can't be normalized. Match it as-is. */
+		const char *nfc_box;
+
+		ret = uni_utf8_to_nfc(box, strlen(box), &nfc_box);
+		if (ret >= 0)
+			box = nfc_box;
 	}
 
 	inbox = str_begins_icase(box, "INBOX", &suffix);
@@ -809,8 +813,11 @@ mail_namespace_find_shared(struct mail_namespace *ns, const char *mailbox)
 	int ret;
 
 	if (nfc) {
-		ret = uni_utf8_to_nfc(mailbox, strlen(mailbox), &mailbox);
-		i_assert(ret >= 0);
+		const char *nfc_mailbox;
+
+		ret = uni_utf8_to_nfc(mailbox, strlen(mailbox), &nfc_mailbox);
+		if (ret >= 0)
+			mailbox = nfc_mailbox;
 	}
 
 	if (mailbox_list_get_storage(&list, &mailbox, 0, &storage) < 0)

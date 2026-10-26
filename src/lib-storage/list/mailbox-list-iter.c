@@ -953,7 +953,10 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 		else {
 			ret = uni_utf8_to_nfc(patterns[i], strlen(patterns[i]),
 					      &pattern);
-			i_assert(ret >= 0);
+			if (ret < 0) {
+				/* invalid UTF-8 can't be normalized */
+				pattern = patterns[i];
+			}
 		}
 		ctx->patterns[i] = p_strdup(pool, pattern);
 	}
@@ -1325,7 +1328,10 @@ mailbox_list_iter_next_call(struct mailbox_list_iterate_context *ctx)
 		vname = info->vname;
 	else {
 		ret = uni_utf8_to_nfc(info->vname, strlen(info->vname), &vname);
-		i_assert(ret >= 0);
+		if (ret < 0) {
+			/* invalid UTF-8 can't be normalized */
+			vname = info->vname;
+		}
 		need_nfc_normalize = (strcmp(info->vname, vname) != 0);
 	}
 	if (need_nfc_normalize) {
