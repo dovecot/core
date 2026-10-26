@@ -608,6 +608,11 @@ static bool test_client_passdb_notfound(void)
 	test_out("run async (ret == 0)", ret == 0);
 	test_assert(error == NULL);
 
+	ret = test_client_passdb_lookup_simple_async("henk\tbogus", FALSE,
+						     &error);
+	test_out("run async invalid (ret == 0)", ret == 0);
+	test_assert(error == NULL);
+
 	return FALSE;
 }
 
@@ -824,6 +829,11 @@ static bool test_client_userdb_notfound(void)
 
 	ret = test_client_userdb_lookup_simple_async("henk", FALSE, &error);
 	test_out("run async (ret == 0)", ret == 0);
+	test_assert(error == NULL);
+
+	ret = test_client_userdb_lookup_simple_async("henk\tbogus", FALSE,
+						     &error);
+	test_out("run async invalid (ret == 0)", ret == 0);
 	test_assert(error == NULL);
 
 	return FALSE;
