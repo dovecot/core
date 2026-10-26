@@ -578,8 +578,29 @@ static void i_stream_header_filter_seek(struct istream_private *stream,
 		container_of(stream, struct header_filter_istream, istream);
 
 	if (stream->istream.v_offset == v_offset) {
+		bool in_header = !mstream->header_read ||
+			v_offset < mstream->header_size.virtual_size;
+
+		if (in_header && !stream->istream.seekable &&
+		    stream->pos > stream->skip) {
+			/* The buffered header would be lost, and a
+			   non-seekable parent can't be parsed again. */
+			io_stream_set_error(&stream->iostream,
+				"Can't seek to offset %"PRIuUOFF_T" inside "
+				"the header: Parent stream isn't seekable",
+				v_offset);
+			stream->istream.stream_errno = ESPIPE;
+			return;
+		}
 		/* just reset the input buffer */
 		stream_reset_to(mstream, v_offset);
+		if (in_header && stream->istream.seekable) {
+			/* The parent has been read past the position that
+			   matches v_offset, so parse the header again from
+			   the beginning. */
+			i_stream_header_filter_seek_to_header(mstream, v_offset);
+			return;
+		}
 		i_stream_seek(mstream->istream.parent,
 			      mstream->istream.parent_expected_offset);
 		return;

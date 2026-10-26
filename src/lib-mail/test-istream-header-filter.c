@@ -2,10 +2,13 @@
 
 #include "lib.h"
 #include "str.h"
+#include "fd-util.h"
 #include "istream.h"
 #include "message-header-parser.h"
 #include "istream-header-filter.h"
 #include "test-common.h"
+
+#include <unistd.h>
 
 struct run_ctx {
 	header_filter_callback *callback;
@@ -680,6 +683,127 @@ static void test_istream_empty_missing_eoh_callback(void)
 	test_end();
 }
 
+static void test_istream_seek_in_header(void)
+{
+	static const struct {
+		const char *input;
+		unsigned int skip;
+		const char *output;
+	} tests[] = {
+		{ "Status: O\n\nbody\n", 0, "\nbody\n" },
+		{ "Subject: a\nStatus: O\n\nbody\n", 4, "ect: a\n\nbody\n" },
+	};
+	static const char *const exclude_headers[] = { "Status" };
+	struct istream *parent, *filter;
+	const unsigned char *data;
+	size_t size;
+
+	test_begin("i_stream_create_header_filter: seek to current offset inside header");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		parent = test_istream_create(tests[i].input);
+		filter = i_stream_create_header_filter(parent,
+			HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,
+			exclude_headers, N_ELEMENTS(exclude_headers),
+			*null_header_filter_callback, NULL);
+		while (i_stream_read(filter) > 0) ;
+		i_stream_skip(filter, tests[i].skip);
+		/* make the filter think someone else used the parent */
+		i_stream_seek(parent, parent->v_offset);
+		i_stream_seek(filter, tests[i].skip);
+		while (i_stream_read(filter) > 0) ;
+		data = i_stream_get_data(filter, &size);
+		test_assert_strcmp_idx(t_strndup(data, size),
+				       tests[i].output, i);
+		i_stream_unref(&filter);
+		i_stream_unref(&parent);
+	}
+	test_end();
+}
+
+static void test_istream_seek_in_header_nonseekable(void)
+{
+	static const char input[] =
+		"Subject: a\nStatus: O\nTo: b\n\nbody\n";
+	static const char *const exclude_headers[] = { "Status" };
+	struct istream *parent, *filter;
+	const unsigned char *data;
+	string_t *output = t_str_new(64);
+	size_t size;
+	int fds[2];
+
+	test_begin("i_stream_create_header_filter: seek to current offset with non-seekable parent");
+	if (pipe(fds) < 0)
+		i_fatal("pipe() failed: %m");
+	fd_set_nonblock(fds[0], TRUE);
+	parent = i_stream_create_fd(fds[0], 1024);
+	test_assert(!parent->seekable);
+	filter = i_stream_create_header_filter(parent,
+		HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,
+		exclude_headers, N_ELEMENTS(exclude_headers),
+		*null_header_filter_callback, NULL);
+	/* Feed the input a few bytes at a time, so the header is parsed
+	   partially. Seeking to the current offset after the parent was
+	   accessed must not seek the parent backwards. */
+	for (size_t pos = 0; pos < sizeof(input) - 1;) {
+		size_t len = I_MIN(4, sizeof(input) - 1 - pos);
+
+		test_assert(write(fds[1], input + pos, len) == (ssize_t)len);
+		pos += len;
+		i_stream_seek(parent, parent->v_offset);
+		while (i_stream_read(filter) > 0) {
+			data = i_stream_get_data(filter, &size);
+			str_append_data(output, data, size);
+			i_stream_skip(filter, size);
+		}
+		i_stream_seek(parent, parent->v_offset);
+		i_stream_seek(filter, filter->v_offset);
+	}
+	i_close_fd(&fds[1]);
+	while (i_stream_read(filter) > 0) {
+		data = i_stream_get_data(filter, &size);
+		str_append_data(output, data, size);
+		i_stream_skip(filter, size);
+	}
+	test_assert_strcmp(str_c(output), "Subject: a\nTo: b\n\nbody\n");
+	i_stream_unref(&filter);
+	i_stream_unref(&parent);
+	i_close_fd(&fds[0]);
+	test_end();
+}
+
+static void test_istream_seek_in_header_nonseekable_buffered(void)
+{
+	static const char input[] =
+		"Subject: a\nStatus: O\nTo: b\n\nbody\n";
+	static const char *const exclude_headers[] = { "Status" };
+	struct istream *parent, *filter;
+	int fds[2];
+
+	test_begin("i_stream_create_header_filter: seek to current offset with buffered header and non-seekable parent");
+	if (pipe(fds) < 0)
+		i_fatal("pipe() failed: %m");
+	fd_set_nonblock(fds[0], TRUE);
+	parent = i_stream_create_fd(fds[0], 1024);
+	filter = i_stream_create_header_filter(parent,
+		HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,
+		exclude_headers, N_ELEMENTS(exclude_headers),
+		*null_header_filter_callback, NULL);
+	test_assert(write(fds[1], input, sizeof(input) - 1) ==
+		    (ssize_t)sizeof(input) - 1);
+	test_assert(i_stream_read(filter) > 0);
+	test_assert(i_stream_get_data_size(filter) > 0);
+	/* The buffered header isn't consumed. Seeking to the current offset
+	   would drop it and it can't be read again from the parent. */
+	i_stream_seek(parent, parent->v_offset);
+	i_stream_seek(filter, filter->v_offset);
+	test_assert_cmp(filter->stream_errno, ==, ESPIPE);
+	i_stream_unref(&filter);
+	i_stream_unref(&parent);
+	i_close_fd(&fds[0]);
+	i_close_fd(&fds[1]);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -695,6 +819,9 @@ int main(void)
 		test_istream_strip_eoh,
 		test_istream_missing_eoh_callback,
 		test_istream_empty_missing_eoh_callback,
+		test_istream_seek_in_header,
+		test_istream_seek_in_header_nonseekable,
+		test_istream_seek_in_header_nonseekable_buffered,
 		NULL
 	};
 	return test_run(test_functions);
