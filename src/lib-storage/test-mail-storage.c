@@ -2,6 +2,9 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "write-full.h"
+#include "mail-namespace.h"
+#include "mailbox-list-iter.h"
 #include "test-common.h"
 #include "test-dir.h"
 #include "master-service.h"
@@ -705,6 +708,48 @@ static void test_mailbox_invalid_utf8_name(void)
 	test_end();
 }
 
+static void test_subscriptions_invalid_utf8(void)
+{
+	static const char subscriptions[] = "foo\xff\nbar\n";
+	struct test_mail_storage_ctx *ctx = test_mail_storage_init();
+	struct test_mail_storage_settings set = {
+		.driver = "maildir",
+		.hierarchy_sep = ".",
+	};
+	struct mailbox_list_iterate_context *iter;
+	const struct mailbox_info *info;
+	const char *path;
+	unsigned int count = 0;
+	int fd;
+
+	test_begin("subscriptions file with invalid UTF-8 name");
+	/* an error for the invalid name and a warning for removing it */
+	test_expect_errors(2);
+	test_mail_storage_init_user(ctx, &set);
+
+	path = t_strdup_printf("%s%s/subscriptions", ctx->home_root, "testuser");
+	fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	if (fd == -1)
+		i_fatal("open(%s) failed: %m", path);
+	if (write_full(fd, subscriptions, sizeof(subscriptions) - 1) < 0)
+		i_fatal("write(%s) failed: %m", path);
+	i_close_fd(&fd);
+
+	iter = mailbox_list_iter_init(ctx->user->namespaces->list, "*",
+				      MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
+				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
+	while ((info = mailbox_list_iter_next(iter)) != NULL) {
+		test_assert_strcmp(info->vname, "bar");
+		count++;
+	}
+	test_assert(mailbox_list_iter_deinit(&iter) == 0);
+	test_assert(count == 1);
+
+	test_mail_storage_deinit_user(ctx);
+	test_mail_storage_deinit(&ctx);
+	test_end();
+}
+
 static void test_mail_parse_human_timestamp(void)
 {
 	int ret;
@@ -786,6 +831,7 @@ int main(int argc, char **argv)
 		test_mailbox_list_maildir,
 		test_mailbox_list_mbox,
 		test_mailbox_invalid_utf8_name,
+		test_subscriptions_invalid_utf8,
 		test_mail_parse_human_timestamp,
 		test_mail_parse_human_timestamp_time_interval,
 		test_mail_parse_human_timestamp_fail,

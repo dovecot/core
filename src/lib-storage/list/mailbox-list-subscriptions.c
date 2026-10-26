@@ -43,6 +43,10 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 		/* we could have two-level namespace: ns/ns2/ */
 		ns_name = t_strconcat(src_list->ns->prefix, name, NULL);
 	}
+	/* The subscriptions file isn't validated when it's read. Drop entries
+	   that aren't valid UTF-8, so they're never used as mailbox names. */
+	if (!uni_utf8_str_is_valid(ns_name))
+		return -1;
 	ns = mail_namespace_find_unsubscribable(namespaces, ns_name);
 	if (ns != NULL && ns != default_ns) {
 		if (ns->prefix_len > 0)
