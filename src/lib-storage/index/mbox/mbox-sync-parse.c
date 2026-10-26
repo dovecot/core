@@ -484,6 +484,17 @@ static int mbox_sync_bsearch_header_func_cmp(const void *p1, const void *p2)
 	return strcasecmp(key, func->header);
 }
 
+static struct mbox_sync_header_func *
+mbox_sync_find_header_func(const struct message_header_line *hdr)
+{
+	/* "Status\0foo" isn't our Status header */
+	if (memchr(hdr->name, '\0', hdr->name_len) != NULL)
+		return NULL;
+	return bsearch(hdr->name, header_funcs, N_ELEMENTS(header_funcs),
+		       sizeof(*header_funcs),
+		       mbox_sync_bsearch_header_func_cmp);
+}
+
 int mbox_sync_parse_next_mail(struct istream *input,
 			      struct mbox_sync_mail_context *ctx)
 {
@@ -530,10 +541,7 @@ int mbox_sync_parse_next_mail(struct istream *input,
 			str_append_data(ctx->header, hdr->middle, hdr->middle_len);
 		}
 
-		func = bsearch(hdr->name, header_funcs,
-			       N_ELEMENTS(header_funcs), sizeof(*header_funcs),
-			       mbox_sync_bsearch_header_func_cmp);
-
+		func = mbox_sync_find_header_func(hdr);
 		if (func != NULL) {
 			if (hdr->continues) {
 				hdr->use_full_value = TRUE;
@@ -597,7 +605,7 @@ bool mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
         struct mbox_sync_mail_context ctx;
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
-	struct header_func *func;
+	struct mbox_sync_header_func *func;
 	struct mbox_md5_context *mbox_md5_ctx;
 	const void *data;
 	bool expunged;
@@ -621,9 +629,7 @@ bool mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
 		if (hdr->eoh)
 			break;
 
-		func = bsearch(hdr->name, header_funcs,
-			       N_ELEMENTS(header_funcs), sizeof(*header_funcs),
-			       mbox_sync_bsearch_header_func_cmp);
+		func = mbox_sync_find_header_func(hdr);
 		if (func != NULL) {
 			if (strcasecmp(hdr->name, "X-UID") == 0) {
 				if (hdr->continues) {
