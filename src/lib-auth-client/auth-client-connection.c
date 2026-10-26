@@ -331,9 +331,9 @@ auth_client_connection_handle_line(struct auth_client_connection *conn,
 {
 	const char *const *args;
 
-	e_debug(conn->conn.event, "auth input: %s", line);
-
 	args = t_strsplit_tabescaped(line);
+	e_debug(conn->conn.event, "auth input: %s",
+		t_strarray_join(auth_client_args_hide_secrets(args), "\t"));
 	if (args[0] == NULL) {
 		e_error(conn->conn.event, "Auth server sent empty line");
 		return -1;
@@ -363,8 +363,12 @@ auth_client_connection_input_line(struct connection *_conn,
 
 	ret = auth_client_connection_handle_line(conn, line);
 	if (ret < 0) {
+		const char *const *args = t_strsplit_tabescaped(line);
+
 		auth_client_connection_disconnect(conn, t_strdup_printf(
-			"Received broken input: %s", line));
+			"Received broken input: %s",
+			t_strarray_join(auth_client_args_hide_secrets(args),
+					"\t")));
 		return -1;
 	}
 	return 1;
