@@ -495,11 +495,10 @@ index_list_has_changed(struct mailbox *box, struct mail_index_view *list_view,
 	i_zero(&old_status);
 	i_zero(&old_vsize);
 	memset(old_guid, 0, sizeof(old_guid));
-	bool all_cached = mailbox_list_index_status(box->list, list_view,
-						    changes->seq,
-						    CACHED_STATUS_ITEMS,
-						    &old_status, old_guid,
-						    &old_vsize, &reason);
+	(void)mailbox_list_index_status(box->list, list_view, changes->seq,
+					CACHED_STATUS_ITEMS,
+					&old_status, old_guid,
+					&old_vsize, &reason);
 
 	changes->rec_changed =
 		old_status.uidvalidity != changes->status.uidvalidity &&
@@ -522,10 +521,16 @@ index_list_has_changed(struct mailbox *box, struct mail_index_view *list_view,
 	changes->hmodseq_changed =
 		old_status.highest_modseq != changes->status.highest_modseq;
 
-	/* same for deleted count */
-	changes->deleted_changed =
-		old_status.deleted != changes->status.deleted ||
-		(changes->status.deleted == 0 && !all_cached);
+	/* write the deleted count also when its record is missing or empty,
+	   which reads as 0 above */
+	struct mailbox_status deleted_status;
+	i_zero(&deleted_status);
+	bool deleted_cached =
+		mailbox_list_index_status(box->list, list_view, changes->seq,
+					  STATUS_DELETED, &deleted_status,
+					  NULL, NULL, &reason);
+	changes->deleted_changed = !deleted_cached ||
+		deleted_status.deleted != changes->status.deleted;
 
 	if (memcmp(&old_vsize, &changes->vsize, sizeof(old_vsize)) != 0)
 		changes->vsize_changed = TRUE;
