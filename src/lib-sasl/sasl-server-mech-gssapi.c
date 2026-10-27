@@ -41,11 +41,17 @@ struct gssapi_auth_request {
 	enum {
 		GSS_STATE_SEC_CONTEXT,
 		GSS_STATE_WRAP,
-		GSS_STATE_UNWRAP
+		GSS_STATE_UNWRAP,
+		/* GSS-SPNEGO: the authentication is finishing */
+		GSS_STATE_DONE
 	} sasl_gssapi_state;
 
 	gss_name_t authn_name;
 	gss_name_t authz_name;
+
+	/* GSS-SPNEGO: the last token of the context, sent with the success */
+	const unsigned char *final_token;
+	size_t final_token_size;
 };
 
 struct gssapi_auth_mech {
@@ -54,8 +60,18 @@ struct gssapi_auth_mech {
 	const char *hostname;
 };
 
+static const struct sasl_server_mech_def mech_gss_spnego;
+
 static int
 mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf);
+static int
+mech_gssapi_spnego_authorize(struct gssapi_auth_request *request,
+			     const gss_buffer_desc *final_token);
+
+static bool mech_gssapi_has_security_layer(struct gssapi_auth_request *request)
+{
+	return request->auth_request.mech->def != &mech_gss_spnego;
+}
 
 static void
 mech_gssapi_log_error(struct gssapi_auth_request *request,
@@ -273,10 +289,13 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 				username)) {
 			ret = -1;
 		} else {
-			request->sasl_gssapi_state = GSS_STATE_WRAP;
 			e_debug(auth_request->event,
 				"security context state completed, flags=0x%x",
 				ret_flags);
+			if (mech_gssapi_has_security_layer(request))
+				request->sasl_gssapi_state = GSS_STATE_WRAP;
+			else
+				request->sasl_gssapi_state = GSS_STATE_DONE;
 		}
 		break;
 	case GSS_S_CONTINUE_NEEDED:
@@ -291,7 +310,9 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 		break;
 	}
 
-	if (ret == 0) {
+	if (ret == 0 && request->sasl_gssapi_state == GSS_STATE_DONE) {
+		ret = mech_gssapi_spnego_authorize(request, &output_token);
+	} else if (ret == 0) {
 		if (output_token.length > 0) {
 			sasl_server_request_output(auth_request,
 						   output_token.value,
@@ -488,10 +509,38 @@ gssapi_credentials_callback(struct sasl_server_mech_request *auth_request,
 		break;
 	}
 
-	if (mech_gssapi_userok(request, auth_request->authid) == 0)
-		sasl_server_request_success(auth_request, NULL, 0);
-	else
+	if (mech_gssapi_userok(request, auth_request->authid) == 0) {
+		sasl_server_request_success(auth_request, request->final_token,
+					    request->final_token_size);
+	} else {
 		sasl_server_request_failure(auth_request);
+	}
+}
+
+static int
+mech_gssapi_spnego_authorize(struct gssapi_auth_request *request,
+			     const gss_buffer_desc *final_token)
+{
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
+
+	/* The authid was set from the authenticated name. Without the
+	   security layer negotiation the client can't ask to act as another
+	   user, so authz_name equals authn_name. */
+	request->authz_name = duplicate_name(request, request->authn_name);
+	if (request->authz_name == GSS_C_NO_NAME) {
+		e_info(auth_request->event, "no authz_name");
+		return -1;
+	}
+
+	if (final_token->length > 0) {
+		request->final_token = p_memdup(auth_request->pool,
+						final_token->value,
+						final_token->length);
+		request->final_token_size = final_token->length;
+	}
+	sasl_server_request_lookup_credentials(auth_request, "",
+					       gssapi_credentials_callback);
+	return 0;
 }
 
 static int
@@ -592,7 +641,9 @@ mech_gssapi_auth_continue(struct sasl_server_mech_request *auth_request,
 	case GSS_STATE_UNWRAP:
 		ret = mech_gssapi_unwrap(request, inbuf);
 		break;
-	default:
+	case GSS_STATE_DONE:
+		/* Set and consumed within one call, which finishes the
+		   request or waits for the passdb. */
 		i_unreached();
 	}
 	if (ret < 0)

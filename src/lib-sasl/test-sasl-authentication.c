@@ -1100,9 +1100,8 @@ static const struct test_sasl success_tests[] = {
 		},
 		.expect_cbind = TRUE,
 	},
-	/* GSS-SPNEGO: The server still offers the GSSAPI security layer, which
-	   the client rejects. Change this to expect success once the server
-	   is fixed. */
+	/* GSS-SPNEGO: The server sends the final context token with the
+	   success, and no security layer negotiation. */
 	{
 		.mech = "GSS-SPNEGO",
 		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
@@ -1111,8 +1110,7 @@ static const struct test_sasl success_tests[] = {
 			.password = "",
 		},
 		.expect_cbind = TRUE,
-		.client_error =
-			"Server sent unexpected data",
+		.expect_success_data = TRUE,
 	},
 	{
 		.mech = "GSSAPI",
@@ -1230,8 +1228,7 @@ static const struct test_sasl success_tests[] = {
 		},
 		.mech_settings = gssapi_no_cbind_settings,
 		.cbind_callback_fails = TRUE,
-		.client_error =
-			"Server sent unexpected data",
+		.expect_success_data = TRUE,
 	},
 	{
 		.mech = "GSS-SPNEGO",
@@ -1242,8 +1239,7 @@ static const struct test_sasl success_tests[] = {
 		},
 		.gss = { .require_cbind = TRUE },
 		.expect_cbind = TRUE,
-		.client_error =
-			"Server sent unexpected data",
+		.expect_success_data = TRUE,
 	},
 	{
 		.mech = "GSS-SPNEGO",
