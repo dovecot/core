@@ -56,7 +56,7 @@ solr_xml_parse(struct solr_response_parser *parser,
 	       const void *data, size_t size, bool done)
 {
 	enum XML_Error err;
-	int line, col;
+	uint64_t line, col;
 
 	if (parser->xml_failed)
 		return -1;
@@ -66,10 +66,16 @@ solr_xml_parse(struct solr_response_parser *parser,
 
 	err = XML_GetErrorCode(parser->xml_parser);
 	if (err != XML_ERROR_FINISHED) {
+		/* expat 2.9.0 deprecated the non-64bit position getters */
+#if XML_MAJOR_VERSION > 2 || (XML_MAJOR_VERSION == 2 && XML_MINOR_VERSION >= 9)
+		line = XML_GetCurrentLineNumber64(parser->xml_parser);
+		col = XML_GetCurrentColumnNumber64(parser->xml_parser);
+#else
 		line = XML_GetCurrentLineNumber(parser->xml_parser);
 		col = XML_GetCurrentColumnNumber(parser->xml_parser);
+#endif
 		e_error(parser->event,
-			"fts-solr: Invalid XML input at %d:%d: %s "
+			"fts-solr: Invalid XML input at %"PRIu64":%"PRIu64": %s "
 			"(near: %.*s)", line, col, XML_ErrorString(err),
 			(int)I_MIN(size, 128), (const char *)data);
 		parser->xml_failed = TRUE;
