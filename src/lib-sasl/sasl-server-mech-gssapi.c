@@ -232,6 +232,7 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 	gss_buffer_desc output_token;
 	gss_OID name_type;
 	gss_OID mech_type;
+	OM_uint32 ret_flags = 0;
 	const char *username;
 	int ret = 0;
 
@@ -244,7 +245,7 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 		&request->authn_name,
 		&mech_type,
 		&output_token,
-		NULL, /* ret_flags */
+		&ret_flags,
 		NULL, /* time_rec */
 		NULL  /* delegated_cred_handle */
 	);
@@ -274,7 +275,8 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 		} else {
 			request->sasl_gssapi_state = GSS_STATE_WRAP;
 			e_debug(auth_request->event,
-				"security context state completed.");
+				"security context state completed, flags=0x%x",
+				ret_flags);
 		}
 		break;
 	case GSS_S_CONTINUE_NEEDED:
