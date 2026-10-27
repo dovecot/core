@@ -187,33 +187,15 @@ static void _encode_buffer(buffer_t *output, gss_buffer_t buf)
 	buffer_append(output, buf->value, buf->length);
 }
 
-OM_uint32 KRB5_CALLCONV
-gss_init_sec_context(OM_uint32 *minor_status,
-		     gss_cred_id_t claimant_cred_handle,
-		     gss_ctx_id_t *context_handle, gss_name_t target_name,
-		     gss_OID mech_type, OM_uint32 req_flags,
-		     OM_uint32 time_req,
+/* Create the context and the initiator's token for the acceptor. */
+static struct gss_ctx_id_struct *
+gss_init_new_context(gss_name_t target_name, gss_OID mech_type,
+		     OM_uint32 req_flags,
 		     gss_channel_bindings_t input_chan_bindings,
-		     gss_buffer_t input_token ATTR_UNUSED,
-		     gss_OID *actual_mech_type,
-		     gss_buffer_t output_token, OM_uint32 *ret_flags,
-		     OM_uint32 *time_rec)
+		     gss_buffer_t output_token)
 {
 	pool_t pool;
 	struct gss_ctx_id_struct *ctx;
-
-	i_assert(time_req == 0); // Not implemented
-	i_assert(time_rec == NULL); // Not implemented
-
-	*output_token = (gss_buffer_desc)GSS_C_EMPTY_BUFFER;
-	/* SPNEGO would let the server choose any mechanism, unless the
-	   credential restricts it to Kerberos. */
-	if (auth_gssapi_oid_equal(mech_type, auth_gssapi_mech_spnego_oid) &&
-	    (claimant_cred_handle == GSS_C_NO_CREDENTIAL ||
-	     !claimant_cred_handle->neg_krb5_only)) {
-		*minor_status = GSS_KRB5_DUMMY_FAIL_CODE;
-		return GSS_S_NO_CRED;
-	}
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"gss_ctx_id", 256);
 	ctx = p_new(pool, struct gss_ctx_id_struct, 1);
@@ -252,6 +234,38 @@ gss_init_sec_context(OM_uint32 *minor_status,
 	gss_alloc_buffer(output_token, output->used);
 	memcpy(output_token->value, output->data, output->used);
 
+	return ctx;
+}
+
+OM_uint32 KRB5_CALLCONV
+gss_init_sec_context(OM_uint32 *minor_status,
+		     gss_cred_id_t claimant_cred_handle,
+		     gss_ctx_id_t *context_handle, gss_name_t target_name,
+		     gss_OID mech_type, OM_uint32 req_flags,
+		     OM_uint32 time_req,
+		     gss_channel_bindings_t input_chan_bindings,
+		     gss_buffer_t input_token ATTR_UNUSED,
+		     gss_OID *actual_mech_type,
+		     gss_buffer_t output_token, OM_uint32 *ret_flags,
+		     OM_uint32 *time_rec)
+{
+	struct gss_ctx_id_struct *ctx;
+
+	i_assert(time_req == 0); // Not implemented
+	i_assert(time_rec == NULL); // Not implemented
+
+	*output_token = (gss_buffer_desc)GSS_C_EMPTY_BUFFER;
+	/* SPNEGO would let the server choose any mechanism, unless the
+	   credential restricts it to Kerberos. */
+	if (auth_gssapi_oid_equal(mech_type, auth_gssapi_mech_spnego_oid) &&
+	    (claimant_cred_handle == GSS_C_NO_CREDENTIAL ||
+	     !claimant_cred_handle->neg_krb5_only)) {
+		*minor_status = GSS_KRB5_DUMMY_FAIL_CODE;
+		return GSS_S_NO_CRED;
+	}
+
+	ctx = gss_init_new_context(target_name, mech_type, req_flags,
+				   input_chan_bindings, output_token);
 	*context_handle = ctx;
 	if (ret_flags != NULL) {
 		/* Like Kerberos, set the integrity and confidentiality flags
