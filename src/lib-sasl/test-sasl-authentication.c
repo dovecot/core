@@ -70,6 +70,8 @@ struct test_sasl {
 	   there, because the dummy acceptor would return the same status for
 	   any further token. */
 	bool expect_empty_challenge:1;
+	/* The server sends data along with the success. */
+	bool expect_success_data:1;
 	/* The channel binding callback fails. */
 	bool cbind_callback_fails:1;
 	/* Give the client_auth settings to the session as a struct, like some
@@ -317,6 +319,8 @@ test_server_request_output(struct sasl_server_req_ctx *rctx,
 		break;
 	case SASL_SERVER_OUTPUT_SUCCESS:
 		expected = !test->failure;
+		if (test->expect_success_data)
+			test_assert(output->data_size > 0);
 		tctx->finished = TRUE;
 		break;
 	case SASL_SERVER_OUTPUT_CONTINUE:
@@ -847,6 +851,7 @@ static const struct test_sasl success_tests[] = {
 			.authid = "user",
 			.password = "pass",
 		},
+		.expect_success_data = TRUE,
 	},
 	{
 		.mech = "DIGEST-MD5",
@@ -856,6 +861,7 @@ static const struct test_sasl success_tests[] = {
 			.authzid = "user",
 			.password = "pass",
 		},
+		.expect_success_data = TRUE,
 	},
 	{
 		.mech = "DIGEST-MD5",
@@ -865,6 +871,7 @@ static const struct test_sasl success_tests[] = {
 			.realm = "example.org",
 			.password = "pass",
 		},
+		.expect_success_data = TRUE,
 	},
 	{
 		.mech = "DIGEST-MD5",
@@ -875,6 +882,7 @@ static const struct test_sasl success_tests[] = {
 			.realm = "example.org",
 			.password = "pass",
 		},
+		.expect_success_data = TRUE,
 	},
 	/* SCRAM-SHA-1 */
 	{
@@ -885,6 +893,7 @@ static const struct test_sasl success_tests[] = {
 			.password = "pass",
 		},
 		.expect_cbind = TRUE,
+		.expect_success_data = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-1",
@@ -895,6 +904,7 @@ static const struct test_sasl success_tests[] = {
 			.password = "pass",
 		},
 		.expect_cbind = TRUE,
+		.expect_success_data = TRUE,
 	},
 	/* SCRAM-SHA-256 */
 	{
@@ -905,6 +915,7 @@ static const struct test_sasl success_tests[] = {
 			.password = "pass",
 		},
 		.expect_cbind = TRUE,
+		.expect_success_data = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-256",
@@ -915,6 +926,7 @@ static const struct test_sasl success_tests[] = {
 			.password = "pass",
 		},
 		.expect_cbind = TRUE,
+		.expect_success_data = TRUE,
 	},
 	/* SCRAM-SHA-1 */
 	{
@@ -925,6 +937,7 @@ static const struct test_sasl success_tests[] = {
 			.password = "pass",
 		},
 		.server_no_plus = TRUE,
+		.expect_success_data = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-1",
@@ -935,6 +948,7 @@ static const struct test_sasl success_tests[] = {
 			.password = "pass",
 		},
 		.server_no_plus = TRUE,
+		.expect_success_data = TRUE,
 	},
 	/* SCRAM-SHA-256 */
 	{
@@ -945,6 +959,7 @@ static const struct test_sasl success_tests[] = {
 			.password = "pass",
 		},
 		.server_no_plus = TRUE,
+		.expect_success_data = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-256",
@@ -955,6 +970,7 @@ static const struct test_sasl success_tests[] = {
 			.password = "pass",
 		},
 		.server_no_plus = TRUE,
+		.expect_success_data = TRUE,
 	},
 	/* SCRAM-SHA-1 */
 	{
@@ -965,6 +981,7 @@ static const struct test_sasl success_tests[] = {
 			.password = "pass",
 		},
 		.no_cbind = TRUE,
+		.expect_success_data = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-1",
@@ -975,6 +992,7 @@ static const struct test_sasl success_tests[] = {
 			.password = "pass",
 		},
 		.no_cbind = TRUE,
+		.expect_success_data = TRUE,
 	},
 	/* SCRAM-SHA-256 */
 	{
@@ -985,6 +1003,7 @@ static const struct test_sasl success_tests[] = {
 			.password = "pass",
 		},
 		.no_cbind = TRUE,
+		.expect_success_data = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-256",
@@ -995,6 +1014,7 @@ static const struct test_sasl success_tests[] = {
 			.password = "pass",
 		},
 		.no_cbind = TRUE,
+		.expect_success_data = TRUE,
 	},
 	/* SCRAM-SHA-1-PLUS */
 	{
@@ -1005,6 +1025,7 @@ static const struct test_sasl success_tests[] = {
 			.password = "pass",
 		},
 		.expect_cbind = TRUE,
+		.expect_success_data = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-1-PLUS",
@@ -1015,6 +1036,7 @@ static const struct test_sasl success_tests[] = {
 			.password = "pass",
 		},
 		.expect_cbind = TRUE,
+		.expect_success_data = TRUE,
 	},
 	/* SCRAM-SHA-256-PLUS */
 	{
@@ -1025,6 +1047,7 @@ static const struct test_sasl success_tests[] = {
 			.password = "pass",
 		},
 		.expect_cbind = TRUE,
+		.expect_success_data = TRUE,
 	},
 	{
 		.mech = "SCRAM-SHA-256-PLUS",
@@ -1035,6 +1058,7 @@ static const struct test_sasl success_tests[] = {
 			.password = "pass",
 		},
 		.expect_cbind = TRUE,
+		.expect_success_data = TRUE,
 	},
 	/* OAUTHBEARER */
 	{
