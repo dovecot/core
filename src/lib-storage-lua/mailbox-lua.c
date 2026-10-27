@@ -329,7 +329,7 @@ static int lua_storage_mailbox_metadata_list(lua_State *L)
 				lua_setfield(L, -2, item->key);
 			}
 		}
-	} T_END;
+	} T_END_PASS_STR_IF(ret < 0, &error);
 
 	if (ret == -1)
 		return luaL_error(L, "%s", error);

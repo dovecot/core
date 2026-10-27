@@ -360,7 +360,7 @@ static int lua_storage_mail_user_metadata_list(lua_State *L)
 				lua_setfield(L, -2, key);
 			}
 		}
-	} T_END;
+	} T_END_PASS_STR_IF(ret < 0, &error);
 
 	mailbox_free(&mbox);
 
