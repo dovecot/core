@@ -52,7 +52,7 @@ int lua_storage_mailbox_attribute_get(struct mailbox *box, const char *key,
 		i_assert(ret != 0);
 		if (ret == -1 && !value.value_stream->eof) {
 			/* we could not read the stream */
-			*error_r = i_stream_get_error(value.value_stream);
+			*error_r = t_strdup(i_stream_get_error(value.value_stream));
 			ret = -1;
 		} else {
 			*value_r = str->data;
