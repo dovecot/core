@@ -988,6 +988,9 @@ db_ldap_is_sensitive_field(const char *name)
 	name = t_str_lcase(name);
 	return strstr(name, "nonce") != NULL ||
 	       strstr(name, "password") != NULL ||
+	       strstr(name, "passwd") != NULL ||
+	       strstr(name, "pwd") != NULL ||
+	       strstr(name, "hash") != NULL ||
 	       strstr(name, "secret") != NULL ||
 	       str_ends_with(name, "key") ||
 	       str_ends_with(name, "pass");
