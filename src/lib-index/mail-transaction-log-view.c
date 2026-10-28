@@ -696,6 +696,11 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 				"Invalid keyword update record size");
 			return FALSE;
 		}
+		if (memchr(rec + 1, '\0', rec->name_size) != NULL) {
+			mail_transaction_log_file_set_corrupted(file,
+				"Keyword name contains NUL");
+			return FALSE;
+		}
 
 		buffer_create_from_const_data(&uid_buf,
 					 CONST_PTR_OFFSET(data, seqset_offset),

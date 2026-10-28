@@ -444,6 +444,24 @@ static void add_keyword_update_no_uids(struct mail_transaction_log_file *file)
 			 &rec, sizeof(rec));
 }
 
+static void add_keyword_update_nul_name(struct mail_transaction_log_file *file)
+{
+	struct {
+		struct mail_transaction_keyword_update u;
+		char name[4];
+		uint32_t uids[2];
+	} rec;
+
+	i_zero(&rec);
+	rec.u.modify_type = MODIFY_ADD;
+	rec.u.name_size = 3;
+	memcpy(rec.name, "\0ab", 3);
+	rec.uids[0] = 1;
+	rec.uids[1] = 2;
+	(void)add_record(file, MAIL_TRANSACTION_KEYWORD_UPDATE,
+			 &rec, sizeof(rec));
+}
+
 static void test_mail_transaction_log_view_keyword_update(void)
 {
 	test_begin("keyword update record validation");
@@ -456,6 +474,10 @@ static void test_mail_transaction_log_view_keyword_update(void)
 	   being rejected. */
 	test_keyword_update_record(add_keyword_update_no_uids,
 				   "No UID ranges (type=0x400)");
+	/* The keyword name would be truncated to an empty string, which
+	   crashes when syncing the record. */
+	test_keyword_update_record(add_keyword_update_nul_name,
+				   "Keyword name contains NUL");
 	test_end();
 }
 
