@@ -1081,6 +1081,11 @@ db_ldap_field_hide_password(struct db_ldap_result_iterate_context *ctx,
 	if (request->set->debug_passwords)
 		return FALSE;
 
+	/* Also hide credential-looking attributes that are used by a field
+	   with an innocent name, e.g. "foo = %{ldap:userPassword}". */
+	if (db_ldap_is_sensitive_field(attr))
+		return TRUE;
+
 	if (ctx->sensitive_attr_names == NULL)
 		return FALSE;
 
