@@ -233,14 +233,9 @@ log_add_keyword_update(struct dsync_transaction_log_scan *ctx, const void *data,
 	struct dsync_mail_change *change;
 	const char *kw_name, *change_str;
 	const uint32_t *uids, *end;
-	unsigned int uids_offset;
 	uint32_t uid;
 
-	uids_offset = sizeof(*rec) + rec->name_size;
-	if ((uids_offset % 4) != 0)
-		uids_offset += 4 - (uids_offset % 4);
-
-	kw_name = t_strndup((const void *)(rec+1), rec->name_size);
+	kw_name = mail_transaction_keyword_update_get_name(rec);
 	switch (rec->modify_type) {
 	case MODIFY_ADD:
 		change_str = p_strdup_printf(ctx->pool, "%c%s",
@@ -254,7 +249,8 @@ log_add_keyword_update(struct dsync_transaction_log_scan *ctx, const void *data,
 		i_unreached();
 	}
 
-	uids = CONST_PTR_OFFSET(rec, uids_offset);
+	uids = CONST_PTR_OFFSET(rec,
+		mail_transaction_keyword_update_get_uids_offset(rec));
 	end = CONST_PTR_OFFSET(rec, hdr->size);
 
 	for (; uids < end; uids += 2) {
