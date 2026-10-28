@@ -2326,7 +2326,7 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 		if (values[1] != NULL) {
 			e_warning(authdb_event(request),
 				  "Multiple values found for '%s', "
-				  "using value '%s'", name, *values);
+				  "using the first one", name);
 		}
 		auth_request_set_userdb_field(request, name, *values);
 	}
