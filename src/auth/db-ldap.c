@@ -1220,7 +1220,7 @@ db_ldap_field_single_expand(const char *data, const char **value_r,
 	} else if (auth_fields_find(fields,
 				  db_ldap_attribute_as_multi(field_name)) != NULL) {
 		e_warning(ctx->event, "Multiple values found for '%s': "
-			              "using value '%s'", field_name, *value_r);
+			              "using the first one", field_name);
 	}
 
 	return 0;
