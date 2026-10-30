@@ -268,6 +268,8 @@ binary_parts_update(struct binary_ctx *ctx, const struct message_part *part,
 				bin_part.binary_hdr_size = size;
 			} else {
 				bin_part.binary_body_size = size;
+				bin_part.binary_body_lines_count =
+					blocks[i].body_lines_count;
 				body_found = TRUE;
 			}
 			found = TRUE;
