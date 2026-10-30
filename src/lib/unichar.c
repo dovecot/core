@@ -224,6 +224,17 @@ unsigned int uni_utf8_partial_strlen_n(const void *_input, size_t size,
 
 	for (i = 0; i < size; ) {
 		count = uni_utf8_char_bytes(input[i]);
+		/* A lead octet followed by something other than a
+		   continuation octet is a single invalid octet, which is how
+		   uni_utf8_get_valid_data() treats it. Skipping count octets
+		   here would hide a (partial) character that starts inside
+		   them, e.g. "\xee" "\xe6\x9a" at the end of the input. */
+		for (unsigned int j = 1; j < count && i + j < size; j++) {
+			if ((input[i + j] & 0xc0) != 0x80) {
+				count = 1;
+				break;
+			}
+		}
 		if (i + count > size)
 			break;
 		i += count;

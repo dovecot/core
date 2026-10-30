@@ -37,6 +37,36 @@ static void test_unichar_uni_utf8_partial_strlen_n(void)
 	test_end();
 }
 
+static void test_unichar_uni_utf8_partial_strlen_n_invalid(void)
+{
+	static const struct {
+		const char *input;
+		size_t size;
+		unsigned int len;
+		size_t pos;
+	} tests[] = {
+		/* invalid lead octet, then a partial valid character */
+		{ "\xee\xe6\x9a", 3, 1, 1 },
+		{ "a\xee\xe6\x9a", 4, 2, 2 },
+		/* invalid lead octet, then a complete valid character */
+		{ "\xee\xc3\xa4", 3, 2, 3 },
+		/* a partial character is still partial */
+		{ "\xe6\x9a", 2, 0, 0 },
+	};
+	size_t pos;
+
+	test_begin("uni_utf8_partial_strlen_n() invalid lead octet");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		unsigned int len = uni_utf8_partial_strlen_n(tests[i].input,
+							     tests[i].size,
+							     &pos);
+
+		test_assert_ucmp_idx(len, ==, tests[i].len, i);
+		test_assert_ucmp_idx(pos, ==, tests[i].pos, i);
+	}
+	test_end();
+}
+
 static void test_unichar_valid_unicode(void)
 {
 	struct {
@@ -367,6 +397,7 @@ void test_unichar(void)
 
 	test_unichar_uni_utf8_strlen();
 	test_unichar_uni_utf8_partial_strlen_n();
+	test_unichar_uni_utf8_partial_strlen_n_invalid();
 	test_unichar_valid_unicode();
 	test_unichar_invalid_lead_octet();
 	test_unichar_surrogates();
