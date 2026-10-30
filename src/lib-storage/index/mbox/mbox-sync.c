@@ -1198,6 +1198,17 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	if (ret < 0)
 		return -1;
 
+	if (sync_ctx->next_uid > MBOX_MAX_UID && !sync_ctx->renumber_uids &&
+	    !sync_ctx->readonly) {
+		/* next_uid is past MBOX_MAX_UID, and saving is refused until
+		   the mails are renumbered. A read-only mbox can't be
+		   renumbered. */
+		mailbox_set_critical(&sync_ctx->mbox->box,
+				     "Out of UIDs, renumbering them in mbox");
+		sync_ctx->renumber_uids = TRUE;
+		return 0;
+	}
+
 	if (istream_raw_mbox_is_eof(sync_ctx->input)) {
 		/* rest of the messages in index don't exist -> expunge them */
 		while (sync_ctx->idx_seq <= messages_count)

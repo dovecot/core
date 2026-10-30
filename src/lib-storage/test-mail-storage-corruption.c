@@ -796,7 +796,8 @@ static void test_mdbox_map_highest_file_id_too_large(void)
 	test_end();
 }
 
-static void test_mailbox_next_uid_too_large_driver(const char *driver)
+static void
+test_mailbox_next_uid_too_large_driver(const char *driver, bool renumbers)
 {
 	const struct test_mail_storage_settings set = {
 		.username = TEST_USERNAME,
@@ -808,6 +809,7 @@ static void test_mailbox_next_uid_too_large_driver(const char *driver)
 	struct mailbox *box;
 	struct mail_index_transaction *trans;
 	const uint32_t next_uid = UINT32_MAX;
+	uint32_t seq, count, uid, prev_uid = 0;
 
 	storage_ctx = test_mail_storage_init();
 	test_mail_storage_init_user(storage_ctx, &set);
@@ -825,11 +827,23 @@ static void test_mailbox_next_uid_too_large_driver(const char *driver)
 	test_assert(mail_index_transaction_commit(&trans) == 0);
 	test_assert(mailbox_sync(box, 0) == 0);
 
-	/* saving must fail without crashing */
+	/* saving must not crash: it fails, unless the driver renumbers the
+	   mails to get free UIDs */
 	test_set_ignore_errors(TRUE);
-	test_assert(test_mail_save(box, 1) < 0);
+	if (renumbers)
+		test_assert(test_mail_save(box, 1) == 0);
+	else
+		test_assert(test_mail_save(box, 1) < 0);
 	(void)mailbox_sync(box, 0);
-	test_assert(mail_index_view_get_messages_count(box->view) == 1);
+	count = mail_index_view_get_messages_count(box->view);
+	test_assert(count == (renumbers ? 2 : 1));
+	if (renumbers) {
+		for (seq = 1; seq <= count; seq++) {
+			mail_index_lookup_uid(box->view, seq, &uid);
+			test_assert_idx(uid > prev_uid && uid < next_uid, seq);
+			prev_uid = uid;
+		}
+	}
 	mailbox_free(&box);
 	test_mail_storage_deinit_user(storage_ctx);
 	test_set_ignore_errors(FALSE);
@@ -839,9 +853,9 @@ static void test_mailbox_next_uid_too_large_driver(const char *driver)
 static void test_mailbox_next_uid_too_large(void)
 {
 	test_begin("mailbox next_uid too large");
-	test_mailbox_next_uid_too_large_driver("sdbox");
-	test_mailbox_next_uid_too_large_driver("mdbox");
-	test_mailbox_next_uid_too_large_driver("mbox");
+	test_mailbox_next_uid_too_large_driver("sdbox", FALSE);
+	test_mailbox_next_uid_too_large_driver("mdbox", FALSE);
+	test_mailbox_next_uid_too_large_driver("mbox", TRUE);
 	test_end();
 }
 

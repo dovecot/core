@@ -315,6 +315,14 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 		if (mbox_sync(mbox, 0) < 0)
 			return -1;
 		mbox_save_init_sync(_t);
+		if (ctx->next_uid > MBOX_MAX_UID) {
+			/* The index's next_uid may have been raised without
+			   the mbox changing, in which case the sync above
+			   skipped the renumbering. Force it. */
+			if (mbox_sync(mbox, MBOX_SYNC_FORCE_SYNC) < 0)
+				return -1;
+			mbox_save_init_sync(_t);
+		}
 	}
 
 	/* the syncing above could have changed the append offset */
@@ -459,6 +467,15 @@ int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	ctx->seq = 0;
 
 	if (mbox_save_init_file(ctx, t) < 0) {
+		ctx->failed = TRUE;
+		return -1;
+	}
+	if (ctx->synced && I_MAX(ctx->next_uid, mdata->uid) > MBOX_MAX_UID) {
+		/* the mails need to be renumbered first (see MBOX_MAX_UID).
+		   mdata->uid (a wanted UID) would become next_uid below. */
+		mail_storage_set_error(_ctx->transaction->box->storage,
+				       MAIL_ERROR_NOTPOSSIBLE,
+				       "Out of UIDs, mbox needs renumbering");
 		ctx->failed = TRUE;
 		return -1;
 	}

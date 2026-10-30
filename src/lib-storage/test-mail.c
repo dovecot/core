@@ -543,6 +543,64 @@ static void test_binary_size_corruption_recompute(void)
 	test_end();
 }
 
+static void test_mbox_out_of_uids(void)
+{
+	struct test_mail_storage_ctx *ctx;
+	const char *const extra_input[] = {
+		"mail_inbox_path=%{home}/inbox",
+		NULL
+	};
+	const struct test_mail_storage_settings set = {
+		.driver = "mbox",
+		.extra_input = extra_input,
+	};
+	struct mailbox_update update = { .min_next_uid = 4294967294U };
+	struct mailbox_status status;
+	const char *mail_input = "From: <test1@example.com>\n\ntest body\n";
+
+	test_begin("mbox out of UIDs");
+	ctx = test_mail_storage_init();
+	test_mail_storage_init_user(ctx, &set);
+
+	struct mailbox *box =
+		mailbox_alloc(ctx->user->namespaces->list, "INBOX", 0);
+	test_assert(mailbox_open(box) == 0);
+	/* make the mbox empty, but keep it existing */
+	test_mail_save(box, mail_input);
+	struct mailbox_transaction_context *trans =
+		mailbox_transaction_begin(box, 0, __func__);
+	struct mail *mail = mail_alloc(trans, 0, NULL);
+	mail_set_seq(mail, 1);
+	mail_expunge(mail);
+	mail_free(&mail);
+	test_assert(mailbox_transaction_commit(&trans) == 0);
+	test_assert(mailbox_sync(box, 0) == 0);
+
+	mailbox_get_open_status(box, STATUS_UIDVALIDITY, &status);
+	uint32_t orig_uid_validity = status.uidvalidity;
+
+	/* The next UID is past the highest usable one. Saving renumbers the
+	   mbox instead of failing. The log has "Out of UIDs, renumbering them
+	   in mbox" errors and "UIDVALIDITY changed" warnings from the
+	   syncs. */
+	test_expect_errors(3);
+	test_assert(mailbox_update(box, &update) == 0);
+	test_expect_no_more_errors();
+	test_expect_errors(2);
+	test_mail_save(box, mail_input);
+	test_expect_no_more_errors();
+
+	mailbox_get_open_status(box, STATUS_UIDNEXT | STATUS_UIDVALIDITY,
+				&status);
+	test_assert_cmp(status.uidnext, <, 1000);
+	test_assert_cmp(status.uidvalidity, !=, orig_uid_validity);
+
+	mailbox_free(&box);
+	test_mail_storage_deinit_user(ctx);
+	test_mail_storage_deinit(&ctx);
+	test_end();
+}
+
 static void test_mbox_x_uid_overflow(void)
 {
 	struct test_mail_storage_ctx *ctx;
@@ -859,6 +917,7 @@ int main(int argc, char **argv)
 		test_bodystructure_reparsing,
 		test_bodystructure_corruption_reparsing,
 		test_binary_size_corruption_recompute,
+		test_mbox_out_of_uids,
 		test_mbox_x_uid_overflow,
 		test_mail_set_critical,
 		test_mail_set_critical_different_mailboxes,
