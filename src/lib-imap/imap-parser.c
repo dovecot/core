@@ -61,6 +61,7 @@ struct imap_parser {
 
 	bool literal_minus:1;
 	bool literal_skip_crlf:1;
+	bool literal_skipped_cr:1;
 	bool literal_nonsync:1;
 	bool literal8:1;
 	bool literal_size_return:1;
@@ -141,6 +142,7 @@ void imap_parser_reset(struct imap_parser *parser)
 	parser->error_msg = NULL;
 
 	parser->literal_skip_crlf = FALSE;
+	parser->literal_skipped_cr = FALSE;
 	parser->eol = FALSE;
 	parser->args_added_extra_eol = FALSE;
 	parser->literal_size_return = FALSE;
@@ -505,10 +507,13 @@ static bool imap_parser_read_literal_data(struct imap_parser *parser,
 		if (data_size == 0)
 			return FALSE;
 
-		if (*data == '\r') {
+		if (*data == '\r' && !parser->literal_skipped_cr) {
 			parser->line_size++;
 			data++; data_size--;
 			i_stream_skip(parser->input, 1);
+			/* remember it: if the input ends here, the next call
+			   must not accept another CR */
+			parser->literal_skipped_cr = TRUE;
 
 			if (data_size == 0)
 				return FALSE;
@@ -525,6 +530,7 @@ static bool imap_parser_read_literal_data(struct imap_parser *parser,
 		i_stream_skip(parser->input, 1);
 
 		parser->literal_skip_crlf = FALSE;
+		parser->literal_skipped_cr = FALSE;
 
 		i_assert(parser->cur_pos == 0);
 	}

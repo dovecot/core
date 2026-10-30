@@ -257,6 +257,49 @@ static void test_imap_parser_read_literal(void)
 	test_end();
 }
 
+static void test_imap_parser_literal_size_crlf_split(void)
+{
+	static const struct {
+		const char *input;
+		int ret;
+	} tests[] = {
+		{ "{5}\nhello\n", 1 },
+		{ "{5}\r\nhello\r\n", 1 },
+		{ "{5}\r\nhello\n", 1 },
+		/* only one CR is allowed before the LF */
+		{ "{5}\r\r\nhello\r\n", -1 },
+		{ "{5}\r\r\r\nhello\r\n", -1 },
+	};
+	const struct imap_arg *args;
+
+	test_begin("imap parser literal size CRLF split");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		size_t len = strlen(tests[i].input);
+
+		/* the result must not depend on where the input is split */
+		for (size_t split = 0; split <= len; split++) {
+			struct istream *input =
+				test_istream_create(tests[i].input);
+			struct imap_parser *parser =
+				imap_parser_create(input, NULL, 1024, NULL);
+			int ret = -2;
+
+			for (size_t size = split; size <= len && ret == -2;
+			     size = size == split ? len : len + 1) {
+				test_istream_set_size(input, size);
+				(void)i_stream_read(input);
+				ret = imap_parser_read_args(parser, 0, 0,
+							    &args);
+			}
+			test_assert_cmp_idx(ret, ==, tests[i].ret,
+					    i * 100 + split);
+			imap_parser_unref(&parser);
+			i_stream_destroy(&input);
+		}
+	}
+	test_end();
+}
+
 static void test_imap_parser_quoted_escapes(void)
 {
 	const struct {
@@ -349,6 +392,7 @@ int main(void)
 		test_imap_parser_list_limit,
 		test_imap_parser_read_tag_cmd,
 		test_imap_parser_read_literal,
+		test_imap_parser_literal_size_crlf_split,
 		test_imap_parser_quoted_escapes,
 		test_imap_parser_literal_size_empty_line,
 		test_imap_arg_get_list_empty,
