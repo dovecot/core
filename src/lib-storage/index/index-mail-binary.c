@@ -246,7 +246,7 @@ binary_parts_update(struct binary_ctx *ctx, const struct message_part *part,
 	struct message_binary_part bin_part;
 	unsigned int i, count;
 	uoff_t size;
-	bool found;
+	bool found, body_found;
 
 	blocks = array_get_modifiable(&ctx->blocks, &count);
 	for (; part != NULL; part = part->next) {
@@ -257,17 +257,26 @@ binary_parts_update(struct binary_ctx *ctx, const struct message_part *part,
 		bin_part.binary_hdr_size = part->header_size.virtual_size;
 		bin_part.physical_pos = part->physical_pos;
 		found = FALSE;
+		body_found = FALSE;
 		for (i = 0; i < count; i++) {
 			if (blocks[i].physical_pos != part->physical_pos ||
 			    !blocks[i].converted)
 				continue;
 
 			size = blocks[i].input->v_offset;
-			if (blocks[i].converted_hdr)
+			if (blocks[i].converted_hdr) {
 				bin_part.binary_hdr_size = size;
-			else
+			} else {
 				bin_part.binary_body_size = size;
+				body_found = TRUE;
+			}
 			found = TRUE;
+		}
+		if (found && !body_found) {
+			/* Only the header was converted, so the body keeps its
+			   size. The children have their own entries. */
+			bin_part.binary_body_size = part->body_size.virtual_size;
+			bin_part.binary_body_lines_count = part->body_size.lines;
 		}
 		if (found) {
 			bin_part.next = *msg_bin_parts;
@@ -487,8 +496,8 @@ index_mail_get_binary_properties(struct mail *_mail,
 	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct message_part *all_parts, *msg_part;
 	const struct message_binary_part *bin_part, *root_bin_part;
-	uoff_t size, end_offset;
-	unsigned int lines;
+	uoff_t size, end_offset, size_removed = 0, size_added = 0;
+	unsigned int lines, lines_removed = 0, lines_added = 0;
 	bool binary, converted;
 
 	if (mail_get_parts(_mail, &all_parts) < 0)
@@ -528,19 +537,36 @@ index_mail_get_binary_properties(struct mail *_mail,
 		    msg_part->physical_pos < end_offset) {
 			if (msg_part->physical_pos == part->physical_pos)
 				root_bin_part = bin_part;
-			size -= msg_part->header_size.virtual_size +
+			size_removed += msg_part->header_size.virtual_size +
 				msg_part->body_size.virtual_size;
-			size += bin_part->binary_hdr_size +
+			size_added += bin_part->binary_hdr_size +
 				bin_part->binary_body_size;
-			lines -= msg_part->body_size.lines;
-			lines += bin_part->binary_body_lines_count;
+			lines_removed += msg_part->body_size.lines;
+			lines_added += bin_part->binary_body_lines_count;
 		}
 	}
+	if (size_removed > size + size_added ||
+	    lines_removed > lines + lines_added) {
+		/* e.g. binary.parts cached with a too small body size */
+		mail->data.bin_parts = NULL;
+		mail_set_mail_cache_corrupted(_mail,
+			"BINARY part sizes don't match MIME parts");
+		return -1;
+	}
+	size = size + size_added - size_removed;
+	lines = lines + lines_added - lines_removed;
 	if (!include_hdr) {
-		if (root_bin_part != NULL)
-			size -= root_bin_part->binary_hdr_size;
-		else
-			size -= part->header_size.virtual_size;
+		uoff_t hdr_size = root_bin_part != NULL ?
+			root_bin_part->binary_hdr_size :
+			part->header_size.virtual_size;
+
+		if (size < hdr_size || lines < part->header_size.lines) {
+			mail->data.bin_parts = NULL;
+			mail_set_mail_cache_corrupted(_mail,
+				"BINARY part sizes don't match MIME parts");
+			return -1;
+		}
+		size -= hdr_size;
 		lines -= part->header_size.lines;
 	}
 

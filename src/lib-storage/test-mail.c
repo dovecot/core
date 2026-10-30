@@ -6,6 +6,8 @@
 #include "istream.h"
 #include "master-service.h"
 #include "message-size.h"
+#include "message-binary-part.h"
+#include "index/index-mail.h"
 #include "test-mail-storage-common.h"
 
 static int
@@ -480,6 +482,65 @@ static void test_bodystructure_corruption_reparsing(void)
 	test_end();
 }
 
+static void test_binary_size_corruption_recompute(void)
+{
+	struct test_mail_storage_ctx *ctx;
+	const struct test_mail_storage_settings set = {
+		.driver = "sdbox",
+	};
+	struct message_part *parts;
+	struct mail_binary_properties bprops, bprops2;
+
+	test_begin("BINARY.SIZE corruption recompute");
+	ctx = test_mail_storage_init();
+	test_mail_storage_init_user(ctx, &set);
+
+	struct mailbox *box =
+		mailbox_alloc(ctx->user->namespaces->list, "INBOX", 0);
+	test_assert(mailbox_open(box) == 0);
+
+	test_mail_save(box,
+		       "MIME-Version: 1.0\r\n"
+		       "Content-Type: text/plain\r\n"
+		       "Content-Transfer-Encoding: base64\r\n"
+		       "\r\n"
+		       "dGVzdCBib2R5\r\n");
+
+	struct mailbox_transaction_context *trans =
+		mailbox_transaction_begin(box, 0, __func__);
+	struct mail *mail = mail_alloc(trans, 0, NULL);
+	mail_set_seq(mail, 1);
+
+	test_assert(mail_get_parts(mail, &parts) == 0);
+	test_assert(mail_get_binary_properties(mail, parts, TRUE, &bprops) == 0);
+	test_assert(bprops.converted);
+
+	/* Add a duplicate of the binary part, so the sizes don't match the
+	   MIME parts anymore. */
+	struct index_mail *imail = INDEX_MAIL(mail);
+	struct message_binary_part *dup =
+		p_new(imail->mail.data_pool, struct message_binary_part, 1);
+	*dup = *imail->data.bin_parts;
+	dup->next = imail->data.bin_parts;
+	imail->data.bin_parts = dup;
+
+	test_expect_error_string("Mailbox INBOX: UID 1: Deleting corrupted cache record: BINARY part sizes don't match MIME parts");
+	test_assert(mail_get_binary_properties(mail, parts, TRUE, &bprops2) < 0);
+	test_expect_no_more_errors();
+
+	/* The broken binary.parts were dropped, so they are calculated again */
+	test_assert(mail_get_binary_properties(mail, parts, TRUE, &bprops2) == 0);
+	test_assert_cmp(bprops2.size, ==, bprops.size);
+	test_assert_cmp(bprops2.lines, ==, bprops.lines);
+
+	mail_free(&mail);
+	test_assert(mailbox_transaction_commit(&trans) == 0);
+	mailbox_free(&box);
+	test_mail_storage_deinit_user(ctx);
+	test_mail_storage_deinit(&ctx);
+	test_end();
+}
+
 static void test_mail_set_critical(void)
 {
 	struct test_mail_storage_settings set = {
@@ -735,6 +796,7 @@ int main(int argc, char **argv)
 		test_attachment_flags_during_header_fetch,
 		test_bodystructure_reparsing,
 		test_bodystructure_corruption_reparsing,
+		test_binary_size_corruption_recompute,
 		test_mail_set_critical,
 		test_mail_set_critical_different_mailboxes,
 		test_mail_get_last_internal_error,
