@@ -117,6 +117,10 @@ static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 		i_stream_skip(rstream->istream.parent, pos);
 
 		while ((ret = i_stream_read_memarea(rstream->istream.parent)) > 0) {
+			/* the read may have moved or replaced the buffer:
+			   buf and pos still describe the data that was just
+			   skipped */
+			buf = i_stream_get_data(rstream->istream.parent, &pos);
 			p = memchr(buf, '\n', pos);
 			if (p != NULL)
 				break;
