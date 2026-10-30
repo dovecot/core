@@ -7,6 +7,12 @@
 
 /* Padding to leave in X-Keywords header when rewriting mbox */
 #define MBOX_HEADER_PADDING 50
+/* Highest UID mbox assigns or accepts from X-UID/X-IMAPbase. Index sync
+   transactions run on a dummy view with UINT32_MAX - 2 messages, so a flag
+   update for UID UINT32_MAX - 1 or UINT32_MAX is taken as an update of a new
+   (appended) record and fails an assert in
+   mail_index_transaction_lookup() on every sync. */
+#define MBOX_MAX_UID (UINT32_MAX - 2)
 /* Don't write Content-Length header unless it's value is larger than this. */
 #define MBOX_MIN_CONTENT_LENGTH_SIZE 1024
 

@@ -9,6 +9,7 @@
 #include "buffer.h"
 #include "istream.h"
 #include "str.h"
+#include "strnum.h"
 #include "write-full.h"
 #include "message-parser.h"
 #include "mail-index.h"
@@ -163,6 +164,8 @@ static bool parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 {
 	size_t i, j, uid_last_pos;
 	uint32_t uid_validity, uid_last;
+	uintmax_t num;
+	const unsigned char *end;
 
 	if (ctx->seq != 1 || ctx->seen_imapbase ||
 	    ctx->sync_ctx->renumber_uids) {
@@ -191,14 +194,23 @@ static bool parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 	}
 	uid_last_pos = i;
 
-	for (uid_last = 0, j = 0; i < hdr->full_value_len; i++, j++) {
-		if (hdr->full_value[i] < '0' || hdr->full_value[i] > '9') {
-			if (!IS_LWSP_LF(hdr->full_value[i]))
-				return FALSE;
-			break;
-		}
-		uid_last = uid_last * 10 + (hdr->full_value[i] - '0');
+	uid_last = 0; j = 0;
+	if (i < hdr->full_value_len &&
+	    hdr->full_value[i] >= '0' && hdr->full_value[i] <= '9') {
+		/* An overflow or a UID that can't be used (see MBOX_MAX_UID)
+		   makes the header broken. It may come from an untrusted
+		   incoming mail. */
+		if (str_parse_data_uintmax(hdr->full_value + i,
+					   hdr->full_value_len - i,
+					   &num, &end) < 0 ||
+		    num > MBOX_MAX_UID)
+			return FALSE;
+		uid_last = num;
+		j = end - (hdr->full_value + i);
+		i += j;
 	}
+	if (i < hdr->full_value_len && !IS_LWSP_LF(hdr->full_value[i]))
+		return FALSE;
 
 	if (j != 10 ||
 	    hdr->full_value_offset != ctx->hdr_offset + str_len(ctx->header)) {
