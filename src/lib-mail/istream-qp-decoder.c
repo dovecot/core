@@ -82,7 +82,7 @@ static ssize_t i_stream_qp_decoder_read(struct istream_private *stream)
 			}
 			io_stream_set_error(&stream->iostream,
 				"Invalid quoted-printable input trailer: %s", error);
-			stream->istream.stream_errno = EPIPE;
+			stream->istream.stream_errno = EINVAL;
 			return -1;
 		}
 		if (qp_decoder_more(bstream->qp, data, size,

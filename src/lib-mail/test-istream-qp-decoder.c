@@ -3,6 +3,7 @@
 #include "test-lib.h"
 #include "str.h"
 #include "istream-private.h"
+#include "istream-failure-at.h"
 #include "istream-qp.h"
 
 static const struct {
@@ -35,7 +36,7 @@ static const struct {
 	/* Non hex data */
 	{ "=FJ=X1", "", EINVAL, 0 },
 	/* No content allowed after Soft Line Break */
-	{ "=C3=9C = ","\xc3\x9c ", EPIPE, 0 },
+	{ "=C3=9C = ","\xc3\x9c ", EINVAL, 0 },
 	/* Boundary delimiter */
 	{ "=C3=9C=\r\n-------","\xc3\x9c-------", 0, 0 },
 	{ "=----------- =C3=9C","", EINVAL, 0 },
@@ -48,11 +49,11 @@ static const struct {
 
 	{ "p=c3=a4\rasdf", "p\xC3\xA4", EINVAL, 0 },
 	{ "=___________ \xc3\x9c","", EINVAL, 0 },
-	{ "p=c", "p", EPIPE, 0 },
-	{ "p=A", "p", EPIPE, 0 },
+	{ "p=c", "p", EINVAL, 0 },
+	{ "p=A", "p", EINVAL, 0 },
 	{ "p=Ax", "p", EINVAL, 0 },
-	{ "___________ \xc3\x9c=C3=9","___________ \xc3\x9c\xC3", EPIPE, 0},
-	{ "p=c3=a4=c3=a4t=c3=b6s=  ", "p\xC3\xA4\xC3\xA4t\xC3\xB6s", EPIPE, 0 },
+	{ "___________ \xc3\x9c=C3=9","___________ \xc3\x9c\xC3", EINVAL, 0},
+	{ "p=c3=a4=c3=a4t=c3=b6s=  ", "p\xC3\xA4\xC3\xA4t\xC3\xB6s", EINVAL, 0 },
 	/* Soft Line Break example from the RFC */
 	{
 		"Now's the time =\r\nfor all folk to come=\r\n to the aid of "
@@ -185,10 +186,47 @@ static void test_istream_qp_decoder(void)
 	}
 }
 
+static void test_istream_qp_decoder_parent_error(void)
+{
+	static const struct {
+		const char *input;
+		bool parent_fails;
+		int stream_errno;
+	} tests[] = {
+		/* the parent fails in the middle of an escape sequence */
+		{ "p=C3=A4", TRUE, EPIPE },
+		/* the parent ends in the middle of an escape sequence */
+		{ "p=C", FALSE, EINVAL },
+	};
+	struct istream *data_input, *parent, *input;
+
+	test_begin("istream qp decoder parent error");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		data_input = test_istream_create(tests[i].input);
+		if (!tests[i].parent_fails)
+			parent = data_input;
+		else {
+			parent = i_stream_create_failure_at(data_input, 3,
+				tests[i].stream_errno, "parent failed");
+		}
+		input = i_stream_create_qp_decoder(parent);
+		while (i_stream_read(input) > 0)
+			i_stream_skip(input, i_stream_get_data_size(input));
+		test_assert_cmp_idx(input->stream_errno, ==,
+				    tests[i].stream_errno, i);
+		i_stream_unref(&input);
+		if (parent != data_input)
+			i_stream_unref(&parent);
+		i_stream_unref(&data_input);
+	}
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_istream_qp_decoder,
+		test_istream_qp_decoder_parent_error,
 		NULL
 	};
 	return test_run(test_functions);
