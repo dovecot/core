@@ -131,6 +131,39 @@ static void test_mbox_from_parse_quoted_backslash(void)
 	test_end();
 }
 
+static void test_mbox_from_parse_line_break_in_date(void)
+{
+	static const char *const input[] = {
+		"x Mo\n Jan  1 00:00:00 2024",
+		"x Mon\n Jan  1 00:00:00 2024",
+		"x Mon Jan\n 1 00:00:00 2024",
+		"x Mon Jan\r 1 00:00:00 2024",
+		"x Mon, 1 Jan\n2024 00:00:00",
+		"x Mon, 1 Jan 2024\r00:00:00",
+	};
+	char *sender;
+	time_t t;
+	int tz;
+
+	test_begin("mbox_from_parse() line break in date");
+	/* the same lines without the line break are valid */
+	test_assert_cmp(mbox_from_parse((const unsigned char *)
+					"x Mon Jan  1 00:00:00 2024 +0000", 32,
+					&t, &tz, &sender), ==, 0);
+	i_free(sender);
+	test_assert_cmp(mbox_from_parse((const unsigned char *)
+					"x Mon, 1 Jan 2024 00:00:00", 26,
+					&t, &tz, &sender), ==, 0);
+	i_free(sender);
+	for (unsigned int i = 0; i < N_ELEMENTS(input); i++) {
+		test_assert_cmp_idx(mbox_from_parse(
+			(const unsigned char *)input[i], strlen(input[i]),
+			&t, &tz, &sender), <, 0, i);
+		test_assert_idx(sender == NULL, i);
+	}
+	test_end();
+}
+
 static void test_mbox_from_create(void)
 {
 	time_t t = 1234567890;
@@ -149,6 +182,7 @@ int main(void)
 		test_mbox_from_parse,
 		test_mbox_from_parse_no_overread,
 		test_mbox_from_parse_quoted_backslash,
+		test_mbox_from_parse_line_break_in_date,
 		test_mbox_from_create,
 		NULL
 	};

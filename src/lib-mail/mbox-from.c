@@ -106,6 +106,14 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	if (msg+29-3-5 > msg_end)
 		return -1;
 
+	/* The fixed part of the date has fields that are skipped below
+	   without looking at them (weekday, the characters after the month
+	   and the year). A line break there would end the line early. */
+	for (const unsigned char *p = msg; p < msg + 29 - 3 - 5; p++) {
+		if (*p == '\r' || *p == '\n')
+			return -1;
+	}
+
 	i_zero(&tm);
 
 	/* skip weekday */
