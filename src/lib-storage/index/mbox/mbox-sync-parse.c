@@ -326,6 +326,18 @@ static bool parse_x_keywords_real(struct mbox_sync_mail_context *ctx,
 		array_append_array(&ctx->mail.keywords, &keyword_list);
 	}
 
+	if (ctx->sync_ctx->dest_first_mail && ctx->seq != 1) {
+		/* we're expunging the first mail, and this one becomes the
+		   first. X-IMAPbase, which defines the keyword names, is
+		   appended after the existing headers, so it would end up
+		   after this X-Keywords. When the mbox is read again with an
+		   index that doesn't know the names yet, the keywords would
+		   be taken as foreign and the header deleted. Delete it now
+		   and keep the parsed keywords: the header is added back
+		   after X-IMAPbase (the same is done for X-UID). */
+		return FALSE;
+	}
+
 	ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] = str_len(ctx->header);
 	parse_trailing_whitespace(ctx, hdr);
 	return TRUE;
