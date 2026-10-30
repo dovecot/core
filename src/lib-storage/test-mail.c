@@ -1083,6 +1083,78 @@ static void test_mbox_raw_istream_nul_after_from(void)
 	test_end();
 }
 
+static void test_mbox_save_from_header_lines(void)
+{
+	/* The sender is too long for a header name, so the line has no name. */
+	string_t *long_from = t_str_new(1200);
+	str_append(long_from, "From ");
+	for (unsigned int i = 0; i < 1100; i++)
+		str_append_c(long_from, 'a');
+	str_append(long_from, "@example.com Mon Jan  1 00:00:00 2024");
+
+	const struct {
+		const char *line;
+		bool kept;
+	} tests[] = {
+		{ "From user@example.com Mon Jan  1 00:00:00 2024", FALSE },
+		{ "From :x Mon Jan  1 00:00:00 2024", FALSE },
+		{ str_c(long_from), FALSE },
+		{ "From: a@b", TRUE },
+		{ "From :a@b", TRUE },
+		{ "Fromx Mon Jan  1 00:00:00 2024", TRUE },
+	};
+	struct test_mail_storage_ctx *ctx;
+	const char *const extra_input[] = {
+		"mail_inbox_path=%{home}/inbox",
+		NULL
+	};
+	const struct test_mail_storage_settings set = {
+		.driver = "mbox",
+		.extra_input = extra_input,
+	};
+	struct mailbox_status status;
+	struct istream *input;
+	const unsigned char *data;
+	size_t size;
+
+	test_begin("mbox save From_ header lines");
+	ctx = test_mail_storage_init();
+	test_mail_storage_init_user(ctx, &set);
+
+	struct mailbox *box =
+		mailbox_alloc(ctx->user->namespaces->list, "INBOX", 0);
+	test_assert(mailbox_open(box) == 0);
+
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		test_mail_save(box, t_strdup_printf(
+			"Subject: test\n%s\n\nbody\n", tests[i].line));
+
+		/* the mail must not be split into two */
+		mailbox_get_open_status(box, STATUS_MESSAGES, &status);
+		test_assert_cmp_idx(status.messages, ==, i + 1, i);
+
+		struct mailbox_transaction_context *trans =
+			mailbox_transaction_begin(box, 0, __func__);
+		struct mail *mail = mail_alloc(trans, 0, NULL);
+		mail_set_seq(mail, i + 1);
+		test_assert_idx(mail_get_hdr_stream(mail, NULL, &input) == 0, i);
+		string_t *hdr = t_str_new(1200);
+		while (i_stream_read_more(input, &data, &size) > 0) {
+			str_append_data(hdr, data, size);
+			i_stream_skip(input, size);
+		}
+		bool found = strstr(str_c(hdr), tests[i].line) != NULL;
+		test_assert_cmp_idx(found, ==, tests[i].kept, i);
+		mail_free(&mail);
+		test_assert(mailbox_transaction_commit(&trans) == 0);
+	}
+
+	mailbox_free(&box);
+	test_mail_storage_deinit_user(ctx);
+	test_mail_storage_deinit(&ctx);
+	test_end();
+}
+
 static void test_mail_set_critical(void)
 {
 	struct test_mail_storage_settings set = {
@@ -1351,6 +1423,7 @@ int main(int argc, char **argv)
 		test_mbox_raw_istream_reader_holds_data,
 		test_mbox_raw_istream_body_size_long_from,
 		test_mbox_raw_istream_nul_after_from,
+		test_mbox_save_from_header_lines,
 		test_mail_set_critical,
 		test_mail_set_critical_different_mailboxes,
 		test_mail_get_last_internal_error,

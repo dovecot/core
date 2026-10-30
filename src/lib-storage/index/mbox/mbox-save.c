@@ -340,13 +340,58 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 	return 0;
 }
 
+static bool
+mbox_save_header_line_may_be_from(const struct message_header_line *hdr)
+{
+	/* The header parser splits the line at the first ':', so a From_ line
+	   has either the name "From" followed by " :", or no name at all (no
+	   ':' or a too long name). The caller drops names beginning with
+	   "From " (such as "From foo: bar") with their continuation lines. */
+	if (hdr->name_len == 4) {
+		return memcmp(hdr->name, "From", 4) == 0 &&
+			hdr->middle_len > 0 && hdr->middle[0] == ' ';
+	}
+	if (hdr->name_len == 0)
+		return hdr->value_len >= 5 && memcmp(hdr->value, "From ", 5) == 0;
+	return FALSE;
+}
+
+static bool mbox_save_header_line_is_from(const struct message_header_line *hdr)
+{
+	string_t *line;
+	const unsigned char *data;
+	char *sender;
+	time_t received_time;
+	int tz;
+	bool ret;
+
+	if (hdr->continued || hdr->eoh ||
+	    !mbox_save_header_line_may_be_from(hdr))
+		return FALSE;
+
+	/* The name isn't enough: "From :x Mon Jan  1 00:00:00 2024" has the
+	   name "From". Check the whole line the way the mbox reader does. */
+	line = t_str_new(hdr->name_len + hdr->middle_len + hdr->value_len + 1);
+	str_append_data(line, hdr->name, hdr->name_len);
+	str_append_data(line, hdr->middle, hdr->middle_len);
+	str_append_data(line, hdr->value, hdr->value_len);
+	str_append_c(line, '\n');
+
+	data = str_data(line);
+	ret = mbox_from_parse(CONST_PTR_OFFSET(data, 5), str_len(line) - 5,
+			      &received_time, &tz, &sender) == 0;
+	i_free(sender);
+	return ret;
+}
+
 static void
 save_header_callback(struct header_filter_istream *input ATTR_UNUSED,
 		     struct message_header_line *hdr,
 		     bool *matched, struct mbox_save_context *ctx)
 {
 	if (hdr != NULL) {
-		if (str_begins_with(hdr->name, "From ")) {
+		if (str_begins_with(hdr->name, "From ") ||
+		    mbox_save_header_line_is_from(hdr)) {
 			/* we can't allow From_-lines in headers. there's no
 			   legitimate reason for allowing them in any case,
 			   so just drop them. */
