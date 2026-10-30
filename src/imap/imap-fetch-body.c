@@ -369,15 +369,17 @@ bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx)
 		ctx->error = "Invalid BODY[..] section";
 		return FALSE;
 	}
-	ctx->fetch_ctx->fetch_data |=
-		imap_msgpart_get_fetch_data(body->msgpart);
-	imap_msgpart_get_wanted_headers(body->msgpart, &ctx->fetch_ctx->all_headers);
 
 	if (body_parse_partial(body, p, &error) < 0) {
 		ctx->error = p_strdup_printf(ctx->pool,
 			"Invalid BODY[..] parameter: %s", error);
+		/* no handler was added yet, so nothing else frees it */
+		imap_msgpart_free(&body->msgpart);
 		return FALSE;
 	}
+	ctx->fetch_ctx->fetch_data |=
+		imap_msgpart_get_fetch_data(body->msgpart);
+	imap_msgpart_get_wanted_headers(body->msgpart, &ctx->fetch_ctx->all_headers);
 
 	/* update the section name for the imap_fetch_add_handler() */
 	ctx->name = p_strdup(ctx->pool, get_body_name(body));
@@ -438,16 +440,18 @@ bool imap_fetch_binary_init(struct imap_fetch_init_context *ctx)
 		return FALSE;
 	}
 	imap_msgpart_set_decode_to_binary(body->msgpart);
-	ctx->fetch_ctx->fetch_data |=
-		imap_msgpart_get_fetch_data(body->msgpart);
 
 	if (!body->binary_size) {
 		if (body_parse_partial(body, p, &error) < 0) {
 			ctx->error = p_strdup_printf(ctx->pool,
 				"Invalid BINARY[..] parameter: %s", error);
+			/* no handler was added yet, so nothing else frees it */
+			imap_msgpart_free(&body->msgpart);
 			return FALSE;
 		}
 	}
+	ctx->fetch_ctx->fetch_data |=
+		imap_msgpart_get_fetch_data(body->msgpart);
 
 	/* update the section name for the imap_fetch_add_handler() */
 	ctx->name = p_strdup(ctx->pool, get_body_name(body));
