@@ -555,6 +555,42 @@ static void test_istream_add_missing_eoh(void)
 	test_end();
 }
 
+static void test_istream_no_cr_idempotent(void)
+{
+	static const struct {
+		const char *input;
+		const char *output;
+	} tests[] = {
+		{ "Subject: x\r\r\r\n\r\nbody\r\r\n", "Subject: x\n\nbody\r\r\n" },
+		{ "A: b\r\r\nC: d\r\n\te\r\r\r\n\n", "A: b\nC: d\n\te\n\n" },
+		{ "A: b\rc\r\n\n", "A: b\rc\n\n" },
+	};
+	struct istream *istream, *filter, *filter2;
+	unsigned int i;
+
+	test_begin("i_stream_create_header_filter: NO_CR removes all CRs before LF");
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		istream = test_istream_create(tests[i].input);
+		filter = i_stream_create_header_filter(istream,
+				HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,
+				NULL, 0, *null_header_filter_callback, NULL);
+		/* a second pass must not change anything anymore */
+		filter2 = i_stream_create_header_filter(filter,
+				HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,
+				NULL, 0, *null_header_filter_callback, NULL);
+		const unsigned char *data;
+		size_t size;
+		while (i_stream_read(filter2) > 0) ;
+		data = i_stream_get_data(filter2, &size);
+		test_assert_memcmp_idx(data, size, tests[i].output,
+				       strlen(tests[i].output), i);
+		i_stream_unref(&filter2);
+		i_stream_unref(&filter);
+		i_stream_unref(&istream);
+	}
+	test_end();
+}
+
 static void test_istream_add_missing_eoh_and_edit(void)
 {
 	static const struct {
@@ -814,6 +850,7 @@ int main(void)
 		test_istream_edit,
 		test_istream_add_missing_eoh,
 		test_istream_add_missing_eoh_and_edit,
+		test_istream_no_cr_idempotent,
 		test_istream_end_body_with_lf,
 		test_istream_hide_body,
 		test_istream_strip_eoh,

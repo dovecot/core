@@ -324,8 +324,17 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 				buffer_append(mstream->hdr_buf->buf,
 					      hdr->middle, hdr->middle_len);
 			}
+			size_t value_len = hdr->value_len;
+			if (!hdr->no_newline && !mstream->crlf &&
+			    !mstream->crlf_preserve) {
+				/* NO_CR: the parser removed only one CR, strip
+				   the rest. */
+				while (value_len > 0 &&
+				       hdr->value[value_len - 1] == '\r')
+					value_len--;
+			}
 			buffer_append(mstream->hdr_buf->buf,
-				      hdr->value, hdr->value_len);
+				      hdr->value, value_len);
 			if (!hdr->no_newline)
 				add_eol(mstream, hdr->crlf_newline);
 
