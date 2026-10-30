@@ -240,6 +240,66 @@ static void test_message_decoder_partial_illegal_sequence3(void)
 	test_end();
 }
 
+static void
+test_message_decoder_utf8_decode_split(const char *input_str, size_t split1,
+				       size_t split2, string_t *dest)
+{
+	struct message_decoder_context *ctx;
+	struct message_part part;
+	struct message_header_line hdr;
+	struct message_block input, output;
+	size_t input_len = strlen(input_str);
+	const size_t offsets[] = { 0, split1, split2, input_len };
+
+	i_zero(&part);
+	i_zero(&input);
+	input.part = &part;
+	ctx = message_decoder_init(NULL, 0);
+
+	i_zero(&hdr);
+	hdr.name = "Content-Type";
+	hdr.name_len = strlen(hdr.name);
+	hdr.full_value = (const void *)"text/plain; charset=UTF-8";
+	hdr.full_value_len = strlen((const char *)hdr.full_value);
+	input.hdr = &hdr;
+	test_assert(message_decoder_decode_next_block(ctx, &input, &output));
+	input.hdr = NULL;
+	test_assert(message_decoder_decode_next_block(ctx, &input, &output));
+
+	str_truncate(dest, 0);
+	for (unsigned int i = 0; i < N_ELEMENTS(offsets) - 1; i++) {
+		input.data = (const unsigned char *)input_str + offsets[i];
+		input.size = offsets[i + 1] - offsets[i];
+		if (input.size == 0)
+			continue;
+		memset(&output, 0, sizeof(output));
+		test_assert(message_decoder_decode_next_block(ctx, &input,
+							      &output));
+		str_append_data(dest, output.data, output.size);
+	}
+	message_decoder_deinit(&ctx);
+}
+
+static void test_message_decoder_utf8_split_after_invalid(void)
+{
+	/* invalid 0xee followed by U+66B9 */
+	const char *input = "a\xee\xe6\x9a\xb9" "b";
+	const char *expected = "a\xef\xbf\xbd\xe6\x9a\xb9" "b";
+	string_t *str = t_str_new(32);
+
+	test_begin("message decoder UTF-8 split after invalid octet");
+	/* the output must not depend on where the input is split */
+	for (size_t i = 0; i <= strlen(input); i++) {
+		for (size_t j = i; j <= strlen(input); j++) {
+			test_message_decoder_utf8_decode_split(input, i, j,
+							       str);
+			test_assert_strcmp_idx(str_c(str), expected,
+					       i * 10 + j);
+		}
+	}
+	test_end();
+}
+
 static void test_message_decoder_multipart(void)
 {
 	static const char test_message_input[] =
@@ -720,6 +780,7 @@ int main(void)
 		test_message_decoder_partial_illegal_sequence,
 		test_message_decoder_partial_illegal_sequence2,
 		test_message_decoder_partial_illegal_sequence3,
+		test_message_decoder_utf8_split_after_invalid,
 		test_message_decoder_multipart,
 		test_message_decoder_current_content_type,
 		test_message_decoder_content_transfer_encoding,
