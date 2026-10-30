@@ -777,12 +777,40 @@ static void test_imap_bodystructure_nesting(void)
 	test_end();
 }
 
+static void test_imap_body_parse_from_bodystructure_invalid_envelope(void)
+{
+	static const char *const bodystructures[] = {
+		/* atom in the envelope */
+		"(\"message\" \"rfc822\" NIL NIL NIL \"7bit\" 300 "
+		"(\"date\" \"s\" NIL NIL DIL NIL NIL NIL NIL NIL) "
+		"(\"text\" \"plain\" NIL NIL NIL \"7bit\" 10 1 NIL NIL NIL NIL) "
+		"12 NIL NIL NIL NIL)",
+		/* atom in a nested envelope list */
+		"\"message\" \"rfc822\" NIL NIL NIL \"7bit\" 300 "
+		"(\"date\" \"s\" NIL NIL ((\"n\" NIL DIL \"h\")) NIL NIL NIL NIL NIL) "
+		"(\"text\" \"plain\" NIL NIL NIL \"7bit\" 10 1 NIL NIL NIL NIL) "
+		"12 NIL NIL NIL NIL",
+	};
+	const char *error;
+
+	test_begin("imap body parse from bodystructure - invalid envelope");
+	for (unsigned int i = 0; i < N_ELEMENTS(bodystructures); i++) T_BEGIN {
+		string_t *str = t_str_new(128);
+
+		test_assert_cmp_idx(imap_body_parse_from_bodystructure(
+			bodystructures[i], str, &error), <, 0, i);
+		test_assert_strcmp_idx(error, "Invalid envelope", i);
+	} T_END;
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_imap_bodystructure_write,
 		test_imap_bodystructure_parse,
 		test_imap_bodystructure_parse_invalid,
+		test_imap_body_parse_from_bodystructure_invalid_envelope,
 		test_imap_bodystructure_normalize,
 		test_imap_bodystructure_parse_full,
 		test_imap_bodystructure_parse_full_invalid,

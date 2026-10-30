@@ -830,7 +830,7 @@ static bool str_append_nstring(string_t *str, const struct imap_arg *arg)
 	return TRUE;
 }
 
-static void
+static bool
 imap_write_envelope_list(const struct imap_arg *args, string_t *str,
 	bool toplevel)
 {
@@ -842,12 +842,13 @@ imap_write_envelope_list(const struct imap_arg *args, string_t *str,
 
 		if (!str_append_nstring(str, args)) {
 			if (!imap_arg_get_list(args, &children)) {
-				/* everything is either nstring or list */
-				i_unreached();
+				/* corrupted cache */
+				return FALSE;
 			}
 
 			str_append_c(str, '(');
-			imap_write_envelope_list(children, str, FALSE);
+			if (!imap_write_envelope_list(children, str, FALSE))
+				return FALSE;
 			str_append_c(str, ')');
 
 			list = TRUE;
@@ -857,12 +858,13 @@ imap_write_envelope_list(const struct imap_arg *args, string_t *str,
 		if ((toplevel || !list) && !IMAP_ARG_IS_EOL(args))
 			str_append_c(str, ' ');
 	}
+	return TRUE;
 }
 
-static void
+static bool
 imap_write_envelope(const struct imap_arg *args, string_t *str)
 {
-	imap_write_envelope_list(args, str, TRUE);
+	return imap_write_envelope_list(args, str, TRUE);
 }
 
 static int imap_parse_bodystructure_args(const struct imap_arg *args,
@@ -977,7 +979,10 @@ static int imap_parse_bodystructure_args(const struct imap_arg *args,
 			return -1;
 		}
 		str_append_c(str, '(');
-		imap_write_envelope(list_args, str);
+		if (!imap_write_envelope(list_args, str)) {
+			*error_r = "Invalid envelope";
+			return -1;
+		}
 		str_append(str, ") (");
 
 		if (!imap_arg_get_list(&args[1], &list_args)) {
