@@ -73,7 +73,7 @@ i_stream_base64_finish_decode(struct base64_decoder_istream *bstream)
 	if (base64_decode_finish(&bstream->decoder) < 0) {
 		io_stream_set_error(&stream->iostream,
 			"Base64 data ends prematurely");
-		stream->istream.stream_errno = EPIPE;
+		stream->istream.stream_errno = EINVAL;
 	}
 }
 
