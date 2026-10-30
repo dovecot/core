@@ -523,7 +523,9 @@ index_mail_get_binary_properties(struct mail *_mail,
 	   contained duplicate Content-Transfer-Encoding lines, but since
 	   that's invalid anyway we don't bother trying to handle it. */
 	lines = part->header_size.lines + part->body_size.lines;
-	end_offset = part->physical_pos + size;
+	/* physical_pos is a physical offset, so use physical sizes. */
+	end_offset = part->physical_pos + part->header_size.physical_size +
+		part->body_size.physical_size;
 
 	bin_part = mail->data.bin_parts; root_bin_part = NULL;
 	for (; bin_part != NULL; bin_part = bin_part->next) {
