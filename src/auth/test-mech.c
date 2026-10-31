@@ -145,13 +145,36 @@ test_mech_handle_challenge(struct auth_request *request,
 	auth_request_continue(request, out->data, out->used);
 }
 
+/* APOP challenge prefixes. The first one is the canonical form pop3-login
+   generates. The rest are non-canonical spellings of the same values, which
+   must be rejected. */
+static const struct {
+	const char *pid_prefix, *timestamp_prefix;
+	bool negate_pid;
+} apop_challenge_variants[] = {
+	{ "", "", FALSE },
+	{ "+", "", FALSE },
+	{ " ", "", FALSE },
+	{ "0x", "", FALSE },
+	{ "", " ", FALSE },
+	{ "-", "", TRUE },
+};
+
 static inline const unsigned char *
-test_mech_construct_apop_challenge(unsigned int connect_uid, size_t *len_r)
+test_mech_construct_apop_challenge(unsigned int variant_idx,
+				   unsigned int connect_uid, size_t *len_r)
 {
 	string_t *apop_challenge = t_str_new(128);
+	unsigned long pid = (unsigned long)getpid();
 
-	str_printfa(apop_challenge,"<%lx.%lx.%"PRIxTIME_T".", (unsigned long)getpid(),
-		    (unsigned long)connect_uid, process_start_time+10);
+	i_assert(variant_idx < N_ELEMENTS(apop_challenge_variants));
+	if (apop_challenge_variants[variant_idx].negate_pid)
+		pid = -pid;
+	str_printfa(apop_challenge, "<%s%lx.%lx.%s%lx.",
+		    apop_challenge_variants[variant_idx].pid_prefix, pid,
+		    (unsigned long)connect_uid,
+		    apop_challenge_variants[variant_idx].timestamp_prefix,
+		    (unsigned long)(process_start_time + 10));
 	str_append_data(apop_challenge, "\0testuser\0responseoflen16-", 26);
 	*len_r = apop_challenge->used;
 	return apop_challenge->data;
@@ -209,6 +232,12 @@ static void test_mechs(void)
 		{"APOP", UCHAR_LEN("1.1.1\0testuser\0tooshort"), NULL, FALSE, FALSE, FALSE},
 		{"APOP", UCHAR_LEN("1.1.1\0testuser\0responseoflen16-"), NULL, FALSE, FALSE, FALSE},
 		{"APOP", UCHAR_LEN("1.1.1"), NULL, FALSE, FALSE, FALSE},
+		/* NULL input: len is an index to apop_challenge_variants[] */
+		{"APOP", NULL, 1, NULL, FALSE, FALSE, FALSE},
+		{"APOP", NULL, 2, NULL, FALSE, FALSE, FALSE},
+		{"APOP", NULL, 3, NULL, FALSE, FALSE, FALSE},
+		{"APOP", NULL, 4, NULL, FALSE, FALSE, FALSE},
+		{"APOP", NULL, 5, NULL, FALSE, FALSE, FALSE},
 		{"CRAM-MD5", UCHAR_LEN("testuser\0response"), "testuser",  FALSE, FALSE, FALSE},
 		{"PLAIN", UCHAR_LEN("testuser\0"), "testuser", FALSE, FALSE, FALSE},
 
@@ -284,7 +313,8 @@ static void test_mechs(void)
 
 		if (strcmp(mech_name, "APOP") == 0 && test_case->in == NULL)
 			test_case->in =	test_mech_construct_apop_challenge(
-				request->connect_uid, &test_case->len);
+				test_case->len, request->connect_uid,
+				&test_case->len);
 		if (strcmp(mech_name, "DOVECOT-TOKEN") == 0 &&
 		    test_case->in == NULL) {
 			test_case->in = d_token->data;
