@@ -294,10 +294,14 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 			sasl_server_request_output(auth_request,
 						   output_token.value,
 						   output_token.length);
-		} else {
+		} else if (request->sasl_gssapi_state == GSS_STATE_WRAP) {
 			/* If there is no output token, go straight to wrap,
 			   which is expecting an empty input token. */
 			ret = mech_gssapi_wrap(request, output_token);
+		} else {
+			/* The context is incomplete. Wait for more input. */
+			sasl_server_request_output(auth_request,
+						   uchar_empty_ptr, 0);
 		}
 	}
 	(void)gss_release_buffer(&minor_status, &output_token);

@@ -44,6 +44,8 @@ struct test_sasl {
 		unsigned int ret_flags_add, ret_flags_remove;
 		/* The major status that the acceptor returns on success. */
 		unsigned int accept_status;
+		/* The acceptor returns no output token. */
+		bool accept_no_token;
 		/* The acceptor requires this application data in the channel
 		   bindings. */
 		const char *require_cbind_data;
@@ -64,6 +66,10 @@ struct test_sasl {
 	bool no_cbind:1;
 	bool server_no_plus:1;
 	bool expect_cbind:1;
+	/* The server's first output is an empty challenge. The exchange ends
+	   there, because the dummy acceptor would return the same status for
+	   any further token. */
+	bool expect_empty_challenge:1;
 	/* The channel binding callback fails. */
 	bool cbind_callback_fails:1;
 	/* Give the client_auth settings to the session as a struct, like some
@@ -85,6 +91,7 @@ struct test_sasl_context {
 	const char *authid;
 	const char *authzid;
 	const char *realm;
+	unsigned int challenges;
 	const char *cbind_type;
 	buffer_t *cbind_data;
 
@@ -314,6 +321,14 @@ test_server_request_output(struct sasl_server_req_ctx *rctx,
 		break;
 	case SASL_SERVER_OUTPUT_CONTINUE:
 		expected = TRUE;
+		/* Without an initial response the first challenge is empty
+		   anyway. The challenge to check is the one after the token. */
+		if (test->expect_empty_challenge &&
+		    ++tctx->challenges == (tctx->auth_initial ? 1 : 2)) {
+			test_assert(output->data != NULL);
+			test_assert(output->data_size == 0);
+			tctx->finished = TRUE;
+		}
 		break;
 	}
 
@@ -734,6 +749,7 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 		gss_dummy_set_ret_flags(test->gss.ret_flags_add,
 					ret_flags_remove);
 		gss_dummy_set_accept_status(test->gss.accept_status);
+		gss_dummy_set_accept_no_token(test->gss.accept_no_token);
 		gss_dummy_set_initiator_cred_failures(
 			test->gss.fail_acquire_cred,
 			test->gss.fail_set_neg_mechs);
@@ -2015,6 +2031,21 @@ static const struct test_sasl bad_creds_tests[] = {
 		.server_error = "Received unexpected major status",
 		.expect_cbind = TRUE,
 		.failure = TRUE,
+	},
+	/* GSSAPI: the context is incomplete and the acceptor has no token */
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.gss = {
+			.accept_status = GSS_S_CONTINUE_NEEDED,
+			.accept_no_token = TRUE,
+		},
+		.expect_empty_challenge = TRUE,
+		.expect_cbind = TRUE,
 	},
 	/* GSSAPI: wrong channel binding */
 	{

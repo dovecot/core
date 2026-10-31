@@ -43,7 +43,7 @@ static void gss_alloc_buffer(gss_buffer_t buffer, size_t length);
 static char *client_principal = NULL;
 static char *server_principal = NULL;
 static OM_uint32 ret_flags_add, ret_flags_remove, accept_status;
-static bool fail_acquire_cred, fail_set_neg_mechs;
+static bool fail_acquire_cred, fail_set_neg_mechs, accept_no_token;
 static buffer_t *required_cbind, *token_cbind;
 
 void gss_dummy_kinit(const char *principal)
@@ -69,6 +69,11 @@ void gss_dummy_set_accept_status(OM_uint32 status)
 	accept_status = status;
 }
 
+void gss_dummy_set_accept_no_token(bool no_token)
+{
+	accept_no_token = no_token;
+}
+
 void gss_dummy_set_initiator_cred_failures(bool acquire, bool set_neg_mechs)
 {
 	fail_acquire_cred = acquire;
@@ -90,7 +95,7 @@ const buffer_t *gss_dummy_get_token_channel_bindings(void)
 void gss_dummy_deinit(void)
 {
 	ret_flags_add = ret_flags_remove = accept_status = 0;
-	fail_acquire_cred = fail_set_neg_mechs = FALSE;
+	fail_acquire_cred = fail_set_neg_mechs = accept_no_token = FALSE;
 	buffer_free(&required_cbind);
 	buffer_free(&token_cbind);
 	i_free(client_principal);
@@ -498,7 +503,7 @@ gss_accept_sec_context(OM_uint32 *minor_status, gss_ctx_id_t *context_handle,
 	*context_handle = ctx;
 	*src_name = name;
 	*mech_type = &ctx->mech_type;
-	if ((ctx->req_flags & GSS_C_MUTUAL_FLAG) != 0) {
+	if ((ctx->req_flags & GSS_C_MUTUAL_FLAG) != 0 && !accept_no_token) {
 		gss_alloc_buffer(output_token, strlen(GSS_DUMMY_MUTUAL_TOKEN));
 		memcpy(output_token->value, GSS_DUMMY_MUTUAL_TOKEN,
 		       output_token->length);
