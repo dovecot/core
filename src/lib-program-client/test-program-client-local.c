@@ -8,6 +8,7 @@
 #include "istream-concat.h"
 #include "ostream.h"
 #include "lib-signals.h"
+#include "time-util.h"
 #include "program-client.h"
 
 #include <unistd.h>
@@ -251,6 +252,42 @@ static void test_program_wait_no_io(void)
 	test_end();
 }
 
+static void test_program_input_timeout(void)
+{
+	struct program_client_parameters params = pc_params;
+	struct program_client *pc;
+	struct timeval start, end;
+
+	/* program that consumes no input and exits only after a long time */
+	const char *const args[] = {
+		"-c", "exec sleep 30",
+		NULL
+	};
+
+	test_begin("test_program_input_timeout");
+
+	params.input_idle_timeout_msecs = 200;
+	pc = program_client_local_create(event, "/bin/sh", args, &params);
+
+	/* The small input is written immediately, so the client disconnects
+	   while the program's runtime is still 0 milliseconds. */
+	struct istream *is = test_istream_create(pclient_test_io_string);
+	program_client_set_input(pc, is);
+
+	test_expect_error_string("Forcibly terminated with signal");
+	i_gettimeofday(&start);
+	test_assert(program_client_run(pc) != PROGRAM_CLIENT_EXIT_STATUS_SUCCESS);
+	i_gettimeofday(&end);
+	/* With valgrind the TERM signal may arrive before exec(), so the
+	   program is killed only after KILL_TIMEOUT. */
+	test_assert(timeval_diff_msecs(&end, &start) < 15000);
+
+	program_client_destroy(&pc);
+	i_stream_unref(&is);
+
+	test_end();
+}
+
 int main(int argc, char *argv[])
 {
 	struct ioloop *ioloop;
@@ -263,6 +300,7 @@ int main(int argc, char *argv[])
 		test_program_io_big,
 		test_program_failure,
 		test_program_wait_no_io,
+		test_program_input_timeout,
 		NULL
 	};
 

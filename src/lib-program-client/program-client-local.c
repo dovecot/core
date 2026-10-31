@@ -501,7 +501,9 @@ program_client_local_disconnect(struct program_client *pclient, bool force)
 		return;
 	}
 
-	if (runtime > 0 && runtime < pclient->params.input_idle_timeout_msecs)
+	if (runtime < 0)
+		runtime = 0;
+	if (runtime < pclient->params.input_idle_timeout_msecs)
 		timeout = pclient->params.input_idle_timeout_msecs - runtime;
 
 	e_debug(pclient->event,
