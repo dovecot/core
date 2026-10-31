@@ -45,6 +45,7 @@ libsasl_la_SOURCES = \
 	sasl-oauth2.c \
 	$(client_mechanisms) \
 	dsasl-client.c \
+	dsasl-client-gssapi-settings.c \
 	dsasl-client-module.c \
 	dsasl-client-module-load.c \
 	$(server_mechanisms) \
@@ -73,6 +74,7 @@ headers = \
 	dsasl-client.h \
 	dsasl-client-protected.h \
 	dsasl-client-private.h \
+	dsasl-client-gssapi-settings.h \
 	sasl-server.h \
 	sasl-server-gssapi.h \
 	sasl-server-oauth2.h \

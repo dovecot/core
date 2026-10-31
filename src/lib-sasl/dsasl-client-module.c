@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "dsasl-client-private.h"
+#include "dsasl-client-gssapi-settings.h"
 
 #ifdef HAVE_GSSAPI
 /* The module is src/lib-dovecot-gssapi/libdovecot-gssapi. It has no init
@@ -17,6 +18,7 @@ static const struct dsasl_client_module dsasl_client_modules[] = {
 		.name = "dovecot-gssapi",
 		.init_symbol = "dsasl_client_init_gssapi",
 		.mech_names = gssapi_mech_names,
+		.settings_equal = dsasl_client_gssapi_settings_equal,
 	},
 #endif
 	{ .name = NULL }

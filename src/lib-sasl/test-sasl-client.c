@@ -927,6 +927,72 @@ static void test_sasl_client_mech_settings_equal(void)
 	}
 }
 
+#ifdef HAVE_GSSAPI
+static void test_sasl_client_gssapi_settings_equal(void)
+{
+	static const char *const global_default[] = {
+		"client_auth_mechanism", "GSSAPI",
+		NULL,
+	};
+	static const char *const global_no_cbind[] = {
+		"client_auth_mechanism", "GSSAPI",
+		"client_auth_gssapi_channel_binding", "no",
+		NULL,
+	};
+	static const char *const filter_default[] = {
+		"client_auth", "GSSAPI",
+		"client_auth/GSSAPI/mechanism", "GSSAPI",
+		NULL,
+	};
+	static const char *const filter_no_cbind[] = {
+		"client_auth", "GSSAPI",
+		"client_auth/GSSAPI/mechanism", "GSSAPI",
+		"client_auth/GSSAPI/gssapi_channel_binding", "no",
+		NULL,
+	};
+	static const char *const filter_authid[] = {
+		"client_auth", "GSSAPI",
+		"client_auth/GSSAPI/mechanism", "GSSAPI",
+		"client_auth/GSSAPI/authid", "user",
+		NULL,
+	};
+	static const char *const bad_value[] = {
+		"client_auth_mechanism", "GSSAPI",
+		"client_auth_gssapi_channel_binding", "maybe",
+		NULL,
+	};
+	static const char *const spnego_default[] = {
+		"client_auth", "GSS-SPNEGO",
+		"client_auth/GSS-SPNEGO/mechanism", "GSS-SPNEGO",
+		NULL,
+	};
+	static const char *const spnego_no_cbind[] = {
+		"client_auth", "GSS-SPNEGO",
+		"client_auth/GSS-SPNEGO/mechanism", "GSS-SPNEGO",
+		"client_auth/GSS-SPNEGO/gssapi_channel_binding", "no",
+		NULL,
+	};
+	static const struct settings_equal_test tests[] = {
+		{ "GSSAPI global setting differs",
+		  global_default, global_no_cbind, 0, NULL },
+		{ "GSSAPI global setting identical",
+		  global_no_cbind, global_no_cbind, 1, NULL },
+		{ "GSSAPI filter setting differs",
+		  filter_default, filter_no_cbind, 0, NULL },
+		{ "GSSAPI filter without the setting",
+		  filter_authid, filter_authid, 1, NULL },
+		{ "GSS-SPNEGO filter setting differs",
+		  spnego_default, spnego_no_cbind, 0, NULL },
+		{ "invalid value", bad_value, global_default, -1,
+		  "dsasl_client_gssapi settings: Failed to override configuration from hardcoded: "
+		  "Invalid client_auth_gssapi_channel_binding=maybe: "
+		  "Invalid boolean value: maybe (use yes or no)" },
+	};
+
+	test_settings_equal_run(tests, N_ELEMENTS(tests));
+}
+#endif
+
 static void test_sasl_client_is_finished(void)
 {
 	static const char *const sasl_set_fmt[] = {
@@ -1512,6 +1578,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		test_sasl_client_gssapi_no_password,
 		test_sasl_client_gssapi_load,
 		test_sasl_client_non_gssapi_not_loaded,
+		test_sasl_client_gssapi_settings_equal,
 #else
 		test_sasl_client_gssapi_not_built,
 #endif
