@@ -49,6 +49,12 @@ void dsasl_client_unref(struct dsasl_client **_client);
 int dsasl_client_check_settings(struct dsasl_client *client,
 				const char **error_r);
 
+/* Returns 1 if the settings that clients created with the events use for
+   authentication are equal, 0 if not and -1 with an error if getting them
+   failed. The events must have a settings root. */
+int dsasl_client_settings_equal(struct event *event1, struct event *event2,
+				const char **error_r);
+
 void dsasl_client_init_gssapi(struct dsasl_client *client);
 
 /*

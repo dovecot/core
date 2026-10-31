@@ -239,6 +239,12 @@ int dsasl_client_check_settings(struct dsasl_client *client,
 	return 0;
 }
 
+int dsasl_client_settings_equal(struct event *event1, struct event *event2,
+				const char **error_r)
+{
+	return client_auth_settings_equal(event1, event2, error_r);
+}
+
 /*
  * Session
  */

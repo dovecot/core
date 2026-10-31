@@ -752,6 +752,74 @@ static void test_sasl_client_mech_select(void)
 	dsasl_client_unref(&client);
 }
 
+struct settings_equal_test {
+	const char *label;
+	const char *const *settings1;
+	const char *const *settings2;
+	int expected;
+	/* Expected error, or NULL if there is none. */
+	const char *error;
+};
+
+static void
+test_settings_equal_run(const struct settings_equal_test *tests,
+			unsigned int count)
+{
+	for (unsigned int i = 0; i < count; i++) {
+		struct settings_simple test_set1, test_set2;
+		const char *error = NULL;
+
+		test_begin(t_strdup_printf("sasl client settings equal - %s",
+					   tests[i].label));
+		settings_simple_init(&test_set1, tests[i].settings1);
+		settings_simple_init(&test_set2, tests[i].settings2);
+
+		test_assert_cmp(dsasl_client_settings_equal(test_set1.event,
+							    test_set2.event,
+							    &error),
+				==, tests[i].expected);
+		test_assert_strcmp(error, tests[i].error);
+
+		settings_simple_deinit(&test_set2);
+		settings_simple_deinit(&test_set1);
+		test_end();
+	}
+}
+
+static void test_sasl_client_settings_equal(void)
+{
+	static const char *const user[] = {
+		"client_auth_authid", "user",
+		"client_auth_password", "pass",
+		NULL,
+	};
+	static const char *const user2[] = {
+		"client_auth_authid", "user2",
+		"client_auth_password", "pass",
+		NULL,
+	};
+	static const char *const mech_pass[] = {
+		"client_auth", "PLAIN",
+		"client_auth/PLAIN/mechanism", "PLAIN",
+		"client_auth/PLAIN/password", "pass",
+		NULL,
+	};
+	static const char *const mech_pass2[] = {
+		"client_auth", "PLAIN",
+		"client_auth/PLAIN/mechanism", "PLAIN",
+		"client_auth/PLAIN/password", "pass2",
+		NULL,
+	};
+	static const struct settings_equal_test tests[] = {
+		{ "identical", user, user, 1, NULL },
+		{ "authid differs", user, user2, 0, NULL },
+		{ "mechanism password differs",
+		  mech_pass, mech_pass2, 0, NULL },
+	};
+
+	test_settings_equal_run(tests, N_ELEMENTS(tests));
+}
+
 static void test_sasl_client_is_finished(void)
 {
 	static const char *const sasl_set_fmt[] = {
@@ -1327,6 +1395,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		test_sasl_client_oauthbearer,
 		test_sasl_client_xoauth2,
 		test_sasl_client_mech_select,
+		test_sasl_client_settings_equal,
 		test_sasl_client_is_finished,
 		test_sasl_client_is_finished_unverified,
 		test_sasl_client_digest_md5_unexpected_input,
