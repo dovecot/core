@@ -440,6 +440,8 @@ static void test_gss_check_channel_binding(struct test_sasl_context *tctx)
 }
 #endif
 
+#define TEST_SASL_MAX_ROUNDS 20
+
 static void test_sasl_interact(struct test_sasl_context *tctx)
 {
 	const unsigned char *sasl_data = NULL;
@@ -463,7 +465,13 @@ static void test_sasl_interact(struct test_sasl_context *tctx)
 	sasl_server_request_initial(&tctx->ssrctx,
 				    sasl_data, sasl_data_size);
 
-	while (!test_has_failed() && !tctx->finished) {
+	/* A broken exchange could otherwise go on forever. */
+	for (unsigned int rounds = 0;
+	     !test_has_failed() && !tctx->finished; rounds++) {
+		if (rounds >= TEST_SASL_MAX_ROUNDS) {
+			test_assert(FALSE);
+			break;
+		}
 		sasl_data = NULL;
 		sasl_data_size = 0;
 
