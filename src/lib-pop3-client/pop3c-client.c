@@ -345,7 +345,7 @@ int pop3c_client_settings_match(struct event *event1, struct event *event2,
 		/* The authentication settings are used only when the
 		   mailbox/connection is created, so they must be compared here
 		   as well. */
-		ret = client_auth_settings_equal(event1f, event2f, error_r);
+		ret = dsasl_client_settings_equal(event1f, event2f, error_r);
 	}
 	event_unref(&event1f);
 	event_unref(&event2f);
