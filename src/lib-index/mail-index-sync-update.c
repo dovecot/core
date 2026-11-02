@@ -991,6 +991,7 @@ int mail_index_sync_map(struct mail_index_map **_map,
 
 	mail_transaction_log_get_head(index->log, &prev_seq, &prev_offset);
 	if (prev_seq != map->hdr.log_file_seq ||
+	    prev_offset < map->hdr.log_file_tail_offset ||
 	    prev_offset - map->hdr.log_file_tail_offset >
 	    		index->optimization_set.index.rewrite_min_log_bytes) {
 		/* we're reading more from log than we would have preferred.
