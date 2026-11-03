@@ -514,6 +514,70 @@ static void test_ostream_multiplex_packet_flush_callback(void)
 	test_end();
 }
 
+struct test_flush_destroy_context {
+	struct ostream *chan0, *chan1;
+	unsigned int chan1_callback_count;
+};
+
+static int flush_destroy_callback0(struct test_flush_destroy_context *ctx)
+{
+	/* Like imap's client_output() destroying the client: destroy all
+	   channels, which destroys the multiplex stream as well. */
+	o_stream_destroy(&ctx->chan1);
+	o_stream_destroy(&ctx->chan0);
+	io_loop_stop(current_ioloop);
+	return 1;
+}
+
+static int flush_destroy_callback1(struct test_flush_destroy_context *ctx)
+{
+	ctx->chan1_callback_count++;
+	return 1;
+}
+
+static void test_ostream_multiplex_stream_flush_destroy(void)
+{
+	int fd[2];
+	void *context;
+
+	test_begin("ostream multiplex stream (destroy in flush callback)");
+	if (pipe(fd) < 0)
+		i_fatal("pipe() failed: %m");
+	fd_set_nonblock(fd[0], TRUE);
+	fd_set_nonblock(fd[1], TRUE);
+
+	struct ioloop *ioloop = io_loop_create();
+	struct ostream *file_output = o_stream_create_fd(fd[1], 1024);
+	o_stream_set_no_error_handling(file_output, TRUE);
+	struct test_flush_destroy_context ctx = {
+		.chan0 = o_stream_create_multiplex(file_output, SIZE_MAX,
+			OSTREAM_MULTIPLEX_FORMAT_STREAM_CONTINUE),
+	};
+	ctx.chan1 = o_stream_multiplex_add_channel(ctx.chan0, 1);
+	o_stream_set_flush_callback(ctx.chan0, flush_destroy_callback0, &ctx);
+	o_stream_set_flush_callback(ctx.chan1, flush_destroy_callback1, &ctx);
+	/* The pipe is writable, so the fd ostream's IO runs
+	   o_stream_multiplex_flush(), which calls channel 0's callback
+	   first. Channel 1 is destroyed by then and must not be accessed
+	   anymore. */
+	o_stream_set_flush_pending(ctx.chan0, TRUE);
+
+	struct timeout *to = timeout_add(5000, io_loop_stop, current_ioloop);
+	io_loop_run(ioloop);
+	timeout_remove(&to);
+
+	test_assert(ctx.chan0 == NULL);
+	test_assert(ctx.chan1_callback_count == 0);
+	/* the multiplex stream is gone and restored the original callback */
+	test_assert(o_stream_get_flush_callback(file_output, &context) == NULL);
+
+	o_stream_unref(&file_output);
+	io_loop_destroy(&ioloop);
+	i_close_fd(&fd[0]);
+	i_close_fd(&fd[1]);
+	test_end();
+}
+
 static bool buf_expect(buffer_t *buf, const void *data, size_t size)
 {
 	if (buf->used < size || memcmp(buf->data, data, size) != 0)
@@ -862,6 +926,7 @@ void test_ostream_multiplex(void)
 	test_ostream_multiplex_stream_corked_failed_parent();
 	test_ostream_multiplex_packet_hang();
 	test_ostream_multiplex_packet_flush_callback();
+	test_ostream_multiplex_stream_flush_destroy();
 	test_ostream_multiplex_stream();
 	test_ostream_multiplex_stream_maxbuf0();
 	test_ostream_multiplex_stream_oversized_send();

@@ -33,6 +33,10 @@ struct multiplex_ostream {
 
 	unsigned int stream_header_bytes_left;
 	buffer_t *pending_buf;
+	/* Number of o_stream_multiplex_flush() calls running the channels'
+	   flush callbacks. A callback may destroy all the channels, so
+	   freeing mstream is then left to the flush. */
+	unsigned int flushing;
 
 	/* Tracks the parent's cork state. The multiplex owns the parent's
 	   cork while it is wrapping the stream: callers must not cork the
@@ -48,8 +52,16 @@ struct multiplex_ostream {
 	   when the multiplex goes away. */
 	bool recork_parent_on_destroy:1;
 	bool pending_buf_prefix_char1:1;
+	/* All channels are destroyed while flushing */
 	bool destroyed:1;
 };
+
+static void o_stream_multiplex_free(struct multiplex_ostream *mstream)
+{
+	array_free(&mstream->channels);
+	buffer_free(&mstream->pending_buf);
+	i_free(mstream);
+}
 
 static unsigned char ostream_multiplex_header[IOSTREAM_MULTIPLEX_HEADER_SIZE] ATTR_NONSTRING =
 	"\xFF\xFF\xFF\xFF\xFF\x00\x02"
@@ -350,10 +362,15 @@ static int o_stream_multiplex_flush(struct multiplex_ostream *mstream)
 
 	/* a) Everything is flushed. See if one of the callbacks' flush
 	   callbacks wants to write more data.
-	   b) ostream failed. Notify the callbacks in case they need to know. */
+	   b) ostream failed. Notify the callbacks in case they need to know.
+
+	   A callback may destroy all the channels (e.g. imap's client_output()
+	   destroying the client), so keep mstream allocated until the loop is
+	   done. */
 	struct multiplex_ochannel *channel;
 	bool unfinished = FALSE;
 	bool failed = FALSE;
+	mstream->flushing++;
 	array_foreach_elem(&mstream->channels, channel) {
 		if (channel != NULL && channel->ostream.callback != NULL) {
 			ret = channel->ostream.callback(channel->ostream.context);
@@ -363,6 +380,9 @@ static int o_stream_multiplex_flush(struct multiplex_ostream *mstream)
 				unfinished = TRUE;
 		}
 	}
+	i_assert(mstream->flushing > 0);
+	if (--mstream->flushing == 0 && mstream->destroyed)
+		o_stream_multiplex_free(mstream);
 	return failed ? -1 :
 		(unfinished ? 0 : 1);
 }
@@ -558,9 +578,13 @@ static void o_stream_multiplex_try_destroy(struct multiplex_ostream *mstream)
 		multiplex_transfer_parent_cork(mstream->parent, TRUE);
 	}
 	o_stream_unref(&mstream->parent);
-	array_free(&mstream->channels);
-	buffer_free(&mstream->pending_buf);
-	i_free(mstream);
+	if (mstream->flushing > 0) {
+		/* o_stream_multiplex_flush() is still looping through the
+		   channels. It frees mstream afterwards. */
+		mstream->destroyed = TRUE;
+		return;
+	}
+	o_stream_multiplex_free(mstream);
 }
 
 static void o_stream_multiplex_ochannel_destroy(struct iostream_private *stream)
