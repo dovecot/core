@@ -1021,7 +1021,7 @@ client_auth_reply_args(struct client *client, enum sasl_proxy_reply sasl_reply,
 
 static void
 sasl_callback(struct client *client, enum sasl_proxy_reply sasl_reply,
-	      const char *data, const char *const *args)
+	      const char *data, const char *const *args, const char *log_reason)
 {
 	struct client_auth_reply reply;
 
@@ -1075,8 +1075,10 @@ sasl_callback(struct client *client, enum sasl_proxy_reply sasl_reply,
 			client_auth_result(client, CLIENT_AUTH_RESULT_TEMPFAIL,
 					   &reply, data);
 		} else {
+			i_assert(log_reason != NULL);
 			client_auth_result(client,
 				CLIENT_AUTH_RESULT_LIMIT_REACHED, &reply, data);
+			data = log_reason;
 			client->auth_login_limit_reached = TRUE;
 		}
 

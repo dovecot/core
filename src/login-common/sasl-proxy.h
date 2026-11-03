@@ -23,7 +23,8 @@ enum sasl_proxy_auth_flags {
 
 typedef void sasl_proxy_callback_t(struct client *client,
 				   enum sasl_proxy_reply reply,
-				   const char *data, const char *const *args);
+				   const char *data, const char *const *args,
+				   const char *log_reason);
 
 const struct auth_mech_desc *
 sasl_proxy_get_advertised_mechs(struct client *client, unsigned int *count_r);

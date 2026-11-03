@@ -22,6 +22,8 @@
 #include <unistd.h>
 
 #define ERR_TOO_MANY_USERIP_CONNECTIONS \
+	"Maximum number of connections from user+IP exceeded (limit=%u)"
+#define LOG_TOO_MANY_USERIP_CONNECTIONS \
 	"Maximum number of connections from user+IP exceeded " \
 	"(mail_max_userip_connections=%u)"
 
@@ -136,9 +138,10 @@ client_get_auth_flags(struct client *client)
 	return auth_flags;
 }
 
-static void ATTR_NULL(3, 4)
+static void ATTR_NULL(3, 4, 5)
 call_client_callback(struct client *client, enum sasl_proxy_reply reply,
-		     const char *data, const char *const *args)
+		     const char *data, const char *const *args,
+		     const char *log_reason)
 {
 	sasl_proxy_callback_t *sasl_callback;
 
@@ -147,7 +150,7 @@ call_client_callback(struct client *client, enum sasl_proxy_reply reply,
 	sasl_callback = client->sasl_callback;
 	client->sasl_callback = NULL;
 
-	sasl_callback(client, reply, data, args);
+	sasl_callback(client, reply, data, args, log_reason);
 	/* NOTE: client may be destroyed now */
 }
 
@@ -175,7 +178,7 @@ login_callback(const struct login_reply *reply, void *context)
 	} else {
 		auth_client_send_cancel(auth_client, client->master_auth_id);
 	}
-	call_client_callback(client, sasl_reply, data, NULL);
+	call_client_callback(client, sasl_reply, data, NULL, NULL);
 }
 
 static int master_send_request(struct anvil_request *anvil_request)
@@ -247,6 +250,7 @@ anvil_lookup_callback(const struct anvil_reply *reply,
 	struct client *client = req->client;
 	const struct login_settings *set = client->set;
 	const char *errmsg;
+	const char *log_reason = NULL;
 	unsigned int conn_count;
 	enum sasl_proxy_reply sasl_reply = SASL_PROXY_REPLY_SUCCESS;
 
@@ -274,11 +278,14 @@ anvil_lookup_callback(const struct anvil_reply *reply,
 		sasl_reply = SASL_PROXY_REPLY_MASTER_FAILED_LIMIT;
 		errmsg = t_strdup_printf(ERR_TOO_MANY_USERIP_CONNECTIONS,
 					 set->mail_max_userip_connections);
+		log_reason = t_strdup_printf(LOG_TOO_MANY_USERIP_CONNECTIONS,
+					     set->mail_max_userip_connections);
 	}
 	if (sasl_reply != SASL_PROXY_REPLY_SUCCESS) {
 		client->authenticating = FALSE;
 		auth_client_send_cancel(auth_client, client->master_auth_id);
-		call_client_callback(client, sasl_reply, errmsg, NULL);
+		call_client_callback(client, sasl_reply, errmsg, NULL,
+				     log_reason);
 	}
 	i_free(req);
 }
@@ -369,7 +376,7 @@ sasl_proxy_auth_success_finish(struct client *client, bool nologin,
 	if (nologin) {
 		client->authenticating = FALSE;
 		call_client_callback(client, SASL_PROXY_REPLY_SUCCESS,
-				     data, args);
+				     data, args, NULL);
 	} else if (!sasl_proxy_check_login(client)) {
 		i_assert(!client->authenticating);
 	} else {
@@ -402,7 +409,7 @@ authenticate_callback(struct auth_client_request *request,
 	case AUTH_REQUEST_STATUS_CONTINUE:
 		/* continue */
 		client->sasl_callback(client, SASL_PROXY_REPLY_CONTINUE,
-				      data_base64, NULL);
+				      data_base64, NULL, NULL);
 		break;
 	case AUTH_REQUEST_STATUS_OK:
 		client->auth_request = NULL;
@@ -461,7 +468,7 @@ authenticate_callback(struct auth_client_request *request,
 
 		client->authenticating = FALSE;
 		call_client_callback(client, SASL_PROXY_REPLY_AUTH_FAILED,
-				     NULL, args);
+				     NULL, args, NULL);
 		break;
 	}
 }
@@ -657,11 +664,11 @@ sasl_proxy_auth_cancel(struct client *client, const char *reason,
 
 		args[0] = t_strconcat("code=", code, NULL);
 		args[1] = NULL;
-		call_client_callback(client, reply, reason, args);
+		call_client_callback(client, reply, reason, args, NULL);
 		return;
 	}
 
-	call_client_callback(client, reply, reason, NULL);
+	call_client_callback(client, reply, reason, NULL, NULL);
 }
 
 void sasl_proxy_auth_continue(struct client *client, const char *response)
