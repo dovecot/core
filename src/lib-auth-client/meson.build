@@ -8,6 +8,7 @@ lib_auth_client = static_library(
   'auth-master.c',
   'auth-master-request.c',
   'auth-proxy.c',
+  'auth-secrets.c',
   dependencies: deps,
 )
 
@@ -25,12 +26,13 @@ install_headers(
   'auth-master.h',
   'auth-master-private.h',
   'auth-proxy.h',
+  'auth-secrets.h',
   install_dir: dovecot_includedir,
 )
 
 test_deps = [deps, dep_dns, dep_auth_client]
 
-tests = ['client', 'master']
+tests = ['client', 'master', 'secrets']
 
 foreach test_name : tests
   exe = f'test-auth-@test_name@'

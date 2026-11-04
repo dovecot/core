@@ -16,7 +16,8 @@ libauth_client_la_SOURCES = \
 	auth-client-connection.c \
 	auth-master.c \
 	auth-master-request.c \
-	auth-proxy.c
+	auth-proxy.c \
+	auth-secrets.c
 
 headers = \
 	auth-sasl-common.h \
@@ -25,14 +26,16 @@ headers = \
 	auth-client-private.h \
 	auth-master.h \
 	auth-master-private.h \
-	auth-proxy.h
+	auth-proxy.h \
+	auth-secrets.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
 	test-auth-client \
-	test-auth-master
+	test-auth-master \
+	test-auth-secrets
 
 test_libs = \
 	$(noinst_LTLIBRARIES) \
@@ -62,3 +65,7 @@ test_auth_master_DEPENDENCIES = $(test_deps)
 test_auth_client_SOURCES = test-auth-client.c
 test_auth_client_LDADD = $(test_libs)
 test_auth_client_DEPENDENCIES = $(test_deps)
+
+test_auth_secrets_SOURCES = test-auth-secrets.c
+test_auth_secrets_LDADD = $(test_libs)
+test_auth_secrets_DEPENDENCIES = $(test_deps)
