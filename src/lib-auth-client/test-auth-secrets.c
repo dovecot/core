@@ -1,6 +1,8 @@
 /* Copyright (c) Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
+#include "str.h"
+#include "strescape.h"
 #include "auth-secrets.h"
 
 static void test_auth_field_secrets(void)
@@ -119,11 +121,47 @@ static void test_auth_field_key_secrets(void)
 	test_end();
 }
 
+static void test_auth_field_line_hide_secrets(void)
+{
+	string_t *line = t_str_new(256);
+	string_t *expected = t_str_new(256);
+
+	test_begin("auth_field_line_hide_secrets");
+	str_append(line, "user@example.com\tsession=abc\tauth_token=0123abcd");
+	str_append(line, "\tuserdb_fields=");
+	str_append_tabescaped(line, "auth_user=u\tproxy_pass=s3cret\t"
+			      "auth_token=0123abcd\tquota=1\\t2\tpassword=x");
+	str_append(line, "\tstate=YWJj\tsession_pid=1234");
+
+	str_append(expected, "user@example.com\tsession=abc"
+		   "\tauth_token=<hidden>\tuserdb_fields=");
+	str_append_tabescaped(expected, "auth_user=u\tproxy_pass=<hidden>\t"
+			      "auth_token=<hidden>\tquota=1\\t2\t"
+			      "password=<hidden>");
+	str_append(expected, "\tstate=YWJj\tsession_pid=1234");
+
+	test_assert_strcmp(auth_field_line_hide_secrets(str_c(line)),
+			   str_c(expected));
+	test_assert_strcmp(auth_field_line_hide_secrets("a\tb=c"), "a\tb=c");
+	test_assert_strcmp(auth_field_line_hide_secrets(""), "");
+	test_assert_strcmp(auth_field_line_hide_secrets(
+		"<hidden>\tproxy_pass=x\tnopassword="),
+		"<hidden>\tproxy_pass=<hidden>\tnopassword=<hidden>");
+
+	str_truncate(line, 0);
+	str_append(line, "user@example.com\t");
+	str_append_tabescaped(line, "note=a\tb\\c");
+	test_assert_strcmp(auth_field_line_hide_secrets(str_c(line)),
+			   str_c(line));
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_auth_field_secrets,
 		test_auth_field_key_secrets,
+		test_auth_field_line_hide_secrets,
 		NULL
 	};
 	return test_run(test_functions);

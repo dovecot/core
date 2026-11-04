@@ -1,6 +1,8 @@
 /* Copyright (c) Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
+#include "strescape.h"
 #include "auth-secrets.h"
 
 static bool
@@ -60,4 +62,34 @@ const char *auth_field_hide_secret(const char *field)
 		return field;
 	return t_strconcat(t_strdup_until(field, strchr(field, '=')),
 			   "=<hidden>", NULL);
+}
+
+const char *auth_field_line_hide_secrets(const char *line)
+{
+	const char *const *fields = t_strsplit_tabescaped(line);
+	string_t *str = t_str_new(strlen(line));
+	const char *value;
+
+	for (unsigned int i = 0; fields[i] != NULL; i++) {
+		if (i > 0)
+			str_append_c(str, '\t');
+		if (str_begins(fields[i], "userdb_fields=", &value)) {
+			const char *const *userdb_fields =
+				t_strsplit_tabescaped(value);
+			string_t *userdb_str = t_str_new(strlen(value));
+
+			for (unsigned int j = 0; userdb_fields[j] != NULL; j++) {
+				if (j > 0)
+					str_append_c(userdb_str, '\t');
+				str_append_tabescaped(userdb_str,
+					auth_field_hide_secret(userdb_fields[j]));
+			}
+			str_append(str, "userdb_fields=");
+			str_append_tabescaped(str, str_c(userdb_str));
+		} else {
+			str_append_tabescaped(str,
+				auth_field_hide_secret(fields[i]));
+		}
+	}
+	return str_c(str);
 }

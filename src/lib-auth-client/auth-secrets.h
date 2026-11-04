@@ -13,5 +13,10 @@ bool auth_field_is_secret(const char *field);
 /* Returns "key=<hidden>" if the field is secret, otherwise the field as-is.
    Allocated from data stack. */
 const char *auth_field_hide_secret(const char *field);
+/* Returns a line of tab-escaped "key=value" fields (e.g. an auth protocol
+   reply) for logging, with the values of all secret fields replaced with
+   "<hidden>". The tab-escaped fields inside userdb_fields are handled too.
+   Allocated from data stack. */
+const char *auth_field_line_hide_secrets(const char *line);
 
 #endif
