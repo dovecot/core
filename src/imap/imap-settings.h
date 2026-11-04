@@ -24,6 +24,7 @@ struct imap_settings {
 	bool verbose_proctitle;
 	bool mailbox_list_index;
 	const char *rawlog_dir;
+	bool auth_debug_passwords;
 
 	/* imap: */
 	uoff_t imap_max_line_length;

@@ -75,6 +75,7 @@ static const struct setting_define imap_setting_defines[] = {
 	DEF(BOOL, verbose_proctitle),
 	DEF(BOOL, mailbox_list_index),
 	DEF(PATH_DIR, rawlog_dir),
+	DEF(BOOL, auth_debug_passwords),
 
 	DEF(SIZE_HIDDEN, imap_max_line_length),
 	DEF(TIME_HIDDEN, imap_idle_notify_interval),
@@ -105,6 +106,7 @@ static const struct imap_settings imap_default_settings = {
 	.verbose_proctitle = VERBOSE_PROCTITLE_DEFAULT,
 	.mailbox_list_index = TRUE,
 	.rawlog_dir = "",
+	.auth_debug_passwords = FALSE,
 
 	/* RFC-2683 recommends at least 8000 bytes. Some clients however don't
 	   break large message sets to multiple commands, so we're pretty

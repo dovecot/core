@@ -4,6 +4,7 @@
 #include "buffer.h"
 #include "settings-parser.h"
 #include "service-settings.h"
+#include "imap-hibernate-settings.h"
 
 #include <unistd.h>
 
@@ -40,3 +41,27 @@ const struct setting_keyvalue imap_hibernate_service_settings_defaults[] = {
 	{ NULL, NULL }
 };
 #endif
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct imap_hibernate_settings)
+
+static const struct setting_define imap_hibernate_setting_defines[] = {
+	DEF(BOOL, auth_debug_passwords),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct imap_hibernate_settings imap_hibernate_default_settings = {
+	.auth_debug_passwords = FALSE,
+};
+
+const struct setting_parser_info imap_hibernate_setting_parser_info = {
+	.name = "imap_hibernate",
+
+	.defines = imap_hibernate_setting_defines,
+	.defaults = &imap_hibernate_default_settings,
+
+	.struct_size = sizeof(struct imap_hibernate_settings),
+	.pool_offset1 = 1 + offsetof(struct imap_hibernate_settings, pool),
+};

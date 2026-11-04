@@ -10,6 +10,7 @@ imap_hibernate = executable(
     'imap-client.h',
     'imap-client-input.h',
     'imap-hibernate-client.h',
+    'imap-hibernate-settings.h',
     'imap-master-connection.h',
   ],
   dependencies: dep_dovecot,
