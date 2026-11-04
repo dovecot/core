@@ -411,7 +411,8 @@ imap_client_hibernate_int(struct client **_client, int *fd_notify,
 			client->mailbox == NULL ? "<none>" :
 			mailbox_get_vname(client->mailbox),
 			dec2str(client->user->auth_token_session_pid),
-			client->user->auth_token);
+			client->set->auth_debug_passwords ?
+			client->user->auth_token : "<hidden>");
 		client->disconnected = TRUE;
 		client->hibernated = TRUE;
 		client_destroy(client, NULL);

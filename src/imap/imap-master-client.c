@@ -13,9 +13,12 @@
 #include "time-util.h"
 #include "process-title.h"
 #include "master-service.h"
+#include "settings.h"
 #include "master-service-settings.h"
 #include "mail-storage-service.h"
 #include "auth-client.h"
+#include "auth-secrets.h"
+#include "imap-settings.h"
 #include "imap-client.h"
 #include "imap-state.h"
 #include "imap-master-client.h"
@@ -57,6 +60,21 @@ struct imap_master_input {
 };
 
 static struct connection_list *master_clients = NULL;
+
+static bool imap_master_client_debug_passwords(struct event *event)
+{
+	const struct imap_settings *set;
+	const char *error;
+	bool debug_passwords;
+
+	if (settings_get(event, &imap_setting_parser_info, 0, &set, &error) < 0) {
+		e_error(event, "%s", error);
+		return FALSE;
+	}
+	debug_passwords = set->auth_debug_passwords;
+	settings_free(set);
+	return debug_passwords;
+}
 
 static void imap_master_client_destroy(struct connection *conn)
 {
@@ -392,10 +410,17 @@ imap_master_client_authenticate(const char *username, const char *session_id,
 	io_loop_destroy(&ioloop);
 
 	if (result.error != NULL) {
+		/* error_r is also sent to imap-hibernate, which logs it
+		   regardless of its own auth_debug_passwords. */
+		if (imap_master_client_debug_passwords(
+				master_service_get_event(master_service))) {
+			e_debug(master_service_get_event(master_service),
+				"DOVECOT-TOKEN authentication failed with "
+				"token=%s", auth_token);
+		}
 		*error_r = t_strdup_printf(
 			"DOVECOT-TOKEN authentication failed: %s "
-			"(session_pid=%s, token=%s)", result.error, session_pid,
-			auth_token);
+			"(session_pid=%s)", result.error, session_pid);
 		i_free(result.error);
 		return -1;
 	}
@@ -618,8 +643,11 @@ imap_master_client_input_line(struct connection *conn, const char *line)
 		return -1;
 	}
 
-	if (imap_debug)
-		e_debug(conn->event, "imap-master: Client input: %s", line);
+	if (imap_debug) {
+		e_debug(conn->event, "imap-master: Client input: %s",
+			imap_master_client_debug_passwords(conn->event) ? line :
+			auth_field_line_hide_secrets(line));
+	}
 
 	pool = pool_alloconly_create("imap master client cmd", 1024);
 	args = p_strsplit_tabescaped(pool, line);

@@ -4,12 +4,15 @@
 #include "restrict-access.h"
 #include "master-service.h"
 #include "master-admin-client.h"
+#include "settings.h"
 #include "master-service-settings.h"
+#include "imap-hibernate-settings.h"
 #include "imap-client.h"
 #include "imap-hibernate-client.h"
 #include "imap-master-connection.h"
 
 static bool debug = FALSE;
+static bool debug_passwords = FALSE;
 
 static const struct master_admin_client_callback admin_callbacks = {
 	.cmd_kick_user = imap_clients_kick,
@@ -18,7 +21,7 @@ static const struct master_admin_client_callback admin_callbacks = {
 static void client_connected(struct master_service_connection *conn)
 {
 	master_service_client_connection_accept(conn);
-	imap_hibernate_client_create(conn->fd, debug);
+	imap_hibernate_client_create(conn->fd, debug, debug_passwords);
 }
 
 int main(int argc, char *argv[])
@@ -42,6 +45,12 @@ int main(int argc, char *argv[])
 
 	if (master_service_settings_read_simple(master_service, &error) < 0)
 		i_fatal("%s", error);
+
+	const struct imap_hibernate_settings *set =
+		settings_get_or_fatal(master_service_get_event(master_service),
+				      &imap_hibernate_setting_parser_info);
+	debug_passwords = set->auth_debug_passwords;
+	settings_free(set);
 
 	master_service_init_log(master_service);
 	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);

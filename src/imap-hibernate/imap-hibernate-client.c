@@ -9,6 +9,7 @@
 #include "base64.h"
 #include "strescape.h"
 #include "master-service.h"
+#include "auth-secrets.h"
 #include "imap-client.h"
 #include "imap-hibernate-client.h"
 
@@ -22,6 +23,7 @@ struct imap_hibernate_client {
 	bool imap_client_created;
 	bool finished;
 	bool debug;
+	bool debug_passwords;
 };
 
 struct imap_hibernate_input {
@@ -335,8 +337,11 @@ imap_hibernate_client_input_line(struct connection *conn, const char *line)
 		args = p_strsplit_tabescaped(pool, line);
 		ret = imap_hibernate_client_input_args(conn, (const void *)args,
 						       fd, pool);
-		if (ret >= 0 && client->debug)
-			e_debug(conn->event, "Create client with input: %s", line);
+		if (ret >= 0 && client->debug) {
+			e_debug(conn->event, "Create client with input: %s",
+				client->debug_passwords ? line :
+				auth_field_line_hide_secrets(line));
+		}
 		pool_unref(&pool);
 	} else {
 		fd = i_stream_unix_get_read_fd(conn->input);
@@ -374,12 +379,13 @@ imap_hibernate_client_input_line(struct connection *conn, const char *line)
 	return 1;
 }
 
-void imap_hibernate_client_create(int fd, bool debug)
+void imap_hibernate_client_create(int fd, bool debug, bool debug_passwords)
 {
 	struct imap_hibernate_client *client;
 
 	client = i_new(struct imap_hibernate_client, 1);
 	client->debug = debug;
+	client->debug_passwords = debug_passwords;
 	client->conn.unix_socket = TRUE;
 	connection_init_server(hibernate_clients, &client->conn,
 			       "imap-hibernate", fd, fd);
