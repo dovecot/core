@@ -17,9 +17,11 @@ test_oauth2_url_template_expand_one(const char *template_str,
 
 	test_assert(var_expand_program_create(template_str, &prog, &error) == 0);
 
+	/* the URL is appended after what dest already has */
 	string_t *dest = t_str_new(64);
+	str_append(dest, "x:");
 	test_assert(oauth2_url_template_expand(prog, token, dest, &error) == 0);
-	test_assert_strcmp(str_c(dest), expected);
+	test_assert_strcmp(str_c(dest), t_strconcat("x:", expected, NULL));
 
 	var_expand_program_free(&prog);
 }
@@ -34,9 +36,10 @@ test_oauth2_url_template_expand_fail(const char *template_str,
 	test_assert(var_expand_program_create(template_str, &prog, &error) == 0);
 
 	string_t *dest = t_str_new(64);
+	str_append(dest, "x:");
 	test_assert(oauth2_url_template_expand(prog, token, dest, &error) == -1);
 	test_assert_strcmp(error, expected);
-	test_assert_cmp(str_len(dest), ==, 0);
+	test_assert_strcmp(str_c(dest), "x:");
 
 	var_expand_program_free(&prog);
 }
