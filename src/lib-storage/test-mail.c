@@ -661,6 +661,40 @@ static void test_mbox_x_uid_overflow(void)
 	test_end();
 }
 
+static void test_mbox_update_min_next_uid_unsynced(void)
+{
+	struct test_mail_storage_ctx *ctx;
+	const char *const extra_input[] = {
+		"mail_inbox_path=%{home}/inbox",
+		NULL
+	};
+	const struct test_mail_storage_settings set = {
+		.driver = "mbox",
+		.extra_input = extra_input,
+	};
+	struct mailbox_update update = { .min_next_uid = 100 };
+	struct mailbox_status status;
+
+	test_begin("mbox min_next_uid update of unsynced mailbox");
+	ctx = test_mail_storage_init();
+	test_mail_storage_init_user(ctx, &set);
+
+	struct mailbox *box =
+		mailbox_alloc(ctx->user->namespaces->list, "INBOX", 0);
+	test_assert(mailbox_update(box, &update) == 0);
+
+	test_assert(mailbox_sync(box, 0) == 0);
+	mailbox_get_open_status(box, STATUS_UIDNEXT | STATUS_UIDVALIDITY,
+				&status);
+	test_assert_cmp(status.uidvalidity, !=, 0);
+	test_assert_cmp(status.uidnext, ==, 100);
+
+	mailbox_free(&box);
+	test_mail_storage_deinit_user(ctx);
+	test_mail_storage_deinit(&ctx);
+	test_end();
+}
+
 static void test_mail_set_critical(void)
 {
 	struct test_mail_storage_settings set = {
@@ -919,6 +953,7 @@ int main(int argc, char **argv)
 		test_binary_size_corruption_recompute,
 		test_mbox_out_of_uids,
 		test_mbox_x_uid_overflow,
+		test_mbox_update_min_next_uid_unsynced,
 		test_mail_set_critical,
 		test_mail_set_critical_different_mailboxes,
 		test_mail_get_last_internal_error,

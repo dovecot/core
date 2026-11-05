@@ -1228,6 +1228,15 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	return 1;
 }
 
+static uint32_t mbox_get_uidvalidity_next(struct mailbox_list *list)
+{
+	const char *path;
+
+	path = mailbox_list_get_root_forced(list, MAILBOX_LIST_PATH_TYPE_CONTROL);
+	path = t_strconcat(path, "/"MBOX_UIDVALIDITY_FNAME, NULL);
+	return mailbox_uidvalidity_next(list, path);
+}
+
 static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx, bool force)
 {
 	string_t *str;
@@ -1254,7 +1263,11 @@ static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx, bool force)
 
 	uid_validity = sync_ctx->base_uid_validity != 0 ?
 		sync_ctx->base_uid_validity : sync_ctx->hdr->uid_validity;
-	i_assert(uid_validity != 0);
+	if (uid_validity == 0) {
+		/* never synced */
+		uid_validity =
+			mbox_get_uidvalidity_next(sync_ctx->mbox->box.list);
+	}
 
 	str = t_str_new(1024);
 	str_printfa(str, "%sDate: %s\n"
@@ -1463,15 +1476,6 @@ mbox_sync_index_update_ext_header(struct mbox_mailbox *mbox,
 					     0, &mbox->mbox_hdr,
 					     sizeof(mbox->mbox_hdr));
 	}
-}
-
-static uint32_t mbox_get_uidvalidity_next(struct mailbox_list *list)
-{
-	const char *path;
-
-	path = mailbox_list_get_root_forced(list, MAILBOX_LIST_PATH_TYPE_CONTROL);
-	path = t_strconcat(path, "/"MBOX_UIDVALIDITY_FNAME, NULL);
-	return mailbox_uidvalidity_next(list, path);
 }
 
 static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
