@@ -25,7 +25,7 @@ imap_client_input_word_equals(const unsigned char *data, size_t size,
 
 static enum imap_client_input_cmd
 imap_client_input_parse_cmd(struct istream *input, struct imap_parser *parser,
-			    const char **tag_r)
+			    const char **tag_r, const char **name_r)
 {
 	const unsigned char *name;
 	const char *tag;
@@ -43,6 +43,7 @@ imap_client_input_parse_cmd(struct istream *input, struct imap_parser *parser,
 		if (imap_client_input_word_equals(name, name_size,
 						  imap_client_input_cmds[i].name)) {
 			*tag_r = t_strdup(tag);
+			*name_r = t_strndup(name, name_size);
 			return imap_client_input_cmds[i].cmd;
 		}
 	}
@@ -51,11 +52,12 @@ imap_client_input_parse_cmd(struct istream *input, struct imap_parser *parser,
 
 enum imap_client_input_cmd
 imap_client_input_parse_line(const unsigned char *line, size_t size,
-			     const char **tag_r)
+			     const char **tag_r, const char **name_r)
 {
 	enum imap_client_input_cmd cmd;
 
 	*tag_r = NULL;
+	*name_r = NULL;
 	if (size > 0 && line[size-1] == '\r')
 		size--;
 	if (imap_client_input_word_equals(line, size, "DONE"))
@@ -64,7 +66,7 @@ imap_client_input_parse_line(const unsigned char *line, size_t size,
 	struct istream *input = i_stream_create_from_data(line, size);
 	struct imap_parser *parser =
 		imap_parser_create(input, NULL, size, NULL);
-	cmd = imap_client_input_parse_cmd(input, parser, tag_r);
+	cmd = imap_client_input_parse_cmd(input, parser, tag_r, name_r);
 	imap_parser_unref(&parser);
 	i_stream_unref(&input);
 	return cmd;

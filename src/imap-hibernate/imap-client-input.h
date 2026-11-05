@@ -13,10 +13,11 @@ enum imap_client_input_cmd {
 
 /* Parse a single line of client input. The line excludes the LF, a trailing
    CR is ignored. Only exact "DONE" and "<tag> <command>" lines without any
-   extra characters are recognized. tag_r is set for the tagged commands and
-   to NULL for DONE and OTHER. */
+   extra characters are recognized. tag_r and name_r (the command name as
+   the client typed it) are set for the tagged commands and to NULL for DONE
+   and OTHER. */
 enum imap_client_input_cmd
 imap_client_input_parse_line(const unsigned char *line, size_t size,
-			     const char **tag_r);
+			     const char **tag_r, const char **name_r);
 
 #endif
