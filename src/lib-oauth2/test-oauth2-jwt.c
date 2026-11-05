@@ -1434,6 +1434,59 @@ static void test_jwt_sign_dcrypt_failure(void)
 	test_end();
 }
 
+static void test_jwt_key_alg_mismatch(void)
+{
+	/* The token is signed the way alg says, except with a key that does
+	   not fit alg. That key is stored under alg in the key dict. */
+	static const struct {
+		const char *curve;
+		const char *alg;
+		enum dcrypt_signature_format format;
+		const char *error;
+	} test_cases[] = {
+		{ "secp384r1", "ES256", DCRYPT_SIGNATURE_FORMAT_X962,
+		  "Algorithm 'ES256' does not match the key" },
+		{ "prime256v1", "RS256", DCRYPT_SIGNATURE_FORMAT_DSS,
+		  "Algorithm 'RS256' does not match the key" },
+		/* Ed25519 is neither RSA nor an EC curve */
+		{ "ED25519", "ES256", DCRYPT_SIGNATURE_FORMAT_DSS,
+		  "Unsupported key type" },
+		{ "ED25519", "RS256", DCRYPT_SIGNATURE_FORMAT_DSS,
+		  "Unsupported key type" },
+	};
+
+	if (skip_dcrypt)
+		return;
+
+	test_begin("JWT key does not match algorithm");
+	for (unsigned int i = 0; i < N_ELEMENTS(test_cases); i++) T_BEGIN {
+		const char *pubkey, *error = NULL;
+		struct dcrypt_private_key *key =
+			sign_key_get(test_cases[i].curve, &pubkey);
+		buffer_t *tokenbuf = create_jwt_token(test_cases[i].alg);
+		buffer_t *sig = t_buffer_create(128);
+		struct oauth2_request req;
+		bool is_jwt;
+
+		if (!dcrypt_sign(key, "sha256", test_cases[i].format,
+				 tokenbuf->data, tokenbuf->used, sig,
+				 DCRYPT_PADDING_DEFAULT, &error))
+			i_fatal("dcrypt_sign() failed: %s", error);
+		buffer_append(tokenbuf, ".", 1);
+		base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, SIZE_MAX,
+				 sig->data, sig->used, tokenbuf);
+
+		evict_key(test_cases[i].alg);
+		save_key(test_cases[i].alg, pubkey);
+		test_assert_idx(parse_jwt_token(&req, str_c(tokenbuf), &is_jwt,
+						&error) < 0, i);
+		test_assert_strcmp_idx(error, test_cases[i].error, i);
+		evict_key(test_cases[i].alg);
+		dcrypt_key_unref_private(&key);
+	} T_END;
+	test_end();
+}
+
 static void test_do_init(void)
 {
 	const char *error;
@@ -1505,6 +1558,7 @@ int main(void)
 		test_jwt_sign_known_answer,
 		test_jwt_sign_errors,
 		test_jwt_sign_dcrypt_failure,
+		test_jwt_key_alg_mismatch,
 		test_do_deinit,
 		NULL
 	};

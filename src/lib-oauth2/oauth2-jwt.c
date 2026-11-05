@@ -387,6 +387,19 @@ oauth2_validate_rsa_ecdsa(const struct oauth2_settings *set,
 				 error_r) < 0)
 		return -1;
 
+	/* The key is looked up by alg, so a key stored under the wrong alg
+	   would otherwise verify with that alg's hash and format. */
+	enum dcrypt_key_type key_type;
+	const char *curve;
+
+	if (oauth2_jwt_key_type(pubkey, &key_type, &curve, error_r) < 0)
+		return -1;
+	if (!oauth2_jwt_alg_fits_key(alg, key_type, curve)) {
+		*error_r = t_strdup_printf(
+			"Algorithm '%s' does not match the key", alg->name);
+		return -1;
+	}
+
 	/* data to verify */
 	const char *data = t_strconcat(blobs[0], ".", blobs[1], NULL);
 
