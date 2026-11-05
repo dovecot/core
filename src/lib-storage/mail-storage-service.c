@@ -15,6 +15,7 @@
 #include "dict.h"
 #include "settings.h"
 #include "auth-master.h"
+#include "auth-secrets.h"
 #include "master-service-private.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
@@ -90,11 +91,8 @@ static void set_keyvalue(struct mail_storage_service_user *user,
 		settings_override(user->set_instance, key, value,
 				  SETTINGS_OVERRIDE_TYPE_USERDB);
 	}
-	if (strstr(key, "pass") != NULL) {
-		/* possibly a password field (e.g. imapc_password).
-		   hide the value. */
+	if (auth_field_key_is_secret(key))
 		value = "<hidden>";
-	}
 	if (is_setting)
 		e_debug(user->event, "Added setting via userdb: %s=%s", key, value);
 	else
