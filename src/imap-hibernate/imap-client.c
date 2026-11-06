@@ -22,8 +22,8 @@
 #include "master-service-settings.h"
 #include "imap-keepalive.h"
 #include "imap-master-connection.h"
-#include "imap-parser.h"
 #include "imap-reply.h"
+#include "imap-client-input.h"
 #include "imap-client.h"
 
 #include <unistd.h>
@@ -363,78 +363,40 @@ static void imap_client_move_back(struct imap_client *client)
 }
 
 static enum imap_client_input_state
-imap_client_input_parse_input(struct istream *input, struct imap_parser *parser,
-			      const char **tag_r)
+imap_client_input_parse(const unsigned char *data, size_t size, const char **tag_r)
 {
-	const unsigned char *rest;
-	size_t rest_size;
-	const char *word, *tag;
-	enum imap_client_input_state state = IMAP_CLIENT_INPUT_STATE_DONE_LF;
-	int ret;
+	enum imap_client_input_state state;
+	const unsigned char *lf;
+	const char *tag;
+	size_t line_size;
 
-	/* read DONE */
-	word = imap_parser_read_word(parser);
-	if (word == NULL)
+	/* read DONE[\r]\n */
+	lf = memchr(data, '\n', size);
+	if (lf == NULL)
 		return IMAP_CLIENT_INPUT_STATE_UNKNOWN;
-	if (strcasecmp(word, "DONE") != 0)
+	line_size = lf - data;
+	if (imap_client_input_parse_line(data, line_size, &tag) !=
+	    IMAP_CLIENT_INPUT_CMD_DONE)
 		return IMAP_CLIENT_INPUT_STATE_BAD;
-
-	/* read [\r]\n after DONE */
-	rest = i_stream_get_data(input, &rest_size);
-	if (rest_size == 0)
-		return IMAP_CLIENT_INPUT_STATE_UNKNOWN;
-	if (rest[0] == '\r') {
-		state = IMAP_CLIENT_INPUT_STATE_DONE_CRLF;
-		i_stream_skip(input, 1);
-		rest = i_stream_get_data(input, &rest_size);
-		if (rest_size == 0)
-			return IMAP_CLIENT_INPUT_STATE_UNKNOWN;
-	}
-	if (rest[0] != '\n')
-		return IMAP_CLIENT_INPUT_STATE_BAD;
-	i_stream_skip(input, 1);
+	state = data[line_size-1] == '\r' ?
+		IMAP_CLIENT_INPUT_STATE_DONE_CRLF :
+		IMAP_CLIENT_INPUT_STATE_DONE_LF;
+	data += line_size + 1;
+	size -= line_size + 1;
 
 	/* optionally followed by "<tag> IDLE[\r]\n" - checking this assumes
 	   that the DONE and IDLE are sent in the same IP packet, otherwise
 	   we'll unnecessarily recreate the imap process and immediately resume
 	   IDLE there. if this becomes an issue we could add a small delay to
 	   the imap process creation and wait for the IDLE command during it. */
-	if (i_stream_get_data_size(input) == 0)
+	if (size == 0 || data[size-1] != '\n' ||
+	    memchr(data, '\n', size) != data + size - 1)
 		return state;
-
-	ret = imap_parser_read_tag(parser, &tag);
-	if (ret <= 0)
+	if (imap_client_input_parse_line(data, size - 1, &tag) !=
+	    IMAP_CLIENT_INPUT_CMD_IDLE)
 		return state;
-
-	/* read IDLE */
-	word = imap_parser_read_word(parser);
-	if (word == NULL || strcasecmp(word, "IDLE") != 0)
-		return state;
-
-	/* require [\r]\n and nothing else left */
-	rest = i_stream_get_data(input, &rest_size);
-	if (rest_size > 0 && rest[0] == '\r') {
-		i_stream_skip(input, 1);
-		rest = i_stream_get_data(input, &rest_size);
-	}
-	if (rest_size != 1 || rest[0] != '\n')
-		return state;
-
-	*tag_r = t_strdup(tag);
+	*tag_r = tag;
 	return IMAP_CLIENT_INPUT_STATE_DONEIDLE;
-}
-
-static enum imap_client_input_state
-imap_client_input_parse(const unsigned char *data, size_t size, const char **tag_r)
-{
-	struct istream *input = i_stream_create_from_data(data, size);
-	struct imap_parser *parser =
-		imap_parser_create(input, NULL, size, NULL);
-	enum imap_client_input_state state =
-		imap_client_input_parse_input(input, parser, tag_r);
-	imap_parser_unref(&parser);
-	i_stream_unref(&input);
-	return state;
 }
 
 static void imap_client_input_idle_cmd(struct imap_client *client)
@@ -460,12 +422,12 @@ static void imap_client_input_idle_cmd(struct imap_client *client)
 	switch (imap_client_input_parse(data, size, &new_tag)) {
 	case IMAP_CLIENT_INPUT_STATE_UNKNOWN:
 		if (ret != -2) {
-			/* we haven't received a full DONE[\r]\n yet - wait */
+			/* we haven't received a full line yet - wait */
 			client->next_read_threshold = size;
 			return;
 		}
-		/* the buffer is full without a full DONE[\r]\n - return the
-		   input to the imap process */
+		/* the buffer is full without a full line - return the input
+		   to the imap process */
 		client->bad_done = TRUE;
 		break;
 	case IMAP_CLIENT_INPUT_STATE_BAD:
