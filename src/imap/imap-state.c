@@ -637,7 +637,7 @@ import_send_expunges(struct client *client,
 			str_printfa(str, "* %u EXPUNGE", seqs[i-1]);
 			client_send_line(client, str_c(str));
 		}
-	} else {
+	} else if (expunge_count > 0) {
 		str = str_new(default_pool, 128);
 		str_append(str, "* VANISHED ");
 		imap_write_seq_range(str, &expunged_uids);
