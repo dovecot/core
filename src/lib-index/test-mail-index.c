@@ -1249,6 +1249,47 @@ static void test_mail_index_keywords_hdr_too_small(void)
 	test_end();
 }
 
+static void test_mail_index_keywords_no_nul_end(void)
+{
+	static const char *const keywords_arr[] = { "a", "b", "c", NULL };
+	static const char junk = 'x';
+	struct mail_index *index;
+	uoff_t ext_offset, hdr_offset;
+	uint32_t hdr_size;
+	bool last_ext;
+
+	test_begin("mail index keywords header doesn't end with NUL");
+	const char *path =
+		test_mail_index_keywords_init(keywords_arr, &ext_offset,
+					      &hdr_offset, &hdr_size,
+					      &last_ext);
+	/* keywords_count + 3 records + "a\0b\0c\0" */
+	test_assert(hdr_size > 4 + 3*4 + 6);
+
+	/* Replace the last byte of the unused space after the names with
+	   a non-NUL. The names themselves are still valid. */
+	int fd = open(path, O_RDWR);
+	if (fd == -1)
+		i_fatal("open(%s) failed: %m", path);
+	test_assert(pwrite(fd, &junk, 1, hdr_offset + hdr_size - 1) == 1);
+	i_close_fd(&fd);
+
+	/* the corruption error, fscking warning and fsck error */
+	test_expect_errors(3);
+	index = test_mail_index_open(FALSE);
+	test_expect_no_more_errors();
+	test_assert(mail_index_reset_fscked(index));
+	test_assert(array_count(&index->map->keyword_idx_map) == 3);
+	test_mail_index_close(&index);
+
+	/* the fixed index can be opened without errors */
+	index = test_mail_index_open(FALSE);
+	test_assert(!mail_index_reset_fscked(index));
+	test_assert(array_count(&index->map->keyword_idx_map) == 3);
+	test_mail_index_deinit(&index);
+	test_end();
+}
+
 static void test_mail_index_append_uid(struct mail_index *index, uint32_t uid)
 {
 	struct mail_index_view *view;
@@ -1448,6 +1489,7 @@ int main(void)
 		test_mail_index_verify_records_cache,
 		test_mail_index_keywords_out_of_order,
 		test_mail_index_keywords_hdr_too_small,
+		test_mail_index_keywords_no_nul_end,
 		NULL
 	};
 	test_dir_init("mail-index");

@@ -216,6 +216,13 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 		array_push_back(&names, &name);
 	}
 
+	if (name_size > 0 && name_buffer[name_size - 1] != '\0' && !changed) {
+		/* mail_index_map_parse_keywords() requires this */
+		mail_index_fsck_error(index,
+			"Keyword header doesn't end with NUL");
+		changed = TRUE;
+	}
+
 	/* give new names to invalid keywords */
 	changed_count = 0;
 	/* keywords_count may be 0, so don't use array_front_modifiable() */
