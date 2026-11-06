@@ -30,11 +30,12 @@
 
 #define IMAP_MASTER_SOCKET_NAME "imap-master"
 
-/* IDLE clients need only enough for "DONE\r\n<tag> IDLE\r\n". Non-IDLE
-   clients' input is read only to notice that there is some. Whatever is
-   read is passed to the new imap process, and the rest stays in the
-   socket. */
-#define IMAP_MAX_INBUF 12 + 1 + 128 /* DONE\r\nIDLE\r\n + ' ' + <tag> */
+/* IDLE clients need enough for "DONE\r\n<tag> IDLE\r\n". This leaves room
+   for a long tag and for handling more pipelined commands later on.
+   Non-IDLE clients' input is read only to notice that there is some.
+   Whatever is read is passed to the new imap process, and the rest stays in
+   the socket. */
+#define IMAP_MAX_INBUF 256
 #define IMAP_MAX_OUTBUF 1024
 
 /* If client has sent input and we can't recreate imap process in this
