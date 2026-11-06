@@ -410,11 +410,33 @@ imap_client_input_parse(const unsigned char *data, size_t size, const char **tag
 	return IMAP_CLIENT_INPUT_STATE_DONEIDLE;
 }
 
+static int
+imap_client_input_send_replies(struct imap_client *client,
+			       const string_t *replies)
+{
+	ssize_t ret;
+
+	if (str_len(replies) == 0)
+		return 0;
+	ret = o_stream_flush(client->output);
+	if (ret > 0)
+		ret = o_stream_send(client->output, str_data(replies),
+				    str_len(replies));
+	if (ret < 0) {
+		imap_client_disconnected(&client);
+		return -1;
+	}
+	if ((size_t)ret != str_len(replies)) {
+		imap_client_destroy(&client, IMAP_CLIENT_BUFFER_FULL_ERROR);
+		return -1;
+	}
+	return 0;
+}
+
 static void imap_client_input_idle_cmd(struct imap_client *client)
 {
 	char *old_tag;
 	const char *new_tag;
-	const char *output;
 	const unsigned char *data;
 	size_t size;
 	bool done = TRUE;
@@ -456,24 +478,14 @@ static void imap_client_input_idle_cmd(struct imap_client *client)
 		   us that it's still there. continue hibernation. */
 		old_tag = client->state.tag;
 		client->state.tag = i_strdup(new_tag);
-		output = t_strdup_printf("%s OK "IMAP_REPLY_IDLE_COMPLETED"\r\n"
-					 IMAP_REPLY_IDLE_CONTINUE"\r\n", old_tag);
+		string_t *replies = t_str_new(128);
+		str_printfa(replies, "%s OK "IMAP_REPLY_IDLE_COMPLETED"\r\n"
+			    IMAP_REPLY_IDLE_CONTINUE"\r\n", old_tag);
 		i_free(old_tag);
-		ret = o_stream_flush(client->output);
-		if (ret > 0)
-			ret = o_stream_send_str(client->output, output);
-		if (ret < 0) {
-			imap_client_disconnected(&client);
+		if (imap_client_input_send_replies(client, replies) < 0)
 			return;
-		}
-		if ((size_t)ret != strlen(output)) {
-			/* disconnect */
-			imap_client_destroy(&client, IMAP_CLIENT_BUFFER_FULL_ERROR);
-			return;
-		} else {
-			done = FALSE;
-			i_stream_skip(client->input, size);
-		}
+		done = FALSE;
+		i_stream_skip(client->input, size);
 		break;
 	}
 
