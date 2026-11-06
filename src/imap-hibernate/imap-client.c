@@ -51,13 +51,13 @@
 #define IMAP_CLIENT_BUFFER_FULL_ERROR "Client output buffer is full"
 #define IMAP_CLIENT_UNHIBERNATE_ERROR "Failed to unhibernate client"
 
-enum imap_client_input_state {
-	IMAP_CLIENT_INPUT_STATE_UNKNOWN,
-	IMAP_CLIENT_INPUT_STATE_BAD,
-	IMAP_CLIENT_INPUT_STATE_DONE_LF,
-	IMAP_CLIENT_INPUT_STATE_DONE_CRLF,
-	IMAP_CLIENT_INPUT_STATE_DONEIDLE
+struct imap_client_input_line {
+	enum imap_client_input_cmd cmd;
+	const char *tag;
+	/* Size of the line including the LF */
+	size_t size;
 };
+ARRAY_DEFINE_TYPE(imap_client_input_line, struct imap_client_input_line);
 
 struct imap_client_notify {
 	int fd;
@@ -373,41 +373,161 @@ static void imap_client_move_back(struct imap_client *client)
 	}
 }
 
-static enum imap_client_input_state
-imap_client_input_parse(const unsigned char *data, size_t size, const char **tag_r)
+static void
+imap_client_input_get_lines(const unsigned char *data, size_t size,
+			    ARRAY_TYPE(imap_client_input_line) *lines,
+			    size_t *partial_size_r)
 {
-	enum imap_client_input_state state;
+	struct imap_client_input_line *line;
 	const unsigned char *lf;
-	const char *tag;
 	size_t line_size;
 
-	/* read DONE[\r]\n */
-	lf = memchr(data, '\n', size);
-	if (lf == NULL)
-		return IMAP_CLIENT_INPUT_STATE_UNKNOWN;
-	line_size = lf - data;
-	if (imap_client_input_parse_line(data, line_size, &tag) !=
-	    IMAP_CLIENT_INPUT_CMD_DONE)
-		return IMAP_CLIENT_INPUT_STATE_BAD;
-	state = data[line_size-1] == '\r' ?
-		IMAP_CLIENT_INPUT_STATE_DONE_CRLF :
-		IMAP_CLIENT_INPUT_STATE_DONE_LF;
-	data += line_size + 1;
-	size -= line_size + 1;
+	while ((lf = memchr(data, '\n', size)) != NULL) {
+		line_size = lf - data;
+		line = array_append_space(lines);
+		line->cmd = imap_client_input_parse_line(data, line_size,
+							 &line->tag);
+		line->size = line_size + 1;
+		data += line->size;
+		size -= line->size;
+	}
+	*partial_size_r = size;
+}
 
-	/* optionally followed by "<tag> IDLE[\r]\n" - checking this assumes
-	   that the DONE and IDLE are sent in the same IP packet, otherwise
-	   we'll unnecessarily recreate the imap process and immediately resume
-	   IDLE there. if this becomes an issue we could add a small delay to
-	   the imap process creation and wait for the IDLE command during it. */
-	if (size == 0 || data[size-1] != '\n' ||
-	    memchr(data, '\n', size) != data + size - 1)
-		return state;
-	if (imap_client_input_parse_line(data, size - 1, &tag) !=
-	    IMAP_CLIENT_INPUT_CMD_IDLE)
-		return state;
-	*tag_r = tag;
-	return IMAP_CLIENT_INPUT_STATE_DONEIDLE;
+static bool
+imap_client_input_nonidle_line_is_local(
+	struct imap_client *client ATTR_UNUSED,
+	const struct imap_client_input_line *line, bool after_done)
+{
+	switch (line->cmd) {
+	case IMAP_CLIENT_INPUT_CMD_IDLE:
+		/* DONE followed by IDLE only tells that the client is still
+		   there. */
+		return after_done;
+	case IMAP_CLIENT_INPUT_CMD_OTHER:
+	case IMAP_CLIENT_INPUT_CMD_DONE:
+		break;
+	}
+	return FALSE;
+}
+
+/* Returns TRUE if DONE in lines[0] can be answered locally. This requires
+   that all the following lines can also be answered locally. Otherwise the
+   whole input is forwarded to the imap process, which can then still send
+   any pending changes (e.g. EXPUNGEs) before finishing the IDLE. */
+static bool
+imap_client_input_done_is_local(struct imap_client *client,
+				const struct imap_client_input_line *lines,
+				unsigned int count, size_t partial_size)
+{
+	bool idle_mode = TRUE, after_done = FALSE;
+	unsigned int i;
+
+	i_assert(count > 0 && lines[0].cmd == IMAP_CLIENT_INPUT_CMD_DONE);
+
+	if (partial_size > 0)
+		return FALSE;
+	for (i = 0; i < count; i++) {
+		if (idle_mode) {
+			if (lines[i].cmd != IMAP_CLIENT_INPUT_CMD_DONE)
+				return FALSE;
+			/* Don't leave the client hibernated without IDLE */
+			if (i + 1 == count ||
+			    lines[i + 1].cmd != IMAP_CLIENT_INPUT_CMD_IDLE)
+				return FALSE;
+			idle_mode = FALSE;
+			after_done = TRUE;
+			continue;
+		}
+		if (!imap_client_input_nonidle_line_is_local(client, &lines[i],
+							     after_done))
+			return FALSE;
+		after_done = FALSE;
+		if (lines[i].cmd == IMAP_CLIENT_INPUT_CMD_IDLE)
+			idle_mode = TRUE;
+	}
+	return TRUE;
+}
+
+static void
+imap_client_input_done(struct imap_client *client, string_t *replies)
+{
+	i_assert(client->state.idle_cmd);
+
+	str_printfa(replies, "%s OK "IMAP_REPLY_IDLE_COMPLETED"\r\n",
+		    client->state.tag);
+	i_free(client->state.tag);
+	client->state.idle_cmd = FALSE;
+}
+
+static void
+imap_client_input_idle(struct imap_client *client,
+		       const struct imap_client_input_line *line,
+		       string_t *replies)
+{
+	i_assert(!client->state.idle_cmd);
+	i_assert(client->state.tag == NULL);
+
+	str_append(replies, IMAP_REPLY_IDLE_CONTINUE"\r\n");
+	client->state.tag = i_strdup(line->tag);
+	client->state.idle_cmd = TRUE;
+}
+
+/* Handle the line locally if possible. Returns TRUE if it was handled,
+   FALSE if it needs to be forwarded to the imap process. */
+static bool
+imap_client_input_line(struct imap_client *client,
+		       const struct imap_client_input_line *lines,
+		       unsigned int count, size_t partial_size,
+		       bool *after_done, string_t *replies)
+{
+	const struct imap_client_input_line *line = &lines[0];
+
+	if (client->state.idle_cmd) {
+		if (line->cmd != IMAP_CLIENT_INPUT_CMD_DONE) {
+			/* invalid input - return this to the imap process */
+			client->bad_done = TRUE;
+			client->idle_done = TRUE;
+			return FALSE;
+		}
+		if (!imap_client_input_done_is_local(client, lines, count,
+						     partial_size)) {
+			/* The imap process finishes the IDLE */
+			i_stream_skip(client->input, line->size);
+			client->idle_done = TRUE;
+			return FALSE;
+		}
+		imap_client_input_done(client, replies);
+		*after_done = TRUE;
+		return TRUE;
+	}
+
+	if (!imap_client_input_nonidle_line_is_local(client, line, *after_done))
+		return FALSE;
+	*after_done = FALSE;
+	switch (line->cmd) {
+	case IMAP_CLIENT_INPUT_CMD_IDLE:
+		imap_client_input_idle(client, line, replies);
+		break;
+	case IMAP_CLIENT_INPUT_CMD_OTHER:
+	case IMAP_CLIENT_INPUT_CMD_DONE:
+		i_unreached();
+	}
+	return TRUE;
+}
+
+static void
+imap_client_input_forward(struct imap_client *client, const string_t *replies)
+{
+	if (str_len(replies) > 0) {
+		i_assert(client->pending_output == NULL);
+		client->pending_output =
+			buffer_create_dynamic(default_pool, str_len(replies));
+		buffer_append_buf(client->pending_output, replies, 0, SIZE_MAX);
+	}
+	timeout_remove(&client->to_inactivity);
+	client->input_pending = TRUE;
+	imap_client_move_back(client);
 }
 
 static int
@@ -433,17 +553,16 @@ imap_client_input_send_replies(struct imap_client *client,
 	return 0;
 }
 
-static void imap_client_input_idle_cmd(struct imap_client *client)
+static void imap_client_input(struct imap_client *client)
 {
-	char *old_tag;
-	const char *new_tag;
+	ARRAY_TYPE(imap_client_input_line) lines_arr;
+	const struct imap_client_input_line *lines;
 	const unsigned char *data;
-	size_t size;
-	bool done = TRUE;
+	size_t size, partial_size;
+	unsigned int i, count;
+	bool after_done = FALSE, forward = FALSE;
 	int ret;
 
-	/* we should read either DONE or disconnection. also handle if client
-	   sends DONE\nIDLE simply to recreate the IDLE. */
 	ret = i_stream_read_bytes(client->input, &data, &size,
 				  client->next_read_threshold + 1);
 	if (size == 0) {
@@ -452,49 +571,45 @@ static void imap_client_input_idle_cmd(struct imap_client *client)
 		return;
 	}
 	client->next_read_threshold = 0;
-	switch (imap_client_input_parse(data, size, &new_tag)) {
-	case IMAP_CLIENT_INPUT_STATE_UNKNOWN:
-		if (ret != -2) {
-			/* we haven't received a full line yet - wait */
-			client->next_read_threshold = size;
-			return;
+
+	t_array_init(&lines_arr, 4);
+	imap_client_input_get_lines(data, size, &lines_arr, &partial_size);
+	string_t *replies = t_str_new(128);
+
+	lines = array_get(&lines_arr, &count);
+	for (i = 0; i < count; i++) {
+		if (!imap_client_input_line(client, &lines[i], count - i,
+					    partial_size, &after_done,
+					    replies)) {
+			forward = TRUE;
+			break;
 		}
-		/* the buffer is full without a full line - return the input
-		   to the imap process */
+		i_stream_skip(client->input, lines[i].size);
+	}
+	if (!forward && count == 0 && ret == -2) {
+		/* the buffer is full without a full line */
 		client->bad_done = TRUE;
-		break;
-	case IMAP_CLIENT_INPUT_STATE_BAD:
-		/* invalid input - return this to the imap process */
-		client->bad_done = TRUE;
-		break;
-	case IMAP_CLIENT_INPUT_STATE_DONE_LF:
-		i_stream_skip(client->input, 4+1);
-		break;
-	case IMAP_CLIENT_INPUT_STATE_DONE_CRLF:
-		i_stream_skip(client->input, 4+2);
-		break;
-	case IMAP_CLIENT_INPUT_STATE_DONEIDLE:
-		/* we received DONE+IDLE, so the client simply wanted to notify
-		   us that it's still there. continue hibernation. */
-		old_tag = client->state.tag;
-		client->state.tag = i_strdup(new_tag);
-		string_t *replies = t_str_new(128);
-		str_printfa(replies, "%s OK "IMAP_REPLY_IDLE_COMPLETED"\r\n"
-			    IMAP_REPLY_IDLE_CONTINUE"\r\n", old_tag);
-		i_free(old_tag);
-		if (imap_client_input_send_replies(client, replies) < 0)
-			return;
-		done = FALSE;
-		i_stream_skip(client->input, size);
-		break;
+		client->idle_done = TRUE;
+		forward = TRUE;
+	}
+	if (forward) {
+		imap_client_input_forward(client, replies);
+		return;
 	}
 
-	if (done) {
-		client->idle_done = TRUE;
-		client->input_pending = TRUE;
-		imap_client_move_back(client);
-	} else
-		imap_client_add_idle_keepalive_timeout(client);
+	/* everything was handled locally */
+	if (imap_client_input_send_replies(client, replies) < 0)
+		return;
+	if (ret == -1) {
+		imap_client_disconnected(&client);
+		return;
+	}
+	/* wait for the rest of the partial line */
+	client->next_read_threshold = partial_size;
+
+	/* DONE is answered only when followed by IDLE */
+	i_assert(client->state.idle_cmd);
+	imap_client_add_idle_keepalive_timeout(client);
 }
 
 static void imap_client_input_nonidle(struct imap_client *client)
@@ -928,7 +1043,7 @@ void imap_client_create_finish(struct imap_client *client)
 
 	if (client->state.idle_cmd) {
 		client->io = io_add(client->fd, IO_READ,
-				    imap_client_input_idle_cmd, client);
+				    imap_client_input, client);
 		imap_client_add_idle_keepalive_timeout(client);
 	} else {
 		/* No command is running, so the client isn't expecting any
