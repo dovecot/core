@@ -459,9 +459,15 @@ static void imap_client_input_idle_cmd(struct imap_client *client)
 	client->next_read_threshold = 0;
 	switch (imap_client_input_parse(data, size, &new_tag)) {
 	case IMAP_CLIENT_INPUT_STATE_UNKNOWN:
-		/* we haven't received a full DONE[\r]\n yet - wait */
-		client->next_read_threshold = size;
-		return;
+		if (ret != -2) {
+			/* we haven't received a full DONE[\r]\n yet - wait */
+			client->next_read_threshold = size;
+			return;
+		}
+		/* the buffer is full without a full DONE[\r]\n - return the
+		   input to the imap process */
+		client->bad_done = TRUE;
+		break;
 	case IMAP_CLIENT_INPUT_STATE_BAD:
 		/* invalid input - return this to the imap process */
 		client->bad_done = TRUE;
