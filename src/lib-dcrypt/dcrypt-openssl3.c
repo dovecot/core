@@ -3924,6 +3924,11 @@ dcrypt_openssl_private_key_id(struct dcrypt_private_key *key,
 	return dcrypt_openssl_public_key_id_evp(priv, md, result, error_r);
 }
 
+static inline size_t dcrypt_openssl_ec_rs_len(const EVP_PKEY *key)
+{
+	return ((size_t)EVP_PKEY_bits(key) + 7) / 8;
+}
+
 static bool
 dcrypt_x962_remove_der(buffer_t *signature_r, size_t offset, size_t rs_len)
 {
@@ -4041,7 +4046,7 @@ dcrypt_openssl_sign(struct dcrypt_private_key *key, const char *algorithm,
 			if (format == DCRYPT_SIGNATURE_FORMAT_X962) {
 				/* remove der container */
 				size_t rs_len =
-					(EVP_PKEY_bits(key->key) + 7) / 8;
+					dcrypt_openssl_ec_rs_len(key->key);
 				if (!dcrypt_x962_remove_der(signature_r,
 							    offset, rs_len)) {
 					*error_r = "Invalid ECDSA signature";

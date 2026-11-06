@@ -3793,6 +3793,11 @@ dcrypt_openssl_digest(const char *algorithm, const void *data, size_t data_len,
 	return ret;
 }
 
+static inline size_t dcrypt_openssl_ec_rs_len(const EC_KEY *ec_key)
+{
+	return ((size_t)EC_GROUP_order_bits(EC_KEY_get0_group(ec_key)) + 7) / 8;
+}
+
 static bool
 dcrypt_openssl_sign_ecdsa(struct dcrypt_private_key *key, const char *algorithm,
 			  const void *data, size_t data_len, buffer_t *signature_r,
@@ -3801,7 +3806,7 @@ dcrypt_openssl_sign_ecdsa(struct dcrypt_private_key *key, const char *algorithm,
 	EVP_PKEY *pkey = key->key;
 	EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
 	bool ret;
-	int rs_len = (EC_GROUP_order_bits(EC_KEY_get0_group(ec_key)) + 7) / 8;
+	size_t rs_len = dcrypt_openssl_ec_rs_len(ec_key);
 
 	/* digest data */
 	buffer_t *digest = t_buffer_create(64);
@@ -3819,18 +3824,18 @@ dcrypt_openssl_sign_ecdsa(struct dcrypt_private_key *key, const char *algorithm,
 
 	ECDSA_SIG_get0(ec_sig, &r, &s);
 
-	int r_len = BN_num_bytes(r);
+	size_t r_len = BN_num_bytes(r);
 	i_assert(rs_len >= r_len);
 
 	/* write r */
 	unsigned char *buf = buffer_append_space_unsafe(signature_r, rs_len);
-	if (BN_bn2bin(r, buf + (rs_len - r_len)) != r_len) {
+	if (BN_bn2bin(r, buf + (rs_len - r_len)) != (int)r_len) {
 		ret = dcrypt_openssl_error(error_r);
 	} else {
 		buf = buffer_append_space_unsafe(signature_r, rs_len);
-		int s_len = BN_num_bytes(s);
+		size_t s_len = BN_num_bytes(s);
 		i_assert(rs_len >= s_len);
-		if (BN_bn2bin(s, buf + (rs_len - s_len)) != s_len) {
+		if (BN_bn2bin(s, buf + (rs_len - s_len)) != (int)s_len) {
 			ret = dcrypt_openssl_error(error_r);
 		} else {
 			ret = TRUE;
