@@ -425,7 +425,12 @@ imap_client_input_nonidle_line_is_local(
 {
 	switch (line->cmd) {
 	case IMAP_CLIENT_INPUT_CMD_IDLE:
+	case IMAP_CLIENT_INPUT_CMD_NOOP:
 		return imap_client_is_unchanged(client);
+	case IMAP_CLIENT_INPUT_CMD_CHECK:
+		/* without a selected mailbox the imap process replies BAD */
+		return client->state.mailbox_vname != NULL &&
+			imap_client_is_unchanged(client);
 	case IMAP_CLIENT_INPUT_CMD_OTHER:
 	case IMAP_CLIENT_INPUT_CMD_DONE:
 		break;
@@ -468,6 +473,23 @@ imap_client_input_done_is_local(struct imap_client *client,
 			idle_mode = TRUE;
 	}
 	return TRUE;
+}
+
+/* Add a tagged reply for a command that imap-hibernate finished. The
+   command did no work, so its timing is always zero. The timing is appended
+   the same way as the imap process's client_cmd_append_timing_stats() does,
+   so the reply looks the same as when the imap process finishes a command
+   immediately. */
+static void
+imap_client_add_tagged_reply(string_t *replies, const char *tag,
+			     const char *tagged_reply)
+{
+	size_t len = strlen(tagged_reply);
+
+	if (len > 0 && tagged_reply[len-1] == '.')
+		len--;
+	str_printfa(replies, "%s %.*s (0.000 + 0.000 secs).\r\n",
+		    tag, (int)len, tagged_reply);
 }
 
 static void
@@ -527,6 +549,14 @@ imap_client_input_line(struct imap_client *client,
 	switch (line->cmd) {
 	case IMAP_CLIENT_INPUT_CMD_IDLE:
 		imap_client_input_idle(client, line, replies);
+		break;
+	case IMAP_CLIENT_INPUT_CMD_NOOP:
+		imap_client_add_tagged_reply(replies, line->tag,
+					     IMAP_REPLY_NOOP_COMPLETED);
+		break;
+	case IMAP_CLIENT_INPUT_CMD_CHECK:
+		imap_client_add_tagged_reply(replies, line->tag,
+					     IMAP_REPLY_CHECK_COMPLETED);
 		break;
 	case IMAP_CLIENT_INPUT_CMD_OTHER:
 	case IMAP_CLIENT_INPUT_CMD_DONE:

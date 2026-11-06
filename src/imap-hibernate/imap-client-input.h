@@ -6,6 +6,8 @@ enum imap_client_input_cmd {
 	IMAP_CLIENT_INPUT_CMD_OTHER,
 	IMAP_CLIENT_INPUT_CMD_DONE,
 	IMAP_CLIENT_INPUT_CMD_IDLE,
+	IMAP_CLIENT_INPUT_CMD_NOOP,
+	IMAP_CLIENT_INPUT_CMD_CHECK,
 };
 
 /* Parse a single line of client input. The line excludes the LF, a trailing

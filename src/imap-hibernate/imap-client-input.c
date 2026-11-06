@@ -10,6 +10,8 @@ static const struct {
 	enum imap_client_input_cmd cmd;
 } imap_client_input_cmds[] = {
 	{ "IDLE", IMAP_CLIENT_INPUT_CMD_IDLE },
+	{ "NOOP", IMAP_CLIENT_INPUT_CMD_NOOP },
+	{ "CHECK", IMAP_CLIENT_INPUT_CMD_CHECK },
 };
 
 static bool
