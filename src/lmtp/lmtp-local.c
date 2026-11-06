@@ -540,6 +540,12 @@ lmtp_local_default_do_deliver(struct lmtp_local *local,
 		return 0;
 	}
 
+	if (error_code == MAIL_DELIVER_ERROR_TEMPORARY &&
+	    dctx->src_mail != local->raw_mail && dctx->src_mail->expunged) {
+		/* Don't reply yet, the caller retries from raw_mail. */
+		return -2;
+	}
+
 	switch (error_code) {
 	case MAIL_DELIVER_ERROR_NONE:
 		i_unreached();
@@ -630,6 +636,20 @@ int lmtp_local_default_deliver(struct client *client,
 	local->stats = *stats;
 	ret = lmtp_local_default_do_deliver(local, llrcpt, lldctx, &dctx);
 	mail_deliver_deinit(&dctx);
+	if (ret == -2) {
+		/* The first recipient's copy was expunged (e.g. by a client
+		   that deletes messages right after fetching them) before it
+		   could be copied for this recipient. Save it again from the
+		   raw message received over LMTP. */
+		e_info(event, "Source mail was expunged, "
+		       "retrying delivery from the raw message");
+		lldctx->src_mail = local->raw_mail;
+		dinput.src_mail = local->raw_mail;
+		mail_deliver_init(&dctx, &dinput);
+		ret = lmtp_local_default_do_deliver(local, llrcpt, lldctx,
+						    &dctx);
+		mail_deliver_deinit(&dctx);
+	}
 
 	event_unref(&event);
 
@@ -670,10 +690,17 @@ lmtp_local_deliver_to_rcpts(struct lmtp_local *local,
 		} T_END;
 		client_update_data_state(client, NULL);
 
+		/* first_saved_mail was expunged, the delivery fell back to
+		   raw_mail. Use raw_mail for the remaining recipients too. */
+		if (src_mail == local->first_saved_mail &&
+		    src_mail->expunged)
+			src_mail = local->raw_mail;
+
 		/* succeeded and mail_user is not saved in first_saved_mail */
 		if ((ret == 0 &&
 		     (local->first_saved_mail == NULL ||
-		      local->first_saved_mail == src_mail)) ||
+		      local->first_saved_mail == src_mail ||
+		      first_uid != (uid_t)-1)) ||
 		    /* failed. try the next one. */
 		    (ret != 0 && local->rcpt_user != NULL)) {
 			if (i == (count - 1))
