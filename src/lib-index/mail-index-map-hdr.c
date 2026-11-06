@@ -393,7 +393,7 @@ int mail_index_map_check_header(struct mail_index_map *map,
 		rec = MAIL_INDEX_REC_AT_SEQ(map, hdr->messages_count);
 		if (rec->uid == 0) {
 			*error_r = "last message has uid=0";
-			return -1;
+			return 0;
 		}
 		if (rec->uid >= hdr->next_uid) {
 			*error_r = t_strdup_printf(
