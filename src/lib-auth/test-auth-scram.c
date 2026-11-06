@@ -703,12 +703,33 @@ static void test_auth_unexpected_input(void)
 	test_end();
 }
 
+static void test_auth_nonempty_initial_input(void)
+{
+	static const unsigned char data[] = "n,,n=user,r=abc";
+	struct backend_context *bctx;
+	const char *error = NULL;
+
+	test_begin("auth non-empty initial input");
+	bctx = test_auth_init(&hash_method_sha1, "user", NULL, "frop", NULL);
+
+	test_assert(test_auth_client_input(bctx, data, sizeof(data) - 1,
+					   &error) < 0);
+	test_assert_strcmp(error, "Server sent non-empty initial response");
+	/* the rejected input doesn't change the state */
+	test_assert(test_auth_client_input(bctx, uchar_empty_ptr, 0,
+					   &error) == 0);
+
+	test_auth_deinit(&bctx);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_auth_success,
 		test_auth_server_error,
 		test_auth_unexpected_input,
+		test_auth_nonempty_initial_input,
 		NULL
 	};
 	return test_run(test_functions);

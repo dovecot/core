@@ -414,6 +414,10 @@ int auth_scram_client_input(struct auth_scram_client *client,
 
 	switch (client->state) {
 	case AUTH_SCRAM_CLIENT_STATE_INIT:
+		if (input_len != 0) {
+			*error_r = "Server sent non-empty initial response";
+			return -1;
+		}
 		break;
 	case AUTH_SCRAM_CLIENT_STATE_SERVER_FIRST:
 		ret = auth_scram_parse_server_first(client, input, input_len,
