@@ -236,6 +236,30 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_map_idx,
 	}
 }
 
+/* Get the record size and alignment that the existing extension will have
+   after sync_ext_resize() has applied the intro to it. */
+static void
+sync_ext_resize_get_record_size(const struct mail_transaction_ext_intro *u,
+				const struct mail_index_ext *ext,
+				bool no_shrink, uint16_t *record_size_r,
+				uint16_t *record_align_r)
+{
+	*record_size_r = ext->record_size;
+	*record_align_r = ext->record_align;
+
+	/* record_align isn't validated for extensions without records, so
+	   ignore the intro's record_align if it has no records, and replace
+	   the existing record_align if the extension had no records. */
+	if (u->record_size > 0 &&
+	    (ext->record_size == 0 ||
+	     ext->record_align < u->record_align ||
+	     (ext->record_align > u->record_align && !no_shrink)))
+		*record_align_r = u->record_align;
+	if (ext->record_size < u->record_size ||
+	    (ext->record_size > u->record_size && !no_shrink))
+		*record_size_r = u->record_size;
+}
+
 static void
 sync_ext_resize(const struct mail_transaction_ext_intro *u,
 		uint32_t ext_map_idx, struct mail_index_sync_map_ctx *ctx,
@@ -245,6 +269,7 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u,
 	struct mail_index_ext *ext;
 	struct mail_index_ext_header *ext_hdr;
 	uint32_t old_padded_hdr_size, new_padded_hdr_size, old_record_size;
+	uint16_t new_record_size, new_record_align;
 	bool reorder = FALSE;
 
 	ext = array_idx_modifiable(&ctx->view->map->extensions, ext_map_idx);
@@ -292,21 +317,15 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u,
 		}
 	}
 
-	/* record_align isn't validated for extensions without records, so
-	   ignore the intro's record_align if it has no records, and replace
-	   the existing record_align if the extension had no records. */
-	if (u->record_size > 0 &&
-	    (ext->record_size == 0 ||
-	     ext->record_align < u->record_align ||
-	     (ext->record_align > u->record_align && !no_shrink))) {
-		ext->record_align = u->record_align;
+	old_record_size = ext->record_size;
+	sync_ext_resize_get_record_size(u, ext, no_shrink, &new_record_size,
+					&new_record_align);
+	if (ext->record_align != new_record_align) {
+		ext->record_align = new_record_align;
 		reorder = TRUE;
 	}
-
-	old_record_size = ext->record_size;
-	if (ext->record_size < u->record_size ||
-	    (ext->record_size > u->record_size && !no_shrink)) {
-		ext->record_size = u->record_size;
+	if (ext->record_size != new_record_size) {
+		ext->record_size = new_record_size;
 		reorder = TRUE;
 	}
 
