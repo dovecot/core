@@ -58,6 +58,10 @@ int mbox_list_index_has_changed(struct mailbox *box,
 	i_assert(ret > 0);
 
 	if (stat(path, &st) < 0) {
+		if (errno == ENOENT) {
+			*reason_r = t_strdup_printf("%s not found", path);
+			return 1;
+		}
 		mailbox_set_critical(box, "stat(%s) failed: %m", path);
 		return -1;
 	}
