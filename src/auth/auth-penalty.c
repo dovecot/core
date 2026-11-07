@@ -9,8 +9,6 @@
 #include "auth-request.h"
 #include "auth-penalty.h"
 
-#include <stdio.h>
-
 /* We don't want IPv6 hosts being able to flood our penalty
    tracking with tons of different IPs. */
 #define PENALTY_IPV6_MASK_BITS 48
@@ -62,6 +60,18 @@ unsigned int auth_penalty_to_secs(unsigned int penalty)
 	return secs < AUTH_PENALTY_MAX_SECS ? secs : AUTH_PENALTY_MAX_SECS;
 }
 
+static bool
+auth_penalty_parse_reply(const char *reply, unsigned int *penalty_r,
+			 unsigned long *last_penalty_r)
+{
+	const char *p;
+
+	/* <penalty> SP <last_penalty> */
+	if (str_parse_uint(reply, penalty_r, &p) < 0 || *p != ' ')
+		return FALSE;
+	return str_to_ulong(p + 1, last_penalty_r) == 0;
+}
+
 static void
 auth_penalty_anvil_callback(const struct anvil_reply *reply,
 			    struct auth_penalty_request *request)
@@ -81,7 +91,8 @@ auth_penalty_anvil_callback(const struct anvil_reply *reply,
 				"Anvil not connected - restarting auth process");
 			master_service_stop(master_service);
 		}
-	} else if (sscanf(reply->reply, "%u %lu", &penalty, &last_penalty) != 2) {
+	} else if (!auth_penalty_parse_reply(reply->reply, &penalty,
+					     &last_penalty)) {
 		e_error(request->event,
 			"Invalid PENALTY-GET reply: %s", reply->reply);
 	} else {
