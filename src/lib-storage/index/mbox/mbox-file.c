@@ -33,7 +33,10 @@ int mbox_file_open(struct mbox_mailbox *mbox)
 	}
 
 	if (fd == -1) {
-		mbox_set_syscall_error(mbox, "open()");
+		if (errno == ENOENT)
+			mailbox_set_deleted(&mbox->box);
+		else
+			mbox_set_syscall_error(mbox, "open()");
 		return -1;
 	}
 
