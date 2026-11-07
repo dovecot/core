@@ -213,6 +213,12 @@ mail_transaction_log_file_skip_to_head(struct mail_transaction_log_file *file)
 				     log->index->filepath);
 		file->sync_offset = file->hdr.hdr_size;
 		file->sync_highest_modseq = file->hdr.initial_modseq;
+	} else if ((head_offset % 4) != 0) {
+		mail_index_set_error(log->index,
+				     "%s: log_file_head_offset isn't 32bit aligned",
+				     log->index->filepath);
+		file->sync_offset = file->hdr.hdr_size;
+		file->sync_highest_modseq = file->hdr.initial_modseq;
 	} else if (modseq_hdr == NULL && file->hdr.initial_modseq == 0) {
 		/* modseqs not used yet */
 		file->sync_offset = head_offset;
@@ -225,6 +231,13 @@ mail_transaction_log_file_skip_to_head(struct mail_transaction_log_file *file)
 	} else if (modseq_hdr->log_offset > head_offset) {
 		mail_index_set_error(log->index,
 				     "%s: modseq_hdr.log_offset too large",
+				     log->index->filepath);
+		file->sync_offset = file->hdr.hdr_size;
+		file->sync_highest_modseq = file->hdr.initial_modseq;
+	} else if (modseq_hdr->log_offset < file->hdr.hdr_size ||
+		   (modseq_hdr->log_offset % 4) != 0) {
+		mail_index_set_error(log->index,
+				     "%s: modseq_hdr.log_offset is invalid",
 				     log->index->filepath);
 		file->sync_offset = file->hdr.hdr_size;
 		file->sync_highest_modseq = file->hdr.initial_modseq;
