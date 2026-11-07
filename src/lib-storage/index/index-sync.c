@@ -546,7 +546,9 @@ void index_storage_list_index_update_sync(struct mailbox *box,
 
 	path = t_strconcat(dir, "/", box->index_prefix, ".log", NULL);
 	if (stat(path, &st) < 0) {
-		mailbox_set_critical(box, "stat(%s) failed: %m", path);
+		/* ENOENT: mailbox was just deleted - nothing to update */
+		if (errno != ENOENT)
+			mailbox_set_critical(box, "stat(%s) failed: %m", path);
 		return;
 	}
 
