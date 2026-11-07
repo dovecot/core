@@ -634,6 +634,13 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 			"Header size too small");
 		return 0;
 	}
+	if ((file->hdr.hdr_size % 4) != 0) {
+		/* Transactions are always 32bit aligned */
+		mail_transaction_log_file_set_corrupted(file,
+			"Header size isn't 32bit aligned (%u)",
+			file->hdr.hdr_size);
+		return 0;
+	}
 	if (file->hdr.hdr_size < sizeof(file->hdr)) {
 		/* @UNSAFE: smaller than we expected - zero out the fields we
 		   shouldn't have filled */
