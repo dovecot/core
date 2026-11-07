@@ -1141,6 +1141,14 @@ flag_updates_have_non_internal(const struct mail_transaction_flag_update *u,
 	return FALSE;
 }
 
+static void modseq_increase(uint64_t *modseq)
+{
+	/* Don't wrap a corrupted modseq to 0, which would mean that modseqs
+	   aren't tracked. */
+	if (*modseq < UINT64_MAX)
+		*modseq += 1;
+}
+
 void mail_transaction_update_modseq(const struct mail_transaction_header *hdr,
 				    const void *data, uint64_t *cur_modseq,
 				    unsigned int version)
@@ -1185,7 +1193,7 @@ void mail_transaction_update_modseq(const struct mail_transaction_header *hdr,
 	case MAIL_TRANSACTION_KEYWORD_RESET:
 	case MAIL_TRANSACTION_ATTRIBUTE_UPDATE:
 		/* these changes increase modseq */
-		*cur_modseq += 1;
+		modseq_increase(cur_modseq);
 		break;
 	case MAIL_TRANSACTION_FLAG_UPDATE: {
 		const struct mail_transaction_flag_update *rec = data;
@@ -1193,7 +1201,7 @@ void mail_transaction_update_modseq(const struct mail_transaction_header *hdr,
 
 		count = (trans_size - sizeof(*hdr)) / sizeof(*rec);
 		if (flag_updates_have_non_internal(rec, count, version))
-			*cur_modseq += 1;
+			modseq_increase(cur_modseq);
 		break;
 	}
 	case MAIL_TRANSACTION_MODSEQ_UPDATE: {
