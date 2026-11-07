@@ -339,14 +339,35 @@ static int
 cmd_acl_recalc_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 {
 	struct acl_user *auser = ACL_USER_CONTEXT(user);
+	struct mail_namespace *ns;
+	struct acl_backend *backend;
+	int ret = 0;
 
 	if (auser == NULL) {
 		e_error(user->event, "ACL not enabled for %s", user->username);
 		doveadm_mail_failed_error(ctx, MAIL_ERROR_NOTFOUND);
 		return -1;
 	}
+	/* Rebuild the rights caches first, so the dict is built from the
+	   mailboxes' current ACL files rather than from whatever the caches
+	   hold. A failed rebuild keeps the old cache, which the dict
+	   rebuild then uses without removing anything. */
+	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
+		if ((ns->flags & NAMESPACE_FLAG_NOACL) != 0 ||
+		    ACL_LIST_CONTEXT(ns->list) == NULL)
+			continue;
+		backend = acl_mailbox_list_get_backend(ns->list);
+		if (acl_backend_nonowner_lookups_rebuild(backend, TRUE) < 0) {
+			e_error(user->event, "Failed to rebuild the ACL rights cache of namespace %s",
+				ns->set->name);
+			ret = -1;
+		}
+	}
 	if (acl_lookup_dict_rebuild(auser->acl_lookup_dict, FALSE) < 0) {
 		e_error(user->event, "Failed to recalculate ACL dicts");
+		ret = -1;
+	}
+	if (ret < 0) {
 		doveadm_mail_failed_error(ctx, MAIL_ERROR_TEMP);
 		return -1;
 	}
