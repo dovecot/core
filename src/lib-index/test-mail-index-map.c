@@ -85,11 +85,70 @@ static void test_mail_index_map_parse_keywords_empty_name_area(void)
 	test_end();
 }
 
+static void test_mail_index_map_parse_keywords_missing_names(void)
+{
+	/* A keywords extension that claims keywords_count=1 but whose hdr_size
+	   only covers the header and the record, leaving an empty name area
+	   (name_area_end_offset == 0). The record's name_offset of 0 then
+	   points at the end of the name area, where there is no NUL. Reading
+	   the keyword as a C string runs past the end of the extension header
+	   (and past the hdr_copy_buf allocation). This must be rejected as
+	   corruption rather than dereferenced. */
+	struct mail_index index;
+	struct mail_index_map map;
+	struct mail_index_ext ext;
+	struct mail_index_keyword_header kw_hdr;
+	struct mail_index_keyword_header_rec kw_rec;
+	buffer_t buf;
+	unsigned char *hdr;
+	size_t hdr_size;
+
+	test_begin("mail index map parse keywords missing names");
+
+	/* keyword header + one record, but no name area at all */
+	hdr_size = sizeof(kw_hdr) + sizeof(kw_rec);
+	hdr = i_malloc(hdr_size);
+	i_zero(&kw_hdr);
+	kw_hdr.keywords_count = 1;
+	memcpy(hdr, &kw_hdr, sizeof(kw_hdr));
+	i_zero(&kw_rec);
+	kw_rec.name_offset = 0; /* == name_area_end_offset (0) */
+	memcpy(hdr + sizeof(kw_hdr), &kw_rec, sizeof(kw_rec));
+
+	i_zero(&index);
+	index.event = event_create(NULL);
+	i_zero(&map);
+	map.index = &index;
+	map.hdr.header_size = hdr_size;
+	buffer_create_from_const_data(&buf, hdr, hdr_size);
+	map.hdr_copy_buf = &buf;
+
+	i_array_init(&map.extensions, 1);
+	i_zero(&ext);
+	ext.name = MAIL_INDEX_EXT_KEYWORDS;
+	ext.hdr_offset = 0;
+	ext.hdr_size = hdr_size;
+	array_append(&map.extensions, &ext, 1);
+
+	test_expect_error_string("name_offset points outside allocated header");
+	test_assert(mail_index_map_parse_keywords(&map) == -1);
+	test_expect_no_more_errors();
+
+	if (array_is_created(&map.keyword_idx_map))
+		array_free(&map.keyword_idx_map);
+	array_free(&map.extensions);
+	i_free(index.last_error.text);
+	event_unref(&index.event);
+	i_free(hdr);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mail_index_map_lookup_seq_range,
 		test_mail_index_map_parse_keywords_empty_name_area,
+		test_mail_index_map_parse_keywords_missing_names,
 		NULL
 	};
 	return test_run(test_functions);

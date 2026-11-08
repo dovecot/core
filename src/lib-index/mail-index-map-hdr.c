@@ -115,7 +115,12 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 
 	name_area_end_offset = (const char *)kw_hdr + ext->hdr_size - name;
 	for (i = 0; i < kw_hdr->keywords_count; i++) {
-		if (kw_rec[i].name_offset > name_area_end_offset) {
+		/* The name must be NUL-terminated within the name area. The
+		   terminating NUL is only guaranteed at name_area_end_offset-1
+		   (checked below), so a name_offset of name_area_end_offset
+		   itself points at the first byte past the names and would make
+		   the strlen() below read out of bounds. */
+		if (kw_rec[i].name_offset >= name_area_end_offset) {
 			mail_index_set_error(index, "Corrupted index file %s: "
 				"name_offset points outside allocated header",
 				index->filepath);
