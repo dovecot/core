@@ -158,7 +158,7 @@ test_deps = \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
-test_libs_ssl = ../lib-ssl-iostream/libssl_iostream_openssl_static.la
+test_libs_ssl = ../lib-ssl-iostream/libssl_iostream_openssl_static.la $(SSL_LIBS)
 
 test_smtp_syntax_SOURCES = test-smtp-syntax.c
 test_smtp_syntax_LDADD = $(test_libs)

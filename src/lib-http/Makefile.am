@@ -164,7 +164,7 @@ test_http_deps = \
 	../lib-auth-client/libauth-client.la \
 	$(test_deps)
 
-test_http_libs_ssl = ../lib-ssl-iostream/libssl_iostream_openssl_static.la $(LIBDOVECOT_TEST_LIBS)
+test_http_libs_ssl = ../lib-ssl-iostream/libssl_iostream_openssl_static.la $(LIBDOVECOT_TEST_LIBS) $(SSL_LIBS)
 
 test_http_payload_SOURCES = test-http-payload.c
 test_http_payload_LDFLAGS = -export-dynamic
