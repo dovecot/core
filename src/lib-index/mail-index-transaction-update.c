@@ -803,7 +803,7 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 		old_record_size = rext->record_size;
 	}
 
-	if (record_size != old_record_size && record_size != (uint16_t)-1) {
+	if (record_size != old_record_size && record_size != UINT16_MAX) {
 		/* if record_size grows, we'll just resize the existing
 		   ext_rec_updates array. it's not possible to shrink
 		   record_size without data loss. */
@@ -817,12 +817,12 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 		i_array_init(&t->ext_resizes, ext_id + 2);
 
 	intro.hdr_size = hdr_size != UINT32_MAX ? hdr_size : old_header_size;
-	if (record_size != (uint16_t)-1) {
-		i_assert(record_align != (uint16_t)-1);
+	if (record_size != UINT16_MAX) {
+		i_assert(record_align != UINT16_MAX);
 		intro.record_size = record_size;
 		intro.record_align = record_align;
 	} else {
-		i_assert(record_align == (uint16_t)-1);
+		i_assert(record_align == UINT16_MAX);
 		intro.record_size = old_record_size;
 		intro.record_align = old_record_align;
 	}
@@ -833,7 +833,7 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 void mail_index_ext_resize_hdr(struct mail_index_transaction *t,
 			       uint32_t ext_id, uint32_t hdr_size)
 {
-	mail_index_ext_resize(t, ext_id, hdr_size, (uint16_t)-1, (uint16_t)-1);
+	mail_index_ext_resize(t, ext_id, hdr_size, UINT16_MAX, UINT16_MAX);
 }
 
 void mail_index_ext_reset(struct mail_index_transaction *t, uint32_t ext_id,

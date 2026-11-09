@@ -590,7 +590,7 @@ static int mdbox_altmove_add_files(struct mdbox_purge_context *ctx)
 			cur_map_uid = map_uids[i];
 			if (mdbox_map_lookup_full(dstorage->map, cur_map_uid,
 						  &cur_rec, &cur_refcount) < 0) {
-				cur_refcount = (uint16_t)-1;
+				cur_refcount = UINT16_MAX;
 				ret = -1;
 			}
 			alt_refcount = 1;

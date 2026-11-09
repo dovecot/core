@@ -157,7 +157,7 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_map_idx,
 	offset = MAIL_INDEX_RECORD_MIN_SIZE;
 	max_align = sizeof(uint32_t);
 	for (;;) {
-		min_align = (uint16_t)-1;
+		min_align = UINT16_MAX;
 		for (i = 0; i < count; i++) {
 			if (sorted[i]->record_align > max_align)
 				max_align = sorted[i]->record_align;
@@ -171,19 +171,19 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_map_idx,
 			}
 		}
 		if (i == count) {
-			if (min_align == (uint16_t)-1) {
+			if (min_align == UINT16_MAX) {
 				/* all done */
 				break;
 			}
 			/* we have to leave space here */
-			i_assert(min_align > 1 && min_align < (uint16_t)-1);
+			i_assert(min_align > 1 && min_align < UINT16_MAX);
 			offset += min_align - (offset % min_align);
 		} else {
 			sorted[i]->record_offset = offset;
 			offset += sorted[i]->record_size;
 		}
 
-		i_assert(offset < (uint16_t)-1);
+		i_assert(offset < UINT16_MAX);
 	}
 
 	if ((offset % max_align) != 0) {
