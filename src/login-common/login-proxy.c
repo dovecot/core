@@ -90,6 +90,8 @@ struct login_proxy {
 	unsigned int reconnect_count;
 	enum auth_proxy_ssl_flags ssl_flags;
 	char *rawlog_dir;
+	/* Compression mechanism enabled by the client, or NULL */
+	char *compression;
 
 	login_proxy_input_callback_t *input_callback;
 	login_proxy_side_channel_input_callback_t *side_callback;
@@ -169,6 +171,8 @@ static void login_proxy_free_errstr(struct login_proxy **_proxy,
 	if (iostream_proxy_is_waiting_output(proxy->iostream_proxy,
 					     LOGIN_PROXY_SIDE_CLIENT))
 		str_append(log_msg, ", server output blocked");
+	if (proxy->compression != NULL)
+		str_printfa(log_msg, ", compression=%s", proxy->compression);
 
 	str_append_c(log_msg, ')');
 	login_proxy_free_full(_proxy, str_c(log_msg), errstr, disconnect_side,
@@ -691,6 +695,7 @@ static void login_proxy_free_final(struct login_proxy *proxy)
 	array_free(&proxy->redirect_path);
 	i_free(proxy->host);
 	i_free(proxy->rawlog_dir);
+	i_free(proxy->compression);
 	i_free(proxy);
 }
 
@@ -779,6 +784,8 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
 		e->add_int("idle_usecs", idle_usecs);
 		e->add_int("net_in_bytes", proxy->server_output->offset);
 		e->add_int("net_out_bytes", proxy->client_output->offset);
+		if (proxy->compression != NULL)
+			e->add_str("compression", proxy->compression);
 	} else {
 		if (client_get_extra_disconnect_reason(client, &human_reason,
 						       &event_reason))
@@ -1473,6 +1480,12 @@ void login_proxy_multiplex_input_start(struct login_proxy *proxy)
 	/* caller needs to break out of the proxy_input() loop and get it
 	   called again to update the istream. */
 	i_stream_set_input_pending(input, TRUE);
+}
+
+void login_proxy_set_compression(struct login_proxy *proxy, const char *name)
+{
+	i_free(proxy->compression);
+	proxy->compression = i_strdup(name);
 }
 
 static void proxy_kill_idle(struct login_proxy *proxy)
