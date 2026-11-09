@@ -89,10 +89,10 @@ int str_parse_data_uintmax(const unsigned char *data, size_t size,
 		return -1;
 
 	do {
-		if (n >= ((uintmax_t)-1 / 10)) {
-			if (n > (uintmax_t)-1 / 10)
+		if (n >= (UINTMAX_MAX / 10)) {
+			if (n > UINTMAX_MAX / 10)
 				return -1;
-			if ((uintmax_t)(*p - '0') > ((uintmax_t)-1 % 10))
+			if ((uintmax_t)(*p - '0') > (UINTMAX_MAX % 10))
 				return -1;
 		}
 		n = n * 10 + (*p - '0');
@@ -194,7 +194,7 @@ int str_parse_uintmax_hex(const char *str, uintmax_t *num_r,
 		return -1;
 
 	do {
-		if (n > (uintmax_t)-1 >> 4)
+		if (n > UINTMAX_MAX >> 4)
 			return -1;
 		n = (n << 4) + hex;
 		str++;
@@ -260,7 +260,7 @@ int str_parse_uintmax_oct(const char *str, uintmax_t *num_r,
 		return -1;
 
 	for (; *str >= '0' && *str <= '7'; str++) {
-		if (n > (uintmax_t)-1 >> 3)
+		if (n > UINTMAX_MAX >> 3)
 			return -1;
 		n = (n << 3) + (*str - '0');
 	}
