@@ -1244,12 +1244,17 @@ login_proxy_finished(enum iostream_proxy_side side,
 			i_stream_get_error(input);
 		break;
 	}
-	case IOSTREAM_PROXY_STATUS_OTHER_SIDE_OUTPUT_ERROR:
+	case IOSTREAM_PROXY_STATUS_OTHER_SIDE_OUTPUT_ERROR: {
+		struct ostream *output = side == LOGIN_PROXY_SIDE_CLIENT ?
+			proxy->server_output : proxy->client_output;
 		server_side = !server_side;
-		errstr = side == LOGIN_PROXY_SIDE_CLIENT ?
-			o_stream_get_error(proxy->server_output) :
-			o_stream_get_error(proxy->client_output);
+		/* EPIPE means that the other side had already closed the
+		   connection, so this is a clean disconnection the same as
+		   input EOF. */
+		errstr = output->stream_errno == EPIPE ? "" :
+			o_stream_get_error(output);
 		break;
+	}
 	default:
 		i_unreached();
 	}
