@@ -1223,11 +1223,20 @@ login_proxy_finished(enum iostream_proxy_side side,
 		/* success */
 		errstr = "";
 		break;
-	case IOSTREAM_PROXY_STATUS_INPUT_ERROR:
-		errstr = side == LOGIN_PROXY_SIDE_CLIENT ?
-			i_stream_get_error(proxy->client_input) :
-			i_stream_get_error(proxy->server_input);
+	case IOSTREAM_PROXY_STATUS_INPUT_ERROR: {
+		struct istream *input = side == LOGIN_PROXY_SIDE_CLIENT ?
+			proxy->client_input : proxy->server_input;
+		/* EPIPE means that the connection was closed, which the istream
+		   just couldn't treat as a clean EOF. For example the IMAP
+		   COMPRESS deflate stream never ends with a final block, so the
+		   zlib istream reports an "unexpected EOF" error when the
+		   parent stream reaches EOF. Treat these as clean
+		   disconnections, the same as io_stream_get_disconnect_reason()
+		   does. */
+		errstr = input->stream_errno == EPIPE ? "" :
+			i_stream_get_error(input);
 		break;
+	}
 	case IOSTREAM_PROXY_STATUS_OTHER_SIDE_OUTPUT_ERROR:
 		server_side = !server_side;
 		errstr = side == LOGIN_PROXY_SIDE_CLIENT ?
