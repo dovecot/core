@@ -1341,7 +1341,7 @@ void auth_request_default_verify_plain_continue(
 	request->private_callback.verify_plain = callback;
 
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
-	passdb_cache_verify_plain(request, cache_key, password, FALSE,
+	passdb_cache_verify_plain(request, cache_key, password,
 				  auth_request_verify_plain_passdb);
 }
 
@@ -1479,7 +1479,7 @@ auth_request_lookup_credentials_policy_continue(
 	if (cache_key != NULL) {
 		if (passdb_cache_lookup_credentials(request, cache_key,
 						    &cache_cred, &cache_scheme,
-						    &result, FALSE)) {
+						    &result)) {
 			request->passdb_cache_result = AUTH_REQUEST_CACHE_HIT;
 			passdb_handle_credentials(
 				result, cache_cred, cache_scheme,
