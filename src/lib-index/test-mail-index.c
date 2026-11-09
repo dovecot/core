@@ -1199,6 +1199,56 @@ static void test_mail_index_keywords_out_of_order(void)
 	test_end();
 }
 
+static void test_mail_index_keywords_hdr_too_small(void)
+{
+	static const char *const keywords_arr[] = { "a", "b", NULL };
+	struct mail_index *index;
+	uoff_t ext_offset, hdr_offset;
+	uint32_t hdr_size;
+	bool last_ext;
+
+	test_begin("mail index keywords header too small");
+	const char *path =
+		test_mail_index_keywords_init(keywords_arr, &ext_offset,
+					      &hdr_offset, &hdr_size,
+					      &last_ext);
+	test_assert(last_ext);
+
+	/* drop the keywords header and set its hdr_size=0 */
+	buffer_t *buf = t_buffer_create(1024);
+	int fd = open(path, O_RDWR);
+	if (fd == -1)
+		i_fatal("open(%s) failed: %m", path);
+	struct stat st;
+	if (fstat(fd, &st) < 0)
+		i_fatal("fstat(%s) failed: %m", path);
+	void *data = buffer_append_space_unsafe(buf, st.st_size);
+	test_assert(pread(fd, data, st.st_size, 0) == st.st_size);
+
+	struct mail_index_header *hdr = buffer_get_modifiable_data(buf, NULL);
+	hdr->header_size = hdr_offset;
+	struct mail_index_ext_header *ext_hdr =
+		buffer_get_space_unsafe(buf, ext_offset, sizeof(*ext_hdr));
+	ext_hdr->hdr_size = 0;
+	buffer_delete(buf, hdr_offset, MAIL_INDEX_HEADER_SIZE_ALIGN(hdr_size));
+
+	test_assert(ftruncate(fd, 0) == 0);
+	test_assert(pwrite(fd, buf->data, buf->used, 0) == (ssize_t)buf->used);
+	i_close_fd(&fd);
+
+	/* the corruption error, fscking warning and fsck errors */
+	test_expect_errors(4);
+	index = test_mail_index_open(FALSE);
+	test_expect_no_more_errors();
+	test_assert(mail_index_reset_fscked(index));
+
+	/* the keywords were renamed, and a new one can be added */
+	test_mail_index_add_keyword(index, "c");
+	test_assert(array_count(&index->map->keyword_idx_map) == 3);
+	test_mail_index_deinit(&index);
+	test_end();
+}
+
 static void test_mail_index_append_uid(struct mail_index *index, uint32_t uid)
 {
 	struct mail_index_view *view;
@@ -1397,6 +1447,7 @@ int main(void)
 		test_mail_index_view_verify_records,
 		test_mail_index_verify_records_cache,
 		test_mail_index_keywords_out_of_order,
+		test_mail_index_keywords_hdr_too_small,
 		NULL
 	};
 	test_dir_init("mail-index");

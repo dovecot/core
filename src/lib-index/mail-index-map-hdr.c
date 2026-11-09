@@ -86,6 +86,13 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 	   the .log changes, so re-reading dovecot.index header isn't common.
 	   In a later version we could even remove it.
 	*/
+	if (ext->hdr_size < sizeof(*kw_hdr)) {
+		mail_index_set_error(index, "Corrupted index file %s: "
+				     "Keywords header too small (%u < %zu)",
+				     index->filepath, ext->hdr_size,
+				     sizeof(*kw_hdr));
+		return -1;
+	}
 	i_assert(ext->hdr_offset < map->hdr.header_size);
 	kw_hdr = MAIL_INDEX_MAP_HDR_OFFSET(map, ext->hdr_offset);
 	kw_rec = (const void *)(kw_hdr + 1);
