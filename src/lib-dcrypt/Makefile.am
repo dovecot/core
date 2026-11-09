@@ -33,7 +33,9 @@ module_LTLIBRARIES += libdcrypt_openssl.la
 
 libdcrypt_openssl_la_SOURCES =
 libdcrypt_openssl_la_LDFLAGS = -module -avoid-version
-libdcrypt_openssl_la_LIBADD = libdcrypt_openssl_static.la
+libdcrypt_openssl_la_LIBADD = \
+	libdcrypt_openssl_static.la \
+	$(SSL_LIBS)
 
 headers = \
 	dcrypt.h \

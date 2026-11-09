@@ -34,7 +34,9 @@ libssl_iostream_openssl_static_la_SOURCES = \
 	ostream-openssl.c
 
 libssl_iostream_openssl_la_LDFLAGS = -module -avoid-version
-libssl_iostream_openssl_la_LIBADD = libssl_iostream_openssl_static.la
+libssl_iostream_openssl_la_LIBADD = \
+	libssl_iostream_openssl_static.la \
+	$(SSL_LIBS)
 libssl_iostream_openssl_la_SOURCES =
 
 libssl_iostream_la_SOURCES = \
