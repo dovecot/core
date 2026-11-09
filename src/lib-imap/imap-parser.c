@@ -480,9 +480,9 @@ static bool imap_parser_read_literal(struct imap_parser *parser,
 			return FALSE;
 		}
 
-		if (parser->literal_size >= ((uoff_t)-1 / 10)) {
-			if (parser->literal_size > ((uoff_t)-1 / 10) ||
-			    (uoff_t)(data[i] - '0') > ((uoff_t)-1 % 10)) {
+		if (parser->literal_size >= (UOFF_T_MAX / 10)) {
+			if (parser->literal_size > (UOFF_T_MAX / 10) ||
+			    (uoff_t)(data[i] - '0') > (UOFF_T_MAX % 10)) {
 				parser->error = IMAP_PARSE_ERROR_LITERAL_TOO_BIG;
 				parser->error_msg = "Literal size too large";
 				return FALSE;
