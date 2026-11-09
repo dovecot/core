@@ -698,6 +698,7 @@ proxy_side_cmd_compress(struct client *client, const char *const *args,
 	login_proxy_replace_client_iostream_post(client->login_proxy,
 		handler->create_istream(client->input),
 		handler->create_ostream_auto(client->output, client->event));
+	login_proxy_set_compression(client->login_proxy, handler->name);
 	return 0;
 }
 
