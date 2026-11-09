@@ -1137,17 +1137,9 @@ auth_request_verify_plain_callback_finish(enum passdb_result result,
 	}
 }
 
-static void
-auth_request_verify_plain_internal_failure(struct auth_request *request)
-{
-	auth_request_verify_plain_callback_finish(PASSDB_RESULT_INTERNAL_FAILURE, request);
-}
-
 void auth_request_verify_plain_passdb_callback(enum passdb_result result,
 					struct auth_request *request)
 {
-	struct auth_passdb *passdb = request->passdb;
-
 	i_assert(request->state == AUTH_REQUEST_STATE_PASSDB);
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_MECH_CONTINUE);
@@ -1156,17 +1148,9 @@ void auth_request_verify_plain_passdb_callback(enum passdb_result result,
 	    auth_fields_exists(request->fields.extra_fields, "noauthenticate"))
 		result = PASSDB_RESULT_NEXT;
 
-	if (result != PASSDB_RESULT_INTERNAL_FAILURE) {
+	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
 		auth_request_save_cache(request, result);
-		auth_request_verify_plain_callback_finish(result, request);
-		return;
-	}
-
-	/* lookup failed. if we're looking here only because the request was
-	   expired in cache, fallback to using cached expired record. */
-	passdb_cache_verify_plain(request, passdb->cache_key,
-				  request->mech_password, TRUE,
-				  auth_request_verify_plain_internal_failure);
+	auth_request_verify_plain_callback_finish(result, request);
 }
 
 static bool password_has_illegal_chars(const char *password)
@@ -1414,9 +1398,6 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 					      size_t size, const char *scheme,
 					      struct auth_request *request)
 {
-	struct auth_passdb *passdb = request->passdb;
-	const char *cache_cred, *cache_scheme;
-
 	i_assert(request->state == AUTH_REQUEST_STATE_PASSDB);
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_MECH_CONTINUE);
@@ -1427,24 +1408,6 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 
 	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
 		auth_request_save_cache(request, result);
-	else {
-		/* lookup failed. if we're looking here only because the
-		   request was expired in cache, fallback to using cached
-		   expired record. */
-		const char *cache_key = passdb->cache_key;
-
-		if (passdb_cache_lookup_credentials(request, cache_key,
-						    &cache_cred, &cache_scheme,
-						    &result, TRUE)) {
-			e_info(authdb_event(request),
-			       "Falling back to expired data from cache");
-			passdb_handle_credentials(
-				result, cache_cred, cache_scheme,
-				auth_request_lookup_credentials_finish,
-				request);
-			return;
-		}
-	}
 
 	auth_request_lookup_credentials_finish(result, credentials, size,
 					       scheme, request);
