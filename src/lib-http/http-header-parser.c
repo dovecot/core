@@ -58,7 +58,7 @@ http_header_parser_init(struct istream *input,
 	if (parser->limits.max_field_size == 0)
 		parser->limits.max_field_size = UOFF_T_MAX;
 	if (parser->limits.max_fields == 0)
-		parser->limits.max_fields = (unsigned int)-1;
+		parser->limits.max_fields = UINT_MAX;
 
 	parser->flags = flags;
 

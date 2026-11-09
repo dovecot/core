@@ -53,7 +53,7 @@ static void test_mail_index_map_parse_keywords_empty_name_area(void)
 	   mail_index_keyword_header (keywords_count==0) has an empty name area,
 	   so name_area_end_offset is 0. mail_index_map_parse_keywords() must
 	   handle this without evaluating name[name_area_end_offset-1], which
-	   would underflow to name[(unsigned)-1] and read ~4 GB out of bounds.
+	   would underflow to name[UINT_MAX] and read ~4 GB out of bounds.
 	   This is a valid (empty) keyword set, so parsing succeeds. */
 	struct mail_index_map map;
 	struct mail_index_keyword_header kw_hdr;
