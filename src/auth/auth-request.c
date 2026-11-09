@@ -1547,7 +1547,7 @@ auth_request_userdb_save_cache(struct auth_request *request,
 
 static bool
 auth_request_lookup_user_cache(struct auth_request *request, const char *key,
-			       enum userdb_result *result_r, bool use_expired)
+			       enum userdb_result *result_r)
 {
 	const char *value;
 	struct auth_cache_node *node;
@@ -1555,7 +1555,7 @@ auth_request_lookup_user_cache(struct auth_request *request, const char *key,
 
 	value = auth_cache_lookup(passdb_cache, request, key, &node,
 				  &expired, &neg_expired);
-	if (value == NULL || (expired && !use_expired)) {
+	if (value == NULL || expired) {
 		request->userdb_cache_result = AUTH_REQUEST_CACHE_MISS;
 		e_debug(request->event,
 			value == NULL ? "%suserdb cache miss" :
@@ -1691,22 +1691,6 @@ void auth_request_userdb_callback(enum userdb_result result,
 		/* userdb lookup succeeded, but it either returned tempfail
 		   or one of its fields was invalid. Looking up the user from
 		   cache isn't probably a good idea. */
-	} else if (result == USERDB_RESULT_INTERNAL_FAILURE &&
-		   (passdb_cache != NULL && userdb->cache_key != NULL)) {
-		/* lookup failed. if we're looking here only because the
-		   request was expired in cache, fallback to using cached
-		   expired record. */
-		const char *cache_key = userdb->cache_key;
-
-		if (auth_request_lookup_user_cache(request, cache_key,
-						   &result, TRUE)) {
-			e_info(request->event,
-			       "%sFalling back to expired data from cache",
-				auth_request_get_log_prefix_db(request));
-		} else {
-			internal_failure_delay =
-				auth_request_get_internal_failure_delay(request);
-		}
 	} else if (result == USERDB_RESULT_INTERNAL_FAILURE) {
 		internal_failure_delay =
 			auth_request_get_internal_failure_delay(request);
@@ -1741,8 +1725,7 @@ void auth_request_lookup_user(struct auth_request *request,
 	if (cache_key != NULL) {
 		enum userdb_result result;
 
-		if (auth_request_lookup_user_cache(request, cache_key,
-						   &result, FALSE)) {
+		if (auth_request_lookup_user_cache(request, cache_key, &result)) {
 			request->userdb_cache_result = AUTH_REQUEST_CACHE_HIT;
 			auth_request_userdb_callback(result, request);
 			return;
