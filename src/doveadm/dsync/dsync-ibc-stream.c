@@ -1769,7 +1769,7 @@ dsync_ibc_stream_recv_change(struct dsync_ibc *_ibc,
 
 	if (dsync_deserializer_decode_try(decoder, "add_flags", &value)) {
 		if (str_to_uint_hex(value, &uintval) < 0 ||
-		    uintval > (uint8_t)-1) {
+		    uintval > UINT8_MAX) {
 			dsync_ibc_input_error(ibc, decoder,
 				"Invalid add_flags: %s", value);
 			return DSYNC_IBC_RECV_RET_TRYAGAIN;
@@ -1778,7 +1778,7 @@ dsync_ibc_stream_recv_change(struct dsync_ibc *_ibc,
 	}
 	if (dsync_deserializer_decode_try(decoder, "remove_flags", &value)) {
 		if (str_to_uint_hex(value, &uintval) < 0 ||
-		    uintval > (uint8_t)-1) {
+		    uintval > UINT8_MAX) {
 			dsync_ibc_input_error(ibc, decoder,
 				"Invalid remove_flags: %s", value);
 			return DSYNC_IBC_RECV_RET_TRYAGAIN;
@@ -1787,7 +1787,7 @@ dsync_ibc_stream_recv_change(struct dsync_ibc *_ibc,
 	}
 	if (dsync_deserializer_decode_try(decoder, "final_flags", &value)) {
 		if (str_to_uint_hex(value, &uintval) < 0 ||
-		    uintval > (uint8_t)-1) {
+		    uintval > UINT8_MAX) {
 			dsync_ibc_input_error(ibc, decoder,
 				"Invalid final_flags: %s", value);
 			return DSYNC_IBC_RECV_RET_TRYAGAIN;

@@ -283,10 +283,10 @@ smtp_parser_parse_snum(struct smtp_parser *parser, string_t *literal,
 	    *parser->cur < '0' || *parser->cur > '9')
 		return 0;
 	do {
-		if (octet >= ((uint8_t)-1 / 10)) {
-			if (octet > (uint8_t)-1 / 10)
+		if (octet >= (UINT8_MAX / 10)) {
+			if (octet > UINT8_MAX / 10)
 				return -1;
-			if ((uint8_t)(*parser->cur - '0') > ((uint8_t)-1 % 10))
+			if ((uint8_t)(*parser->cur - '0') > (UINT8_MAX % 10))
 				return -1;
 		}
 		octet = octet * 10 + (*parser->cur - '0');
