@@ -13,7 +13,8 @@
 #include "index/index-mailbox-size.h"
 #include "index/index-attachment.h"
 
-static void test_mail_save(struct mailbox *box, const char *mail_input)
+static void test_mail_save(struct mailbox *box, const char *mail_input,
+			   bool sync)
 {
 	struct mailbox_transaction_context *trans;
 	struct mail_save_context *save_ctx;
@@ -30,7 +31,8 @@ static void test_mail_save(struct mailbox *box, const char *mail_input)
 	test_assert(mailbox_save_finish(&save_ctx) == 0);
 	i_stream_unref(&input);
 	test_assert(mailbox_transaction_commit(&trans) == 0);
-	test_assert(mailbox_sync(box, 0) == 0);
+	if (sync)
+		test_assert(mailbox_sync(box, 0) == 0);
 }
 
 static void test_vsize_hdr_corruption_fix(void)
@@ -123,8 +125,8 @@ static void test_vsize_hdr_msg_count_corruption_fix(void)
 	test_assert(mailbox_open(box) == 0);
 	test_assert(mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) == 0);
 
-	test_mail_save(box, "From: foo\n\nbar\n");
-	test_mail_save(box, "From: bar\n\nbaz\n");
+	test_mail_save(box, "From: foo\n\nbar\n", TRUE);
+	test_mail_save(box, "From: bar\n\nbaz\n", TRUE);
 
 	struct mailbox_status status;
 	mailbox_get_open_status(box, STATUS_UIDNEXT, &status);
@@ -197,6 +199,56 @@ static void test_vsize_hdr_msg_count_corruption_fix(void)
 	test_end();
 }
 
+static void test_vsize_hdr_add_saved(void)
+{
+	struct test_mail_storage_ctx *ctx;
+	const struct mail_namespace *ns;
+	struct mailbox *box;
+	struct mailbox_metadata metadata;
+	struct mail_index_view *view;
+	const void *data;
+	size_t size;
+
+	test_begin("vsize header add saved");
+
+	ctx = test_mail_storage_init();
+	const struct test_mail_storage_settings set = {
+		.driver = "sdbox",
+		.hierarchy_sep = "/",
+	};
+	test_mail_storage_init_user(ctx, &set);
+
+	ns = mail_namespace_find_inbox(ctx->user->namespaces);
+	box = mailbox_alloc(ns->list, "vsize-add-saved-test", 0);
+	test_assert(mailbox_create(box, NULL, FALSE) == 0);
+	test_assert(mailbox_open(box) == 0);
+
+	/* the first vsize lookup creates the header */
+	test_mail_save(box, "From: foo\n\nbar\n", TRUE);
+	test_assert(mailbox_get_metadata(box, MAILBOX_METADATA_VIRTUAL_SIZE,
+					 &metadata) == 0);
+	test_assert(metadata.virtual_size == 18);
+
+	/* a save without a following sync updates the header itself */
+	test_mail_save(box, "From: foo\n\nbar\n", FALSE);
+
+	(void)mail_index_refresh(box->index);
+	view = mail_index_view_open(box->index);
+	mail_index_get_header_ext(view, box->vsize_hdr_ext_id, &data, &size);
+	test_assert(size == sizeof(struct mailbox_index_vsize));
+	const struct mailbox_index_vsize *vsize_hdr = data;
+	test_assert(vsize_hdr->highest_uid == 2);
+	test_assert(vsize_hdr->message_count == 2);
+	test_assert(vsize_hdr->vsize == 36);
+
+	mail_index_view_close(&view);
+	mailbox_free(&box);
+	test_mail_storage_deinit_user(ctx);
+	test_mail_storage_deinit(&ctx);
+
+	test_end();
+}
+
 static void test_index_attachment_base64_decoded_size(void)
 {
 	static const unsigned int blocks_per_line[] = { 1, 2, 18, 19, 20, 1000 };
@@ -240,6 +292,7 @@ int main(int argc, char *argv[])
 	static void (* const test_functions[])(void) = {
 		test_vsize_hdr_corruption_fix,
 		test_vsize_hdr_msg_count_corruption_fix,
+		test_vsize_hdr_add_saved,
 		test_index_attachment_base64_decoded_size,
 		NULL
 	};
