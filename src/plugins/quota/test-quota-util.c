@@ -13,39 +13,37 @@ struct test {
 
 static void test_quota_transaction_is_over(void)
 {
-#define MAXU64 UINT64_MAX
-#define MAXS64 9223372036854775807LL
 	static const struct test tests[] = {
 		/* first test only with new_size=1. these are used for both
 		   count and bytes tests: */
 
-		/* limit,     init,     diff, new */
-		{      1,        0,        0,   1, FALSE },
-		{ MAXU64,   MAXU64,        0,   1, TRUE },
-		{ MAXU64, MAXU64-1,        0,   1, FALSE },
-		{ MAXU64, MAXU64-1,        1,   1, TRUE },
-		{ MAXU64-1, MAXU64-1,      0,   1, TRUE },
-		{ MAXU64-1, MAXU64-1,     -1,   1, FALSE },
-		{ MAXU64-2, MAXU64-1,     -1,   1, TRUE },
-		{ MAXU64-2, MAXU64-1,     -2,   1, FALSE },
+		/*         limit,           init, diff,            new */
+		{              1,              0,    0,              1, FALSE },
+		{     UINT64_MAX,     UINT64_MAX,    0,              1, TRUE },
+		{     UINT64_MAX, UINT64_MAX - 1,    0,              1, FALSE },
+		{     UINT64_MAX, UINT64_MAX - 1,    1,              1, TRUE },
+		{ UINT64_MAX - 1, UINT64_MAX - 1,    0,              1, TRUE },
+		{ UINT64_MAX - 1, UINT64_MAX - 1,   -1,              1, FALSE },
+		{ UINT64_MAX - 2, UINT64_MAX - 1,   -1,              1, TRUE },
+		{ UINT64_MAX - 2, UINT64_MAX - 1,   -2,              1, FALSE },
 
 		/* these are for bytes tests: */
 
-		/* limit,   init,   diff,    new */
-		{ MAXU64, MAXU64,      0,      0, FALSE },
-		{ MAXU64, MAXU64-1,    1,      0, FALSE },
-		{ MAXU64-1, MAXU64,    1,      0, TRUE },
-		{ MAXU64-1, MAXU64,    0,      0, TRUE },
-		{ MAXU64-1, MAXU64,   -1,      0, FALSE },
-		{ MAXU64, MAXU64,      0,      1, TRUE },
-		{ MAXU64,      0,      0, MAXU64, FALSE },
-		{ MAXU64,      1,      0, MAXU64, TRUE },
-		{ MAXU64,      0,      1, MAXU64, TRUE },
-		{ MAXU64-1,    0,      0, MAXU64, TRUE },
-		{ MAXU64-1,    0,      0, MAXU64-1, FALSE },
-		{ MAXU64-1,    1,      0, MAXU64-1, TRUE },
-		{ MAXU64-1,    1,     -1, MAXU64-1, FALSE },
-		{ MAXU64, MAXU64,      0, MAXU64, TRUE },
+		/*         limit,           init, diff,            new */
+		{     UINT64_MAX,     UINT64_MAX,    0,              0, FALSE },
+		{     UINT64_MAX, UINT64_MAX - 1,    1,              0, FALSE },
+		{ UINT64_MAX - 1,     UINT64_MAX,    1,              0, TRUE },
+		{ UINT64_MAX - 1,     UINT64_MAX,    0,              0, TRUE },
+		{ UINT64_MAX - 1,     UINT64_MAX,   -1,              0, FALSE },
+		{     UINT64_MAX,     UINT64_MAX,    0,              1, TRUE },
+		{     UINT64_MAX,              0,    0,     UINT64_MAX, FALSE },
+		{     UINT64_MAX,              1,    0,     UINT64_MAX, TRUE },
+		{     UINT64_MAX,              0,    1,     UINT64_MAX, TRUE },
+		{ UINT64_MAX - 1,              0,    0,     UINT64_MAX, TRUE },
+		{ UINT64_MAX - 1,              0,    0, UINT64_MAX - 1, FALSE },
+		{ UINT64_MAX - 1,              1,    0, UINT64_MAX - 1, TRUE },
+		{ UINT64_MAX - 1,              1,   -1, UINT64_MAX - 1, FALSE },
+		{     UINT64_MAX,     UINT64_MAX,    0,     UINT64_MAX, TRUE },
 	};
 	struct quota_transaction_context ctx;
 	unsigned int i;
