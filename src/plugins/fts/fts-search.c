@@ -321,10 +321,10 @@ static void fts_search_try_lookup(struct fts_search_context *fctx)
 		/* everything is already indexed */
 		seq1 = seq2 = 0;
 	} else {
-		mailbox_get_seq_range(fctx->box, last_uid+1, (uint32_t)-1,
+		mailbox_get_seq_range(fctx->box, last_uid+1, UINT32_MAX,
 				      &seq1, &seq2);
 	}
-	fctx->first_unindexed_seq = seq1 != 0 ? seq1 : (uint32_t)-1;
+	fctx->first_unindexed_seq = seq1 != 0 ? seq1 : UINT32_MAX;
 
 	if (fctx->virtual_mailbox) {
 		hash_table_clear(fctx->last_indexed_virtual_uids, TRUE);

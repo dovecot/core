@@ -263,7 +263,7 @@ mail_index_need_sync(struct mail_index *index, enum mail_index_sync_flags flags,
 	    (index->flags & MAIL_INDEX_OPEN_FLAG_NO_DIRTY) == 0)
 		return TRUE;
 
-	if (log_file_seq == (uint32_t)-1) {
+	if (log_file_seq == UINT32_MAX) {
 		/* we want to sync up to transaction log's head */
 		mail_transaction_log_get_head(index->log,
 					      &log_file_seq, &log_file_offset);
@@ -294,7 +294,7 @@ mail_index_sync_set_log_view(struct mail_index_sync_ctx *ctx,
 
 	mail_transaction_log_get_head(ctx->index->log,
 				      &head_file_seq, &head_file_offset);
-	if (end_file_seq == (uint32_t)-1) {
+	if (end_file_seq == UINT32_MAX) {
 		end_file_seq = head_file_seq;
 		end_file_offset = head_file_offset;
 	} else if (end_file_seq < start_file_seq ||
@@ -336,7 +336,7 @@ int mail_index_sync_begin(struct mail_index *index,
 	int ret;
 
 	ret = mail_index_sync_begin_to(index, ctx_r, view_r, trans_r,
-				       (uint32_t)-1, UOFF_T_MAX, flags);
+				       UINT32_MAX, UOFF_T_MAX, flags);
 	i_assert(ret != 0 ||
 		 (flags & MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES) != 0);
 	return ret;
@@ -500,8 +500,8 @@ mail_index_sync_begin_to2(struct mail_index *index,
 	}
 
 	if ((flags & MAIL_INDEX_SYNC_FLAG_STOP_AT_OFFSET) != 0)
-		i_assert(log_file_seq != (uint32_t)-1);
-	else if (log_file_seq != (uint32_t)-1)
+		i_assert(log_file_seq != UINT32_MAX);
+	else if (log_file_seq != UINT32_MAX)
 		flags |= MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
 
 	T_BEGIN {
@@ -530,7 +530,7 @@ mail_index_sync_begin_to2(struct mail_index *index,
 	/* we wish to see all the changes from last mailbox sync position to
 	   the end of the transaction log (or to the requested position) */
 	if ((flags & MAIL_INDEX_SYNC_FLAG_STOP_AT_OFFSET) == 0) {
-		log_file_seq = (uint32_t)-1;
+		log_file_seq = UINT32_MAX;
 		log_file_offset = 0;
 	}
 	ret = mail_index_sync_set_log_view(ctx, hdr->log_file_seq,
@@ -755,7 +755,7 @@ bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 	uint32_t next_found_uid;
 
 	next_i = UINT_MAX;
-	next_found_uid = (uint32_t)-1;
+	next_found_uid = UINT32_MAX;
 
 	/* FIXME: replace with a priority queue so we don't have to go
 	   through the whole list constantly. and remember to make sure that

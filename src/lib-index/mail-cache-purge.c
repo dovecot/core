@@ -54,7 +54,7 @@ mail_cache_purge_field(struct mail_cache_copy_context *ctx,
 	uint8_t *field_seen;
 
 	file_field_idx = ctx->field_file_map[field->field_idx];
-	if (file_field_idx == (uint32_t)-1)
+	if (file_field_idx == UINT32_MAX)
 		return;
 
 	cache_field = &ctx->cache->fields[field->field_idx].field;
@@ -136,7 +136,7 @@ mail_cache_purge_get_fields(struct mail_cache_copy_context *ctx,
 		i_new(unsigned int, used_fields_count);
 	for (i = j = 0; i < cache->fields_count; i++) {
 		idx = cache->field_file_map[i];
-		if (idx != (uint32_t)-1) {
+		if (idx != UINT32_MAX) {
 			i_assert(idx < used_fields_count &&
 				 cache->file_field_map != NULL &&
 				 cache->file_field_map[idx] == 0);
@@ -265,7 +265,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	} else {
 		for (i = used_fields_count = 0; i < orig_fields_count; i++) {
 			if (!mail_cache_purge_check_field(&ctx, i))
-				ctx.field_file_map[i] = (uint32_t)-1;
+				ctx.field_file_map[i] = UINT32_MAX;
 			else
 				ctx.field_file_map[i] = used_fields_count++;
 		}
@@ -506,7 +506,7 @@ static int mail_cache_purge_locked(struct mail_cache *cache,
 
 	/* we've locked the cache purging now. if somebody else had just
 	   recreated the cache, reopen the cache and return success. */
-	if (purge_file_seq != (uint32_t)-1 &&
+	if (purge_file_seq != UINT32_MAX &&
 	    (ret = mail_cache_purge_has_file_changed(cache, purge_file_seq)) != 0) {
 		if (ret < 0)
 			return -1;

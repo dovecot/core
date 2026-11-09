@@ -46,7 +46,7 @@ static void test_mail_cache_read_during_purge(void)
 
 	/* start purging cache using the 1st index, but don't commit yet */
 	trans = mail_index_transaction_begin(ctx.view, 0);
-	test_assert(mail_cache_purge_with_trans(ctx.cache, trans, (uint32_t)-1, "test") == 0);
+	test_assert(mail_cache_purge_with_trans(ctx.cache, trans, UINT32_MAX, "test") == 0);
 
 	switch (fork()) {
 	case (pid_t)-1:
@@ -113,7 +113,7 @@ static void test_mail_cache_write_during_purge(void)
 
 	/* start purging cache using the 1st index, but don't commit yet */
 	trans = mail_index_transaction_begin(ctx.view, 0);
-	test_assert(mail_cache_purge_with_trans(ctx.cache, trans, (uint32_t)-1, "test") == 0);
+	test_assert(mail_cache_purge_with_trans(ctx.cache, trans, UINT32_MAX, "test") == 0);
 
 	switch (fork()) {
 	case (pid_t)-1:
@@ -598,7 +598,7 @@ static void test_mail_cache_resetid_mismatch_int(bool read_first)
 		mail_cache_view_close(&cache_view);
 	} else {
 		/* purge cache to update reset_id in index */
-		test_assert(mail_cache_purge(ctx.cache, (uint32_t)-1, "test") == 0);
+		test_assert(mail_cache_purge(ctx.cache, UINT32_MAX, "test") == 0);
 
 		/* Replace the new cache file with an old one */
 		test_assert(rename(temp_cache_path, ctx.cache->filepath) == 0);
@@ -705,7 +705,7 @@ static void test_mail_cache_purge_field_changes_int(enum test_drop drop)
 	/* Create the cache file before registering any of the cache_fields
 	   that we're testing. Otherwise our caching decisions are messed up
 	   by purging (which is called to auto-create the cache). */
-	test_assert(mail_cache_purge(ctx.cache, (uint32_t)-1, "test") == 0);
+	test_assert(mail_cache_purge(ctx.cache, UINT32_MAX, "test") == 0);
 	mail_cache_register_fields(ctx.cache, cache_fields,
 				   N_ELEMENTS(cache_fields),
 				   unsafe_data_stack_pool);
@@ -759,7 +759,7 @@ static void test_mail_cache_purge_field_changes_int(enum test_drop drop)
 		}
 		ctx.cache->fields[i].field.last_used = day_stamp - secs;
 	}
-	test_assert(mail_cache_purge(ctx.cache, (uint32_t)-1, "test") == 0);
+	test_assert(mail_cache_purge(ctx.cache, UINT32_MAX, "test") == 0);
 	test_mail_cache_view_sync(&ctx);
 
 	/* verify that caching decisions are as expected after purging */
@@ -891,7 +891,7 @@ static void test_mail_cache_purge_bitmask(void)
 	ioloop_time = 1000000;
 	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
 	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
-	test_assert(mail_cache_purge(ctx.cache, (uint32_t)-1, "test") == 0);
+	test_assert(mail_cache_purge(ctx.cache, UINT32_MAX, "test") == 0);
 	mail_cache_register_fields(ctx.cache, &bitmask_field, 1,
 				   unsafe_data_stack_pool);
 
@@ -908,7 +908,7 @@ static void test_mail_cache_purge_bitmask(void)
 	ctx.cache->fields[bitmask_field.idx].field.last_used = ioloop_time;
 
 	/* purge with TEMP decision, which causes the bitmask to be dropped */
-	test_assert(mail_cache_purge(ctx.cache, (uint32_t)-1, "test") == 0);
+	test_assert(mail_cache_purge(ctx.cache, UINT32_MAX, "test") == 0);
 
 	cache_view = mail_cache_view_open(ctx.cache, ctx.view);
 	test_assert(cache_equals(cache_view, 1, bitmask_field.idx, NULL));

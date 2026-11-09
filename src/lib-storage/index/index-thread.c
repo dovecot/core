@@ -338,7 +338,7 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 	/* add all missing UIDs */
 	ctx->strmap_sync = mail_index_strmap_view_sync_init(tbox->strmap_view,
 							    &last_uid);
-	mailbox_get_seq_range(ctx->box, last_uid + 1, (uint32_t)-1,
+	mailbox_get_seq_range(ctx->box, last_uid + 1, UINT32_MAX,
 			      &seq1, &seq2);
 	if (seq1 == 0) {
 		/* nothing is missing */

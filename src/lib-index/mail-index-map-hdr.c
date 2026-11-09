@@ -24,7 +24,7 @@ int mail_index_map_parse_extensions(struct mail_index_map *map)
 	old_count = array_count(&index->extensions);
 	mail_index_map_init_extbufs(map, old_count + 5);
 
-	ext_id = (uint32_t)-1;
+	ext_id = UINT32_MAX;
 	for (i = 0; i < old_count; i++)
 		array_push_back(&map->ext_id_map, &ext_id);
 

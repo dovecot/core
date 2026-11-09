@@ -88,7 +88,7 @@ static void
 mail_cache_update_last_used(struct mail_cache *cache, unsigned int field)
 {
 	cache->fields[field].field.last_used = ioloop_time32;
-	if (cache->field_file_map[field] != (uint32_t)-1)
+	if (cache->field_file_map[field] != UINT32_MAX)
 		cache->field_header_write_pending = TRUE;
 }
 

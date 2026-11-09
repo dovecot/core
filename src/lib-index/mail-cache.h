@@ -104,7 +104,7 @@ void mail_cache_purge_later_reset(struct mail_cache *cache);
    The cache purging is done only if the current cache file's file_seq
    matches purge_file_seq. The idea is that purging isn't done if
    another process had just purged it. 0 means the cache file is created
-   only if it didn't already exist. (uint32_t)-1 means that purging is
+   only if it didn't already exist. UINT32_MAX means that purging is
    done always regardless of file_seq. */
 int mail_cache_purge_with_trans(struct mail_cache *cache,
 				struct mail_index_transaction *trans,

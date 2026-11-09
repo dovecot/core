@@ -105,12 +105,12 @@ static void log_append_ext_intro(struct mail_index_export_context *ctx,
 	uint32_t idx;
 	unsigned int count;
 
-	i_assert(ext_id != (uint32_t)-1);
+	i_assert(ext_id != UINT32_MAX);
 
 	if (t->reset ||
 	    !mail_index_map_get_ext_idx(t->view->index->map, ext_id, &idx)) {
 		/* new extension */
-		idx = (uint32_t)-1;
+		idx = UINT32_MAX;
 	}
 
 	rext = array_idx(&t->view->index->extensions, ext_id);
@@ -126,11 +126,11 @@ static void log_append_ext_intro(struct mail_index_export_context *ctx,
 		/* we're resizing the extension. use the resize struct. */
 		intro = &resizes[ext_id];
 
-		if (idx != (uint32_t)-1) {
+		if (idx != UINT32_MAX) {
 			intro->ext_id = idx;
 			intro->name_size = 0;
 		} else {
-			intro->ext_id = (uint32_t)-1;
+			intro->ext_id = UINT32_MAX;
 			intro->name_size = strlen(rext->name);
 		}
 		buffer_append(buf, intro, sizeof(*intro));
@@ -140,7 +140,7 @@ static void log_append_ext_intro(struct mail_index_export_context *ctx,
 		intro->ext_id = idx;
 		intro->record_size = rext->record_size;
 		intro->record_align = rext->record_align;
-		if (idx == (uint32_t)-1) {
+		if (idx == UINT32_MAX) {
 			intro->hdr_size = rext->hdr_size;
 			intro->name_size = strlen(rext->name);
 		} else {
@@ -166,7 +166,7 @@ static void log_append_ext_intro(struct mail_index_export_context *ctx,
 	if (reset_id != 0) {
 		/* we're going to reset this extension in this transaction */
 		intro->reset_id = reset_id;
-	} else if (idx != (uint32_t)-1) {
+	} else if (idx != UINT32_MAX) {
 		/* use the existing reset_id */
 		const struct mail_index_ext *map_ext =
 			array_idx(&t->view->index->map->extensions, idx);

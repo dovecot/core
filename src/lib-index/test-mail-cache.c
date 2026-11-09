@@ -219,7 +219,7 @@ static void test_mail_cache_fields(void)
 		    memcmp(str_data(str), bitmask_data, str_len(str)) == 0);
 
 	/* verify that bitmask is still as expected after purging */
-	test_assert(mail_cache_purge(ctx.cache, (uint32_t)-1, "test") == 0);
+	test_assert(mail_cache_purge(ctx.cache, UINT32_MAX, "test") == 0);
 	test_mail_cache_view_sync(&ctx);
 
 	str_truncate(str, 0);
@@ -293,7 +293,7 @@ static void test_mail_cache_record_max_size_int(unsigned int field3_size)
 
 	/* if there are 3 fields, purging realizes that the record is too
 	   large and drops it */
-	test_assert(mail_cache_purge(ctx.cache, (uint32_t)-1, "test") == 0);
+	test_assert(mail_cache_purge(ctx.cache, UINT32_MAX, "test") == 0);
 	test_assert(mail_cache_reopen(ctx.cache) == 1);
 
 	cache_view = mail_cache_view_open(ctx.cache, ctx.view);
@@ -410,7 +410,7 @@ static void test_mail_cache_add_decisions(void)
 	/* create the initial cache file */
 	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
 	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
-	test_assert(mail_cache_purge(ctx.cache, (uint32_t)-1, "test") == 0);
+	test_assert(mail_cache_purge(ctx.cache, UINT32_MAX, "test") == 0);
 
 	/* check that decisions haven't changed */
 	for (i = 0; i < TEST_FIELD_COUNT; i++)
@@ -476,7 +476,7 @@ static void test_mail_cache_lookup_decisions_int(bool header_lookups)
 	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
 	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
 	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
-	test_assert(mail_cache_purge(ctx.cache, (uint32_t)-1, "test") == 0);
+	test_assert(mail_cache_purge(ctx.cache, UINT32_MAX, "test") == 0);
 
 	/* register fields after the initial purge create the cache */
 	memcpy(cache_fields, decision_cache_fields, sizeof(cache_fields));

@@ -1006,7 +1006,7 @@ uint32_t mail_cache_get_first_new_seq(struct mail_index_view *view)
 		return 1;
 
 	if (!mail_index_lookup_seq_range(view, idx_hdr->day_first_uid[7],
-					 (uint32_t)-1, &first_new_seq,
+					 UINT32_MAX, &first_new_seq,
 					 &message_count)) {
 		/* all messages are too old */
 		return idx_hdr->messages_count+1;

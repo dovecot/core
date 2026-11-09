@@ -49,9 +49,9 @@ mailbox_uidset_change(struct mail_search_arg *arg, struct mailbox *box,
 			seq_range_array_add_range(&arg->value.seqset,
 						  seq1, seq2);
 		}
-		if (uids[i].seq2 == (uint32_t)-1) {
+		if (uids[i].seq2 == UINT32_MAX) {
 			/* make sure the last message is in the range */
-			mailbox_get_seq_range(box, 1, (uint32_t)-1,
+			mailbox_get_seq_range(box, 1, UINT32_MAX,
 					      &seq1, &seq2);
 			if (seq2 != 0)
 				seq_range_array_add(&arg->value.seqset, seq2);
@@ -67,22 +67,22 @@ mailbox_seqset_change(struct mail_search_arg *arg, struct mailbox *box)
 	uint32_t seq1, seq2;
 
 	seqset = array_get(&arg->value.seqset, &count);
-	if (count > 0 && seqset[count-1].seq2 == (uint32_t)-1) {
+	if (count > 0 && seqset[count-1].seq2 == UINT32_MAX) {
 		/* n:* -> n:maxseq. */
-		mailbox_get_seq_range(box, 1, (uint32_t)-1,
+		mailbox_get_seq_range(box, 1, UINT32_MAX,
 				      &seq1, &seq2);
 		if (seq2 == 0) {
 			/* no mails in mailbox - nothing can match */
 			array_clear(&arg->value.seqset);
-		} else if (seqset[count-1].seq1 == (uint32_t)-1) {
+		} else if (seqset[count-1].seq1 == UINT32_MAX) {
 			/* "*" alone needs a bit special handling
 			   NOTE: This could be e.g. 5,* so use
 			   seqset[last] */
-			seq_range_array_remove(&arg->value.seqset, (uint32_t)-1);
+			seq_range_array_remove(&arg->value.seqset, UINT32_MAX);
 			seq_range_array_add(&arg->value.seqset, seq2);
 		} else {
 			seq_range_array_remove_range(&arg->value.seqset,
-						     seq2+1, (uint32_t)-1);
+						     seq2+1, UINT32_MAX);
 		}
 	}
 }

@@ -122,12 +122,12 @@ static int index_sort_get_pop3_order(struct mail *mail, uoff_t *size_r)
 	const char *str;
 
 	if (mail_get_special(mail, MAIL_FETCH_POP3_ORDER, &str) < 0) {
-		*size_r = (uint32_t)-1;
+		*size_r = UINT32_MAX;
 		return -1;
 	}
 
 	if (str_to_uoff(str, size_r) < 0)
-		*size_r = (uint32_t)-1;
+		*size_r = UINT32_MAX;
 	return 0;
 }
 

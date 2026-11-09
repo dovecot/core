@@ -319,7 +319,7 @@ bool mail_index_ext_lookup(struct mail_index *index, const char *name,
 		}
 	}
 
-	*ext_id_r = (uint32_t)-1;
+	*ext_id_r = UINT32_MAX;
 	return FALSE;
 }
 

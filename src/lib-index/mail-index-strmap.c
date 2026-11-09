@@ -597,7 +597,7 @@ strmap_read_block_init(struct mail_index_strmap_view *view,
 
 	/* FIXME: when reading multiple blocks we shouldn't have to calculate
 	   this every time */
-	if (!mail_index_lookup_seq_range(view->view, ctx->rec.uid, (uint32_t)-1,
+	if (!mail_index_lookup_seq_range(view->view, ctx->rec.uid, UINT32_MAX,
 					 &seq1, &seq2))
 		seq1 = mail_index_view_get_messages_count(view->view) + 1;
 	ctx->uid_lookup_seq = seq1;

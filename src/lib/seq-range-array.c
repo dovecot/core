@@ -11,7 +11,7 @@ static bool seq_range_is_overflowed(const ARRAY_TYPE(seq_range) *array)
 
 	range = array_get(array, &count);
 	return count == 1 && range[0].seq1 == 0 &&
-		range[0].seq2 == (uint32_t)-1;
+		range[0].seq2 == UINT32_MAX;
 }
 
 static bool ATTR_NOWARN_UNUSED_RESULT
@@ -182,7 +182,7 @@ seq_range_array_add_range_internal(ARRAY_TYPE(seq_range) *array,
 		idx1--;
 
 	if (idx1 == idx2 &&
-	    (idx2 == count || (seq2 < (uint32_t)-1 && data[idx2].seq1 > seq2+1)) &&
+	    (idx2 == count || (seq2 < UINT32_MAX && data[idx2].seq1 > seq2+1)) &&
 	    (idx1 == 0 || data[idx1-1].seq2 < seq1-1)) {
 		/* no overlapping */
 		value.seq1 = seq1;
@@ -195,7 +195,7 @@ seq_range_array_add_range_internal(ARRAY_TYPE(seq_range) *array,
 		if (seq2 > data[idx1].seq2) {
 			/* merge */
 			if (idx2 == count ||
-			    (seq2 < (uint32_t)-1 && data[idx2].seq1 > seq2+1))
+			    (seq2 < UINT32_MAX && data[idx2].seq1 > seq2+1))
 				idx2--;
 			if (seq2 >= data[idx2].seq2) {
 				data[idx1].seq2 = seq2;
@@ -401,10 +401,10 @@ void seq_range_array_remove_nth(ARRAY_TYPE(seq_range) *array,
 		/* n points beyond array */
 		return;
 	}
-	if (count-1 >= (uint32_t)-1 - n ||
+	if (count-1 >= UINT32_MAX - n ||
 	    !seq_range_array_iter_nth(&iter, n + (count-1), &seq2)) {
 		/* count points beyond array */
-		seq2 = (uint32_t)-1;
+		seq2 = UINT32_MAX;
 	}
 	seq_range_array_remove_range(array, seq1, seq2);
 }
@@ -426,9 +426,9 @@ unsigned int seq_range_array_intersect(ARRAY_TYPE(seq_range) *dest,
 		}
 		last_seq = src_range[i].seq2;
 	}
-	if (last_seq != (uint32_t)-1) {
+	if (last_seq != UINT32_MAX) {
 		remove_count = seq_range_array_remove_range(dest, last_seq + 1,
-							    (uint32_t)-1);
+							    UINT32_MAX);
 		i_assert(UINT_MAX - full_count >= remove_count);
 		full_count += remove_count;
 	}

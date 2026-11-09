@@ -11,7 +11,7 @@ static uint32_t get_next_number(const char **str)
 	if (str_parse_uint32(*str, &num, str) < 0)
 		return 0;
 
-	if (num == (uint32_t)-1) {
+	if (num == UINT32_MAX) {
 		/* FIXME: ugly hack, we're using this number to mean the
 		   last existing message. In reality UIDs should never get
 		   this high, so we can quite safely just drop this one down. */
@@ -28,7 +28,7 @@ get_next_seq_range(const char **str, uint32_t *seq1_r, uint32_t *seq2_r)
 
 	if (**str == '*') {
 		/* last message */
-		seq1 = (uint32_t)-1;
+		seq1 = UINT32_MAX;
 		*str += 1;
 	} else {
 		seq1 = get_next_number(str);
@@ -43,7 +43,7 @@ get_next_seq_range(const char **str, uint32_t *seq1_r, uint32_t *seq2_r)
 		*str += 1;
 
 		if (**str == '*') {
-			seq2 = (uint32_t)-1;
+			seq2 = UINT32_MAX;
 			*str += 1;
 		} else {
 			seq2 = get_next_number(str);
@@ -83,7 +83,7 @@ int imap_seq_set_nostar_parse(const char *str, ARRAY_TYPE(seq_range) *dest)
 	if (imap_seq_set_parse(str, dest) < 0)
 		return -1;
 
-	if (seq_range_exists(dest, (uint32_t)-1)) {
+	if (seq_range_exists(dest, UINT32_MAX)) {
 		/* '*' used */
 		return -1;
 	}

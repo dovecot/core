@@ -890,14 +890,14 @@ search_msgset_fix_limits(unsigned int messages_count,
 	range = array_get_modifiable(seqset, &count);
 	if (count > 0) {
 		i_assert(range[0].seq1 != 0);
-		if (range[count-1].seq2 == (uint32_t)-1) {
+		if (range[count-1].seq2 == UINT32_MAX) {
 			/* "*" used, make sure the last message is in the range
 			   (e.g. with count+1:* we still want to include it) */
 			seq_range_array_add(seqset, messages_count);
 		}
 		/* remove all nonexistent messages */
 		seq_range_array_remove_range(seqset, messages_count + 1,
-					     (uint32_t)-1);
+					     UINT32_MAX);
 	}
 	if (!match_not)
 		return array_count(seqset) > 0;
@@ -919,7 +919,7 @@ search_msgset_fix(unsigned int messages_count,
 	uint32_t min_seq, max_seq;
 
 	if (!search_msgset_fix_limits(messages_count, seqset, match_not)) {
-		*seq1_r = (uint32_t)-1;
+		*seq1_r = UINT32_MAX;
 		*seq2_r = 0;
 		return;
 	}
@@ -937,7 +937,7 @@ search_msgset_fix(unsigned int messages_count,
 		max_seq = range[count-1].seq2 < messages_count ?
 			messages_count : range[count-1].seq1 - 1;
 		if (min_seq > max_seq) {
-			*seq1_r = (uint32_t)-1;
+			*seq1_r = UINT32_MAX;
 			*seq2_r = 0;
 			return;
 		}
@@ -1035,7 +1035,7 @@ static void search_limit_lowwater(struct index_search_context *ctx,
 	if (uid_lowwater == 0)
 		return;
 
-	(void)mail_index_lookup_seq_range(ctx->view, uid_lowwater, (uint32_t)-1,
+	(void)mail_index_lookup_seq_range(ctx->view, uid_lowwater, UINT32_MAX,
 					  &seq1, &seq2);
 	if (*first_seq < seq1)
 		*first_seq = seq1;

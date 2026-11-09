@@ -212,7 +212,7 @@ void mail_index_append_finish_uids_full(struct mail_index_transaction *t,
 		return;
 
 	i_assert(min_allowed_uid <= first_new_uid);
-	i_assert(first_new_uid < (uint32_t)-1);
+	i_assert(first_new_uid < UINT32_MAX);
 
 	/* first find the highest assigned uid */
 	recs = array_get_modifiable(&t->appends, &count);
@@ -223,12 +223,12 @@ void mail_index_append_finish_uids_full(struct mail_index_transaction *t,
 		if (next_uid <= recs[i].uid)
 			next_uid = recs[i].uid + 1;
 	}
-	i_assert(next_uid > 0 && next_uid < (uint32_t)-1);
+	i_assert(next_uid > 0 && next_uid < UINT32_MAX);
 
 	/* assign missing uids */
 	for (i = 0; i < count; i++) {
 		if (recs[i].uid == 0 || recs[i].uid < min_allowed_uid) {
-			i_assert(next_uid < (uint32_t)-1);
+			i_assert(next_uid < UINT32_MAX);
 			recs[i].uid = next_uid++;
 			if (t->highest_append_uid < recs[i].uid)
 				t->highest_append_uid = recs[i].uid;
@@ -775,7 +775,7 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 	/* get ext_id from transaction's map if it's there */
 	if (!mail_index_map_get_ext_idx(t->view->map, ext_id, &intro.ext_id)) {
 		/* have to create it */
-		intro.ext_id = (uint32_t)-1;
+		intro.ext_id = UINT32_MAX;
 		old_record_align = rext->record_align;
 		old_header_size = rext->hdr_size;
 	} else {
@@ -816,7 +816,7 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 	if (!array_is_created(&t->ext_resizes))
 		i_array_init(&t->ext_resizes, ext_id + 2);
 
-	intro.hdr_size = hdr_size != (uint32_t)-1 ? hdr_size : old_header_size;
+	intro.hdr_size = hdr_size != UINT32_MAX ? hdr_size : old_header_size;
 	if (record_size != (uint16_t)-1) {
 		i_assert(record_align != (uint16_t)-1);
 		intro.record_size = record_size;
@@ -860,7 +860,7 @@ void mail_index_ext_reset_inc(struct mail_index_transaction *t, uint32_t ext_id,
 {
 	uint32_t expected_reset_id = prev_reset_id + 1;
 
-	mail_index_ext_reset(t, ext_id, (uint32_t)-1, clear_data);
+	mail_index_ext_reset(t, ext_id, UINT32_MAX, clear_data);
 
 	if (!array_is_created(&t->ext_reset_atomic))
 		i_array_init(&t->ext_reset_atomic, ext_id + 2);
@@ -993,8 +993,8 @@ void mail_index_update_header_ext(struct mail_index_transaction *t,
 	size_t new_size;
 
 	i_assert(size > 0);
-	i_assert(offset <= (uint32_t)-1 && size <= (uint32_t)-1 &&
-		 offset + size <= (uint32_t)-1);
+	i_assert(offset <= UINT32_MAX && size <= UINT32_MAX &&
+		 offset + size <= UINT32_MAX);
 
 	if (!array_is_created(&t->ext_hdr_updates))
 		i_array_init(&t->ext_hdr_updates, ext_id + 2);

@@ -380,7 +380,7 @@ void mdbox_storage_set_corrupted(struct mdbox_storage *storage,
 	}
 
 	storage->corrupted_reason = i_strdup(reason_str);
-	storage->corrupted_rebuild_count = (uint32_t)-1;
+	storage->corrupted_rebuild_count = UINT32_MAX;
 
 	if (mdbox_map_open(storage->map) > 0 &&
 	    mdbox_map_refresh(storage->map) == 0) {

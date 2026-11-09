@@ -331,7 +331,7 @@ mailbox_list_index_notify_sync_init(struct mailbox_list_notify_index *inotify)
 	mail_transaction_log_view_rewind(inotify->view->log_view);
 
 	inotify->cur_ext = ILIST_EXT_NONE;
-	inotify->cur_ext_id = (uint32_t)-1;
+	inotify->cur_ext_id = UINT32_MAX;
 }
 
 static bool notify_ext_rec(struct mailbox_list_notify_index *inotify,
@@ -450,7 +450,7 @@ mailbox_list_index_notify_read_next(struct mailbox_list_notify_index *inotify)
 		   ext-rec-updates are changing. we're assuming here that
 		   there is only one ext-intro record before those,
 		   which is true at least for now. */
-		if (rec->ext_id != (uint32_t)-1 &&
+		if (rec->ext_id != UINT32_MAX &&
 		    rec->ext_id < array_count(&map->extensions)) {
 			/* get extension by id */
 			ext = array_idx(&map->extensions, rec->ext_id);

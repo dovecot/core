@@ -274,7 +274,7 @@ maildir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.storage = storage;
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &maildir_mail_vfuncs;
-	mbox->maildir_list_index_ext_id = (uint32_t)-1;
+	mbox->maildir_list_index_ext_id = UINT32_MAX;
 
 	index_storage_mailbox_alloc(&mbox->box, vname, flags, MAIL_INDEX_PREFIX);
 

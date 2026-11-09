@@ -306,11 +306,11 @@ imapc_initial_sync_check(struct imapc_sync_context *ctx, bool nooped)
 		if (rseq <= rcount)
 			ruid = imapc_msgmap_rseq_to_uid(msgmap, rseq);
 		else
-			ruid = (uint32_t)-1;
+			ruid = UINT32_MAX;
 		if (lseq <= lcount)
 			mail_index_lookup_uid(view, lseq, &luid);
 		else
-			luid = (uint32_t)-1;
+			luid = UINT32_MAX;
 
 		if (ruid == luid) {
 			/* message exists in index and in remote server */

@@ -130,8 +130,8 @@ static void test_imap_seq_range_parse(void)
 	} tests[] = {
 		{ "1", 1, 1, 0 },
 		{ "2:4", 2, 4, 0 },
-		{ "5:*", 5, (uint32_t)-1, 0 },
-		{ "*", (uint32_t)-1, (uint32_t)-1, 0 },
+		{ "5:*", 5, UINT32_MAX, 0 },
+		{ "*", UINT32_MAX, UINT32_MAX, 0 },
 		{ "0", 0, 0, -1 },
 		{ "1:0", 0, 0, -1 },
 		{ "", 0, 0, -1 },

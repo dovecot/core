@@ -19,7 +19,7 @@ struct seq_range_iter {
 static inline uint32_t ATTR_PURE seq_range_length(const struct seq_range *range)
 {
 	i_assert(range->seq2 >= range->seq1);
-	i_assert(range->seq1 > 0 || range->seq2 < (uint32_t)-1);
+	i_assert(range->seq1 > 0 || range->seq2 < UINT32_MAX);
 	return range->seq2 - range->seq1 + 1;
 }
 

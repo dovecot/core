@@ -573,7 +573,7 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 	}
 	if (right_sort_id == 0) {
 		i_assert(right_idx == rightmost_idx);
-		right_sort_id = (uint32_t)-1;
+		right_sort_id = UINT32_MAX;
 	}
 	i_assert(left_sort_id <= right_sort_id);
 
@@ -601,7 +601,7 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 		right_sort_id = nodes[right_idx].sort_id;
 		if (right_sort_id == 0) {
 			i_assert(right_idx == rightmost_idx);
-			right_sort_id = (uint32_t)-1;
+			right_sort_id = UINT32_MAX;
 		}
 		i_assert(left_sort_id <= right_sort_id);
 
@@ -613,8 +613,8 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 				left_sort_id = 1;
 				no_left_str = TRUE;
 			} else {
-				i_assert(right_sort_id != (uint32_t)-1);
-				right_sort_id = (uint32_t)-1;
+				i_assert(right_sort_id != UINT32_MAX);
+				right_sort_id = UINT32_MAX;
 				no_right_str = TRUE;
 			}
 		}
@@ -764,7 +764,7 @@ static void index_sort_write_changed_sort_ids(struct sort_string_context *ctx)
 
 	   First find the lowest non-expunged mail that has no_update set. */
 	nodes = array_get(&ctx->sorted_nodes, &count);
-	lowest_failed_seq = (uint32_t)-1;
+	lowest_failed_seq = UINT32_MAX;
 	for (i = 0; i < count; i++) {
 		uint32_t seq = nodes[i].seq;
 

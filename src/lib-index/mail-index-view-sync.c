@@ -399,7 +399,7 @@ static int view_sync_apply_lost_changes(struct mail_index_view_sync_ctx *ctx,
 	if (changed) {
 		/* flags or keywords changed */
 	} else if (ctx->view->highest_modseq != 0 &&
-		   ctx->lost_new_ext_idx != (uint32_t)-1) {
+		   ctx->lost_new_ext_idx != UINT32_MAX) {
 		/* if modseq has changed include this message in changed flags
 		   list, even if we didn't see any changes above. */
 		ext = array_idx(&new_map->extensions, ctx->lost_new_ext_idx);
@@ -440,7 +440,7 @@ view_sync_get_log_lost_changes(struct mail_index_view_sync_ctx *ctx,
 
 	if (!mail_index_map_get_ext_idx(new_map, view->index->modseq_ext_id,
 					&ctx->lost_new_ext_idx))
-		ctx->lost_new_ext_idx = (uint32_t)-1;
+		ctx->lost_new_ext_idx = UINT32_MAX;
 
 	i_array_init(&ctx->lost_flags, 64);
 	t_array_init(&ctx->lost_old_kw, 32);

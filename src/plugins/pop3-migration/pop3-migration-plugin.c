@@ -770,7 +770,7 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 	struct imap_msg_map *imap_map;
 	unsigned int pop3_idx, imap_idx, pop3_count, imap_count;
 	unsigned int first_seq, missing_uids_count;
-	uint32_t first_missing_idx = 0, first_missing_seq = (uint32_t)-1;
+	uint32_t first_missing_idx = 0, first_missing_seq = UINT32_MAX;
 	int ret;
 
 	first_seq = mbox->first_unfound_idx+1;

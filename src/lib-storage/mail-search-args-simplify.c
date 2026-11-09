@@ -139,11 +139,11 @@ static void mail_search_args_simplify_set(struct mail_search_arg *args)
 	unsigned int count;
 
 	if (args->match_not) {
-		/* invert the set to drop the NOT. Note that (uint32_t)-1
+		/* invert the set to drop the NOT. Note that UINT32_MAX
 		   matches the last existing mail, which we don't know at this
 		   point. lib-imap/imap-seqset.c has similar code that
-		   disallows using (uint32_t)-1 as a real UID. */
-		if (seq_range_exists(&args->value.seqset, (uint32_t)-1))
+		   disallows using UINT32_MAX as a real UID. */
+		if (seq_range_exists(&args->value.seqset, UINT32_MAX))
 			return;
 		args->match_not = FALSE;
 		seq_range_array_invert(&args->value.seqset, 1, (uint32_t)-2);

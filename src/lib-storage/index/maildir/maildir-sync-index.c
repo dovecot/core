@@ -626,7 +626,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	/* add \Recent flags. use updated view so it contains newly
 	   appended messages. */
 	view2 = mail_index_transaction_open_updated_view(trans);
-	if (mail_index_lookup_seq_range(view2, first_recent_uid, (uint32_t)-1,
+	if (mail_index_lookup_seq_range(view2, first_recent_uid, UINT32_MAX,
 					&seq, &seq2) && seq2 >= first_uid) {
 		if (seq < first_uid) {
 			/* UIDVALIDITY changed, skip over the old messages */
@@ -686,7 +686,7 @@ static unsigned int
 maildir_list_get_ext_id(struct maildir_mailbox *mbox,
 			struct mail_index_view *view)
 {
-	if (mbox->maildir_list_index_ext_id == (uint32_t)-1) {
+	if (mbox->maildir_list_index_ext_id == UINT32_MAX) {
 		mbox->maildir_list_index_ext_id =
 			mail_index_ext_register(mail_index_view_get_index(view),
 				"maildir", 0,

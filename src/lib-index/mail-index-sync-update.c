@@ -719,7 +719,7 @@ mail_index_sync_record_real(struct mail_index_sync_map_ctx *ctx,
 		const struct mail_transaction_ext_rec_update *rec;
 		unsigned int i, record_size;
 
-		if (ctx->cur_ext_map_idx == (uint32_t)-1) {
+		if (ctx->cur_ext_map_idx == UINT32_MAX) {
 			mail_index_sync_set_corrupted(ctx,
 				"Extension record updated "
 				"without intro prefix");
@@ -754,7 +754,7 @@ mail_index_sync_record_real(struct mail_index_sync_map_ctx *ctx,
 	case MAIL_TRANSACTION_EXT_ATOMIC_INC: {
 		const struct mail_transaction_ext_atomic_inc *rec, *end;
 
-		if (ctx->cur_ext_map_idx == (uint32_t)-1) {
+		if (ctx->cur_ext_map_idx == UINT32_MAX) {
 			mail_index_sync_set_corrupted(ctx,
 				"Extension record updated "
 				"without intro prefix");
@@ -843,7 +843,7 @@ void mail_index_sync_map_init(struct mail_index_sync_map_ctx *sync_map_ctx,
 {
 	i_zero(sync_map_ctx);
 	sync_map_ctx->view = view;
-	sync_map_ctx->cur_ext_map_idx = (uint32_t)-1;
+	sync_map_ctx->cur_ext_map_idx = UINT32_MAX;
 	sync_map_ctx->type = type;
 	sync_map_ctx->modseq_ctx = mail_index_modseq_sync_begin(sync_map_ctx);
 
@@ -972,7 +972,7 @@ int mail_index_sync_map(struct mail_index_map **_map,
 	view = mail_index_view_open_with_map(index, map);
 	ret = mail_transaction_log_view_set(view->log_view,
 					    map->hdr.log_file_seq, start_offset,
-					    (uint32_t)-1, UOFF_T_MAX,
+					    UINT32_MAX, UOFF_T_MAX,
 					    &reset, &reason);
 	if (ret <= 0) {
 		mail_index_view_close(&view);

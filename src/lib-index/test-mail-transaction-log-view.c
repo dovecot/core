@@ -19,7 +19,7 @@ test_transaction_log_file_add(uint32_t file_seq)
 	file->hdr.file_seq = file_seq;
 	file->hdr.hdr_size = file->sync_offset = sizeof(file->hdr);
 	file->hdr.prev_file_seq = file_seq - 1;
-	file->hdr.prev_file_offset = (uint32_t)-1;
+	file->hdr.prev_file_offset = UINT32_MAX;
 	file->log = log;
 	file->fd = -1;
 	file->buffer = buffer_create_dynamic(default_pool, 256);
@@ -228,7 +228,7 @@ static void test_mail_transaction_log_view(void)
 
 	/* we have files 1-3 opened */
 	test_begin("set all");
-	test_assert(mail_transaction_log_view_set(view, 0, 0, (uint32_t)-1, UOFF_T_MAX, &reset, &reason) == 1 &&
+	test_assert(mail_transaction_log_view_set(view, 0, 0, UINT32_MAX, UOFF_T_MAX, &reset, &reason) == 1 &&
 		    reset && view_is_file_refed(1) && view_is_file_refed(2) &&
 		    view_is_file_refed(3) &&
 		    !mail_transaction_log_view_is_corrupted(view));
@@ -254,7 +254,7 @@ static void test_mail_transaction_log_view(void)
 	test_end();
 
 	test_begin("set end");
-	test_assert(mail_transaction_log_view_set(view, 3, last_log_size, (uint32_t)-1, UOFF_T_MAX, &reset, &reason) == 1);
+	test_assert(mail_transaction_log_view_set(view, 3, last_log_size, UINT32_MAX, UOFF_T_MAX, &reset, &reason) == 1);
 	mail_transaction_log_view_get_prev_pos(view, &seq, &offset);
 	test_assert(seq == 3 && offset == last_log_size);
 	test_assert(mail_transaction_log_view_next(view, &hdr, &data) == 0);
@@ -276,16 +276,16 @@ static void test_mail_transaction_log_view(void)
 	/* --- first file has been removed --- */
 
 	test_begin("set 2-3");
-	test_assert(mail_transaction_log_view_set(view, 2, 0, (uint32_t)-1, UOFF_T_MAX, &reset, &reason) == 1);
+	test_assert(mail_transaction_log_view_set(view, 2, 0, UINT32_MAX, UOFF_T_MAX, &reset, &reason) == 1);
 	test_end();
 
 	test_begin("missing log handing");
-	test_assert(mail_transaction_log_view_set(view, 0, 0, (uint32_t)-1, UOFF_T_MAX, &reset, &reason) == 0);
+	test_assert(mail_transaction_log_view_set(view, 0, 0, UINT32_MAX, UOFF_T_MAX, &reset, &reason) == 0);
 	test_end();
 
 	test_begin("closed log handling");
 	view->log = NULL;
-	test_assert(mail_transaction_log_view_set(view, 0, 0, (uint32_t)-1, UOFF_T_MAX, &reset, &reason) == 0);
+	test_assert(mail_transaction_log_view_set(view, 0, 0, UINT32_MAX, UOFF_T_MAX, &reset, &reason) == 0);
 	view->log = log;
 	test_end();
 
@@ -339,7 +339,7 @@ static void test_mail_transaction_log_view_attribute_update(void)
 	view = mail_transaction_log_view_open(log);
 	i_assert(view != NULL);
 
-	test_assert(mail_transaction_log_view_set(view, 0, 0, (uint32_t)-1,
+	test_assert(mail_transaction_log_view_set(view, 0, 0, UINT32_MAX,
 						  UOFF_T_MAX, &reset,
 						  &reason) == 1);
 	test_assert(mail_transaction_log_view_next(view, &hdr, &data) == 1);
@@ -401,7 +401,7 @@ test_keyword_update_record(void (*add_record_func)(struct mail_transaction_log_f
 	view = mail_transaction_log_view_open(log);
 	i_assert(view != NULL);
 
-	test_assert(mail_transaction_log_view_set(view, 0, 0, (uint32_t)-1,
+	test_assert(mail_transaction_log_view_set(view, 0, 0, UINT32_MAX,
 						  UOFF_T_MAX, &reset,
 						  &reason) == 1);
 	test_assert(mail_transaction_log_view_next(view, &hdr, &data) == 1);

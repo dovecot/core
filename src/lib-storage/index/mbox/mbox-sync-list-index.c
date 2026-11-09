@@ -8,7 +8,7 @@ static unsigned int
 mbox_list_get_ext_id(struct mbox_mailbox *mbox,
 		     struct mail_index_view *view)
 {
-	if (mbox->mbox_list_index_ext_id == (uint32_t)-1) {
+	if (mbox->mbox_list_index_ext_id == UINT32_MAX) {
 		mbox->mbox_list_index_ext_id =
 			mail_index_ext_register(mail_index_view_get_index(view),
 				"mbox", 0,

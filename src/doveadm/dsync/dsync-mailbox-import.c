@@ -175,7 +175,7 @@ dsync_mailbox_import_search_init(struct dsync_mailbox_importer *importer)
 	sarg = mail_search_build_add(search_args, SEARCH_UIDSET);
 	p_array_init(&sarg->value.seqset, search_args->pool, 128);
 	seq_range_array_add_range(&sarg->value.seqset,
-				  importer->last_common_uid+1, (uint32_t)-1);
+				  importer->last_common_uid+1, UINT32_MAX);
 
 	importer->search_ctx =
 		mailbox_search_init(importer->trans, search_args, NULL,

@@ -69,7 +69,7 @@ mail_index_map_register_ext(struct mail_index_map *map,
 			    const struct mail_index_ext_header *ext_hdr)
 {
 	struct mail_index_ext *ext;
-	uint32_t idx, ext_map_idx, empty_idx = (uint32_t)-1;
+	uint32_t idx, ext_map_idx, empty_idx = UINT32_MAX;
 
 	i_assert(mail_index_ext_name_is_valid(name));
 
@@ -84,7 +84,7 @@ mail_index_map_register_ext(struct mail_index_map *map,
 	ext = array_append_space(&map->extensions);
 	ext->name = p_strdup(map->extension_pool, name);
 	ext->ext_offset = ext_offset;
-	ext->hdr_offset = ext_offset == (uint32_t)-1 ? (uint32_t)-1 :
+	ext->hdr_offset = ext_offset == UINT32_MAX ? UINT32_MAX :
 		ext_offset + mail_index_map_ext_hdr_offset(strlen(name));
 	ext->hdr_size = ext_hdr->hdr_size;
 	ext->record_offset = ext_hdr->record_offset;
@@ -98,7 +98,7 @@ mail_index_map_register_ext(struct mail_index_map *map,
 						 ext_hdr->record_align);
 
 	/* Update index ext_id -> map ext_id mapping. Fill non-used
-	   ext_ids with (uint32_t)-1 */
+	   ext_ids with UINT32_MAX */
 	while (array_count(&map->ext_id_map) < ext->index_idx)
 		array_push_back(&map->ext_id_map, &empty_idx);
 	array_idx_set(&map->ext_id_map, ext->index_idx, &idx);
@@ -493,7 +493,7 @@ bool mail_index_map_get_ext_idx(struct mail_index_map *map,
 
 	id = array_idx(&map->ext_id_map, ext_id);
 	*idx_r = *id;
-	return *idx_r != (uint32_t)-1;
+	return *idx_r != UINT32_MAX;
 }
 
 static uint32_t mail_index_bsearch_uid(struct mail_index_map *map,

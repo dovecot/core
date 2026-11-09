@@ -47,7 +47,7 @@ static void mail_transaction_log_2_unlink_old(struct mail_transaction_log *log)
 		if (nfs_safe_stat(log->filepath2, &st) == 0)
 			log2_rotate_time = st.st_mtime;
 		else if (errno == ENOENT)
-			log2_rotate_time = (uint32_t)-1;
+			log2_rotate_time = UINT32_MAX;
 		else {
 			mail_index_set_error(log->index,
 				"stat(%s) failed: %m", log->filepath2);
@@ -55,11 +55,11 @@ static void mail_transaction_log_2_unlink_old(struct mail_transaction_log *log)
 		}
 	}
 
-	if (log2_rotate_time != (uint32_t)-1 &&
+	if (log2_rotate_time != UINT32_MAX &&
 	    ioloop_time - (time_t)log2_rotate_time >= (time_t)log->index->optimization_set.log.log2_max_age_secs &&
 	    !log->index->readonly) {
 		i_unlink_if_exists(log->filepath2);
-		log2_rotate_time = (uint32_t)-1;
+		log2_rotate_time = UINT32_MAX;
 	}
 
 	if (log2_rotate_time != log->index->map->hdr.log2_rotate_time) {

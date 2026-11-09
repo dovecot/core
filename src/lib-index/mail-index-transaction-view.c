@@ -424,7 +424,7 @@ tview_lookup_ext_update(struct mail_index_view_transaction *tview, uint32_t seq,
 		ext_hdr.record_align = rext->record_align;
 
 		mail_index_map_register_ext(tview->lookup_map, rext->name,
-					    (uint32_t)-1, &ext_hdr);
+					    UINT32_MAX, &ext_hdr);
 	}
 
 	data = array_idx(ext_buf, idx);

@@ -74,7 +74,7 @@ struct mail_cache_header_fields {
 	   Don't fully trust this field unless it was read while cache is
 	   locked. */
 	uint32_t last_used[fields_count];
-	/* (uint32_t)-1 for variable sized fields */
+	/* UINT32_MAX for variable sized fields */
 	uint32_t size[fields_count];
 	/* enum mail_cache_field_type */
 	uint8_t type[fields_count];

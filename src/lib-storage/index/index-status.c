@@ -79,7 +79,7 @@ static uint32_t index_storage_find_first_pvt_unseen_seq(struct mailbox *box)
 	   the first of them is the first unseen message */
 	pvt_hdr = mail_index_get_header(box->view_pvt);
 	if (mail_index_lookup_seq_range(box->view,
-					pvt_hdr->next_uid, (uint32_t)-1,
+					pvt_hdr->next_uid, UINT32_MAX,
 					&shared_seq, &seq2))
 		return shared_seq;
 	return 0;

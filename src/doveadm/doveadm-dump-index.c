@@ -490,7 +490,7 @@ static void dump_cache_hdr(struct mail_cache *cache)
 
 		printf("%2u: %-44s %-4s ", i, field->name,
 		       cache_type2str(field->type));
-		if (field->field_size != (uint32_t)-1 ||
+		if (field->field_size != UINT32_MAX ||
 		    CACHE_TYPE_IS_FIXED_SIZE(field->type))
 			printf("%4u ", field->field_size);
 		else

@@ -35,7 +35,7 @@ index_index_copy_cache(struct index_rebuild_context *ctx,
 	uint32_t reset_id = 0;
 	bool expunged;
 
-	if (ctx->cache_ext_id == (uint32_t)-1)
+	if (ctx->cache_ext_id == UINT32_MAX)
 		return;
 
 	mail_index_lookup_ext_full(view, old_seq, ctx->cache_ext_id,
@@ -243,7 +243,7 @@ void index_index_rebuild_deinit(struct index_rebuild_context **_ctx,
 
 	/* initialize cache file with the old field decisions */
 	(void)mail_cache_purge_with_trans(ctx->box->cache, ctx->trans,
-					  (uint32_t)-1, "rebuilding index");
+					  UINT32_MAX, "rebuilding index");
 	index_rebuild_header(ctx, cb);
 	index_rebuild_box_preserve_header(ctx, ctx->box->box_name_hdr_ext_id);
 	index_rebuild_box_preserve_header(ctx, ctx->box->box_last_rename_stamp_ext_id);

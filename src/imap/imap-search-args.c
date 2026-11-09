@@ -105,7 +105,7 @@ msgset_is_valid(ARRAY_TYPE(seq_range) *seqset, uint32_t messages_count)
 
 	/* when there are no messages, all messagesets are invalid.
 	   if there's at least one message:
-	    - * gives seq1 = seq2 = (uint32_t)-1
+	    - * gives seq1 = seq2 = UINT32_MAX
 	    - n:* should work if n <= messages_count
 	    - n:m or m should work if m <= messages_count
 	*/
@@ -113,9 +113,9 @@ msgset_is_valid(ARRAY_TYPE(seq_range) *seqset, uint32_t messages_count)
 	if (count == 0 || messages_count == 0)
 		return FALSE;
 
-	if (range[count-1].seq2 == (uint32_t)-1) {
+	if (range[count-1].seq2 == UINT32_MAX) {
 		if (range[count-1].seq1 > messages_count &&
-		    range[count-1].seq1 != (uint32_t)-1)
+		    range[count-1].seq1 != UINT32_MAX)
 			return FALSE;
 	} else {
 		if (range[count-1].seq2 > messages_count)
@@ -192,7 +192,7 @@ void imap_search_anyset_to_uidset(struct client_command_context *cmd,
 		if (arg->match_not)
 			break;
 		t_array_init(&arg->value.seqset, 1);
-		seq_range_array_add_range(&arg->value.seqset, 1, (uint32_t)-1);
+		seq_range_array_add_range(&arg->value.seqset, 1, UINT32_MAX);
 		/* fall through */
 	case SEARCH_SEQSET: {
 		ARRAY_TYPE(seq_range) seqs = arg->value.seqset;

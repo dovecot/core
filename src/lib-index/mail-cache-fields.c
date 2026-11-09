@@ -11,7 +11,7 @@
 #include "mail-cache-private.h"
 
 #define CACHE_FIELD_IS_NEWLY_WANTED(cache, field_idx) \
-	((cache)->field_file_map[field_idx] == (uint32_t)-1 && \
+	((cache)->field_file_map[field_idx] == UINT32_MAX && \
 	 (cache)->fields[field_idx].used)
 
 static bool field_has_fixed_size(enum mail_cache_field_type type)
@@ -177,7 +177,7 @@ void mail_cache_register_fields(struct mail_cache *cache,
 		cache->fields[idx].field = fields[i];
 		cache->fields[idx].field.name = name;
 		cache->fields[idx].field.last_used = fields[i].last_used;
-		cache->field_file_map[idx] = (uint32_t)-1;
+		cache->field_file_map[idx] = UINT32_MAX;
 
 		if (!field_has_fixed_size(cache->fields[idx].field.type))
 			cache->fields[idx].field.field_size = UINT_MAX;
@@ -410,7 +410,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 
 	/* clear the old mapping */
 	for (i = 0; i < cache->fields_count; i++)
-		cache->field_file_map[i] = (uint32_t)-1;
+		cache->field_file_map[i] = UINT32_MAX;
 
 	mail_cache_purge_drop_init(cache, &cache->index->map->hdr, &drop_ctx);
 	i_zero(&field);
@@ -471,7 +471,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 						   cache->field_pool);
 			fidx = field.idx;
 		}
-		if (cache->field_file_map[fidx] != (uint32_t)-1) {
+		if (cache->field_file_map[fidx] != UINT32_MAX) {
 			mail_cache_set_corrupted(cache,
 				"Duplicated field in header: %s", names);
 			return -1;

@@ -40,7 +40,7 @@ void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 		if (rext[idx_ext_id].expunge_handler == NULL)
 			continue;
 		map_ext_id = id_map[idx_ext_id];
-		if (map_ext_id == (uint32_t)-1)
+		if (map_ext_id == UINT32_MAX)
 			continue;
 
 		eh.handler = rext[idx_ext_id].expunge_handler;
@@ -424,7 +424,7 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	ctx->cur_ext_ignore = TRUE;
 	ctx->cur_ext_record_size = 0;
 
-	if (u->ext_id != (uint32_t)-1 &&
+	if (u->ext_id != UINT32_MAX &&
 	    (!array_is_created(&map->extensions) ||
 	     u->ext_id >= array_count(&map->extensions))) {
 		/* The extension ID is unknown in this map. */
@@ -444,21 +444,21 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 		return -1;
 	}
 
-	if (u->ext_id == (uint32_t)-1 && u->name_size == 0) {
+	if (u->ext_id == UINT32_MAX && u->name_size == 0) {
 		mail_index_sync_set_corrupted(ctx,
 			"Extension introduction without id or name");
 		return -1;
 	}
 
-	if (u->ext_id != (uint32_t)-1) {
+	if (u->ext_id != UINT32_MAX) {
 		name = NULL;
 		ext_map_idx = u->ext_id;
 	} else {
 		name = t_strndup(u + 1, u->name_size);
 		if (!mail_index_map_lookup_ext(map, name, &ext_map_idx))
-			ext_map_idx = (uint32_t)-1;
+			ext_map_idx = UINT32_MAX;
 	}
-	if (ext_map_idx == (uint32_t)-1)
+	if (ext_map_idx == UINT32_MAX)
 		ext = NULL;
 	else {
 		ext = array_idx(&map->extensions, ext_map_idx);
@@ -514,7 +514,7 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 
 	ctx->cur_ext_ignore = FALSE;
 	ctx->cur_ext_map_idx = ctx->internal_update ?
-		(uint32_t)-1 : ext_map_idx;
+		UINT32_MAX : ext_map_idx;
 	return 1;
 }
 
@@ -543,7 +543,7 @@ int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
 	struct mail_index_ext_header *ext_hdr;
         struct mail_index_ext *ext;
 
-	if (ctx->cur_ext_map_idx == (uint32_t)-1) {
+	if (ctx->cur_ext_map_idx == UINT32_MAX) {
 		mail_index_sync_set_corrupted(ctx,
 			"Extension reset without intro prefix");
 		return -1;
@@ -576,7 +576,7 @@ int mail_index_sync_ext_hdr_update(struct mail_index_sync_map_ctx *ctx,
 	struct mail_index_map *map = ctx->view->map;
         const struct mail_index_ext *ext;
 
-	if (ctx->cur_ext_map_idx == (uint32_t)-1) {
+	if (ctx->cur_ext_map_idx == UINT32_MAX) {
 		mail_index_sync_set_corrupted(ctx,
 			"Extension header update without intro prefix");
 		return -1;
@@ -609,7 +609,7 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 	void *old_data;
 	uint32_t seq;
 
-	i_assert(ctx->cur_ext_map_idx != (uint32_t)-1);
+	i_assert(ctx->cur_ext_map_idx != UINT32_MAX);
 	i_assert(!ctx->cur_ext_ignore);
 
 	if (u->uid == 0 || u->uid >= view->map->hdr.next_uid) {
@@ -648,7 +648,7 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 	uint32_t seq;
 	uint64_t min_value, max_value, orig_num;
 
-	i_assert(ctx->cur_ext_map_idx != (uint32_t)-1);
+	i_assert(ctx->cur_ext_map_idx != UINT32_MAX);
 	i_assert(!ctx->cur_ext_ignore);
 
 	if (u->uid == 0 || u->uid >= view->map->hdr.next_uid) {

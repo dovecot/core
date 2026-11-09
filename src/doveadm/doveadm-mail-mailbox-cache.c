@@ -319,7 +319,7 @@ static void cmd_mailbox_cache_remove_init(struct doveadm_mail_cmd_context *_ctx)
 static int cmd_mailbox_cache_purge_run_box(struct mailbox_cache_cmd_context *ctx,
 					   struct mailbox *box)
 {
-	if (mail_cache_purge(box->cache, (uint32_t)-1,
+	if (mail_cache_purge(box->cache, UINT32_MAX,
 			     "doveadm mailbox cache purge") < 0) {
 		mailbox_set_index_error(box);
 		doveadm_mail_failed_mailbox(&ctx->ctx, box);

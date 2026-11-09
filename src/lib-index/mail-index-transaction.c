@@ -332,7 +332,7 @@ mail_index_transaction_begin(struct mail_index_view *view,
 		/* transaction view cannot work if new records are being added
 		   in two places. make sure it doesn't happen. */
 		t->no_appends = TRUE;
-		t->first_new_seq = (uint32_t)-1;
+		t->first_new_seq = UINT32_MAX;
 	} else {
 		t->first_new_seq =
 			mail_index_view_get_messages_count(t->view) + 1;

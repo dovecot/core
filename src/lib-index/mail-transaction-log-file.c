@@ -708,7 +708,7 @@ static void log_write_ext_hdr_init_data(struct mail_index *index, buffer_t *buf)
 	hdr->type = MAIL_TRANSACTION_EXT_INTRO;
 
 	intro = buffer_append_space_unsafe(buf, sizeof(*intro));
-	intro->ext_id = (uint32_t)-1;
+	intro->ext_id = UINT32_MAX;
 	intro->hdr_size = rext->hdr_size;
 	intro->record_size = rext->record_size;
 	intro->record_align = rext->record_align;

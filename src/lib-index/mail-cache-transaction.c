@@ -416,7 +416,7 @@ mail_cache_transaction_set_used(struct mail_cache_transaction_ctx *ctx)
 	for (field_idx = 0; field_idx < count; field_idx++) {
 		if (cache_fields_used[field_idx] != 0) {
 			ctx->cache->fields[field_idx].used = TRUE;
-			if (ctx->cache->field_file_map[field_idx] == (uint32_t)-1)
+			if (ctx->cache->field_file_map[field_idx] == UINT32_MAX)
 				missing_file_fields = TRUE;
 		}
 	}
@@ -465,7 +465,7 @@ mail_cache_transaction_update_fields(struct mail_cache_transaction_ctx *ctx)
 		uint32_t *file_fieldp = (uint32_t *)p;
 		field_idx = *file_fieldp;
 		*file_fieldp = ctx->cache->field_file_map[field_idx];
-		i_assert(*file_fieldp != (uint32_t)-1);
+		i_assert(*file_fieldp != UINT32_MAX);
 		p += sizeof(field_idx);
 
 		/* Skip to next cache field. Next is <data size> if the field
@@ -782,7 +782,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	size_t full_size, record_size;
 
 	i_assert(field_idx < ctx->cache->fields_count);
-	i_assert(data_size < (uint32_t)-1);
+	i_assert(data_size < UINT32_MAX);
 
 	if (!mail_cache_field_can_add(ctx, seq, field_idx))
 		return;

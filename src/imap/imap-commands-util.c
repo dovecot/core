@@ -393,7 +393,7 @@ void msgset_generator_init(struct msgset_generator_context *ctx, string_t *str)
 {
 	i_zero(ctx);
 	ctx->str = str;
-	ctx->last_uid = (uint32_t)-1;
+	ctx->last_uid = UINT32_MAX;
 }
 
 void msgset_generator_next(struct msgset_generator_context *ctx, uint32_t uid)

@@ -391,7 +391,7 @@ dsync_mailbox_export_search(struct dsync_mailbox_exporter *exporter)
 
 	if (exporter->return_all_mails || exporter->last_common_uid == 0) {
 		/* we want to know about all mails */
-		seq_range_array_add_range(&sarg->value.seqset, 1, (uint32_t)-1);
+		seq_range_array_add_range(&sarg->value.seqset, 1, UINT32_MAX);
 	} else {
 		/* lookup GUIDs for messages with flag changes */
 		dsync_mailbox_export_add_flagchange_uids(exporter,
@@ -399,7 +399,7 @@ dsync_mailbox_export_search(struct dsync_mailbox_exporter *exporter)
 		/* lookup new messages */
 		seq_range_array_add_range(&sarg->value.seqset,
 					  exporter->last_common_uid + 1,
-					  (uint32_t)-1);
+					  UINT32_MAX);
 	}
 
 	if (exporter->last_common_uid == 0) {

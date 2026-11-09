@@ -278,7 +278,7 @@ enum {
 struct mail_transaction_ext_intro {
 	/* If extension is already known to exist in the index file,
 	   set ext_id, but use empty name. If this is a new extension, set
-	   name, but use ext_id=(uint32_t)-1. */
+	   name, but use ext_id=UINT32_MAX. */
 	uint32_t ext_id;
 	uint32_t reset_id;
 	/* Size of the extension header. When growing the header size, it's

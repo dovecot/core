@@ -98,7 +98,7 @@ static void keywords_ext_register(struct mail_index_sync_map_ctx *ctx,
 	}
 	u->record_align = 1;
 
-	if (ext_map_idx == (uint32_t)-1) {
+	if (ext_map_idx == UINT32_MAX) {
 		u->name_size = strlen(MAIL_INDEX_EXT_KEYWORDS);
 		buffer_append(&ext_intro_buf, MAIL_INDEX_EXT_KEYWORDS,
 			      u->name_size);
@@ -130,7 +130,7 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 
 	if (!mail_index_map_lookup_ext(map, MAIL_INDEX_EXT_KEYWORDS,
 				       &ext_map_idx))
-		ext_map_idx = (uint32_t)-1;
+		ext_map_idx = UINT32_MAX;
 	else {
 		/* update existing header */
 		ext = array_idx(&map->extensions, ext_map_idx);

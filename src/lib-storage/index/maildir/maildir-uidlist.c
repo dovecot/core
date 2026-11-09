@@ -471,7 +471,7 @@ static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
 					      uid, uidlist->prev_read_uid);
 		return FALSE;
 	}
-	if (uid >= (uint32_t)-1) {
+	if (uid >= UINT32_MAX) {
 		maildir_uidlist_set_corrupted(uidlist,
 					      "UID too high (%u)", uid);
 		return FALSE;
@@ -1230,7 +1230,7 @@ maildir_uidlist_set_ext_internal(struct maildir_uidlist *uidlist, uint32_t uid,
 					    key, value);
 	} T_END;
 
-	if (rec->uid != (uint32_t)-1) {
+	if (rec->uid != UINT32_MAX) {
 		/* message already exists in uidlist, need to recreate it */
 		uidlist->recreate = TRUE;
 	}
@@ -1726,7 +1726,7 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 
 		rec = p_new(uidlist->record_pool,
 			    struct maildir_uidlist_rec, 1);
-		rec->uid = (uint32_t)-1;
+		rec->uid = UINT32_MAX;
 		rec->filename = p_strdup(uidlist->record_pool, filename);
 		array_push_back(&uidlist->records, &rec);
 		uidlist->change_counter++;
@@ -1736,7 +1736,7 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 		rec->filename = p_strdup(uidlist->record_pool, filename);
 	}
 	if (uid != 0) {
-		if (rec->uid != uid && rec->uid != (uint32_t)-1) {
+		if (rec->uid != uid && rec->uid != UINT32_MAX) {
 			mailbox_set_critical(uidlist->box,
 				"Maildir: %s changed UID %u -> %u",
 				filename, rec->uid, uid);
@@ -1842,7 +1842,7 @@ int maildir_uidlist_sync_next_uid(struct maildir_uidlist_sync_ctx *ctx,
 			rec->extensions =
 				ext_dup(ctx->record_pool, rec->extensions);
 		} else {
-			rec->uid = (uint32_t)-1;
+			rec->uid = UINT32_MAX;
 			ctx->new_files_count++;
 			ctx->changed = TRUE;
 			/* didn't exist in uidlist, it's recent */
@@ -1875,7 +1875,7 @@ void maildir_uidlist_sync_remove(struct maildir_uidlist_sync_ctx *ctx,
 
 	rec = hash_table_lookup(ctx->uidlist->files, filename);
 	i_assert(rec != NULL);
-	i_assert(rec->uid != (uint32_t)-1);
+	i_assert(rec->uid != UINT32_MAX);
 
 	hash_table_remove(ctx->uidlist->files, filename);
 	idx = maildir_uidlist_records_array_delete(ctx->uidlist, rec);
@@ -1983,13 +1983,13 @@ static void maildir_uidlist_assign_uids(struct maildir_uidlist_sync_ctx *ctx)
 	      sizeof(*recs), maildir_assign_uid_cmp);
 
 	for (dest = ctx->first_new_pos; dest < count; dest++) {
-		if (recs[dest]->uid == (uint32_t)-1)
+		if (recs[dest]->uid == UINT32_MAX)
 			break;
 	}
 
 	for (; dest < count; dest++) {
-		i_assert(recs[dest]->uid == (uint32_t)-1);
-		i_assert(ctx->uidlist->next_uid < (uint32_t)-1);
+		i_assert(recs[dest]->uid == UINT32_MAX);
+		i_assert(ctx->uidlist->next_uid < UINT32_MAX);
 		recs[dest]->uid = ctx->uidlist->next_uid++;
 		recs[dest]->flags &= ENUM_NEGATE(MAILDIR_UIDLIST_REC_FLAG_MOVED);
 	}
@@ -2152,7 +2152,7 @@ static bool maildir_uidlist_iter_next_rec(struct maildir_uidlist_iter_ctx *ctx,
 		return FALSE;
 
 	rec = *ctx->next;
-	i_assert(rec->uid != (uint32_t)-1);
+	i_assert(rec->uid != UINT32_MAX);
 
 	ctx->prev_uid = rec->uid;
 	ctx->next++;

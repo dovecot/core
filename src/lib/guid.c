@@ -25,7 +25,7 @@ const char *guid_generate(void)
 		if (clock_gettime(CLOCK_REALTIME, &ts) < 0)
 			i_fatal("clock_gettime() failed: %m");
 		pid = getpid();
-	} else if ((uint32_t)ts.tv_nsec < (uint32_t)-1) {
+	} else if ((uint32_t)ts.tv_nsec < UINT32_MAX) {
 		ts.tv_nsec++;
 	} else {
 		ts.tv_sec++;

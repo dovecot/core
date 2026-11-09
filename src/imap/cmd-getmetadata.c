@@ -525,7 +525,7 @@ bool cmd_getmetadata(struct client_command_context *cmd)
 
 	ctx = p_new(cmd->pool, struct imap_getmetadata_context, 1);
 	ctx->cmd = cmd;
-	ctx->maxsize = (uint32_t)-1;
+	ctx->maxsize = UINT32_MAX;
 	ctx->cmd->context = ctx;
 	ctx->delayed_errors = str_new(cmd->pool, 128);
 	ctx->last_error_str = str_new(cmd->pool, 128);

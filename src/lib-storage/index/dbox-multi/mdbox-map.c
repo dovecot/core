@@ -749,7 +749,7 @@ mdbox_map_append_begin(struct mdbox_map_atomic_context *atomic)
 	ctx = i_new(struct mdbox_map_append_context, 1);
 	ctx->atomic = atomic;
 	ctx->map = atomic->map;
-	ctx->first_new_file_id = (uint32_t)-1;
+	ctx->first_new_file_id = UINT32_MAX;
 	i_array_init(&ctx->file_appends, 64);
 	i_array_init(&ctx->files, 64);
 	i_array_init(&ctx->appends, 128);

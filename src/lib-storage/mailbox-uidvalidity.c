@@ -152,7 +152,7 @@ mailbox_uidvalidity_next_rescan(struct mailbox_list *list, const char *path)
 	/* just in case there happens to be multiple matching uidvalidity
 	   files, track the min/max values. use the max value and delete the
 	   min value file. */
-	max_value = 0; min_value = (uint32_t)-1;
+	max_value = 0; min_value = UINT32_MAX;
 	while ((dp = readdir(d)) != NULL) {
 		if (strncmp(dp->d_name, prefix, prefix_len) == 0) {
 			if (str_to_uint32_hex(dp->d_name + prefix_len, &cur_value) >= 0) {

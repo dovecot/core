@@ -479,7 +479,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	int fd, ret = 0;
 
 	i_array_init(&mbox->backend_boxes, 8);
-	mbox->search_args_crc32 = (uint32_t)-1;
+	mbox->search_args_crc32 = UINT32_MAX;
 
 	box_path = mailbox_get_path(&mbox->box);
 	path = t_strconcat(box_path, "/"VIRTUAL_CONFIG_FNAME, NULL);

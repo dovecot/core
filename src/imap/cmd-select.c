@@ -138,7 +138,7 @@ select_parse_qresync(struct imap_select_context *ctx,
 		args++;
 	} else {
 		seq_range_array_add_range(&ctx->qresync_known_uids,
-					  1, (uint32_t)-1);
+					  1, UINT32_MAX);
 	}
 	if (imap_arg_get_list(args, &list_args)) {
 		if (!select_parse_qresync_known_set(ctx, list_args, error_r))

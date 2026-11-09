@@ -746,7 +746,7 @@ static void virtual_sync_index_finish(struct virtual_sync_context *ctx)
 
 	/* mark the newly seen messages as recent */
 	if (mail_index_lookup_seq_range(view, hdr->first_recent_uid,
-					(uint32_t)-1, &seq1, &seq2)) {
+					UINT32_MAX, &seq1, &seq2)) {
 		mailbox_recent_flags_set_seqs(&ctx->mbox->box, view,
 					      seq1, seq2);
 	}
@@ -1928,7 +1928,7 @@ virtual_sync_apply_existing_appends(struct virtual_sync_context *ctx)
 	   uid lists up-to-date by adding the new messages there. */
 	if (!mail_index_lookup_seq_range(ctx->view,
 					 ctx->mbox->sync_virtual_next_uid,
-					 (uint32_t)-1, &seq, &seq2))
+					 UINT32_MAX, &seq, &seq2))
 		return 0;
 
 	i_zero(&uidmap);

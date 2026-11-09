@@ -370,7 +370,7 @@ index_list_try_get_metadata(struct mailbox *box,
 		if ((ret = index_list_get_cached_first_saved(box, &first_saved)) <= 0)
 			return ret;
 		metadata_r->first_save_date =
-			first_saved.timestamp == (uint32_t)-1 ? (time_t)-1 :
+			first_saved.timestamp == UINT32_MAX ? (time_t)-1 :
 			(time_t)first_saved.timestamp;
 	}
 	return 1;
@@ -437,7 +437,7 @@ index_list_update_fill_changes(struct mailbox *box,
 	changes_r->status.deleted = hdr->deleted_messages_count;
 
 	if (!mail_index_lookup_seq_range(view, hdr->first_recent_uid,
-					 (uint32_t)-1, &seq1, &seq2))
+					 UINT32_MAX, &seq1, &seq2))
 		changes_r->status.recent = 0;
 	else
 		changes_r->status.recent = seq2 - seq1 + 1;
@@ -555,7 +555,7 @@ index_list_update_first_saved(struct mailbox *box,
 	int ret = 0;
 
 	i_zero(&first_saved);
-	first_saved.timestamp = (uint32_t)-1;
+	first_saved.timestamp = UINT32_MAX;
 
 	if (changes->first_uid != 0) {
 		t = mailbox_transaction_begin(box, 0, __func__);

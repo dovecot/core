@@ -297,7 +297,7 @@ get_expunges_fallback(struct mailbox *box,
 
 	mailbox_get_open_status(box, STATUS_UIDNEXT, &status);
 	seq_range_array_remove_range(expunged_uids, status.uidnext,
-				     (uint32_t)-1);
+				     UINT32_MAX);
 
 	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;

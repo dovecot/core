@@ -269,7 +269,7 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 	last_common_modseq = brain->mailbox_state.last_common_modseq;
 	last_common_pvt_modseq = brain->mailbox_state.last_common_pvt_modseq;
 	highest_wanted_uid = last_common_uid == 0 ?
-		(uint32_t)-1 : last_common_uid;
+		UINT32_MAX : last_common_uid;
 	ret = dsync_transaction_log_scan_init(brain,
 					      highest_wanted_uid,
 					      last_common_modseq,

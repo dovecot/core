@@ -185,7 +185,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			   file, make sure NFS attribute cache gets flushed if
 			   necessary. */
 			bool nfs_flush = seq == min_file_seq ||
-				max_file_seq != (uint32_t)-1;
+				max_file_seq != UINT32_MAX;
 
 			ret = mail_transaction_log_find_file(view->log, seq,
 				nfs_flush, &file, &reason);
@@ -205,7 +205,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 
 		if (file == NULL || file->hdr.file_seq != seq) {
 			i_assert(reason != NULL);
-			if (file == NULL && max_file_seq == (uint32_t)-1 &&
+			if (file == NULL && max_file_seq == UINT32_MAX &&
 			    head == view->log->head) {
 				/* we just wanted to sync everything */
 				i_assert(max_file_offset == UOFF_T_MAX);
@@ -349,7 +349,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		return 0;
 	}
 
-	i_assert(max_file_seq == (uint32_t)-1 ||
+	i_assert(max_file_seq == UINT32_MAX ||
 		 max_file_seq == view->head->hdr.file_seq);
 	i_assert(max_file_offset == UOFF_T_MAX ||
 		 max_file_offset <= view->head->sync_offset);

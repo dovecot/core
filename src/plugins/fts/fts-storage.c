@@ -752,7 +752,7 @@ static int fts_mailbox_index_direct_box(struct fts_mailbox *fbox,
 		return 0;
 
 	mailbox_get_seq_range(box, last_indexed_uid + 1,
-			      (uint32_t)-1, &seq1, &seq2);
+			      UINT32_MAX, &seq1, &seq2);
 	if (seq1 == 0)
 		return 0;
 

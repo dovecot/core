@@ -265,7 +265,7 @@ int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
 		return 0;
 	}
 
-	mailbox_get_seq_range(box, last_uid+1, (uint32_t)-1, &seq1, &seq2);
+	mailbox_get_seq_range(box, last_uid+1, UINT32_MAX, &seq1, &seq2);
 	if (seq1 == 0) {
 		/* no new messages (last messages in mailbox were expunged) */
 		return 0;

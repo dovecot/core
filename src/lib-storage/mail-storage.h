@@ -741,7 +741,7 @@ mailbox_transaction_get_mailbox(const struct mailbox_transaction_context *t)
 void mailbox_get_seq_range(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 			   uint32_t *seq1_r, uint32_t *seq2_r);
 /* Convert sequence range to uid range. If sequences contain
-   (uint32_t)-1 to specify "*", they're preserved. */
+   UINT32_MAX to specify "*", they're preserved. */
 void mailbox_get_uid_range(struct mailbox *box,
 			   const ARRAY_TYPE(seq_range) *seqs,
 			   ARRAY_TYPE(seq_range) *uids);

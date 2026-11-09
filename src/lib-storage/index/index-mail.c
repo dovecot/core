@@ -426,7 +426,7 @@ static int index_mail_cache_sent_date(struct index_mail *mail)
 	time_t t;
 	int ret, tz;
 
-	if (data->sent_date.time != (uint32_t)-1)
+	if (data->sent_date.time != UINT32_MAX)
 		return 0;
 
 	if ((ret = mail_get_first_header(&mail->mail.mail, "Date", &str)) < 0)
@@ -453,7 +453,7 @@ int index_mail_get_date(struct mail *_mail, time_t *date_r, int *timezone_r)
 	struct mail_sent_date sentdate;
 
 	data->cache_fetch_fields |= MAIL_FETCH_DATE;
-	if (data->sent_date.time != (uint32_t)-1) {
+	if (data->sent_date.time != UINT32_MAX) {
 		*timezone_r = data->sent_date.timezone;
 		*date_r = data->sent_date.time;
 		return 0;
@@ -566,7 +566,7 @@ bool index_mail_get_cached_virtual_size(struct index_mail *mail, uoff_t *size_r)
 	/* if vsize is present and wanted for index, but missing from index
 	   add it to index. */
 	if (vsize != NULL && *vsize == 0 &&
-	    data->virtual_size < (uint32_t)-1) {
+	    data->virtual_size < UINT32_MAX) {
 		uint32_t vsize = data->virtual_size+1;
 		mail_index_update_ext(_mail->transaction->itrans, _mail->seq,
 				      _mail->box->mail_vsize_ext_id, &vsize, NULL);
@@ -1016,7 +1016,7 @@ static void index_mail_cache_sizes(struct index_mail *mail)
 		size is not cached or
 		cached size differs
 	*/
-	if ((sizes[0] != UOFF_T_MAX && sizes[0] < (uint32_t)-1)) {
+	if ((sizes[0] != UOFF_T_MAX && sizes[0] < UINT32_MAX)) {
 		const uint32_t *vsize_ext =
 			index_mail_get_vsize_extension(_mail);
 		/* vsize = 0 means it's not present in index, consult cache.
@@ -1928,7 +1928,7 @@ static void index_mail_init_data(struct index_mail *mail)
 	data->physical_size = UOFF_T_MAX;
 	data->save_date = (time_t)-1;
 	data->received_date = (time_t)-1;
-	data->sent_date.time = (uint32_t)-1;
+	data->sent_date.time = UINT32_MAX;
 	data->dont_cache_field_idx = UINT_MAX;
 	data->part_data_limits = (struct message_part_data_limits)
 		MESSAGE_PART_DATA_LIMITS_INIT;
@@ -2122,7 +2122,7 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 
 	if ((data->wanted_fields & MAIL_FETCH_DATE) != 0 &&
 	    (storage->nonbody_access_fields & MAIL_FETCH_DATE) == 0 &&
-	    data->sent_date.time == (uint32_t)-1) {
+	    data->sent_date.time == UINT32_MAX) {
 		const unsigned int cache_field =
 			cache_fields[MAIL_CACHE_SENT_DATE].idx;
 
