@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "sort.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "str.h"
@@ -77,6 +78,8 @@ struct acl_rights_cache_file {
 	/* when a rebuild last failed to leave a usable cache behind */
 	time_t last_failed_rebuild;
 };
+
+#define ACL_LEGACY_LIST_FILENAME "dovecot-acl-list"
 
 struct acl_rights_cache_list_context_vfile {
 	struct acl_mailbox_list_context ctx;
@@ -1109,10 +1112,135 @@ static bool acl_rights_cache_read_global_nonowner(struct acl_object *aclobj)
 	return acl_object_has_global_nonowner_lookup(aclobj);
 }
 
+/* The dovecot-acl-list file of earlier versions, in the same directory as
+   the cache. */
+static const char *
+acl_rights_cache_legacy_list_path(struct acl_rights_cache_file *file)
+{
+	const char *p = strrchr(file->path, '/');
+
+	i_assert(p != NULL);
+	return t_strdup_printf("%.*s/"ACL_LEGACY_LIST_FILENAME,
+			       (int)(p - file->path), file->path);
+}
+
+/* Read the mailbox names from the dovecot-acl-list file, which lists the
+   mailboxes with nonowner lookup rights as "<mtime> <name>" lines. Returns
+   1 if the file exists, 0 if it doesn't or its content is broken, -1 on
+   error. */
+static int
+acl_rights_cache_read_legacy_list(struct acl_rights_cache_file *file,
+				  pool_t pool, ARRAY_TYPE(const_string) *names)
+{
+	struct istream *input;
+	const char *path, *line, *p, *name;
+	int ret = 1;
+
+	path = acl_rights_cache_legacy_list_path(file);
+	input = acl_rights_cache_open_stream(path);
+	while ((line = i_stream_read_next_line(input)) != NULL) {
+		p = strchr(line, ' ');
+		if (p == NULL || p[1] == '\0') {
+			/* Nothing in the file can be trusted. Go on as if it
+			   didn't exist. */
+			e_error(file->event, "Broken %s file: %s - ignoring it",
+				ACL_LEGACY_LIST_FILENAME, path);
+			array_clear(names);
+			ret = 0;
+			break;
+		}
+		name = p_strdup(pool, p + 1);
+		array_push_back(names, &name);
+	}
+	if (ret > 0 && input->stream_errno != 0) {
+		if (ENOTFOUND(input->stream_errno))
+			ret = 0;
+		else {
+			e_error(file->event, "read(%s) failed: %s", path,
+				i_stream_get_error(input));
+			ret = -1;
+		}
+	}
+	i_stream_destroy(&input);
+	array_sort(names, i_strcmp_p);
+	return ret;
+}
+
+/* The mailbox's local ACL file can't be relied on. Open the mailbox, so a
+   storage keeping its mailbox files in a local cache (obox metacache)
+   fetches them, and read the ACL file while the mailbox is open. opened_r is
+   set to TRUE if the mailbox could be opened: its ACL file is then known to
+   be current, also when there is none. */
+static int
+acl_rights_cache_rebuild_fetch(struct acl_backend_vfile *backend,
+			       struct acl_object *aclobj, const char *vname,
+			       pool_t pool, ARRAY_TYPE(acl_rights) *rights_r,
+			       struct timeval *mtime_r, bool *opened_r)
+{
+	struct acl_rights_cache_file *file = backend->backend.rights_cache_file;
+	struct mailbox *box;
+	int ret;
+
+	e_debug(file->event, "Rebuilding %s: Fetching the ACL file of mailbox %s",
+		file->path, vname);
+	box = mailbox_alloc(backend->backend.list, vname,
+			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
+	if (mailbox_open(box) < 0) {
+		if (mailbox_get_last_mail_error(box) == MAIL_ERROR_NOTFOUND) {
+			/* listed, but gone - there is no ACL file to read */
+			e_debug(file->event, "Mailbox %s doesn't exist, not fetching its ACL file",
+				vname);
+			ret = 0;
+		} else {
+			e_error(file->event, "Rebuilding %s failed: Can't open mailbox %s: %s",
+				file->path, vname,
+				mailbox_get_last_internal_error(box, NULL));
+			ret = -1;
+		}
+		mailbox_free(&box);
+		return ret;
+	}
+	/* The mailbox's files may be removed from the local cache again as
+	   soon as it's closed. */
+	*opened_r = TRUE;
+	ret = acl_backend_vfile_object_read_rights(aclobj, pool,
+						   rights_r, mtime_r);
+	mailbox_free(&box);
+	return ret;
+}
+
+/* Which mailboxes a rebuild fetches with acl_rights_cache_rebuild_fetch().
+   Only a storage with cached files fetches anything. A local ACL file
+   older than the mailbox's cache entry counts as missing. */
+enum acl_rights_cache_fetch {
+	/* The default. Fetch the mailboxes that dovecot-acl-list names and
+	   that have neither a local ACL file nor a cache entry. Without
+	   dovecot-acl-list nothing is fetched. The cache entries of the
+	   mailboxes without a local ACL file are preserved. */
+	ACL_RIGHTS_CACHE_FETCH_LEGACY,
+	/* There is no usable rights cache and no dovecot-acl-list, but the
+	   ACL lookup dict has (or may have) shares of this user. Fetch every
+	   mailbox whose ACL file isn't among the storage's cached files.
+	   Without a rights cache there is no entry mtime to compare with,
+	   so a cached ACL file is used even if it's an old copy. Opening
+	   every mailbox (FETCH_ALL) would avoid that, but this runs from an
+	   ordinary ACL read. */
+	ACL_RIGHTS_CACHE_FETCH_MISSING,
+	/* doveadm acl recalc: fetch every mailbox. A local ACL file is the
+	   copy from when the mailbox was last open on this server, and the
+	   mailbox may have been changed elsewhere since. The newer cache
+	   entry check notices that only if the change also updated the
+	   cache, so the local file isn't read at all. */
+	ACL_RIGHTS_CACHE_FETCH_ALL,
+};
+
 static int
 acl_rights_cache_rebuild_mailbox(struct acl_backend_vfile *backend,
 				 struct ostream *output, string_t *str,
-				 const char *vname, bool *have_nonowner)
+				 const char *vname,
+				 const ARRAY_TYPE(const_string) *legacy_names,
+				 enum acl_rights_cache_fetch fetch,
+				 bool *have_nonowner)
 {
 	struct acl_rights_cache_file *file = backend->backend.rights_cache_file;
 	const struct acl_rights_cache_entry *entry;
@@ -1121,6 +1249,7 @@ acl_rights_cache_rebuild_mailbox(struct acl_backend_vfile *backend,
 	const ARRAY_TYPE(acl_rights) *write_rights = NULL;
 	const char *name;
 	struct timeval mtime = { 0, 0 };
+	bool want_fetch = FALSE, fetched = FALSE;
 	int ret;
 
 	name = mailbox_list_get_storage_name(backend->backend.list, vname);
@@ -1143,8 +1272,14 @@ acl_rights_cache_rebuild_mailbox(struct acl_backend_vfile *backend,
 		acl_backend_storage_has_cached_files(&backend->backend);
 
 	entry = acl_rights_cache_find(file, name);
-	ret = acl_backend_vfile_object_read_rights(aclobj, pool,
-						   &mailbox_rights, &mtime);
+	if (fetch == ACL_RIGHTS_CACHE_FETCH_ALL) {
+		/* Handle a local ACL file like one that isn't locally
+		   available, it may be an old copy. */
+		ret = 0;
+	} else {
+		ret = acl_backend_vfile_object_read_rights(aclobj, pool,
+				&mailbox_rights, &mtime);
+	}
 	if (ret > 0 && storage_cached && entry != NULL &&
 	    timeval_cmp(&entry->mtime, &mtime) > 0) {
 		/* The cache entry is newer than the local ACL file: the
@@ -1155,15 +1290,41 @@ acl_rights_cache_rebuild_mailbox(struct acl_backend_vfile *backend,
 		i_zero(&mtime);
 		ret = 0;
 	}
+	if (ret != 0 || !storage_cached) {
+		/* The ACL file was read or reading it failed, or the
+		   mailbox's files are always local and it has no ACL
+		   file. */
+	} else if (entry != NULL) {
+		/* The cache entry is preserved as it is, unless everything
+		   is wanted. */
+		want_fetch = fetch != ACL_RIGHTS_CACHE_FETCH_LEGACY;
+	} else {
+		/* There is no cache entry to preserve. Either everything is
+		   wanted or dovecot-acl-list says the mailbox has nonowner
+		   lookup rights. */
+		want_fetch = fetch == ACL_RIGHTS_CACHE_FETCH_MISSING ||
+			fetch == ACL_RIGHTS_CACHE_FETCH_ALL ||
+			(legacy_names != NULL &&
+			 array_bsearch(legacy_names, name,
+				       search_strcmp) != NULL);
+	}
+	if (want_fetch) {
+		/* Fetch the mailbox's ACL file, so its shares aren't lost. */
+		ret = acl_rights_cache_rebuild_fetch(backend, aclobj, vname,
+						     pool, &mailbox_rights,
+						     &mtime, &fetched);
+	}
 	if (ret > 0) {
 		/* merge duplicate identifiers, like the other writers do */
 		acl_rights_sort(&mailbox_rights, pool);
 		write_rights = &mailbox_rights;
-	} else if (ret == 0 && storage_cached && entry != NULL) {
+	} else if (ret == 0 && storage_cached && !fetched && entry != NULL) {
 		/* The mailbox's ACL file isn't locally available, e.g. with
 		   obox the mailbox isn't in metacache. Preserve its existing
 		   cache entry - dropping the entry would also remove the
-		   mailbox's share entries from the ACL lookup dict. */
+		   mailbox's share entries from the ACL lookup dict. A mailbox
+		   that was just fetched and has no ACL file really has none,
+		   so its entry is dropped. */
 		write_rights = &entry->rights;
 		mtime = entry->mtime;
 	}
@@ -1194,7 +1355,7 @@ acl_rights_cache_rebuild_mailbox(struct acl_backend_vfile *backend,
 }
 
 static int acl_rights_cache_rebuild_real(struct acl_backend_vfile *backend,
-					 bool *have_nonowner_r)
+					 bool fetch_all, bool *have_nonowner_r)
 {
 	struct mailbox_list *list = backend->backend.list;
 	struct acl_rights_cache_file *file = backend->backend.rights_cache_file;
@@ -1217,7 +1378,73 @@ static int acl_rights_cache_rebuild_real(struct acl_backend_vfile *backend,
 	if (begin_ret <= 0)
 		return begin_ret;
 
-	e_debug(file->event, "Rebuilding %s", file->path);
+	pool_t pool = pool_alloconly_create("acl rights cache rebuild", 1024);
+	ARRAY_TYPE(const_string) legacy_names;
+	const ARRAY_TYPE(const_string) *seed_names = NULL;
+	p_array_init(&legacy_names, pool, 16);
+	bool rights_cache_usable = acl_rights_cache_file_exists(file) > 0 &&
+		!file->read_failed;
+	/* only then an ACL file that isn't local can exist at all */
+	bool storage_cached =
+		acl_backend_storage_has_cached_files(&backend->backend);
+	/* doveadm acl recalc fetches the local ACL files as well. The
+	   fallback to ACL_RIGHTS_CACHE_FETCH_MISSING below runs from an
+	   ordinary ACL read and fetches only the missing ones. */
+	enum acl_rights_cache_fetch fetch = fetch_all && storage_cached ?
+		ACL_RIGHTS_CACHE_FETCH_ALL : ACL_RIGHTS_CACHE_FETCH_LEGACY;
+	int seed_ret = acl_rights_cache_read_legacy_list(file, pool,
+							 &legacy_names);
+	if (seed_ret < 0) {
+		pool_unref(&pool);
+		acl_rights_cache_file_update_end(file);
+		return -1;
+	}
+	if (seed_ret > 0) {
+		/* A dovecot-acl-list left behind by an earlier version names
+		   the mailboxes with nonowner lookup rights. It tells which
+		   mailboxes to fetch when their ACL files aren't locally
+		   readable and they have no cache entry. */
+		seed_names = &legacy_names;
+	} else if (!fetch_all && !rights_cache_usable && storage_cached) {
+		/* There is no usable cache to preserve entries from and no
+		   list either, so the mailboxes whose ACL files aren't
+		   locally available would be left out, and the ACL lookup
+		   dict rebuild would then drop their shares. The dict tells
+		   whether there is anything to protect at all. */
+		struct acl_user *auser = ACL_USER_CONTEXT(
+			mailbox_list_get_user(backend->backend.list));
+
+		if (auser != NULL &&
+		    acl_lookup_dict_has_shares(auser->acl_lookup_dict,
+				backend->backend.set->acl_dict_index) != 0) {
+			/* shares exist, but nothing says which mailboxes -
+			   fetch them all (also when the dict can't tell) */
+			fetch = ACL_RIGHTS_CACHE_FETCH_MISSING;
+		} else {
+			/* Normal for a user without shares. With shares it
+			   means the dict doesn't know them, e.g. no
+			   acl_sharing_map, or acl_dict_index without the
+			   reverse index in the dict. */
+			e_debug(file->event, "Rebuilding %s: No %s and no shares of the user in the ACL sharing dict, not fetching ACL files that don't exist in the local cache",
+				file->path, ACL_LEGACY_LIST_FILENAME);
+		}
+	}
+
+	const char *fetch_str = "";
+	switch (fetch) {
+	case ACL_RIGHTS_CACHE_FETCH_LEGACY:
+		if (seed_names != NULL)
+			fetch_str = ", fetching the ACL files dovecot-acl-list names";
+		break;
+	case ACL_RIGHTS_CACHE_FETCH_MISSING:
+		fetch_str = ", fetching all ACL files that don't exist in the local cache";
+		break;
+	case ACL_RIGHTS_CACHE_FETCH_ALL:
+		fetch_str = ", fetching all ACL files";
+		break;
+	}
+	e_debug(file->event, "Rebuilding %s%s", file->path,
+		storage_cached ? fetch_str : "");
 
 	tmp_path = t_strdup_printf("%s.tmp", file->path);
 	output = o_stream_create_fd_file(file->tmp_fd, 0, FALSE);
@@ -1231,9 +1458,10 @@ static int acl_rights_cache_rebuild_real(struct acl_backend_vfile *backend,
 	while (ret == 0 &&
 	       (info = mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
 		ret = acl_rights_cache_rebuild_mailbox(backend, output, str,
-						       info->vname,
-						       have_nonowner_r);
+						       info->vname, seed_names,
+						       fetch, have_nonowner_r);
 	} T_END;
+	pool_unref(&pool);
 	if (mailbox_list_iter_deinit(&iter) < 0) {
 		e_error(file->event, "Rebuilding %s failed: Mailbox list iteration failed: %s",
 			file->path,
@@ -1268,7 +1496,9 @@ static int acl_rights_cache_rebuild_real(struct acl_backend_vfile *backend,
 	return ret < 0 ? -1 : 1;
 }
 
-int acl_rights_cache_rebuild(struct acl_backend_vfile *backend)
+static int
+acl_rights_cache_rebuild_full(struct acl_backend_vfile *backend,
+			      bool fetch_all)
 {
 	struct acl_user *auser =
 		ACL_USER_CONTEXT(mailbox_list_get_user(backend->backend.list));
@@ -1286,7 +1516,7 @@ int acl_rights_cache_rebuild(struct acl_backend_vfile *backend)
 
 	bool have_nonowner = FALSE;
 	backend->rebuilding_aclcache = TRUE;
-	ret = acl_rights_cache_rebuild_real(backend, &have_nonowner);
+	ret = acl_rights_cache_rebuild_real(backend, fetch_all, &have_nonowner);
 	if (ret > 0 && have_nonowner && auser != NULL) {
 		/* The cached nonowner ACLs may have changed, rebuild the
 		   lookup dict as well. Skipped when the cache has no
@@ -1300,6 +1530,11 @@ int acl_rights_cache_rebuild(struct acl_backend_vfile *backend)
 	}
 	backend->rebuilding_aclcache = FALSE;
 	return ret < 0 ? -1 : 0;
+}
+
+int acl_rights_cache_rebuild(struct acl_backend_vfile *backend)
+{
+	return acl_rights_cache_rebuild_full(backend, FALSE);
 }
 
 struct acl_mailbox_list_context *
@@ -1380,12 +1615,12 @@ acl_backend_vfile_nonowner_iter_deinit(struct acl_mailbox_list_context *ctx)
 }
 
 int acl_backend_vfile_nonowner_lookups_rebuild(struct acl_backend *_backend,
-					       bool fetch_all ATTR_UNUSED)
+					       bool fetch_all)
 {
 	struct acl_backend_vfile *backend =
 		container_of(_backend, struct acl_backend_vfile, backend);
 
-	return acl_rights_cache_rebuild(backend);
+	return acl_rights_cache_rebuild_full(backend, fetch_all);
 }
 
 /* TRUE if name is root or a child of it. */
