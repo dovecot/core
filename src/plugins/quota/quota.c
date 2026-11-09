@@ -684,15 +684,15 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 	}
 
 	ctx->box = box;
-	ctx->bytes_ceil = (uint64_t)-1;
-	ctx->bytes_ceil2 = (uint64_t)-1;
-	ctx->count_ceil = (uint64_t)-1;
+	ctx->bytes_ceil = UINT64_MAX;
+	ctx->bytes_ceil2 = UINT64_MAX;
+	ctx->count_ceil = UINT64_MAX;
 
 	ctx->auto_updating = TRUE;
 	for (i = 0; i < roots_count; i++) {
-		ctx->roots[i].bytes_ceil = (uint64_t)-1;
-		ctx->roots[i].bytes_ceil2 = (uint64_t)-1;
-		ctx->roots[i].count_ceil = (uint64_t)-1;
+		ctx->roots[i].bytes_ceil = UINT64_MAX;
+		ctx->roots[i].bytes_ceil2 = UINT64_MAX;
+		ctx->roots[i].count_ceil = UINT64_MAX;
 
 		if (!quota_root_is_visible(roots[i], ctx->box))
 			continue;

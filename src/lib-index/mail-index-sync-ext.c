@@ -669,7 +669,7 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 
 	min_value = u->diff >= 0 ? 0 : (uint64_t)(-(int64_t)u->diff);
 
-	max_value = ctx->cur_ext_record_size == 8 ? (uint64_t)-1 :
+	max_value = ctx->cur_ext_record_size == 8 ? UINT64_MAX :
 		((uint64_t)1 << (ctx->cur_ext_record_size*8)) - 1;
 	if (u->diff <= 0) {
 		/* skip */

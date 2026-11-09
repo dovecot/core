@@ -119,7 +119,7 @@ static void test_bits_requiredXX(void)
 
 static void test_sum_overflows(void)
 {
-#define MAX64 (uint64_t)-1
+#define MAX64 UINT64_MAX
 	static const struct {
 		uint64_t a, b;
 		bool overflows;

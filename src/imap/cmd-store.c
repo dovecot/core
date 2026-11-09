@@ -84,7 +84,7 @@ store_parse_args(struct imap_store_context *ctx, const struct imap_arg *args)
 	const char *type;
 	const char *const *keywords_list = NULL;
 
-	ctx->max_modseq = (uint64_t)-1;
+	ctx->max_modseq = UINT64_MAX;
 	if (imap_arg_get_list(args, &list_args)) {
 		if (!store_parse_modifiers(ctx, list_args))
 			return FALSE;
@@ -162,7 +162,7 @@ bool cmd_store(struct client_command_context *cmd)
 		mail_search_args_unref(&search_args);
 		if (ctx.keywords != NULL)
 			mailbox_keywords_unref(&ctx.keywords);
-		if (ctx.max_modseq < (uint64_t)-1)
+		if (ctx.max_modseq < UINT64_MAX)
 			reply = "NO CONDSTORE failed: Mailbox is read-only.";
 		else
 			reply = "OK Store ignored with read-only mailbox.";
@@ -173,7 +173,7 @@ bool cmd_store(struct client_command_context *cmd)
 
 	if (ctx.silent)
 		flags |= MAILBOX_TRANSACTION_FLAG_HIDE;
-	if (ctx.max_modseq < (uint64_t)-1) {
+	if (ctx.max_modseq < UINT64_MAX) {
 		/* update modseqs so we can check them early */
 		flags |= MAILBOX_TRANSACTION_FLAG_REFRESH;
 	}
@@ -186,7 +186,7 @@ bool cmd_store(struct client_command_context *cmd)
 	mail_search_args_unref(&search_args);
 
 	i_array_init(&modified_set, 64);
-	if (ctx.max_modseq < (uint64_t)-1) {
+	if (ctx.max_modseq < UINT64_MAX) {
 		/* STORE UNCHANGEDSINCE is being used */
 		mailbox_transaction_set_max_modseq(t, ctx.max_modseq,
 						   &modified_set);
@@ -196,7 +196,7 @@ bool cmd_store(struct client_command_context *cmd)
 		ctx.modify_type != MODIFY_REMOVE;
 	deleted_count = 0;
 	while (mailbox_search_next(search_ctx, &mail)) {
-		if (ctx.max_modseq < (uint64_t)-1) {
+		if (ctx.max_modseq < UINT64_MAX) {
 			/* check early so there's less work for transaction
 			   commit if something has to be cancelled */
 			if (mail_get_modseq(mail) > ctx.max_modseq) {

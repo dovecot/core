@@ -2,7 +2,7 @@
 #define BITS_H
 
 #define UINT64_SUM_OVERFLOWS(a, b) \
-	(a > (uint64_t)-1 - b)
+	(a > UINT64_MAX - b)
 
 #define BIT(n) (1u << (n))
 

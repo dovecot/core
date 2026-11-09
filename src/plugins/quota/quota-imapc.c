@@ -145,8 +145,8 @@ imapc_quota_refresh_root_get(struct imapc_quota_refresh *refresh,
 	refresh_root = array_append_space(&refresh->roots);
 	refresh_root->order = UINT_MAX;
 	refresh_root->name = p_strdup(refresh->pool, root_name);
-	refresh_root->bytes_limit = (uint64_t)-1;
-	refresh_root->count_limit = (uint64_t)-1;
+	refresh_root->bytes_limit = UINT64_MAX;
+	refresh_root->count_limit = UINT64_MAX;
 	return refresh_root;
 }
 

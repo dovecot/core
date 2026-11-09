@@ -13,7 +13,7 @@ struct test {
 
 static void test_quota_transaction_is_over(void)
 {
-#define MAXU64 (uint64_t)-1
+#define MAXU64 UINT64_MAX
 #define MAXS64 9223372036854775807LL
 	static const struct test tests[] = {
 		/* first test only with new_size=1. these are used for both
