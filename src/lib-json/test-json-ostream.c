@@ -2652,6 +2652,30 @@ static void test_json_ostream_nwrite_space(void)
 	str_free(&buffer);
 }
 
+static void test_json_ostream_string_finish_small_buffer(void)
+{
+	string_t *buffer = str_new(default_pool, 64);
+	struct ostream *output, *str_stream;
+	struct json_ostream *joutput;
+
+	test_begin("json ostream string finish - small output buffer");
+	output = o_stream_create_buffer(buffer);
+	o_stream_set_max_buffer_size(output, 1024);
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_object(joutput, NULL);
+	str_stream = json_ostream_nopen_string_stream(joutput, "a");
+	o_stream_nsend_str(str_stream, "frop");
+	test_assert(o_stream_finish(str_stream) > 0);
+	o_stream_destroy(&str_stream);
+	json_ostream_nascend_object(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	test_assert_strcmp("{\"a\":\"frop\"}", str_c(buffer));
+	test_end();
+
+	o_stream_destroy(&output);
+	str_free(&buffer);
+}
+
 int main(int argc, char *argv[])
 {
 	int c;
@@ -2662,6 +2686,7 @@ int main(int argc, char *argv[])
 		test_json_ostream_write_tree,
 		test_json_ostream_nwrite_tree,
 		test_json_ostream_nwrite_space,
+		test_json_ostream_string_finish_small_buffer,
 		NULL
 	};
 
