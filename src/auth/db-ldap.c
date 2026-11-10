@@ -16,6 +16,7 @@
 #include "env-util.h"
 #include "settings.h"
 #include "ssl-settings.h"
+#include "auth-secrets.h"
 #include "userdb.h"
 #include "db-ldap.h"
 #include "db-ldap-sasl.h"
@@ -982,20 +983,6 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 	}
 }
 
-static bool
-db_ldap_is_sensitive_field(const char *name)
-{
-	name = t_str_lcase(name);
-	return strstr(name, "nonce") != NULL ||
-	       strstr(name, "password") != NULL ||
-	       strstr(name, "passwd") != NULL ||
-	       strstr(name, "pwd") != NULL ||
-	       strstr(name, "hash") != NULL ||
-	       strstr(name, "secret") != NULL ||
-	       str_ends_with(name, "key") ||
-	       str_ends_with(name, "pass");
-}
-
 void db_ldap_get_attribute_names(pool_t pool,
 				 const ARRAY_TYPE(const_string) *attrlist,
 				 const char *const **attr_names_r,
@@ -1053,7 +1040,7 @@ void db_ldap_get_attribute_names(pool_t pool,
 		}
 		var_expand_program_free(&prog);
 
-		if (skip || !db_ldap_is_sensitive_field(name))
+		if (skip || !auth_field_key_is_secret(name))
 			continue;
 
 		/* We want to mark as sensitive ALL the LDAP attributes involved
@@ -1101,7 +1088,7 @@ db_ldap_field_hide_password(struct db_ldap_result_iterate_context *ctx,
 
 	/* Also hide credential-looking attributes that are used by a field
 	   with an innocent name, e.g. "foo = %{ldap:userPassword}". */
-	if (db_ldap_is_sensitive_field(attr))
+	if (auth_field_key_is_secret(attr))
 		return TRUE;
 
 	if (ctx->sensitive_attr_names == NULL)
