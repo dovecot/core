@@ -428,18 +428,23 @@ void auth_cache_insert(struct auth_cache *cache, struct auth_request *request,
 	key = auth_request_expand_cache_key(request, key, request->fields.translated_username);
 	key_len = strlen(key);
 
-	data_size = key_len + 1 + value_len + 1;
-	alloc_size = sizeof(struct auth_cache_node) + data_size;
-
-	/* make sure we have enough space */
-	while (cache->size_left < alloc_size && cache->tail != NULL)
-		auth_cache_node_destroy(cache, cache->tail);
-
 	node = hash_table_lookup(cache->hash, key);
 	if (node != NULL) {
 		/* key is already in cache (probably expired), remove it */
 		auth_cache_node_destroy(cache, node);
 	}
+
+	data_size = key_len + 1 + value_len + 1;
+	alloc_size = sizeof(struct auth_cache_node) + data_size;
+	if (alloc_size > cache->max_size || alloc_size > INT32_MAX) {
+		e_debug(authdb_event(request), "Not caching %zu byte entry: "
+			"too large", alloc_size);
+		return;
+	}
+
+	/* make sure we have enough space */
+	while (cache->size_left < alloc_size && cache->tail != NULL)
+		auth_cache_node_destroy(cache, cache->tail);
 
 	/* @UNSAFE */
 	node = i_malloc(alloc_size);
