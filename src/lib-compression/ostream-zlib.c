@@ -24,6 +24,7 @@ struct zlib_ostream {
 	bool gz:1;
 	bool flushed:1;
 	bool pending_dict_reset:1;
+	bool has_input:1;
 };
 
 struct zlib_settings {
@@ -234,6 +235,8 @@ o_stream_zlib_send_chunk(struct zlib_ostream *zstream,
 		zstream->crc = crc32_data_more(zstream->crc, data, size);
 	zstream->bytes32 += size;
 	zstream->flushed = FALSE;
+	if (size > 0)
+		zstream->has_input = TRUE;
 	return size;
 }
 
@@ -261,6 +264,13 @@ o_stream_zlib_send_flush(struct zlib_ostream *zstream, bool final)
 
 	if ((ret = o_stream_zlib_send_outbuf(zstream)) <= 0)
 		return ret;
+
+	if (!final && !zstream->gz && !zstream->has_input) {
+		/* Without any input a sync flush would only emit an empty
+		   stored block, and there is no dictionary to reset yet. */
+		zstream->pending_dict_reset = FALSE;
+		return 1;
+	}
 
 	if (final)
 		flush = Z_FINISH;
