@@ -69,7 +69,7 @@ void i_unreached(const char *source_filename, int source_linenum)
 	i_unreached(__FILE__, __LINE__)
 void i_fatal(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_NORETURN ATTR_COLD;
 void i_error(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_COLD;
-void i_warning(const char *format, ...) ATTR_FORMAT(1, 2);
+void i_warning(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_COLD;
 void i_info(const char *format, ...) ATTR_FORMAT(1, 2);
 void i_debug(const char *format, ...) ATTR_FORMAT(1, 2);
 

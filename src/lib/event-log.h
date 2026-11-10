@@ -38,12 +38,12 @@ extern unsigned int event_filter_replace_counter;
 
 void e_error(struct event *event,
 	     const char *source_filename, unsigned int source_linenum,
-	     const char *fmt, ...) ATTR_FORMAT(4, 5);
+	     const char *fmt, ...) ATTR_FORMAT(4, 5) ATTR_COLD;
 #define e_error(_event, ...) \
 	e_error(_event, __FILE__, __LINE__, __VA_ARGS__)
 void e_warning(struct event *event,
 	       const char *source_filename, unsigned int source_linenum,
-	       const char *fmt, ...) ATTR_FORMAT(4, 5);
+	       const char *fmt, ...) ATTR_FORMAT(4, 5) ATTR_COLD;
 #define e_warning(_event, ...) \
 	e_warning(_event, __FILE__, __LINE__, __VA_ARGS__)
 void e_info(struct event *event,
