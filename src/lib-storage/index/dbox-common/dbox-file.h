@@ -205,9 +205,10 @@ int dbox_file_unlink(struct dbox_file *file);
 void dbox_msg_header_fill(struct dbox_message_header *dbox_msg_hdr,
 			  uoff_t message_size);
 
-void dbox_file_set_syscall_error(struct dbox_file *file, const char *function);
+void dbox_file_set_syscall_error(struct dbox_file *file, const char *function)
+	ATTR_COLD;
 void dbox_file_set_corrupted(struct dbox_file *file, const char *reason, ...)
-	ATTR_FORMAT(2, 3);
+	ATTR_FORMAT(2, 3) ATTR_COLD;
 
 /* private: */
 const char *dbox_generate_tmp_filename(void);

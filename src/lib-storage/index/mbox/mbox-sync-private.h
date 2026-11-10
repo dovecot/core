@@ -154,7 +154,7 @@ int mbox_sync_header_refresh(struct mbox_mailbox *mbox);
 int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags);
 int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty);
 void mbox_sync_set_critical(struct mbox_sync_context *sync_ctx,
-			    const char *fmt, ...) ATTR_FORMAT(2, 3);
+			    const char *fmt, ...) ATTR_FORMAT(2, 3) ATTR_COLD;
 
 int mbox_sync_parse_next_mail(struct istream *input,
 			      struct mbox_sync_mail_context *ctx);

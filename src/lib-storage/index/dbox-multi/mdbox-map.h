@@ -147,6 +147,6 @@ void mdbox_map_append_free(struct mdbox_map_append_context **ctx);
 uint32_t mdbox_map_get_uid_validity(struct mdbox_map *map);
 
 void mdbox_map_set_corrupted(struct mdbox_map *map, const char *format, ...)
-	ATTR_FORMAT(2, 3);
+	ATTR_FORMAT(2, 3) ATTR_COLD;
 
 #endif

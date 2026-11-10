@@ -117,8 +117,11 @@ void mdbox_storage_destroy(struct mail_storage *_storage);
 int mdbox_mailbox_open(struct mailbox *box);
 
 void mdbox_storage_set_corrupted(struct mdbox_storage *storage,
-				 const char *reason, ...) ATTR_FORMAT(2, 3);
-void mdbox_set_mailbox_corrupted(struct mailbox *box, const char *reason);
-void mdbox_set_file_corrupted(struct dbox_file *file, const char *reason);
+				 const char *reason, ...) ATTR_FORMAT(2, 3)
+	ATTR_COLD;
+void mdbox_set_mailbox_corrupted(struct mailbox *box, const char *reason)
+	ATTR_COLD;
+void mdbox_set_file_corrupted(struct dbox_file *file, const char *reason)
+	ATTR_COLD;
 
 #endif
