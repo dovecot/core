@@ -1060,6 +1060,13 @@ auth_master_pass_lookup_async(struct auth_master_connection *conn,
 	lookup->callback = callback;
 	lookup->context = context;
 
+	lookup->lookup.expected_reply = "PASS";
+	lookup->lookup.user = i_strdup(user);
+
+	lookup->lookup.event = auth_master_user_event_create(
+		conn, t_strdup_printf("passdb lookup(%s): ", user), info);
+	event_add_str(lookup->lookup.event, "user", user);
+
 	if (!is_valid_string(user) || !is_valid_string(info->protocol)) {
 		/* non-allowed characters, the user can't exist */
 		req = auth_master_request_invalid(conn,
@@ -1070,16 +1077,9 @@ auth_master_pass_lookup_async(struct auth_master_connection *conn,
 		return req;
 	}
 
-	lookup->lookup.expected_reply = "PASS";
-	lookup->lookup.user = i_strdup(user);
-
 	args = t_str_new(128);
 	str_append(args, user);
 	auth_user_info_export(args, info);
-
-	lookup->lookup.event = auth_master_user_event_create(
-		conn, t_strdup_printf("passdb lookup(%s): ", user), info);
-	event_add_str(lookup->lookup.event, "user", user);
 
 	struct event_passthrough *e =
 		event_create_passthrough(lookup->lookup.event)->
@@ -1227,6 +1227,13 @@ auth_master_user_lookup_async(struct auth_master_connection *conn,
 	lookup->callback = callback;
 	lookup->context = context;
 
+	lookup->lookup.expected_reply = "USER";
+	lookup->lookup.user = i_strdup(user);
+
+	lookup->lookup.event = auth_master_user_event_create(
+		conn, t_strdup_printf("userdb lookup(%s): ", user), info);
+	event_add_str(lookup->lookup.event, "user", user);
+
 	if (!is_valid_string(user) || !is_valid_string(info->protocol)) {
 		/* non-allowed characters, the user can't exist */
 		req = auth_master_request_invalid(conn,
@@ -1237,16 +1244,9 @@ auth_master_user_lookup_async(struct auth_master_connection *conn,
 		return req;
 	}
 
-	lookup->lookup.expected_reply = "USER";
-	lookup->lookup.user = i_strdup(user);
-
 	args = t_str_new(128);
 	str_append(args, user);
 	auth_user_info_export(args, info);
-
-	lookup->lookup.event = auth_master_user_event_create(
-		conn, t_strdup_printf("userdb lookup(%s): ", user), info);
-	event_add_str(lookup->lookup.event, "user", user);
 
 	struct event_passthrough *e =
 		event_create_passthrough(lookup->lookup.event)->
