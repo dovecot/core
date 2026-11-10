@@ -240,10 +240,12 @@ static void test_sql_sqlpool_statement_queue_drain(void)
 	struct test_driver_result result_a = {
 		.nqueries = 1,
 		.queries = (const char *[]){"INSERT INTO bar VALUES('queued_a')"},
+		.result = NULL,
 	};
 	struct test_driver_result result_b = {
 		.nqueries = 1,
 		.queries = (const char *[]){"INSERT INTO bar VALUES('queued_b')"},
+		.result = NULL,
 	};
 	sql_driver_test_add_expected_result(ts.conndb, &result_a);
 	sql_driver_test_add_expected_result(ts.conndb, &result_b);
