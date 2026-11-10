@@ -75,6 +75,11 @@ struct json_generator {
 	/* Currently pending string input stream */
 	struct istream *value_input;
 
+	/* Incomplete trailing UTF-8 char, reported as consumed because
+	   o_stream_nsend() treats a short write as overflow */
+	unsigned char utf8_partial[3];
+	unsigned int utf8_partial_len;
+
 	/* We are in an object */
 	bool object_level_written:1;  /* write state */
 	bool object_level:1;          /* API state */
@@ -590,6 +595,7 @@ json_generator_value_begin(struct json_generator *generator)
 {
 	i_assert(generator->state == JSON_GENERATOR_STATE_VALUE);
 	i_assert(generator->streaming || generator->str_stream == NULL);
+	i_assert(generator->utf8_partial_len == 0);
 }
 
 static inline int
@@ -799,6 +805,87 @@ json_generate_string_write_data(struct json_generator *generator,
 	return (ssize_t)(p - pbegin);
 }
 
+static bool
+json_generate_string_stash_partial(struct json_generator *generator,
+				   const unsigned char *data, size_t size)
+{
+	unichar_t ch;
+
+	if (size == 0 || uni_utf8_get_char_n(data, size, &ch) != 0)
+		return FALSE;
+	i_assert(size <= sizeof(generator->utf8_partial));
+	memcpy(generator->utf8_partial, data, size);
+	generator->utf8_partial_len = size;
+	return TRUE;
+}
+
+static ssize_t
+json_generate_string_write_stashing(struct json_generator *generator,
+				    const void *data, size_t size,
+				    bool buffered, bool last)
+{
+	const unsigned char *p = data;
+	size_t used = 0;
+	ssize_t sret;
+
+	if (generator->utf8_partial_len > 0) {
+		/* Use the write loop so invalid sequences get the usual
+		   U+FFFD handling */
+		unsigned char seq[sizeof(generator->utf8_partial) + 1];
+		const size_t plen = generator->utf8_partial_len;
+		const size_t take = I_MIN(size, sizeof(seq) - plen);
+		const bool seq_last = (last && take == size);
+
+		memcpy(seq, generator->utf8_partial, plen);
+		if (take > 0)
+			memcpy(seq + plen, p, take);
+		generator->utf8_partial_len = 0;
+
+		sret = json_generate_string_write_data(
+			generator, seq, plen + take, buffered, seq_last);
+		if (sret < 0)
+			return -1;
+		if ((size_t)sret < plen) {
+			if (!seq_last &&
+			    json_generate_string_stash_partial(
+				generator, seq + sret, plen + take - sret))
+				return (ssize_t)take;
+			/* Output is full */
+			memcpy(generator->utf8_partial, seq + sret,
+			       plen - (size_t)sret);
+			generator->utf8_partial_len = plen - (size_t)sret;
+			return 0;
+		}
+		used = (size_t)sret - plen;
+		p += used;
+		size -= used;
+		if (size == 0)
+			return (ssize_t)used;
+	}
+
+	sret = json_generate_string_write_data(generator, p, size,
+					       buffered, last);
+	if (sret < 0)
+		return -1;
+	if (!last && (size_t)sret < size &&
+	    json_generate_string_stash_partial(generator, p + sret,
+					       size - (size_t)sret))
+		sret = (ssize_t)size;
+	return (ssize_t)used + sret;
+}
+
+static int
+json_generate_string_flush_partial(struct json_generator *generator,
+				   bool buffered)
+{
+	if (generator->utf8_partial_len == 0)
+		return 1;
+	if (json_generate_string_write_stashing(generator, "", 0,
+						buffered, TRUE) < 0)
+		return -1;
+	return (generator->utf8_partial_len == 0 ? 1 : 0);
+}
+
 ssize_t json_generate_string_more(struct json_generator *generator,
 				  const void *data, size_t size, bool last)
 {
@@ -811,8 +898,8 @@ ssize_t json_generate_string_more(struct json_generator *generator,
 		return (ssize_t)ret;
 	i_assert(generator->write_state == JSON_GENERATOR_STATE_STRING);
 
-	return json_generate_string_write_data(generator, data, size,
-					       FALSE, last);
+	return json_generate_string_write_stashing(generator, data, size,
+						   FALSE, last);
 }
 
 void json_generate_string_close(struct json_generator *generator)
@@ -820,6 +907,9 @@ void json_generate_string_close(struct json_generator *generator)
 	i_assert(generator->streaming || generator->str_stream == NULL);
 	i_assert(generator->value_input == NULL);
 	i_assert(generator->state == JSON_GENERATOR_STATE_STRING);
+	/* Buffered, so never short; errors surface on the next flush */
+	(void)json_generate_string_flush_partial(generator, TRUE);
+	i_assert(generator->utf8_partial_len == 0);
 	if (generator->write_state != JSON_GENERATOR_STATE_STRING) {
 		/* Neither this nor the string_open() function flushes
 		   first before changing state. So, we need to remember
@@ -881,7 +971,7 @@ json_generator_flush_string_input(struct json_generator *generator)
 
 	while ((ret = i_stream_read_more(generator->value_input,
 					 &data, &size)) > 0) {
-		sret = json_generate_string_write_data(
+		sret = json_generate_string_write_stashing(
 			generator, data, size, FALSE,
 			generator->value_input->eof);
 		if (sret < 0)
@@ -894,6 +984,9 @@ json_generator_flush_string_input(struct json_generator *generator)
 		if (generator->value_input->stream_errno != 0)
 			return -1;
 
+		ret = json_generate_string_flush_partial(generator, FALSE);
+		if (ret <= 0)
+			return ret;
 		i_assert(!i_stream_have_bytes_left(generator->value_input));
 		i_stream_unref(&generator->value_input);
 		return 1;

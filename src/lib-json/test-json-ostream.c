@@ -2697,6 +2697,10 @@ static const struct test_json_ostream_boundary_payload {
 	{ "invalid utf8",
 	  S("a\x80" "b\xc3\x28" "c\xe2\x82\x28" "d\xf0\x9f\x28"
 	    "e\xf0\x9f\x98" "f\xff" "g\xed\xa0\x80"), S("") },
+	{ "truncated tail",
+	  S("\xc3\xa9\xe2\x82\xac"), S("\xe2\x82") },
+	{ "truncated 4-byte tail",
+	  S("x\xf0\x9f\x98\x80"), S("\xf0\x9f\x98") },
 };
 
 /* Both sides of where the string ostream drops its own buffer (6*256);
@@ -2706,7 +2710,7 @@ static const size_t boundary_max_buffer_sizes[] = {
 	1536, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 8192,
 };
 static const size_t boundary_chunk_sizes[] = {
-	SIZE_MAX,
+	1, 2, 3, 5, 7, 1000, 8192, SIZE_MAX,
 };
 
 static void
@@ -2750,6 +2754,87 @@ test_json_ostream_boundary_ostream(string_t *out,
 	o_stream_destroy(&output);
 }
 
+static void
+test_json_ostream_boundary_istream(string_t *out,
+				   const unsigned char *data, size_t size,
+				   size_t max_buffer_size, size_t chunk)
+{
+	struct ostream *output;
+	struct istream *input;
+	struct json_ostream *joutput;
+
+	output = test_ostream_create_nonblocking(out, max_buffer_size);
+	input = test_istream_create_data(data, size);
+	test_istream_set_max_buffer_size(input, I_MIN(chunk, size));
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_object(joutput, NULL);
+	json_ostream_nwrite_string_stream(joutput, "text", input);
+	i_stream_unref(&input);
+	json_ostream_nascend_object(joutput);
+	test_assert(json_ostream_nfinish(joutput) == 0);
+	json_ostream_destroy(&joutput);
+	o_stream_destroy(&output);
+}
+
+struct test_json_ostream_trickle {
+	struct ostream *output;
+	size_t limit;
+	unsigned int stalls;
+};
+
+static void
+test_json_ostream_trickle_more(struct test_json_ostream_trickle *trickle)
+{
+	trickle->limit += 3;
+	o_stream_set_max_buffer_size(trickle->output, trickle->limit);
+	trickle->stalls++;
+}
+
+#define TRICKLE(trickle, expr) STMT_START { \
+	int _tret; \
+	while ((_tret = (expr)) == 0 && (trickle)->stalls < 1000000) \
+		test_json_ostream_trickle_more(trickle); \
+	test_assert(_tret > 0); \
+	} STMT_END
+
+static void
+test_json_ostream_boundary_trickle(string_t *out,
+				   const unsigned char *data, size_t size,
+				   size_t chunk)
+{
+	struct test_json_ostream_trickle trickle;
+	struct ostream *str_stream;
+	struct json_ostream *joutput;
+	size_t pos;
+	ssize_t sret;
+
+	/* Output really fills up, so sends must be retried */
+	i_zero(&trickle);
+	trickle.output = o_stream_create_buffer(out);
+	o_stream_set_max_buffer_size(trickle.output, 0);
+	joutput = json_ostream_create(trickle.output, 0);
+	TRICKLE(&trickle, json_ostream_descend_object(joutput, NULL));
+	TRICKLE(&trickle, json_ostream_open_string_stream(joutput, "text",
+							  &str_stream));
+	for (pos = 0; pos < size && trickle.stalls < 1000000; ) {
+		sret = o_stream_send(str_stream, data + pos,
+				     I_MIN(chunk, size - pos));
+		test_assert(sret >= 0);
+		if (sret < 0)
+			break;
+		pos += (size_t)sret;
+		if (sret == 0)
+			test_json_ostream_trickle_more(&trickle);
+	}
+	test_assert(pos == size);
+	TRICKLE(&trickle, o_stream_finish(str_stream));
+	o_stream_destroy(&str_stream);
+	TRICKLE(&trickle, json_ostream_ascend_object(joutput));
+	TRICKLE(&trickle, json_ostream_flush(joutput));
+	json_ostream_destroy(&joutput);
+	o_stream_destroy(&trickle.output);
+}
+
 static void test_json_ostream_string_boundary(void)
 {
 	string_t *expected = str_new(default_pool, 16384);
@@ -2786,7 +2871,23 @@ static void test_json_ostream_string_boundary(void)
 				test_assert_strcmp_idx(str_c(expected),
 						       str_c(actual),
 						       j * 100 + k);
+
+				str_truncate(actual, 0);
+				test_json_ostream_boundary_istream(
+					actual, payload->data, payload->used,
+					max_size, chunk);
+				test_assert_strcmp_idx(str_c(expected),
+						       str_c(actual),
+						       j * 100 + k);
 			}
+		}
+		for (k = 0; k < N_ELEMENTS(boundary_chunk_sizes); k++) {
+			str_truncate(actual, 0);
+			test_json_ostream_boundary_trickle(
+				actual, payload->data, payload->used,
+				boundary_chunk_sizes[k]);
+			test_assert_strcmp_idx(str_c(expected),
+					       str_c(actual), 10000 + k);
 		}
 		test_end();
 	}
