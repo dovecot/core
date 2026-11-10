@@ -47,6 +47,10 @@
 #define t_array_init(array, init_count) \
 	p_array_init(array, pool_datastack_create(), init_count)
 
+/* The array union's "v" and "v_modifiable" members exist to provide the
+   element type. With typeof() they are never read: the data is accessed only
+   via "arr", so the union isn't read via a different member than it was
+   written with. */
 #ifdef HAVE_TYPEOF
 #  define ARRAY_TYPE_CAST_CONST(array) \
 	(typeof(*(array)->v))
@@ -58,12 +62,16 @@
 #  define ARRAY_TYPES_CHECK(array1, array2) \
 	COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
 		**(array1)->v_modifiable, **(array2)->v_modifiable)
+#  define ARRAY_DATA_CONST(array) \
+	(ARRAY_TYPE_CAST_CONST(array)(array)->arr.buffer->data)
 
 #else
 #  define ARRAY_TYPE_CAST_CONST(array)
 #  define ARRAY_TYPE_CAST_MODIFIABLE(array)
 #  define ARRAY_TYPE_CHECK(array, data) 0
 #  define ARRAY_TYPES_CHECK(array1, array2) 0
+#  define ARRAY_DATA_CONST(array) \
+	(*(array)->v)
 #endif
 
 /* Usage:
@@ -81,7 +89,8 @@
 */
 #define array_foreach(array, elem) \
 	for (const void *elem ## __foreach_end = \
-		(const char *)(elem = *(array)->v) + (array)->arr.buffer->used; \
+		(const char *)(elem = ARRAY_DATA_CONST(array)) + \
+			(array)->arr.buffer->used; \
 	     elem != elem ## __foreach_end; (elem)++)
 #define array_foreach_modifiable(array, elem) \
 	for (const void *elem ## _end = \
@@ -92,13 +101,14 @@
 
 /* Iterate the array in reverse order. */
 #define array_foreach_reverse(array, elem) \
-	for (elem = CONST_PTR_OFFSET(*(array)->v, (array)->arr.buffer->used); \
-	     (const char *)(elem--) > (const char *)*(array)->v; )
+	for (elem = CONST_PTR_OFFSET(ARRAY_DATA_CONST(array), \
+				     (array)->arr.buffer->used); \
+	     (const char *)(elem--) > (const char *)ARRAY_DATA_CONST(array); )
 #define array_foreach_reverse_modifiable(array, elem) \
 	for (elem = ARRAY_TYPE_CAST_MODIFIABLE(array) \
 		((char *)buffer_get_modifiable_data((array)->arr.buffer, NULL) + \
 		 (array)->arr.buffer->used); \
-	     (const char *)(elem--) > (const char *)*(array)->v; )
+	     (const char *)(elem--) > (const char *)ARRAY_DATA_CONST(array); )
 
 /* Usage:
    ARRAY(struct foo *) foo_ptrs_arr;
@@ -110,8 +120,10 @@
 #define array_foreach_elem(array, elem) \
 	for (const void *_foreach_end = \
 		/* NOLINTBEGIN(bugprone-sizeof-expression) */ \
-		CONST_PTR_OFFSET(*(array)->v, (array)->arr.buffer->used), \
-	     *_foreach_ptr = CONST_PTR_OFFSET(*(array)->v, ARRAY_TYPE_CHECK(array, &elem) + \
+		CONST_PTR_OFFSET(ARRAY_DATA_CONST(array), \
+				 (array)->arr.buffer->used), \
+	     *_foreach_ptr = CONST_PTR_OFFSET(ARRAY_DATA_CONST(array), \
+		ARRAY_TYPE_CHECK(array, &elem) + \
 		COMPILE_ERROR_IF_TRUE(sizeof(elem) > sizeof(void *))) \
 		     ;							\
 	     (_foreach_ptr != _foreach_end &&		\
@@ -122,7 +134,7 @@
 
 
 #define array_ptr_to_idx(array, elem) \
-	((elem) - (array)->v[0])
+	((elem) - ARRAY_DATA_CONST(array))
 /* Return index of iterated element inside array_foreach() or
    array_foreach_modifiable() loop. Note that this doesn't work inside
    array_foreach_elem() loop. */
