@@ -287,9 +287,12 @@ int dsasl_client_settings_equal(struct event *event1, struct event *event2,
 	ret = client_auth_settings_equal(event1, event2, error_r);
 	if (ret <= 0)
 		return ret;
-	return dsasl_client_mechs_settings_equal(core_mechanisms,
-						 N_ELEMENTS(core_mechanisms),
-						 event1, event2, error_r);
+	ret = dsasl_client_mechs_settings_equal(core_mechanisms,
+						N_ELEMENTS(core_mechanisms),
+						event1, event2, error_r);
+	if (ret <= 0)
+		return ret;
+	return dsasl_client_module_settings_equal(event1, event2, error_r);
 }
 
 /*

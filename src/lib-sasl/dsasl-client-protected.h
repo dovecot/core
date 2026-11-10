@@ -41,8 +41,9 @@ struct dsasl_client_mech {
 			       const char *key, const char **value_r,
 			       const char **error_r);
 	/* Optional. Used by dsasl_client_settings_equal() only for the core
-	   mechanisms, since it has no client. The events have the client_auth
-	   filter name of the mechanism. */
+	   mechanisms, since it has no client. Mechanisms in modules are
+	   compared with dsasl_client_module.settings_equal. The events have
+	   the client_auth filter name of the mechanism. */
 	dsasl_client_mech_settings_equal_t *settings_equal;
 };
 

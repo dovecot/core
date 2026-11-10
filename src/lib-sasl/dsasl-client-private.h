@@ -52,6 +52,10 @@ struct dsasl_client_module {
 	/* Names of the mechanisms that the function registers. Ended with
 	   NULL. */
 	const char *const *mech_names;
+	/* Compares the settings that the mechanisms read, or NULL if they
+	   have none. The events have the client_auth filter name of one of
+	   the mechanisms. */
+	dsasl_client_mech_settings_equal_t *settings_equal;
 };
 
 /* Load the module and register its mechanisms. The module is unloaded when
@@ -65,5 +69,12 @@ int dsasl_client_module_load(struct dsasl_client *client,
    error if loading failed. */
 int dsasl_client_module_load_mech(struct dsasl_client *client,
 				  const char *mech_name, const char **error_r);
+
+/* Compare the settings that the mechanisms in the modules read from the
+   events. The returned values are the same as in
+   dsasl_client_settings_equal(). */
+int dsasl_client_module_settings_equal(struct event *event1,
+				       struct event *event2,
+				       const char **error_r);
 
 #endif

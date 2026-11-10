@@ -49,3 +49,25 @@ int dsasl_client_module_load_mech(struct dsasl_client *client,
 		return -1;
 	return 1;
 }
+
+int dsasl_client_module_settings_equal(struct event *event1,
+				       struct event *event2,
+				       const char **error_r)
+{
+	const struct dsasl_client_module *module;
+	const char *const *names;
+	int ret;
+
+	for (module = dsasl_client_modules; module->name != NULL; module++) {
+		if (module->settings_equal == NULL)
+			continue;
+		for (names = module->mech_names; *names != NULL; names++) {
+			ret = dsasl_client_mech_name_settings_equal(
+				*names, module->settings_equal,
+				event1, event2, error_r);
+			if (ret <= 0)
+				return ret;
+		}
+	}
+	return 1;
+}
