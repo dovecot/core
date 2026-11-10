@@ -60,6 +60,15 @@
 #  define STMT_END while (0) // NOLINT(readability-braces-around-statements)
 #endif
 
+/* I_HAS_ATTRIBUTE(attr) can be used in #if to check whether the compiler
+   supports the attribute. clang claims to be GCC 4.2, so __GNUC__ version
+   checks alone don't work with it. */
+#ifdef __has_attribute
+#  define I_HAS_ATTRIBUTE(attr) __has_attribute(attr)
+#else
+#  define I_HAS_ATTRIBUTE(attr) 0
+#endif
+
 /* Provide macros to feature the GCC function attribute. */
 #if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
 #  define ATTRS_DEFINED
@@ -108,12 +117,17 @@
 #  define ATTR_WARN_UNUSED_RESULT
 #  define ATTR_SENTINEL
 #endif
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
-/* GCC 4.3 and later */
+/* GCC 4.3+, or any compiler with __has_attribute() */
+#if I_HAS_ATTRIBUTE(hot) || \
+	__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
 #  define ATTR_HOT __attribute__((hot))
-#  define ATTR_COLD __attribute__((cold))
 #else
 #  define ATTR_HOT
+#endif
+#if I_HAS_ATTRIBUTE(cold) || \
+	__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
+#  define ATTR_COLD __attribute__((cold))
+#else
 #  define ATTR_COLD
 #endif
 #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 9)
