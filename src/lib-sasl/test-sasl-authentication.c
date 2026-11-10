@@ -30,6 +30,9 @@ struct test_sasl {
 		const char *password;
 	} client, server;
 
+	/* Stored credentials returned as-is by the server's passdb */
+	const char *server_credentials;
+
 	unsigned int repeat;
 
 	/* The client is expected to fail with this error, instead of the
@@ -262,6 +265,15 @@ test_server_request_lookup_credentials(
 	    null_strcmp(test->server.authzid, tctx->authzid) != 0) {
 		e_debug(test_event, "User unknown");
 		result.status = SASL_PASSDB_RESULT_USER_UNKNOWN;
+		callback(&tctx->ssrctx, &result);
+		return;
+	}
+
+	if (test->server_credentials != NULL) {
+		result.status = SASL_PASSDB_RESULT_OK;
+		result.credentials.data =
+			(const unsigned char *)test->server_credentials;
+		result.credentials.size = strlen(test->server_credentials);
 		callback(&tctx->ssrctx, &result);
 		return;
 	}
@@ -2182,6 +2194,70 @@ static void test_sasl_bad_credentials(void)
 }
 
 /*
+ * Malformed SCRAM credentials
+ */
+
+/* The passdb answers synchronously with a StoredKey or ServerKey of the wrong
+   length. */
+static const struct test_sasl scram_malformed_creds_tests[] = {
+	{
+		.mech = "SCRAM-SHA-1",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+		.server_credentials = "4096,c2FsdA==,AAAA,AAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		.failure = TRUE,
+		.server_no_plus = TRUE,
+	},
+	{
+		.mech = "SCRAM-SHA-1",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+		.server_credentials = "4096,c2FsdA==,AAAAAAAAAAAAAAAAAAAAAAAAAAA=,AAAA",
+		.failure = TRUE,
+		.server_no_plus = TRUE,
+	},
+	{
+		.mech = "SCRAM-SHA-256",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+		.server_credentials = "4096,c2FsdA==,AAAA,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		.failure = TRUE,
+		.server_no_plus = TRUE,
+	},
+	{
+		.mech = "SCRAM-SHA-256",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+		.server_credentials = "4096,c2FsdA==,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=,AAAA",
+		.failure = TRUE,
+		.server_no_plus = TRUE,
+	},
+};
+
+static void test_sasl_scram_malformed_credentials(void)
+{
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(scram_malformed_creds_tests); i++) {
+		const struct test_sasl *test = &scram_malformed_creds_tests[i];
+
+		test_sasl_run(test, "malformed credentials", FALSE);
+	}
+}
+
+/*
  * Oversized SCRAM authid and authzid
  */
 
@@ -2486,6 +2562,7 @@ int main(int argc, char *argv[])
 	static void (*const test_functions[])(void) = {
 		test_sasl_success,
 		test_sasl_bad_credentials,
+		test_sasl_scram_malformed_credentials,
 		test_sasl_scram_oversized_id,
 		test_sasl_oauthbearer_malformed_input,
 		test_sasl_cram_md5_malformed_input,

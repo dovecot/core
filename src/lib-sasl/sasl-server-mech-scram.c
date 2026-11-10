@@ -185,6 +185,9 @@ mech_scram_auth_continue(struct sasl_server_mech_request *auth_request,
 	}
 	if (ret == 0)
 		return;
+	/* The credentials lookup failed synchronously and replied. */
+	if (sasl_server_mech_request_has_failed(auth_request))
+		return;
 
 	if (!auth_scram_server_output(&request->scram_server,
 				      &output, &output_len)) {
