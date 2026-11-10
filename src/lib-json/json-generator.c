@@ -763,6 +763,12 @@ json_generate_string_write_data(struct json_generator *generator,
 		}
 		if (esc != NULL) {
 			if (esc_len > avail) {
+				ret = json_generator_make_space(
+					generator, esc_len, &avail);
+				if (ret < 0)
+					return -1;
+			}
+			if (esc_len > avail) {
 				break;
 			} else {
 				if (buffered) {
@@ -778,8 +784,16 @@ json_generate_string_write_data(struct json_generator *generator,
 				p += octets;
 			}
 		}
-		if (octets == 0 || (size_t)octets > avail)
+		if (octets == 0)
 			break;
+		if (esc == NULL && (size_t)octets > avail) {
+			ret = json_generator_make_space(
+				generator, (size_t)octets, &avail);
+			if (ret < 0)
+				return -1;
+			if (ret == 0)
+				break;
+		}
 	}
 
 	return (ssize_t)(p - pbegin);

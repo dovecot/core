@@ -2676,6 +2676,125 @@ static void test_json_ostream_string_finish_small_buffer(void)
 	str_free(&buffer);
 }
 
+/* Streamed strings must match one-shot output whatever the boundaries */
+
+#define BOUNDARY_PAYLOAD_MIN_SIZE 4000
+#define S(str) (const unsigned char *)(str), sizeof(str) - 1
+
+static const struct test_json_ostream_boundary_payload {
+	const char *name;
+	const unsigned char *unit;
+	size_t unit_len;
+	const unsigned char *tail;
+	size_t tail_len;
+} boundary_payloads[] = {
+	{ "escapes",
+	  S("a\"b\\c\n\t\x01" "d\x1f"), S("") },
+	{ "utf8",
+	  S("a\xc3\xa9" "b\xe2\x82\xac" "c\xf0\x9f\x98\x80"), S("") },
+	{ "quotes+utf8",
+	  S("\"\xc3\xa9\\\xe2\x82\xac\"\xf0\x9f\x98\x80\xe2\x80\xa8"), S("") },
+	{ "invalid utf8",
+	  S("a\x80" "b\xc3\x28" "c\xe2\x82\x28" "d\xf0\x9f\x28"
+	    "e\xf0\x9f\x98" "f\xff" "g\xed\xa0\x80"), S("") },
+};
+
+/* Both sides of where the string ostream drops its own buffer (6*256);
+   6 fits the longest escape */
+static const size_t boundary_max_buffer_sizes[] = {
+	6, 7, 8, 9, 10, 11, 12, 13,
+	1536, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 8192,
+};
+static const size_t boundary_chunk_sizes[] = {
+	SIZE_MAX,
+};
+
+static void
+test_json_ostream_boundary_reference(string_t *out,
+				     const unsigned char *data, size_t size)
+{
+	struct json_ostream *joutput;
+
+	joutput = json_ostream_create_str(out, 0);
+	json_ostream_ndescend_object(joutput, NULL);
+	json_ostream_nwrite_string_data(joutput, "text", data, size);
+	json_ostream_nascend_object(joutput);
+	test_assert(json_ostream_nfinish(joutput) == 0);
+	json_ostream_destroy(&joutput);
+}
+
+static void
+test_json_ostream_boundary_ostream(string_t *out,
+				   const unsigned char *data, size_t size,
+				   size_t max_buffer_size, size_t chunk)
+{
+	struct ostream *output, *str_stream;
+	struct json_ostream *joutput;
+	size_t pos, n;
+
+	/* Like doveadm-print-json */
+	output = test_ostream_create_nonblocking(out, max_buffer_size);
+	joutput = json_ostream_create(output, 0);
+	json_ostream_ndescend_object(joutput, NULL);
+	str_stream = json_ostream_nopen_string_stream(joutput, "text");
+	o_stream_set_no_error_handling(str_stream, TRUE);
+	for (pos = 0; pos < size; pos += n) {
+		n = I_MIN(chunk, size - pos);
+		o_stream_nsend(str_stream, data + pos, n);
+	}
+	test_assert(o_stream_flush(str_stream) > 0);
+	o_stream_destroy(&str_stream);
+	json_ostream_nascend_object(joutput);
+	test_assert(json_ostream_nfinish(joutput) == 0);
+	json_ostream_destroy(&joutput);
+	o_stream_destroy(&output);
+}
+
+static void test_json_ostream_string_boundary(void)
+{
+	string_t *expected = str_new(default_pool, 16384);
+	string_t *actual = str_new(default_pool, 16384);
+	buffer_t *payload = buffer_create_dynamic(default_pool,
+		BOUNDARY_PAYLOAD_MIN_SIZE + 64);
+	unsigned int i, j, k;
+
+	for (i = 0; i < N_ELEMENTS(boundary_payloads); i++) {
+		const struct test_json_ostream_boundary_payload *p =
+			&boundary_payloads[i];
+
+		buffer_set_used_size(payload, 0);
+		while (payload->used < BOUNDARY_PAYLOAD_MIN_SIZE)
+			buffer_append(payload, p->unit, p->unit_len);
+		buffer_append(payload, p->tail, p->tail_len);
+
+		str_truncate(expected, 0);
+		test_json_ostream_boundary_reference(
+			expected, payload->data, payload->used);
+
+		test_begin(t_strdup_printf(
+			"json ostream string boundary - %s", p->name));
+		for (j = 0; j < N_ELEMENTS(boundary_max_buffer_sizes); j++) {
+			const size_t max_size = boundary_max_buffer_sizes[j];
+
+			for (k = 0; k < N_ELEMENTS(boundary_chunk_sizes); k++) {
+				const size_t chunk = boundary_chunk_sizes[k];
+
+				str_truncate(actual, 0);
+				test_json_ostream_boundary_ostream(
+					actual, payload->data, payload->used,
+					max_size, chunk);
+				test_assert_strcmp_idx(str_c(expected),
+						       str_c(actual),
+						       j * 100 + k);
+			}
+		}
+		test_end();
+	}
+	buffer_free(&payload);
+	str_free(&actual);
+	str_free(&expected);
+}
+
 int main(int argc, char *argv[])
 {
 	int c;
@@ -2687,6 +2806,7 @@ int main(int argc, char *argv[])
 		test_json_ostream_nwrite_tree,
 		test_json_ostream_nwrite_space,
 		test_json_ostream_string_finish_small_buffer,
+		test_json_ostream_string_boundary,
 		NULL
 	};
 
