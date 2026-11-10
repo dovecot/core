@@ -87,6 +87,9 @@ struct acl_rights_cache_list_context_vfile {
 	unsigned int idx;
 };
 
+static bool
+acl_rights_cache_legacy_list_exists(struct acl_rights_cache_file *file);
+
 static bool acl_rights_cache_get_path(struct acl_backend *backend,
 				      const char **path_r)
 {
@@ -433,9 +436,21 @@ void acl_rights_cache_refresh(struct acl_backend_vfile *backend,
 	}
 	if (file->last_check + (time_t)backend->cache_secs > ioloop_time)
 		return;
-	if (acl_rights_cache_file_refresh(file) > 0)
+	if (acl_rights_cache_file_refresh(file) > 0) {
 		file->last_check = ioloop_time;
-	else if (file->read_failed && rebuild_if_missing) {
+		if (rebuild_if_missing &&
+		    acl_rights_cache_legacy_list_exists(file)) {
+			/* A rebuild removes dovecot-acl-list, so a version
+			   without the rights cache has been used since, and
+			   it may have changed ACLs without updating the
+			   cache. Rebuild the cache and remove the list
+			   again. A failed rebuild leaves both in place and
+			   is tried again after acl_cache_ttl. */
+			e_debug(file->event, "%s found next to %s",
+				ACL_LEGACY_LIST_FILENAME, file->path);
+			(void)acl_rights_cache_rebuild(backend);
+		}
+	} else if (file->read_failed && rebuild_if_missing) {
 		/* the cache file exists but can't be read (e.g. corrupt
 		   content) - recover by rebuilding it */
 		acl_rights_cache_try_rebuild(backend);
@@ -1142,7 +1157,7 @@ acl_rights_cache_read_legacy_list(struct acl_rights_cache_file *file,
 		p = strchr(line, ' ');
 		if (p == NULL || p[1] == '\0') {
 			/* Nothing in the file can be trusted. Go on as if it
-			   didn't exist. */
+			   didn't exist, so a successful rebuild removes it. */
 			e_error(file->event, "Broken %s file: %s - ignoring it",
 				ACL_LEGACY_LIST_FILENAME, path);
 			array_clear(names);
@@ -1164,6 +1179,19 @@ acl_rights_cache_read_legacy_list(struct acl_rights_cache_file *file,
 	i_stream_destroy(&input);
 	array_sort(names, i_strcmp_p);
 	return ret;
+}
+
+/* A rebuild in the owner's own namespace removes dovecot-acl-list, so
+   finding it next to the cache means a version without the rights cache
+   wrote it afterwards. */
+static bool
+acl_rights_cache_legacy_list_exists(struct acl_rights_cache_file *file)
+{
+	struct stat st;
+
+	if (acl_rights_cache_ns_is_shared(file))
+		return FALSE;
+	return stat(acl_rights_cache_legacy_list_path(file), &st) == 0;
 }
 
 /* The mailbox's local ACL file can't be relied on. Open the mailbox, so a
@@ -1218,6 +1246,14 @@ enum acl_rights_cache_fetch {
 	   dovecot-acl-list nothing is fetched. The cache entries of the
 	   mailboxes without a local ACL file are preserved. */
 	ACL_RIGHTS_CACHE_FETCH_LEGACY,
+	/* dovecot-acl-list exists next to a usable cache: a version without
+	   the rights cache was used after the last rebuild, and the cache
+	   entries may be stale. Fetch the mailboxes that have a cache entry
+	   or that dovecot-acl-list names. Their local ACL files aren't read:
+	   that version may have changed them on another server, so a local
+	   ACL file can be an old copy even when it's as new as the cache
+	   entry. */
+	ACL_RIGHTS_CACHE_FETCH_LEGACY_AND_STALE_CACHED,
 	/* There is no usable rights cache and no dovecot-acl-list, but the
 	   ACL lookup dict has (or may have) shares of this user. Fetch every
 	   mailbox whose ACL file isn't among the storage's cached files.
@@ -1272,9 +1308,15 @@ acl_rights_cache_rebuild_mailbox(struct acl_backend_vfile *backend,
 		acl_backend_storage_has_cached_files(&backend->backend);
 
 	entry = acl_rights_cache_find(file, name);
-	if (fetch == ACL_RIGHTS_CACHE_FETCH_ALL) {
+	bool legacy_named = legacy_names != NULL &&
+		array_bsearch(legacy_names, name, search_strcmp) != NULL;
+	if (fetch == ACL_RIGHTS_CACHE_FETCH_ALL ||
+	    (fetch == ACL_RIGHTS_CACHE_FETCH_LEGACY_AND_STALE_CACHED &&
+	     (entry != NULL || legacy_named))) {
 		/* Handle a local ACL file like one that isn't locally
-		   available, it may be an old copy. */
+		   available, it may be an old copy. With
+		   ACL_RIGHTS_CACHE_FETCH_LEGACY_AND_STALE_CACHED also when
+		   it's as new as the cache entry. */
 		ret = 0;
 	} else {
 		ret = acl_backend_vfile_object_read_rights(aclobj, pool,
@@ -1296,17 +1338,15 @@ acl_rights_cache_rebuild_mailbox(struct acl_backend_vfile *backend,
 		   file. */
 	} else if (entry != NULL) {
 		/* The cache entry is preserved as it is, unless everything
-		   is wanted. */
+		   is wanted, or a version without the rights cache may have
+		   changed the mailbox's ACLs since it was written. */
 		want_fetch = fetch != ACL_RIGHTS_CACHE_FETCH_LEGACY;
 	} else {
 		/* There is no cache entry to preserve. Either everything is
 		   wanted or dovecot-acl-list says the mailbox has nonowner
 		   lookup rights. */
 		want_fetch = fetch == ACL_RIGHTS_CACHE_FETCH_MISSING ||
-			fetch == ACL_RIGHTS_CACHE_FETCH_ALL ||
-			(legacy_names != NULL &&
-			 array_bsearch(legacy_names, name,
-				       search_strcmp) != NULL);
+			fetch == ACL_RIGHTS_CACHE_FETCH_ALL || legacy_named;
 	}
 	if (want_fetch) {
 		/* Fetch the mailbox's ACL file, so its shares aren't lost. */
@@ -1401,10 +1441,19 @@ static int acl_rights_cache_rebuild_real(struct acl_backend_vfile *backend,
 	}
 	if (seed_ret > 0) {
 		/* A dovecot-acl-list left behind by an earlier version names
-		   the mailboxes with nonowner lookup rights. It tells which
-		   mailboxes to fetch when their ACL files aren't locally
-		   readable and they have no cache entry. */
+		   the mailboxes with nonowner lookup rights. Without a
+		   usable cache it is from before the upgrade, and it tells
+		   which mailboxes to fetch when their ACL files aren't
+		   locally readable. Next to a usable cache it was written
+		   after the last rebuild, which removes it: the earlier
+		   version was used again, and the ACLs it changed never
+		   reached the cache. Then the cached mailboxes and those the
+		   list names are fetched, also when they have a local ACL
+		   file, which may be an old copy. */
 		seed_names = &legacy_names;
+		if (fetch == ACL_RIGHTS_CACHE_FETCH_LEGACY &&
+		    rights_cache_usable && storage_cached)
+			fetch = ACL_RIGHTS_CACHE_FETCH_LEGACY_AND_STALE_CACHED;
 	} else if (!fetch_all && !rights_cache_usable && storage_cached) {
 		/* There is no usable cache to preserve entries from and no
 		   list either, so the mailboxes whose ACL files aren't
@@ -1435,6 +1484,9 @@ static int acl_rights_cache_rebuild_real(struct acl_backend_vfile *backend,
 	case ACL_RIGHTS_CACHE_FETCH_LEGACY:
 		if (seed_names != NULL)
 			fetch_str = ", fetching the ACL files dovecot-acl-list names";
+		break;
+	case ACL_RIGHTS_CACHE_FETCH_LEGACY_AND_STALE_CACHED:
+		fetch_str = ", fetching the ACL files of the cached mailboxes and those dovecot-acl-list names";
 		break;
 	case ACL_RIGHTS_CACHE_FETCH_MISSING:
 		fetch_str = ", fetching all ACL files that don't exist in the local cache";
@@ -1491,6 +1543,13 @@ static int acl_rights_cache_rebuild_real(struct acl_backend_vfile *backend,
 		if (acl_rights_cache_file_read(file) < 0)
 			ret = -1;
 		file->last_check = ioloop_time;
+	}
+	if (ret == 0) {
+		/* The cache now has everything dovecot-acl-list could tell.
+		   An earlier version rebuilds the list by itself when it is
+		   missing. Only a full rebuild removes it, so finding it
+		   again later means such a version was used in between. */
+		i_unlink_if_exists(acl_rights_cache_legacy_list_path(file));
 	}
 	acl_rights_cache_file_update_end(file);
 	return ret < 0 ? -1 : 1;

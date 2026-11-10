@@ -19,7 +19,8 @@ int acl_rights_cache_file_refresh(struct acl_rights_cache_file *file);
 
 /* Refresh the cache, throttled by the backend's cache_secs. If
    rebuild_if_missing is TRUE, the cache is rebuilt from the mailboxes' ACL
-   files when the cache file is missing or unreadable. */
+   files when the cache file is missing or unreadable, or when an earlier
+   version's dovecot-acl-list has appeared next to it. */
 void acl_rights_cache_refresh(struct acl_backend_vfile *backend,
 			      bool rebuild_if_missing);
 
