@@ -658,6 +658,127 @@ static void test_acl_vfile_read_failed_rebuild_throttled(void)
 	test_end();
 }
 
+static const char *test_acl_legacy_list_path(void)
+{
+	const char *root_dir;
+	enum mailbox_list_path_type type;
+
+	if (!acl_backend_get_root_dir(test_acl.backend, &root_dir, &type))
+		i_fatal("acl_backend_get_root_dir() failed");
+	return t_strconcat(root_dir, "/dovecot-acl-list", NULL);
+}
+
+static void test_acl_read_rights_of(const char *name)
+{
+	struct acl_object *aclobj;
+
+	aclobj = acl_object_init_from_name(test_acl.backend, name);
+	(void)test_acl_my_rights(aclobj);
+	acl_object_deinit(&aclobj);
+}
+
+/* The rebuild that creates the cache removes the dovecot-acl-list an
+   earlier version left behind. */
+static void test_acl_vfile_read_removes_legacy_list(void)
+{
+	const char *cache;
+
+	test_begin("acl vfile read removes dovecot-acl-list");
+	(void)test_acl_setup(TEST_INPUT("acl_cache_ttl=0"),
+			     "user="TEST_ACL_USER" lr\n");
+	/* the mailbox creation's ACL checks may already have created it */
+	i_unlink_if_exists(test_acl_cache_path());
+	test_acl_write_file(test_acl_legacy_list_path(),
+			    "0 "TEST_MAILBOX"\n");
+
+	test_acl_read_rights_of(TEST_MAILBOX);
+
+	cache = test_acl_read_file(test_acl_cache_path());
+	test_assert(cache != NULL &&
+		    strstr(cache, "\t"TEST_MAILBOX"\t") != NULL);
+	test_assert(test_acl_read_file(test_acl_legacy_list_path()) == NULL);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* dovecot-acl-list showing up next to the cache means an earlier version
+   was used again. The ACLs it changed never reached the cache, so the
+   cache is rebuilt and the list removed again. */
+static void test_acl_vfile_read_legacy_list_reappears(void)
+{
+	const char *child, *cache;
+
+	test_begin("acl vfile read rebuilds for a new dovecot-acl-list");
+	(void)test_acl_setup(TEST_INPUT("acl_cache_ttl=0"),
+			     "user="TEST_ACL_USER" lr\n");
+	test_acl_mailbox_create(TEST_CHILD_MAILBOX);
+	child = mailbox_list_get_storage_name(test_acl.list,
+					      TEST_CHILD_MAILBOX);
+	test_acl_rights_cache_seed();
+	test_assert(test_acl_read_file(test_acl_legacy_list_path()) == NULL);
+
+	/* the earlier version shares another mailbox: it writes the ACL
+	   file and its list, but not the cache */
+	test_acl_write_file(test_acl_local_path(child),
+			    "user="TEST_OTHER_USER" lr\n");
+	test_acl_write_file(test_acl_legacy_list_path(),
+			    t_strdup_printf("0 "TEST_MAILBOX"\n0 %s\n", child));
+
+	/* an ACL read of the mailbox that didn't change */
+	test_acl_read_rights_of(TEST_MAILBOX);
+
+	cache = test_acl_read_file(test_acl_cache_path());
+	test_assert(cache != NULL &&
+		    strstr(cache, t_strdup_printf("\t%s\tuser="
+				TEST_OTHER_USER"\t", child)) != NULL);
+	test_assert(test_acl_read_file(test_acl_legacy_list_path()) == NULL);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* Only a full rebuild removes dovecot-acl-list. An earlier version sharing
+   the storage would otherwise recreate it after every cache update. The
+   rebuild for a list that showed up runs once acl_cache_ttl has passed. */
+static void test_acl_vfile_read_legacy_list_kept_by_update(void)
+{
+	const char *path, *cache;
+	struct stat st;
+	struct utimbuf ut;
+
+	test_begin("acl vfile cache update keeps dovecot-acl-list");
+	path = test_acl_setup(TEST_INPUT("acl_cache_ttl=30s"),
+			      "user="TEST_ACL_USER" lr\n");
+	test_acl_rights_cache_seed();
+	test_acl_write_file(test_acl_legacy_list_path(),
+			    "0 "TEST_MAILBOX"\n");
+
+	/* the ACL file changes without the cache being updated */
+	test_acl_write_file(path, "user="TEST_ACL_USER" lr\n"
+				  "user="TEST_OTHER_USER" lr\n");
+	if (stat(path, &st) < 0)
+		i_fatal("stat(%s) failed: %m", path);
+	ut.actime = ut.modtime = st.st_mtime + 10;
+	if (utime(path, &ut) < 0)
+		i_fatal("utime(%s) failed: %m", path);
+
+	/* reading it brings the mailbox's cache entry up to date */
+	test_acl_read_rights_of(TEST_MAILBOX);
+	cache = test_acl_read_file(test_acl_cache_path());
+	test_assert(cache != NULL &&
+		    strstr(cache, "\t"TEST_MAILBOX"\tuser="
+				  TEST_OTHER_USER"\t") != NULL);
+	test_assert(test_acl_read_file(test_acl_legacy_list_path()) != NULL);
+
+	ioloop_time += 31;
+	test_acl_read_rights_of(TEST_MAILBOX);
+	test_assert(test_acl_read_file(test_acl_legacy_list_path()) == NULL);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 static void test_acl_set_mtime(const char *path, time_t mtime)
 {
 	struct utimbuf ut = { .actime = mtime, .modtime = mtime };
@@ -709,6 +830,33 @@ static void test_acl_vfile_read_cached_files_old_file(void)
 	test_end();
 }
 
+/* A dovecot-acl-list that can't be parsed is ignored and removed by the
+   rebuild instead of blocking it. */
+static void test_acl_vfile_read_broken_legacy_list(void)
+{
+	const char *cache;
+
+	test_begin("acl vfile read ignores a broken dovecot-acl-list");
+	(void)test_acl_setup(TEST_INPUT("acl_cache_ttl=0"),
+			     "user="TEST_ACL_USER" lr\n");
+	/* the mailbox creation's ACL checks may already have created it */
+	i_unlink_if_exists(test_acl_cache_path());
+	test_acl_write_file(test_acl_legacy_list_path(),
+			    "0 "TEST_MAILBOX"\nbroken\n");
+
+	test_expect_error_string("Broken dovecot-acl-list file");
+	test_acl_read_rights_of(TEST_MAILBOX);
+	test_expect_no_more_errors();
+
+	cache = test_acl_read_file(test_acl_cache_path());
+	test_assert(cache != NULL &&
+		    strstr(cache, "\t"TEST_MAILBOX"\t") != NULL);
+	test_assert(test_acl_read_file(test_acl_legacy_list_path()) == NULL);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 int main(int argc, char **argv)
 {
 	static void (*const test_functions[])(void) = {
@@ -727,6 +875,10 @@ int main(int argc, char **argv)
 		test_acl_vfile_read_no_acl_keeps_cache,
 		test_acl_vfile_read_creates_cache,
 		test_acl_vfile_read_failed_rebuild_throttled,
+		test_acl_vfile_read_removes_legacy_list,
+		test_acl_vfile_read_legacy_list_reappears,
+		test_acl_vfile_read_legacy_list_kept_by_update,
+		test_acl_vfile_read_broken_legacy_list,
 		test_acl_vfile_read_cached_files_old_file,
 		test_acl_vfile_last_changed,
 		test_acl_vfile_parse_error,
