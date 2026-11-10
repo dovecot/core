@@ -23,6 +23,7 @@
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
 #include "auth-policy.h"
+#include "auth-secrets.h"
 #include "passdb.h"
 #include "passdb-blocking.h"
 #include "passdb-cache.h"
@@ -1566,7 +1567,9 @@ auth_request_lookup_user_cache(struct auth_request *request, const char *key,
 	request->userdb_cache_result = AUTH_REQUEST_CACHE_HIT;
 	e_debug(request->event,
 		"%suserdb cache hit: %s",
-		auth_request_get_log_prefix_db(request), value);
+		auth_request_get_log_prefix_db(request),
+		request->set->debug_passwords ? value :
+		auth_field_line_hide_secrets(value));
 
 	if (*value == '\0') {
 		/* negative cache entry */

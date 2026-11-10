@@ -6,24 +6,26 @@
 #include "restrict-process-size.h"
 #include "auth-worker-connection.h"
 #include "password-scheme.h"
+#include "auth-secrets.h"
 #include "passdb.h"
 #include "passdb-cache.h"
 #include "passdb-blocking.h"
 
 struct auth_cache *passdb_cache = NULL;
 
-static void
-passdb_cache_log_hit(struct auth_request *request, const char *value)
+static const char *
+passdb_cache_hide_secrets(const struct auth_request *request, const char *value)
 {
 	const char *p;
 
-	if (!request->set->debug_passwords &&
-	    *value != '\0' && *value != '\t') {
+	if (request->set->debug_passwords)
+		return value;
+	if (*value != '\0' && *value != '\t') {
 		/* hide the password */
 		p = strchr(value, '\t');
 		value = t_strconcat(PASSWORD_HIDDEN_STR, p, NULL);
 	}
-	e_debug(authdb_event(request), "cache hit: %s", value);
+	return auth_field_line_hide_secrets(value);
 }
 
 static bool
@@ -62,7 +64,8 @@ passdb_cache_lookup(struct auth_request *request, const char *key,
 			"cache expired");
 		return FALSE;
 	}
-	passdb_cache_log_hit(request, value);
+	e_debug(authdb_event(request), "cache hit: %s",
+		passdb_cache_hide_secrets(request, value));
 	request->passdb_cache_result = AUTH_REQUEST_CACHE_HIT;
 
 	*value_r = value;
