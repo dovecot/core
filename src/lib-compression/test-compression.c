@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "buffer.h"
+#include "ioloop.h"
 #include "istream.h"
 #include "iostream-temp.h"
 #include "ostream.h"
@@ -12,6 +13,8 @@
 #include "settings.h"
 #include "compression.h"
 #include "iostream-lz4.h"
+#include "istream-zlib.h"
+#include "ostream-zlib.h"
 
 #include "hex-binary.h"
 
@@ -1204,6 +1207,101 @@ static void test_lz4_many_empty_chunks(void)
 	test_end();
 }
 
+static void test_deflate_op_uncork(struct ostream *output)
+{
+	o_stream_cork(output);
+	o_stream_uncork(output);
+}
+
+static void test_deflate_op_flush(struct ostream *output)
+{
+	test_assert(o_stream_flush(output) == 1);
+}
+
+static void test_deflate_op_reset_dict(struct ostream *output)
+{
+	o_stream_deflate_reset_dict(output);
+	test_assert(o_stream_flush(output) == 1);
+}
+
+static void
+test_deflate_empty_int(void (*op)(struct ostream *output), const char *data)
+{
+	buffer_t *compressed = buffer_create_dynamic(default_pool, 128);
+	buffer_t *decompressed = buffer_create_dynamic(default_pool, 128);
+	struct ostream *test_output = test_ostream_create(compressed);
+	struct ostream *output = o_stream_create_deflate(test_output, 6);
+	struct istream *test_input, *input;
+	const unsigned char *rdata;
+	size_t size;
+	int ret;
+
+	o_stream_unref(&test_output);
+
+	/* nothing was written, so nothing may reach the parent */
+	op(output);
+	test_assert_ucmp(compressed->used, ==, 0);
+
+	if (data[0] != '\0') {
+		test_assert(o_stream_send_str(output, data) ==
+			    (ssize_t)strlen(data));
+
+		/* sync flushed data is readable before the stream ends */
+		test_input = test_istream_create_data(compressed->data,
+						      compressed->used);
+		test_istream_set_allow_eof(test_input, FALSE);
+		input = i_stream_create_deflate(test_input);
+		i_stream_unref(&test_input);
+		test_assert(i_stream_read_more(input, &rdata, &size) > 0);
+		test_assert_memcmp(rdata, size, data, strlen(data));
+		i_stream_unref(&input);
+	}
+
+	test_assert(o_stream_finish(output) == 1);
+	o_stream_unref(&output);
+	test_assert(compressed->used > 0);
+
+	test_input = test_istream_create_data(compressed->data,
+					      compressed->used);
+	input = i_stream_create_deflate(test_input);
+	i_stream_unref(&test_input);
+	while ((ret = i_stream_read_more(input, &rdata, &size)) > 0) {
+		buffer_append(decompressed, rdata, size);
+		i_stream_skip(input, size);
+	}
+	test_assert(ret == -1);
+	test_assert(input->eof);
+	test_assert(input->stream_errno == 0);
+	test_assert_memcmp(decompressed->data, decompressed->used,
+			   data, strlen(data));
+	i_stream_unref(&input);
+
+	buffer_free(&compressed);
+	buffer_free(&decompressed);
+}
+
+static void test_deflate_empty(void)
+{
+	static const struct {
+		const char *name;
+		void (*func)(struct ostream *output);
+	} tests[] = {
+		{ "uncork", test_deflate_op_uncork },
+		{ "flush", test_deflate_op_flush },
+		{ "reset dict", test_deflate_op_reset_dict },
+	};
+	/* the dictionary reset adds a flush timeout to the test ostream */
+	struct ioloop *ioloop = io_loop_create();
+
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		test_begin(t_strdup_printf("deflate empty %s", tests[i].name));
+		test_deflate_empty_int(tests[i].func, "");
+		test_deflate_empty_int(tests[i].func, "a NOOP\r\n");
+		test_end();
+	}
+	io_loop_destroy(&ioloop);
+}
+
 static void test_uncompress_file(const char *path)
 {
 	const struct compression_handler *handler;
@@ -1329,6 +1427,7 @@ int main(int argc, char *argv[])
 		test_lz4_small_header,
 		test_lz4_chunk_size,
 		test_lz4_many_empty_chunks,
+		test_deflate_empty,
 		test_compression_ext,
 		test_compression_deinit,
 		NULL
