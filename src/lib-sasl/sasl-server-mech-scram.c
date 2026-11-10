@@ -64,7 +64,11 @@ credentials_callback(struct sasl_server_mech_request *auth_request,
 	case SASL_PASSDB_RESULT_INTERNAL_FAILURE:
 		sasl_server_request_internal_failure(auth_request);
 		break;
-	default:
+	case SASL_PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
+	case SASL_PASSDB_RESULT_USER_UNKNOWN:
+	case SASL_PASSDB_RESULT_USER_DISABLED:
+	case SASL_PASSDB_RESULT_PASS_EXPIRED:
+	case SASL_PASSDB_RESULT_PASSWORD_MISMATCH:
 		sasl_server_request_failure(auth_request);
 		break;
 	}
