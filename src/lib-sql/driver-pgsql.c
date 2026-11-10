@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "fd-util.h"
 #include "hex-binary.h"
 #include "str.h"
 #include "time-util.h"
@@ -637,11 +638,59 @@ static void driver_pgsql_exec(struct sql_db *db, const char *query)
 	sql_result_unref(&result->api);
 }
 
+/* Close a connection that the server ended while it sat idle, so that the
+   caller reconnects before it sends the query. A restart of the server, or
+   pg_terminate_backend(), makes the backend send a FATAL error and close
+   the socket. Nothing reads an idle connection, so libpq still reports it
+   as CONNECTION_OK, and a query sent into it would fail and have to be
+   retried. */
+static void driver_pgsql_close_if_ended_by_server(struct pgsql_db *db)
+{
+	unsigned int i;
+	int fd;
+
+	if (db->api.state != SQL_DB_STATE_IDLE)
+		return;
+
+	/* A healthy idle connection has nothing to read, and the loop stops
+	   at the first check. A connection the server has ended has two
+	   things waiting, and libpq needs one PQconsumeInput() call for each:
+
+	   1. The FATAL error. PQconsumeInput() returns as soon as it has read
+	      some data, so after this call the connection is still
+	      CONNECTION_OK.
+	   2. The end of the stream. libpq notices it only when a read returns
+	      no data. It then marks the connection CONNECTION_BAD and closes
+	      its socket, and PQconsumeInput() returns 0.
+
+	   It is the same over TLS. The loop stops after two calls, so that a
+	   connection which keeps receiving data cannot hold the query up; if
+	   there is still data waiting then, the connection is used as it is,
+	   and if the server has ended it, the query fails and is retried as
+	   without this check. The status and the socket are checked before
+	   each call because fd_is_readable_now() must not be given the -1
+	   that PQsocket() returns once libpq has closed the socket. */
+	for (i = 0; i < 2 && PQstatus(db->pg) != CONNECTION_BAD; i++) {
+		fd = PQsocket(db->pg);
+		if (fd < 0 || !fd_is_readable_now(fd))
+			break;
+		if (PQconsumeInput(db->pg) == 0)
+			break;
+	}
+	if (PQstatus(db->pg) != CONNECTION_BAD)
+		return;
+
+	e_debug(db->api.event, "Server ended the idle connection: %s",
+		last_error(db));
+	driver_pgsql_close(db);
+}
+
 static struct sql_result *
 driver_pgsql_sync_query_full(struct pgsql_db *db, const char *query,
 			     const char *log_query,
 			     struct pgsql_query_params *params)
 {
+	driver_pgsql_close_if_ended_by_server(db);
 	if (db->api.state == SQL_DB_STATE_DISCONNECTED) {
 		if (sql_connect(&db->api) < 0) {
 			sql_not_connected_result.refcount++;
