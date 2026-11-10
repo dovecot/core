@@ -8,6 +8,12 @@
 
 struct dsasl_client_mech_session;
 
+/* Compares the settings that a mechanism reads from the events. Returns 1 if
+   equal, 0 if not and -1 with an error if getting the settings failed. */
+typedef int
+dsasl_client_mech_settings_equal_t(struct event *event1, struct event *event2,
+				   const char **error_r);
+
 enum dsasl_mech_security_flags {
 	DSASL_MECH_SEC_ALLOW_NULS	= BIT(1),
 	DSASL_MECH_SEC_NO_PASSWORD	= BIT(2),
@@ -34,6 +40,10 @@ struct dsasl_client_mech {
 	int (*auth_get_result)(struct dsasl_client_mech_session *msession,
 			       const char *key, const char **value_r,
 			       const char **error_r);
+	/* Optional. Used by dsasl_client_settings_equal() only for the core
+	   mechanisms, since it has no client. The events have the client_auth
+	   filter name of the mechanism. */
+	dsasl_client_mech_settings_equal_t *settings_equal;
 };
 
 struct dsasl_client_mech_session {

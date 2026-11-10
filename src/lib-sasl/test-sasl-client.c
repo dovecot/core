@@ -820,6 +820,113 @@ static void test_sasl_client_settings_equal(void)
 	test_settings_equal_run(tests, N_ELEMENTS(tests));
 }
 
+static unsigned int test_mech_equal_calls;
+static int test_mech_equal_result;
+static const char *test_mech_equal_error;
+
+static int
+test_mech_settings_equal(struct event *event1, struct event *event2,
+			 const char **error_r)
+{
+	/* The client_auth/<mechanism>/authid of event1 and event2, in the
+	   order the mechanisms are called. */
+	static const char *const authids[][2] = {
+		{ "authid1a", "authid2a" },
+		{ "authid1b", "authid2b" },
+	};
+	const struct client_auth_settings *set1, *set2;
+	unsigned int idx = test_mech_equal_calls++;
+
+	if (idx >= N_ELEMENTS(authids))
+		return 1;
+	if (settings_get(event1, &client_auth_setting_parser_info, 0,
+			 &set1, error_r) < 0)
+		return -1;
+	if (settings_get(event2, &client_auth_setting_parser_info, 0,
+			 &set2, error_r) < 0) {
+		settings_free(set1);
+		return -1;
+	}
+	test_assert_strcmp(set1->authid, authids[idx][0]);
+	test_assert_strcmp(set2->authid, authids[idx][1]);
+	settings_free(set1);
+	settings_free(set2);
+
+	*error_r = test_mech_equal_error;
+	return test_mech_equal_result;
+}
+
+static void test_sasl_client_mech_settings_equal(void)
+{
+	static const struct dsasl_client_mech test_mech_no_equal = {
+		.name = "TESTNONE",
+	};
+	static const struct dsasl_client_mech test_mech_equal1 = {
+		.name = "TESTEQ1",
+		.settings_equal = test_mech_settings_equal,
+	};
+	static const struct dsasl_client_mech test_mech_equal2 = {
+		.name = "TESTEQ2",
+		.settings_equal = test_mech_settings_equal,
+	};
+	static const struct dsasl_client_mech *const mechs[] = {
+		&test_mech_no_equal, &test_mech_equal1, &test_mech_equal2,
+	};
+	static const char *const settings1[] = {
+		"client_auth", "TESTEQ1 TESTEQ2",
+		"client_auth/TESTEQ1/mechanism", "TESTEQ1",
+		"client_auth/TESTEQ1/authid", "authid1a",
+		"client_auth/TESTEQ2/mechanism", "TESTEQ2",
+		"client_auth/TESTEQ2/authid", "authid1b",
+		NULL,
+	};
+	static const char *const settings2[] = {
+		"client_auth", "TESTEQ1 TESTEQ2",
+		"client_auth/TESTEQ1/mechanism", "TESTEQ1",
+		"client_auth/TESTEQ1/authid", "authid2a",
+		"client_auth/TESTEQ2/mechanism", "TESTEQ2",
+		"client_auth/TESTEQ2/authid", "authid2b",
+		NULL,
+	};
+	static const struct {
+		const char *label;
+		int result;
+		const char *error;
+		/* Mechanisms called before the result is known. */
+		unsigned int calls;
+	} tests[] = {
+		{ "equal", 1, NULL, 2 },
+		{ "differs", 0, NULL, 1 },
+		{ "error", -1, "mechanism settings error", 1 },
+	};
+
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		struct settings_simple test_set1, test_set2;
+		const char *error = NULL;
+
+		test_begin(t_strdup_printf(
+			"sasl client mechanism settings equal - %s",
+			tests[i].label));
+		settings_simple_init(&test_set1, settings1);
+		settings_simple_init(&test_set2, settings2);
+		test_mech_equal_calls = 0;
+		test_mech_equal_result = tests[i].result;
+		test_mech_equal_error = tests[i].error;
+
+		test_assert_cmp(dsasl_client_mechs_settings_equal(
+					mechs, N_ELEMENTS(mechs),
+					test_set1.event, test_set2.event,
+					&error),
+				==, tests[i].result);
+		test_assert_strcmp(error, tests[i].error);
+		test_assert_ucmp(test_mech_equal_calls, ==, tests[i].calls);
+
+		settings_simple_deinit(&test_set2);
+		settings_simple_deinit(&test_set1);
+		test_end();
+	}
+}
+
 static void test_sasl_client_is_finished(void)
 {
 	static const char *const sasl_set_fmt[] = {
@@ -1396,6 +1503,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		test_sasl_client_xoauth2,
 		test_sasl_client_mech_select,
 		test_sasl_client_settings_equal,
+		test_sasl_client_mech_settings_equal,
 		test_sasl_client_is_finished,
 		test_sasl_client_is_finished_unverified,
 		test_sasl_client_digest_md5_unexpected_input,

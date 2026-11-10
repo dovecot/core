@@ -239,10 +239,57 @@ int dsasl_client_check_settings(struct dsasl_client *client,
 	return 0;
 }
 
+int dsasl_client_mech_name_settings_equal(
+	const char *mech_name, dsasl_client_mech_settings_equal_t *equal_func,
+	struct event *event1, struct event *event2, const char **error_r)
+{
+	struct event *mech_event1, *mech_event2;
+	int ret;
+
+	/* Use the same filter as the sessions of the mechanism do. */
+	mech_event1 = event_create(event1);
+	settings_event_add_list_filter_name(mech_event1,
+					    CLIENT_AUTH_SETTINGS_FILTER,
+					    mech_name);
+	mech_event2 = event_create(event2);
+	settings_event_add_list_filter_name(mech_event2,
+					    CLIENT_AUTH_SETTINGS_FILTER,
+					    mech_name);
+	ret = equal_func(mech_event1, mech_event2, error_r);
+	event_unref(&mech_event1);
+	event_unref(&mech_event2);
+	return ret;
+}
+
+int dsasl_client_mechs_settings_equal(
+	const struct dsasl_client_mech *const *mechs, unsigned int count,
+	struct event *event1, struct event *event2, const char **error_r)
+{
+	int ret;
+
+	for (unsigned int i = 0; i < count; i++) {
+		if (mechs[i]->settings_equal == NULL)
+			continue;
+		ret = dsasl_client_mech_name_settings_equal(
+			mechs[i]->name, mechs[i]->settings_equal,
+			event1, event2, error_r);
+		if (ret <= 0)
+			return ret;
+	}
+	return 1;
+}
+
 int dsasl_client_settings_equal(struct event *event1, struct event *event2,
 				const char **error_r)
 {
-	return client_auth_settings_equal(event1, event2, error_r);
+	int ret;
+
+	ret = client_auth_settings_equal(event1, event2, error_r);
+	if (ret <= 0)
+		return ret;
+	return dsasl_client_mechs_settings_equal(core_mechanisms,
+						 N_ELEMENTS(core_mechanisms),
+						 event1, event2, error_r);
 }
 
 /*

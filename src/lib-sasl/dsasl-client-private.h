@@ -29,6 +29,19 @@ struct dsasl_client {
 	struct module *modules;
 };
 
+/* Call equal_func with events that have the client_auth filter name of the
+   mechanism. The returned values are the same as in
+   dsasl_client_settings_equal(). */
+int dsasl_client_mech_name_settings_equal(
+	const char *mech_name, dsasl_client_mech_settings_equal_t *equal_func,
+	struct event *event1, struct event *event2, const char **error_r);
+
+/* Compare the settings that the given mechanisms read from the events. The
+   returned values are the same as in dsasl_client_settings_equal(). */
+int dsasl_client_mechs_settings_equal(
+	const struct dsasl_client_mech *const *mechs, unsigned int count,
+	struct event *event1, struct event *event2, const char **error_r);
+
 /* A module that registers SASL mechanisms in the client. */
 struct dsasl_client_module {
 	/* Name of the module, e.g. "dovecot-gssapi". */
