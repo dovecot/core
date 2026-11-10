@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "sleep.h"
 #include "time-util.h"
 #include "settings.h"
 #include "test-common.h"
@@ -740,6 +741,156 @@ static void test_sql_pgsql_fatal_error_does_not_leak(void)
 	test_end();
 }
 
+struct test_pgsql_pid_context {
+	char *pid;
+	bool done;
+};
+
+static void test_pgsql_pid_callback(struct sql_result *result,
+				    struct test_pgsql_pid_context *ctx)
+{
+	if (sql_result_next_row(result) == SQL_RESULT_NEXT_OK)
+		ctx->pid = i_strdup(sql_result_get_field_value(result, 0));
+	ctx->done = TRUE;
+	io_loop_stop(current_ioloop);
+}
+
+/* Ask for the backend's pid the way passdb-sql and userdb-sql ask: with a
+   callback, through sqlpool's asynchronous path, which is the one that
+   retries a failed query on the next pooled connection. */
+static char *test_pgsql_backend_pid(struct sql_db *sql, bool statement)
+{
+	struct test_pgsql_pid_context ctx;
+	struct timeout *to;
+
+	i_zero(&ctx);
+	if (statement) {
+		struct sql_statement *stmt =
+			sql_statement_init(sql, "SELECT pg_backend_pid()");
+		sql_statement_query(&stmt, test_pgsql_pid_callback, &ctx);
+	} else {
+		sql_query(sql, "SELECT pg_backend_pid()",
+			  test_pgsql_pid_callback, &ctx);
+	}
+	if (!ctx.done) {
+		to = timeout_add(10 * 1000, io_loop_stop, current_ioloop);
+		io_loop_run(current_ioloop);
+		timeout_remove(&to);
+	}
+	test_assert(ctx.done);
+	return ctx.pid;
+}
+
+/* End the backend from another connection, the way a restart of the server
+   does: pg_terminate_backend() makes it send the same FATAL error and close
+   the connection. It only signals the backend, so wait until the backend
+   has gone - then the error and the end of the stream are on the socket. */
+static void test_pgsql_end_backend(struct sql_db *admin, const char *pid)
+{
+	struct sql_result *result;
+	unsigned int i;
+
+	result = sql_query_s(admin, t_strdup_printf(
+		"SELECT pg_terminate_backend(%s)", pid));
+	test_assert(sql_result_next_row(result) == SQL_RESULT_NEXT_OK);
+	test_assert_strcmp(sql_result_get_field_value(result, 0), "t");
+	sql_result_unref(result);
+
+	for (i = 0; i < 100; i++) {
+		result = sql_query_s(admin, t_strdup_printf(
+			"SELECT count(*) FROM pg_stat_activity WHERE pid = %s",
+			pid));
+		bool gone = sql_result_next_row(result) == SQL_RESULT_NEXT_OK &&
+			strcmp(sql_result_get_field_value(result, 0), "0") == 0;
+		sql_result_unref(result);
+		if (gone)
+			return;
+		i_sleep_msecs(10);
+	}
+	test_assert(FALSE);
+}
+
+/* A pooled connection that the server ended while it sat idle must cost the
+   next query neither a failure nor a retry - sqlpool's "Query failed,
+   retrying" is a warning, which fails the test. Both ways a query reaches
+   the server are tried: a plain query, and a statement, which is what
+   passdb-sql and userdb-sql use. */
+static void test_sql_pgsql_idle_connection_ended_by_server(void)
+{
+	if (test_pgsql_unreachable) {
+		i_info("test-sql-pgsql: ended idle connection test skipped "
+		       "(pgsql server unreachable)");
+		return;
+	}
+
+	test_begin("test sql pgsql idle connection ended by the server");
+
+	struct ioloop *ioloop = io_loop_create();
+	settings_info_register(&pgsql_setting_parser_info);
+
+	struct settings_simple set;
+	settings_simple_init(&set, (const char *const []) {
+		"sql_driver", "pgsql",
+		"pgsql", test_pgsql_host,
+		"pgsql_host", test_pgsql_host,
+		"pgsql_parameters/user", test_pgsql_user,
+		"pgsql_parameters/password", test_pgsql_password,
+		"pgsql_parameters/dbname", test_pgsql_dbname,
+		NULL,
+	});
+	/* A connection of its own to end the other one with: settings that
+	   differ keep the driver from handing back the same cached one. */
+	struct settings_simple admin_set;
+	settings_simple_init(&admin_set, (const char *const []) {
+		"sql_driver", "pgsql",
+		"pgsql", test_pgsql_host,
+		"pgsql_host", test_pgsql_host,
+		"pgsql_parameters/user", test_pgsql_user,
+		"pgsql_parameters/password", test_pgsql_password,
+		"pgsql_parameters/dbname", test_pgsql_dbname,
+		"pgsql_parameters/application_name", "test-sql-pgsql-admin",
+		NULL,
+	});
+	struct sql_db *sql = NULL, *admin = NULL;
+	const char *error = NULL;
+
+	sql_drivers_init_without_drivers();
+	driver_pgsql_init();
+
+	if (sql_init_auto(set.event, &sql, &error) <= 0)
+		i_fatal("%s", error);
+	if (sql_init_auto(admin_set.event, &admin, &error) <= 0)
+		i_fatal("%s", error);
+
+	for (unsigned int statement = 0; statement <= 1; statement++) {
+		char *pid = test_pgsql_backend_pid(sql, statement == 1);
+		test_assert(pid != NULL);
+		if (pid == NULL)
+			break;
+		test_pgsql_end_backend(admin, pid);
+		/* Let the connection sit idle as it would after a restart:
+		   sql_connect() reconnects at most once a second, and the
+		   connection was made moments ago. */
+		i_sleep_msecs(2000);
+
+		/* The next query answers, from a new backend. */
+		char *new_pid = test_pgsql_backend_pid(sql, statement == 1);
+		test_assert(new_pid != NULL && null_strcmp(new_pid, pid) != 0);
+		i_free(new_pid);
+		i_free(pid);
+	}
+
+	sql_unref(&admin);
+	sql_unref(&sql);
+	driver_pgsql_deinit();
+	sql_drivers_deinit_without_drivers();
+	settings_simple_deinit(&admin_set);
+	settings_simple_deinit(&set);
+	io_loop_destroy(&ioloop);
+
+	test_end();
+}
+
 int main(int argc, char *argv[]) {
 	if (argc < 2) {
 		i_info("test-sql-pgsql: skipped (no parameters given)");
@@ -778,6 +929,7 @@ int main(int argc, char *argv[]) {
 		test_sql_pgsql_connect_timeout,
 		test_sql_pgsql_statement_timeout,
 		test_sql_pgsql_fatal_error_does_not_leak,
+		test_sql_pgsql_idle_connection_ended_by_server,
 		NULL
 	};
 	return test_run(test_functions);
