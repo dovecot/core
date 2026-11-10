@@ -124,7 +124,9 @@ int auth_scram_credentials_parse(const struct hash_method *hmethod,
 				 const char **error_r)
 {
 	const char *const *fields;
-	buffer_t *buf;
+	unsigned int iter_count;
+	buffer_t *stored_key, *server_key;
+	int ret = -1;
 
 	/* password string format: iter,salt,stored_key,server_key */
 	fields = t_strsplit(t_strndup(credentials, size), ",");
@@ -134,31 +136,34 @@ int auth_scram_credentials_parse(const struct hash_method *hmethod,
 			"Invalid %s passdb entry format", name);
 		return -1;
 	}
-	if (str_to_uint(fields[0], iter_count_r) < 0 ||
-	    *iter_count_r < AUTH_SCRAM_MIN_ITERATE_COUNT ||
-	    *iter_count_r > AUTH_SCRAM_MAX_ITERATE_COUNT) {
+	if (str_to_uint(fields[0], &iter_count) < 0 ||
+	    iter_count < AUTH_SCRAM_MIN_ITERATE_COUNT ||
+	    iter_count > AUTH_SCRAM_MAX_ITERATE_COUNT) {
 		*error_r = t_strdup_printf(
 			"Invalid %s iteration count in passdb", name);
 		return -1;
 	}
-	*salt_r = fields[1];
 
-	buf = t_buffer_create(hmethod->digest_size);
-	if (base64_decode(fields[2], strlen(fields[2]), buf) < 0 ||
-	    buf->used != hmethod->digest_size) {
+	stored_key = t_buffer_create(
+		MAX_BASE64_DECODED_SIZE(strlen(fields[2])));
+	server_key = t_buffer_create(
+		MAX_BASE64_DECODED_SIZE(strlen(fields[3])));
+	if (base64_decode(fields[2], strlen(fields[2]), stored_key) < 0 ||
+	    stored_key->used != hmethod->digest_size) {
 		*error_r = t_strdup_printf(
 			"Invalid %s StoredKey in passdb", name);
-		return -1;
-	}
-	memcpy(stored_key_r, buf->data, hmethod->digest_size);
-
-	buffer_set_used_size(buf, 0);
-	if (base64_decode(fields[3], strlen(fields[3]), buf) < 0 ||
-	    buf->used != hmethod->digest_size) {
+	} else if (base64_decode(fields[3], strlen(fields[3]), server_key) < 0 ||
+		   server_key->used != hmethod->digest_size) {
 		*error_r = t_strdup_printf(
 			"Invalid %s ServerKey in passdb", name);
-		return -1;
+	} else {
+		*iter_count_r = iter_count;
+		*salt_r = fields[1];
+		memcpy(stored_key_r, stored_key->data, hmethod->digest_size);
+		memcpy(server_key_r, server_key->data, hmethod->digest_size);
+		ret = 0;
 	}
-	memcpy(server_key_r, buf->data, hmethod->digest_size);
-	return 0;
+	buffer_clear_safe(stored_key);
+	buffer_clear_safe(server_key);
+	return ret;
 }

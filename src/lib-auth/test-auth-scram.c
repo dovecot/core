@@ -723,6 +723,40 @@ static void test_auth_nonempty_initial_input(void)
 	test_end();
 }
 
+static void test_auth_credentials_parse_invalid(void)
+{
+	static const char *const invalid[] = {
+		/* bad iteration count */
+		"1,c2FsdA==,AQEBAQEBAQEBAQEBAQEBAQEBAQE=,AQEBAQEBAQEBAQEBAQEBAQEBAQE=",
+		/* bad StoredKey */
+		"4096,c2FsdA==,AAAA,AQEBAQEBAQEBAQEBAQEBAQEBAQE=",
+		/* bad ServerKey */
+		"4096,c2FsdA==,AQEBAQEBAQEBAQEBAQEBAQEBAQE=,AAAA",
+	};
+	static const unsigned char zero_key[SHA1_RESULTLEN];
+	const char *error;
+
+	test_begin("auth credentials parse invalid");
+	for (unsigned int i = 0; i < N_ELEMENTS(invalid); i++) {
+		const char *salt = NULL;
+		unsigned int iter_count = 0;
+		unsigned char stored_key[SHA1_RESULTLEN] = {};
+		unsigned char server_key[SHA1_RESULTLEN] = {};
+
+		test_assert_idx(auth_scram_credentials_parse(
+			&hash_method_sha1, "SCRAM-SHA-1",
+			(const unsigned char *)invalid[i], strlen(invalid[i]),
+			&iter_count, &salt, stored_key, server_key,
+			&error) < 0, i);
+		test_assert_idx(iter_count == 0 && salt == NULL, i);
+		test_assert_idx(memcmp(stored_key, zero_key,
+				       sizeof(zero_key)) == 0, i);
+		test_assert_idx(memcmp(server_key, zero_key,
+				       sizeof(zero_key)) == 0, i);
+	}
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -730,6 +764,7 @@ int main(void)
 		test_auth_server_error,
 		test_auth_unexpected_input,
 		test_auth_nonempty_initial_input,
+		test_auth_credentials_parse_invalid,
 		NULL
 	};
 	return test_run(test_functions);
