@@ -866,15 +866,16 @@ void mail_storage_clear_error(struct mail_storage *storage);
 void mail_storage_set_error(struct mail_storage *storage,
 			    enum mail_error error, const char *string);
 void mail_storage_set_critical(struct mail_storage *storage,
-			       const char *fmt, ...) ATTR_FORMAT(2, 3);
+			       const char *fmt, ...) ATTR_FORMAT(2, 3)
+	ATTR_COLD;
 void mailbox_set_critical(struct mailbox *box,
-			  const char *fmt, ...) ATTR_FORMAT(2, 3);
+			  const char *fmt, ...) ATTR_FORMAT(2, 3) ATTR_COLD;
 void mail_set_critical(struct mail *mail,
-		       const char *fmt, ...) ATTR_FORMAT(2, 3);
-void mail_storage_set_internal_error(struct mail_storage *storage);
-void mailbox_set_index_error(struct mailbox *box);
+		       const char *fmt, ...) ATTR_FORMAT(2, 3) ATTR_COLD;
+void mail_storage_set_internal_error(struct mail_storage *storage) ATTR_COLD;
+void mailbox_set_index_error(struct mailbox *box) ATTR_COLD;
 void mail_storage_set_index_error(struct mail_storage *storage,
-				  struct mail_index *index);
+				  struct mail_index *index) ATTR_COLD;
 bool mail_storage_set_error_from_errno(struct mail_storage *storage);
 void mail_storage_copy_list_error(struct mail_storage *storage,
 				  struct mailbox_list *list);
@@ -882,7 +883,7 @@ void mail_storage_copy_error(struct mail_storage *dest,
 			     struct mail_storage *src);
 /* set record in mail cache corrupted */
 void mail_set_mail_cache_corrupted(struct mail *mail, const char *fmt, ...)
-	ATTR_FORMAT(2, 3);
+	ATTR_FORMAT(2, 3) ATTR_COLD;
 
 /* Indicate mail being expunged by autoexpunge */
 void mail_autoexpunge(struct mail *mail);

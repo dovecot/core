@@ -204,7 +204,7 @@ struct mailbox_list_index_iterate_context {
 extern MODULE_CONTEXT_DEFINE(mailbox_list_index_module,
 			     &mailbox_list_module_register);
 
-void mailbox_list_index_set_index_error(struct mailbox_list *list);
+void mailbox_list_index_set_index_error(struct mailbox_list *list) ATTR_COLD;
 struct mailbox_list_index_node *
 mailbox_list_index_lookup(struct mailbox_list *list, const char *name);
 struct mailbox_list_index_node *

@@ -194,7 +194,8 @@ void index_mail_update_access_parts_post(struct mail *_mail);
 void index_mail_close(struct mail *mail);
 void index_mail_close_streams(struct index_mail *mail);
 void index_mail_free(struct mail *mail);
-void index_mail_set_message_parts_corrupted(struct mail *mail, const char *error);
+void index_mail_set_message_parts_corrupted(struct mail *mail, const char *error)
+	ATTR_COLD;
 
 bool index_mail_want_parse_headers(struct index_mail *mail);
 void index_mail_parse_header_init(struct index_mail *mail,
@@ -261,7 +262,7 @@ void index_mail_expunge(struct mail *mail);
 int index_mail_precache(struct mail *mail);
 void index_mail_set_cache_corrupted(struct mail *mail,
 				    enum mail_fetch_field field,
-				    const char *reason);
+				    const char *reason) ATTR_COLD;
 int index_mail_opened(struct mail *mail, struct istream **stream);
 int index_mail_stream_check_failure(struct index_mail *mail);
 void index_mail_stream_log_failure_for(struct index_mail *mail,
