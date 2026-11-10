@@ -187,9 +187,6 @@ auth_scram_parse_client_first(struct auth_scram_server *server,
 			return -1;
 		}
 		break;
-	default:
-		*error_r = "Invalid GS2 header";
-		return -1;
 	}
 
 	/* authzid         = "a=" saslname
