@@ -1437,7 +1437,8 @@ static int json_string_ostream_send_buffer(struct json_string_ostream *jstream)
 {
 	ssize_t sret;
 
-	if (jstream->buf == NULL)
+	/* generator is detached once finished */
+	if (jstream->buf == NULL || jstream->generator == NULL)
 		return 1;
 
 	sret = json_string_ostream_send(jstream, jstream->buf->data,
