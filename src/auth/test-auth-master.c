@@ -78,6 +78,7 @@ int main(int argc, char *argv[])
 {
 	static void (*const test_functions[])(void) = {
 		test_auth_master,
+		test_auth_master_input_hide_secrets,
 		NULL
 	};
 	const enum master_service_flags service_flags =

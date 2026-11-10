@@ -54,6 +54,36 @@ auth_master_reply_hide_secrets(struct auth_master_connection *conn,
 	return auth_field_line_hide_secrets(str);
 }
 
+const char *auth_master_input_hide_secrets(const char *const *args)
+{
+	unsigned int fields_idx = 1, cookie_idx = UINT_MAX;
+	string_t *str = t_str_new(128);
+
+	if (strcmp(args[0], "USER") == 0 || strcmp(args[0], "PASS") == 0) {
+		fields_idx = 3;
+	} else if (strcmp(args[0], "LIST") == 0) {
+		fields_idx = 2;
+	} else if (strcmp(args[0], "REQUEST") == 0) {
+		cookie_idx = 4;
+		fields_idx = 5;
+	} else if (strcmp(args[0], "CACHE-FLUSH") == 0 ||
+		   strcmp(args[0], "CACHE-STATUS") == 0) {
+		fields_idx = UINT_MAX;
+	}
+
+	for (unsigned int i = 0; args[i] != NULL; i++) {
+		if (i > 0)
+			str_append_c(str, '\t');
+		if (i == cookie_idx)
+			str_append(str, PASSWORD_HIDDEN_STR);
+		else if (i >= fields_idx)
+			str_append(str, auth_field_hide_secret(args[i]));
+		else
+			str_append(str, args[i]);
+	}
+	return str_c(str);
+}
+
 void auth_master_request_callback(const char *reply,
 				  struct auth_master_connection *conn)
 {
@@ -703,7 +733,10 @@ static int auth_master_input_args(struct connection *_conn,
 	struct auth_master_connection *conn =
 		container_of(_conn, struct auth_master_connection, conn);
 
-	e_debug(auth_event, "master in: %s", t_strarray_join(args, "\t"));
+	e_debug(auth_event, "master in: %s",
+		conn->auth->protocol_set->debug_passwords ?
+		t_strarray_join(args, "\t") :
+		auth_master_input_hide_secrets(args));
 
 	if (strcmp(args[0], "USER") == 0)
 		return master_input_user(conn, args + 1);

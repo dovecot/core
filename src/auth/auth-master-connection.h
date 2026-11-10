@@ -27,6 +27,10 @@ auth_master_connection_create(struct auth *auth, int fd,
 void auth_master_connection_ref(struct auth_master_connection *conn);
 void auth_master_connection_unref(struct auth_master_connection **conn);
 
+/* Returns the master socket input line for logging: the REQUEST cookie and
+   the values of secret fields are replaced with "<hidden>". Allocated from
+   data stack. */
+const char *auth_master_input_hide_secrets(const char *const *args);
 void auth_master_request_callback(const char *reply, struct auth_master_connection *conn);
 
 void auth_master_connections_destroy_all(void);
