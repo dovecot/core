@@ -35,6 +35,7 @@ headers = \
 	imap-keepalive.h \
 	imap-match.h \
 	imap-parser.h \
+	imap-reply.h \
 	imap-resp-code.h \
 	imap-quote.h \
 	imap-stats.h \

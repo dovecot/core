@@ -41,6 +41,7 @@ install_headers(
   'imap-match.h',
   'imap-parser.h',
   'imap-quote.h',
+  'imap-reply.h',
   'imap-resp-code.h',
   'imap-seqset.h',
   'imap-stats.h',
