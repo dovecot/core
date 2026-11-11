@@ -17,6 +17,9 @@
 #include <sys/stat.h>
 #include <stdio.h>
 #include <openssl/evp.h>
+#include <openssl/err.h>
+#include <openssl/pem.h>
+#include <openssl/rsa.h>
 
 #if defined(NID_X25519)
 # define HAVE_X25519
@@ -1700,6 +1703,58 @@ static void test_sign_verify_rsa(void)
 	test_end();
 }
 
+/* JWS PS* (RFC 7518 section 3.5) needs a salt as long as the digest.
+   OpenSSL before 3.5 defaults to the longest salt that fits. */
+static void test_sign_rsa_pss_salt_length(void)
+{
+	const char *data = "signed data";
+	struct dcrypt_keypair pair;
+	buffer_t *signature = t_buffer_create(128);
+	string_t *pem = t_str_new(512);
+	EVP_PKEY_CTX *pctx = NULL;
+	const char *error;
+	bool valid;
+
+	test_begin("sign (rsa-pss) uses a digest-length salt");
+	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_RSA, 1024, NULL, &error))
+		i_fatal("%s", error);
+	test_assert(dcrypt_sign(pair.priv, SN_sha256,
+				DCRYPT_SIGNATURE_FORMAT_DSS,
+				data, strlen(data), signature,
+				DCRYPT_PADDING_RSA_PKCS1_PSS, &error));
+	test_assert(dcrypt_verify(pair.pub, SN_sha256,
+				  DCRYPT_SIGNATURE_FORMAT_DSS,
+				  data, strlen(data),
+				  signature->data, signature->used, &valid,
+				  DCRYPT_PADDING_RSA_PKCS1_PSS, &error) && valid);
+
+	/* dcrypt cannot report the salt length, so verify with OpenSSL
+	   requiring a digest-length salt: a longer one fails. */
+	if (!dcrypt_key_store_public(pair.pub, DCRYPT_FORMAT_PEM, pem, &error))
+		i_fatal("%s", error);
+	BIO *bio = BIO_new_mem_buf(str_data(pem), (int)str_len(pem));
+	EVP_PKEY *pkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
+	i_assert(pkey != NULL);
+	EVP_MD_CTX *dctx = EVP_MD_CTX_new();
+	test_assert(EVP_DigestVerifyInit(dctx, &pctx, EVP_sha256(), NULL,
+					 pkey) == 1 &&
+		    EVP_PKEY_CTX_set_rsa_padding(pctx,
+						 RSA_PKCS1_PSS_PADDING) == 1 &&
+		    EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx,
+						     RSA_PSS_SALTLEN_DIGEST) == 1 &&
+		    EVP_DigestVerify(dctx, signature->data, signature->used,
+				     (const unsigned char *)data,
+				     strlen(data)) == 1);
+	EVP_MD_CTX_free(dctx);
+	EVP_PKEY_free(pkey);
+	BIO_free(bio);
+	/* a failed check leaves errors later dcrypt calls would report */
+	ERR_clear_error();
+
+	dcrypt_keypair_unref(&pair);
+	test_end();
+}
+
 static void test_sign_verify_ecdsa(void)
 {
 	const char *error = NULL;
@@ -2871,6 +2926,7 @@ int main(void)
 		test_raw_keys,
 		test_jwk_keys,
 		test_sign_verify_rsa,
+		test_sign_rsa_pss_salt_length,
 		test_sign_verify_ecdsa,
 		test_sign_verify_x962,
 		test_sign_verify_x962_fixed_width,

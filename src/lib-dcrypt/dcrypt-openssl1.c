@@ -3891,10 +3891,15 @@ dcrypt_openssl_sign(struct dcrypt_private_key *key, const char *algorithm,
 	dctx = EVP_MD_CTX_create();
 
 	/* NB! Padding is set only on RSA signatures
-	   ECDSA signatures use whatever is default */
+	   ECDSA signatures use whatever is default. A PSS salt is as long as
+	   the digest on every OpenSSL version (RFC 7518 section 3.5). */
 	if (EVP_DigestSignInit(dctx, &pctx, md, NULL, key->key) != 1 ||
 	    (EVP_PKEY_base_id(key->key) == EVP_PKEY_RSA &&
 	     EVP_PKEY_CTX_set_rsa_padding(pctx, pad) != 1) ||
+	    (EVP_PKEY_base_id(key->key) == EVP_PKEY_RSA &&
+	     pad == RSA_PKCS1_PSS_PADDING &&
+	     EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx,
+					      RSA_PSS_SALTLEN_DIGEST) != 1) ||
 	    EVP_DigestSign(dctx, NULL, &siglen, data, data_len) != 1) {
 		ret = dcrypt_openssl_error(error_r);
 	} else {

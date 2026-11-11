@@ -75,7 +75,8 @@ foreach test_name : tests
     executable(
       exe,
       src,
-      dependencies: test_deps,
+      # test-crypto calls OpenSSL itself to check the PSS salt length
+      dependencies: test_name == 'crypto' ? [test_deps, ext_ssl] : test_deps,
       # Whole-archive liblib/libjson and export the dynamic symbols so the runtime-loaded
       # dcrypt_openssl module can resolve every lib/json symbol it needs from this binary.
       link_whole: [lib_lib, lib_json],

@@ -69,12 +69,12 @@ LIBDOVECOT_TEST = \
 	$(LIBDOVECOT_TEST_LIBS) \
 	$(MODULE_LIBS)
 
-test_crypto_LDADD = $(LIBDOVECOT_TEST)
+test_crypto_LDADD = $(LIBDOVECOT_TEST) $(SSL_LIBS)
 test_crypto_DEPENDENCIES = $(LIBDOVECOT_TEST_DEPS)
 if HAVE_WHOLE_ARCHIVE
 test_crypto_LDFLAGS = -export-dynamic -Wl,$(LD_WHOLE_ARCHIVE),../lib-var-expand/.libs/libvar_expand.a,../lib/.libs/liblib.a,../lib-json/.libs/libjson.a,../lib-ssl-iostream/.libs/libssl_iostream.a,$(LD_NO_WHOLE_ARCHIVE)
 endif
-test_crypto_CFLAGS = $(AM_CFLAGS) -DDCRYPT_SRC_DIR=\"$(top_srcdir)/src/lib-dcrypt\"
+test_crypto_CFLAGS = $(AM_CFLAGS) $(SSL_CFLAGS) -DDCRYPT_SRC_DIR=\"$(top_srcdir)/src/lib-dcrypt\"
 test_crypto_SOURCES = $(libdcrypt_la_SOURCES) test-crypto.c
 
 test_stream_LDADD = $(LIBDOVECOT_TEST)
