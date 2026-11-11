@@ -291,14 +291,15 @@ static void test_mail_random_access(void)
 		i_rand_limit(N_ELEMENTS(potential_never_cache_fields));
 	const char *never_cache_fields =
 		potential_never_cache_fields[never_cache_field_idx];
+	const char *const extra_input[] = {
+		"mail_attachment_detection_options=add-flags",
+		t_strconcat("mail_never_cache_fields=",
+			    never_cache_fields, NULL),
+		NULL
+	};
 	struct test_mail_storage_settings set = {
 		.driver = "sdbox",
-		.extra_input = (const char *const[]) {
-			"mail_attachment_detection_options=add-flags",
-			t_strconcat("mail_never_cache_fields=",
-				    never_cache_fields, NULL),
-			NULL
-		},
+		.extra_input = extra_input,
 	};
 	struct mailbox *box;
 
@@ -334,15 +335,16 @@ static void test_mail_random_access(void)
 static void test_attachment_flags_during_header_fetch(void)
 {
 	struct test_mail_storage_ctx *ctx;
+	const char *const extra_input[] = {
+		"mail_attachment_detection_options=add-flags",
+		"mail_always_cache_fields=flags",
+		"mail_cache_fields=flags",
+		"mail_never_cache_fields=mime.parts",
+		NULL
+	};
 	struct test_mail_storage_settings set = {
 		.driver = "sdbox",
-		.extra_input = (const char *const[]) {
-			"mail_attachment_detection_options=add-flags",
-			"mail_always_cache_fields=flags",
-			"mail_cache_fields=flags",
-			"mail_never_cache_fields=mime.parts",
-			NULL
-		},
+		.extra_input = extra_input,
 	};
 
 	test_begin("mail attachment flags during header fetch");
@@ -396,13 +398,14 @@ static void test_attachment_flags_during_header_fetch(void)
 static void test_bodystructure_reparsing(void)
 {
 	struct test_mail_storage_ctx *ctx;
+	const char *const extra_input[] = {
+		"mail_attachment_detection_options=add-flags",
+		"mail_never_cache_fields=flags",
+		NULL
+	};
 	struct test_mail_storage_settings set = {
 		.driver = "sdbox",
-		.extra_input = (const char *const[]) {
-			"mail_attachment_detection_options=add-flags",
-			"mail_never_cache_fields=flags",
-			NULL
-		},
+		.extra_input = extra_input,
 	};
 	const char *value;
 
