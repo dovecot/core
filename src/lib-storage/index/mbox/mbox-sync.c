@@ -1128,7 +1128,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 						   sync_ctx->idx_seq++);
 			}
 
-			if (sync_ctx->next_uid == UINT32_MAX) {
+			if (sync_ctx->next_uid > MBOX_MAX_UID) {
 				/* oh no, we're out of UIDs. this shouldn't
 				   happen normally, so just try to get it fixed
 				   without crashing. */

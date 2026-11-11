@@ -390,7 +390,14 @@ static bool parse_x_uid(struct mbox_sync_mail_context *ctx,
 		return FALSE;
 	}
 
-	if (value == ctx->sync_ctx->next_uid) {
+	if (value > MBOX_MAX_UID) {
+		/* Past MBOX_MAX_UID (a sync then fails an assert), or
+		   next_uid would wrap to 0. The X-UID may come from an
+		   untrusted incoming mail, so treat it as broken. The mail
+		   then gets a new UID. */
+		ctx->mail.uid_broken = TRUE;
+		return FALSE;
+	} else if (value == ctx->sync_ctx->next_uid) {
 		/* X-UID is the next expected one. allow it because
 		   we'd just use this UID anyway. X-IMAPbase header
 		   still needs to be updated for this. */
