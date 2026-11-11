@@ -346,23 +346,27 @@ static bool parse_x_uid(struct mbox_sync_mail_context *ctx,
 			struct message_header_line *hdr)
 {
 	uint32_t value = 0;
-	size_t i;
+	uintmax_t num;
+	const unsigned char *end, *end_of_value;
 
 	if (ctx->mail.uid != 0) {
 		/* duplicate */
 		return FALSE;
 	}
 
-	for (i = 0; i < hdr->full_value_len; i++) {
-		if (hdr->full_value[i] < '0' || hdr->full_value[i] > '9')
-			break;
-		value = value*10 + (hdr->full_value[i] - '0');
-	}
-
-	for (; i < hdr->full_value_len; i++) {
-		if (!IS_LWSP_LF(hdr->full_value[i])) {
-			/* broken value */
-			return FALSE;
+	/* no digits or too large */
+	const bool unparsable =
+		str_parse_data_uintmax(hdr->full_value, hdr->full_value_len,
+				       &num, &end) < 0 ||
+		num > UINT32_MAX;
+	if (!unparsable) {
+		value = num;
+		end_of_value = hdr->full_value + hdr->full_value_len;
+		for (; end < end_of_value; end++) {
+			if (!IS_LWSP_LF(*end)) {
+				/* broken value */
+				return FALSE;
+			}
 		}
 	}
 
@@ -378,6 +382,11 @@ static bool parse_x_uid(struct mbox_sync_mail_context *ctx,
 		   header. c-client doesn't allow it either, and this
 		   way the UID doesn't have to be reset if X-IMAPbase
 		   header isn't what we expect it to be. */
+		return FALSE;
+	}
+
+	if (unparsable) {
+		ctx->mail.uid_broken = TRUE;
 		return FALSE;
 	}
 

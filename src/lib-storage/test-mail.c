@@ -4,11 +4,13 @@
 #include "test-common.h"
 #include "test-dir.h"
 #include "istream.h"
+#include "write-full.h"
 #include "master-service.h"
 #include "message-size.h"
 #include "message-binary-part.h"
 #include "index/index-mail.h"
 #include "test-mail-storage-common.h"
+#include <fcntl.h>
 
 static int
 test_mail_save_trans(struct mailbox_transaction_context *trans,
@@ -541,6 +543,66 @@ static void test_binary_size_corruption_recompute(void)
 	test_end();
 }
 
+static void test_mbox_x_uid_overflow(void)
+{
+	struct test_mail_storage_ctx *ctx;
+	const char *mbox =
+		"From a@example.com Thu Nov  9 22:33:52 2001\n"
+		"X-IMAPbase: 1 2\n"
+		"X-UID: 1\n"
+		"Subject: 1\n"
+		"\n"
+		"body\n"
+		"\n"
+		"From b@example.com Thu Nov  9 22:33:52 2001\n"
+		"X-UID: 4294967298\n"
+		"Subject: 2\n"
+		"\n"
+		"body2\n"
+		"\n";
+	int fd;
+
+	test_begin("mbox X-UID overflow");
+	ctx = test_mail_storage_init();
+	const char *path = t_strdup_printf("%stestuser/inbox", ctx->home_root);
+	const char *const extra_input[] = {
+		t_strdup_printf("mail_inbox_path=%s", path),
+		NULL
+	};
+	const struct test_mail_storage_settings set = {
+		.driver = "mbox",
+		.extra_input = extra_input,
+	};
+	test_mail_storage_init_user(ctx, &set);
+
+	fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	if (fd == -1)
+		i_fatal("open(%s) failed: %m", path);
+	if (write_full(fd, mbox, strlen(mbox)) < 0)
+		i_fatal("write(%s) failed: %m", path);
+	i_close_fd(&fd);
+
+	struct mailbox *box =
+		mailbox_alloc(ctx->user->namespaces->list, "INBOX", 0);
+	test_assert(mailbox_open(box) == 0);
+	test_assert(mailbox_sync(box, 0) == 0);
+
+	/* The X-UID doesn't fit in 32 bits. It must not wrap around to a UID
+	   that looks valid, so the mail gets a new UID. */
+	struct mailbox_transaction_context *trans =
+		mailbox_transaction_begin(box, 0, __func__);
+	struct mail *mail = mail_alloc(trans, 0, NULL);
+	mail_set_seq(mail, 2);
+	test_assert_cmp(mail->uid, ==, 3);
+	mail_free(&mail);
+	test_assert(mailbox_transaction_commit(&trans) == 0);
+
+	mailbox_free(&box);
+	test_mail_storage_deinit_user(ctx);
+	test_mail_storage_deinit(&ctx);
+	test_end();
+}
+
 static void test_mail_set_critical(void)
 {
 	struct test_mail_storage_settings set = {
@@ -797,6 +859,7 @@ int main(int argc, char **argv)
 		test_bodystructure_reparsing,
 		test_bodystructure_corruption_reparsing,
 		test_binary_size_corruption_recompute,
+		test_mbox_x_uid_overflow,
 		test_mail_set_critical,
 		test_mail_set_critical_different_mailboxes,
 		test_mail_get_last_internal_error,
