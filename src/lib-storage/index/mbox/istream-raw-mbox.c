@@ -212,6 +212,8 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 		}
 		ret = i_stream_read_memarea(stream->parent);
 	} while (ret > 0);
+	/* the last read may have moved or replaced the buffer */
+	buf = i_stream_get_data(stream->parent, &pos);
 	stream->istream.stream_errno = stream->parent->stream_errno;
 
 	if (ret < 0) {
@@ -488,6 +490,8 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 		if (size >= 2 + 31)
 			break;
 	} while ((ret = i_stream_read_memarea(rstream->istream.parent)) > 0);
+	/* the last read may have moved or replaced the buffer */
+	data = i_stream_get_data(rstream->istream.parent, &size);
 	if (ret == -1)
 		mbox_istream_log_read_error(rstream);
 

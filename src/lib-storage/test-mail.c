@@ -9,6 +9,7 @@
 #include "message-size.h"
 #include "message-binary-part.h"
 #include "index/index-mail.h"
+#include "index/mbox/istream-raw-mbox.h"
 #include "test-mail-storage-common.h"
 #include <fcntl.h>
 
@@ -543,6 +544,65 @@ static void test_binary_size_corruption_recompute(void)
 	test_end();
 }
 
+static void test_mbox_raw_istream_eof(void)
+{
+	const char *mbox =
+		"From a@example.com Thu Nov  9 22:33:52 2001\n"
+		"Subject: 1\n"
+		"\n"
+		"body\n";
+	struct istream *input, *raw_input;
+	uoff_t size;
+
+	test_begin("mbox raw istream EOF");
+	input = test_istream_create(mbox);
+	raw_input = i_stream_create_raw_mbox(input);
+	istream_raw_mbox_set_locked(raw_input);
+
+	/* The read that finds EOF may move the parent's buffer. Only a memory
+	   checker such as valgrind or AddressSanitizer notices a stale buffer:
+	   the size comes out the same. */
+	test_assert(istream_raw_mbox_seek(raw_input, 0) == 0);
+	test_assert(istream_raw_mbox_get_body_size(raw_input, UOFF_T_MAX,
+						   &size) == 0);
+	test_assert_cmp(size, ==, strlen("body"));
+
+	i_stream_unref(&raw_input);
+	i_stream_unref(&input);
+	test_end();
+}
+
+static void test_mbox_raw_istream_expected_size_at_eof(void)
+{
+	const char *mbox =
+		"From a@example.com Thu Nov  9 22:33:52 2001\n"
+		"Subject: 1\n"
+		"Content-Length: 5\n"
+		"\n"
+		"body\n"
+		"\n";
+	struct istream *input, *raw_input;
+	uoff_t size;
+
+	test_begin("mbox raw istream expected body size at EOF");
+	input = test_istream_create(mbox);
+	raw_input = i_stream_create_raw_mbox(input);
+	istream_raw_mbox_set_locked(raw_input);
+
+	/* Checking what follows the body reads up to EOF, which may move the
+	   parent's buffer. Only a memory checker such as valgrind or
+	   AddressSanitizer notices a stale buffer: the fallback read of the
+	   whole body gives the same size. */
+	test_assert(istream_raw_mbox_seek(raw_input, 0) == 0);
+	test_assert(istream_raw_mbox_get_body_size(raw_input, strlen("body\n"),
+						   &size) == 0);
+	test_assert_cmp(size, ==, strlen("body\n"));
+
+	i_stream_unref(&raw_input);
+	i_stream_unref(&input);
+	test_end();
+}
+
 static void test_mbox_out_of_uids(void)
 {
 	struct test_mail_storage_ctx *ctx;
@@ -951,6 +1011,8 @@ int main(int argc, char **argv)
 		test_bodystructure_reparsing,
 		test_bodystructure_corruption_reparsing,
 		test_binary_size_corruption_recompute,
+		test_mbox_raw_istream_eof,
+		test_mbox_raw_istream_expected_size_at_eof,
 		test_mbox_out_of_uids,
 		test_mbox_x_uid_overflow,
 		test_mbox_update_min_next_uid_unsynced,
