@@ -522,7 +522,7 @@ static void test_dns_lookup_cached(void)
 	struct test_expect_result ctx;
 	struct dns_lookup *lookup;
 	struct timeout *to;
-	struct event *event = event_create(NULL);
+	struct event *event;
 	struct dns_client *client;
 	int init_res;
 	const char *err;
@@ -532,6 +532,7 @@ static void test_dns_lookup_cached(void)
 		return;
 	}
 
+	event = event_create(NULL);
 	test_begin("dns lookup (cached)");
 	create_dns_server(&test_server);
 	const struct dns_client_parameters params = {
