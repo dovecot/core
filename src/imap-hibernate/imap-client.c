@@ -23,6 +23,7 @@
 #include "imap-keepalive.h"
 #include "imap-master-connection.h"
 #include "imap-parser.h"
+#include "imap-reply.h"
 #include "imap-client.h"
 
 #include <unistd.h>
@@ -98,7 +99,7 @@ static struct imap_client *imap_clients;
 static struct str_table *capability_table;
 static struct priorityq *unhibernate_queue;
 static struct timeout *to_unhibernate;
-static const char imap_still_here_text[] = "* OK Still here\r\n";
+static const char imap_still_here_text[] = IMAP_REPLY_IDLE_STILL_HERE"\r\n";
 
 static struct event_category event_category_imap = {
 	.name = "imap",
@@ -476,7 +477,8 @@ static void imap_client_input_idle_cmd(struct imap_client *client)
 		   us that it's still there. continue hibernation. */
 		old_tag = client->state.tag;
 		client->state.tag = i_strdup(new_tag);
-		output = t_strdup_printf("%s OK Idle completed.\r\n+ idling\r\n", old_tag);
+		output = t_strdup_printf("%s OK "IMAP_REPLY_IDLE_COMPLETED"\r\n"
+					 IMAP_REPLY_IDLE_CONTINUE"\r\n", old_tag);
 		i_free(old_tag);
 		ret = o_stream_flush(client->output);
 		if (ret > 0)
@@ -518,7 +520,7 @@ static void imap_client_input_nonidle(struct imap_client *client)
 static void imap_client_inactivity_timeout(struct imap_client *client)
 {
 	o_stream_nsend_str(client->output,
-			   "* BYE Disconnected for inactivity.\r\n");
+			   IMAP_REPLY_BYE_INACTIVITY"\r\n");
 	imap_client_destroy(&client, t_strdup_printf(
 		"Inactivity - no input for %"PRIdTIME_T" secs",
 		ioloop_time - client->state.last_input));
