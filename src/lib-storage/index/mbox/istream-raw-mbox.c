@@ -389,7 +389,10 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 		rstream->eof = TRUE;
 		rstream->corrupted = TRUE;
 		rstream->istream.istream.stream_errno = EINVAL;
-		stream->pos = 0;
+		/* The caller still holds the bytes we returned earlier, so
+		   stream->pos must not shrink. */
+		i_assert(stream->pos <= pos);
+		stream->buffer = buf;
 		return -1;
 	}
 
