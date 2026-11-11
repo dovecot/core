@@ -220,13 +220,21 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 		if (ret == -1)
 			mbox_istream_log_read_error(rstream);
 		if (ret == -2) {
-			if (stream->skip == stream->pos) {
-				/* From_-line is longer than our input buffer.
-				   finish the check without seeing the LF. */
+			if (stream->pos <= 1) {
+				/* Our caller holds at most one byte. A reader
+				   that needs more bytes than it holds (e.g.
+				   message_get_body_size()) can't consume it,
+				   so it would never be satisfied. Scan the
+				   buffer: data in front of a From_-line is
+				   returned first, and a From_-line longer
+				   than the buffer is checked without seeing
+				   the LF. */
 			} else if (stream->istream.v_offset + pos ==
 				   rstream->input_peak_offset) {
 				/* we've read everything our parent stream
-				   has to offer. */
+				   has to offer. The caller must consume what
+				   it holds before we can verify a From_-line
+				   that was cut off by the buffer end. */
 				stream->buffer = buf;
 				return -2;
 			}

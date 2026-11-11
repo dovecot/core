@@ -962,6 +962,92 @@ static void test_mbox_update_min_next_uid_unsynced(void)
 	test_end();
 }
 
+static void test_mbox_raw_istream_reader_holds_data(void)
+{
+	const char *from2 = "From c@d Thu Nov  9 22:33:52 2001\n";
+	const size_t buffer_size = 35;
+	struct istream *input, *raw_input;
+	ssize_t ret;
+	string_t *mbox = t_str_new(256);
+
+	str_append(mbox, "From a@b Thu Nov  9 22:33:52 2001\n");
+	str_append(mbox, "Subject: 1\n\n");
+	for (unsigned int i = 0; i < 24; i++)
+		str_append_c(mbox, 'x');
+	str_append_c(mbox, '\n');
+	str_append(mbox, from2);
+	str_append(mbox, "Subject: 2\n\nbody2\n");
+
+	test_begin("mbox raw istream reader holds a few bytes");
+	input = test_istream_create(str_c(mbox));
+	test_istream_set_max_buffer_size(input, buffer_size);
+	raw_input = i_stream_create_raw_mbox(input);
+	istream_raw_mbox_set_locked(raw_input);
+
+	/* The reader holds everything it has read until it gets -2. At one
+	   point it holds two bytes and the buffer is full of the beginning of
+	   the next From_ line, which can't be verified before the reader has
+	   consumed them. */
+	test_assert(istream_raw_mbox_seek(raw_input, 0) == 0);
+	for (unsigned int i = 0; i < 100; i++) {
+		ret = i_stream_read(raw_input);
+		if (ret == -1)
+			break;
+		if (ret == -2) {
+			i_stream_skip(raw_input,
+				      i_stream_get_data_size(raw_input));
+		}
+	}
+	test_assert_cmp(ret, ==, -1);
+	test_assert(istream_raw_mbox_next(raw_input, UOFF_T_MAX) == 0);
+	test_assert_strcmp(istream_raw_mbox_get_sender(raw_input), "c@d");
+
+	i_stream_unref(&raw_input);
+	i_stream_unref(&input);
+	test_end();
+}
+
+static void test_mbox_raw_istream_body_size_long_from(void)
+{
+	const size_t buffer_size = 40;
+	struct istream *input, *raw_input;
+	struct message_size full_size, small_size;
+	bool has_nuls;
+	string_t *mbox = t_str_new(256);
+
+	str_append(mbox, "From a@b Thu Nov  9 22:33:52 2001\n");
+	str_append(mbox, "Subject: 1\n\n\nFrom ");
+	for (unsigned int i = 0; i < 90; i++)
+		str_append_c(mbox, 'q');
+	str_append(mbox, "\nFrom c@d Thu Nov  9 22:33:52 2001\n");
+	str_append(mbox, "Subject: 2\n\nbody2\n");
+
+	test_begin("mbox raw istream body size with a long From_ line");
+	input = test_istream_create(str_c(mbox));
+	raw_input = i_stream_create_raw_mbox(input);
+	istream_raw_mbox_set_locked(raw_input);
+	test_assert(istream_raw_mbox_seek(raw_input, 0) == 0);
+	test_assert(message_get_body_size(raw_input, &full_size,
+					  &has_nuls) == 0);
+	i_stream_unref(&raw_input);
+	i_stream_unref(&input);
+
+	/* message_get_body_size() leaves one byte unconsumed and asks for
+	   two, so it can't consume anything when the buffer is full. */
+	input = test_istream_create(str_c(mbox));
+	test_istream_set_max_buffer_size(input, buffer_size);
+	raw_input = i_stream_create_raw_mbox(input);
+	istream_raw_mbox_set_locked(raw_input);
+	test_assert(istream_raw_mbox_seek(raw_input, 0) == 0);
+	test_assert(message_get_body_size(raw_input, &small_size,
+					  &has_nuls) == 0);
+	test_assert_cmp(small_size.physical_size, ==, full_size.physical_size);
+
+	i_stream_unref(&raw_input);
+	i_stream_unref(&input);
+	test_end();
+}
+
 static void test_mbox_raw_istream_nul_after_from(void)
 {
 	const char *from1 = "From a@b Thu Nov  9 22:33:52 2001\n";
@@ -1262,6 +1348,8 @@ int main(int argc, char **argv)
 		test_mbox_out_of_uids,
 		test_mbox_x_uid_overflow,
 		test_mbox_update_min_next_uid_unsynced,
+		test_mbox_raw_istream_reader_holds_data,
+		test_mbox_raw_istream_body_size_long_from,
 		test_mbox_raw_istream_nul_after_from,
 		test_mail_set_critical,
 		test_mail_set_critical_different_mailboxes,
