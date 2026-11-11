@@ -703,9 +703,11 @@ client_cmd_append_timing_stats(struct client_command_context *cmd,
 	command_stats_flush(cmd);
 
 	ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
-	msecs_in_cmd = (cmd->stats.running_usecs + 999) / 1000;
+	/* Round to the nearest millisecond, so commands that do practically
+	   no work report 0.000 secs instead of always rounding up to 0.001. */
+	msecs_in_cmd = (cmd->stats.running_usecs + 500) / 1000;
 	msecs_in_ioloop = (ioloop_wait_usecs -
-			   cmd->stats.start_ioloop_wait_usecs + 999) / 1000;
+			   cmd->stats.start_ioloop_wait_usecs + 500) / 1000;
 	msecs_since_cmd = timeval_diff_msecs(&ioloop_timeval,
 					     &cmd->stats.last_run_timeval);
 
