@@ -110,6 +110,7 @@ static void i_stream_concat_read_next(struct concat_istream *cstream)
 	cstream->prev_stream_left = data_size;
 	if (data_size > 0) {
 		memcpy(cstream->istream.w_buffer, data, data_size);
+		cstream->istream.buffer = cstream->istream.w_buffer;
 		i_stream_skip(prev_input, data_size);
 	}
 	cstream->istream.skip = 0;

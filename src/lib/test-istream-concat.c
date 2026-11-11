@@ -231,6 +231,50 @@ static void test_istream_concat_snapshot(void)
 	test_end();
 }
 
+static void test_istream_concat_transition_buffer(void)
+{
+	struct istream *input, *tmp_istream;
+	const unsigned char *data;
+	size_t size;
+
+	test_begin("istream concat transition buffer");
+
+	struct istream *test_istreams[] = {
+		test_istream_create("aaaa"),
+		test_istream_create("bbbb"),
+		test_istream_create("cccc"),
+		NULL
+	};
+	test_istream_set_size(test_istreams[1], 0);
+	test_istream_set_size(test_istreams[2], 0);
+
+	input = i_stream_create_concat(test_istreams);
+	for (unsigned int i = 0; test_istreams[i] != NULL; i++) {
+		tmp_istream = test_istreams[i];
+		i_stream_unref(&tmp_istream);
+	}
+
+	/* Read the first stream directly. The next read finishes it with
+	   unconsumed data, so the data is copied to the concat's buffer. */
+	test_assert_cmp(i_stream_read_memarea(input), ==, 4);
+	test_assert_cmp(i_stream_read_memarea(input), ==, 0);
+	data = i_stream_get_data(input, &size);
+	test_assert_memcmp(data, size, "aaaa", 4);
+	i_stream_skip(input, 4);
+
+	/* Read the second stream directly. Its unconsumed data is copied to
+	   the concat's buffer, which has room for it already. */
+	test_istream_set_size(test_istreams[1], 4);
+	test_assert_cmp(i_stream_read_memarea(input), ==, 4);
+	test_assert_cmp(i_stream_read_memarea(input), ==, 0);
+	test_assert(input->real_stream->buffer == input->real_stream->w_buffer);
+	data = i_stream_get_data(input, &size);
+	test_assert_memcmp(data, size, "bbbb", 4);
+
+	i_stream_unref(&input);
+	test_end();
+}
+
 static void test_istream_concat_input_size_mismatch(void)
 {
 	const unsigned char *data;
@@ -292,5 +336,6 @@ void test_istream_concat(void)
 	test_istream_concat_seek_end();
 	test_istream_concat_early_end();
 	test_istream_concat_snapshot();
+	test_istream_concat_transition_buffer();
 	test_istream_concat_input_size_mismatch();
 }
