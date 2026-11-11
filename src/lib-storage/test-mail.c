@@ -5,6 +5,7 @@
 #include "test-dir.h"
 #include "istream.h"
 #include "write-full.h"
+#include "str.h"
 #include "master-service.h"
 #include "message-size.h"
 #include "message-binary-part.h"
@@ -603,6 +604,92 @@ static void test_mbox_raw_istream_expected_size_at_eof(void)
 	test_end();
 }
 
+static void test_mbox_raw_istream_from_after_empty_from(void)
+{
+	const char *mbox =
+		"From a@example.com Thu Nov  9 22:33:52 2001\n"
+		"Subject: 1\n"
+		"\n"
+		"body\n"
+		"From \n"
+		"From b@example.com Thu Nov  9 22:33:52 2001\n"
+		"Subject: 2\n"
+		"\n"
+		"body2\n";
+	struct istream *input, *raw_input;
+	uoff_t size;
+
+	test_begin("mbox raw istream From_ right after an invalid one");
+	input = test_istream_create(mbox);
+	raw_input = i_stream_create_raw_mbox(input);
+	istream_raw_mbox_set_locked(raw_input);
+
+	/* The LF right after "From " ends the invalid From_ line and begins
+	   the valid one. */
+	test_assert(istream_raw_mbox_seek(raw_input, 0) == 0);
+	test_assert(istream_raw_mbox_get_body_size(raw_input, UOFF_T_MAX,
+						   &size) == 0);
+	test_assert_cmp(size, ==, strlen("body\nFrom "));
+	test_assert(istream_raw_mbox_next(raw_input, UOFF_T_MAX) == 0);
+	test_assert_strcmp(istream_raw_mbox_get_sender(raw_input),
+			   "b@example.com");
+
+	i_stream_unref(&raw_input);
+	i_stream_unref(&input);
+	test_end();
+}
+
+static void test_mbox_raw_istream_crlf_from_at_buffer_end(void)
+{
+	const char *from1 = "From a@b Thu Nov  9 22:33:52 2001\n";
+	const char *from2 = "From x Thu Nov 29 22:33:52 2001\r\n";
+	const size_t buffer_size = 40;
+	struct istream *input, *raw_input;
+	const unsigned char *data;
+	size_t size;
+	ssize_t ret;
+	string_t *mbox = t_str_new(256);
+
+	/* A line without an LF fills the parent's buffer up to the CR+LF
+	   and "From " of the second mail. */
+	str_append(mbox, from1);
+	for (size_t i = 0; i < buffer_size - strlen("\r\nFrom "); i++)
+		str_append_c(mbox, 'x');
+	str_append(mbox, "\r\n");
+	str_append(mbox, from2);
+	str_append(mbox, "Subject: 2\r\n\r\nbody2\r\n");
+
+	test_begin("mbox raw istream CRLF From_ at buffer end");
+	input = test_istream_create(str_c(mbox));
+	test_istream_set_max_buffer_size(input, buffer_size);
+	raw_input = i_stream_create_raw_mbox(input);
+	istream_raw_mbox_set_locked(raw_input);
+
+	test_assert(istream_raw_mbox_seek(raw_input, 0) == 0);
+	/* The reader holds the line until it can't get more, and then
+	   consumes it except for a trailing CR, which might belong to a CR+LF.
+	   The CR before "\nFrom " must not end up in the reader's hands. */
+	for (unsigned int i = 0; i < 10; i++) {
+		ret = i_stream_read(raw_input);
+		if (ret == -1)
+			break;
+		data = i_stream_get_data(raw_input, &size);
+		if (ret != -2 && size <= buffer_size - strlen("\r\nFrom "))
+			continue;
+		if (size > 0 && data[size-1] == '\r')
+			size--;
+		i_stream_skip(raw_input, size);
+	}
+	test_assert_cmp(ret, ==, -1);
+	test_assert(raw_input->stream_errno == 0);
+	test_assert(istream_raw_mbox_next(raw_input, UOFF_T_MAX) == 0);
+	test_assert_strcmp(istream_raw_mbox_get_sender(raw_input), "x");
+
+	i_stream_unref(&raw_input);
+	i_stream_unref(&input);
+	test_end();
+}
+
 static void test_mbox_raw_istream_invalid_expected_size(void)
 {
 	const char *mbox =
@@ -1133,6 +1220,8 @@ int main(int argc, char **argv)
 		test_binary_size_corruption_recompute,
 		test_mbox_raw_istream_eof,
 		test_mbox_raw_istream_expected_size_at_eof,
+		test_mbox_raw_istream_from_after_empty_from,
+		test_mbox_raw_istream_crlf_from_at_buffer_end,
 		test_mbox_raw_istream_invalid_expected_size,
 		test_mbox_raw_istream_expected_size_inside_crlf,
 		test_mbox_out_of_uids,

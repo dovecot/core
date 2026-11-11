@@ -308,20 +308,21 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 			if (*++fromp == '\0') {
 				/* potential From-line, see if we have the
 				   rest of the line buffered. */
-				i++;
-				if (i >= 7 && buf[i-7] == '\r') {
+				const size_t after = i + 1;
+
+				if (after >= 7 && buf[after-7] == '\r') {
 					/* CR also belongs to it. */
 					crlf_ending = TRUE;
-					from_start_pos = i - 7;
+					from_start_pos = after - 7;
 				} else {
 					crlf_ending = FALSE;
-					from_start_pos = i - 6;
+					from_start_pos = after - 6;
 				}
 
 				if (rstream->mail_size == UOFF_T_MAX ||
 				    rstream->hdr_offset + rstream->mail_size ==
 				    stream->istream.v_offset + from_start_pos) {
-					from_after_pos = i;
+					from_after_pos = after;
 					if (ret == -2 &&
 					    from_start_pos <= stream->pos) {
 						/* nothing in front of the line
