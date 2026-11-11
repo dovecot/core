@@ -9,6 +9,7 @@
 #include "mailbox-watch.h"
 #include "imap-commands.h"
 #include "imap-keepalive.h"
+#include "imap-reply.h"
 #include "imap-sync.h"
 
 struct cmd_idle_context {
@@ -46,7 +47,7 @@ idle_finish(struct cmd_idle_context *ctx, bool done_ok, bool free_cmd)
 		mailbox_notify_changes_stop(client->mailbox);
 
 	if (done_ok)
-		client_send_tagline(ctx->cmd, "OK Idle completed.");
+		client_send_tagline(ctx->cmd, "OK "IMAP_REPLY_IDLE_COMPLETED);
 	else
 		client_send_tagline(ctx->cmd, "BAD Expected DONE.");
 
@@ -122,7 +123,7 @@ static void keepalive_timeout(struct cmd_idle_context *ctx)
 		   anything if there is already data waiting in output
 		   buffer. */
 		o_stream_cork(ctx->client->output);
-		client_send_line(ctx->client, "* OK Still here");
+		client_send_line(ctx->client, IMAP_REPLY_IDLE_STILL_HERE);
 		o_stream_uncork(ctx->client->output);
 	}
 	/* Make sure idling connections don't get disconnected. There are
@@ -364,7 +365,7 @@ bool cmd_idle(struct client_command_context *cmd)
 	if (client->mailbox != NULL)
 		mailbox_notify_changes(client->mailbox, idle_callback, ctx);
 	if (!client->state_import_idle_continue)
-		client_send_line(client, "+ idling");
+		client_send_line(client, IMAP_REPLY_IDLE_CONTINUE);
 	else {
 		/* continuing an IDLE after hibernation */
 		client->state_import_idle_continue = FALSE;

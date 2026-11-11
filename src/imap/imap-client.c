@@ -18,6 +18,7 @@
 #include "settings.h"
 #include "master-service.h"
 #include "imap-keepalive.h"
+#include "imap-reply.h"
 #include "imap-resp-code.h"
 #include "imap-util.h"
 #include "imap-urlauth.h"
@@ -65,7 +66,7 @@ static_assert_array_size(client_command_state_names,
 static void client_idle_timeout(struct client *client)
 {
 	if (client->output_cmd_lock == NULL)
-		client_send_line(client, "* BYE Disconnected for inactivity.");
+		client_send_line(client, IMAP_REPLY_BYE_INACTIVITY);
 	client_destroy(client, t_strdup_printf(
 		"Inactivity - no input for %"PRIdTIME_T" secs",
 		ioloop_time - client->last_input));

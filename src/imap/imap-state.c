@@ -9,6 +9,7 @@
 #include "str-sanitize.h"
 #include "compression.h"
 #include "imap-util.h"
+#include "imap-reply.h"
 #include "mail-search-build.h"
 #include "mail-namespace.h"
 #include "mail-storage-private.h"
@@ -1096,7 +1097,7 @@ void imap_state_import_idle_cmd_tag(struct client *client, const char *tag)
 	} else {
 		/* we're finishing IDLE command */
 		client_send_line(client, t_strdup_printf(
-			"%s %s Idle completed.", tag,
+			"%s %s "IMAP_REPLY_IDLE_COMPLETED, tag,
 			client->state_import_bad_idle_done ? "BAD" : "OK"));
 	}
 }

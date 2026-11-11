@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "imap-common.h"
+#include "imap-reply.h"
 #include "imap-notify.h"
 #include "imap-commands.h"
 
@@ -11,5 +12,5 @@ bool cmd_noop(struct client_command_context *cmd)
 		   for testing. */
 		imap_notify_flush(cmd->client->notify_ctx);
 	}
-	return cmd_sync(cmd, 0, IMAP_SYNC_FLAG_SAFE, "OK NOOP completed.");
+	return cmd_sync(cmd, 0, IMAP_SYNC_FLAG_SAFE, IMAP_REPLY_NOOP_COMPLETED);
 }
