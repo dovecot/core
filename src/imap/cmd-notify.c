@@ -46,6 +46,11 @@ cmd_notify_parse_fetch(struct imap_notify_context *ctx,
 {
 	if (list->type == IMAP_ARG_EOL)
 		return -1; /* at least one attribute must be set */
+	if (ctx->fetch_ctx != NULL) {
+		/* don't leak the previous fetch context */
+		ctx->error = "Duplicate MessageNew fetch-att list";
+		return -1;
+	}
 	return imap_fetch_att_list_parse(ctx->client, ctx->pool, list,
 					 ctx->utf8, &ctx->fetch_ctx,
 					 &ctx->error);
