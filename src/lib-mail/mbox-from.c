@@ -80,6 +80,10 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 			esc = !esc && *msg == '\\';
 			msg++;
 		}
+		if (msg == msg_end) {
+			/* no closing quote */
+			return -1;
+		}
 		msg++;
 	}
 
