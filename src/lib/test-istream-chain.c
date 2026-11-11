@@ -246,6 +246,50 @@ static void test_istream_chain_link_transition_buffer(void)
 	test_end();
 }
 
+static void test_istream_chain_snapshot_skipped_buffer(void)
+{
+	struct istream *input, *tmp_istream, *test_inputs[2];
+	struct istream_chain *chain;
+	const unsigned char *data;
+	size_t size;
+
+	test_begin("istream chain snapshot skipped buffer");
+
+	test_inputs[0] = test_istream_create("AA");
+	test_inputs[1] = test_istream_create("01234567");
+	test_istream_set_size(test_inputs[1], 0);
+	test_istream_set_allow_eof(test_inputs[1], FALSE);
+
+	input = i_stream_create_chain(&chain, IO_BLOCK_SIZE);
+	i_stream_chain_append(chain, test_inputs[0]);
+	i_stream_chain_append(chain, test_inputs[1]);
+	i_stream_chain_append_eof(chain);
+	tmp_istream = test_inputs[0]; i_stream_unref(&tmp_istream);
+	tmp_istream = test_inputs[1]; i_stream_unref(&tmp_istream);
+
+	/* The leftover of the first link and the second link's data are
+	   merged into the chain's buffer. */
+	test_assert_cmp(i_stream_read_memarea(input), ==, 2);
+	test_assert_cmp(i_stream_read_memarea(input), ==, 0);
+	test_istream_set_size(test_inputs[1], 8);
+	test_assert_cmp(i_stream_read_memarea(input), ==, 8);
+
+	/* Skip the leftover and one byte of the merged data. The chain's
+	   buffer now points inside its w_buffer. */
+	i_stream_skip(input, 3);
+	test_assert_cmp(i_stream_read_memarea(input), ==, 0);
+	data = i_stream_get_data(input, &size);
+	test_assert_memcmp(data, size, "1234567", 7);
+
+	/* The link's end must not overwrite the data returned earlier. */
+	test_istream_set_allow_eof(test_inputs[1], TRUE);
+	test_assert_cmp(i_stream_read(input), ==, -1);
+	test_assert_memcmp(data, size, "1234567", 7);
+
+	i_stream_unref(&input);
+	test_end();
+}
+
 struct fatal_chain_ctx {
 	struct ioloop *ioloop;
 	struct istream *input, *test_input;
@@ -299,4 +343,5 @@ void test_istream_chain(void)
 	test_istream_chain_early_end();
 	test_istream_chain_accumulate();
 	test_istream_chain_link_transition_buffer();
+	test_istream_chain_snapshot_skipped_buffer();
 }

@@ -296,9 +296,11 @@ static struct istream_snapshot *
 i_stream_chain_snapshot(struct istream_private *stream,
 			struct istream_snapshot *prev_snapshot)
 {
-	if (stream->buffer == stream->w_buffer) {
+	if (stream->w_buffer != NULL && stream->buffer >= stream->w_buffer &&
+	    stream->buffer < stream->w_buffer + stream->buffer_size) {
 		/* Two or more istreams have been combined. Snapshot the
-		   w_buffer's contents that contains their data. */
+		   w_buffer's contents that contains their data. The buffer
+		   may point inside w_buffer after skipping. */
 		i_assert(stream->memarea != NULL);
 		return i_stream_default_snapshot(stream, prev_snapshot);
 	}
