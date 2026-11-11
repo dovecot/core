@@ -104,6 +104,33 @@ static void test_mbox_from_parse_no_overread(void)
 	test_end();
 }
 
+static void test_mbox_from_parse_quoted_backslash(void)
+{
+	/* mbox_from_create() gets the sender from smtp_address_encode(),
+	   which writes a backslash in a quoted local part as "\\". Such a
+	   From_ line must parse. */
+	static const char *const senders[] = {
+		"\"a\\\\\"@example.com",		/* "a\\"@example.com */
+		"\"\\\\\"@example.com",		/* "\\"@example.com */
+		"\"a\\\\\\\"b\"@example.com",	/* "a\\\"b"@example.com */
+		"\"a b\\\\\"@example.com",	/* "a b\\"@example.com */
+	};
+	char *sender;
+	time_t t;
+	int tz;
+
+	test_begin("mbox_from_parse() quoted sender with escaped backslash");
+	for (unsigned int i = 0; i < N_ELEMENTS(senders); i++) {
+		const char *line = mbox_from_create(senders[i], 1234567890);
+		test_assert_cmp_idx(mbox_from_parse(
+			(const unsigned char *)line + 5, strlen(line) - 6,
+			&t, &tz, &sender), ==, 0, i);
+		test_assert_strcmp_idx(sender, senders[i], i);
+		i_free(sender);
+	}
+	test_end();
+}
+
 static void test_mbox_from_create(void)
 {
 	time_t t = 1234567890;
@@ -121,6 +148,7 @@ int main(void)
 	static void (*const test_functions[])(void) = {
 		test_mbox_from_parse,
 		test_mbox_from_parse_no_overread,
+		test_mbox_from_parse_quoted_backslash,
 		test_mbox_from_create,
 		NULL
 	};

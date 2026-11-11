@@ -75,7 +75,9 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 		while (msg < msg_end && (*msg != '"' || esc)) {
 			if (*msg == '\r' || *msg == '\n')
 				return -1;
-			esc = *msg == '\\';
+			/* "\\" is an escaped backslash: it doesn't escape
+			   the following character */
+			esc = !esc && *msg == '\\';
 			msg++;
 		}
 		msg++;
