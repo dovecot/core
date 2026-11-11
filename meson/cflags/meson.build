@@ -39,3 +39,16 @@ endif
 add_project_arguments(cc.get_supported_arguments(global_args), language: 'c')
 add_project_arguments(cxx.get_supported_arguments(global_args), language: 'cpp')
 add_project_arguments(cc.get_supported_arguments(c_args), language: 'c')
+
+# Bind the calls a shared object makes to its own functions locally instead of through
+# the PLT. This removes most of the GOT relocations, which are private dirty memory in
+# every process. Data symbols stay interposable, so copy relocations in executables
+# still work (unlike with -Bsymbolic).
+add_project_link_arguments(
+  cc.get_supported_link_arguments('-Wl,-Bsymbolic-functions'),
+  language: 'c',
+)
+add_project_link_arguments(
+  cxx.get_supported_link_arguments('-Wl,-Bsymbolic-functions'),
+  language: 'cpp',
+)

@@ -6,7 +6,7 @@ dnl This file is free software; the authors give
 dnl unlimited permission to copy and/or distribute it, with or without
 dnl modifications, as long as this notice is preserved.
 
-# serial 50
+# serial 51
 
 dnl
 dnl Check for support for D_FORTIFY_SOURCE=2
@@ -162,6 +162,25 @@ AC_DEFUN([AC_LD_WHOLE_ARCHIVE], [
     AC_SUBST([LD_WHOLE_ARCHIVE])
     AC_SUBST([LD_NO_WHOLE_ARCHIVE])
     AM_CONDITIONAL([HAVE_WHOLE_ARCHIVE], [test "x$LD_WHOLE_ARCHIVE" != "x"])
+])
+
+dnl Bind the calls a shared object makes to its own functions locally instead
+dnl of through the PLT. This removes most of the GOT relocations, which are
+dnl private dirty memory in every process. Data symbols stay interposable, so
+dnl copy relocations in executables still work (unlike with -Bsymbolic).
+AC_DEFUN([DC_LD_BSYMBOLIC_FUNCTIONS], [
+    AC_CACHE_CHECK([whether the linker supports -Bsymbolic-functions],
+      [dc_cv_ld_bsymbolic_functions], [
+        old_ldflags="$LDFLAGS"
+        LDFLAGS="$LDFLAGS -Wl,-Bsymbolic-functions"
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([], [])],
+          [dc_cv_ld_bsymbolic_functions=yes],
+          [dc_cv_ld_bsymbolic_functions=no])
+        LDFLAGS="$old_ldflags"
+    ])
+    AS_IF([test "$dc_cv_ld_bsymbolic_functions" = yes], [
+      LDFLAGS="$LDFLAGS -Wl,-Bsymbolic-functions"
+    ])
 ])
 
 dnl
@@ -456,6 +475,7 @@ AC_DEFUN([DC_DOVECOT],[
 	CC_STRICT_BOOL
 	DC_DOVECOT_CFLAGS
 	DC_DOVECOT_HARDENING
+	DC_LD_BSYMBOLIC_FUNCTIONS
 
 	AX_SUBST_L([DISTCHECK_CONFIGURE_FLAGS], [dovecotdir], [dovecot_moduledir], [dovecot_installed_moduledir], [dovecot_pkgincludedir], [dovecot_pkglibexecdir], [dovecot_pkglibdir], [dovecot_docdir], [dovecot_statedir])
 	AX_SUBST_L([DOVECOT_INSTALLED], [DOVECOT_CFLAGS], [DOVECOT_LIBS], [DOVECOT_SSL_LIBS], [DOVECOT_SQL_LIBS], [DOVECOT_LDAP_LIBS], [DOVECOT_COMPRESS_LIBS], [DOVECOT_BINARY_CFLAGS], [DOVECOT_BINARY_LDFLAGS])
