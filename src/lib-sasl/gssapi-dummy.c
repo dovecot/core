@@ -346,6 +346,8 @@ _decode_buffer(const unsigned char **_input, size_t *_input_left,
 
 	if (_decode_uint32(_input, _input_left, &len) < 0)
 		return -1;
+	if (len > *_input_left)
+		return -1;
 	i_zero(out);
 	if (len > 0) {
 		out->value = t_memdup_noconst(*_input, len);
