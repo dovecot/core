@@ -304,7 +304,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 			rstream->body_offset = stream->istream.v_offset + i + 1;
 			eoh_char = -1;
 		}
-		if ((char)buf[i] == *fromp) {
+		if (*fromp != '\0' && (char)buf[i] == *fromp) {
 			if (*++fromp == '\0') {
 				/* potential From-line, see if we have the
 				   rest of the line buffered. */

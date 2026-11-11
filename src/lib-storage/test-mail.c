@@ -962,6 +962,41 @@ static void test_mbox_update_min_next_uid_unsynced(void)
 	test_end();
 }
 
+static void test_mbox_raw_istream_nul_after_from(void)
+{
+	const char *from1 = "From a@b Thu Nov  9 22:33:52 2001\n";
+	const char *hdr = "Subject: 1\n\n";
+	const size_t buffer_size = 40;
+	struct istream *input, *raw_input;
+	string_t *mbox = t_str_new(256);
+	uoff_t size;
+
+	str_append(mbox, from1);
+	str_append(mbox, hdr);
+	/* A From_ line that doesn't parse and is longer than the buffer, with
+	   a NUL byte right after "\nFrom ". */
+	str_append_data(mbox, "\nFrom \0", 7);
+	for (unsigned int i = 0; i < 2 * buffer_size; i++)
+		str_append_c(mbox, 'x');
+
+	test_begin("mbox raw istream NUL after From_");
+	input = test_istream_create_data(str_data(mbox), str_len(mbox));
+	test_istream_set_max_buffer_size(input, buffer_size);
+	raw_input = i_stream_create_raw_mbox(input);
+	istream_raw_mbox_set_locked(raw_input);
+
+	/* The NUL byte must not match the end of the "\nFrom " string. The
+	   over-read is in static data, so only AddressSanitizer notices it. */
+	test_assert(istream_raw_mbox_seek(raw_input, 0) == 0);
+	test_assert(istream_raw_mbox_get_body_size(raw_input, UOFF_T_MAX,
+						   &size) == 0);
+	test_assert_cmp(size, ==, 7 + 2 * buffer_size);
+
+	i_stream_unref(&raw_input);
+	i_stream_unref(&input);
+	test_end();
+}
+
 static void test_mail_set_critical(void)
 {
 	struct test_mail_storage_settings set = {
@@ -1227,6 +1262,7 @@ int main(int argc, char **argv)
 		test_mbox_out_of_uids,
 		test_mbox_x_uid_overflow,
 		test_mbox_update_min_next_uid_unsynced,
+		test_mbox_raw_istream_nul_after_from,
 		test_mail_set_critical,
 		test_mail_set_critical_different_mailboxes,
 		test_mail_get_last_internal_error,
