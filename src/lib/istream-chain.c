@@ -148,6 +148,8 @@ static void i_stream_chain_read_next(struct chain_istream *cstream)
 			i_stream_memarea_detach(&cstream->istream);
 		memcpy(i_stream_alloc(&cstream->istream, data_size),
 		       data, data_size);
+		/* i_stream_alloc() changes buffer only if it reallocates. */
+		cstream->istream.buffer = cstream->istream.w_buffer;
 		cstream->istream.pos += data_size;
 		cstream->prev_stream_left += data_size;
 	}

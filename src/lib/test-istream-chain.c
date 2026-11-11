@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "istream-private.h"
 #include "istream-chain.h"
+#include "istream-sized.h"
 
 static void test_istream_chain_io_noop(void *context ATTR_UNUSED)
 {
@@ -196,6 +197,55 @@ static void test_istream_chain_accumulate(void)
 	test_end();
 }
 
+static void test_istream_chain_link_transition_buffer(void)
+{
+	struct istream *chain_input, *input, *tmp_istream, *test_inputs[2];
+	struct istream_chain *chain;
+	const unsigned char *data;
+	size_t size;
+
+	test_begin("istream chain link transition buffer");
+
+	test_inputs[0] = test_istream_create("aaaa");
+	test_inputs[1] = test_istream_create("bbbb");
+	test_istream_set_size(test_inputs[1], 0);
+	test_istream_set_allow_eof(test_inputs[1], FALSE);
+
+	chain_input = i_stream_create_chain(&chain, IO_BLOCK_SIZE);
+	i_stream_chain_append(chain, test_inputs[0]);
+	i_stream_chain_append(chain, test_inputs[1]);
+	i_stream_chain_append_eof(chain);
+	/* The chain owns the only references and frees the link streams after
+	   they have been read. */
+	tmp_istream = test_inputs[0]; i_stream_unref(&tmp_istream);
+	tmp_istream = test_inputs[1]; i_stream_unref(&tmp_istream);
+	/* The sized stream reads the chain without snapshotting it. */
+	input = i_stream_create_sized(chain_input, 8);
+
+	/* Read the first link directly. The next read finishes it with
+	   unconsumed data, so the data is copied to the chain's buffer. */
+	test_assert_cmp(i_stream_read_memarea(input), ==, 4);
+	test_assert_cmp(i_stream_read_memarea(input), ==, 0);
+	data = i_stream_get_data(input, &size);
+	test_assert_memcmp(data, size, "aaaa", 4);
+	i_stream_skip(input, 4);
+
+	/* Read the second link directly. Its unconsumed data is copied to the
+	   chain's buffer, which has room for it already. */
+	test_istream_set_size(test_inputs[1], 4);
+	test_assert_cmp(i_stream_read_memarea(input), ==, 4);
+	test_istream_set_allow_eof(test_inputs[1], TRUE);
+	test_assert_cmp(i_stream_read_memarea(input), ==, -1);
+	test_assert(chain_input->real_stream->buffer ==
+		    chain_input->real_stream->w_buffer);
+	data = i_stream_get_data(input, &size);
+	test_assert_memcmp(data, size, "bbbb", 4);
+
+	i_stream_unref(&input);
+	i_stream_unref(&chain_input);
+	test_end();
+}
+
 struct fatal_chain_ctx {
 	struct ioloop *ioloop;
 	struct istream *input, *test_input;
@@ -248,4 +298,5 @@ void test_istream_chain(void)
 	test_istream_chain_basic();
 	test_istream_chain_early_end();
 	test_istream_chain_accumulate();
+	test_istream_chain_link_transition_buffer();
 }
