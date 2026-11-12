@@ -178,7 +178,8 @@ static void test_corruption_handlers_set(void)
 	}
 	crash_msg_active = TRUE;
 
-	sigemptyset(&act.sa_mask);
+	if (sigemptyset(&act.sa_mask) < 0)
+		i_fatal("sigemptyset(): %m");
 	if (sigaction(SIGSEGV, &act, &orig_sigsegv) < 0)
 		i_fatal("sigaction(SIGSEGV) failed: %m");
 	if (sigaction(SIGBUS, &act, &orig_sigbus) < 0)
