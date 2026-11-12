@@ -889,6 +889,9 @@ stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 
 		struct event_field str_field = {
 			.value_type = EVENT_FIELD_VALUE_TYPE_STR,
+			.value = {
+				.str = NULL,
+			},
 		};
 		const char *str;
 
