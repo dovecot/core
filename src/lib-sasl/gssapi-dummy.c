@@ -476,6 +476,7 @@ gss_accept_sec_context(OM_uint32 *minor_status, gss_ctx_id_t *context_handle,
 	OM_uint32 major_status;
 
 	*minor_status = 0;
+	*output_token = (gss_buffer_desc)GSS_C_EMPTY_BUFFER;
 
 	i_assert(time_rec == NULL);
 	i_assert(delegated_cred_handle == NULL);
