@@ -520,6 +520,12 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 		return TRUE;
 	}
 
+	if (ns->owner == NULL) {
+		e_info(box->event,
+		       "Mailbox is in a shared namespace without an owner");
+		return TRUE;
+	}
+
 	if (!acl_lookup_dict_is_enabled(auser->acl_lookup_dict)) {
 		e_error(box->event, "acl_lookup_dict not enabled");
 		return FALSE;
