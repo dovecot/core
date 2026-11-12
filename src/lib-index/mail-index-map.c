@@ -360,7 +360,7 @@ static void mail_index_map_copy_records(struct mail_index_record_map *dest,
 {
 	size_t size;
 
-	size = src->records_count * record_size;
+	size = (size_t)src->records_count * record_size;
 	/* +1% so we have a bit of space to grow. useful for huge mailboxes. */
 	dest->buffer = buffer_create_dynamic(default_pool,
 					     size + I_MAX(size/100, 1024));
