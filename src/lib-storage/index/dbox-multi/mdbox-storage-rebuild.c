@@ -720,6 +720,7 @@ static int rebuild_msg_mailbox_commit(struct rebuild_msg_mailbox *msg)
 {
 	int ret = 0;
 
+	i_assert(msg->box != NULL);
 	mail_index_sync_set_reason(msg->sync_ctx, "mdbox storage rebuild");
 	if (mail_index_sync_commit(&msg->sync_ctx) < 0) {
 		mailbox_set_index_error(msg->box);
