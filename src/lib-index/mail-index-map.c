@@ -486,7 +486,8 @@ void mail_index_record_map_move_to_private(struct mail_index_map *map)
 			rec = MAIL_INDEX_REC_AT_SEQ(map, new_map->records_count);
 			new_map->last_appended_uid = rec->uid;
 		}
-		buffer_set_used_size(new_map->buffer, new_map->records_count *
+		buffer_set_used_size(new_map->buffer,
+				     (size_t)new_map->records_count *
 				     map->hdr.record_size);
 	}
 }
@@ -556,7 +557,7 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_map *map,
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;
 
-                rec = CONST_PTR_OFFSET(rec_base, idx * record_size);
+		rec = CONST_PTR_OFFSET(rec_base, (size_t)idx * record_size);
 		if (rec->uid < uid)
 			left_idx = idx+1;
 		else if (rec->uid > uid)
@@ -566,7 +567,7 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_map *map,
 	}
 	i_assert(idx < map->hdr.messages_count);
 
-	rec = CONST_PTR_OFFSET(rec_base, idx * record_size);
+	rec = CONST_PTR_OFFSET(rec_base, (size_t)idx * record_size);
 	if (rec->uid != uid) {
 		if (nearest_side > 0) {
 			/* we want uid or larger */

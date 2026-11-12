@@ -119,7 +119,7 @@ tview_apply_flag_updates(struct mail_index_view_transaction *tview,
 	i_assert(tview->recs_count == t->first_new_seq);
 	i_assert(seq > 0 && seq <= tview->recs_count);
 
-	trec = PTR_OFFSET(tview->recs, (seq-1) * tview->record_size);
+	trec = PTR_OFFSET(tview->recs, (size_t)(seq-1) * tview->record_size);
 	memcpy(trec, rec, map->hdr.record_size);
 	trec->flags |= updates[idx].add_flags & 0xff;
 	trec->flags &= ~updates[idx].remove_flags;

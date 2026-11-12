@@ -406,7 +406,7 @@ mail_index_fsck_records(struct mail_index *index, struct mail_index_map *map,
 			/* not the fastest way when we're skipping lots of
 			   records, but this should happen rarely so don't
 			   bother optimizing. */
-			memmove(rec, next_rec, hdr->record_size *
+			memmove(rec, next_rec, (size_t)hdr->record_size *
 				(map->rec_map->records_count - i - 1));
 			map->rec_map->records_count--;
 			records_dropped = TRUE;

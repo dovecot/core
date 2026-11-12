@@ -197,7 +197,8 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_map_idx,
 	i_assert(new_record_size >= sizeof(struct mail_index_record));
 
 	/* copy the records to new buffer */
-	new_buffer_size = map->rec_map->records_count * new_record_size;
+	new_buffer_size = MALLOC_MULTIPLY(map->rec_map->records_count,
+					  new_record_size);
 	new_buffer = buffer_create_dynamic(default_pool, new_buffer_size);
 	src = map->rec_map->records;
 	offset = 0;

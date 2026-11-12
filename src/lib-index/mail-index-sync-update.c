@@ -291,7 +291,8 @@ sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_ran
 			if (prev_seq2+1-1 != dest_seq1-1)
 				memmove(MAIL_INDEX_REC_AT_SEQ(map, dest_seq1),
 					MAIL_INDEX_REC_AT_SEQ(map, prev_seq2+1),
-					move_count * map->hdr.record_size);
+					(size_t)move_count *
+					map->hdr.record_size);
 			dest_seq1 += move_count;
 		}
 		seq_count = seq2 - seq1 + 1;
@@ -304,7 +305,7 @@ sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_ran
 		uint32_t final_move_count = orig_rec_count - prev_seq2;
 		memmove(MAIL_INDEX_REC_AT_SEQ(map, dest_seq1),
 			MAIL_INDEX_REC_AT_SEQ(map, prev_seq2+1),
-			final_move_count * map->hdr.record_size);
+			(size_t)final_move_count * map->hdr.record_size);
 	}
 }
 
@@ -313,7 +314,8 @@ static void *sync_append_record(struct mail_index_map *map)
 	size_t append_pos;
 	void *ret;
 
-	append_pos = map->rec_map->records_count * map->hdr.record_size;
+	append_pos = (size_t)map->rec_map->records_count *
+		map->hdr.record_size;
 	ret = buffer_get_space_unsafe(map->rec_map->buffer, append_pos,
 				      map->hdr.record_size);
 	map->rec_map->records =
@@ -973,7 +975,7 @@ bool mail_index_sync_map_want_index_reopen(struct mail_index_map *map,
 			index_size = MAIL_INDEX_SYNC_MIN_READ_INDEX_SIZE;
 		} else {
 			index_size = map->hdr.header_size +
-				map->rec_map->records_count *
+				(uoff_t)map->rec_map->records_count *
 				map->hdr.record_size;
 		}
 

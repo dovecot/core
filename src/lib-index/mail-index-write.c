@@ -85,7 +85,7 @@ static int mail_index_recreate(struct mail_index *index)
 	o_stream_nsend(output, MAIL_INDEX_MAP_HDR_OFFSET(map, base_size),
 		       hdr.header_size - base_size);
 	o_stream_nsend(output, map->rec_map->records,
-		       map->rec_map->records_count * hdr.record_size);
+		       (size_t)map->rec_map->records_count * hdr.record_size);
 	if (o_stream_finish(output) < 0) {
 		mail_index_file_set_syscall_error(index, path, "write()");
 		ret = -1;
