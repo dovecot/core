@@ -663,6 +663,66 @@ static void test_mbox_raw_istream_invalid_expected_size(void)
 	test_end();
 }
 
+static void test_mbox_raw_istream_expected_size_inside_crlf(void)
+{
+	static const struct {
+		const char *mbox;
+		uoff_t expected_size;
+		uoff_t body_size;
+	} tests[] = {
+		/* ends between the CR and LF of the blank line */
+		{ "From a@b Thu Nov  9 22:33:52 2001\r\n"
+		  "Subject: 1\r\n"
+		  "\r\n"
+		  "xxxxxxxx\r\n"
+		  "\r\n"
+		  "From c@d Thu Nov  9 22:33:52 2001\r\n"
+		  "Subject: 2\r\n",
+		  11, 10 },
+		/* ends between the CR and LF of the last body line */
+		{ "From a@b Thu Nov  9 22:33:52 2001\n"
+		  "Subject: 1\n"
+		  "\n"
+		  "abc\r\n"
+		  "From c@d Thu Nov  9 22:33:52 2001\n"
+		  "Subject: 2\n",
+		  4, 3 },
+		/* includes the CR+LF of the last body line */
+		{ "From a@b Thu Nov  9 22:33:52 2001\n"
+		  "Subject: 1\n"
+		  "\n"
+		  "abc\r\n"
+		  "\n"
+		  "From c@d Thu Nov  9 22:33:52 2001\n"
+		  "Subject: 2\n",
+		  5, 5 },
+	};
+	struct istream *input, *raw_input;
+	uoff_t size;
+
+	test_begin("mbox raw istream expected body size inside CR+LF");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		input = test_istream_create(tests[i].mbox);
+		raw_input = i_stream_create_raw_mbox(input);
+		istream_raw_mbox_set_locked(raw_input);
+
+		/* The CR belongs to the line break, so the mail ends before
+		   it. */
+		test_assert_idx(istream_raw_mbox_seek(raw_input, 0) == 0, i);
+		test_assert_idx(istream_raw_mbox_get_body_size(raw_input,
+			tests[i].expected_size, &size) == 0, i);
+		test_assert_idx(size == tests[i].body_size, i);
+		test_assert_idx(istream_raw_mbox_next(raw_input,
+						      UOFF_T_MAX) == 0, i);
+		test_assert_strcmp_idx(istream_raw_mbox_get_sender(raw_input),
+				       "c@d", i);
+
+		i_stream_unref(&raw_input);
+		i_stream_unref(&input);
+	}
+	test_end();
+}
+
 static void test_mbox_out_of_uids(void)
 {
 	struct test_mail_storage_ctx *ctx;
@@ -1074,6 +1134,7 @@ int main(int argc, char **argv)
 		test_mbox_raw_istream_eof,
 		test_mbox_raw_istream_expected_size_at_eof,
 		test_mbox_raw_istream_invalid_expected_size,
+		test_mbox_raw_istream_expected_size_inside_crlf,
 		test_mbox_out_of_uids,
 		test_mbox_x_uid_overflow,
 		test_mbox_update_min_next_uid_unsynced,

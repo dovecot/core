@@ -486,11 +486,12 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 	int tz;
 	ssize_t ret = 0;
 
-	/* minimal: "From x Thu Nov 29 22:33:52 2001" = 31 chars, plus the
-	   preceding CR+LF */
+	/* The parent stream is positioned one byte before the offset to
+	   check, so that a CR in front of it is seen. minimal: "From x Thu
+	   Nov 29 22:33:52 2001" = 31 chars, plus CR+LF and the byte before */
 	do {
 		data = i_stream_get_data(rstream->istream.parent, &size);
-		if (size >= 2 + 31)
+		if (size >= 1 + 2 + 31)
 			break;
 	} while ((ret = i_stream_read_memarea(rstream->istream.parent)) > 0);
 	/* the last read may have moved or replaced the buffer */
@@ -498,23 +499,28 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 	if (ret == -1)
 		mbox_istream_log_read_error(rstream);
 
-	if ((size == 1 && data[0] == '\n') ||
-	    (size == 2 && data[0] == '\r' && data[1] == '\n')) {
+	if (size > 1 && data[0] == '\r' && data[1] == '\n') {
+		/* The CR belongs to the line break that ends the mail, so the
+		   offset can't be between the CR and the LF. */
+		return 0;
+	}
+	if ((size == 2 && data[1] == '\n') ||
+	    (size == 3 && data[1] == '\r' && data[2] == '\n')) {
 		/* EOF */
 		return 1;
 	}
 
-	if (size > 31 && memcmp(data, "\nFrom ", 6) == 0)
-		skip = 6;
-	else if (size > 32 && memcmp(data, "\r\nFrom ", 7) == 0)
-		skip = 7;
+	if (size > 1 + 31 && memcmp(data + 1, "\nFrom ", 6) == 0)
+		skip = 1 + 6;
+	else if (size > 1 + 32 && memcmp(data + 1, "\r\nFrom ", 7) == 0)
+		skip = 1 + 7;
 	else
 		return 0;
 
 	/* i_stream_read_bytes() returns the data from the beginning of the
-	   stream position again, i.e. including the [CR]LF + "From " prefix.
-	   Keep skipping over it, or a From_-line that crosses the read
-	   buffer's end is never seen as valid. */
+	   stream position again, i.e. including the byte before the [CR]LF +
+	   "From " prefix. Keep skipping over it, or a From_-line that crosses
+	   the read buffer's end is never seen as valid. */
 	while (memchr(data + skip, '\n', size - skip) == NULL) {
 		ret = i_stream_read_bytes(rstream->istream.parent,
 					  &data, &size, size+1);
@@ -656,7 +662,7 @@ int istream_raw_mbox_get_body_size(struct istream *stream,
 			next_body_offset += rstream->crlf_ending ? 2 : 1;
 		}
 
-		i_stream_seek(rstream->istream.parent, next_body_offset);
+		i_stream_seek(rstream->istream.parent, next_body_offset - 1);
 		if (istream_raw_mbox_is_valid_from(rstream) > 0) {
 			rstream->mail_size =
 				next_body_offset - rstream->hdr_offset;
