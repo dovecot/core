@@ -225,10 +225,12 @@ imapc_storage_attribute_handling(struct mailbox *box,
 	if (str_begins_with(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT))
 		return HANDLE_INDEX;
 
-	/* private attributes for other users will be handled by index_attribute */
+	/* private attributes of other users' and public mailboxes are handled
+	   by index_attribute */
 	struct mail_namespace *ns = mailbox_get_namespace(box);
 	if (type_flags == MAIL_ATTRIBUTE_TYPE_PRIVATE &&
-	    strcmp(ns->user->username, ns->owner->username) != 0)
+	    (ns->owner == NULL ||
+	     strcmp(ns->user->username, ns->owner->username) != 0))
 		return HANDLE_INDEX;
 
 	/* If we got here then we want to access metadata in the imapc backend.
