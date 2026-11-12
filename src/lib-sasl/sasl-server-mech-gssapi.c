@@ -271,6 +271,7 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 				      "processing incoming data");
 		mech_gssapi_log_error(request, minor_status, GSS_C_MECH_CODE,
 				      "processing incoming data");
+		(void)gss_release_buffer(&minor_status, &output_token);
 		return -1;
 	}
 

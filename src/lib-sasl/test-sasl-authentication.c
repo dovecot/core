@@ -2064,6 +2064,18 @@ static const struct test_sasl bad_creds_tests[] = {
 		.expect_cbind = TRUE,
 		.failure = TRUE,
 	},
+	/* GSSAPI: the acceptor fails and returns an output token */
+	{
+		.mech = "GSSAPI",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "",
+		},
+		.gss = { .accept_status = GSS_S_FAILURE },
+		.expect_cbind = TRUE,
+		.failure = TRUE,
+	},
 	/* GSSAPI: the context is incomplete and the acceptor has no token */
 	{
 		.mech = "GSSAPI",
