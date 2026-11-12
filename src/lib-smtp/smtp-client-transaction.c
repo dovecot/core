@@ -833,6 +833,7 @@ void smtp_client_transaction_set_event(struct smtp_client_transaction *trans,
 	event_unref(&trans->event);
 	trans->event = event_create(event);
 	event_set_forced_debug(trans->event, trans->conn->set.debug);
+	event_add_category(trans->event, &event_category_smtp_client);
 	smtp_client_transaction_update_event(trans);
 }
 
