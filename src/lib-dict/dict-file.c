@@ -479,12 +479,13 @@ static int file_dict_apply_changes(struct dict_transaction_memory_context *ctx,
 			diff +=	change->value.diff;
 			tmp = t_strdup_printf("%lld", diff);
 			new_len = strlen(tmp);
-			if (old_value == NULL || new_len > strlen(old_value))
+			if (new_len > strlen(old_value))
 				value = p_strdup(dict->snapshot->pool, tmp);
 			else {
 				memcpy(old_value, tmp, new_len + 1);
 				value = old_value;
 			}
+			i_assert(value != NULL);
 			/* fall through */
 		case DICT_CHANGE_TYPE_SET:
 			if (key == NULL)
