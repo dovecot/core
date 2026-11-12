@@ -125,7 +125,7 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_map_idx,
 	unsigned int i, count;
 	const void *src;
 	buffer_t *new_buffer;
-	size_t new_buffer_size;
+	size_t new_buffer_size, rec_offset;
 
 	i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map) && map->refcount == 1);
 
@@ -201,20 +201,21 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_map_idx,
 					  new_record_size);
 	new_buffer = buffer_create_dynamic(default_pool, new_buffer_size);
 	src = map->rec_map->records;
-	offset = 0;
+	rec_offset = 0;
 	for (rec_idx = 0; rec_idx < map->rec_map->records_count; rec_idx++) {
 		/* write the base record */
-		buffer_write(new_buffer, offset, src,
+		buffer_write(new_buffer, rec_offset, src,
 			     sizeof(struct mail_index_record));
 
 		/* write extensions */
 		for (i = 0; i < count; i++) {
-			buffer_write(new_buffer, offset + ext[i].record_offset,
+			buffer_write(new_buffer,
+				     rec_offset + ext[i].record_offset,
 				     CONST_PTR_OFFSET(src, old_offsets[i]),
 				     copy_sizes[i]);
 		}
 		src = CONST_PTR_OFFSET(src, map->hdr.record_size);
-		offset += new_record_size;
+		rec_offset += new_record_size;
 	}
 
 	if (new_buffer->used != new_buffer_size) {
