@@ -603,6 +603,66 @@ static void test_mbox_raw_istream_expected_size_at_eof(void)
 	test_end();
 }
 
+static void test_mbox_raw_istream_invalid_expected_size(void)
+{
+	const char *mbox =
+		"From a@b Thu Nov  9 22:33:52 2001\n"
+		"Subject: 1\n"
+		"\n"
+		"\n"
+		"From c@d Thu Nov  9 22:33:52 2001\n"
+		"Subject: 2\n"
+		"\n"
+		"body2\n"
+		"\n"
+		"From x Thu Nov  9 22:33:52 2001\n"
+		"Subject: 3\n"
+		"\n"
+		"body3\n";
+	const size_t buffer_size = 40;
+	struct istream *input, *raw_input;
+	uoff_t body_size;
+	ssize_t ret;
+
+	test_begin("mbox raw istream invalid expected body size");
+	input = test_istream_create(mbox);
+	test_istream_set_max_buffer_size(input, buffer_size);
+	raw_input = i_stream_create_raw_mbox(input);
+	istream_raw_mbox_set_locked(raw_input);
+
+	test_assert(istream_raw_mbox_seek(raw_input, 0) == 0);
+	for (unsigned int mail = 0; mail < 2; mail++) {
+		for (unsigned int i = 0;; i++) {
+			ret = i_stream_read(raw_input);
+			if (ret == -1)
+				break;
+			if (mail == 1 && i == 1) {
+				/* The Content-Length is invalid. Checking it
+				   moved the parent stream, so the next read
+				   finds its buffer full of the end of the mail
+				   and a cut-off From_ line. The end of the mail
+				   has to be returned before the line can be
+				   checked. */
+				test_assert(istream_raw_mbox_get_body_size(
+					raw_input, 3, &body_size) == 0);
+				test_assert_cmp(body_size, ==, strlen("body2\n"));
+				ret = i_stream_read(raw_input);
+				if (ret == -1)
+					break;
+			}
+			i_stream_skip(raw_input,
+				      i_stream_get_data_size(raw_input));
+		}
+		i_stream_skip(raw_input, i_stream_get_data_size(raw_input));
+		test_assert(istream_raw_mbox_next(raw_input, UOFF_T_MAX) == 0);
+	}
+	test_assert_strcmp(istream_raw_mbox_get_sender(raw_input), "x");
+
+	i_stream_unref(&raw_input);
+	i_stream_unref(&input);
+	test_end();
+}
+
 static void test_mbox_out_of_uids(void)
 {
 	struct test_mail_storage_ctx *ctx;
@@ -1013,6 +1073,7 @@ int main(int argc, char **argv)
 		test_binary_size_corruption_recompute,
 		test_mbox_raw_istream_eof,
 		test_mbox_raw_istream_expected_size_at_eof,
+		test_mbox_raw_istream_invalid_expected_size,
 		test_mbox_out_of_uids,
 		test_mbox_x_uid_overflow,
 		test_mbox_update_min_next_uid_unsynced,

@@ -322,10 +322,13 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 				    rstream->hdr_offset + rstream->mail_size ==
 				    stream->istream.v_offset + from_start_pos) {
 					from_after_pos = i;
-					if (ret == -2) {
-						/* even if we don't have the
-						   whole line, we need to
-						   finish this check now. */
+					if (ret == -2 &&
+					    from_start_pos <= stream->pos) {
+						/* nothing in front of the line
+						   can be returned, so even if
+						   we don't have the whole line,
+						   we need to finish this check
+						   now. */
 						goto mbox_verify;
 					}
 				}
