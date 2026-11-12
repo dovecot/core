@@ -145,6 +145,12 @@ mail_index_try_read_map(struct mail_index_map *map,
 	i_assert(map->rec_map->mmap_base == NULL);
 
 	*retry_r = FALSE;
+	if (file_size > SSIZE_T_MAX) {
+		/* too large file to read into memory */
+		mail_index_set_error(index, "Index file too large: %s",
+				     index->filepath);
+		return -1;
+	}
 	ret = mail_index_read_header(index, read_buf, sizeof(read_buf), &pos);
 	buf = read_buf; hdr = buf;
 
