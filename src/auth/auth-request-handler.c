@@ -875,11 +875,15 @@ static void auth_str_append_userdb_extra_fields(struct auth_request *request,
 			auth_token_get(request->fields.protocol, auth_token_pid,
 				       request->fields.user,
 				       request->fields.session_id);
+		/* The token is a bearer credential for the DOVECOT-TOKEN
+		   mechanism, so log it only when passwords are logged. */
 		e_debug(request->event, "Token requested: service=%s "
 			"username=%s session_pid=%s session_id=%s "
 			"token=%s", request->fields.protocol,
 			request->fields.user, auth_token_pid,
-			request->fields.session_id, auth_token);
+			request->fields.session_id,
+			request->set->debug_passwords ?
+			auth_token : PASSWORD_HIDDEN_STR);
 		auth_str_add_keyvalue(dest, "auth_token", auth_token);
 	}
 	if (request->fields.master_user != NULL) {

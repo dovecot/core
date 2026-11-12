@@ -66,11 +66,15 @@ mech_dovecot_token_auth_continue(struct sasl_server_mech_request *request,
 				service, "");
 			sasl_server_request_success(request, NULL, 0);
 		} else {
+			/* Never log the valid token: anyone able to read the
+			   log could then use it to authenticate as any user
+			   by sending a deliberately wrong token. */
 			e_debug(request->event, "Token mismatch: service=%s "
 				"username=%s session_pid=%s session_id=%s "
-				"token=%s != %s",
-				service, request->authid, pid, session_id,
-				auth_token, valid_token);
+				"token=%s", service, request->authid, pid,
+				session_id,
+				auth_request->set->debug_passwords ?
+				auth_token : PASSWORD_HIDDEN_STR);
 			sasl_server_request_failure(request);
 		}
 	}
