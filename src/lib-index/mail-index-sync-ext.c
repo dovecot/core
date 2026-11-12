@@ -478,6 +478,62 @@ sync_ext_record_size_fits(struct mail_index_map *map, uint32_t ext_map_idx,
 	return size < UINT16_MAX;
 }
 
+/* Returns TRUE if the records buffer can be resized to the new record size,
+   or if the records don't need to be resized. ext_map_idx is UINT32_MAX for
+   a new extension. */
+static bool
+sync_ext_records_size_fits(struct mail_index_map *map, uint32_t ext_map_idx,
+			   uint16_t record_size, uint16_t record_align)
+{
+	const struct mail_index_ext *old_ext;
+	struct mail_index_ext *ext;
+	unsigned int count = 0;
+	uint32_t new_record_size;
+	bool ret;
+
+	if (UINT_MAX <= SSIZE_T_MAX / UINT16_MAX) {
+		/* records_count * record_size can't overflow, which is
+		   always the case with 64-bit size_t. */
+		return TRUE;
+	}
+
+	if (ext_map_idx != UINT32_MAX) {
+		old_ext = array_idx(&map->extensions, ext_map_idx);
+		if (old_ext->record_size == record_size &&
+		    old_ext->record_align == record_align) {
+			/* records aren't reordered */
+			return TRUE;
+		}
+	}
+
+	T_BEGIN {
+		/* Calculate the new record size using a copy of the
+		   extensions with the intro applied. A new extension is
+		   added to the end, like mail_index_map_register_ext()
+		   does. */
+		if (array_is_created(&map->extensions))
+			count = array_count(&map->extensions);
+		ext = t_new(struct mail_index_ext, count + 1);
+		if (count > 0) {
+			memcpy(ext, array_front(&map->extensions),
+			       sizeof(*ext) * count);
+		}
+		if (ext_map_idx == UINT32_MAX)
+			ext_map_idx = count++;
+		ext[ext_map_idx].record_size = record_size;
+		ext[ext_map_idx].record_align = record_align;
+		new_record_size = sync_ext_calc_record_layout(ext, count);
+
+		/* Use the same SSIZE_T_MAX limit as when reading the index.
+		   This also prevents MALLOC_MULTIPLY() from panicking in
+		   sync_ext_reorder(). */
+		ret = new_record_size <= map->hdr.record_size ||
+			map->rec_map->records_count <=
+			SSIZE_T_MAX / new_record_size;
+	} T_END;
+	return ret;
+}
+
 int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 			      const struct mail_transaction_ext_intro *u)
 {
@@ -575,6 +631,14 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 		mail_index_sync_set_corrupted(ctx,
 			"Broken extension introduction: "
 			"Record size too large");
+		return -1;
+	}
+	if ((ext == NULL || u->reset_id == ext->reset_id) &&
+	    !sync_ext_records_size_fits(map, ext_map_idx, record_size,
+					record_align)) {
+		mail_index_sync_set_corrupted(ctx,
+			"Broken extension introduction: "
+			"Records size too large");
 		return -1;
 	}
 
