@@ -101,6 +101,13 @@ smtp_client_connection_get_extra_capability(struct smtp_client_connection *conn,
 enum smtp_client_connection_state
 smtp_client_connection_get_state(struct smtp_client_connection *conn);
 
+static inline bool
+smtp_client_connection_is_ready(struct smtp_client_connection *conn)
+{
+	return (smtp_client_connection_get_state(conn) >=
+		SMTP_CLIENT_CONNECTION_STATE_READY);
+}
+
 const char *
 smtp_client_connection_get_name(struct smtp_client_connection *conn);
 void smtp_client_connection_get_remote_ip(
