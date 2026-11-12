@@ -945,6 +945,7 @@ void login_proxy_sasl_enable_channel_binding(struct client *client)
 {
 	struct login_proxy *proxy = client->login_proxy;
 
+	i_assert(client->proxy_sasl_session != NULL);
 	if (proxy->server_ssl_iostream == NULL)
 		return;
 	dsasl_client_session_enable_channel_binding(
