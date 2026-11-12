@@ -115,41 +115,23 @@ static int mail_index_ext_align_cmp(const void *p1, const void *p2)
 	return (int)(*e2)->record_align - (int)(*e1)->record_align;
 }
 
-static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_map_idx,
-			     uint16_t old_ext_size)
+/* Calculate the record offsets for all the extensions. Returns the new
+   record size. */
+static uint32_t
+sync_ext_calc_record_layout(struct mail_index_ext *ext, unsigned int count)
 {
-	struct mail_index_ext *ext, **sorted;
-	struct mail_index_ext_header *ext_hdr;
-	uint16_t *old_offsets, *copy_sizes, min_align, max_align;
-	uint32_t offset, new_record_size, rec_idx;
-	unsigned int i, count;
-	const void *src;
-	buffer_t *new_buffer;
-	size_t new_buffer_size, rec_offset;
+	struct mail_index_ext **sorted;
+	uint16_t min_align, max_align;
+	uint32_t offset;
+	unsigned int i;
 
-	i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map) && map->refcount == 1);
-
-	ext = array_get_modifiable(&map->extensions, &count);
-	i_assert(ext_map_idx < count);
-
-	/* @UNSAFE */
-	old_offsets = t_new(uint16_t, count);
-	copy_sizes = t_new(uint16_t, count);
 	sorted = t_new(struct mail_index_ext *, count);
 	for (i = 0; i < count; i++) {
-		old_offsets[i] = ext[i].record_offset;
-		copy_sizes[i] = ext[i].record_size;
 		ext[i].record_offset = 0;
 		sorted[i] = &ext[i];
 	}
 	qsort(sorted, count, sizeof(struct mail_index_ext *),
 	      mail_index_ext_align_cmp);
-
-	if (copy_sizes[ext_map_idx] > old_ext_size) {
-		/* we are growing the extension record. remember this
-		   so we don't write extra data while copying the record */
-		copy_sizes[ext_map_idx] = old_ext_size;
-	}
 
 	/* we simply try to use the extensions with largest alignment
 	   requirement first. FIXME: if the extension sizes don't match
@@ -193,7 +175,41 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_map_idx,
 		/* keep record size divisible with maximum alignment */
 		offset += max_align - (offset % max_align);
 	}
-	new_record_size = offset;
+	return offset;
+}
+
+static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_map_idx,
+			     uint16_t old_ext_size)
+{
+	struct mail_index_ext *ext;
+	struct mail_index_ext_header *ext_hdr;
+	uint16_t *old_offsets, *copy_sizes;
+	uint32_t new_record_size, rec_idx;
+	unsigned int i, count;
+	const void *src;
+	buffer_t *new_buffer;
+	size_t new_buffer_size, rec_offset;
+
+	i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map) && map->refcount == 1);
+
+	ext = array_get_modifiable(&map->extensions, &count);
+	i_assert(ext_map_idx < count);
+
+	/* @UNSAFE */
+	old_offsets = t_new(uint16_t, count);
+	copy_sizes = t_new(uint16_t, count);
+	for (i = 0; i < count; i++) {
+		old_offsets[i] = ext[i].record_offset;
+		copy_sizes[i] = ext[i].record_size;
+	}
+
+	if (copy_sizes[ext_map_idx] > old_ext_size) {
+		/* we are growing the extension record. remember this
+		   so we don't write extra data while copying the record */
+		copy_sizes[ext_map_idx] = old_ext_size;
+	}
+
+	new_record_size = sync_ext_calc_record_layout(ext, count);
 	i_assert(new_record_size >= sizeof(struct mail_index_record));
 
 	/* copy the records to new buffer */
