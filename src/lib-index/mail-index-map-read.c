@@ -34,6 +34,7 @@ static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 	struct mail_index_record_map *rec_map = map->rec_map;
 	const struct mail_index_header *hdr;
 	const char *error;
+	size_t records_count;
 
 	i_assert(rec_map->mmap_base == NULL);
 
@@ -84,12 +85,15 @@ static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 
 	/* header_size was checked by mail_index_check_header_compat() */
 	i_assert(hdr->header_size <= rec_map->mmap_size);
-	rec_map->records_count = (rec_map->mmap_size - hdr->header_size) /
+	records_count = (rec_map->mmap_size - hdr->header_size) /
 		hdr->record_size;
 
-	if (hdr->messages_count <= rec_map->records_count)
+	/* records_count can be larger than UINT_MAX with a huge file, so
+	   assign it only when it's smaller than messages_count. */
+	if (hdr->messages_count <= records_count)
 		rec_map->records_count = hdr->messages_count;
 	else {
+		rec_map->records_count = records_count;
 		mail_index_set_error(index, "Corrupted index file %s: "
 				     "messages_count too large (%u > %u)",
 				     index->filepath, hdr->messages_count,
