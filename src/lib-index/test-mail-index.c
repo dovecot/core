@@ -1072,6 +1072,8 @@ test_mail_index_verify_records_corrupt_at(enum mail_flags last_flags,
 	test_assert(mail_index_verify_records(index) == 0);
 	test_expect_no_more_errors();
 	test_assert(mail_index_reset_fscked(index));
+	/* fsck marks the fixed records as verified */
+	test_assert(index->map->records_verified);
 	test_assert_ucmp(index->map->hdr.messages_count, ==,
 			 expected_messages_count);
 

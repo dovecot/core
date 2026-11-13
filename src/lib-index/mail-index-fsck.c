@@ -481,6 +481,8 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map)
 
 	hdr.flags |= MAIL_INDEX_HDR_FLAG_FSCKD;
 	map->hdr = hdr;
+	/* The records, counts and lowwaters are valid now */
+	map->records_verified = TRUE;
 	i_assert(map->hdr_copy_buf->used == map->hdr.header_size);
 }
 
