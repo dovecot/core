@@ -75,6 +75,12 @@ struct acl_object {
 
 	pool_t rights_pool;
 	ARRAY_TYPE(acl_rights) rights;
+
+	/* The object's mailbox is open while its ACLs are being read. This
+	   matters with MAIL_STORAGE_CLASS_FLAG_CACHED_FILES: only then the
+	   mailbox's ACL file is known to be locally present and up to
+	   date. */
+	bool mailbox_open:1;
 };
 
 struct acl_object_list_iter {

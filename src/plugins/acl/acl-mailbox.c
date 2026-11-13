@@ -11,6 +11,7 @@
 #include "settings.h"
 #include "mailbox-list-private.h"
 #include "acl-api-private.h"
+#include "acl-cache.h"
 #include "acl-plugin.h"
 
 #include <sys/stat.h>
@@ -601,11 +602,33 @@ static int acl_mailbox_open_check_acl(struct mailbox *box)
 static int acl_mailbox_open(struct mailbox *box)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
+	int ret;
 
 	if (acl_mailbox_open_check_acl(box) < 0)
 		return -1;
 
-	return abox->module_ctx.super.open(box);
+	if (abox->module_ctx.super.open(box) < 0)
+		return -1;
+	if ((box->storage->class_flags &
+	     MAIL_STORAGE_CLASS_FLAG_CACHED_FILES) == 0)
+		return 0;
+
+	/* The storage has the mailbox's files locally only while the mailbox
+	   is open, so the check above may have used the rights cache and
+	   only decided whether the mailbox may be fetched. Now the ACL file
+	   is there and up to date: read it and check again. */
+	abox->no_read_right = FALSE;
+	acl_cache_flush(abox->aclobj->backend->cache, abox->aclobj->name);
+	abox->aclobj->mailbox_open = TRUE;
+	ret = acl_mailbox_open_check_acl(box);
+	abox->aclobj->mailbox_open = FALSE;
+	if (ret < 0) {
+		mail_storage_last_error_push(box->storage);
+		mailbox_close(box);
+		mail_storage_last_error_pop(box->storage);
+		return -1;
+	}
+	return 0;
 }
 
 static int acl_mailbox_get_status(struct mailbox *box,

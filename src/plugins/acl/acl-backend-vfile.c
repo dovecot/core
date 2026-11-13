@@ -250,7 +250,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 	/* The storage has a mailbox's files locally only while the mailbox
 	   is open (e.g. obox metacache). At other times the ACL file may be
 	   missing, or be an old copy. */
-	bool file_uncertain =
+	bool file_uncertain = !aclobj->mailbox_open &&
 		acl_backend_storage_has_cached_files(aclobj->backend);
 	bool file_is_old = FALSE;
 	struct timeval cache_mtime = { 0, 0 };
@@ -313,7 +313,8 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 			enum acl_rights_cache_evict_flags flags = 0;
 
 			/* The storage has the mailbox's files locally at all
-			   times: the ACL file was really deleted. */
+			   times, or the mailbox is open now: the ACL file was
+			   really deleted. */
 			if (acl_object_has_global_nonowner_lookup(aclobj))
 				flags |= ACL_RIGHTS_CACHE_EVICT_KEEP_MARKER;
 			acl_rights_cache_evict(aclobj->backend, aclobj->name,
