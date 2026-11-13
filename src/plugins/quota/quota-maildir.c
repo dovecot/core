@@ -452,6 +452,20 @@ maildir_parse_limit(const char *str, uint64_t *bytes_r, uint64_t *count_r)
 	return ret;
 }
 
+static bool
+maildirsize_parse_diff(const char *line, long long *bytes_r, int *count_r)
+{
+	/* <bytes> <count>, optionally padded with whitespace */
+	while (*line == ' ' || *line == '\t')
+		line++;
+	if (str_parse_llong(line, bytes_r, &line) < 0 ||
+	    (*line != ' ' && *line != '\t'))
+		return FALSE;
+	while (*line == ' ' || *line == '\t')
+		line++;
+	return str_parse_int(line, count_r, &line) == 0;
+}
+
 static int maildirsize_parse(struct maildir_quota_root *root,
 			     int fd, const char *const *lines)
 {
@@ -488,9 +502,17 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 	/* rest of the lines contains <bytes> <count> diffs */
 	total_bytes = 0; total_count = 0;
 	for (lines++; *lines != NULL; lines++, line_count++) {
-		if (sscanf(*lines, "%lld %d", &bytes_diff, &count_diff) != 2)
+		if (!maildirsize_parse_diff(*lines, &bytes_diff, &count_diff))
 			return -1;
 
+		/* the file is writable by the user - don't let crafted
+		   values overflow the totals */
+		if (bytes_diff > 0 ? total_bytes > LLONG_MAX - bytes_diff :
+		    total_bytes < LLONG_MIN - bytes_diff)
+			return -1;
+		if (count_diff > 0 ? total_count > INT_MAX - count_diff :
+		    total_count < INT_MIN - count_diff)
+			return -1;
 		total_bytes += bytes_diff;
 		total_count += count_diff;
 	}
