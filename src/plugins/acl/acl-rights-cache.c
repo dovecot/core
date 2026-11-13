@@ -932,6 +932,163 @@ acl_rights_cache_rights_have_nonowner(const ARRAY_TYPE(acl_rights) *rights)
 	return FALSE;
 }
 
+static bool
+acl_rights_cache_entry_has_nonowner_lookups(
+	const struct acl_rights_cache_entry *entry)
+{
+	return acl_rights_cache_rights_have_nonowner(&entry->rights);
+}
+
+void acl_rights_cache_evict(struct acl_backend *_backend, const char *name,
+			    enum acl_rights_cache_evict_flags flags)
+{
+	struct acl_rights_cache_file *file = _backend->rights_cache_file;
+	struct acl_backend_vfile *backend;
+	const struct acl_rights_cache_entry *entry;
+	bool had_nonowner;
+	int ret;
+
+	if (file == NULL) {
+		/* not a vfile backend */
+		return;
+	}
+	if (*name == '\0') {
+		/* the namespace root is never cached */
+		return;
+	}
+	backend = container_of(_backend, struct acl_backend_vfile, backend);
+	if (backend->rebuilding_aclcache || backend->iterating_aclcache) {
+		/* The iterated cache state must not change now. A stale
+		   entry gets dropped by the next rebuild. */
+		return;
+	}
+
+	entry = acl_rights_cache_find(file, name);
+	if (entry == NULL)
+		return;
+	had_nonowner = entry->marker ||
+		acl_rights_cache_entry_has_nonowner_lookups(entry);
+
+	T_BEGIN {
+		ARRAY_TYPE(acl_rights) empty_rights;
+		const struct timeval no_mtime = { 0, 0 };
+
+		t_array_init(&empty_rights, 1);
+		ret = acl_rights_cache_file_set(file, name, &empty_rights,
+			(flags & ACL_RIGHTS_CACHE_EVICT_KEEP_MARKER) != 0,
+			&no_mtime);
+	} T_END;
+
+	if (ret > 0 && had_nonowner) {
+		/* the mailbox may have been visible in other users'
+		   shared namespaces */
+		struct acl_user *auser = ACL_USER_CONTEXT(
+			mailbox_list_get_user(_backend->list));
+		if (auser != NULL) {
+			(void)acl_lookup_dict_rebuild(
+				auser->acl_lookup_dict,
+				_backend->set->acl_dict_index);
+		}
+	}
+}
+
+void acl_rights_cache_verify(struct acl_object *aclobj,
+			     const struct acl_rights *rights,
+			     unsigned int count, const struct timeval *mtime)
+{
+	struct acl_backend_vfile *backend =
+		container_of(aclobj->backend, struct acl_backend_vfile,
+			     backend);
+	struct acl_rights_cache_file *file =
+		aclobj->backend->rights_cache_file;
+	const struct acl_rights_cache_entry *entry;
+	unsigned int i;
+	bool marker;
+	int ret;
+
+	if (*aclobj->name == '\0') {
+		/* the namespace root never has a cache entry */
+		return;
+	}
+	if (backend->rebuilding_aclcache || backend->iterating_aclcache)
+		return;
+	if (mtime->tv_sec == ACL_VFILE_VALIDITY_MTIME_NOTFOUND ||
+	    mtime->tv_sec == ACL_VFILE_VALIDITY_MTIME_NOACCESS) {
+		/* There is no readable local ACL file - either the mailbox
+		   has no ACLs or they were served from the cache. Nothing
+		   to synchronize. */
+		return;
+	}
+
+	acl_rights_cache_refresh(backend, TRUE);
+	marker = acl_object_has_global_nonowner_lookup(aclobj);
+	entry = acl_rights_cache_find(file, aclobj->name);
+	/* The marker follows the configured ACLs, which can change without
+	   the ACL file changing. Only a private namespace's sessions bring it
+	   up to date: a shared namespace's session is another user's, and a
+	   public namespace's cache is verified by all users. They may see
+	   other settings, and would keep rewriting the entry. */
+	bool old_marker = entry != NULL && entry->marker;
+	bool marker_ok = TRUE;
+
+	if (!acl_rights_cache_ns_is_private(file))
+		marker = old_marker;
+	else
+		marker_ok = old_marker == marker;
+
+	if (entry != NULL && timeval_cmp(&entry->mtime, mtime) == 0 &&
+	    marker_ok)
+		return;
+	if (entry == NULL && count == 0 && marker_ok)
+		return;
+	if (entry != NULL && array_count(&entry->rights) == 0 &&
+	    count == 0 && marker_ok) {
+		/* an entry that has only flags and the ACL file has no
+		   rights either - keep it as it is */
+		return;
+	}
+
+	/* The ACL file was changed without going through
+	   acl_backend_vfile_object_update() (e.g. dsync), or the configured
+	   ACLs changed. If any nonowner lookup rights are involved in the
+	   change, the ACL lookup dict needs a rebuild as well. Check before
+	   file_set() invalidates the entry pointer. */
+	bool nonowner_changes = marker;
+
+	if (entry != NULL) {
+		nonowner_changes = entry->marker != marker ||
+			acl_rights_cache_entry_has_nonowner_lookups(entry);
+	}
+	for (i = 0; i < count && !nonowner_changes; i++) {
+		if (acl_rights_has_nonowner_lookup_changes(&rights[i]))
+			nonowner_changes = TRUE;
+	}
+
+	T_BEGIN {
+		/* file_set() modifies the array while merging, use a copy */
+		ARRAY_TYPE(acl_rights) copy;
+
+		t_array_init(&copy, count + 1);
+		array_append(&copy, rights, count);
+		ret = acl_rights_cache_file_set(file, aclobj->name, &copy,
+						marker, mtime);
+	} T_END;
+	if (ret <= 0) {
+		/* error, or no cache file - the refresh above already
+		   attempted the rebuild that would create it */
+		return;
+	}
+
+	if (nonowner_changes) {
+		struct acl_user *auser = ACL_USER_CONTEXT(
+			mailbox_list_get_user(aclobj->backend->list));
+		if (auser != NULL) {
+			(void)acl_lookup_dict_rebuild(auser->acl_lookup_dict,
+				aclobj->backend->set->acl_dict_index);
+		}
+	}
+}
+
 /* Read the object's ACLs and return TRUE if its global rights give a
    nonowner the lookup right. Returns FALSE if reading them fails. */
 static bool acl_rights_cache_read_global_nonowner(struct acl_object *aclobj)

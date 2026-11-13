@@ -26,10 +26,31 @@ void acl_rights_cache_refresh(struct acl_backend_vfile *backend,
 /* Rebuild the cache file from all mailboxes' ACL files. */
 int acl_rights_cache_rebuild(struct acl_backend_vfile *backend);
 
+/* Make sure the cached rights for the mailbox are up-to-date with the
+   mailbox's ACL file. The count rights must be only the rights read from
+   the ACL file (no configuration-provided rights) and mtime the ACL file's
+   mtime. Called after the ACL file has been read successfully. */
+void acl_rights_cache_verify(struct acl_object *aclobj,
+			     const struct acl_rights *rights,
+			     unsigned int count, const struct timeval *mtime);
+
 /* Returns TRUE and the mtime stored for the mailbox's cache entry, FALSE if
    the mailbox has no entry. */
 bool acl_rights_cache_file_get_mtime(struct acl_rights_cache_file *file,
 				     const char *name, struct timeval *mtime_r);
+
+enum acl_rights_cache_evict_flags {
+	/* The configured ACLs give a nonowner the lookup right, so the
+	   mailbox's marker is kept. */
+	ACL_RIGHTS_CACHE_EVICT_KEEP_MARKER = BIT(0),
+};
+
+/* Remove the mailbox's cached rights, e.g. after the mailbox or its ACL
+   file was deleted. Rebuilds the ACL lookup dict when the evicted entry
+   contained nonowner lookup rights. Does nothing for backends without a
+   rights cache. */
+void acl_rights_cache_evict(struct acl_backend *backend, const char *name,
+			    enum acl_rights_cache_evict_flags flags);
 
 /* Apply given update to the existing cached ACL of the mailbox.
    Returns 1 if the cache was updated, 0 if there is no cache file to
