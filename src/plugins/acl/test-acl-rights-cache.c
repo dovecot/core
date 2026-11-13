@@ -921,6 +921,94 @@ static void test_acl_rights_cache_escaped_name(void)
 	test_end();
 }
 
+/* The mailbox's maildir tmp/ directory. Opening a Maildir++ mailbox creates
+   it again if it's missing. */
+static const char *test_acl_mailbox_tmp_path(const char *name)
+{
+	const char *path;
+
+	if (mailbox_list_get_path(test_acl.list, name,
+				  MAILBOX_LIST_PATH_TYPE_MAILBOX, &path) <= 0)
+		i_fatal("mailbox_list_get_path(%s) failed", name);
+	return t_strconcat(path, "/tmp", NULL);
+}
+
+/* With a storage that has a mailbox's files locally only while the mailbox
+   is open, a rebuild keeps the entry of a mailbox whose ACL file is missing
+   or older than the entry, and trusts any other local ACL file. doveadm acl
+   recalc opens every mailbox instead, and uses what their ACL files have
+   then. */
+static void test_acl_rights_cache_rebuild_cached_files(void)
+{
+	const char *acl_path, *tmp_path, *tmp_path2;
+	struct stat st;
+	struct utimbuf ut;
+
+	test_begin("acl rights cache rebuild with cached files");
+	test_acl_user_init(NULL);
+	test_acl_storage_set_cached_files();
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_mailbox_create(TEST_MAILBOX2);
+	test_acl_grant(TEST_MAILBOX, TEST_UPDATE_ID,
+		       TEST_RIGHTS(MAIL_ACL_LOOKUP, MAIL_ACL_READ));
+	test_acl_grant(TEST_MAILBOX2, TEST_UPDATE_ID,
+		       TEST_RIGHTS(MAIL_ACL_LOOKUP));
+
+	/* an old copy of the ACL file */
+	acl_path = test_acl_local_path(TEST_MAILBOX2);
+	if (stat(acl_path, &st) < 0)
+		i_fatal("stat(%s) failed: %m", acl_path);
+	test_acl_write_file(acl_path, TEST_UPDATE_ID" lrw\n");
+	ut.actime = st.st_atime;
+	ut.modtime = st.st_mtime - 10;
+	if (utime(acl_path, &ut) < 0)
+		i_fatal("utime(%s) failed: %m", acl_path);
+	/* an ACL file that isn't locally available */
+	i_unlink(test_acl_local_path(TEST_MAILBOX));
+
+	test_assert(acl_backend_nonowner_lookups_rebuild(test_acl.backend,
+							  FALSE) == 0);
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
+			   TEST_UPDATE_ID" lookup read");
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX2),
+			   TEST_UPDATE_ID" lookup");
+
+	/* doveadm acl recalc */
+	test_assert(acl_backend_nonowner_lookups_rebuild(test_acl.backend,
+							  TRUE) == 0);
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX), "");
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX2),
+			   TEST_UPDATE_ID" lookup read write");
+
+	/* The entry has the ACL file's mtime now. A rebuild trusts the file
+	   and doesn't open the mailbox. */
+	tmp_path2 = test_acl_mailbox_tmp_path(TEST_MAILBOX2);
+	if (rmdir(tmp_path2) < 0)
+		i_fatal("rmdir(%s) failed: %m", tmp_path2);
+	test_assert(acl_backend_nonowner_lookups_rebuild(test_acl.backend,
+							  FALSE) == 0);
+	test_assert(stat(tmp_path2, &st) < 0 && errno == ENOENT);
+
+	/* doveadm acl recalc opens it, and a mailbox whose local ACL file
+	   has no entry as well */
+	test_acl_write_file(test_acl_local_path(TEST_MAILBOX),
+			    TEST_UPDATE_ID" lr\n");
+	tmp_path = test_acl_mailbox_tmp_path(TEST_MAILBOX);
+	if (rmdir(tmp_path) < 0)
+		i_fatal("rmdir(%s) failed: %m", tmp_path);
+	test_assert(acl_backend_nonowner_lookups_rebuild(test_acl.backend,
+							  TRUE) == 0);
+	test_assert(stat(tmp_path, &st) == 0);
+	test_assert(stat(tmp_path2, &st) == 0);
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
+			   TEST_UPDATE_ID" lookup read");
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX2),
+			   TEST_UPDATE_ID" lookup read write");
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 /* The rebuild reads the ACL files like the normal read path does, also
    lines that start with whitespace. */
 static void test_acl_rights_cache_rebuild_lwsp(void)
@@ -1164,6 +1252,7 @@ int main(int argc, char **argv)
 		test_acl_rights_cache_iter_fails_unwritable,
 		test_acl_rights_cache_rebuild_abort,
 		test_acl_rights_cache_rebuild_drops_local,
+		test_acl_rights_cache_rebuild_cached_files,
 		test_acl_rights_cache_rebuild_lwsp,
 		test_acl_rights_cache_duplicate_ids,
 		test_acl_rights_cache_marker_follows_config,
