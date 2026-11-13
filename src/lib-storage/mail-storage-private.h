@@ -126,6 +126,10 @@ enum mail_storage_class_flags {
 	   mailboxes, so their cached status and metadata must neither be read
 	   nor updated. */
 	MAIL_STORAGE_CLASS_FLAG_NO_LIST_INDEX_CACHE = 0x1000,
+	/* Storage keeps the mailboxes' files in a local cache. A mailbox's
+	   files are guaranteed to be locally present and up to date only
+	   while the mailbox is open. */
+	MAIL_STORAGE_CLASS_FLAG_CACHED_FILES = 0x2000,
 };
 
 struct mail_binary_cache {
