@@ -44,6 +44,7 @@ struct acl_backend {
 	struct event *event;
 	struct mailbox_list *list;
 	struct acl_cache *cache;
+	struct acl_rights_cache_file *rights_cache_file;
 
 	struct acl_object *default_aclobj;
 	struct acl_mask *default_aclmask;

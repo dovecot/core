@@ -10,6 +10,7 @@
 #include "acl-cache.h"
 #include "acl-backend-vfile.h"
 #include "acl-storage.h"
+#include "acl-rights-cache.h"
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -38,6 +39,8 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char **error_r ATTR_U
 	_backend->cache =
 		acl_cache_init(_backend,
 			       sizeof(struct acl_backend_vfile_validity));
+
+	_backend->rights_cache_file = acl_rights_cache_file_init(_backend);
 	return 0;
 }
 
@@ -50,6 +53,7 @@ static void acl_backend_vfile_deinit(struct acl_backend *_backend)
 		array_free(&backend->acllist);
 		pool_unref(&backend->acllist_pool);
 	}
+	acl_rights_cache_file_deinit(&_backend->rights_cache_file);
 	pool_unref(&backend->backend.pool);
 }
 

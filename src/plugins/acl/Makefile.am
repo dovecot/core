@@ -47,7 +47,8 @@ libacl_plugin_static_la_SOURCES = \
 	acl-rights.c \
 	acl-settings.c \
 	acl-shared-storage.c \
-	acl-storage.c
+	acl-storage.c \
+	acl-rights-cache.c
 
 noinst_HEADERS = \
 	acl-backend-vfile.h \
@@ -63,7 +64,8 @@ pkginc_lib_HEADERS = \
 	acl-plugin.h \
 	acl-rights.h \
 	acl-settings.h \
-	acl-storage.h
+	acl-storage.h \
+	acl-rights-cache.h
 
 doveadm_module_LTLIBRARIES = \
 	lib10_doveadm_acl_plugin.la
