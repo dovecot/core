@@ -150,6 +150,58 @@ static void test_unichar_invalid_lead_octet(void)
 	test_end();
 }
 
+static void test_unichar_invalid_second_octet(void)
+{
+	static const struct {
+		unsigned char lead, lo, hi;
+	} tests[] = {
+		{ 0xe0, 0xa0, 0xbf }, /* below this would be overlong */
+		{ 0xed, 0x80, 0x9f }, /* above this would be a surrogate */
+		{ 0xf0, 0x90, 0xbf }, /* below this would be overlong */
+		{ 0xf4, 0x80, 0x8f }, /* above this would be above U+10FFFF */
+	};
+	unichar_t chr;
+
+	test_begin("unichar invalid second octet");
+
+	/* These lead octets accept only part of the continuation range. Once
+	   a second octet outside it is there, no following octets can make
+	   the sequence valid, so it is invalid input rather than an
+	   incomplete trailing character. */
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		unsigned int len = uni_utf8_char_bytes(tests[i].lead);
+
+		for (unsigned int second = 0x80; second <= 0xbf; second++) {
+			const unsigned char input[] = {
+				tests[i].lead, (unsigned char)second, 0x80, 0x80
+			};
+			bool in_range = second >= tests[i].lo &&
+				second <= tests[i].hi;
+
+			for (size_t size = 2; size <= sizeof(input); size++) {
+				int ret = uni_utf8_get_char_n(input, size,
+							      &chr);
+
+				if (!in_range)
+					test_assert_idx(ret < 0, second);
+				else if (size < len)
+					test_assert_idx(ret == 0, second);
+				else
+					test_assert_idx(ret == (int)len,
+							second);
+			}
+		}
+
+		/* the second octet has to be there: without it the sequence is
+		   still only incomplete */
+		const unsigned char lead_only[] = { tests[i].lead };
+		test_assert_idx(uni_utf8_get_char_n(lead_only, 1,
+						    &chr) == 0, i);
+	}
+
+	test_end();
+}
+
 static void test_unichar_surrogates(void)
 {
 	unichar_t orig, high, low;
@@ -369,6 +421,7 @@ void test_unichar(void)
 	test_unichar_uni_utf8_partial_strlen_n();
 	test_unichar_valid_unicode();
 	test_unichar_invalid_lead_octet();
+	test_unichar_invalid_second_octet();
 	test_unichar_surrogates();
 
 	test_unichar_grapheme_clusters();
