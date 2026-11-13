@@ -29,6 +29,8 @@ struct acl_object_vfile {
 	bool failed:1;
 };
 
+#define ACL_RIGHTS_CACHE_LOCK_TIMEOUT_SECS 5
+
 struct acl_backend_vfile_acllist {
 	time_t mtime;
 	const char *name;
@@ -45,6 +47,8 @@ struct acl_backend_vfile {
 	unsigned int acllist_change_counter;
 
 	unsigned int cache_secs;
+	/* how long a rights cache update waits for a concurrent writer */
+	unsigned int rights_cache_lock_timeout_secs;
 	bool rebuilding_acllist:1;
 	bool iterating_acllist:1;
 };

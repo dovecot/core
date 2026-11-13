@@ -8,6 +8,9 @@
 #include "str-sanitize.h"
 #include "strescape.h"
 #include "time-util.h"
+#include "ostream.h"
+#include "eacces-error.h"
+#include "file-create-locked.h"
 #include "mail-namespace.h"
 #include "mail-storage-private.h"
 #include "acl-backend-vfile.h"
@@ -56,9 +59,14 @@ struct acl_rights_cache_file {
 	/* sorted by name, one entry per mailbox */
 	ARRAY_TYPE(acl_rights_cache_entry) entries;
 
+	struct file_lock *lock;
+	int tmp_fd;
+
 	pool_t rights_pool;
 
 	bool has_path:1;
+	/* the .tmp file was rename()d over the cache file */
+	bool tmp_renamed:1;
 	/* reading an existing cache file failed (e.g. corrupt content) -
 	   the in-memory copy is empty, but must not be treated as an
 	   authoritative empty result */
@@ -106,6 +114,7 @@ acl_rights_cache_file_init(struct acl_backend *backend)
 
 	file = i_new(struct acl_rights_cache_file, 1);
 	file->backend = backend;
+	file->tmp_fd = -1;
 	file->event = event_create(mailbox_list_get_user(backend->list)->event);
 	file->path = i_strdup(ACL_RIGHTS_CACHE);
 	i_array_init(&file->entries, 32);
@@ -449,4 +458,398 @@ bool acl_rights_cache_file_get_mtime(struct acl_rights_cache_file *file,
 		return FALSE;
 	*mtime_r = entry->mtime;
 	return TRUE;
+}
+
+static bool
+acl_rights_cache_modify_right(struct acl_rights *old_rights,
+			      pool_t pool,
+			      const struct acl_rights_update *update)
+{
+	bool c1, c2;
+
+	c1 = acl_right_names_modify(pool, &old_rights->rights,
+				    update->rights.rights, update->modify_mode);
+	c2 = acl_right_names_modify(pool, &old_rights->neg_rights,
+				    update->rights.neg_rights,
+				    update->neg_modify_mode);
+
+	return c1 || c2;
+}
+
+static bool
+acl_rights_cache_add_right(ARRAY_TYPE(acl_rights) *rights, pool_t pool,
+			   const struct acl_rights_update *update)
+{
+	struct acl_rights right;
+	bool c1, c2;
+
+	if (update->modify_mode == ACL_MODIFY_MODE_REMOVE &&
+	    update->neg_modify_mode == ACL_MODIFY_MODE_REMOVE) {
+		/* nothing to do */
+		return FALSE;
+	}
+
+	i_zero(&right);
+	right.id_type = update->rights.id_type;
+	right.identifier = p_strdup(pool, update->rights.identifier);
+
+	c1 = acl_right_names_modify(pool, &right.rights,
+				    update->rights.rights, update->modify_mode);
+	c2 = acl_right_names_modify(pool, &right.neg_rights,
+				    update->rights.neg_rights,
+				    update->neg_modify_mode);
+	if (c1 || c2) {
+		array_push_back(rights, &right);
+		return TRUE;
+	}
+	return FALSE;
+}
+
+static void acl_rights_cache_write_header(struct ostream *output)
+{
+	o_stream_nsend_str(output, ACL_RIGHTS_CACHE_VERSION_LINE"\n");
+}
+
+static void
+acl_rights_cache_append_right(string_t *dest, const struct acl_rights *right,
+			      bool neg)
+{
+	string_t *field = t_str_new(64);
+
+	if (neg)
+		str_append_c(field, '-');
+	acl_rights_write_id(field, right);
+	str_append_c(dest, '\t');
+	str_append_tabescaped(dest, str_c(field));
+
+	str_truncate(field, 0);
+	acl_right_names_write(field, neg ? right->neg_rights : right->rights);
+	str_append_c(dest, '\t');
+	str_append_tabescaped(dest, str_c(field));
+}
+
+/* Write the mailbox's line. Nothing is written for a mailbox that has
+   neither rights nor flags. */
+static void
+acl_rights_cache_write_line(struct ostream *output, string_t *str,
+			    const char *name, const struct timeval *mtime,
+			    bool marker, const char *unknown_flags,
+			    const ARRAY_TYPE(acl_rights) *rights)
+{
+	const struct acl_rights *right;
+	size_t rights_pos;
+
+	str_truncate(str, 0);
+	str_printfa(str, "%"PRIdTIME_T".%06u\t", mtime->tv_sec,
+		    (unsigned int)mtime->tv_usec);
+	if (marker)
+		str_append_c(str, ACL_RIGHTS_CACHE_FLAG_MARKER);
+	if (unknown_flags != NULL)
+		str_append_tabescaped(str, unknown_flags);
+	else if (!marker)
+		str_append_c(str, ACL_RIGHTS_CACHE_FLAG_NONE);
+	str_append_c(str, '\t');
+	str_append_tabescaped(str, name);
+	rights_pos = str_len(str);
+	if (rights != NULL) {
+		array_foreach(rights, right) T_BEGIN {
+			if (right->rights != NULL)
+				acl_rights_cache_append_right(str, right, FALSE);
+			if (right->neg_rights != NULL)
+				acl_rights_cache_append_right(str, right, TRUE);
+		} T_END;
+	}
+	if (str_len(str) == rights_pos && !marker && unknown_flags == NULL)
+		return;
+	str_append_c(str, '\n');
+	o_stream_nsend(output, str_data(str), str_len(str));
+}
+
+static int acl_rights_cache_file_flush(struct acl_rights_cache_file *file,
+				       ARRAY_TYPE(acl_rights) *add_rights,
+				       bool add_marker,
+				       const char *storage_name,
+				       const struct timeval *add_rights_mtime)
+{
+	const struct acl_rights_cache_entry *entry;
+	const char *unknown_flags = NULL;
+	struct ostream *output;
+	string_t *str;
+	int ret = 0;
+
+	const char *tmp_path = t_strdup_printf("%s.tmp", file->path);
+
+	output = o_stream_create_fd_file(file->tmp_fd, 0, FALSE);
+	o_stream_cork(output);
+	acl_rights_cache_write_header(output);
+
+	str = str_new(default_pool, 256);
+	array_foreach(&file->entries, entry) {
+		if (null_strcmp(entry->name, storage_name) == 0) {
+			/* replaced below, only its unknown flags are kept */
+			unknown_flags = entry->unknown_flags;
+			continue;
+		}
+		/* Rewrite the other mailboxes' entries unmodified */
+		acl_rights_cache_write_line(output, str, entry->name,
+					    &entry->mtime, entry->marker,
+					    entry->unknown_flags,
+					    &entry->rights);
+	}
+	if (add_rights != NULL) {
+		i_assert(storage_name != NULL);
+		/* New rights for storage_name */
+		acl_rights_cache_write_line(output, str, storage_name,
+					    add_rights_mtime, add_marker,
+					    unknown_flags, add_rights);
+	}
+	str_free(&str);
+
+	if (o_stream_finish(output) < 0) {
+		e_error(file->event, "write(%s) failed: %s", tmp_path,
+			o_stream_get_error(output));
+		ret = -1;
+	}
+	o_stream_destroy(&output);
+
+	if (ret == 0) {
+		if (rename(tmp_path, file->path) < 0) {
+			e_error(file->event, "rename(%s, %s) failed: %m",
+				tmp_path, file->path);
+			ret = -1;
+		} else {
+			file->tmp_renamed = TRUE;
+		}
+	}
+	return ret;
+}
+
+static void acl_rights_cache_file_update_end(struct acl_rights_cache_file *file)
+{
+	if (!file->tmp_renamed) {
+		/* Nothing was written - remove the .tmp file while the lock
+		   is still held. */
+		const char *tmp_path =
+			t_strdup_printf("%s.tmp", file->path);
+		i_unlink_if_exists(tmp_path);
+	}
+	i_close_fd(&file->tmp_fd);
+	file_lock_free(&file->lock);
+}
+
+/* The empty name is the namespace root, also when the prefix itself is
+   accessed as a mailbox ("Public" for "Public/", or "shared/$user" with
+   mail_shared_explicit_inbox=yes). Its ACL file is the one in the ACL root,
+   the namespace default ACL. It is always read from the file and never gets
+   a cache entry. */
+static bool acl_rights_cache_name_is_cacheable(const char *name)
+{
+	return *name != '\0';
+}
+
+/* Lock the cache file for rewriting and re-read it. The lock is a separate
+   <path>.lock file, created like the mail storage's other lock files, so
+   every lock_method works. The .tmp file that gets rename()d over the cache
+   is written under that lock. Only a full rebuild may create the cache file
+   (allow_create), so an incrementally updated cache is always known to be
+   complete. Returns 1 if locked, 0 if the cache can't be updated here
+   (skipped silently), -1 on error. */
+static int
+acl_rights_cache_file_update_begin(struct acl_rights_cache_file *file,
+				   bool allow_create)
+{
+	struct acl_backend_vfile *backend =
+		container_of(file->backend, struct acl_backend_vfile, backend);
+	const struct mail_storage_settings *mail_set =
+		mailbox_list_get_mail_set(file->backend->list);
+	struct mailbox_permissions perm;
+	const char *lock_path, *tmp_path, *error;
+	mode_t old_mask;
+	int fd, ret;
+
+	if (!acl_rights_cache_resolve_path(file))
+		return -1;
+	mailbox_list_get_root_permissions(file->backend->list, &perm);
+	const struct file_create_settings lock_set = {
+		.lock_timeout_secs = backend->rights_cache_lock_timeout_secs,
+		.lock_settings = {
+			.lock_method = mail_set->parsed_lock_method,
+		},
+		.mode = (int)perm.file_create_mode,
+		.gid = perm.file_create_gid == (gid_t)-1 ? 0 :
+			perm.file_create_gid,
+		.gid_origin = perm.file_create_gid_origin,
+	};
+	lock_path = t_strdup_printf("%s.lock", file->path);
+	ret = mail_storage_lock_create(lock_path, &lock_set, mail_set,
+				       &file->lock, &error);
+	if (ret < 0 && errno == ENOENT) {
+		/* home or ACL root directory doesn't exist yet */
+		enum mailbox_list_path_type type;
+		const char *root_dir;
+
+		struct mail_user *user =
+			mailbox_list_get_user(file->backend->list);
+
+		if (mail_user_home_mkdir(user) < 0)
+			return -1;
+		if (acl_backend_get_root_dir(file->backend, &root_dir, &type) &&
+		    mailbox_list_mkdir_root(file->backend->list, root_dir,
+					    type) < 0)
+			return -1;
+		ret = mail_storage_lock_create(lock_path, &lock_set, mail_set,
+					       &file->lock, &error);
+	}
+	if (ret <= 0) {
+		if (ret < 0 && ENOACCESS(errno)) {
+			/* We're not allowed to write here (e.g. a public
+			   namespace's ACL root) - skip silently like the
+			   old acllist rebuild did. */
+			e_debug(file->event, "%s", error);
+			return 0;
+		}
+		/* an error, or the lock timeout was reached */
+		e_error(file->event, "%s", error);
+		return -1;
+	}
+
+	/* O_TRUNC: the .tmp may be a leftover from a crashed writer. It is
+	   never supposed to be a symlink. */
+	tmp_path = t_strdup_printf("%s.tmp", file->path);
+	old_mask = umask(0);
+	fd = open(tmp_path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW,
+		  perm.file_create_mode);
+	umask(old_mask);
+	if (fd == -1) {
+		e_error(file->event, "open(%s, O_CREAT) failed: %m", tmp_path);
+		file_lock_free(&file->lock);
+		return -1;
+	}
+	if (perm.file_create_gid != (gid_t)-1 &&
+	    fchown(fd, (uid_t)-1, perm.file_create_gid) < 0) {
+		if (errno == EPERM) {
+			e_error(file->event, "%s",
+				eperm_error_get_chgrp("fchown", tmp_path,
+					perm.file_create_gid,
+					perm.file_create_gid_origin));
+		} else {
+			e_error(file->event, "fchown(%s) failed: %m",
+				tmp_path);
+		}
+		/* with the wrong group others couldn't read the cache */
+		i_close_fd(&fd);
+		i_unlink(tmp_path);
+		file_lock_free(&file->lock);
+		return -1;
+	}
+	file->tmp_fd = fd;
+	file->tmp_renamed = FALSE;
+	/* Re-read the cache under the lock, so rewriting the file doesn't
+	   lose concurrently made updates. */
+	if (acl_rights_cache_file_refresh(file) < 0) {
+		if (!allow_create || !file->read_failed) {
+			acl_rights_cache_file_update_end(file);
+			return -1;
+		}
+		/* A full rebuild may replace a cache file that can't be
+		   read (e.g. corrupt content). The entries that would have
+		   been preserved for not-locally-readable mailboxes are
+		   lost, but that's better than the broken file blocking
+		   every rebuild. */
+	}
+	if (!allow_create && acl_rights_cache_file_exists(file) <= 0) {
+		/* There is no cache file to update - it has to be created
+		   by a full rebuild. */
+		acl_rights_cache_file_update_end(file);
+		return 0;
+	}
+	return 1;
+}
+
+int acl_rights_cache_file_set(struct acl_rights_cache_file *file,
+			      const char *name,
+			      ARRAY_TYPE(acl_rights) *rights,
+			      bool marker, const struct timeval *mtime)
+{
+	int ret;
+
+	if (!acl_rights_cache_name_is_cacheable(name))
+		return 1;
+	if ((ret = acl_rights_cache_file_update_begin(file, FALSE)) <= 0)
+		return ret;
+	/* merge duplicate identifiers. This must happen after
+	   update_begin(): the merging allocates from rights_pool, which
+	   update_begin()'s refresh clears. */
+	acl_rights_sort(rights, file->rights_pool);
+	ret = acl_rights_cache_file_flush(file, rights, marker, name, mtime);
+	if (ret == 0) {
+		/* keep the in-memory copy in sync with what was just
+		   written - readers within cache_secs would otherwise
+		   still see the old state */
+		ret = acl_rights_cache_file_read(file);
+	}
+	acl_rights_cache_file_update_end(file);
+	return ret < 0 ? -1 : 1;
+}
+
+static bool
+acl_rights_cache_rights_modify(struct acl_rights_cache_file *file,
+			       const struct acl_rights_update *update,
+			       ARRAY_TYPE(acl_rights) *rights)
+{
+	struct acl_rights *right;
+
+	array_foreach_modifiable(rights, right) {
+		if (acl_rights_cmp(&update->rights, right) == 0) {
+			/* The identifier already exists for this mailbox,
+			   modify its rights. */
+			return acl_rights_cache_modify_right(right,
+				file->rights_pool, update);
+		}
+	}
+	return FALSE;
+}
+
+int acl_rights_cache_file_update(struct acl_rights_cache_file *file,
+				 const struct acl_rights_update *update,
+				 const char *name, bool marker,
+				 const struct timeval *mtime)
+{
+	ARRAY_TYPE(acl_rights) rights;
+	bool changed;
+	int ret;
+
+	if (!acl_rights_cache_name_is_cacheable(name))
+		return 1;
+	if ((ret = acl_rights_cache_file_update_begin(file, FALSE)) <= 0)
+		return ret;
+
+	/* Get the currently cached rights of the mailbox */
+	t_array_init(&rights, 32);
+	acl_rights_cache_file_get(file, name, file->rights_pool, &rights);
+	/* merge duplicate identifiers, so the update reaches all of an
+	   identifier's rights */
+	acl_rights_sort(&rights, file->rights_pool);
+
+	changed = acl_rights_cache_rights_modify(file, update, &rights);
+	if (!changed) {
+		/* No existing rights were modified, the update's rights
+		   need to be added. */
+		changed = acl_rights_cache_add_right(&rights,
+						     file->rights_pool, update);
+	}
+	if (!changed) {
+		acl_rights_cache_file_update_end(file);
+		return 1;
+	}
+
+	ret = acl_rights_cache_file_flush(file, &rights, marker, name, mtime);
+	if (ret == 0) {
+		/* keep the in-memory copy in sync with what was just
+		   written - readers within cache_secs would otherwise
+		   still see the old state */
+		ret = acl_rights_cache_file_read(file);
+	}
+	acl_rights_cache_file_update_end(file);
+	return ret < 0 ? -1 : 1;
 }

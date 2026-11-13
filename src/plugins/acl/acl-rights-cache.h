@@ -22,6 +22,25 @@ int acl_rights_cache_file_refresh(struct acl_rights_cache_file *file);
 bool acl_rights_cache_file_get_mtime(struct acl_rights_cache_file *file,
 				     const char *name, struct timeval *mtime_r);
 
+/* Apply given update to the existing cached ACL of the mailbox.
+   Returns 1 if the cache was updated, 0 if there is no cache file to
+   update (a full rebuild has to create it) or updating isn't possible
+   here, -1 on error. */
+int acl_rights_cache_file_update(struct acl_rights_cache_file *file,
+				 const struct acl_rights_update *update,
+				 const char *name, bool marker,
+				 const struct timeval *mtime);
+
+/* Replace the cached rights of the mailbox with the given rights. With
+   marker the mailbox's line also gets the marker flag. An empty rights
+   array without it removes the mailbox from the cache, unless its line has
+   flags this version doesn't know.
+   Return values are the same as for acl_rights_cache_file_update(). */
+int acl_rights_cache_file_set(struct acl_rights_cache_file *file,
+			      const char *name,
+			      ARRAY_TYPE(acl_rights) *rights,
+			      bool marker, const struct timeval *mtime);
+
 /* Append the cached ACL rights of the mailbox to rights_r, allocated from
    pool. The cache must already have been refreshed. */
 void acl_rights_cache_file_get(struct acl_rights_cache_file *file,

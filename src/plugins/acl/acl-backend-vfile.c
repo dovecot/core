@@ -36,6 +36,8 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char **error_r ATTR_U
 		container_of(_backend, struct acl_backend_vfile, backend);
 
 	backend->cache_secs = _backend->set->acl_cache_ttl;
+	backend->rights_cache_lock_timeout_secs =
+		ACL_RIGHTS_CACHE_LOCK_TIMEOUT_SECS;
 	_backend->cache =
 		acl_cache_init(_backend,
 			       sizeof(struct acl_backend_vfile_validity));
