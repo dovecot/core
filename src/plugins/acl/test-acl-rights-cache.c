@@ -15,6 +15,7 @@
 #include "acl-storage.h"
 #include "acl-api-private.h"
 #include "acl-backend-vfile.h"
+#include "file-create-locked.h"
 #include "acl-plugin.h"
 #include "acl-rights-cache.h"
 #include "test-acl-common.h"
@@ -336,6 +337,104 @@ static void test_acl_rights_cache_reparse_after_failure(void)
 	test_end();
 }
 
+/* The cache is locked with the storage's lock_method, so each of them has
+   to work. */
+static void test_acl_rights_cache_lock_methods(void)
+{
+	static const char *const lock_methods[] = {
+		"fcntl", "flock", "dotlock"
+	};
+	const char *lock_path;
+
+	test_begin("acl rights cache lock methods");
+	for (unsigned int i = 0; i < N_ELEMENTS(lock_methods); i++) {
+		test_acl_user_init(TEST_INPUT(t_strconcat("lock_method=",
+							  lock_methods[i],
+							  NULL)));
+		test_acl_mailbox_create(TEST_MAILBOX);
+		test_acl_grant(TEST_MAILBOX, TEST_UPDATE_ID,
+			       TEST_RIGHTS(MAIL_ACL_LOOKUP, MAIL_ACL_READ));
+		test_assert_strcmp_idx(test_acl_cache_get(TEST_MAILBOX),
+				       TEST_UPDATE_ID" lookup read", i);
+		/* the lock file doesn't stay behind */
+		lock_path = t_strconcat(test_acl_cache_path(), ".lock", NULL);
+		test_assert_idx(test_acl_read_file(lock_path) == NULL, i);
+		test_acl_user_deinit();
+	}
+	test_end();
+}
+
+/* A concurrent writer holds the cache lock for longer than the timeout.
+   The ACL update itself still succeeds, the cache keeps the old rights, and
+   the owner's next read of the mailbox brings it up to date. flock() locks
+   are per open file, so a second lock in this process really waits. */
+static void test_acl_rights_cache_update_lock_timeout(void)
+{
+	struct acl_backend_vfile *backend;
+	struct acl_object *aclobj;
+	struct file_lock *lock;
+	struct stat st;
+	struct utimbuf ut;
+	const char *lock_path, *acl_path, *error;
+	bool created;
+	int fd;
+
+	test_begin("acl rights cache update lock timeout");
+	test_acl_user_init(TEST_INPUT("lock_method=flock"));
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_grant(TEST_MAILBOX, TEST_UPDATE_ID,
+		       TEST_RIGHTS(MAIL_ACL_LOOKUP, MAIL_ACL_READ));
+	backend = container_of(test_acl.backend, struct acl_backend_vfile,
+			       backend);
+	backend->rights_cache_lock_timeout_secs = 1;
+
+	const struct file_create_settings lock_set = {
+		.lock_timeout_secs = 1,
+		.lock_settings = {
+			.lock_method = FILE_LOCK_METHOD_FLOCK,
+			.close_on_free = TRUE,
+			.unlink_on_free = TRUE,
+		},
+	};
+	lock_path = t_strconcat(test_acl_cache_path(), ".lock", NULL);
+	fd = file_create_locked(lock_path, &lock_set, &lock, &created, &error);
+	test_assert(fd != -1);
+
+	/* the update times out on the cache, but the ACL file is written */
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	test_expect_error_string("file_create_locked(");
+	test_assert(test_acl_do_update(aclobj, TEST_UPDATE_ID,
+				       TEST_RIGHTS(MAIL_ACL_INSERT),
+				       ACL_MODIFY_MODE_ADD,
+				       ACL_MODIFY_MODE_ADD) == 0);
+	test_expect_no_more_errors();
+	acl_object_deinit(&aclobj);
+	test_assert(strstr(test_acl_read_file(test_acl_local_path(TEST_MAILBOX)),
+			   "i") != NULL);
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
+			   TEST_UPDATE_ID" lookup read");
+	file_lock_free(&lock);
+
+	/* The owner's next read of the mailbox repairs the cache, once the
+	   ACL file's mtime differs from the cached entry's. Both changes
+	   may have got the same mtime here, so push the mtime forward. */
+	acl_path = test_acl_local_path(TEST_MAILBOX);
+	if (stat(acl_path, &st) < 0)
+		i_fatal("stat(%s) failed: %m", acl_path);
+	ut.actime = st.st_atime;
+	ut.modtime = st.st_mtime + 10;
+	if (utime(acl_path, &ut) < 0)
+		i_fatal("utime(%s) failed: %m", acl_path);
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	(void)test_acl_my_rights(aclobj);
+	acl_object_deinit(&aclobj);
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
+			   TEST_UPDATE_ID" insert lookup read");
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 static void test_acl_rights_cache_exact_match(void)
 {
 	test_begin("acl rights cache exact match");
@@ -356,6 +455,36 @@ static void test_acl_rights_cache_exact_match(void)
 	test_assert_strcmp(test_acl_cache_get("Te*"), "anyone lookup");
 	test_assert(acl_rights_cache_file_have_any(test_acl_cache_file(),
 						   "Te*", NULL));
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+static void test_acl_rights_cache_update_isolated(void)
+{
+	const char *other_lines;
+
+	test_begin("acl rights cache update leaves others alone");
+	test_acl_user_init(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_mailbox_create(TEST_MAILBOX2);
+	test_acl_grant(TEST_MAILBOX, TEST_UPDATE_ID,
+		       TEST_RIGHTS(MAIL_ACL_LOOKUP, MAIL_ACL_READ));
+	test_acl_grant(TEST_MAILBOX2, TEST_UPDATE_ID,
+		       TEST_RIGHTS(MAIL_ACL_LOOKUP));
+
+	other_lines = t_strdup(test_acl_cache_raw_lines(TEST_MAILBOX2));
+
+	test_acl_grant(TEST_MAILBOX, TEST_UPDATE_ID,
+		       TEST_RIGHTS(MAIL_ACL_INSERT));
+
+	/* the other mailbox's lines are byte-identical */
+	test_assert_strcmp(test_acl_cache_raw_lines(TEST_MAILBOX2),
+			   other_lines);
+	/* and the writer reads its own write without waiting for
+	   acl_cache_ttl */
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
+			   TEST_UPDATE_ID" insert lookup read");
 
 	test_acl_user_deinit();
 	test_end();
@@ -510,6 +639,45 @@ static void test_acl_rights_cache_escaped_name(void)
 	test_end();
 }
 
+/* An identifier's rights can be spread over several lines of an ACL file.
+   The cache keeps them merged, and removing the identifier removes all of
+   its rights. */
+static void test_acl_rights_cache_duplicate_ids(void)
+{
+	struct acl_object *aclobj;
+	const char *line, *mtime;
+
+	test_begin("acl rights cache merges duplicate identifiers");
+	test_acl_user_init(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_write_file(test_acl_local_path(TEST_MAILBOX),
+			    TEST_UPDATE_ID" l\n"TEST_UPDATE_ID" r\n");
+
+	test_assert(acl_backend_nonowner_lookups_rebuild(
+			test_acl.backend) == 0);
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
+			   TEST_UPDATE_ID" lookup read");
+	line = test_acl_cache_raw_lines(TEST_MAILBOX);
+	test_assert(str_array_length(t_strsplit_tabescaped(line)) == 3 + 2);
+
+	/* the same entry as it would be without the merging */
+	mtime = t_strsplit_tabescaped(line)[0];
+	test_acl_write_file(test_acl_cache_path(),
+		t_strdup_printf("V1\n%s\t-\t"TEST_MAILBOX"\t"TEST_UPDATE_ID
+				"\tl\t"TEST_UPDATE_ID"\tr\n", mtime));
+	test_assert(acl_rights_cache_file_refresh(test_acl_cache_file()) == 1);
+
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	test_assert(test_acl_do_update(aclobj, TEST_UPDATE_ID, NULL,
+				       ACL_MODIFY_MODE_CLEAR,
+				       ACL_MODIFY_MODE_CLEAR) == 0);
+	acl_object_deinit(&aclobj);
+	test_assert_strcmp(test_acl_cache_raw_lines(TEST_MAILBOX), "");
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 /* Neither the cache nor its .tmp file is followed if it is a symlink. */
 static void test_acl_rights_cache_deleted_file(void)
 {
@@ -595,8 +763,12 @@ int main(int argc, char **argv)
 		test_acl_rights_cache_markers,
 		test_acl_rights_cache_partial_parse,
 		test_acl_rights_cache_reparse_after_failure,
+		test_acl_rights_cache_lock_methods,
+		test_acl_rights_cache_update_lock_timeout,
 		test_acl_rights_cache_exact_match,
 		test_acl_rights_cache_deleted_file,
+		test_acl_rights_cache_update_isolated,
+		test_acl_rights_cache_duplicate_ids,
 		test_acl_rights_cache_symlinks,
 		NULL
 	};
