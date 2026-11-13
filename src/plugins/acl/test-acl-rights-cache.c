@@ -490,6 +490,101 @@ static void test_acl_rights_cache_update_isolated(void)
 	test_end();
 }
 
+static void test_acl_rights_cache_iter_fails_unwritable(void)
+{
+	struct acl_mailbox_list_context *ctx;
+	const char *name, *root_dir;
+	enum mailbox_list_path_type type;
+
+	test_begin("acl rights cache iteration fails without a cache");
+	if (geteuid() == 0) {
+		/* chmod() doesn't stop root */
+		test_end();
+		return;
+	}
+	test_acl_user_init(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	/* the mailbox has ACLs, but there is no cache file */
+	test_acl_write_file(test_acl_local_path(TEST_MAILBOX),
+			    TEST_UPDATE_ID" lr\n");
+	i_unlink_if_exists(test_acl_cache_path());
+
+	if (!acl_backend_get_root_dir(test_acl.backend, &root_dir, &type))
+		i_fatal("acl_backend_get_root_dir() failed");
+	if (chmod(root_dir, 0555) < 0)
+		i_fatal("chmod(%s) failed: %m", root_dir);
+
+	/* The rebuild can't create the cache file, so the nonowner mailboxes
+	   are unknown. The iteration must fail instead of yielding an empty
+	   result - an empty result would make the ACL lookup dict rebuild
+	   remove the user's existing share entries. */
+	ctx = acl_backend_nonowner_lookups_iter_init(test_acl.backend);
+	test_assert(!acl_backend_nonowner_lookups_iter_next(ctx, &name));
+	test_assert(acl_backend_nonowner_lookups_iter_deinit(&ctx) == -1);
+
+	if (chmod(root_dir, 0755) < 0)
+		i_fatal("chmod(%s) failed: %m", root_dir);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+static void test_acl_rights_cache_rebuild_abort(void)
+{
+	const char *cache_before;
+
+	test_begin("acl rights cache rebuild abort keeps the old file");
+	test_acl_user_init(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_mailbox_create(TEST_MAILBOX2);
+	test_acl_grant(TEST_MAILBOX, TEST_UPDATE_ID,
+		       TEST_RIGHTS(MAIL_ACL_LOOKUP, MAIL_ACL_READ));
+
+	cache_before = t_strdup(test_acl_read_file(test_acl_cache_path()));
+	test_assert(cache_before != NULL);
+
+	/* a rebuild that fails to read an ACL file must not replace the
+	   existing cache with a partial one */
+	test_acl_write_file(test_acl_local_path(TEST_MAILBOX2),
+			    "b0rken junk here\n");
+	test_expect_error_string("ACL file");
+	test_assert(acl_backend_nonowner_lookups_rebuild(
+			test_acl.backend) == -1);
+	test_expect_no_more_errors();
+	test_assert_strcmp(test_acl_read_file(test_acl_cache_path()),
+			   cache_before);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* A rebuild keeps the cache entry of a mailbox whose ACL file isn't
+   locally available. A mailbox that is local and has no ACL file anymore
+   really has none, so the rebuild drops its entry like the read path. */
+static void test_acl_rights_cache_rebuild_drops_local(void)
+{
+	test_begin("acl rights cache rebuild drops a local mailbox's entry");
+	test_acl_user_init(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_mailbox_create(TEST_MAILBOX2);
+	test_acl_grant(TEST_MAILBOX, TEST_UPDATE_ID,
+		       TEST_RIGHTS(MAIL_ACL_LOOKUP, MAIL_ACL_READ));
+	test_acl_grant(TEST_MAILBOX2, TEST_UPDATE_ID,
+		       TEST_RIGHTS(MAIL_ACL_LOOKUP));
+
+	/* the ACL file is removed without an ACL update */
+	i_unlink(test_acl_local_path(TEST_MAILBOX));
+	test_assert(acl_backend_nonowner_lookups_rebuild(
+			test_acl.backend) == 0);
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX), "");
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX2),
+			   TEST_UPDATE_ID" lookup");
+	test_assert_strcmp(test_acl_cache_iterate(), TEST_MAILBOX2);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 /* The first line names the format version. A file without it, or with a
    version this code doesn't know, is unusable as a whole. */
 static void test_acl_rights_cache_version(void)
@@ -639,6 +734,25 @@ static void test_acl_rights_cache_escaped_name(void)
 	test_end();
 }
 
+/* The rebuild reads the ACL files like the normal read path does, also
+   lines that start with whitespace. */
+static void test_acl_rights_cache_rebuild_lwsp(void)
+{
+	test_begin("acl rights cache rebuild reads indented ACL lines");
+	test_acl_user_init(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_write_file(test_acl_local_path(TEST_MAILBOX),
+			    "  "TEST_UPDATE_ID" lr\n\t# a comment\n");
+
+	test_assert(acl_backend_nonowner_lookups_rebuild(
+			test_acl.backend) == 0);
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
+			   TEST_UPDATE_ID" lookup read");
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 /* An identifier's rights can be spread over several lines of an ACL file.
    The cache keeps them merged, and removing the identifier removes all of
    its rights. */
@@ -768,6 +882,10 @@ int main(int argc, char **argv)
 		test_acl_rights_cache_exact_match,
 		test_acl_rights_cache_deleted_file,
 		test_acl_rights_cache_update_isolated,
+		test_acl_rights_cache_iter_fails_unwritable,
+		test_acl_rights_cache_rebuild_abort,
+		test_acl_rights_cache_rebuild_drops_local,
+		test_acl_rights_cache_rebuild_lwsp,
 		test_acl_rights_cache_duplicate_ids,
 		test_acl_rights_cache_symlinks,
 		NULL
