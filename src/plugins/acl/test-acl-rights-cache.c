@@ -20,6 +20,7 @@
 #include "acl-rights-cache.h"
 #include "test-acl-common.h"
 
+#include <stdio.h>
 #include <unistd.h>
 #include <utime.h>
 #include <sys/stat.h>
@@ -270,6 +271,74 @@ static void test_acl_rights_cache_markers(void)
 	test_end();
 }
 
+/* TRUE if the mailbox's line in the cache file has the marker flag */
+static bool test_acl_cache_has_marker(const char *name)
+{
+	const char *flags = test_acl_cache_flags(name);
+
+	return flags != NULL && strchr(flags, 'm') != NULL;
+}
+
+/* TRUE if the nonowner iteration returns the mailbox */
+static bool test_acl_cache_iterates(const char *name)
+{
+	return strstr(t_strdup_printf(" %s ", test_acl_cache_iterate()),
+		      t_strdup_printf(" %s ", name)) != NULL;
+}
+
+/* A mailbox that gets its nonowner lookup right from the configuration
+   keeps its marker next to the ACL file's rights. It stays part of the
+   nonowner iteration whatever the file says. */
+static void test_acl_rights_cache_marker_with_file_rights(void)
+{
+	struct acl_object *aclobj;
+	const char *acl_path;
+	struct stat st;
+	struct utimbuf ut;
+
+	test_begin("acl rights cache marker next to file rights");
+	/* acl anyone { rights = lr } */
+	test_acl_user_init(TEST_INPUT("acl+=anyone",
+				      "acl/anyone/acl_rights=lr"));
+	test_acl_mailbox_create(TEST_MAILBOX);
+
+	/* an ACL update: the file gives a user the read right only */
+	test_acl_grant(TEST_MAILBOX, TEST_UPDATE_ID,
+		       TEST_RIGHTS(MAIL_ACL_READ));
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
+			   TEST_UPDATE_ID" read");
+	test_assert(test_acl_cache_has_marker(TEST_MAILBOX));
+	test_assert(test_acl_cache_iterates(TEST_MAILBOX));
+
+	/* the ACL file changes without an ACL update */
+	acl_path = test_acl_local_path(TEST_MAILBOX);
+	test_acl_write_file(acl_path, TEST_UPDATE_ID" rw\n");
+	if (stat(acl_path, &st) < 0)
+		i_fatal("stat(%s) failed: %m", acl_path);
+	ut.actime = st.st_atime;
+	ut.modtime = st.st_mtime + 10;
+	if (utime(acl_path, &ut) < 0)
+		i_fatal("utime(%s) failed: %m", acl_path);
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	(void)test_acl_my_rights(aclobj);
+	acl_object_deinit(&aclobj);
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
+			   TEST_UPDATE_ID" read write");
+	test_assert(test_acl_cache_has_marker(TEST_MAILBOX));
+	test_assert(test_acl_cache_iterates(TEST_MAILBOX));
+
+	/* a rebuild */
+	test_assert(acl_backend_nonowner_lookups_rebuild(
+			test_acl.backend) == 0);
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
+			   TEST_UPDATE_ID" read write");
+	test_assert(test_acl_cache_has_marker(TEST_MAILBOX));
+	test_assert(test_acl_cache_iterates(TEST_MAILBOX));
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 static void test_acl_rights_cache_partial_parse(void)
 {
 	const char *cache_path;
@@ -485,6 +554,124 @@ static void test_acl_rights_cache_update_isolated(void)
 	   acl_cache_ttl */
 	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
 			   TEST_UPDATE_ID" insert lookup read");
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+static void test_acl_rights_cache_evict(void)
+{
+	struct acl_mailbox_list_context *ctx;
+	const char *name;
+
+	test_begin("acl rights cache evict");
+	test_acl_user_init(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_mailbox_create(TEST_MAILBOX2);
+	test_acl_grant(TEST_MAILBOX, TEST_UPDATE_ID,
+		       TEST_RIGHTS(MAIL_ACL_LOOKUP, MAIL_ACL_READ));
+	test_acl_grant(TEST_MAILBOX2, TEST_UPDATE_ID,
+		       TEST_RIGHTS(MAIL_ACL_LOOKUP));
+
+	acl_rights_cache_evict(test_acl.backend, TEST_MAILBOX, 0);
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX), "");
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX2),
+			   TEST_UPDATE_ID" lookup");
+
+	/* the iterated cache state must not change during an iteration */
+	ctx = acl_backend_nonowner_lookups_iter_init(test_acl.backend);
+	acl_rights_cache_evict(test_acl.backend, TEST_MAILBOX2, 0);
+	while (acl_backend_nonowner_lookups_iter_next(ctx, &name)) ;
+	test_assert(acl_backend_nonowner_lookups_iter_deinit(&ctx) == 1);
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX2),
+			   TEST_UPDATE_ID" lookup");
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+static void test_acl_rights_cache_verify(void)
+{
+	struct acl_object *aclobj;
+	struct stat st;
+	struct utimbuf ut;
+	const char *acl_path;
+
+	test_begin("acl rights cache verify");
+	test_acl_user_init(TEST_INPUT("acl_user="TEST_ACL_USER));
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_grant(TEST_MAILBOX, TEST_UPDATE_ID,
+		       TEST_RIGHTS(MAIL_ACL_LOOKUP, MAIL_ACL_READ));
+	acl_path = test_acl_local_path(TEST_MAILBOX);
+
+	/* change the ACL file without going through acl_object_update(),
+	   like dsync does. Push the mtime forward - with the same mtime the
+	   entry would look up-to-date. */
+	test_acl_write_file(acl_path, TEST_UPDATE_ID" lrw\n");
+	if (stat(acl_path, &st) < 0)
+		i_fatal("stat(%s) failed: %m", acl_path);
+	ut.actime = st.st_atime;
+	ut.modtime = st.st_mtime + 10;
+	if (utime(acl_path, &ut) < 0)
+		i_fatal("utime(%s) failed: %m", acl_path);
+
+	/* the next read of the ACL file resynchronizes the cache entry */
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	test_assert_strcmp(test_acl_my_rights(aclobj), "lookup read write");
+	acl_object_deinit(&aclobj);
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
+			   TEST_UPDATE_ID" lookup read write");
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* The cache entry has the ACL file's mtime with microseconds, so an entry
+   that differs from the file only in them is rewritten. The entry is written
+   by hand to differ from whatever the file's mtime is, so the filesystem
+   needs no sub-second timestamps. */
+static void test_acl_rights_cache_verify_usecs(void)
+{
+	struct acl_object *aclobj;
+	struct stat st;
+	const char *acl_path, *cache_path, *new_path, *line;
+	unsigned int usecs;
+
+	test_begin("acl rights cache verify within the same second");
+	test_acl_user_init(TEST_INPUT("acl_user="TEST_ACL_USER,
+				      "acl_cache_ttl=0"));
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_grant(TEST_MAILBOX, TEST_UPDATE_ID,
+		       TEST_RIGHTS(MAIL_ACL_LOOKUP, MAIL_ACL_READ));
+	acl_path = test_acl_local_path(TEST_MAILBOX);
+
+	/* the ACL file changes without an ACL update, and the entry's mtime
+	   differs from the file's only in the microseconds. The cache is
+	   replaced with rename() like its own writes do, so the new inode
+	   tells that it changed: the size stays the same, and so does the
+	   mtime on a filesystem without sub-second timestamps. */
+	test_acl_write_file(acl_path, TEST_UPDATE_ID" lrw\n");
+	if (stat(acl_path, &st) < 0)
+		i_fatal("stat(%s) failed: %m", acl_path);
+	usecs = ST_MTIME_NSEC(st) / 1000;
+	line = test_acl_cache_raw_lines(TEST_MAILBOX);
+	cache_path = test_acl_cache_path();
+	new_path = t_strconcat(cache_path, ".new", NULL);
+	test_acl_write_file(new_path,
+		t_strdup_printf("V1\n%"PRIdTIME_T".%06u%s\n", st.st_mtime,
+				(usecs + 1) % 1000000, strchr(line, '\t')));
+	if (rename(new_path, cache_path) < 0)
+		i_fatal("rename(%s, %s) failed: %m", new_path, cache_path);
+
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	(void)test_acl_my_rights(aclobj);
+	acl_object_deinit(&aclobj);
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
+			   TEST_UPDATE_ID" lookup read write");
+	line = test_acl_cache_raw_lines(TEST_MAILBOX);
+	test_assert_strcmp(t_strsplit_tabescaped(line)[0],
+			   t_strdup_printf("%"PRIdTIME_T".%06u", st.st_mtime,
+					   usecs));
 
 	test_acl_user_deinit();
 	test_end();
@@ -792,6 +979,94 @@ static void test_acl_rights_cache_duplicate_ids(void)
 	test_end();
 }
 
+/* The marker follows the configured ACLs, which can change while a
+   mailbox's ACL file stays the same. */
+static void test_acl_rights_cache_marker_follows_config(void)
+{
+	struct acl_object *aclobj;
+	const char *cache_path, *cache, *p;
+	const char *with_marker = "\tm\t"TEST_MAILBOX"\t";
+
+	test_begin("acl rights cache marker follows the configured ACLs");
+	/* acl anyone { rights = lr } */
+	test_acl_user_init(TEST_INPUT("acl_cache_ttl=0", "acl+=anyone",
+				      "acl/anyone/acl_rights=lr"));
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_grant(TEST_MAILBOX, TEST_UPDATE_ID,
+		       TEST_RIGHTS(MAIL_ACL_READ));
+	test_assert(test_acl_cache_has_marker(TEST_MAILBOX));
+
+	/* the entry as it was written before the acl setting existed */
+	cache_path = test_acl_cache_path();
+	cache = test_acl_read_file(cache_path);
+	p = cache == NULL ? NULL : strstr(cache, with_marker);
+	test_assert(p != NULL);
+	if (p != NULL) {
+		test_acl_write_file(cache_path,
+			t_strconcat(t_strdup_until(cache, p),
+				    "\t--\t"TEST_MAILBOX"\t",
+				    p + strlen(with_marker), NULL));
+	}
+	test_assert(!test_acl_cache_has_marker(TEST_MAILBOX));
+
+	/* the next read of the unchanged ACL file brings the marker back */
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	(void)test_acl_my_rights(aclobj);
+	acl_object_deinit(&aclobj);
+	test_assert(test_acl_cache_has_marker(TEST_MAILBOX));
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
+			   TEST_UPDATE_ID" read");
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* All users write a public namespace's cache, and their configured ACLs may
+   differ. Its marker doesn't follow them: a new entry gets none, and the
+   marker an entry has is kept. */
+static void test_acl_rights_cache_marker_public(void)
+{
+	struct acl_object *aclobj;
+
+	test_begin("acl rights cache marker in a public namespace");
+	/* acl anyone { rights = lr } */
+	test_acl_user_init(TEST_INPUT("namespace/inbox/type=public",
+				      "acl_cache_ttl=0", "acl+=anyone",
+				      "acl/anyone/acl_rights=lr"));
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_write_file(test_acl_local_path(TEST_MAILBOX),
+			    TEST_UPDATE_ID" r\n");
+	/* the read creates the cache with a rebuild */
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	(void)test_acl_my_rights(aclobj);
+	acl_object_deinit(&aclobj);
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
+			   TEST_UPDATE_ID" read");
+	test_assert(!test_acl_cache_has_marker(TEST_MAILBOX));
+	test_acl_user_deinit();
+
+	/* no acl setting, the entry is older than the ACL file */
+	test_acl_user_init(TEST_INPUT("namespace/inbox/type=public",
+				      "acl_cache_ttl=0"));
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_write_file(test_acl_local_path(TEST_MAILBOX),
+			    TEST_UPDATE_ID" r\n");
+	test_acl_write_file(test_acl_cache_path(),
+			    "V1\n0\tm\t"TEST_MAILBOX"\n");
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	(void)test_acl_my_rights(aclobj);
+	acl_object_deinit(&aclobj);
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
+			   TEST_UPDATE_ID" read");
+	test_assert(test_acl_cache_has_marker(TEST_MAILBOX));
+	test_assert(acl_backend_nonowner_lookups_rebuild(
+			test_acl.backend) == 0);
+	test_assert(test_acl_cache_has_marker(TEST_MAILBOX));
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 /* Neither the cache nor its .tmp file is followed if it is a symlink. */
 static void test_acl_rights_cache_deleted_file(void)
 {
@@ -875,6 +1150,7 @@ int main(int argc, char **argv)
 		test_acl_rights_cache_escaped_name,
 		test_acl_rights_cache_default_acl,
 		test_acl_rights_cache_markers,
+		test_acl_rights_cache_marker_with_file_rights,
 		test_acl_rights_cache_partial_parse,
 		test_acl_rights_cache_reparse_after_failure,
 		test_acl_rights_cache_lock_methods,
@@ -882,11 +1158,16 @@ int main(int argc, char **argv)
 		test_acl_rights_cache_exact_match,
 		test_acl_rights_cache_deleted_file,
 		test_acl_rights_cache_update_isolated,
+		test_acl_rights_cache_evict,
+		test_acl_rights_cache_verify,
+		test_acl_rights_cache_verify_usecs,
 		test_acl_rights_cache_iter_fails_unwritable,
 		test_acl_rights_cache_rebuild_abort,
 		test_acl_rights_cache_rebuild_drops_local,
 		test_acl_rights_cache_rebuild_lwsp,
 		test_acl_rights_cache_duplicate_ids,
+		test_acl_rights_cache_marker_follows_config,
+		test_acl_rights_cache_marker_public,
 		test_acl_rights_cache_symlinks,
 		NULL
 	};
