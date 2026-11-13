@@ -607,15 +607,22 @@ acl_rights_cache_append_right(string_t *dest, const struct acl_rights *right,
 }
 
 /* Write the mailbox's line. Nothing is written for a mailbox that has
-   neither rights nor flags. */
+   neither rights nor flags - unless the storage has the mailboxes' files
+   only in a local cache: there the line of a mailbox whose rights were all
+   removed stays, because its mtime tells that an older local copy of the
+   ACL file is out of date. Such a line with mtime 0 tells nothing and isn't
+   kept. */
 static void
-acl_rights_cache_write_line(struct ostream *output, string_t *str,
+acl_rights_cache_write_line(struct acl_rights_cache_file *file,
+			    struct ostream *output, string_t *str,
 			    const char *name, const struct timeval *mtime,
 			    bool marker, const char *unknown_flags,
 			    const ARRAY_TYPE(acl_rights) *rights)
 {
 	const struct acl_rights *right;
 	size_t rights_pos;
+	bool keep_empty = rights != NULL && mtime->tv_sec != 0 &&
+		acl_backend_storage_has_cached_files(file->backend);
 
 	str_truncate(str, 0);
 	str_printfa(str, "%"PRIdTIME_T".%06u\t", mtime->tv_sec,
@@ -637,7 +644,8 @@ acl_rights_cache_write_line(struct ostream *output, string_t *str,
 				acl_rights_cache_append_right(str, right, TRUE);
 		} T_END;
 	}
-	if (str_len(str) == rights_pos && !marker && unknown_flags == NULL)
+	if (str_len(str) == rights_pos && !marker && unknown_flags == NULL &&
+	    !keep_empty)
 		return;
 	str_append_c(str, '\n');
 	o_stream_nsend(output, str_data(str), str_len(str));
@@ -669,7 +677,7 @@ static int acl_rights_cache_file_flush(struct acl_rights_cache_file *file,
 			continue;
 		}
 		/* Rewrite the other mailboxes' entries unmodified */
-		acl_rights_cache_write_line(output, str, entry->name,
+		acl_rights_cache_write_line(file, output, str, entry->name,
 					    &entry->mtime, entry->marker,
 					    entry->unknown_flags,
 					    &entry->rights);
@@ -677,7 +685,7 @@ static int acl_rights_cache_file_flush(struct acl_rights_cache_file *file,
 	if (add_rights != NULL) {
 		i_assert(storage_name != NULL);
 		/* New rights for storage_name */
-		acl_rights_cache_write_line(output, str, storage_name,
+		acl_rights_cache_write_line(file, output, str, storage_name,
 					    add_rights_mtime, add_marker,
 					    unknown_flags, add_rights);
 	}
@@ -998,9 +1006,15 @@ void acl_rights_cache_evict(struct acl_backend *_backend, const char *name,
 		const struct timeval no_mtime = { 0, 0 };
 
 		t_array_init(&empty_rights, 1);
+		/* a line that stays without rights tells when they were
+		   found to be gone. A mailbox that no longer exists
+		   doesn't need one, with mtime 0 its empty line isn't
+		   kept. */
 		ret = acl_rights_cache_file_set(file, name, &empty_rights,
 			(flags & ACL_RIGHTS_CACHE_EVICT_KEEP_MARKER) != 0,
-			&no_mtime);
+			(flags & ACL_RIGHTS_CACHE_EVICT_MAILBOX_GONE) == 0 &&
+			acl_backend_storage_has_cached_files(_backend) ?
+			&ioloop_timeval : &no_mtime);
 	} T_END;
 
 	if (ret > 0 && had_nonowner) {
@@ -1380,8 +1394,8 @@ acl_rights_cache_rebuild_mailbox(struct acl_backend_vfile *backend,
 			acl_rights_cache_read_global_nonowner(aclobj) :
 			(entry != NULL && entry->marker);
 
-		acl_rights_cache_write_line(output, str, name, &mtime, marker,
-			entry == NULL ? NULL : entry->unknown_flags,
+		acl_rights_cache_write_line(file, output, str, name, &mtime,
+			marker, entry == NULL ? NULL : entry->unknown_flags,
 			write_rights);
 		if (!*have_nonowner &&
 		    (marker ||
@@ -1714,11 +1728,12 @@ acl_rights_cache_entry_is_nonowner(const struct acl_rights_cache_entry *entry)
 }
 
 static void
-acl_rights_cache_write_entry(struct ostream *output, string_t *str,
+acl_rights_cache_write_entry(struct acl_rights_cache_file *file,
+			     struct ostream *output, string_t *str,
 			     const struct acl_rights_cache_entry *entry,
 			     const char *name)
 {
-	acl_rights_cache_write_line(output, str, name, &entry->mtime,
+	acl_rights_cache_write_line(file, output, str, name, &entry->mtime,
 				    entry->marker, entry->unknown_flags,
 				    &entry->rights);
 }
@@ -1775,7 +1790,7 @@ acl_rights_cache_file_move(struct acl_rights_cache_file *file,
 			if (type == ACL_RIGHTS_CACHE_MOVE_RENAME) {
 				str_truncate(dest_name, dest_root_len);
 				str_append(dest_name, entry->name + root_len);
-				acl_rights_cache_write_entry(output, str,
+				acl_rights_cache_write_entry(file, output, str,
 					entry, str_c(dest_name));
 			} else if (acl_rights_cache_entry_is_nonowner(entry)) {
 				*dropped_nonowner_r = TRUE;
@@ -1801,7 +1816,7 @@ acl_rights_cache_file_move(struct acl_rights_cache_file *file,
 				*dropped_nonowner_r = TRUE;
 			continue;
 		}
-		acl_rights_cache_write_entry(output, str, entry,
+		acl_rights_cache_write_entry(file, output, str, entry,
 					     entry->name);
 	}
 	str_free(&str);

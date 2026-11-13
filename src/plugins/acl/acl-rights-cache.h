@@ -44,12 +44,17 @@ enum acl_rights_cache_evict_flags {
 	/* The configured ACLs give a nonowner the lookup right, so the
 	   mailbox's marker is kept. */
 	ACL_RIGHTS_CACHE_EVICT_KEEP_MARKER = BIT(0),
+	/* The mailbox itself no longer exists, so a storage with cached files
+	   doesn't keep its line either. */
+	ACL_RIGHTS_CACHE_EVICT_MAILBOX_GONE = BIT(1),
 };
 
 /* Remove the mailbox's cached rights, e.g. after the mailbox or its ACL
-   file was deleted. Rebuilds the ACL lookup dict when the evicted entry
-   contained nonowner lookup rights. Does nothing for backends without a
-   rights cache. */
+   file was deleted. With a storage that has cached files the line stays without
+   rights, so an old local copy of the ACL file isn't used again, unless
+   ACL_RIGHTS_CACHE_EVICT_MAILBOX_GONE is set. Rebuilds the ACL lookup dict
+   when the evicted entry contained nonowner lookup rights. Does nothing
+   for backends without a rights cache. */
 void acl_rights_cache_evict(struct acl_backend *backend, const char *name,
 			    enum acl_rights_cache_evict_flags flags);
 
@@ -65,7 +70,8 @@ int acl_rights_cache_file_update(struct acl_rights_cache_file *file,
 /* Replace the cached rights of the mailbox with the given rights. With
    marker the mailbox's line also gets the marker flag. An empty rights
    array without it removes the mailbox from the cache, unless its line has
-   flags this version doesn't know.
+   flags this version doesn't know, or the storage has cached files
+   and mtime isn't 0.
    Return values are the same as for acl_rights_cache_file_update(). */
 int acl_rights_cache_file_set(struct acl_rights_cache_file *file,
 			      const char *name,

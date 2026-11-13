@@ -783,7 +783,7 @@ static void test_acl_vfile_read_legacy_list_kept_by_update(void)
 /* With a storage that has a mailbox's files locally only while the mailbox
    is open, a missing ACL file doesn't mean there is none: the cached rights
    are served and the entry stays. Reading the ACL with the mailbox open
-   tells that the file is really gone. */
+   tells that the file is really gone: the entry stays, but without rights. */
 static void test_acl_vfile_read_cached_files_missing_file(void)
 {
 	struct acl_object *aclobj;
@@ -809,7 +809,7 @@ static void test_acl_vfile_read_cached_files_missing_file(void)
 	acl_object_deinit(&aclobj);
 	cache = test_acl_read_file(test_acl_cache_path());
 	test_assert(cache != NULL &&
-		    strstr(cache, "\t"TEST_MAILBOX"\t") == NULL);
+		    strstr(cache, "\t-\t"TEST_MAILBOX"\n") != NULL);
 
 	test_acl_user_deinit();
 	test_end();
@@ -866,6 +866,89 @@ static void test_acl_vfile_read_cached_files_old_file(void)
 	test_end();
 }
 
+/* With a storage that has a mailbox's files locally only while the mailbox
+   is open, a mailbox whose rights were all removed keeps its line in the
+   cache. An old local copy of the ACL file is older than that line and
+   doesn't bring the rights back. */
+static void test_acl_vfile_read_cached_files_removed_rights(void)
+{
+	struct acl_rights_update update = {
+		.modify_mode = ACL_MODIFY_MODE_CLEAR,
+		.neg_modify_mode = ACL_MODIFY_MODE_CLEAR,
+	};
+	struct acl_object *aclobj;
+	const char *path, *cache, *error;
+	struct stat st;
+
+	test_begin("acl vfile read removed rights with cached files");
+	path = test_acl_setup(TEST_INPUT("acl_cache_ttl=0",
+					 "acl_user="TEST_ACL_USER),
+			      "user="TEST_ACL_USER" lr\n");
+	test_acl_storage_set_cached_files();
+	test_acl_rights_cache_seed();
+
+	if (acl_rights_update_import(&update, "user="TEST_ACL_USER, NULL,
+				     &error) < 0)
+		i_fatal("acl_rights_update_import() failed: %s", error);
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	test_assert(acl_object_update(aclobj, &update) == 0);
+	acl_object_deinit(&aclobj);
+	cache = test_acl_read_file(test_acl_cache_path());
+	test_assert(cache != NULL &&
+		    strstr(cache, "\t-\t"TEST_MAILBOX"\n") != NULL);
+
+	/* an old copy of the ACL file that still has the rights */
+	if (stat(path, &st) < 0)
+		i_fatal("stat(%s) failed: %m", path);
+	test_acl_write_file(path, "user="TEST_ACL_USER" lr\n");
+	test_acl_set_mtime(path, st.st_mtime - 10);
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	test_assert_strcmp(test_acl_my_rights(aclobj), "");
+	acl_object_deinit(&aclobj);
+	cache = test_acl_read_file(test_acl_cache_path());
+	test_assert(cache != NULL &&
+		    strstr(cache, "\t-\t"TEST_MAILBOX"\n") != NULL);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
+/* With a storage that has a mailbox's files locally only while the mailbox
+   is open, the line of a mailbox that is no longer in the mailbox list is
+   dropped, not kept without rights. */
+static void test_acl_vfile_read_cached_files_gone_mailbox(void)
+{
+	struct acl_object *aclobj;
+	struct mailbox *box;
+	const char *cache;
+
+	test_begin("acl vfile read gone mailbox with cached files");
+	(void)test_acl_setup(TEST_INPUT("acl_cache_ttl=0",
+					"acl_user="TEST_ACL_USER),
+			     "user="TEST_ACL_USER" lr\n");
+	test_acl_storage_set_cached_files();
+	test_acl_rights_cache_seed();
+
+	/* deleted without the ACL plugin seeing it */
+	box = mailbox_alloc(test_acl.list, TEST_MAILBOX, 0);
+	if (mailbox_delete(box) < 0) {
+		i_fatal("mailbox_delete(%s) failed: %s", TEST_MAILBOX,
+			mailbox_get_last_internal_error(box, NULL));
+	}
+	mailbox_free(&box);
+
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	test_assert_strcmp(test_acl_my_rights(aclobj), "");
+	acl_object_deinit(&aclobj);
+	cache = test_acl_read_file(test_acl_cache_path());
+	test_assert(cache != NULL &&
+		    strstr(cache, "\t"TEST_MAILBOX"\t") == NULL &&
+		    strstr(cache, "\t"TEST_MAILBOX"\n") == NULL);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 /* A dovecot-acl-list that can't be parsed is ignored and removed by the
    rebuild instead of blocking it. */
 static void test_acl_vfile_read_broken_legacy_list(void)
@@ -917,6 +1000,8 @@ int main(int argc, char **argv)
 		test_acl_vfile_read_broken_legacy_list,
 		test_acl_vfile_read_cached_files_missing_file,
 		test_acl_vfile_read_cached_files_old_file,
+		test_acl_vfile_read_cached_files_removed_rights,
+		test_acl_vfile_read_cached_files_gone_mailbox,
 		test_acl_vfile_last_changed,
 		test_acl_vfile_parse_error,
 		test_acl_vfile_defaults_from_inbox,

@@ -350,7 +350,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 				&aclobj->rights);
 		} else {
 			acl_rights_cache_evict(aclobj->backend, aclobj->name,
-					       0);
+				ACL_RIGHTS_CACHE_EVICT_MAILBOX_GONE);
 		}
 		return 1;
 	}
