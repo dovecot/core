@@ -643,6 +643,12 @@ static int acl_mailbox_get_status(struct mailbox *box,
 {
 	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 
+	/* The status may be answered without opening the mailbox, e.g. from
+	   the mailbox list index. Require the rights that opening it needs.
+	   A quota check alone doesn't look into the mailbox. */
+	if (!box->opened && items != STATUS_CHECK_OVER_QUOTA &&
+	    acl_mailbox_open_check_acl(box) < 0)
+		return -1;
 	if (abox->module_ctx.super.get_status(box, items, status_r) < 0)
 		return -1;
 
