@@ -1010,9 +1010,13 @@ static void test_mail_index_keyword_update_avoid_after_replace(void)
 	test_end();
 }
 
+/* Write value to the given offset in dovecot.index. If seq is 0, the offset
+   is from the beginning of the file. Otherwise it's within the record. */
 static void
-test_mail_index_verify_records_corrupt(uint32_t seq, uint32_t uid,
-				       uint32_t expected_messages_count)
+test_mail_index_verify_records_corrupt_at(uint32_t seq, uoff_t offset,
+					  uint32_t value,
+					  uint32_t expected_messages_count,
+					  unsigned int expected_errors)
 {
 	struct mail_index *index;
 	struct mail_index_view *view;
@@ -1037,27 +1041,28 @@ test_mail_index_verify_records_corrupt(uint32_t seq, uint32_t uid,
 	test_assert(mail_index_sync_begin(index, &sync_ctx, &view, &trans, 0) > 0);
 	mail_index_write(index, FALSE, "test");
 	test_assert(mail_index_sync_commit(&sync_ctx) == 0);
-	uoff_t rec_offset = index->map->hdr.header_size +
-		(seq - 1) * index->map->hdr.record_size;
+	if (seq > 0) {
+		/* offset is within the record */
+		offset += index->map->hdr.header_size +
+			(seq - 1) * index->map->hdr.record_size;
+	}
 	test_mail_index_close(&index);
 
-	/* corrupt the record's UID */
+	/* corrupt the value */
 	const char *path = t_strconcat(test_mail_index_get_dir(),
 				       "/test.dovecot.index", NULL);
 	int fd = open(path, O_RDWR);
 	if (fd == -1)
 		i_fatal("open(%s) failed: %m", path);
-	test_assert(pwrite(fd, &uid, sizeof(uid), rec_offset +
-			   offsetof(struct mail_index_record, uid)) ==
-		    sizeof(uid));
+	test_assert(pwrite(fd, &value, sizeof(value), offset) ==
+		    sizeof(value));
 	i_close_fd(&fd);
 
 	/* opening doesn't notice the corruption */
 	index = test_mail_index_open(FALSE);
 	test_assert(index->map->hdr.messages_count == 3);
 
-	/* the corruption error, fscking warning and 2 fsck errors */
-	test_expect_errors(4);
+	test_expect_errors(expected_errors);
 	test_assert(mail_index_verify_records(index) == 0);
 	test_expect_no_more_errors();
 	test_assert(mail_index_reset_fscked(index));
@@ -1068,6 +1073,16 @@ test_mail_index_verify_records_corrupt(uint32_t seq, uint32_t uid,
 	test_assert(mail_index_verify_records(index) == 1);
 	test_assert(!mail_index_reset_fscked(index));
 	test_mail_index_deinit(&index);
+}
+
+static void
+test_mail_index_verify_records_corrupt(uint32_t seq, uint32_t uid,
+				       uint32_t expected_messages_count)
+{
+	/* the corruption error, fscking warning and 2 fsck errors */
+	test_mail_index_verify_records_corrupt_at(seq,
+		offsetof(struct mail_index_record, uid), uid,
+		expected_messages_count, 4);
 }
 
 static void test_mail_index_verify_records(void)
