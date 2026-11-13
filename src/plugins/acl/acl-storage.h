@@ -54,5 +54,9 @@ bool acl_backend_get_root_dir(struct acl_backend *backend,
 
 enum mailbox_list_path_type
 mail_storage_get_acl_list_path_type(struct mail_storage *storage);
+/* Returns TRUE if the backend's storage has
+   MAIL_STORAGE_CLASS_FLAG_CACHED_FILES: a mailbox's ACL file that isn't
+   locally available may still exist. */
+bool acl_backend_storage_has_cached_files(struct acl_backend *backend);
 
 #endif

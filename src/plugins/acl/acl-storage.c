@@ -88,6 +88,15 @@ bool acl_backend_get_root_dir(struct acl_backend *backend,
 	return TRUE;
 }
 
+bool acl_backend_storage_has_cached_files(struct acl_backend *backend)
+{
+	struct mail_storage *storage =
+		mailbox_list_get_namespace(backend->list)->storage;
+
+	return (storage->class_flags &
+		MAIL_STORAGE_CLASS_FLAG_CACHED_FILES) != 0;
+}
+
 enum mailbox_list_path_type
 mail_storage_get_acl_list_path_type(struct mail_storage *storage)
 {
