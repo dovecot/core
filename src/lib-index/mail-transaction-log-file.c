@@ -653,9 +653,14 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 			"Invalid file_seq=%u", file->hdr.file_seq);
 		return 0;
 	}
-	if (file->hdr.prev_file_seq > MAIL_TRANSACTION_LOG_MAX_FILE_SEQ) {
+	if (file->hdr.prev_file_seq >= file->hdr.file_seq) {
+		/* The previous file must have a lower sequence. Otherwise
+		   the log view could end up with max_file_seq being lower
+		   than min_file_seq. This also guarantees that
+		   prev_file_seq <= MAIL_TRANSACTION_LOG_MAX_FILE_SEQ. */
 		mail_transaction_log_file_set_corrupted(file,
-			"Invalid prev_file_seq=%u", file->hdr.prev_file_seq);
+			"Invalid prev_file_seq=%u >= file_seq=%u",
+			file->hdr.prev_file_seq, file->hdr.file_seq);
 		return 0;
 	}
 

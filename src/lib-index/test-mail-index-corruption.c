@@ -6,6 +6,7 @@
 #include "test-corruption.h"
 #include "test-mail-index.h"
 #include "test-mail-index-corruption-common.h"
+#include "mail-transaction-log.h"
 
 static failure_callback_t *orig_error_callback;
 
@@ -100,12 +101,76 @@ static void test_mail_index_corruption_saveonly(void)
 					 MAIL_INDEX_OPEN_FLAG_SAVEONLY);
 }
 
+static const struct test_index_file *test_index_file_find(const char *name)
+{
+	const struct test_index_file *file;
+
+	array_foreach(&test_index_files, file) {
+		if (strcmp(file->name, name) == 0)
+			return file;
+	}
+	i_unreached();
+}
+
+static void test_mail_index_corruption_log_prev_file_seq(void)
+{
+	static const enum mail_index_open_flags open_flags[] = {
+		0,
+		MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE,
+		MAIL_INDEX_OPEN_FLAG_SAVEONLY,
+	};
+	const struct test_index_file *file;
+	struct mail_transaction_log_header hdr;
+	failure_callback_t *fatal_callback, *info_callback, *debug_callback;
+	bool success;
+
+	test_begin("mail index corruption: log prev_file_seq >= file_seq");
+	test_index_create(test_mail_index_get_dir());
+	test_index_files_read();
+
+	/* Replace .log with only a v1.1 header (without compat_flags) that
+	   has the same file_seq as .log.2, but prev_file_seq pointing to the
+	   original .log's file_seq. Opening rotates it to .log.2 and creates
+	   a new .log with the original file_seq. The old file then claims to
+	   be the next file after the new .log, which links the files into a
+	   loop. This used to lower the log view's max_file_seq below
+	   min_file_seq and crash. */
+	file = test_index_file_find(TEST_INDEX_PREFIX".log");
+	i_assert(file->size >= sizeof(hdr));
+	memcpy(&hdr, file->data, sizeof(hdr));
+	test_assert(hdr.hdr_size == sizeof(hdr));
+	test_assert(hdr.prev_file_seq + 1 == hdr.file_seq);
+	hdr.minor_version = 1;
+	hdr.hdr_size = offsetof(struct mail_transaction_log_header,
+				compat_flags);
+	hdr.file_seq = hdr.prev_file_seq;
+	hdr.prev_file_seq = hdr.file_seq + 1;
+	/* the new .log's header size */
+	hdr.prev_file_offset = sizeof(hdr);
+
+	i_get_failure_handlers(&fatal_callback, &orig_error_callback,
+			       &info_callback, &debug_callback);
+	i_set_error_handler(test_ignore_errors_handler);
+	for (unsigned int i = 0; i < N_ELEMENTS(open_flags); i++) {
+		test_index_corrupted_open(file, (const void *)&hdr,
+					  hdr.hdr_size, open_flags[i],
+					  &success);
+		test_assert_idx(success, i);
+	}
+	i_set_error_handler(orig_error_callback);
+
+	test_index_files_free();
+	test_mail_index_delete();
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mail_index_corruption,
 		test_mail_index_corruption_mmap_disable,
 		test_mail_index_corruption_saveonly,
+		test_mail_index_corruption_log_prev_file_seq,
 		NULL
 	};
 	test_dir_init("mail-index-corruption");
