@@ -461,6 +461,48 @@ static void acl_mailbox_list_deinit(struct mailbox_list *list)
 	alist->module_ctx.super.deinit(list);
 }
 
+static int
+acl_mailbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
+{
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT_REQUIRE(list);
+
+	if (alist->module_ctx.super.delete_mailbox(list, name) < 0)
+		return -1;
+
+	/* A failure here only leaves the list stale, so don't fail the
+	   delete. */
+	(void)acl_backend_nonowner_lookups_rename(alist->rights.backend, name,
+						  NULL, NULL);
+	return 0;
+}
+
+static int
+acl_mailbox_list_rename_mailbox(struct mailbox_list *oldlist,
+				const char *oldname,
+				struct mailbox_list *newlist,
+				const char *newname)
+{
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT_REQUIRE(oldlist);
+	struct acl_mailbox_list *newalist;
+	struct acl_backend *dest_backend = NULL;
+
+	if (alist->module_ctx.super.rename_mailbox(oldlist, oldname,
+						   newlist, newname) < 0)
+		return -1;
+
+	/* The destination list has no ACL context when ACLs are disabled for
+	   its namespace (no acl_driver), and so no nonowner lookup list of
+	   its own. */
+	newalist = ACL_LIST_CONTEXT(newlist);
+	if (newalist != NULL)
+		dest_backend = newalist->rights.backend;
+
+	(void)acl_backend_nonowner_lookups_rename(alist->rights.backend,
+						  oldname, dest_backend,
+						  newname);
+	return 0;
+}
+
 static void acl_storage_rights_ctx_init(struct acl_storage_rights_context *ctx,
 					struct acl_backend *backend)
 {
@@ -527,6 +569,21 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 	v->iter_init = acl_mailbox_list_iter_init;
 	v->iter_next = acl_mailbox_list_iter_next;
 	v->iter_deinit = acl_mailbox_list_iter_deinit;
+	/* Hooked at the list layer, not the mailbox layer: the list vfuncs are
+	   installed per list, so they also see the renames done internally for
+	   NFC normalization, which allocate the mailbox with
+	   MAILBOX_FLAG_IGNORE_ACLS.
+
+	   A secondary list is left alone. imapc keeps one over the same mail
+	   root and delegates its renames to it, so both lists would update
+	   the backend's nonowner lookup list. The two lists name mailboxes
+	   differently, so the secondary list's update can only match by
+	   coincidence, and a coincidental match moves an unrelated mailbox's
+	   entry. */
+	if ((list->flags & MAILBOX_LIST_FLAG_SECONDARY) == 0) {
+		v->rename_mailbox = acl_mailbox_list_rename_mailbox;
+		v->delete_mailbox = acl_mailbox_list_delete_mailbox;
+	}
 
 	acl_storage_rights_ctx_init(&alist->rights, backend);
 

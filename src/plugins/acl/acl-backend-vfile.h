@@ -71,6 +71,10 @@ bool acl_backend_vfile_nonowner_iter_next(struct acl_mailbox_list_context *ctx,
 int
 acl_backend_vfile_nonowner_iter_deinit(struct acl_mailbox_list_context *ctx);
 int acl_backend_vfile_nonowner_lookups_rebuild(struct acl_backend *backend);
+int acl_backend_vfile_nonowner_lookups_rename(struct acl_backend *backend,
+					      const char *name,
+					      struct acl_backend *dest_backend,
+					      const char *dest_name);
 
 int acl_backend_vfile_object_get_mtime(struct acl_object *aclobj,
 				       time_t *mtime_r);

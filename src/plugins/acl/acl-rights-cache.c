@@ -1295,3 +1295,219 @@ int acl_rights_cache_rebuild(struct acl_backend_vfile *backend)
 	backend->rebuilding_aclcache = FALSE;
 	return ret < 0 ? -1 : 0;
 }
+
+/* TRUE if name is root or a child of it. */
+static bool
+acl_rights_cache_name_in_tree(const char *name, const char *root, char sep)
+{
+	size_t len = strlen(root);
+
+	return strncmp(name, root, len) == 0 &&
+		(name[len] == '\0' || name[len] == sep);
+}
+
+enum acl_rights_cache_move_type {
+	/* Remove the entry for root_name. Exact match only: deleting a mailbox
+	   leaves its children in place as \NoSelect mailboxes, ACLs and
+	   all. */
+	ACL_RIGHTS_CACHE_MOVE_DELETE,
+	/* Move root_name and its children under dest_root_name. */
+	ACL_RIGHTS_CACHE_MOVE_RENAME,
+	/* Remove root_name and its children. Used when the mailbox moved to a
+	   list this backend's cache cannot describe. */
+	ACL_RIGHTS_CACHE_MOVE_DROP,
+};
+
+static bool
+acl_rights_cache_entry_is_nonowner(const struct acl_rights_cache_entry *entry)
+{
+	/* a marker exists exactly because the mailbox has nonowner lookup
+	   rights from configured ACLs */
+	return entry->marker ||
+		acl_rights_cache_entry_has_nonowner_lookups(entry);
+}
+
+static void
+acl_rights_cache_write_entry(struct ostream *output, string_t *str,
+			     const struct acl_rights_cache_entry *entry,
+			     const char *name)
+{
+	acl_rights_cache_write_line(output, str, name, &entry->mtime,
+				    entry->marker, entry->unknown_flags,
+				    &entry->rights);
+}
+
+/* Update the entries of a renamed or deleted mailbox in place, reading no
+   mailbox at all: the mtime is carried over from the old entry, because the
+   mailbox's own dovecot-acl file is not touched by a rename. Recomputing it
+   would make acl_rights_cache_verify() rewrite the entry for nothing.
+   Returns 1 if the cache was updated, 0 if there was nothing to update and
+   -1 on error. */
+static int
+acl_rights_cache_file_move(struct acl_rights_cache_file *file,
+			   enum acl_rights_cache_move_type type,
+			   const char *root_name, const char *dest_root_name,
+			   bool *dropped_nonowner_r)
+{
+	const struct acl_rights_cache_entry *entry;
+	struct ostream *output;
+	string_t *str, *src_name, *dest_name;
+	size_t root_len, dest_root_len = 0;
+	char sep;
+	bool changed = FALSE;
+	int ret = 0;
+
+	*dropped_nonowner_r = FALSE;
+
+	if ((ret = acl_rights_cache_file_update_begin(file, FALSE)) <= 0)
+		return ret;
+
+	sep = mailbox_list_get_hierarchy_sep(file->backend->list);
+	output = o_stream_create_fd_file(file->tmp_fd, 0, FALSE);
+	o_stream_cork(output);
+	acl_rights_cache_write_header(output);
+	str = str_new(default_pool, 256);
+	ret = 0;
+
+	root_len = strlen(root_name);
+	src_name = t_str_new(128);
+	dest_name = t_str_new(128);
+	if (type == ACL_RIGHTS_CACHE_MOVE_RENAME) {
+		dest_root_len = strlen(dest_root_name);
+		str_append(src_name, root_name);
+		str_append(dest_name, dest_root_name);
+	}
+
+	array_foreach(&file->entries, entry) {
+		bool matched =
+			type == ACL_RIGHTS_CACHE_MOVE_DELETE ?
+			strcmp(entry->name, root_name) == 0 :
+			acl_rights_cache_name_in_tree(entry->name,
+						      root_name, sep);
+		if (matched) {
+			changed = TRUE;
+			if (type == ACL_RIGHTS_CACHE_MOVE_RENAME) {
+				str_truncate(dest_name, dest_root_len);
+				str_append(dest_name, entry->name + root_len);
+				acl_rights_cache_write_entry(output, str,
+					entry, str_c(dest_name));
+			} else if (acl_rights_cache_entry_is_nonowner(entry)) {
+				*dropped_nonowner_r = TRUE;
+			}
+			continue;
+		}
+		bool overwritten = FALSE;
+		if (type == ACL_RIGHTS_CACHE_MOVE_RENAME &&
+		    acl_rights_cache_name_in_tree(entry->name, dest_root_name,
+						  sep)) {
+			/* An entry that a moved entry lands on was overwritten
+			   by the rename and must be dropped. The moved entry
+			   is looked up by its old name, since it can come
+			   after this one. */
+			str_truncate(src_name, root_len);
+			str_append(src_name, entry->name + dest_root_len);
+			overwritten = acl_rights_cache_find(file,
+				str_c(src_name)) != NULL;
+		}
+		if (overwritten) {
+			changed = TRUE;
+			if (acl_rights_cache_entry_is_nonowner(entry))
+				*dropped_nonowner_r = TRUE;
+			continue;
+		}
+		acl_rights_cache_write_entry(output, str, entry,
+					     entry->name);
+	}
+	str_free(&str);
+
+	if (!changed) {
+		/* no entry for the mailbox - nothing to update */
+		o_stream_abort(output);
+		o_stream_destroy(&output);
+		acl_rights_cache_file_update_end(file);
+		return 0;
+	}
+	if (o_stream_finish(output) < 0) {
+		e_error(file->event, "write(%s.tmp) failed: %s",
+			file->path, o_stream_get_error(output));
+		ret = -1;
+	}
+	o_stream_destroy(&output);
+	if (ret == 0) T_BEGIN {
+		const char *tmp_path = t_strdup_printf("%s.tmp",
+						       file->path);
+		if (rename(tmp_path, file->path) < 0) {
+			e_error(file->event, "rename(%s, %s) failed: %m",
+				tmp_path, file->path);
+			ret = -1;
+		} else {
+			file->tmp_renamed = TRUE;
+		}
+	} T_END;
+	if (ret == 0) {
+		/* keep the in-memory copy in sync with what was just
+		   written */
+		ret = acl_rights_cache_file_read(file);
+	}
+	acl_rights_cache_file_update_end(file);
+	return ret < 0 ? -1 : 1;
+}
+
+int acl_backend_vfile_nonowner_lookups_rename(struct acl_backend *_backend,
+					      const char *name,
+					      struct acl_backend *dest_backend,
+					      const char *dest_name)
+{
+	struct acl_backend_vfile *backend =
+		container_of(_backend, struct acl_backend_vfile, backend);
+	enum acl_rights_cache_move_type type;
+	bool dropped_nonowner;
+	int ret;
+
+	if (backend->rebuilding_aclcache || backend->iterating_aclcache) {
+		/* The iterated cache state must not change now. A stale
+		   entry gets dropped by the next rebuild. */
+		return 0;
+	}
+	if (dest_name == NULL)
+		type = ACL_RIGHTS_CACHE_MOVE_DELETE;
+	else if (dest_backend == _backend &&
+		 acl_rights_cache_name_is_cacheable(dest_name))
+		type = ACL_RIGHTS_CACHE_MOVE_RENAME;
+	else {
+		/* The mailbox moved to a list this cache can't describe -
+		   drop the subtree. FIXME: The destination's cache gets the
+		   moved mailboxes' entries only when their ACL files are next
+		   read there. The rename reads the renamed mailbox's when it
+		   opens it, but not its children's. Until then the lookup dict
+		   misses grantees whose only shares are in those children, and
+		   shared namespaces don't list them. Not reachable with obox,
+		   which refuses renames between namespaces. A fix would write
+		   the dropped entries under their new names to dest_backend's
+		   cache after this file's lock is released (a RENAME if both
+		   namespaces use this file), then rebuild the dict once. */
+		type = ACL_RIGHTS_CACHE_MOVE_DROP;
+	}
+
+	/* Move the entries instead of rebuilding the cache: with a
+	   MAIL_STORAGE_CLASS_FLAG_CACHED_FILES storage a rebuild keeps the
+	   entry of a mailbox whose ACL file isn't locally available only
+	   under its existing name, so renamed mailboxes would lose theirs
+	   unless every mailbox were opened. */
+	T_BEGIN {
+		ret = acl_rights_cache_file_move(_backend->rights_cache_file,
+						 type, name, dest_name,
+						 &dropped_nonowner);
+	} T_END;
+	if (ret > 0 && dropped_nonowner) {
+		/* the mailbox may have been visible in other users' shared
+		   namespaces */
+		struct acl_user *auser = ACL_USER_CONTEXT(
+			mailbox_list_get_user(_backend->list));
+		if (auser != NULL) {
+			(void)acl_lookup_dict_rebuild(auser->acl_lookup_dict,
+					_backend->set->acl_dict_index);
+		}
+	}
+	return ret < 0 ? -1 : 0;
+}

@@ -583,6 +583,7 @@ const struct acl_backend_vfuncs acl_backend_vfile = {
 	.nonowner_lookups_iter_next = acl_backend_vfile_nonowner_iter_next,
 	.nonowner_lookups_iter_deinit = acl_backend_vfile_nonowner_iter_deinit,
 	.nonowner_lookups_rebuild = acl_backend_vfile_nonowner_lookups_rebuild,
+	.nonowner_lookups_rename = acl_backend_vfile_nonowner_lookups_rename,
 	.object_init = acl_backend_vfile_object_init,
 	.object_init_parent = acl_backend_vfile_object_init_parent,
 	.object_deinit = acl_backend_vfile_object_deinit,
