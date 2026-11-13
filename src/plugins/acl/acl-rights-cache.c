@@ -13,6 +13,8 @@
 #include "file-create-locked.h"
 #include "mail-namespace.h"
 #include "mail-storage-private.h"
+#include "acl-plugin.h"
+#include "acl-lookup-dict.h"
 #include "acl-backend-vfile.h"
 #include "acl-api-private.h"
 #include "acl-rights-cache.h"
@@ -55,6 +57,7 @@ struct acl_rights_cache_file {
 	/* stat() of the cache file when it was last loaded */
 	struct stat prev_st;
 	time_t last_refresh_time;
+	time_t last_check;
 
 	/* sorted by name, one entry per mailbox */
 	ARRAY_TYPE(acl_rights_cache_entry) entries;
@@ -71,6 +74,8 @@ struct acl_rights_cache_file {
 	   the in-memory copy is empty, but must not be treated as an
 	   authoritative empty result */
 	bool read_failed:1;
+	/* when a rebuild last failed to leave a usable cache behind */
+	time_t last_failed_rebuild;
 };
 
 static bool acl_rights_cache_get_path(struct acl_backend *backend,
@@ -379,6 +384,55 @@ int acl_rights_cache_file_refresh(struct acl_rights_cache_file *file)
 	return 1;
 }
 
+/* Rebuild a missing or unreadable cache. A rebuild lists every mailbox, so
+   when it doesn't leave a usable cache behind (it failed, or the ACL root
+   can't be written) it isn't tried again by every ACL read, only once per
+   acl_cache_ttl. */
+static void acl_rights_cache_try_rebuild(struct acl_backend_vfile *backend)
+{
+	struct acl_rights_cache_file *file = backend->backend.rights_cache_file;
+
+	(void)acl_rights_cache_rebuild(backend);
+	if (acl_rights_cache_file_exists(file) > 0 && !file->read_failed)
+		file->last_failed_rebuild = 0;
+	else
+		file->last_failed_rebuild = ioloop_time;
+}
+
+void acl_rights_cache_refresh(struct acl_backend_vfile *backend,
+			      bool rebuild_if_missing)
+{
+	struct acl_rights_cache_file *file = backend->backend.rights_cache_file;
+
+	if (backend->rebuilding_aclcache || backend->iterating_aclcache)
+		return;
+	if (!acl_rights_cache_resolve_path(file))
+		return;
+	if (file->last_failed_rebuild != 0 &&
+	    file->last_failed_rebuild + (time_t)backend->cache_secs >
+	    ioloop_time) {
+		/* there is no usable cache, and a rebuild was just tried */
+		return;
+	}
+	if (rebuild_if_missing &&
+	    acl_rights_cache_file_exists(file) == 0) {
+		/* Only a full rebuild creates the cache file. The check
+		   isn't throttled by last_check - the missing state
+		   persists until a rebuild succeeds. */
+		acl_rights_cache_try_rebuild(backend);
+		return;
+	}
+	if (file->last_check + (time_t)backend->cache_secs > ioloop_time)
+		return;
+	if (acl_rights_cache_file_refresh(file) > 0)
+		file->last_check = ioloop_time;
+	else if (file->read_failed && rebuild_if_missing) {
+		/* the cache file exists but can't be read (e.g. corrupt
+		   content) - recover by rebuilding it */
+		acl_rights_cache_try_rebuild(backend);
+	}
+}
+
 static int
 acl_rights_cache_entry_name_cmp(const char *name,
 				const struct acl_rights_cache_entry *entry)
@@ -637,6 +691,18 @@ static void acl_rights_cache_file_update_end(struct acl_rights_cache_file *file)
 	file_lock_free(&file->lock);
 }
 
+static bool acl_rights_cache_ns_is_shared(struct acl_rights_cache_file *file)
+{
+	return mailbox_list_get_namespace(file->backend->list)->type ==
+		MAIL_NAMESPACE_TYPE_SHARED;
+}
+
+static bool acl_rights_cache_ns_is_private(struct acl_rights_cache_file *file)
+{
+	return mailbox_list_get_namespace(file->backend->list)->type ==
+		MAIL_NAMESPACE_TYPE_PRIVATE;
+}
+
 /* The empty name is the namespace root, also when the prefix itself is
    accessed as a mailbox ("Public" for "Public/", or "shared/$user" with
    mail_shared_explicit_inbox=yes). Its ACL file is the one in the ACL root,
@@ -852,4 +918,223 @@ int acl_rights_cache_file_update(struct acl_rights_cache_file *file,
 	}
 	acl_rights_cache_file_update_end(file);
 	return ret < 0 ? -1 : 1;
+}
+
+static bool
+acl_rights_cache_rights_have_nonowner(const ARRAY_TYPE(acl_rights) *rights)
+{
+	const struct acl_rights *right;
+
+	array_foreach(rights, right) {
+		if (acl_rights_has_nonowner_lookup_changes(right))
+			return TRUE;
+	}
+	return FALSE;
+}
+
+/* Read the object's ACLs and return TRUE if its global rights give a
+   nonowner the lookup right. Returns FALSE if reading them fails. */
+static bool acl_rights_cache_read_global_nonowner(struct acl_object *aclobj)
+{
+	if (!array_is_created(&aclobj->rights)) {
+		aclobj->rights_pool =
+			pool_alloconly_create("acl rights", 256);
+		i_array_init(&aclobj->rights, 8);
+	}
+	if (acl_backend_get_mailbox_acl(aclobj->backend, aclobj) < 0)
+		return FALSE;
+	return acl_object_has_global_nonowner_lookup(aclobj);
+}
+
+static int
+acl_rights_cache_rebuild_mailbox(struct acl_backend_vfile *backend,
+				 struct ostream *output, string_t *str,
+				 const char *vname, bool *have_nonowner)
+{
+	struct acl_rights_cache_file *file = backend->backend.rights_cache_file;
+	const struct acl_rights_cache_entry *entry;
+	struct acl_object *aclobj;
+	ARRAY_TYPE(acl_rights) mailbox_rights;
+	const ARRAY_TYPE(acl_rights) *write_rights = NULL;
+	const char *name;
+	struct timeval mtime = { 0, 0 };
+	int ret;
+
+	name = mailbox_list_get_storage_name(backend->backend.list, vname);
+	if (!acl_rights_cache_name_is_cacheable(name))
+		return 0;
+	/* Read the ACL file directly - going through the acl_object
+	   refresh would flush and repopulate the process-wide ACL cache
+	   as a side effect, and merge in the configuration-provided ACLs,
+	   which must not end up in the rights cache. */
+	aclobj = acl_object_init_from_name(&backend->backend, name);
+	t_array_init(&mailbox_rights, 16);
+	/* the rights can't be allocated from a data stack pool - the
+	   reader parses them inside its own data stack frame */
+	pool_t pool = pool_alloconly_create("acl rights cache rebuild", 1024);
+	/* The storage may have a mailbox's files locally only while the
+	   mailbox is open (e.g. obox metacache). Then a missing ACL file
+	   doesn't mean there is none, and an existing one may be an old
+	   copy. */
+	bool storage_cached =
+		acl_backend_storage_has_cached_files(&backend->backend);
+
+	entry = acl_rights_cache_find(file, name);
+	ret = acl_backend_vfile_object_read_rights(aclobj, pool,
+						   &mailbox_rights, &mtime);
+	if (ret > 0 && storage_cached && entry != NULL &&
+	    timeval_cmp(&entry->mtime, &mtime) > 0) {
+		/* The cache entry is newer than the local ACL file: the
+		   mailbox was changed on another server, and its local files
+		   aren't refreshed before it's next opened. Handle it like
+		   an ACL file that isn't locally available. */
+		array_clear(&mailbox_rights);
+		i_zero(&mtime);
+		ret = 0;
+	}
+	if (ret > 0) {
+		/* merge duplicate identifiers, like the other writers do */
+		acl_rights_sort(&mailbox_rights, pool);
+		write_rights = &mailbox_rights;
+	} else if (ret == 0 && storage_cached && entry != NULL) {
+		/* The mailbox's ACL file isn't locally available, e.g. with
+		   obox the mailbox isn't in metacache. Preserve its existing
+		   cache entry - dropping the entry would also remove the
+		   mailbox's share entries from the ACL lookup dict. */
+		write_rights = &entry->rights;
+		mtime = entry->mtime;
+	}
+	if (ret >= 0) {
+		/* The configured ACLs may provide nonowner lookup rights.
+		   The marker flag is set then, also next to the ACL file's
+		   rights, so the mailbox stays part of the nonowner
+		   iteration and the ACL lookup dict whatever the file says.
+		   The rights themselves always come from the
+		   configuration. A public namespace keeps the marker it
+		   has, like acl_rights_cache_verify() does. */
+		bool marker = acl_rights_cache_ns_is_private(file) ?
+			acl_rights_cache_read_global_nonowner(aclobj) :
+			(entry != NULL && entry->marker);
+
+		acl_rights_cache_write_line(output, str, name, &mtime, marker,
+			entry == NULL ? NULL : entry->unknown_flags,
+			write_rights);
+		if (!*have_nonowner &&
+		    (marker ||
+		     (write_rights != NULL &&
+		      acl_rights_cache_rights_have_nonowner(write_rights))))
+			*have_nonowner = TRUE;
+	}
+	acl_object_deinit(&aclobj);
+	pool_unref(&pool);
+	return ret < 0 ? -1 : 0;
+}
+
+static int acl_rights_cache_rebuild_real(struct acl_backend_vfile *backend,
+					 bool *have_nonowner_r)
+{
+	struct mailbox_list *list = backend->backend.list;
+	struct acl_rights_cache_file *file = backend->backend.rights_cache_file;
+	struct mail_namespace *ns = mailbox_list_get_namespace(list);
+	struct mailbox_list_iterate_context *iter;
+	const struct mailbox_info *info;
+	struct ostream *output;
+	string_t *str;
+	const char *tmp_path;
+	int ret = 0;
+
+	if (!acl_rights_cache_resolve_path(file))
+		return 0;
+	if ((ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0) {
+		/* we can't write anything here */
+		return 0;
+	}
+
+	int begin_ret = acl_rights_cache_file_update_begin(file, TRUE);
+	if (begin_ret <= 0)
+		return begin_ret;
+
+	e_debug(file->event, "Rebuilding %s", file->path);
+
+	tmp_path = t_strdup_printf("%s.tmp", file->path);
+	output = o_stream_create_fd_file(file->tmp_fd, 0, FALSE);
+	o_stream_cork(output);
+	acl_rights_cache_write_header(output);
+
+	str = str_new(default_pool, 256);
+	iter = mailbox_list_iter_init(list, "*",
+				      MAILBOX_LIST_ITER_RAW_LIST |
+				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
+	while (ret == 0 &&
+	       (info = mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
+		ret = acl_rights_cache_rebuild_mailbox(backend, output, str,
+						       info->vname,
+						       have_nonowner_r);
+	} T_END;
+	if (mailbox_list_iter_deinit(&iter) < 0) {
+		e_error(file->event, "Rebuilding %s failed: Mailbox list iteration failed: %s",
+			file->path,
+			mailbox_list_get_last_internal_error(list, NULL));
+		ret = -1;
+	}
+	str_free(&str);
+
+	if (o_stream_finish(output) < 0) {
+		e_error(file->event, "write(%s) failed: %s", tmp_path,
+			o_stream_get_error(output));
+		ret = -1;
+	}
+	o_stream_destroy(&output);
+
+	if (ret == 0) {
+		if (rename(tmp_path, file->path) < 0) {
+			e_error(file->event, "rename(%s, %s) failed: %m",
+				tmp_path, file->path);
+			ret = -1;
+		} else {
+			file->tmp_renamed = TRUE;
+		}
+	}
+	if (ret == 0) {
+		/* reload the in-memory copy */
+		if (acl_rights_cache_file_read(file) < 0)
+			ret = -1;
+		file->last_check = ioloop_time;
+	}
+	acl_rights_cache_file_update_end(file);
+	return ret < 0 ? -1 : 1;
+}
+
+int acl_rights_cache_rebuild(struct acl_backend_vfile *backend)
+{
+	struct acl_user *auser =
+		ACL_USER_CONTEXT(mailbox_list_get_user(backend->backend.list));
+	int ret;
+
+	if (backend->rebuilding_aclcache)
+		return 0;
+	if (acl_rights_cache_ns_is_shared(backend->backend.rights_cache_file)) {
+		/* A shared namespace's ACL root is the owner's own mail root,
+		   so this would create the owner's cache from the few
+		   mailboxes this user sees. Leave it to the owner's own
+		   session. */
+		return 0;
+	}
+
+	bool have_nonowner = FALSE;
+	backend->rebuilding_aclcache = TRUE;
+	ret = acl_rights_cache_rebuild_real(backend, &have_nonowner);
+	if (ret > 0 && have_nonowner && auser != NULL) {
+		/* The cached nonowner ACLs may have changed, rebuild the
+		   lookup dict as well. Skipped when the cache has no
+		   nonowner lookup rights at all - the same user may have
+		   another ACL area with them (e.g. an imapc frontend of a
+		   backend that has the real ACLs), and rebuilding the dict
+		   from this one would remove that area's share entries. */
+		(void)acl_lookup_dict_rebuild(
+			auser->acl_lookup_dict,
+			backend->backend.set->acl_dict_index);
+	}
+	backend->rebuilding_aclcache = FALSE;
+	return ret < 0 ? -1 : 0;
 }

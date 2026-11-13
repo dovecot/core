@@ -363,3 +363,17 @@ void acl_object_remove_all_access(struct acl_object *aclobj)
 	array_push_back(&aclobj->rights, &rights);
 }
 
+bool acl_object_has_global_nonowner_lookup(const struct acl_object *aclobj)
+{
+	const struct acl_rights *right;
+
+	if (!array_is_created(&aclobj->rights))
+		return FALSE;
+	array_foreach(&aclobj->rights, right) {
+		if (right->global &&
+		    acl_rights_has_nonowner_lookup_changes(right))
+			return TRUE;
+	}
+	return FALSE;
+}
+

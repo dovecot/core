@@ -17,6 +17,15 @@ void acl_rights_cache_file_deinit(struct acl_rights_cache_file **_file);
    and -1 on error. */
 int acl_rights_cache_file_refresh(struct acl_rights_cache_file *file);
 
+/* Refresh the cache, throttled by the backend's cache_secs. If
+   rebuild_if_missing is TRUE, the cache is rebuilt from the mailboxes' ACL
+   files when the cache file is missing or unreadable. */
+void acl_rights_cache_refresh(struct acl_backend_vfile *backend,
+			      bool rebuild_if_missing);
+
+/* Rebuild the cache file from all mailboxes' ACL files. */
+int acl_rights_cache_rebuild(struct acl_backend_vfile *backend);
+
 /* Returns TRUE and the mtime stored for the mailbox's cache entry, FALSE if
    the mailbox has no entry. */
 bool acl_rights_cache_file_get_mtime(struct acl_rights_cache_file *file,

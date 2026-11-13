@@ -51,6 +51,8 @@ struct acl_backend_vfile {
 	unsigned int rights_cache_lock_timeout_secs;
 	bool rebuilding_acllist:1;
 	bool iterating_acllist:1;
+	bool rebuilding_aclcache:1;
+	bool iterating_aclcache:1;
 };
 
 void acl_vfile_write_rights_list(string_t *dest, const char *const *rights);
