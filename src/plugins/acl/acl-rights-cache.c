@@ -1379,7 +1379,8 @@ acl_backend_vfile_nonowner_iter_deinit(struct acl_mailbox_list_context *ctx)
 	return ret;
 }
 
-int acl_backend_vfile_nonowner_lookups_rebuild(struct acl_backend *_backend)
+int acl_backend_vfile_nonowner_lookups_rebuild(struct acl_backend *_backend,
+					       bool fetch_all ATTR_UNUSED)
 {
 	struct acl_backend_vfile *backend =
 		container_of(_backend, struct acl_backend_vfile, backend);

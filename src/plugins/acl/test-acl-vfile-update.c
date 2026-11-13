@@ -460,8 +460,8 @@ static void test_acl_vfile_rights_cache(void)
 	test_assert_cmp(count, ==, 1);
 
 	/* an explicit rebuild produces the same result */
-	test_assert(acl_backend_nonowner_lookups_rebuild(
-			test_acl.backend) == 0);
+	test_assert(acl_backend_nonowner_lookups_rebuild(test_acl.backend,
+							  FALSE) == 0);
 	count = 0;
 	ctx = acl_backend_nonowner_lookups_iter_init(test_acl.backend);
 	while (acl_backend_nonowner_lookups_iter_next(ctx, &name)) {

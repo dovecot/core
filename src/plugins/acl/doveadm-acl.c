@@ -486,7 +486,7 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 	}
 	if (!found) {
 		e_error(box->event, "Mailbox not found from the ACL rights cache, rebuilding");
-		if (acl_backend_nonowner_lookups_rebuild(backend) < 0)
+		if (acl_backend_nonowner_lookups_rebuild(backend, FALSE) < 0)
 			i_fatal("ACL rights cache rebuilding failed");
 		all_ok = FALSE;
 		*retry_r = TRUE;

@@ -47,8 +47,12 @@ bool acl_backend_nonowner_lookups_iter_next(struct acl_mailbox_list_context *ctx
 int
 acl_backend_nonowner_lookups_iter_deinit(struct acl_mailbox_list_context **ctx);
 
-/* Force a rebuild for nonowner lookups index */
-int acl_backend_nonowner_lookups_rebuild(struct acl_backend *backend);
+/* Rebuild the nonowner lookup list from the mailboxes' ACLs. With fetch_all
+   and a storage that has a mailbox's files locally only while it is open,
+   every mailbox is opened to read its ACL file, so the list is complete and
+   current afterwards. */
+int acl_backend_nonowner_lookups_rebuild(struct acl_backend *backend,
+					 bool fetch_all);
 /* Keep the nonowner lookup list in step with a renamed or deleted mailbox.
    Both names are storage names.
 

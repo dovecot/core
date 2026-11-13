@@ -493,8 +493,8 @@ static void test_acl_rights_cache_seed(void)
 {
 	const char *cache;
 
-	test_assert(acl_backend_nonowner_lookups_rebuild(
-			test_acl.backend) == 0);
+	test_assert(acl_backend_nonowner_lookups_rebuild(test_acl.backend,
+							  FALSE) == 0);
 	cache = test_acl_read_file(test_acl_cache_path());
 	test_assert(cache != NULL &&
 		    strstr(cache, "\t"TEST_MAILBOX"\t") != NULL);

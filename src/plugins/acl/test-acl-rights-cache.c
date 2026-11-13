@@ -328,8 +328,8 @@ static void test_acl_rights_cache_marker_with_file_rights(void)
 	test_assert(test_acl_cache_iterates(TEST_MAILBOX));
 
 	/* a rebuild */
-	test_assert(acl_backend_nonowner_lookups_rebuild(
-			test_acl.backend) == 0);
+	test_assert(acl_backend_nonowner_lookups_rebuild(test_acl.backend,
+							  FALSE) == 0);
 	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
 			   TEST_UPDATE_ID" read write");
 	test_assert(test_acl_cache_has_marker(TEST_MAILBOX));
@@ -736,7 +736,7 @@ static void test_acl_rights_cache_rebuild_abort(void)
 			    "b0rken junk here\n");
 	test_expect_error_string("ACL file");
 	test_assert(acl_backend_nonowner_lookups_rebuild(
-			test_acl.backend) == -1);
+			test_acl.backend, FALSE) == -1);
 	test_expect_no_more_errors();
 	test_assert_strcmp(test_acl_read_file(test_acl_cache_path()),
 			   cache_before);
@@ -762,7 +762,7 @@ static void test_acl_rights_cache_rebuild_drops_local(void)
 	/* the ACL file is removed without an ACL update */
 	i_unlink(test_acl_local_path(TEST_MAILBOX));
 	test_assert(acl_backend_nonowner_lookups_rebuild(
-			test_acl.backend) == 0);
+			test_acl.backend, FALSE) == 0);
 	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX), "");
 	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX2),
 			   TEST_UPDATE_ID" lookup");
@@ -807,8 +807,8 @@ static void test_acl_rights_cache_version(void)
 	/* a rebuild replaces the unusable file, after failing to read it
 	   under the lock once more */
 	test_expect_error_string("Missing version line");
-	test_assert(acl_backend_nonowner_lookups_rebuild(
-			test_acl.backend) == 0);
+	test_assert(acl_backend_nonowner_lookups_rebuild(test_acl.backend,
+							  FALSE) == 0);
 	test_expect_no_more_errors();
 	cache = test_acl_read_file(cache_path);
 	test_assert(cache != NULL && str_begins_with(cache, "V1\n"));
@@ -876,8 +876,8 @@ static void test_acl_rights_cache_unknown_flags(void)
 			   TEST_UPDATE_ID" insert lookup read");
 
 	/* a rebuild */
-	test_assert(acl_backend_nonowner_lookups_rebuild(
-			test_acl.backend) == 0);
+	test_assert(acl_backend_nonowner_lookups_rebuild(test_acl.backend,
+							  FALSE) == 0);
 	test_assert_strcmp(test_acl_cache_flags(TEST_MAILBOX), "xy");
 
 	/* without rights the line stays for its flags */
@@ -931,8 +931,8 @@ static void test_acl_rights_cache_rebuild_lwsp(void)
 	test_acl_write_file(test_acl_local_path(TEST_MAILBOX),
 			    "  "TEST_UPDATE_ID" lr\n\t# a comment\n");
 
-	test_assert(acl_backend_nonowner_lookups_rebuild(
-			test_acl.backend) == 0);
+	test_assert(acl_backend_nonowner_lookups_rebuild(test_acl.backend,
+							  FALSE) == 0);
 	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
 			   TEST_UPDATE_ID" lookup read");
 
@@ -954,8 +954,8 @@ static void test_acl_rights_cache_duplicate_ids(void)
 	test_acl_write_file(test_acl_local_path(TEST_MAILBOX),
 			    TEST_UPDATE_ID" l\n"TEST_UPDATE_ID" r\n");
 
-	test_assert(acl_backend_nonowner_lookups_rebuild(
-			test_acl.backend) == 0);
+	test_assert(acl_backend_nonowner_lookups_rebuild(test_acl.backend,
+							  FALSE) == 0);
 	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
 			   TEST_UPDATE_ID" lookup read");
 	line = test_acl_cache_raw_lines(TEST_MAILBOX);
@@ -1059,8 +1059,8 @@ static void test_acl_rights_cache_marker_public(void)
 	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
 			   TEST_UPDATE_ID" read");
 	test_assert(test_acl_cache_has_marker(TEST_MAILBOX));
-	test_assert(acl_backend_nonowner_lookups_rebuild(
-			test_acl.backend) == 0);
+	test_assert(acl_backend_nonowner_lookups_rebuild(test_acl.backend,
+							 FALSE) == 0);
 	test_assert(test_acl_cache_has_marker(TEST_MAILBOX));
 
 	test_acl_user_deinit();

@@ -248,9 +248,10 @@ int acl_backend_nonowner_lookups_iter_deinit(struct acl_mailbox_list_context **_
 	return ctx->backend->v->nonowner_lookups_iter_deinit(ctx);
 }
 
-int acl_backend_nonowner_lookups_rebuild(struct acl_backend *backend)
+int acl_backend_nonowner_lookups_rebuild(struct acl_backend *backend,
+					 bool fetch_all)
 {
-	return backend->v->nonowner_lookups_rebuild(backend);
+	return backend->v->nonowner_lookups_rebuild(backend, fetch_all);
 }
 
 int acl_backend_nonowner_lookups_rename(struct acl_backend *backend,
