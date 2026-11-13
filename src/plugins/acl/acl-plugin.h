@@ -60,6 +60,19 @@ void acl_mail_allocated(struct mail *mail);
 struct acl_backend *acl_mailbox_list_get_backend(struct mailbox_list *list);
 int acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,
 				bool parent, unsigned int acl_storage_right_idx);
+/* With a storage that has a mailbox's files locally only while the mailbox
+   is open (MAIL_STORAGE_CLASS_FLAG_CACHED_FILES), the rights of a mailbox
+   that isn't open may come from the rights cache. Open the object's mailbox
+   and read its ACL file, so the rights checks that follow use what the file
+   has now. Does nothing with other storages. Returns 0 if ok, -1 if the
+   mailbox couldn't be opened or its ACL couldn't be read. */
+int acl_mailbox_list_read_acl_opened(struct mailbox_list *list,
+				     struct acl_object *aclobj);
+/* Like acl_mailbox_list_have_right(), but for a check that allows changing
+   something: the ACL is first read with acl_mailbox_list_read_acl_opened(). */
+int acl_mailbox_list_have_right_opened(struct mailbox_list *list,
+				       const char *name, bool parent,
+				       unsigned int acl_storage_right_idx);
 
 void acl_plugin_init(struct module *module);
 void acl_plugin_deinit(void);

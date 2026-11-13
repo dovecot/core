@@ -129,8 +129,8 @@ acl_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 
 	if (!mailbox_is_autocreated(box)) {
 		/* we're looking up CREATE permission from our parent's rights */
-		ret = acl_mailbox_list_have_right(box->list, box->name, TRUE,
-						  ACL_STORAGE_RIGHT_CREATE);
+		ret = acl_mailbox_list_have_right_opened(box->list, box->name,
+				TRUE, ACL_STORAGE_RIGHT_CREATE);
 	} else {
 		/* mailbox is autocreated, so we need to treat it as if it
 		   already exists. ignore the "create" ACL here. */
@@ -215,7 +215,13 @@ acl_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(src);
 	int ret;
 
-	/* renaming requires rights to delete the old mailbox */
+	/* Renaming requires rights to delete the old mailbox. The mailbox
+	   isn't open, so make sure they don't come from the rights cache. */
+	if (!abox->skip_acl_checks &&
+	    acl_mailbox_list_read_acl_opened(src->list, abox->aclobj) < 0) {
+		mail_storage_set_internal_error(src->storage);
+		return -1;
+	}
 	ret = acl_mailbox_right_lookup(src, ACL_STORAGE_RIGHT_DELETE);
 	if (ret <= 0) {
 		if (ret == 0)
@@ -225,8 +231,8 @@ acl_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 
 	/* and create the new one under the parent mailbox */
 	T_BEGIN {
-		ret = acl_mailbox_list_have_right(dest->list, dest->name, TRUE,
-						ACL_STORAGE_RIGHT_CREATE);
+		ret = acl_mailbox_list_have_right_opened(dest->list,
+				dest->name, TRUE, ACL_STORAGE_RIGHT_CREATE);
 	} T_END;
 
 	if (ret <= 0) {
@@ -752,11 +758,17 @@ int acl_mailbox_update_acl(struct mailbox_transaction_context *t,
 	const char *key;
 	time_t ts = update->last_change != 0 ?
 		update->last_change : ioloop_time;
+	int ret;
 
 	key = t_strdup_printf(MAILBOX_ATTRIBUTE_PREFIX_ACL"%s",
 			      acl_rights_get_id(&update->rights));
 	aclobj = acl_mailbox_get_aclobj(t->box);
-	if (acl_object_update(aclobj, update) < 0) {
+	/* the transaction's mailbox is open: the update reads the ACL file
+	   as it is now, also with a storage that has cached files */
+	aclobj->mailbox_open = TRUE;
+	ret = acl_object_update(aclobj, update);
+	aclobj->mailbox_open = FALSE;
+	if (ret < 0) {
 		mailbox_set_critical(t->box, "Failed to update ACL object");
 		return -1;
 	}

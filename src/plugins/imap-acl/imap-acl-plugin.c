@@ -105,13 +105,24 @@ struct imapc_acl_context {
 
 static int
 acl_mailbox_open_as_admin(struct client_command_context *cmd,
-			  struct mailbox *box, const char *name)
+			  struct mailbox *box, const char *name,
+			  bool for_update)
 {
 	enum mailbox_existence existence = MAILBOX_EXISTENCE_NONE;
+	struct acl_object *aclobj;
 	int ret;
 
 	if (ACL_LIST_CONTEXT(box->list) == NULL) {
 		client_send_command_error(cmd, "ACLs disabled.");
+		return 0;
+	}
+
+	/* The mailbox isn't open. Before changing its ACLs, make sure the
+	   admin right doesn't come from the rights cache. */
+	aclobj = acl_mailbox_get_aclobj(box);
+	if (for_update && aclobj != NULL &&
+	    acl_mailbox_list_read_acl_opened(box->list, aclobj) < 0) {
+		client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
 		return 0;
 	}
 
@@ -664,7 +675,7 @@ static void imap_acl_cmd_getacl(struct mailbox *box, struct mail_namespace *ns,
 	string_t *str;
 	int ret;
 
-	if (acl_mailbox_open_as_admin(cmd, box, mailbox) <= 0)
+	if (acl_mailbox_open_as_admin(cmd, box, mailbox, FALSE) <= 0)
 		return;
 
 	backend = acl_mailbox_list_get_backend(ns->list);
@@ -1039,7 +1050,7 @@ imap_acl_cmd_setacl(struct mailbox *box, struct mail_namespace *ns,
 	}
 	r = &update.rights;
 
-	if (acl_mailbox_open_as_admin(cmd, box, mailbox) <= 0)
+	if (acl_mailbox_open_as_admin(cmd, box, mailbox, TRUE) <= 0)
 		return;
 
 	backend = acl_mailbox_list_get_backend(ns->list);
@@ -1138,7 +1149,7 @@ imap_acl_cmd_deleteacl(struct mailbox *box, const char *mailbox,
 		return;
 	}
 
-	if (acl_mailbox_open_as_admin(cmd, box, mailbox) <= 0)
+	if (acl_mailbox_open_as_admin(cmd, box, mailbox, TRUE) <= 0)
 		return;
 
 	if (cmd_acl_mailbox_update(box, &update, &client_error) < 0) {

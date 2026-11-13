@@ -52,8 +52,45 @@ struct acl_backend *acl_mailbox_list_get_backend(struct mailbox_list *list)
 	return alist->rights.backend;
 }
 
-int acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,
-				bool parent, unsigned int acl_storage_right_idx)
+int acl_mailbox_list_read_acl_opened(struct mailbox_list *list,
+				     struct acl_object *aclobj)
+{
+	struct mailbox *box;
+	enum mail_error error;
+	const char *errstr;
+	int ret = 0;
+
+	if (*aclobj->name == '\0' ||
+	    !acl_backend_storage_has_cached_files(aclobj->backend)) {
+		/* The namespace root's rights never come from the rights
+		   cache, or the mailboxes' files are always locally
+		   available. */
+		return 0;
+	}
+
+	box = mailbox_alloc(list, mailbox_list_get_vname(list, aclobj->name),
+			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
+	if (mailbox_open(box) < 0) {
+		errstr = mailbox_get_last_internal_error(box, &error);
+		if (error != MAIL_ERROR_NOTFOUND) {
+			e_error(box->event, "acl: Failed to open mailbox: %s",
+				errstr);
+			ret = -1;
+		}
+	} else {
+		acl_cache_flush(aclobj->backend->cache, aclobj->name);
+		aclobj->mailbox_open = TRUE;
+		ret = aclobj->backend->v->object_refresh_cache(aclobj);
+		aclobj->mailbox_open = FALSE;
+	}
+	mailbox_free(&box);
+	return ret;
+}
+
+static int
+acl_mailbox_list_have_right_full(struct mailbox_list *list, const char *name,
+				 bool parent, bool read_acl_opened,
+				 unsigned int acl_storage_right_idx)
 {
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT_REQUIRE(list);
 	struct acl_backend *backend = alist->rights.backend;
@@ -67,13 +104,34 @@ int acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,
 	aclobj = !parent ?
 		acl_object_init_from_name(backend, name) :
 		acl_object_init_from_parent(backend, name);
-	ret = acl_object_have_right(aclobj, idx_arr[acl_storage_right_idx]);
+	if (read_acl_opened &&
+	    acl_mailbox_list_read_acl_opened(list, aclobj) < 0)
+		ret = -1;
+	else {
+		ret = acl_object_have_right(aclobj,
+					    idx_arr[acl_storage_right_idx]);
+	}
 
 	acl_object_deinit(&aclobj);
 
 	if (ret < 0)
 		mailbox_list_set_internal_error(list);
 	return ret;
+}
+
+int acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,
+				bool parent, unsigned int acl_storage_right_idx)
+{
+	return acl_mailbox_list_have_right_full(list, name, parent, FALSE,
+						acl_storage_right_idx);
+}
+
+int acl_mailbox_list_have_right_opened(struct mailbox_list *list,
+				       const char *name, bool parent,
+				       unsigned int acl_storage_right_idx)
+{
+	return acl_mailbox_list_have_right_full(list, name, parent, TRUE,
+						acl_storage_right_idx);
 }
 
 static void
