@@ -14,10 +14,10 @@ enum auth_proxy_ssl_flags {
 
 /* To share proxy connections towards a backend between recipients with
    compatible connection settings, the per-connection fields (host, host_ip,
-   port, ssl_flags, source_ip, timeout_msecs, nopipelining, remote_not_trusted)
-   are compared and copied in lmtp_proxy_get_connection(), while the
-   per-recipient/login fields (username, master_user, password, sasl_mechanism,
-   noauth, redirect_reauth) are not.
+   port, ssl_flags, source_ip, timeout_msecs, connect_timeout_msecs,
+   nopipelining, remote_not_trusted) are compared and copied in
+   lmtp_proxy_get_connection(), while the per-recipient/login fields (username,
+   master_user, password, sasl_mechanism, noauth, redirect_reauth) are not.
  */
 struct auth_proxy_settings {
 	/* TRUE if proxying is enabled */
@@ -43,6 +43,9 @@ struct auth_proxy_settings {
 	/* SASL mechanism to use for authentication. */
 	const char *sasl_mechanism;
 
+	/* Abort proxy connection setup in this many milliseconds (0 = default)
+	 */
+	unsigned int connect_timeout_msecs;
 	/* Abort proxy connection in this many milliseconds (0 = default) */
 	unsigned int timeout_msecs;
 

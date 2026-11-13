@@ -64,6 +64,7 @@ int auth_proxy_settings_parse(struct auth_proxy_settings *set, pool_t pool,
 				&set->timeout_msecs, error_r) < 0) {
 			return -1;
 		}
+		set->connect_timeout_msecs = set->timeout_msecs;
 	} else if (strcmp(key, "proxy_nopipelining") == 0)
 		set->nopipelining = TRUE;
 	else if (strcmp(key, "proxy_noauth") == 0)
