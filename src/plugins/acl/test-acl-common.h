@@ -30,6 +30,10 @@ void test_acl_common_deinit(void);
    from within a test function so that the teardown happens before the test
    framework removes the test directory. */
 void test_acl_user_init(const char *const *extra_input);
+/* Like test_acl_user_init(), but with the given mail driver instead of
+   maildir. */
+void test_acl_user_init_driver(const char *driver,
+			       const char *const *extra_input);
 /* Like test_acl_user_init(), but also installs the mailbox_list_created hook,
    so that mailbox operations go through the ACL plugin's list vfuncs. */
 void test_acl_user_init_list_hooks(const char *const *extra_input);

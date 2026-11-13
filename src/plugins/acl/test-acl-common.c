@@ -60,7 +60,8 @@ void test_acl_common_deinit(void)
 	master_service_deinit(&master_service);
 }
 
-static void test_acl_user_init_hooks(const char *const *extra_input,
+static void test_acl_user_init_hooks(const char *driver,
+				     const char *const *extra_input,
 				     const struct mail_storage_hooks *hooks)
 {
 	const char *const default_input[] = {
@@ -88,7 +89,7 @@ static void test_acl_user_init_hooks(const char *const *extra_input,
 
 	struct test_mail_storage_settings storage_set = {
 		.username = TEST_ACL_OWNER,
-		.driver = "maildir",
+		.driver = driver,
 		.hierarchy_sep = "/",
 		.extra_input = array_front(&input),
 	};
@@ -116,12 +117,21 @@ static void test_acl_user_init_hooks(const char *const *extra_input,
 
 void test_acl_user_init(const char *const *extra_input)
 {
-	test_acl_user_init_hooks(extra_input, &test_acl_storage_hooks);
+	test_acl_user_init_hooks("maildir", extra_input,
+				 &test_acl_storage_hooks);
+}
+
+void test_acl_user_init_driver(const char *driver,
+			       const char *const *extra_input)
+{
+	test_acl_user_init_hooks(driver, extra_input,
+				 &test_acl_storage_hooks);
 }
 
 void test_acl_user_init_list_hooks(const char *const *extra_input)
 {
-	test_acl_user_init_hooks(extra_input, &test_acl_list_hooks);
+	test_acl_user_init_hooks("maildir", extra_input,
+				 &test_acl_list_hooks);
 }
 
 void test_acl_user_deinit(void)

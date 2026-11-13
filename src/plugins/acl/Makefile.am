@@ -75,6 +75,7 @@ lib10_doveadm_acl_plugin_la_SOURCES = \
 test_programs = \
 	test-acl \
 	test-acl-cache \
+	test-acl-rights-cache \
 	test-acl-vfile \
 	test-acl-vfile-update \
 	test-acl-shared
@@ -95,6 +96,10 @@ test_acl_DEPENDENCIES = $(test_deps)
 test_acl_cache_SOURCES = test-acl-cache.c
 test_acl_cache_LDADD = $(test_libs)
 test_acl_cache_DEPENDENCIES = $(test_deps)
+
+test_acl_rights_cache_SOURCES = test-acl-rights-cache.c test-acl-common.c
+test_acl_rights_cache_LDADD = $(test_libs)
+test_acl_rights_cache_DEPENDENCIES = $(test_deps)
 
 test_acl_vfile_SOURCES = test-acl-vfile.c test-acl-common.c
 test_acl_vfile_LDADD = $(test_libs)
