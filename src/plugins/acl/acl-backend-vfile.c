@@ -357,6 +357,68 @@ acl_backend_vfile_read_with_retry(struct acl_object *aclobj,
 	return ret <= 0 ? -1 : 0;
 }
 
+int acl_backend_vfile_object_read_rights(struct acl_object *_aclobj,
+					 pool_t pool,
+					 ARRAY_TYPE(acl_rights) *rights_r,
+					 struct timeval *mtime_r)
+{
+	struct acl_object_vfile *aclobj =
+		container_of(_aclobj, struct acl_object_vfile, aclobj);
+	struct event *event = _aclobj->backend->event;
+	struct istream *input;
+	struct stat st;
+	struct acl_rights rights;
+	const char *line, *error;
+	unsigned int linenum = 0;
+	int fd, ret = 1;
+
+	if (aclobj->local_path == NULL)
+		return 0;
+
+	fd = nfs_safe_open(aclobj->local_path, O_RDONLY);
+	if (fd == -1) {
+		if (errno == ENOENT || errno == ENOTDIR || ENOACCESS(errno))
+			return 0;
+		e_error(event, "open(%s) failed: %m", aclobj->local_path);
+		return -1;
+	}
+	if (fstat(fd, &st) < 0) {
+		e_error(event, "fstat(%s) failed: %m", aclobj->local_path);
+		i_close_fd(&fd);
+		return -1;
+	}
+	mtime_r->tv_sec = st.st_mtime;
+	mtime_r->tv_usec = ST_MTIME_NSEC(st) / 1000;
+
+	input = i_stream_create_fd(fd, SIZE_MAX);
+	i_stream_set_return_partial_line(input, TRUE);
+	while (ret > 0 && (line = i_stream_read_next_line(input)) != NULL) {
+		linenum++;
+		line = str_skip_lwsp(line);
+		if (line[0] == '\0' || line[0] == '#')
+			continue;
+		T_BEGIN {
+			if (acl_rights_parse_line(line, pool, &rights,
+						  &error) < 0) {
+				e_error(event, "ACL file %s line %u: %s",
+					aclobj->local_path, linenum, error);
+				ret = -1;
+			} else {
+				array_push_back(rights_r, &rights);
+			}
+		} T_END;
+	}
+	if (ret > 0 && input->stream_errno != 0) {
+		e_error(event, "read(%s) failed: %s", aclobj->local_path,
+			i_stream_get_error(input));
+		ret = -1;
+	}
+	i_stream_destroy(&input);
+	if (close(fd) < 0)
+		e_error(event, "close(%s) failed: %m", aclobj->local_path);
+	return ret;
+}
+
 static bool
 acl_vfile_validity_has_changed(struct acl_backend_vfile *backend,
 			       const struct acl_vfile_validity *validity,
