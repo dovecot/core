@@ -11,6 +11,7 @@
 #include "mailbox-list.h"
 #include "acl-cache.h"
 #include "acl-storage.h"
+#include "acl-plugin.h"
 #include "acl-backend-vfile.h"
 #include "acl-rights-cache.h"
 #include "test-acl-common.h"
@@ -779,6 +780,41 @@ static void test_acl_vfile_read_legacy_list_kept_by_update(void)
 	test_end();
 }
 
+/* With a storage that has a mailbox's files locally only while the mailbox
+   is open, a missing ACL file doesn't mean there is none: the cached rights
+   are served and the entry stays. Reading the ACL with the mailbox open
+   tells that the file is really gone. */
+static void test_acl_vfile_read_cached_files_missing_file(void)
+{
+	struct acl_object *aclobj;
+	const char *path, *cache;
+
+	test_begin("acl vfile read missing ACL file with cached files");
+	path = test_acl_setup(TEST_INPUT("acl_cache_ttl=0",
+					 "acl_user="TEST_ACL_USER),
+			      "user="TEST_ACL_USER" lr\n");
+	test_acl_storage_set_cached_files();
+	test_acl_rights_cache_seed();
+
+	i_unlink(path);
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	test_assert_strcmp(test_acl_my_rights(aclobj), "lookup read");
+	cache = test_acl_read_file(test_acl_cache_path());
+	test_assert(cache != NULL &&
+		    strstr(cache, "\t"TEST_MAILBOX"\t") != NULL);
+
+	test_assert(acl_mailbox_list_read_acl_opened(test_acl.list,
+						     aclobj) == 0);
+	test_assert_strcmp(test_acl_my_rights(aclobj), "");
+	acl_object_deinit(&aclobj);
+	cache = test_acl_read_file(test_acl_cache_path());
+	test_assert(cache != NULL &&
+		    strstr(cache, "\t"TEST_MAILBOX"\t") == NULL);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 static void test_acl_set_mtime(const char *path, time_t mtime)
 {
 	struct utimbuf ut = { .actime = mtime, .modtime = mtime };
@@ -879,6 +915,7 @@ int main(int argc, char **argv)
 		test_acl_vfile_read_legacy_list_reappears,
 		test_acl_vfile_read_legacy_list_kept_by_update,
 		test_acl_vfile_read_broken_legacy_list,
+		test_acl_vfile_read_cached_files_missing_file,
 		test_acl_vfile_read_cached_files_old_file,
 		test_acl_vfile_last_changed,
 		test_acl_vfile_parse_error,
