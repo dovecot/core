@@ -415,6 +415,10 @@ bool mail_index_hdr_check_indexid(struct mail_index *index,
    if -1 is returned. */
 int mail_index_map_check_header(struct mail_index_map *map,
 				const char **error_r);
+/* Verify the map's records like mail_index_verify_records(), but without
+   fsck. Returns FALSE and sets error_r if they're invalid. */
+bool mail_index_map_verify_records(struct mail_index_map *map,
+				   const char **error_r);
 /* Returns 1 if header is usable, 0 or -1 if not. The caller should log an
    error if -1 is returned, but not if 0 is returned. */
 bool mail_index_check_header_compat(const struct mail_index_header *hdr,

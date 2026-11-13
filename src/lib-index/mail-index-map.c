@@ -300,6 +300,11 @@ struct mail_index_map *mail_index_map_alloc(struct mail_index *index)
 	tmp_map.hdr_copy_buf = t_buffer_create(sizeof(tmp_map.hdr));
 	buffer_append(tmp_map.hdr_copy_buf, &tmp_map.hdr, sizeof(tmp_map.hdr));
 	tmp_map.index = index;
+#ifdef DEBUG
+	/* There are no records yet, so they're valid. This allows
+	   mail_index_map_check() to check them after syncing. */
+	tmp_map.records_verified = TRUE;
+#endif
 
 	/* a bit kludgy way to do this, but it initializes everything
 	   nicely and correctly */

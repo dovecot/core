@@ -930,6 +930,12 @@ void mail_index_map_check(struct mail_index_map *map)
 
 	if (getenv("DEBUG_IGNORE_INDEX_CORRUPTION") != NULL)
 		return;
+	if (!map->records_verified) {
+		/* The records may come from a corrupted index file. They're
+		   allowed to be inconsistent until they're verified with
+		   mail_index_verify_records(). */
+		return;
+	}
 
 	i_assert(hdr->messages_count <= map->rec_map->records_count);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {

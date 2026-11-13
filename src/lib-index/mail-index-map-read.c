@@ -410,6 +410,17 @@ mail_index_map_latest_file(struct mail_index *index, const char **reason_r)
 		return ret < 0 ? -1 : (unusable ? 0 : 1);
 	}
 	i_assert(new_map->rec_map->records != NULL);
+#ifdef DEBUG
+	/* Verify the records already now, so mail_index_map_check() can
+	   check them after syncing. If the index file is corrupted, they're
+	   fixed only when mail_index_verify_records() is called, same as
+	   without DEBUG. */
+	new_map->records_verified = FALSE;
+	T_BEGIN {
+		const char *verify_error;
+		(void)mail_index_map_verify_records(new_map, &verify_error);
+	} T_END;
+#endif
 
 	index->main_index_hdr_log_file_seq = new_map->hdr.log_file_seq;
 	index->main_index_hdr_log_file_tail_offset =

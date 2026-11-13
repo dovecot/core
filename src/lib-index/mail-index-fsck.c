@@ -548,9 +548,8 @@ int mail_index_fsck(struct mail_index *index)
 	return 0;
 }
 
-static bool
-mail_index_map_verify_records(struct mail_index_map *map,
-			      const char **error_r)
+bool mail_index_map_verify_records(struct mail_index_map *map,
+				   const char **error_r)
 {
 	const struct mail_index_header *hdr = &map->hdr;
 	const struct mail_index_record *rec;

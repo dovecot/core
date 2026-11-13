@@ -1402,7 +1402,10 @@ static void test_mail_index_verify_records_cache(void)
 	test_begin("mail index verify records cache");
 	index = test_mail_index_init(TRUE);
 	test_mail_index_append_uid(index, 1);
+#ifndef DEBUG
+	/* DEBUG builds verify the records of new and read maps */
 	test_assert(!index->map->records_verified);
+#endif
 	test_assert(mail_index_verify_records(index) == 1);
 	test_assert(index->map->records_verified);
 
@@ -1419,7 +1422,9 @@ static void test_mail_index_verify_records_cache(void)
 	test_mail_index_close(&index);
 	index = test_mail_index_open(FALSE);
 	test_assert(index->map->hdr.messages_count == 2);
+#ifndef DEBUG
 	test_assert(!index->map->records_verified);
+#endif
 	test_assert(mail_index_verify_records(index) == 1);
 	test_assert(index->map->records_verified);
 	test_mail_index_deinit(&index);
