@@ -550,9 +550,9 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 	mail_index_header_restore_range(&map->hdr, &orig_hdr,
 		offsetof(struct mail_index_header, messages_count),
 		offsetof(struct mail_index_header, first_recent_uid));
-	/* log_file_seq .. log_file_head_offset */
+	/* first_unseen_uid_lowwater .. log_file_head_offset */
 	mail_index_header_restore_range(&map->hdr, &orig_hdr,
-		offsetof(struct mail_index_header, log_file_seq),
+		offsetof(struct mail_index_header, first_unseen_uid_lowwater),
 		offsetof(struct mail_index_header, unused_old_sync_size_part1));
 	/* keep hdr_copy_buf in sync with the restored fields */
 	buffer_write(map->hdr_copy_buf, 0, &map->hdr,

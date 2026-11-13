@@ -1323,6 +1323,45 @@ static void test_mail_index_append_uid(struct mail_index *index, uint32_t uid)
 	mail_index_view_close(&view);
 }
 
+static void test_mail_index_header_update_lowwaters(void)
+{
+	struct mail_index *index;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+
+	test_begin("mail index header update lowwaters");
+	index = test_mail_index_init(TRUE);
+	test_mail_index_append_uid(index, 1);
+	const struct mail_index_header orig_hdr = index->map->hdr;
+	test_assert(orig_hdr.next_uid == 2);
+
+	/* The lowwaters are maintained internally. Header updates to them
+	   are ignored, since they could raise a lowwater above an existing
+	   unseen or deleted message. */
+	uint32_t unseen_lowwater =
+		orig_hdr.first_unseen_uid_lowwater == 1 ? 2 : 1;
+	uint32_t deleted_lowwater =
+		orig_hdr.first_deleted_uid_lowwater == 1 ? 2 : 1;
+	view = mail_index_view_open(index);
+	trans = mail_index_transaction_begin(view,
+			MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	mail_index_update_header(trans,
+		offsetof(struct mail_index_header, first_unseen_uid_lowwater),
+		&unseen_lowwater, sizeof(unseen_lowwater), TRUE);
+	mail_index_update_header(trans,
+		offsetof(struct mail_index_header, first_deleted_uid_lowwater),
+		&deleted_lowwater, sizeof(deleted_lowwater), TRUE);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	mail_index_view_close(&view);
+
+	test_assert_ucmp(index->map->hdr.first_unseen_uid_lowwater, ==,
+			 orig_hdr.first_unseen_uid_lowwater);
+	test_assert_ucmp(index->map->hdr.first_deleted_uid_lowwater, ==,
+			 orig_hdr.first_deleted_uid_lowwater);
+	test_mail_index_deinit(&index);
+	test_end();
+}
+
 static void test_mail_index_verify_records_cache(void)
 {
 	struct mail_index *index;
@@ -1501,6 +1540,7 @@ int main(void)
 		test_mail_index_verify_records,
 		test_mail_index_commit_zero_uids,
 		test_mail_index_view_verify_records,
+		test_mail_index_header_update_lowwaters,
 		test_mail_index_verify_records_cache,
 		test_mail_index_keywords_out_of_order,
 		test_mail_index_keywords_hdr_too_small,
