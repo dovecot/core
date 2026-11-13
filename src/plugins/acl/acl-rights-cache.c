@@ -78,7 +78,7 @@ struct acl_rights_cache_file {
 	time_t last_failed_rebuild;
 };
 
-struct acl_mailbox_list_context_vfile {
+struct acl_rights_cache_list_context_vfile {
 	struct acl_mailbox_list_context ctx;
 
 	unsigned int idx;
@@ -1306,24 +1306,25 @@ struct acl_mailbox_list_context *
 acl_backend_vfile_nonowner_iter_init(struct acl_backend *_backend)
 {
 	struct acl_backend_vfile *backend =
-		(struct acl_backend_vfile *)_backend;
-	struct acl_mailbox_list_context_vfile *ctx;
+		container_of(_backend, struct acl_backend_vfile, backend);
+	struct acl_rights_cache_list_context_vfile *ctx;
 
 	acl_backend_vfile_acllist_refresh(backend);
 
-	ctx = i_new(struct acl_mailbox_list_context_vfile, 1);
+	ctx = i_new(struct acl_rights_cache_list_context_vfile, 1);
 	ctx->ctx.backend = _backend;
 	backend->iterating_acllist = TRUE;
 	return &ctx->ctx;
 }
 
 bool acl_backend_vfile_nonowner_iter_next(struct acl_mailbox_list_context *_ctx,
-					 const char **name_r)
+					  const char **name_r)
 {
-	struct acl_mailbox_list_context_vfile *ctx =
-		(struct acl_mailbox_list_context_vfile *)_ctx;
+	struct acl_rights_cache_list_context_vfile *ctx =
+		container_of(_ctx, struct acl_rights_cache_list_context_vfile,
+			     ctx);
 	struct acl_backend_vfile *backend =
-		(struct acl_backend_vfile *)_ctx->backend;
+		container_of(_ctx->backend, struct acl_backend_vfile, backend);
 	const struct acl_backend_vfile_acllist *acllist;
 	unsigned int count;
 
@@ -1344,7 +1345,7 @@ int
 acl_backend_vfile_nonowner_iter_deinit(struct acl_mailbox_list_context *ctx)
 {
 	struct acl_backend_vfile *backend =
-		(struct acl_backend_vfile *)ctx->backend;
+		container_of(ctx->backend, struct acl_backend_vfile, backend);
 	int ret;
 
 	backend->iterating_acllist = FALSE;
@@ -1361,7 +1362,7 @@ acl_backend_vfile_nonowner_iter_deinit(struct acl_mailbox_list_context *ctx)
 int acl_backend_vfile_nonowner_lookups_rebuild(struct acl_backend *_backend)
 {
 	struct acl_backend_vfile *backend =
-		(struct acl_backend_vfile *)_backend;
+		container_of(_backend, struct acl_backend_vfile, backend);
 
 	return acl_backend_vfile_acllist_rebuild(backend);
 }
