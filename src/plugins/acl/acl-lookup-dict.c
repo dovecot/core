@@ -148,10 +148,10 @@ acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns, pool_t pool,
 
 /* Get the identifiers of the user's shares in the dict, relative to
    DICT_PATH_SHARED DICT_SHARED_BOXES_PATH. They are allocated from the
-   data stack. */
+   data stack. With first_only, stop after the first one. */
 static int
 acl_lookup_dict_get_old_ids(struct acl_lookup_dict *dict, bool acl_dict_index,
-			    ARRAY_TYPE(const_string) *ids_r,
+			    bool first_only, ARRAY_TYPE(const_string) *ids_r,
 			    const char **error_r)
 {
 	const char *username = dict->user->username;
@@ -174,6 +174,8 @@ acl_lookup_dict_get_old_ids(struct acl_lookup_dict *dict, bool acl_dict_index,
 			if (p != NULL && strcmp(p + 1, username) == 0) {
 				key = t_strdup(key);
 				array_push_back(ids_r, &key);
+				if (first_only)
+					break;
 			}
 		}
 	} else {
@@ -190,6 +192,8 @@ acl_lookup_dict_get_old_ids(struct acl_lookup_dict *dict, bool acl_dict_index,
 		if (ret > 0) {
 			key = t_strdup_printf("anyone/%s", username);
 			array_push_back(ids_r, &key);
+			if (first_only)
+				return 0;
 		}
 		prefix = t_strdup_printf(DICT_PATH_SHARED
 					 DICT_SHARED_USER_BOXES_PATH_REV"%s/",
@@ -202,6 +206,8 @@ acl_lookup_dict_get_old_ids(struct acl_lookup_dict *dict, bool acl_dict_index,
 			key = t_strdup_printf("user/%s/%s", key + prefix_len,
 					      username);
 			array_push_back(ids_r, &key);
+			if (first_only)
+				break;
 		}
 	}
 	if (dict_iterate_deinit(&iter, &error) < 0) {
@@ -233,8 +239,8 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	   that aren't visible to us, so we don't want to remove anything
 	   that could break them. */
 	t_array_init(&old_ids_arr, 128);
-	if (acl_lookup_dict_get_old_ids(dict, acl_dict_index, &old_ids_arr,
-					&error) < 0) {
+	if (acl_lookup_dict_get_old_ids(dict, acl_dict_index, FALSE,
+					&old_ids_arr, &error) < 0) {
 		e_error(event, "%s - can't update dict", error);
 		return -1;
 	}
@@ -280,6 +286,29 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 		i_assert(dt == NULL);
 	}
 	return 0;
+}
+
+int acl_lookup_dict_has_shares(struct acl_lookup_dict *dict,
+			       bool acl_dict_index)
+{
+	ARRAY_TYPE(const_string) ids;
+	const char *error;
+
+	if (dict->dict == NULL)
+		return 0;
+
+	/* Without acl_dict_index all users' shares have to be iterated to
+	   find one of this user, like acl_lookup_dict_rebuild_update() does.
+	   Unlike that, this is also reached from the user's first ACL check
+	   while there is no rights cache yet. With acl_dict_index the dict
+	   has to provide the reverse index. Without it no shares are found. */
+	t_array_init(&ids, 1);
+	if (acl_lookup_dict_get_old_ids(dict, acl_dict_index, TRUE,
+					&ids, &error) < 0) {
+		e_error(dict->event, "%s", error);
+		return -1;
+	}
+	return array_count(&ids) > 0 ? 1 : 0;
 }
 
 int acl_lookup_dict_rebuild(struct acl_lookup_dict *dict, bool acl_dict_index)

@@ -10,6 +10,10 @@ void acl_lookup_dict_deinit(struct acl_lookup_dict **dict);
 bool acl_lookup_dict_is_enabled(struct acl_lookup_dict *dict);
 
 int acl_lookup_dict_rebuild(struct acl_lookup_dict *dict, bool acl_dict_index);
+/* Returns 1 if the dict has share entries with the user as the owner, 0 if
+   not, -1 on error. */
+int acl_lookup_dict_has_shares(struct acl_lookup_dict *dict,
+			       bool acl_dict_index);
 
 struct acl_lookup_dict_iter *
 acl_lookup_dict_iterate_visible_init(struct acl_lookup_dict *dict,
