@@ -146,16 +146,79 @@ acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns, pool_t pool,
 	return ret;
 }
 
+/* Get the identifiers of the user's shares in the dict, relative to
+   DICT_PATH_SHARED DICT_SHARED_BOXES_PATH. They are allocated from the
+   data stack. */
+static int
+acl_lookup_dict_get_old_ids(struct acl_lookup_dict *dict, bool acl_dict_index,
+			    ARRAY_TYPE(const_string) *ids_r,
+			    const char **error_r)
+{
+	const char *username = dict->user->username;
+	struct dict_iterate_context *iter;
+	const char *prefix, *key, *value, *p, *error;
+	size_t prefix_len;
+	int ret;
+	const struct dict_op_settings *set =
+		mail_user_get_dict_op_settings(dict->user);
+
+	if (!acl_dict_index) {
+		prefix = DICT_PATH_SHARED DICT_SHARED_BOXES_PATH;
+		prefix_len = strlen(prefix);
+		iter = dict_iterate_init(dict->dict, set, prefix,
+					 DICT_ITERATE_FLAG_RECURSE);
+		while (dict_iterate(iter, &key, &value)) {
+			/* prefix/$type/$dest/$source */
+			key += prefix_len;
+			p = strrchr(key, '/');
+			if (p != NULL && strcmp(p + 1, username) == 0) {
+				key = t_strdup(key);
+				array_push_back(ids_r, &key);
+			}
+		}
+	} else {
+		key = t_strdup_printf(DICT_PATH_SHARED
+				      DICT_SHARED_BOXES_PATH"anyone/%s",
+				      username);
+		ret = dict_lookup(dict->dict, set, pool_datastack_create(),
+				  key, &value, &error);
+		if (ret < 0) {
+			*error_r = t_strdup_printf("dict_lookup(%s) failed: %s",
+						   key, error);
+			return -1;
+		}
+		if (ret > 0) {
+			key = t_strdup_printf("anyone/%s", username);
+			array_push_back(ids_r, &key);
+		}
+		prefix = t_strdup_printf(DICT_PATH_SHARED
+					 DICT_SHARED_USER_BOXES_PATH_REV"%s/",
+					 username);
+		prefix_len = strlen(prefix);
+		iter = dict_iterate_init(dict->dict, set, prefix,
+					 DICT_ITERATE_FLAG_RECURSE);
+		while (dict_iterate(iter, &key, &value)) {
+			/* prefix/$dest */
+			key = t_strdup_printf("user/%s/%s", key + prefix_len,
+					      username);
+			array_push_back(ids_r, &key);
+		}
+	}
+	if (dict_iterate_deinit(&iter, &error) < 0) {
+		*error_r = t_strdup_printf("dict iteration failed: %s", error);
+		return -1;
+	}
+	return 0;
+}
+
 static int
 acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			       const ARRAY_TYPE(const_string) *new_ids_arr,
 			       bool no_removes, bool acl_dict_index)
 {
 	struct event *event = dict->event;
-	const char *username = dict->user->username;
-	struct dict_iterate_context *iter;
 	struct dict_transaction_context *dt = NULL;
-	const char *prefix, *key, *value, *const *old_ids, *const *new_ids, *p;
+	const char *const *old_ids, *const *new_ids;
 	const char *error;
 	ARRAY_TYPE(const_string) old_ids_arr;
 	unsigned int newi, oldi, old_count, new_count;
@@ -170,48 +233,9 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	   that aren't visible to us, so we don't want to remove anything
 	   that could break them. */
 	t_array_init(&old_ids_arr, 128);
-	if (!acl_dict_index) {
-		prefix = DICT_PATH_SHARED DICT_SHARED_BOXES_PATH;
-		prefix_len = strlen(prefix);
-		iter = dict_iterate_init(dict->dict, set, prefix, DICT_ITERATE_FLAG_RECURSE);
-		while (dict_iterate(iter, &key, &value)) {
-			/* prefix/$type/$dest/$source */
-			key += prefix_len;
-			p = strrchr(key, '/');
-			if (p != NULL && strcmp(p + 1, username) == 0) {
-				key = t_strdup(key);
-				array_push_back(&old_ids_arr, &key);
-			}
-		}
-	} else {
-		key = t_strdup_printf(DICT_PATH_SHARED
-				      DICT_SHARED_BOXES_PATH"anyone/%s",
-				      username);
-		ret = dict_lookup(dict->dict, set, pool_datastack_create(),
-				  key, &value, &error);
-		if (ret < 0) {
-			e_error(event, "dict_lookup(%s) failed: %s - can't update dict",
-				key, error);
-			return -1;
-		}
-		if (ret > 0) {
-			key = t_strdup_printf("anyone/%s", username);
-			array_push_back(&old_ids_arr, &key);
-		}
-		prefix = t_strdup_printf(DICT_PATH_SHARED
-					 DICT_SHARED_USER_BOXES_PATH_REV"%s/",
-					 username);
-		prefix_len = strlen(prefix);
-		iter = dict_iterate_init(dict->dict, set, prefix, DICT_ITERATE_FLAG_RECURSE);
-		while (dict_iterate(iter, &key, &value)) {
-			/* prefix/$dest */
-			key = t_strdup_printf("user/%s/%s", key + prefix_len,
-					      username);
-			array_push_back(&old_ids_arr, &key);
-		}
-	}
-	if (dict_iterate_deinit(&iter, &error) < 0) {
-		e_error(event, "dict iteration failed: %s - can't update dict", error);
+	if (acl_lookup_dict_get_old_ids(dict, acl_dict_index, &old_ids_arr,
+					&error) < 0) {
+		e_error(event, "%s - can't update dict", error);
 		return -1;
 	}
 
