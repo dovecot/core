@@ -38,7 +38,10 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	const char *errstr;
 	int ret;
 
-	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY);
+	/* the quota counts all of the owner's mails, also in mailboxes that
+	   the ACLs don't allow this session to read */
+	box = mailbox_alloc(ns->list, vname,
+			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
 	if (settings_get_filter(box->event, "quota", root->set_filter_name,
 				&quota_root_setting_parser_info, 0,
 				&set, error_r) < 0) {
@@ -67,7 +70,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 			*error_result_r = QUOTA_GET_RESULT_BACKGROUND_CALC;
 			ret = -1;
 		} else {
-			/* non-temporary error, e.g. ACLs denied access. */
+			/* non-temporary error, e.g. mailbox was deleted. */
 			ret = 0;
 		}
 	} else {
@@ -291,7 +294,7 @@ static int quota_count_recalculate_box(struct mailbox *box,
 	if (mailbox_open(box) < 0) {
 		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error != MAIL_ERROR_TEMP) {
-			/* non-temporary error, e.g. ACLs denied access. */
+			/* non-temporary error, e.g. mailbox was deleted. */
 			return 0;
 		}
 		*error_r = t_strdup_printf(
@@ -344,7 +347,8 @@ static int quota_count_recalculate(struct quota_root *root,
 
 	iter = quota_mailbox_iter_begin(root);
 	while ((info = quota_mailbox_iter_next(iter)) != NULL) {
-		box = mailbox_alloc(info->ns->list, info->vname, 0);
+		box = mailbox_alloc(info->ns->list, info->vname,
+				    MAILBOX_FLAG_IGNORE_ACLS);
 		if (quota_count_recalculate_box(box, &error1) < 0)
 			ret = -1;
 		mailbox_free(&box);
