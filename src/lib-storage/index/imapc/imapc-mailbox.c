@@ -262,6 +262,7 @@ imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, uint32_t first_uid)
 		   just make sure everything is expunged in local index.
 		   Delay calling imapc_mailbox_fetch_state_finish() until
 		   SELECT finishes, so we see the updated UIDNEXT. */
+		mbox->delayed_untagged_exists = FALSE;
 		return FALSE;
 	}
 	if (mbox->state_fetching_uid1) {
