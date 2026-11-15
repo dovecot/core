@@ -423,8 +423,10 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 
 	mailbox_sync_notify(&mbox->box, 0, 0);
 
-	if (!ctx->failed) {
-		/* reset only after a successful sync */
+	if (!ctx->failed && !mbox->delayed_untagged_exists) {
+		/* Reset only after a successful sync. If EXISTS was received
+		   during the sync, keep it so the next sync is forced to
+		   fetch the new mails. */
 		mbox->sync_fetch_first_uid = 0;
 	}
 	if (!mbox->initial_sync_done && !ctx->failed) {
