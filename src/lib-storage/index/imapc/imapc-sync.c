@@ -427,7 +427,7 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 		/* Reset only after a successful sync. If EXISTS was received
 		   during the sync, keep it so the next sync is forced to
 		   fetch the new mails. */
-		mbox->sync_fetch_first_uid = 0;
+		mbox->sync_needed = FALSE;
 	}
 	if (!mbox->initial_sync_done && !ctx->failed) {
 		imapc_initial_sync_check(ctx, FALSE);
@@ -604,7 +604,7 @@ static void imapc_sync_handle_untagged_fetches(struct imapc_mailbox *mbox)
 static int imapc_sync(struct imapc_mailbox *mbox)
 {
 	struct imapc_sync_context *sync_ctx;
-	bool force = mbox->sync_fetch_first_uid != 0;
+	bool force = mbox->sync_needed;
 
 	if ((mbox->box.flags & MAILBOX_FLAG_SAVEONLY) != 0) {
 		/* we're only saving mails here - no syncing actually wanted */
@@ -707,7 +707,7 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	}
 	if (imapc_mailbox_commit_delayed_trans(mbox, FALSE, &changes) < 0)
 		ret = -1;
-	if ((changes || mbox->sync_fetch_first_uid != 0 ||
+	if ((changes || mbox->sync_needed ||
 	     index_mailbox_want_full_sync(&mbox->box, flags)) &&
 	    ret == 0)
 		ret = imapc_sync(mbox);

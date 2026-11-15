@@ -338,7 +338,7 @@ imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 	}
 
 	if (!mbox->selecting) {
-		mbox->sync_fetch_first_uid = 1;
+		mbox->sync_needed = TRUE;
 		mbox->delayed_untagged_exists = TRUE;
 	}
 	imapc_mailbox_idle_notify(mbox);
@@ -901,7 +901,7 @@ static void imapc_sync_uid_validity(struct imapc_mailbox *mbox)
 		if (hdr->uid_validity != 0) {
 			/* uidvalidity changed, reset the entire mailbox */
 			mail_index_reset(mbox->delayed_sync_trans);
-			mbox->sync_fetch_first_uid = 1;
+			mbox->sync_needed = TRUE;
 			/* The reset needs to be committed before FETCH 1:*
 			   results are received. */
 			bool changes;

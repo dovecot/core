@@ -171,7 +171,6 @@ struct imapc_mailbox {
 	uint32_t sync_uid_validity;
 	uint32_t sync_uid_next;
 	uint64_t sync_highestmodseq;
-	uint32_t sync_fetch_first_uid;
 	uint32_t sync_next_lseq;
 	uint32_t sync_next_rseq;
 	uint32_t exists_count;
@@ -198,6 +197,10 @@ struct imapc_mailbox {
 	bool state_fetched_success:1;
 	bool rollback_pending:1;
 	bool delayed_untagged_exists:1;
+	/* The remote mailbox has changes (new mails, UIDVALIDITY change) that
+	   the next sync must handle, even if the local index has no
+	   changes. */
+	bool sync_needed:1;
 };
 
 struct imapc_simple_context {
