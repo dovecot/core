@@ -336,10 +336,12 @@ imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 	if (view == NULL)
 		view = imapc_mailbox_get_sync_view(mbox);
 
-	if (!mbox->selecting && mbox->sync_fetch_first_uid != 1) {
-		const struct mail_index_header *hdr;
-		hdr = mail_index_get_header(view);
-		mbox->sync_fetch_first_uid = hdr->next_uid;
+	if (!mbox->selecting) {
+		if (mbox->sync_fetch_first_uid != 1) {
+			const struct mail_index_header *hdr;
+			hdr = mail_index_get_header(view);
+			mbox->sync_fetch_first_uid = hdr->next_uid;
+		}
 		mbox->delayed_untagged_exists = TRUE;
 	}
 	imapc_mailbox_idle_notify(mbox);
