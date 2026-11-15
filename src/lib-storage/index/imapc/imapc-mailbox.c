@@ -317,7 +317,6 @@ static void
 imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 		      struct imapc_mailbox *mbox)
 {
-	struct mail_index_view *view;
 	uint32_t exists_count = reply->num;
 
 	if (mbox == NULL)
@@ -332,16 +331,14 @@ imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 	mbox->exists_count = exists_count;
 	mbox->exists_received = TRUE;
 
-	view = mbox->delayed_sync_view;
-	if (view == NULL)
-		view = imapc_mailbox_get_sync_view(mbox);
+	if (mbox->delayed_sync_view == NULL) {
+		/* The view isn't needed here, but opening it changes how
+		   imapc_mail_is_expunged() behaves. */
+		(void)imapc_mailbox_get_sync_view(mbox);
+	}
 
 	if (!mbox->selecting) {
-		if (mbox->sync_fetch_first_uid != 1) {
-			const struct mail_index_header *hdr;
-			hdr = mail_index_get_header(view);
-			mbox->sync_fetch_first_uid = hdr->next_uid;
-		}
+		mbox->sync_fetch_first_uid = 1;
 		mbox->delayed_untagged_exists = TRUE;
 	}
 	imapc_mailbox_idle_notify(mbox);
