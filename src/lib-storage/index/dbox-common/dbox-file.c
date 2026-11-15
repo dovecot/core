@@ -354,6 +354,15 @@ int dbox_file_try_lock(struct dbox_file *file)
 			"file_dotlock_create(%s) failed: %m", file->cur_path);
 	}
 #endif
+	if (ret > 0 && file->input != NULL) {
+		/* The input stream may have buffered data that was read
+		   before the lock was taken, e.g. while another process was
+		   still in the middle of appending a mail. mdbox drops the
+		   buffered data when refreshing the map, but the file may
+		   have been read also after that. Drop it so the file is
+		   read again under the lock. */
+		i_stream_sync(file->input);
+	}
 	return ret;
 }
 
