@@ -993,6 +993,110 @@ static void test_thread_index_corruption(void)
 	test_storage_corruption("thread index corruption", &set, fnames);
 }
 
+static void test_mdbox_append_stale_input(void)
+{
+	const struct test_mail_storage_settings set = {
+		.username = TEST_USERNAME,
+		.driver = "mdbox",
+		.hierarchy_sep = "/",
+	};
+	struct test_mail_storage_settings set2 = set;
+	struct test_mail_storage_ctx *storage_ctx;
+	struct mail_user *user1, *user2;
+	struct mail_namespace *ns;
+	struct mailbox *box1, *box2;
+	struct mailbox_transaction_context *trans1, *trans2;
+	struct mail_save_context *save1, *save2;
+	struct mail *mail;
+	struct istream *input1, *input2, *mail_input;
+	struct stat st;
+	const char *path1, *path2;
+	static const char mail2_data[] = "From: user@example.com\n\nbody\n";
+	/* large enough to be flushed to disk before the save is finished */
+	const size_t mail1_size = 256 * 1024;
+	char *mail1_data;
+	off_t orig_size;
+
+	test_begin("mdbox append with stale file input");
+	storage_ctx = test_mail_storage_init();
+	/* Two sessions accessing the same storage, as if they were separate
+	   processes. */
+	test_mail_storage_init_user(storage_ctx, &set);
+	user1 = storage_ctx->user;
+	set2.keep_home = TRUE;
+	test_mail_storage_init_user(storage_ctx, &set2);
+	user2 = storage_ctx->user;
+
+	ns = mail_namespace_find_inbox(user2->namespaces);
+	box2 = mailbox_alloc(ns->list, "INBOX", 0);
+	test_assert(mailbox_open(box2) == 0);
+	test_assert(test_mail_save(box2, 0) == 0);
+	test_assert(mailbox_sync(box2, 0) == 0);
+
+	ns = mail_namespace_find_inbox(user1->namespaces);
+	box1 = mailbox_alloc(ns->list, "INBOX", 0);
+	test_assert(mailbox_open(box1) == 0);
+
+	path1 = t_strconcat(storage_ctx->home_root,
+			    TEST_USERNAME"/storage/m.1", NULL);
+	path2 = t_strconcat(storage_ctx->home_root,
+			    TEST_USERNAME"/storage/m.2", NULL);
+	test_assert(stat(path1, &st) == 0);
+	orig_size = st.st_size;
+
+	/* session 1: Start appending to m.1. The zero-filled dummy message
+	   header and the beginning of the body are written to the file. */
+	mail1_data = i_malloc(mail1_size);
+	memset(mail1_data, 'x', mail1_size);
+	memcpy(mail1_data, "From: user@example.com\n\n", 24);
+	input1 = i_stream_create_from_data(mail1_data, mail1_size);
+	trans1 = mailbox_transaction_begin(box1,
+			MAILBOX_TRANSACTION_FLAG_EXTERNAL, __func__);
+	save1 = mailbox_save_alloc(trans1);
+	test_assert(mailbox_save_begin(&save1, input1) == 0);
+	test_assert(mailbox_save_continue(save1) == 0);
+	test_assert(stat(path1, &st) == 0);
+	test_assert(st.st_size > orig_size);
+
+	/* session 2: Refresh the map and then read the first mail from m.1.
+	   This buffers also the dummy message header. */
+	trans2 = mailbox_transaction_begin(box2,
+			MAILBOX_TRANSACTION_FLAG_EXTERNAL, __func__);
+	save2 = mailbox_save_alloc(trans2);
+	mail = mail_alloc(trans2, MAIL_FETCH_STREAM_BODY, NULL);
+	mail_set_seq(mail, 1);
+	test_assert(mail_get_stream(mail, NULL, NULL, &mail_input) == 0);
+	test_assert(i_stream_read(mail_input) > 0);
+
+	/* session 1: Finish the append and unlock m.1 */
+	test_assert(mailbox_save_finish(&save1) == 0);
+	test_assert(mailbox_transaction_commit(&trans1) == 0);
+
+	/* session 2: Append to m.1. The map hasn't been refreshed, so the
+	   mail appended by session 1 is verified from the file. */
+	input2 = i_stream_create_from_data(mail2_data, strlen(mail2_data));
+	test_assert(mailbox_save_begin(&save2, input2) == 0);
+	test_assert(mailbox_save_continue(save2) == 0);
+	test_assert(mailbox_save_finish(&save2) == 0);
+	mail_free(&mail);
+	test_assert(mailbox_transaction_commit(&trans2) == 0);
+
+	/* the mail was appended to m.1 instead of creating a new file */
+	test_assert(stat(path2, &st) < 0 && errno == ENOENT);
+	test_assert(mailbox_sync(box2, 0) == 0);
+	test_assert(mail_index_view_get_messages_count(box2->view) == 3);
+
+	i_stream_unref(&input1);
+	i_stream_unref(&input2);
+	i_free(mail1_data);
+	mailbox_free(&box1);
+	mailbox_free(&box2);
+	mail_user_deinit(&user1);
+	mail_user_deinit(&user2);
+	test_mail_storage_deinit(&storage_ctx);
+	test_end();
+}
+
 int main(int argc, char **argv)
 {
 	int ret;
@@ -1008,6 +1112,7 @@ int main(int argc, char **argv)
 		test_mdbox_map_highest_file_id_too_large,
 		test_mailbox_next_uid_too_large,
 		test_mailbox_index_uid_zero,
+		test_mdbox_append_stale_input,
 		NULL
 	};
 
