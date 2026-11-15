@@ -216,8 +216,8 @@ imapc_mailbox_fetch_state_callback(const struct imapc_command_reply *reply,
 {
 	struct imapc_mailbox *mbox = context;
 
+	mbox->state_fetching = FALSE;
 	mbox->state_fetching_uid1 = FALSE;
-	mbox->delayed_untagged_exists = FALSE;
 	imapc_client_stop(mbox->storage->client->client);
 
 	switch (reply->state) {
@@ -303,7 +303,12 @@ imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, uint32_t first_uid)
 		   by the 1:* after the reconnection */
 		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	}
+	mbox->state_fetching = TRUE;
 	mbox->state_fetching_uid1 = first_uid == 1;
+	/* If another EXISTS is received while this FETCH is running, the new
+	   mails may not be included in the FETCH replies. The flag is then
+	   set again, so the next sync fetches them. */
+	mbox->delayed_untagged_exists = FALSE;
 	imapc_command_send(cmd, str_c(str));
 	return TRUE;
 }

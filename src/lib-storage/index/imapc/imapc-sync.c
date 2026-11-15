@@ -483,7 +483,7 @@ imapc_sync_begin(struct imapc_mailbox *mbox,
 	if (mbox->delayed_untagged_exists) {
 		bool fetch_send = imapc_mailbox_fetch_state(mbox,
 							    mbox->min_append_uid);
-		while (fetch_send && mbox->delayed_untagged_exists)
+		while (fetch_send && mbox->state_fetching)
 			imapc_mailbox_run(mbox);
 	}
 
