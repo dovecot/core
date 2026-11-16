@@ -27,6 +27,19 @@ unsigned int uni_strlen(const unichar_t *str)
 	return len;
 }
 
+/* Returns TRUE if input begins with lead and its second byte is a continuation
+   byte outside lo..hi, so no following bytes can make the sequence valid. */
+static bool second_byte_out_of_range(const unsigned char *input, size_t size,
+				     unsigned char lead,
+				     unsigned char lo, unsigned char hi)
+{
+	if (*input != lead || size < 2)
+		return FALSE;
+	if ((input[1] & 0xc0) != 0x80)
+		return FALSE;
+	return input[1] < lo || input[1] > hi;
+}
+
 static int
 uni_utf8_parse_char(const void *_buffer, size_t size, bool cstr,
 		    unichar_t *chr_r)
@@ -54,6 +67,10 @@ uni_utf8_parse_char(const void *_buffer, size_t size, bool cstr,
 		chr &= 0x1f;
 		break;
 	case 3:
+		/* overlong after 0xe0, surrogate after 0xed */
+		if (second_byte_out_of_range(input, size, 0xe0, 0xa0, 0xbf) ||
+		    second_byte_out_of_range(input, size, 0xed, 0x80, 0x9f))
+			return -1;
 		chr &= 0x0f;
 		break;
 	case 4:
@@ -61,6 +78,10 @@ uni_utf8_parse_char(const void *_buffer, size_t size, bool cstr,
 			/* Above U+10FFFF no matter what follows. */
 			return -1;
 		}
+		/* overlong after 0xf0, above U+10FFFF after 0xf4 */
+		if (second_byte_out_of_range(input, size, 0xf0, 0x90, 0xbf) ||
+		    second_byte_out_of_range(input, size, 0xf4, 0x80, 0x8f))
+			return -1;
 		chr &= 0x07;
 		break;
 	case 5:
