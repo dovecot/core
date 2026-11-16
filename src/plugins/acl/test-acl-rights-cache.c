@@ -1009,6 +1009,68 @@ static void test_acl_rights_cache_rebuild_cached_files(void)
 	test_end();
 }
 
+/* dovecot-acl-list next to the cache means that a version without the
+   rights cache was used, and it may have changed the ACL files on another
+   server. With cached files the rebuild then opens the mailboxes that have
+   a cache entry or that the list names, also when their local ACL file is
+   as new as the entry. A mailbox with neither keeps using its local ACL
+   file. */
+static void test_acl_rights_cache_rebuild_stale_cached(void)
+{
+	const char *root_dir, *list_path, *tmp_path, *tmp_path2, *tmp_path3;
+	enum mailbox_list_path_type type;
+	struct stat st;
+
+	test_begin("acl rights cache rebuild for dovecot-acl-list next to the cache");
+	test_acl_user_init(NULL);
+	test_acl_storage_set_cached_files();
+	test_acl_mailbox_create(TEST_MAILBOX);
+	test_acl_mailbox_create(TEST_MAILBOX2);
+	test_acl_mailbox_create(TEST_MAILBOX_DIGITS);
+	test_acl_grant(TEST_MAILBOX, TEST_UPDATE_ID,
+		       TEST_RIGHTS(MAIL_ACL_LOOKUP, MAIL_ACL_READ));
+	test_assert(test_acl_cache_path() != NULL &&
+		    stat(test_acl_cache_path(), &st) == 0);
+
+	/* ACL files written by the version without the rights cache. The
+	   list names only TEST_MAILBOX2. */
+	test_acl_write_file(test_acl_local_path(TEST_MAILBOX2),
+			    TEST_UPDATE_ID" lr\n");
+	test_acl_write_file(test_acl_local_path(TEST_MAILBOX_DIGITS),
+			    TEST_UPDATE_ID" lr\n");
+	if (!acl_backend_get_root_dir(test_acl.backend, &root_dir, &type))
+		i_fatal("acl_backend_get_root_dir() failed");
+	list_path = t_strconcat(root_dir, "/dovecot-acl-list", NULL);
+	test_acl_write_file(list_path, "0 "TEST_MAILBOX2"\n");
+
+	tmp_path = test_acl_mailbox_tmp_path(TEST_MAILBOX);
+	tmp_path2 = test_acl_mailbox_tmp_path(TEST_MAILBOX2);
+	tmp_path3 = test_acl_mailbox_tmp_path(TEST_MAILBOX_DIGITS);
+	if (rmdir(tmp_path) < 0)
+		i_fatal("rmdir(%s) failed: %m", tmp_path);
+	if (rmdir(tmp_path2) < 0)
+		i_fatal("rmdir(%s) failed: %m", tmp_path2);
+	if (rmdir(tmp_path3) < 0)
+		i_fatal("rmdir(%s) failed: %m", tmp_path3);
+
+	test_assert(acl_backend_nonowner_lookups_rebuild(test_acl.backend,
+							  FALSE) == 0);
+	/* the cached mailbox and the listed one were opened */
+	test_assert(stat(tmp_path, &st) == 0);
+	test_assert(stat(tmp_path2, &st) == 0);
+	test_assert(stat(tmp_path3, &st) < 0 && errno == ENOENT);
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX),
+			   TEST_UPDATE_ID" lookup read");
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX2),
+			   TEST_UPDATE_ID" lookup read");
+	test_assert_strcmp(test_acl_cache_get(TEST_MAILBOX_DIGITS),
+			   TEST_UPDATE_ID" lookup read");
+	test_assert(stat(list_path, &st) < 0 && errno == ENOENT);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 /* The rebuild reads the ACL files like the normal read path does, also
    lines that start with whitespace. */
 static void test_acl_rights_cache_rebuild_lwsp(void)
@@ -1253,6 +1315,7 @@ int main(int argc, char **argv)
 		test_acl_rights_cache_rebuild_abort,
 		test_acl_rights_cache_rebuild_drops_local,
 		test_acl_rights_cache_rebuild_cached_files,
+		test_acl_rights_cache_rebuild_stale_cached,
 		test_acl_rights_cache_rebuild_lwsp,
 		test_acl_rights_cache_duplicate_ids,
 		test_acl_rights_cache_marker_follows_config,
