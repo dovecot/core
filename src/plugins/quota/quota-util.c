@@ -268,6 +268,12 @@ int quota_maildirsize_sum_lines(const char *const *lines, long long *bytes_r,
 	for (; *lines != NULL; lines++) {
 		if (!maildirsize_parse_line(*lines, &bytes_diff, &count_diff))
 			return -1;
+		if (bytes_diff > 0 ? total_bytes > LLONG_MAX - bytes_diff :
+		    total_bytes < LLONG_MIN - bytes_diff)
+			return -1;
+		if (count_diff > 0 ? total_count > INT_MAX - count_diff :
+		    total_count < INT_MIN - count_diff)
+			return -1;
 		total_bytes += bytes_diff;
 		total_count += count_diff;
 	}

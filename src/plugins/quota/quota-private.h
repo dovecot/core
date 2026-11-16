@@ -190,7 +190,7 @@ int quota_get_mail_size(struct quota_transaction_context *ctx,
 			struct mail *mail, uoff_t *size_r);
 void quota_used_apply_expunged(int64_t *used, uint64_t expunged);
 /* Sum the "<bytes> <count>" lines of a maildirsize file. Returns -1 if a line
-   is invalid. */
+   is invalid or the totals would overflow. */
 int quota_maildirsize_sum_lines(const char *const *lines, long long *bytes_r,
 				int *count_r);
 bool quota_transaction_is_over(struct quota_transaction_context *ctx, uoff_t size);
