@@ -22,11 +22,23 @@ AC_DEFUN([DOVECOT_WANT_LUA], [
     old_CFLAGS="$CFLAGS"
     CFLAGS="$CFLAGS $LUA_CFLAGS"
     AC_CHECK_HEADER([lualib.h], [have_lua=yes], [have_lua=no])
+    AS_IF([test "$have_lua" = "yes"], [
+      AC_MSG_CHECKING([for Lua 5.3 or newer])
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+        #include <lua.h>
+        #if LUA_VERSION_NUM < 503
+        #  error Lua is too old
+        #endif
+      ]])], [AC_MSG_RESULT([yes])], [
+        AC_MSG_RESULT([no])
+        have_lua=no
+      ])
+    ])
     CFLAGS="$old_CFLAGS"
   ])
 
   AS_IF([test "$want_lua" = "yes" && test "$have_lua" = "no"], [
-    AC_MSG_ERROR([cannot build with Lua support: lua not found])
+    AC_MSG_ERROR([cannot build with Lua support: Lua 5.3 or newer not found])
   ])
 
   AS_IF([test "$have_lua" != "no"], [
