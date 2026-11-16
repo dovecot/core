@@ -21,7 +21,7 @@ pbkdf_run(const char *plaintext, const char *salt,
 	buffer_t buf;
 	buffer_create_from_data(&buf, key_r, PBKDF2_KEY_SIZE_SHA1);
 
-	pkcs5_pbkdf(PKCS5_PBKDF2, hash_method_lookup("sha1"),
+	pkcs5_pbkdf(hash_method_lookup("sha1"),
 		(const unsigned char *)plaintext, strlen(plaintext),
 		(const unsigned char *)salt, strlen(salt),
 		rounds, PBKDF2_KEY_SIZE_SHA1, &buf);

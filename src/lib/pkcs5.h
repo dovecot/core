@@ -1,13 +1,8 @@
 #ifndef PKCS5_H
 #define PKCS5_H 1
 
-enum pkcs5_pbkdf_mode {
-	PKCS5_PBKDF2
-};
-
 /*
 
- mode         - PKCS5_PBKDF2
  hash         - hash_method_lookup return value
  password     - private password for generation
  password_len - length of password in octets
@@ -22,11 +17,11 @@ enum pkcs5_pbkdf_mode {
  Sample code:
 
  buffer_t *result = t_buffer_create(256);
- if (pkcs5_pbkdf(PKCS5_PBKDF2, hash_method_lookup("sha256"), "password", 8, "salt", 4, 4096, 256, result) != 0) { // error }
+ if (pkcs5_pbkdf(hash_method_lookup("sha256"), "password", 8, "salt", 4, 4096, 256, result) != 0) { // error }
 
 */
 
-int pkcs5_pbkdf(enum pkcs5_pbkdf_mode mode, const struct hash_method *hash,
+int pkcs5_pbkdf(const struct hash_method *hash,
 	const unsigned char *password, size_t password_len,
 	const unsigned char *salt, size_t salt_len,
 	unsigned int iterations, uint32_t dk_len,

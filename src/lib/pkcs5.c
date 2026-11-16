@@ -9,8 +9,7 @@
 #include <stdint.h>
 #include <arpa/inet.h>
 
-static
-int pkcs5_pbkdf2(const struct hash_method *hash,
+int pkcs5_pbkdf(const struct hash_method *hash,
 	const unsigned char *password, size_t password_len,
 	const unsigned char *salt, size_t salt_len,
 	unsigned int iter, uint32_t length,
@@ -49,15 +48,4 @@ int pkcs5_pbkdf2(const struct hash_method *hash,
 	i_assert(left == 0);
 
 	return 0;
-}
-
-int pkcs5_pbkdf(enum pkcs5_pbkdf_mode mode, const struct hash_method *hash,
-	const unsigned char *password, size_t password_len,
-	const unsigned char *salt, size_t salt_len,
-	unsigned int iterations, uint32_t dk_len,
-	buffer_t *result)
-{
-	i_assert(mode == PKCS5_PBKDF2);
-	return pkcs5_pbkdf2(hash,password,password_len,
-		salt,salt_len,iterations,dk_len,result);
 }
