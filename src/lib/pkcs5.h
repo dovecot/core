@@ -2,13 +2,12 @@
 #define PKCS5_H 1
 
 enum pkcs5_pbkdf_mode {
-	PKCS5_PBKDF1,
 	PKCS5_PBKDF2
 };
 
 /*
 
- mode         - v1.0 or v2.0
+ mode         - PKCS5_PBKDF2
  hash         - hash_method_lookup return value
  password     - private password for generation
  password_len - length of password in octets
@@ -18,7 +17,7 @@ enum pkcs5_pbkdf_mode {
  dk_len       - number of bytes to return from derived key
  result       - buffer_t to hold the result, either use dynamic or make sure it fits dk_len
 
- non-zero return value indicates that either iterations was less than 1 or dk_len was too large
+ non-zero return value indicates that either iterations or dk_len was less than 1
 
  Sample code:
 

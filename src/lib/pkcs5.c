@@ -10,37 +10,6 @@
 #include <arpa/inet.h>
 
 static
-int pkcs5_pbkdf1(const struct hash_method *hash,
-	const unsigned char *password, size_t password_len,
-	const unsigned char *salt, size_t salt_len,
-	unsigned int iter, uint32_t length,
-	buffer_t *result)
-{
-	if (length < 1 ||
-		length > hash->digest_size) return -1;
-	if (iter < 1) return -1;
-
-	unsigned char dk[hash->digest_size];
-	unsigned char ctx[hash->context_size];
-
-	hash->init(ctx);
-	hash->loop(ctx, password, password_len);
-	hash->loop(ctx, salt, salt_len);
-	hash->result(ctx, dk);
-	length--;
-
-	for(;length>0;length--) {
-		hash->init(ctx);
-		hash->loop(ctx, dk, hash->digest_size);
-		hash->result(ctx, dk);
-	}
-
-	buffer_append(result, dk, hash->digest_size);
-
-	return 0;
-}
-
-static
 int pkcs5_pbkdf2(const struct hash_method *hash,
 	const unsigned char *password, size_t password_len,
 	const unsigned char *salt, size_t salt_len,
@@ -88,11 +57,7 @@ int pkcs5_pbkdf(enum pkcs5_pbkdf_mode mode, const struct hash_method *hash,
 	unsigned int iterations, uint32_t dk_len,
 	buffer_t *result)
 {
-	if (mode == PKCS5_PBKDF1)
-		return pkcs5_pbkdf1(hash,password,password_len,
-			salt,salt_len,iterations,dk_len,result);
-	else if (mode == PKCS5_PBKDF2)
-		return pkcs5_pbkdf2(hash,password,password_len,
-			salt,salt_len,iterations,dk_len,result);
-	i_unreached();
+	i_assert(mode == PKCS5_PBKDF2);
+	return pkcs5_pbkdf2(hash,password,password_len,
+		salt,salt_len,iterations,dk_len,result);
 }
