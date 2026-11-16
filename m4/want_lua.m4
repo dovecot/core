@@ -59,7 +59,7 @@ AC_DEFUN([DOVECOT_WANT_LUA], [
       passdb="$passdb lua"
     ])
 
-    dnl Check if various lua functions are present
+    dnl Check that Lua links
     old_CFLAGS="$CFLAGS"
     CFLAGS="$CFLAGS $LUA_CFLAGS"
     old_LIBS="$LIBS"
@@ -67,25 +67,10 @@ AC_DEFUN([DOVECOT_WANT_LUA], [
 
     AC_CHECK_FUNC([lua_newstate],,AC_MSG_ERROR([cannot build with Lua support: missing critical function]))
 
-    AC_CHECK_FUNCS([luaL_setfuncs])
-    AC_CHECK_FUNCS([luaL_setmetatable])
-    AC_CHECK_FUNCS([lua_isinteger])
-    AC_CHECK_FUNCS([lua_resume])
-    AC_CHECK_FUNCS([lua_seti])
-    AC_CHECK_FUNCS([lua_tointegerx])
-    AC_CHECK_FUNCS([lua_yieldk])
-
-    AS_IF([test "$ac_cv_func_lua_resume" = "yes" -a \
-                "$ac_cv_func_lua_yieldk" = "yes"], [
-      AC_DEFINE([DLUA_WITH_YIELDS],, [Lua scripts will be able to yield])
-      dlua_with_yields=yes
-    ])
-
     CFLAGS="$old_CFLAGS"
     LIBS="$old_LIBS"
   ])
 
   AM_CONDITIONAL([AUTH_LUA_PLUGIN], [test "$with_lua_plugin" = "yes"])
   AM_CONDITIONAL([HAVE_LUA], [test "$have_lua" != "no"])
-  AM_CONDITIONAL([DLUA_WITH_YIELDS], [test "$dlua_with_yields" = "yes"])
 ])
