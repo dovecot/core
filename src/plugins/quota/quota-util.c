@@ -1,6 +1,7 @@
 /* Copyright (c) Dovecot authors, see top-level COPYING file */
 
 #include "lib.h"
+#include "strnum.h"
 #include "quota-private.h"
 
 bool quota_warning_match(const struct quota_root_settings *w,
@@ -242,4 +243,35 @@ void quota_transaction_update_expunged(struct quota_transaction_context *ctx)
 	ctx->count_expunged = count_ceil - ctx->count_ceil;
 	i_assert(bytes_ceil >= ctx->bytes_ceil);
 	ctx->bytes_expunged = bytes_ceil - ctx->bytes_ceil;
+}
+
+static bool
+maildirsize_parse_line(const char *line, long long *bytes_r, int *count_r)
+{
+	/* <bytes> <count>, optionally padded with whitespace */
+	while (*line == ' ' || *line == '\t')
+		line++;
+	if (str_parse_llong(line, bytes_r, &line) < 0 ||
+	    (*line != ' ' && *line != '\t'))
+		return FALSE;
+	while (*line == ' ' || *line == '\t')
+		line++;
+	return str_parse_int(line, count_r, &line) == 0;
+}
+
+int quota_maildirsize_sum_lines(const char *const *lines, long long *bytes_r,
+				int *count_r)
+{
+	long long bytes_diff, total_bytes = 0;
+	int count_diff, total_count = 0;
+
+	for (; *lines != NULL; lines++) {
+		if (!maildirsize_parse_line(*lines, &bytes_diff, &count_diff))
+			return -1;
+		total_bytes += bytes_diff;
+		total_count += count_diff;
+	}
+	*bytes_r = total_bytes;
+	*count_r = total_count;
+	return 0;
 }

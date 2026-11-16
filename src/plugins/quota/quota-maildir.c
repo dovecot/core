@@ -452,28 +452,14 @@ maildir_parse_limit(const char *str, uint64_t *bytes_r, uint64_t *count_r)
 	return ret;
 }
 
-static bool
-maildirsize_parse_diff(const char *line, long long *bytes_r, int *count_r)
-{
-	/* <bytes> <count>, optionally padded with whitespace */
-	while (*line == ' ' || *line == '\t')
-		line++;
-	if (str_parse_llong(line, bytes_r, &line) < 0 ||
-	    (*line != ' ' && *line != '\t'))
-		return FALSE;
-	while (*line == ' ' || *line == '\t')
-		line++;
-	return str_parse_int(line, count_r, &line) == 0;
-}
-
 static int maildirsize_parse(struct maildir_quota_root *root,
 			     int fd, const char *const *lines)
 {
 	struct quota_root *_root = &root->root;
 	uint64_t message_bytes_limit, message_count_limit;
-	long long bytes_diff, total_bytes;
-	int count_diff, total_count;
-	unsigned int line_count = 0;
+	long long total_bytes;
+	int total_count;
+	unsigned int line_count;
 
 	if (*lines == NULL)
 		return -1;
@@ -500,14 +486,10 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 	}
 
 	/* rest of the lines contains <bytes> <count> diffs */
-	total_bytes = 0; total_count = 0;
-	for (lines++; *lines != NULL; lines++, line_count++) {
-		if (!maildirsize_parse_diff(*lines, &bytes_diff, &count_diff))
-			return -1;
-
-		total_bytes += bytes_diff;
-		total_count += count_diff;
-	}
+	if (quota_maildirsize_sum_lines(lines + 1, &total_bytes,
+					&total_count) < 0)
+		return -1;
+	line_count = str_array_length(lines + 1);
 
 	if (total_bytes < 0 || total_count < 0) {
 		/* corrupted */
