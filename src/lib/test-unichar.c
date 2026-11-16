@@ -52,10 +52,19 @@ static void test_unichar_uni_utf8_partial_strlen_n_invalid(void)
 		{ "\xee\xc3\xa4", 3, 2, 3 },
 		/* a partial character is still partial */
 		{ "\xe6\x9a", 2, 0, 0 },
+		{ "\xe0\xa0", 2, 0, 0 },
+		{ "\xf0\x90\x80", 3, 0, 0 },
+		/* a truncated sequence that can never become valid is not */
+		{ "\xe0\x80", 2, 1, 2 },
+		{ "a\xf4\x90", 3, 2, 3 },
+		{ "\xf5\x80\x80", 3, 1, 3 },
+		{ "\xf8\x80", 2, 1, 2 },
+		/* same as when complete */
+		{ "\xe0\x80\x80", 3, 1, 3 },
 	};
 	size_t pos;
 
-	test_begin("uni_utf8_partial_strlen_n() invalid lead octet");
+	test_begin("uni_utf8_partial_strlen_n() invalid input");
 	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
 		unsigned int len = uni_utf8_partial_strlen_n(tests[i].input,
 							     tests[i].size,

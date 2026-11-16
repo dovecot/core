@@ -256,8 +256,16 @@ unsigned int uni_utf8_partial_strlen_n(const void *_input, size_t size,
 				break;
 			}
 		}
-		if (i + count > size)
-			break;
+		if (i + count > size) {
+			/* Only a prefix that can still become valid is partial.
+			   Anything else is one invalid sequence, as it would
+			   be if it were complete. */
+			unichar_t chr;
+
+			if (uni_utf8_get_char_n(input + i, size - i, &chr) == 0)
+				break;
+			count = size - i;
+		}
 		i += count;
 		len++;
 	}
