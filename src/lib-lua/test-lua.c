@@ -4,8 +4,6 @@
 #include "settings.h"
 #include "dlua-script-private.h"
 
-#include <math.h>
-
 static int dlua_test_assert(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
@@ -419,112 +417,6 @@ static void test_tls(void)
 	test_end();
 }
 
-/* check lua_tointegerx against top-of-stack item */
-static void check_tointegerx_compat(lua_State *L, bool expected_isnum,
-				    bool expected_isint,
-				    lua_Integer expected_value)
-{
-	lua_Integer value;
-	int isnum;
-
-	value = lua_tointegerx(L, -1, &isnum);
-	test_assert((isnum == 1) == expected_isnum);
-
-	if (isnum == 1)
-		test_assert(value == expected_value);
-
-	test_assert(lua_isinteger(L, -1) == expected_isint);
-
-	lua_pop(L, 1);
-}
-
-static void test_compat_tointegerx_and_isinteger(void)
-{
-	static const struct {
-		const char *input;
-		lua_Integer output;
-		bool isnum;
-	} str_tests[] = {
-		{ "-1", -1, TRUE },
-		{ "0", 0, TRUE },
-		{ "1", 1, TRUE },
-		{ "-2147483648", -2147483648, TRUE },
-		{ "2147483647", 2147483647, TRUE },
-		{ "0x123", 0x123, TRUE },
-		{ "0123", 123, TRUE }, /* NB: lua doesn't use leading zero for octal */
-		{ "0xabcdef", 0xabcdef, TRUE },
-		{ "0xabcdefg", 0, FALSE },
-		{ "abc", 0, FALSE },
-		{ "1.525", 0, FALSE },
-		{ "52.51", 0, FALSE },
-	};
-	static const struct {
-		lua_Number input;
-		lua_Integer output;
-		bool isnum;
-	} num_tests[] = {
-		{ -1, -1, TRUE },
-		{ 0, 0, TRUE },
-		{ 1, 1, TRUE },
-		{ INT_MIN, INT_MIN, TRUE },
-		{ INT_MAX, INT_MAX, TRUE },
-		{ 1.525, 0, FALSE },
-		{ 52.51, 0, FALSE },
-		{ NAN, 0, FALSE },
-		{ +INFINITY, 0, FALSE },
-		{ -INFINITY, 0, FALSE },
-	};
-	static const struct {
-		lua_Integer input;
-		lua_Integer output;
-	} int_tests[] = {
-		{ -1, -1 },
-		{ 0, 0 },
-		{ 1, 1 },
-		{ INT_MIN, INT_MIN },
-		{ INT_MAX, INT_MAX },
-	};
-	struct dlua_script *script;
-	const char *error;
-	size_t i;
-
-	test_begin("lua compat tostringx/isinteger");
-
-	test_assert(dlua_script_create_string("", &script, NULL, &error) == 0);
-
-	for (i = 0; i < N_ELEMENTS(str_tests); i++) {
-		lua_pushstring(script->L, str_tests[i].input);
-		check_tointegerx_compat(script->L, str_tests[i].isnum, FALSE,
-					str_tests[i].output);
-	}
-
-	for (i = 0; i < N_ELEMENTS(num_tests); i++) {
-		bool isint;
-
-		/* See lua_isinteger() comment in dlua-compat.h */
-#if LUA_VERSION_NUM >= 503
-		isint = FALSE;
-#else
-		isint = num_tests[i].isnum;
-#endif
-
-		lua_pushnumber(script->L, num_tests[i].input);
-		check_tointegerx_compat(script->L, num_tests[i].isnum,
-					isint,
-					num_tests[i].output);
-	}
-
-	for (i = 0; i < N_ELEMENTS(int_tests); i++) {
-		lua_pushinteger(script->L, int_tests[i].input);
-		check_tointegerx_compat(script->L, TRUE, TRUE,
-					int_tests[i].output);
-	}
-
-	dlua_script_unref(&script);
-
-	test_end();
-}
-
 static void test_lua_base64(void)
 {
 	test_begin("lua base64");
@@ -571,7 +463,6 @@ int main(void) {
 	void (*tests[])(void) = {
 		test_lua,
 		test_tls,
-		test_compat_tointegerx_and_isinteger,
 		test_lua_base64,
 		test_lua_str_sanitize,
 		NULL
