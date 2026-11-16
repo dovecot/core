@@ -38,9 +38,7 @@ test_dns_lookup_LDADD = $(test_libs) $(LIBDOVECOT_TEST_LIBS)
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
-# Internally, the dns methods yield via lua_yieldk() as implemented in Lua
-# 5.3 and newer.
-if DLUA_WITH_YIELDS
+if HAVE_LUA
 noinst_LTLIBRARIES += libdns_lua.la
 
 libdns_lua_la_SOURCES = \

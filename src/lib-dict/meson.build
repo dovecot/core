@@ -33,7 +33,7 @@ test(
   suite: 'dict',
 )
 
-# TODO: DLUA_WITH_YIELDS - blocked on Lua detection plus ports of src/lib-lua and
+# TODO: Lua support - blocked on Lua detection plus ports of src/lib-lua and
 # src/lib-doveadm; see the longer note in src/lib-dns-client/meson.build. dict-lua.h and
 # dict-lua-private.h are withheld from install_headers above for the same reason.
 # dep_dict_lua = declare_dependency(

@@ -17,9 +17,7 @@ headers = \
 	doveadm-client.h \
 	doveadm-protocol.h
 
-# Internally, the methods yield via lua_yieldk() as implemented in Lua
-# 5.3 and newer.
-if DLUA_WITH_YIELDS
+if HAVE_LUA
 noinst_LTLIBRARIES += libdoveadm_client_lua.la
 
 libdoveadm_client_lua_la_SOURCES = \

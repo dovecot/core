@@ -904,10 +904,8 @@ void dlua_dovecot_register(struct dlua_script *script)
 
 	/* register other libraries */
 	dlua_dovecot_http_register(script);
-#ifdef DLUA_WITH_YIELDS
 	dlua_dovecot_dict_register(script);
 	dlua_dovecot_doveadm_client_register(script);
-#endif
 }
 
 #undef event_want_level

@@ -16,7 +16,6 @@ struct dlua_pcall_resume_state {
 	int status;
 };
 
-#ifdef DLUA_WITH_YIELDS
 static void call_resume_callback(lua_State *L)
 {
 	struct dlua_pcall_resume_state *state = dlua_tls_get_ptr(L, PCALL_RESUME_STATE);
@@ -201,4 +200,3 @@ int dlua_pcall_yieldable(lua_State *L, const char *func_name, int nargs,
 
 	return 0;
 }
-#endif

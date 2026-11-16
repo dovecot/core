@@ -250,7 +250,6 @@ lua_State *dlua_script_new_thread(struct dlua_script *script);
 /* Close thread. */
 void dlua_script_close_thread(struct dlua_script *script, lua_State **_L);
 
-#ifdef DLUA_WITH_YIELDS
 /*
  * Call a function with nargs in a way that supports yielding.
  *
@@ -289,7 +288,6 @@ int dlua_pcall_yieldable(lua_State *L, const char *func_name, int nargs,
  * scheduled to start in the near future via a timeout.
  */
 void dlua_pcall_yieldable_resume(lua_State *L, int nargs);
-#endif
 
 /* initialize/free script's thread table */
 void dlua_init_thread_table(struct dlua_script *script);

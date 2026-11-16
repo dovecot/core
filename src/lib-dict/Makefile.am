@@ -24,9 +24,7 @@ headers = \
 	dict-private.h \
 	dict-transaction-memory.h
 
-# Internally, the dict methods yield via lua_yieldk() as implemented in Lua
-# 5.3 and newer.
-if DLUA_WITH_YIELDS
+if HAVE_LUA
 noinst_LTLIBRARIES += libdict_lua.la
 
 libdict_lua_la_SOURCES = \

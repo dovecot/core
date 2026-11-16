@@ -27,22 +27,22 @@ libdlua_la_SOURCES = \
 	dlua-thread.c \
 	dlua-iostream.c
 
-test_programs = test-lua test-lua-http-client
-
-WITH_YIELDS_LUA=
-if DLUA_WITH_YIELDS
-WITH_YIELDS_LUA += \
-	../lib-doveadm/libdoveadm_client_lua.la \
-	../lib-dict/libdict_lua.la \
-	../lib-dns-client/libdns_lua.la
-test_programs += \
+test_programs = \
+	test-lua \
+	test-lua-http-client \
 	test-dict-lua \
 	test-dns-lua \
 	test-io-lua
-endif
 
-libdlua_la_LIBADD = $(WITH_YIELDS_LUA) $(LUA_LIBS)
-libdlua_la_DEPENDENCIES = $(WITH_YIELDS_LUA)
+libdlua_la_LIBADD = \
+	../lib-doveadm/libdoveadm_client_lua.la \
+	../lib-dict/libdict_lua.la \
+	../lib-dns-client/libdns_lua.la \
+	$(LUA_LIBS)
+libdlua_la_DEPENDENCIES = \
+	../lib-doveadm/libdoveadm_client_lua.la \
+	../lib-dict/libdict_lua.la \
+	../lib-dns-client/libdns_lua.la
 
 pkglib_LTLIBRARIES = libdovecot-lua.la
 libdovecot_lua_la_SOURCES =

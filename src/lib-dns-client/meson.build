@@ -32,11 +32,10 @@ test(
   suite: 'dns-client',
 )
 
-# TODO: DLUA_WITH_YIELDS - dns-lua.c is not ported yet. See libdns_lua_la in Makefile.am.
-# The dns methods yield via lua_yieldk(), so autoconf only sets DLUA_WITH_YIELDS when both
-# lua_resume() and lua_yieldk() are present (m4/want_lua.m4). Getting there needs:
-#  - Lua detection (HAVE_LUA/BUILTIN_LUA plus the function probes)
+# TODO: Lua support - dns-lua.c is not ported yet. See libdns_lua_la in Makefile.am.
+# Getting there needs:
+#  - Lua detection (HAVE_LUA/BUILTIN_LUA)
 #  - A port of src/lib-lua
-#  - A port of src/lib-doveadm - libdlua LIBADDs libdoveadm_client_lua under yields.
+#  - A port of src/lib-doveadm - libdlua LIBADDs libdoveadm_client_lua.
 # Only then can this and lib-dict's commented-out dep_dict_lua be enabled. dns-lua.h is
 # withheld from install_headers above for the same reason.
