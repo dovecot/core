@@ -826,9 +826,9 @@ auth_master_user_event_create(struct auth_master_connection *conn,
 	} else {
 		event = event_create(info->event_parent);
 		event_add_category(event, &event_category_auth_client);
-		event_set_append_log_prefix(event, "auth-master: ");
 		event_set_forced_debug(event,
 			HAS_ALL_BITS(conn->flags, AUTH_MASTER_FLAG_DEBUG));
+		prefix = t_strconcat("auth-master: ", prefix, NULL);
 	}
 	event_set_append_log_prefix(event, prefix);
 

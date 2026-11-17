@@ -1232,6 +1232,88 @@ static void test_userdb_lookup(void)
 }
 
 /*
+ * Userdb lookup with event parent
+ */
+
+static string_t *test_event_parent_log;
+
+static void ATTR_FORMAT(2, 0)
+test_event_parent_debug_handler(const struct failure_context *ctx ATTR_UNUSED,
+				const char *format, va_list args)
+{
+	va_list args_copy;
+
+	VA_COPY(args_copy, args);
+	str_vprintfa(test_event_parent_log, format, args_copy);
+	str_append_c(test_event_parent_log, '\n');
+	va_end(args_copy);
+}
+
+/* client */
+
+static bool test_client_userdb_lookup_event_parent(void)
+{
+	failure_callback_t *fatal_handler, *error_handler, *info_handler;
+	failure_callback_t *debug_handler;
+	struct auth_master_connection *auth_conn;
+	struct auth_user_info info;
+	const char *const *fields;
+	const char *username_out;
+	struct event *parent;
+	pool_t pool;
+	int ret;
+
+	parent = event_create(NULL);
+	event_set_append_log_prefix(parent, "parent: ");
+
+	i_zero(&info);
+	info.protocol = "test";
+	info.debug = debug;
+	info.event_parent = parent;
+
+	pool = pool_alloconly_create("test", 1024);
+	test_event_parent_log = str_new(default_pool, 256);
+
+	i_get_failure_handlers(&fatal_handler, &error_handler, &info_handler,
+			       &debug_handler);
+	i_set_debug_handler(test_event_parent_debug_handler);
+
+	auth_conn = auth_master_init(TEST_SOCKET, AUTH_MASTER_FLAG_DEBUG);
+	auth_master_set_timeout(auth_conn, 1000);
+	ret = auth_master_user_lookup(auth_conn, "harrie", &info,
+				      pool, &username_out, &fields);
+	auth_master_deinit(&auth_conn);
+
+	i_set_debug_handler(debug_handler);
+	if (debug)
+		fputs(str_c(test_event_parent_log), stderr);
+
+	test_out("run (ret > 0)", ret > 0);
+	test_out("lookup log has event parent and auth-master prefixes",
+		 strstr(str_c(test_event_parent_log),
+			"parent: auth-master: userdb lookup(harrie): ") != NULL);
+	test_out("request log has event parent and auth-master prefixes",
+		 strstr(str_c(test_event_parent_log),
+			"parent: auth-master: userdb lookup(harrie): "
+			"request [") != NULL);
+
+	str_free(&test_event_parent_log);
+	pool_unref(&pool);
+	event_unref(&parent);
+	return FALSE;
+}
+
+/* test */
+
+static void test_userdb_lookup_event_parent(void)
+{
+	test_begin("userdb lookup event parent");
+	test_run_client_server(test_client_userdb_lookup_event_parent,
+			       test_server_userdb_lookup);
+	test_end();
+}
+
+/*
  * User list
  */
 
@@ -1532,6 +1614,7 @@ static void (*const test_functions[])(void) = {
 	test_user_list_fail,
 	test_passdb_lookup,
 	test_userdb_lookup,
+	test_userdb_lookup_event_parent,
 	test_user_list,
 	test_user_list_slow,
 	test_user_list_stall,
