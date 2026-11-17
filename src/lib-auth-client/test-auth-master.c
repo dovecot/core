@@ -1303,12 +1303,68 @@ static bool test_client_userdb_lookup_event_parent(void)
 	return FALSE;
 }
 
+static int
+test_client_request_event_callback(
+	const struct auth_master_reply *reply ATTR_UNUSED, int *replies)
+{
+	(*replies)++;
+	return 1;
+}
+
+static bool test_client_request_set_event(void)
+{
+	failure_callback_t *fatal_handler, *error_handler, *info_handler;
+	failure_callback_t *debug_handler;
+	struct auth_master_connection *auth_conn;
+	struct auth_master_request *req;
+	struct event *parent;
+	int replies = 0;
+
+	parent = event_create(NULL);
+	event_set_append_log_prefix(parent, "parent: ");
+	test_event_parent_log = str_new(default_pool, 256);
+
+	i_get_failure_handlers(&fatal_handler, &error_handler, &info_handler,
+			       &debug_handler);
+	i_set_debug_handler(test_event_parent_debug_handler);
+
+	auth_conn = auth_master_init(TEST_SOCKET, AUTH_MASTER_FLAG_DEBUG);
+	auth_master_set_timeout(auth_conn, 1000);
+	req = auth_master_request(auth_conn, "USER",
+				  (const unsigned char *)"harrie", 6,
+				  test_client_request_event_callback, &replies);
+	auth_master_request_set_event(req, parent);
+	(void)auth_master_request_wait(req);
+	auth_master_deinit(&auth_conn);
+
+	i_set_debug_handler(debug_handler);
+	if (debug)
+		fputs(str_c(test_event_parent_log), stderr);
+
+	test_out("run (replies == 1)", replies == 1);
+	test_out("request log has event parent and auth-master prefixes",
+		 strstr(str_c(test_event_parent_log),
+			"parent: auth-master: request [") != NULL);
+
+	str_free(&test_event_parent_log);
+	event_unref(&parent);
+	return FALSE;
+}
+
 /* test */
 
 static void test_userdb_lookup_event_parent(void)
 {
 	test_begin("userdb lookup event parent");
 	test_run_client_server(test_client_userdb_lookup_event_parent,
+			       test_server_userdb_lookup);
+	test_end();
+}
+
+static void test_request_set_event(void)
+{
+	test_begin("request set event");
+	test_run_client_server(test_client_request_set_event,
 			       test_server_userdb_lookup);
 	test_end();
 }
@@ -1615,6 +1671,7 @@ static void (*const test_functions[])(void) = {
 	test_passdb_lookup,
 	test_userdb_lookup,
 	test_userdb_lookup_event_parent,
+	test_request_set_event,
 	test_user_list,
 	test_user_list_slow,
 	test_user_list_stall,

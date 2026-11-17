@@ -12,11 +12,14 @@
 
 #include "auth-master-private.h"
 
-static void auth_master_request_update_event(struct auth_master_request *req)
+static void
+auth_master_request_update_event(struct auth_master_request *req,
+				 const char *prefix)
 {
 	event_add_int(req->event, "id", req->id);
 	event_set_append_log_prefix(req->event,
-				    t_strdup_printf("request [%u]: ", req->id));
+				    t_strdup_printf("%srequest [%u]: ",
+						    prefix, req->id));
 }
 
 unsigned int
@@ -109,7 +112,7 @@ void auth_master_request_set_event_internal(struct auth_master_request *req,
 {
 	event_unref(&req->event);
 	req->event = event_create(event);
-	auth_master_request_update_event(req);
+	auth_master_request_update_event(req, "");
 }
 
 void auth_master_request_set_event(struct auth_master_request *req,
@@ -118,11 +121,10 @@ void auth_master_request_set_event(struct auth_master_request *req,
 	event_unref(&req->event);
 	req->event = event_create(event);
 	event_add_category(req->event, &event_category_auth_client);
-	event_set_append_log_prefix(req->event, "auth-master: ");
 	event_set_forced_debug(req->event,
 			       HAS_ALL_BITS(req->conn->flags,
 					    AUTH_MASTER_FLAG_DEBUG));
-	auth_master_request_update_event(req);
+	auth_master_request_update_event(req, "auth-master: ");
 }
 
 static int
@@ -319,7 +321,7 @@ auth_master_request_new(struct auth_master_connection *conn,
 
 	req->event = event_create(conn->conn.event);
 	event_drop_parent_log_prefixes(req->event, 1);
-	auth_master_request_update_event(req);
+	auth_master_request_update_event(req, "");
 
 	req->callback = callback;
 	req->context = context;
