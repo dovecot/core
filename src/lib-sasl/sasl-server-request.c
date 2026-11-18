@@ -114,6 +114,12 @@ void sasl_server_mech_request_unref(struct sasl_server_mech_request **_mreq)
 	pool_unref(&req->pool);
 }
 
+bool sasl_server_mech_request_has_failed(
+	const struct sasl_server_mech_request *mreq)
+{
+	return mreq->req->failed;
+}
+
 void sasl_server_request_ref(struct sasl_server_req_ctx *rctx)
 {
 	sasl_server_mech_request_ref(rctx->request->mech);

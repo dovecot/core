@@ -104,6 +104,10 @@ void sasl_server_mech_plain_verify_callback(
 
 void sasl_server_mech_request_ref(struct sasl_server_mech_request *mreq);
 void sasl_server_mech_request_unref(struct sasl_server_mech_request **_mreq);
+/* Returns TRUE if the request has failed. A failed sasl_server_request_set_*()
+   also fails the request, but sends no reply. */
+bool sasl_server_mech_request_has_failed(
+	const struct sasl_server_mech_request *mreq);
 
 bool sasl_server_request_set_authid(struct sasl_server_mech_request *mreq,
 				    enum sasl_server_authid_type authid_type,
