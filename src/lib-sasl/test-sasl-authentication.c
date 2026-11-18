@@ -2181,6 +2181,86 @@ static void test_sasl_bad_credentials(void)
 	}
 }
 
+/*
+ * Oversized SCRAM authid and authzid
+ */
+
+#define TEST_STR_16 "aaaaaaaaaaaaaaaa"
+#define TEST_STR_64 TEST_STR_16 TEST_STR_16 TEST_STR_16 TEST_STR_16
+#define TEST_STR_256 TEST_STR_64 TEST_STR_64 TEST_STR_64 TEST_STR_64
+/* One byte over SASL_MAX_AUTHID_SIZE */
+#define TEST_STR_OVERSIZED \
+	TEST_STR_256 TEST_STR_256 TEST_STR_256 TEST_STR_256 "a"
+
+/* Setting the authid or authzid fails the request without a reply, so the
+   mechanism has to send the failure. */
+static const struct test_sasl scram_oversized_id_tests[] = {
+	{
+		.mech = "SCRAM-SHA-1",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+		.client = {
+			.authid = TEST_STR_OVERSIZED,
+		},
+		.failure = TRUE,
+		.server_no_plus = TRUE,
+	},
+	{
+		.mech = "SCRAM-SHA-256",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+		.client = {
+			.authid = TEST_STR_OVERSIZED,
+		},
+		.failure = TRUE,
+		.server_no_plus = TRUE,
+	},
+	{
+		.mech = "SCRAM-SHA-1",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+		.client = {
+			.authzid = TEST_STR_OVERSIZED,
+		},
+		.failure = TRUE,
+		.server_no_plus = TRUE,
+	},
+	{
+		.mech = "SCRAM-SHA-256",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+		.client = {
+			.authzid = TEST_STR_OVERSIZED,
+		},
+		.failure = TRUE,
+		.server_no_plus = TRUE,
+	},
+};
+
+static void test_sasl_scram_oversized_id(void)
+{
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(scram_oversized_id_tests); i++) {
+		const struct test_sasl *test = &scram_oversized_id_tests[i];
+
+		test_sasl_run(test, "oversized id", FALSE);
+		test_sasl_run(test, "oversized id", TRUE);
+	}
+}
+
 static void
 test_server_request_output_no_client(struct sasl_server_req_ctx *rctx,
 				     const struct sasl_server_output *output)
@@ -2406,6 +2486,7 @@ int main(int argc, char *argv[])
 	static void (*const test_functions[])(void) = {
 		test_sasl_success,
 		test_sasl_bad_credentials,
+		test_sasl_scram_oversized_id,
 		test_sasl_oauthbearer_malformed_input,
 		test_sasl_cram_md5_malformed_input,
 		NULL
