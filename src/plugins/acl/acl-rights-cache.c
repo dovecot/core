@@ -1310,10 +1310,11 @@ acl_rights_cache_rebuild_mailbox(struct acl_backend_vfile *backend,
 	   as a side effect, and merge in the configuration-provided ACLs,
 	   which must not end up in the rights cache. */
 	aclobj = acl_object_init_from_name(&backend->backend, name);
-	t_array_init(&mailbox_rights, 16);
-	/* the rights can't be allocated from a data stack pool - the
-	   reader parses them inside its own data stack frame */
+	/* Neither the rights nor the array can be allocated from a data
+	   stack pool - the reader parses them and grows the array inside
+	   its own data stack frame */
 	pool_t pool = pool_alloconly_create("acl rights cache rebuild", 1024);
+	p_array_init(&mailbox_rights, pool, 16);
 	/* The storage may have a mailbox's files locally only while the
 	   mailbox is open (e.g. obox metacache). Then a missing ACL file
 	   doesn't mean there is none, and an existing one may be an old
