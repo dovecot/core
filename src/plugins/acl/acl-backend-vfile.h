@@ -65,8 +65,9 @@ int acl_backend_vfile_object_get_mtime(struct acl_object *aclobj,
 /* Read the mailbox's dovecot-acl file into rights_r without going through
    the ACL object refresh (no acl_cache or configuration ACL side effects).
    pool must not be a data stack pool - the lines are parsed inside a
-   nested data stack frame. Returns 1 if the file was read, 0 if there is
-   no (readable) local ACL file and -1 on error. */
+   nested data stack frame. rights_r is grown outside that frame, so it can
+   be allocated from the data stack. Returns 1 if the file was read, 0 if
+   there is no (readable) local ACL file and -1 on error. */
 int acl_backend_vfile_object_read_rights(struct acl_object *aclobj,
 					 pool_t pool,
 					 ARRAY_TYPE(acl_rights) *rights_r,

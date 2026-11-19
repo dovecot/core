@@ -497,10 +497,12 @@ int acl_backend_vfile_object_read_rights(struct acl_object *_aclobj,
 				e_error(event, "ACL file %s line %u: %s",
 					aclobj->local_path, linenum, error);
 				ret = -1;
-			} else {
-				array_push_back(rights_r, &rights);
 			}
 		} T_END;
+		/* outside the data stack frame, so rights_r can grow even
+		   if it was allocated from the data stack */
+		if (ret > 0)
+			array_push_back(rights_r, &rights);
 	}
 	if (ret > 0 && input->stream_errno != 0) {
 		e_error(event, "read(%s) failed: %s", aclobj->local_path,

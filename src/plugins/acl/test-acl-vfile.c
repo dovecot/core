@@ -219,6 +219,34 @@ static void test_acl_vfile_owner_entry(void)
 	test_end();
 }
 
+/* acl_backend_vfile_object_read_rights() parses each line in its own data
+   stack frame. A rights array allocated from the caller's data stack frame
+   must still be able to grow. */
+static void test_acl_vfile_read_rights_datastack_array(void)
+{
+	struct acl_object *aclobj;
+	ARRAY_TYPE(acl_rights) rights;
+	struct timeval mtime;
+	pool_t pool;
+
+	test_begin("acl vfile read rights into a data stack array");
+	(void)test_acl_setup(TEST_INPUT_READER,
+			     "user=user1 l\nuser=user2 r\nuser=user3 w\n");
+	aclobj = acl_object_init_from_name(test_acl.backend, TEST_MAILBOX);
+	pool = pool_alloconly_create("test acl rights", 512);
+	T_BEGIN {
+		t_array_init(&rights, 1);
+		test_assert(acl_backend_vfile_object_read_rights(aclobj, pool,
+					&rights, &mtime) == 1);
+		test_assert(array_count(&rights) == 3);
+	} T_END;
+	pool_unref(&pool);
+	acl_object_deinit(&aclobj);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 static void test_acl_vfile_fresh_object_cache(void)
 {
 	struct acl_object *aclobj, *aclobj2;
@@ -986,6 +1014,7 @@ int main(int argc, char **argv)
 		test_acl_vfile_negative_rights,
 		test_acl_vfile_id_precedence,
 		test_acl_vfile_owner_entry,
+		test_acl_vfile_read_rights_datastack_array,
 		test_acl_vfile_fresh_object_cache,
 		test_acl_vfile_cache_ttl,
 		test_acl_vfile_file_changed,
