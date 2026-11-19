@@ -245,11 +245,22 @@ acl_rights_cache_parse_line(struct acl_rights_cache_file *file,
 	}
 
 	for (i = 3; i < field_count; i += 2) {
+		const char *error;
+		int ret;
+
 		right = array_append_space(&entry->rights);
-		if (acl_rights_parse_fields(fields[i], fields[i + 1],
-					    file->rights_pool, right,
-					    error_r) < 0)
+		/* A mailbox can have many rights. Don't let the temporary
+		   allocations of all of them pile up in the line's data
+		   stack frame. */
+		T_BEGIN {
+			ret = acl_rights_parse_fields(fields[i], fields[i + 1],
+						      file->rights_pool, right,
+						      &error);
+		} T_END_PASS_STR_IF(ret < 0, &error);
+		if (ret < 0) {
+			*error_r = error;
 			return -1;
+		}
 	}
 	return 0;
 }
