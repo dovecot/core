@@ -1090,6 +1090,37 @@ static void test_acl_rights_cache_rebuild_lwsp(void)
 	test_end();
 }
 
+/* The rebuild reads an ACL file with more rights than the initial size of
+   its rights array. The array grows while the file is parsed, which must not
+   happen in a data stack frame that isn't the array's own. */
+static void test_acl_rights_cache_rebuild_many_rights(void)
+{
+	const unsigned int count = 100;
+	string_t *str = t_str_new(2048);
+	const char *line;
+
+	test_begin("acl rights cache rebuild with many rights");
+	test_acl_user_init(NULL);
+	test_acl_mailbox_create(TEST_MAILBOX);
+	for (unsigned int i = 0; i < count; i++)
+		str_printfa(str, "user=user%u lr\n", i);
+	test_acl_write_file(test_acl_local_path(TEST_MAILBOX), str_c(str));
+
+	test_assert(acl_backend_nonowner_lookups_rebuild(test_acl.backend,
+							  FALSE) == 0);
+	line = test_acl_cache_raw_lines(TEST_MAILBOX);
+	test_assert(line != NULL);
+	if (line != NULL) {
+		test_assert(str_array_length(t_strsplit_tabescaped(line)) ==
+			    3 + 2 * count);
+	}
+	test_assert(strstr(test_acl_cache_get(TEST_MAILBOX),
+			   "user=user99 lookup read") != NULL);
+
+	test_acl_user_deinit();
+	test_end();
+}
+
 /* An identifier's rights can be spread over several lines of an ACL file.
    The cache keeps them merged, and removing the identifier removes all of
    its rights. */
@@ -1317,6 +1348,7 @@ int main(int argc, char **argv)
 		test_acl_rights_cache_rebuild_cached_files,
 		test_acl_rights_cache_rebuild_stale_cached,
 		test_acl_rights_cache_rebuild_lwsp,
+		test_acl_rights_cache_rebuild_many_rights,
 		test_acl_rights_cache_duplicate_ids,
 		test_acl_rights_cache_marker_follows_config,
 		test_acl_rights_cache_marker_public,
