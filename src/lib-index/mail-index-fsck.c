@@ -550,13 +550,14 @@ static bool
 mail_index_map_verify_records(struct mail_index_map *map,
 			      const char **error_r)
 {
+	const struct mail_index_header *hdr = &map->hdr;
 	const struct mail_index_record *rec;
 	uint32_t seq, prev_uid = 0;
 
 	if (map->records_verified)
 		return TRUE;
 
-	for (seq = 1; seq <= map->hdr.messages_count; seq++) {
+	for (seq = 1; seq <= hdr->messages_count; seq++) {
 		rec = MAIL_INDEX_REC_AT_SEQ(map, seq);
 		if (rec->uid <= prev_uid) {
 			*error_r = t_strdup_printf(
@@ -564,10 +565,10 @@ mail_index_map_verify_records(struct mail_index_map *map,
 				seq, rec->uid, prev_uid);
 			return FALSE;
 		}
-		if (rec->uid >= map->hdr.next_uid) {
+		if (rec->uid >= hdr->next_uid) {
 			*error_r = t_strdup_printf(
 				"Record seq=%u UID %u >= next_uid %u",
-				seq, rec->uid, map->hdr.next_uid);
+				seq, rec->uid, hdr->next_uid);
 			return FALSE;
 		}
 		prev_uid = rec->uid;
