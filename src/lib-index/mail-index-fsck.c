@@ -552,7 +552,7 @@ mail_index_map_verify_records(struct mail_index_map *map,
 {
 	const struct mail_index_header *hdr = &map->hdr;
 	const struct mail_index_record *rec;
-	uint32_t seq, prev_uid = 0;
+	uint32_t seq, prev_uid = 0, seen = 0, deleted = 0;
 
 	if (map->records_verified)
 		return TRUE;
@@ -572,6 +572,39 @@ mail_index_map_verify_records(struct mail_index_map *map,
 			return FALSE;
 		}
 		prev_uid = rec->uid;
+
+		if ((rec->flags & MAIL_SEEN) != 0)
+			seen++;
+		else if (rec->uid < hdr->first_unseen_uid_lowwater) {
+			*error_r = t_strdup_printf(
+				"Record seq=%u UID %u is unseen, "
+				"but < first_unseen_uid_lowwater %u",
+				seq, rec->uid, hdr->first_unseen_uid_lowwater);
+			return FALSE;
+		}
+		if ((rec->flags & MAIL_DELETED) != 0) {
+			if (rec->uid < hdr->first_deleted_uid_lowwater) {
+				*error_r = t_strdup_printf(
+					"Record seq=%u UID %u is deleted, "
+					"but < first_deleted_uid_lowwater %u",
+					seq, rec->uid,
+					hdr->first_deleted_uid_lowwater);
+				return FALSE;
+			}
+			deleted++;
+		}
+	}
+	if (seen != hdr->seen_messages_count) {
+		*error_r = t_strdup_printf(
+			"seen_messages_count %u != %u seen records",
+			hdr->seen_messages_count, seen);
+		return FALSE;
+	}
+	if (deleted != hdr->deleted_messages_count) {
+		*error_r = t_strdup_printf(
+			"deleted_messages_count %u != %u deleted records",
+			hdr->deleted_messages_count, deleted);
+		return FALSE;
 	}
 	map->records_verified = TRUE;
 	return TRUE;

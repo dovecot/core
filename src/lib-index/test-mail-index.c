@@ -1011,9 +1011,11 @@ static void test_mail_index_keyword_update_avoid_after_replace(void)
 }
 
 /* Write value to the given offset in dovecot.index. If seq is 0, the offset
-   is from the beginning of the file. Otherwise it's within the record. */
+   is from the beginning of the file. Otherwise it's within the record.
+   The last message is created with last_flags. */
 static void
-test_mail_index_verify_records_corrupt_at(uint32_t seq, uoff_t offset,
+test_mail_index_verify_records_corrupt_at(enum mail_flags last_flags,
+					  uint32_t seq, uoff_t offset,
 					  uint32_t value,
 					  uint32_t expected_messages_count,
 					  unsigned int expected_errors)
@@ -1034,6 +1036,10 @@ test_mail_index_verify_records_corrupt_at(uint32_t seq, uoff_t offset,
 		&uid_validity, sizeof(uid_validity), TRUE);
 	for (uint32_t i = 1; i <= 3; i++)
 		mail_index_append(trans, i * 10, &seq2);
+	if (last_flags != 0) {
+		mail_index_update_flags(trans, seq2, MODIFY_REPLACE,
+					last_flags);
+	}
 	test_assert(mail_index_transaction_commit(&trans) == 0);
 	mail_index_view_close(&view);
 
@@ -1080,9 +1086,18 @@ test_mail_index_verify_records_corrupt(uint32_t seq, uint32_t uid,
 				       uint32_t expected_messages_count)
 {
 	/* the corruption error, fscking warning and 2 fsck errors */
-	test_mail_index_verify_records_corrupt_at(seq,
+	test_mail_index_verify_records_corrupt_at(0, seq,
 		offsetof(struct mail_index_record, uid), uid,
 		expected_messages_count, 4);
+}
+
+static void
+test_mail_index_verify_records_corrupt_hdr(enum mail_flags last_flags,
+					   size_t hdr_offset, uint32_t value)
+{
+	/* the corruption error, fscking warning and 1 fsck error */
+	test_mail_index_verify_records_corrupt_at(last_flags, 0, hdr_offset,
+						  value, 3, 3);
 }
 
 static void test_mail_index_verify_records(void)
@@ -1100,6 +1115,19 @@ static void test_mail_index_verify_records(void)
 	test_mail_index_verify_records_corrupt(2, 5, 2);
 	/* UIDs 10, 30, 30 */
 	test_mail_index_verify_records_corrupt(2, 30, 2);
+	/* no messages are seen or deleted */
+	test_mail_index_verify_records_corrupt_hdr(0,
+		offsetof(struct mail_index_header, seen_messages_count), 1);
+	test_mail_index_verify_records_corrupt_hdr(0,
+		offsetof(struct mail_index_header, deleted_messages_count), 1);
+	/* UID 10 is unseen */
+	test_mail_index_verify_records_corrupt_hdr(0,
+		offsetof(struct mail_index_header, first_unseen_uid_lowwater),
+		20);
+	/* UID 30 is deleted */
+	test_mail_index_verify_records_corrupt_hdr(MAIL_DELETED,
+		offsetof(struct mail_index_header, first_deleted_uid_lowwater),
+		31);
 	test_end();
 }
 

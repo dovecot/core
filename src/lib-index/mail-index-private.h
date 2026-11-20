@@ -167,8 +167,9 @@ struct mail_index_map {
 
 	struct mail_index_record_map *rec_map;
 
-	/* The records have been verified to have valid UIDs. Syncing keeps
-	   them valid, so this is preserved when the map is cloned. */
+	/* The records have been verified to have valid UIDs, and the header's
+	   seen/deleted counts and lowwaters match them. Syncing keeps them
+	   valid, so this is preserved when the map is cloned. */
 	bool records_verified;
 };
 
