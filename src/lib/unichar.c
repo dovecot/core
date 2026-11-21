@@ -27,6 +27,23 @@ unsigned int uni_strlen(const unichar_t *str)
 	return len;
 }
 
+/* Some lead bytes only accept part of the continuation byte range, because
+   the rest would be overlong, a surrogate, or above U+10FFFF. Returns TRUE
+   when input begins with lead and the second byte is a continuation byte
+   outside lo..hi, i.e. when no following bytes could make the sequence valid.
+   The second byte must already be there: if the input ends before it, the
+   sequence is still incomplete rather than invalid. */
+static bool second_byte_out_of_range(const unsigned char *input, size_t size,
+				     unsigned char lead,
+				     unsigned char lo, unsigned char hi)
+{
+	if (*input != lead || size < 2)
+		return FALSE;
+	if ((input[1] & 0xc0) != 0x80)
+		return FALSE;
+	return input[1] < lo || input[1] > hi;
+}
+
 static int
 uni_utf8_parse_char(const void *_buffer, size_t size, bool cstr,
 		    unichar_t *chr_r)
@@ -54,6 +71,11 @@ uni_utf8_parse_char(const void *_buffer, size_t size, bool cstr,
 		chr &= 0x1f;
 		break;
 	case 3:
+		/* Below 0xa0 after 0xe0 is overlong and above 0x9f after 0xed
+		   is a surrogate, whatever the third byte is. */
+		if (second_byte_out_of_range(input, size, 0xe0, 0xa0, 0xbf) ||
+		    second_byte_out_of_range(input, size, 0xed, 0x80, 0x9f))
+			return -1;
 		chr &= 0x0f;
 		break;
 	case 4:
@@ -61,6 +83,11 @@ uni_utf8_parse_char(const void *_buffer, size_t size, bool cstr,
 			/* Above U+10FFFF no matter what follows. */
 			return -1;
 		}
+		/* Likewise below 0x90 after 0xf0 is overlong and above 0x8f
+		   after 0xf4 is above U+10FFFF. */
+		if (second_byte_out_of_range(input, size, 0xf0, 0x90, 0xbf) ||
+		    second_byte_out_of_range(input, size, 0xf4, 0x80, 0x8f))
+			return -1;
 		chr &= 0x07;
 		break;
 	case 5:
