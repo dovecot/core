@@ -23,19 +23,21 @@ int pkcs5_pbkdf1(const struct hash_method *hash,
 	unsigned char dk[hash->digest_size];
 	unsigned char ctx[hash->context_size];
 
+	/* T_1 = Hash(P || S) */
 	hash->init(ctx);
 	hash->loop(ctx, password, password_len);
 	hash->loop(ctx, salt, salt_len);
 	hash->result(ctx, dk);
-	length--;
 
-	for(;length>0;length--) {
+	/* T_i = Hash(T_i-1), so that the hash is applied iter times */
+	for (; iter > 1; iter--) {
 		hash->init(ctx);
 		hash->loop(ctx, dk, hash->digest_size);
 		hash->result(ctx, dk);
 	}
 
-	buffer_append(result, dk, hash->digest_size);
+	/* DK = leftmost length octets of T_iter */
+	buffer_append(result, dk, length);
 
 	return 0;
 }
