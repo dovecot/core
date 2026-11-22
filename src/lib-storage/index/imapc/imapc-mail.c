@@ -290,8 +290,10 @@ imapc_mail_get_first_header(struct mail *_mail, const char *field,
 	int ret;
 
 	ret = imapc_mail_get_headers(_mail, field, decode_to_utf8, &values);
-	if (ret <= 0)
+	if (ret <= 0) {
+		*value_r = NULL;
 		return ret;
+	}
 	*value_r = values[0];
 	return 1;
 }
