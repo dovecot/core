@@ -236,7 +236,7 @@ test_programs = \
 	test-auth \
 	test-mech
 
-noinst_HEADERS = test-auth.h db-lua.h test-auth-master.h
+noinst_HEADERS = auth-sasl-mech-apop.h test-auth.h db-lua.h test-auth-master.h
 
 test_auth_cache_SOURCES = auth-cache.c test-auth-cache.c
 test_auth_cache_LDADD = $(LIBDOVECOT)

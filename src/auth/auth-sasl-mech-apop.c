@@ -12,10 +12,10 @@
 #include "buffer.h"
 #include "sasl-server-protected.h"
 #include "auth-sasl.h"
+#include "auth-sasl-mech-apop.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
 
-#include <stdio.h>
 #include <unistd.h>
 
 struct apop_auth_request {
@@ -64,6 +64,29 @@ apop_credentials_callback(struct sasl_server_mech_request *req,
 		sasl_server_request_failure(req);
 		break;
 	}
+}
+
+static bool
+apop_parse_challenge_hex(const char **p, unsigned long *num_r)
+{
+	if (str_parse_ulong_hex(*p, num_r, p) < 0 || **p != '.')
+		return FALSE;
+	*p += 1;
+	return TRUE;
+}
+
+bool
+auth_sasl_mech_apop_parse_challenge(const char *challenge, unsigned long *pid_r,
+				    unsigned long *connect_uid_r,
+				    unsigned long *timestamp_r)
+{
+	const char *p = challenge;
+
+	if (*p++ != '<')
+		return FALSE;
+	return apop_parse_challenge_hex(&p, pid_r) &&
+		apop_parse_challenge_hex(&p, connect_uid_r) &&
+		apop_parse_challenge_hex(&p, timestamp_r);
 }
 
 static void
@@ -123,8 +146,8 @@ mech_apop_auth_initial(struct sasl_server_mech_request *req,
 	   which we told to client in handshake. Also require a timestamp
 	   which is later than this process's start time. */
 
-	if (sscanf(request->challenge, "<%lx.%lx.%lx.",
-		   &pid, &connect_uid, &timestamp) != 3 ||
+	if (!auth_sasl_mech_apop_parse_challenge(request->challenge, &pid,
+						 &connect_uid, &timestamp) ||
 	    connect_uid != auth_request->connect_uid ||
             pid != (unsigned long)getpid() ||
 	    (time_t)timestamp < process_start_time) {

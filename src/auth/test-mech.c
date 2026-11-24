@@ -7,6 +7,7 @@
 #include "master-service.h"
 #include "auth-common.h"
 #include "auth-sasl.h"
+#include "auth-sasl-mech-apop.h"
 #include "auth-request.h"
 #include "auth-request-handler-private.h"
 #include "auth-settings.h"
@@ -148,12 +149,18 @@ test_mech_handle_challenge(struct auth_request *request,
 }
 
 /* APOP challenge prefixes. The first one is the canonical form pop3-login
-   generates. */
+   generates. The rest are non-canonical spellings of the same values, which
+   must be rejected. */
 static const struct {
 	const char *pid_prefix, *timestamp_prefix;
 	bool negate_pid;
 } apop_challenge_variants[] = {
 	{ "", "", FALSE },
+	{ "+", "", FALSE },
+	{ " ", "", FALSE },
+	{ "0x", "", FALSE },
+	{ "", " ", FALSE },
+	{ "-", "", TRUE },
 };
 
 static inline const unsigned char *
@@ -228,6 +235,12 @@ static void test_mechs(void)
 		{"APOP", UCHAR_LEN("1.1.1\0testuser\0tooshort"), NULL, FALSE, FALSE, FALSE, 0},
 		{"APOP", UCHAR_LEN("1.1.1\0testuser\0responseoflen16-"), NULL, FALSE, FALSE, FALSE, 0},
 		{"APOP", UCHAR_LEN("1.1.1"), NULL, FALSE, FALSE, FALSE, 0},
+		/* NULL input: the challenge is constructed */
+		{"APOP", NULL, 0, NULL, FALSE, FALSE, FALSE, 1},
+		{"APOP", NULL, 0, NULL, FALSE, FALSE, FALSE, 2},
+		{"APOP", NULL, 0, NULL, FALSE, FALSE, FALSE, 3},
+		{"APOP", NULL, 0, NULL, FALSE, FALSE, FALSE, 4},
+		{"APOP", NULL, 0, NULL, FALSE, FALSE, FALSE, 5},
 		{"CRAM-MD5", UCHAR_LEN("testuser\0response"), "testuser",  FALSE, FALSE, FALSE, 0},
 		{"PLAIN", UCHAR_LEN("testuser\0"), "testuser", FALSE, FALSE, FALSE, 0},
 
@@ -365,10 +378,72 @@ static void test_mechs(void)
 	test_auth_deinit();
 }
 
+static void test_apop_parse_challenge(void)
+{
+	static const struct {
+		const char *challenge;
+		bool valid;
+		unsigned long pid, connect_uid, timestamp;
+	} tests[] = {
+		{ "<1f.a.5f0e0000.", TRUE, 0x1f, 0xa, 0x5f0e0000 },
+		{ "<1F.A.5F0E0000.", TRUE, 0x1f, 0xa, 0x5f0e0000 },
+		{ "<1f.a.5f0e0000.abcd@host>", TRUE, 0x1f, 0xa, 0x5f0e0000 },
+		{ "<+1f.a.5f0e0000.", FALSE, 0, 0, 0 },
+		{ "< 1f.a.5f0e0000.", FALSE, 0, 0, 0 },
+		{ "<0x1f.a.5f0e0000.", FALSE, 0, 0, 0 },
+		{ "<1f.+a.5f0e0000.", FALSE, 0, 0, 0 },
+		{ "<1f.a. 5f0e0000.", FALSE, 0, 0, 0 },
+		{ "<fffffffffffffffff.a.5f0e0000.", FALSE, 0, 0, 0 },
+		{ "<1f.fffffffffffffffff.5f0e0000.", FALSE, 0, 0, 0 },
+		{ "<1f.a.fffffffffffffffff.", FALSE, 0, 0, 0 },
+		{ "<.a.5f0e0000.", FALSE, 0, 0, 0 },
+		{ "<1f..5f0e0000.", FALSE, 0, 0, 0 },
+		{ "<1f.a..", FALSE, 0, 0, 0 },
+		{ "<1f,a.5f0e0000.", FALSE, 0, 0, 0 },
+		{ "<1f.a,5f0e0000.", FALSE, 0, 0, 0 },
+		{ "<1f.a.5f0e0000", FALSE, 0, 0, 0 },
+		{ "<1f.a.5f0e0000,", FALSE, 0, 0, 0 },
+		{ "<1f.a.", FALSE, 0, 0, 0 },
+		{ "<1f.a", FALSE, 0, 0, 0 },
+		{ "<1f.", FALSE, 0, 0, 0 },
+		{ "<1f", FALSE, 0, 0, 0 },
+		{ "<", FALSE, 0, 0, 0 },
+		{ "", FALSE, 0, 0, 0 },
+		{ "1f.a.5f0e0000.", FALSE, 0, 0, 0 },
+		{ " <1f.a.5f0e0000.", FALSE, 0, 0, 0 },
+	};
+	static const unsigned long negated_pids[] = { 1, 0x1f, 12345, ULONG_MAX };
+	unsigned long pid, connect_uid, timestamp;
+
+	test_begin("apop parse challenge");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		pid = connect_uid = timestamp = 0;
+		test_assert_idx(auth_sasl_mech_apop_parse_challenge(
+					tests[i].challenge, &pid,
+					&connect_uid, &timestamp) ==
+				tests[i].valid, i);
+		if (!tests[i].valid)
+			continue;
+		test_assert_idx(pid == tests[i].pid, i);
+		test_assert_idx(connect_uid == tests[i].connect_uid, i);
+		test_assert_idx(timestamp == tests[i].timestamp, i);
+	}
+	for (unsigned int i = 0; i < N_ELEMENTS(negated_pids); i++) T_BEGIN {
+		const char *challenge = t_strdup_printf("<-%lx.a.5f0e0000.",
+			UNSIGNED_MINUS(negated_pids[i]));
+
+		test_assert_idx(!auth_sasl_mech_apop_parse_challenge(
+					challenge, &pid, &connect_uid,
+					&timestamp), i);
+	} T_END;
+	test_end();
+}
+
 int main(int argc, char *argv[])
 {
 	static void (*const test_functions[])(void) = {
 		test_mechs,
+		test_apop_parse_challenge,
 		NULL
 	};
 	const enum master_service_flags service_flags =
