@@ -168,7 +168,7 @@ static void test_mechs(void)
 			verify_plain_continue_mock_callback,
 	};
 
-	static struct test_case tests[] = {
+	static const struct test_case tests[] = {
 		/* Expected to be successful */
 		{"ANONYMOUS", UCHAR_LEN("\0any \0 bad \0 content"), "anonuser", TRUE, FALSE, FALSE},
 		{"APOP", NULL, 0, "testuser", TRUE, FALSE, FALSE},
@@ -270,7 +270,9 @@ static void test_mechs(void)
 
 	for (unsigned int running_test = 0; running_test < N_ELEMENTS(tests);
 	     running_test++) T_BEGIN {
-		struct test_case *test_case = &tests[running_test];
+		const struct test_case *test_case = &tests[running_test];
+		const unsigned char *in = test_case->in;
+		size_t len = test_case->len;
 		const char *mech_name = test_case->mech_name;
 		struct auth_request *request;
 		const char *testname = t_strdup_printf("auth mech %s %d/%zu",
@@ -282,27 +284,26 @@ static void test_mechs(void)
 		test_mech_prepare_request(&request, mech_name, &handler,
 					  running_test, test_case);
 
-		if (strcmp(mech_name, "APOP") == 0 && test_case->in == NULL)
-			test_case->in =	test_mech_construct_apop_challenge(
-				request->connect_uid, &test_case->len);
-		if (strcmp(mech_name, "DOVECOT-TOKEN") == 0 &&
-		    test_case->in == NULL) {
-			test_case->in = d_token->data;
-			test_case->len = d_token->used;
+		if (strcmp(mech_name, "APOP") == 0 && in == NULL) {
+			in = test_mech_construct_apop_challenge(
+				request->connect_uid, &len);
+		}
+		if (strcmp(mech_name, "DOVECOT-TOKEN") == 0 && in == NULL) {
+			in = d_token->data;
+			len = d_token->used;
 		}
 
 		request->state = AUTH_REQUEST_STATE_NEW;
-		unsigned char *input_dup = i_malloc(I_MAX(test_case->len, 1));
-		memcpy(input_dup, test_case->in, test_case->len);
+		unsigned char *input_dup = i_malloc(I_MAX(len, 1));
+		memcpy(input_dup, in, len);
 		request->initial_response = input_dup;
-		request->initial_response_len = test_case->len;
+		request->initial_response_len = len;
 		auth_request_initial(request);
 
 		const char *challenge = request->context;
 
 		if (challenge != NULL) {
-			test_mech_handle_challenge(request, test_case->in,
-						   test_case->len,
+			test_mech_handle_challenge(request, in, len,
 						   running_test,
 						   test_case->success);
 		}
