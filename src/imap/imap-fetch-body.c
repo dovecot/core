@@ -75,17 +75,26 @@ static const char *get_body_name(const struct imap_fetch_body_data *body)
 	return str_c(str);
 }
 
-static const char *get_value_prefix(uoff_t size, bool literal8)
+static const char *
+get_value_prefix(const struct imap_fetch_context *ctx, uoff_t size,
+		 bool literal8)
 {
 	/* The returned string includes the leading space. */
+
+	/* iOS Mail stalls on a zero-length literal. */
+	if (size == 0 &&
+	    (ctx->client->set->parsed_workarounds &
+	     WORKAROUND_EMPTY_LITERAL_AS_QUOTED) != 0)
+		return " \"\"";
 	return t_strdup_printf(" %s{%"PRIuUOFF_T"}\r\n",
 			       literal8 ? "~" : "", size);
 }
 
-static string_t *get_prefix(struct imap_fetch_state *state,
+static string_t *get_prefix(struct imap_fetch_context *ctx,
 			    const struct imap_fetch_body_data *body,
 			    uoff_t size, bool has_nuls)
 {
+	struct imap_fetch_state *state = &ctx->state;
 	string_t *str;
 
 	str = t_str_new(128);
@@ -99,7 +108,7 @@ static string_t *get_prefix(struct imap_fetch_state *state,
 	if (size == UOFF_T_MAX) {
 		str_append(str, " NIL");
 	} else {
-		str_append(str, get_value_prefix(size,
+		str_append(str, get_value_prefix(ctx, size,
 						 has_nuls && body->binary));
 	}
 	return str;
@@ -208,7 +217,7 @@ static int fetch_body_msgpart(struct imap_fetch_context *ctx, struct mail *mail,
 	ctx->state.cur_human_name = get_body_human_name(ctx->ctx_pool, body);
 
 	fetch_state_update_stats(ctx, body->msgpart);
-	str = get_prefix(&ctx->state, body, ctx->state.cur_size,
+	str = get_prefix(ctx, body, ctx->state.cur_size,
 			 result.binary_decoded_input_has_nuls);
 	o_stream_nsend(ctx->client->output, str_data(str), str_len(str));
 
@@ -517,7 +526,8 @@ fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
 		return -1;
 
 	str = t_strconcat(" RFC822",
-			  get_value_prefix(ctx->state.cur_size, FALSE), NULL);
+			  get_value_prefix(ctx, ctx->state.cur_size, FALSE),
+			  NULL);
 	if (ctx->state.cur_first) {
 		str++; ctx->state.cur_first = FALSE;
 	}
@@ -540,7 +550,8 @@ fetch_rfc822_header(struct imap_fetch_context *ctx,
 		return -1;
 
 	str = t_strconcat(" RFC822.HEADER",
-			  get_value_prefix(ctx->state.cur_size, FALSE), NULL);
+			  get_value_prefix(ctx, ctx->state.cur_size, FALSE),
+			  NULL);
 	if (ctx->state.cur_first) {
 		str++; ctx->state.cur_first = FALSE;
 	}
@@ -563,7 +574,8 @@ fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
 		return -1;
 
 	str = t_strconcat(" RFC822.TEXT",
-			  get_value_prefix(ctx->state.cur_size, FALSE), NULL);
+			  get_value_prefix(ctx, ctx->state.cur_size, FALSE),
+			  NULL);
 	if (ctx->state.cur_first) {
 		str++; ctx->state.cur_first = FALSE;
 	}
