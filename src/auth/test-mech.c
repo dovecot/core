@@ -25,6 +25,8 @@ struct test_case {
 	bool success;
 	bool set_username_before_test;
 	bool set_cert_username;
+	/* Index to apop_challenge_variants[], used if in == NULL */
+	unsigned int apop_variant;
 };
 
 static void
@@ -145,13 +147,30 @@ test_mech_handle_challenge(struct auth_request *request,
 	auth_request_continue(request, out->data, out->used);
 }
 
+/* APOP challenge prefixes. The first one is the canonical form pop3-login
+   generates. */
+static const struct {
+	const char *pid_prefix, *timestamp_prefix;
+	bool negate_pid;
+} apop_challenge_variants[] = {
+	{ "", "", FALSE },
+};
+
 static inline const unsigned char *
-test_mech_construct_apop_challenge(unsigned int connect_uid, size_t *len_r)
+test_mech_construct_apop_challenge(unsigned int variant_idx,
+				   unsigned int connect_uid, size_t *len_r)
 {
 	string_t *apop_challenge = t_str_new(128);
+	unsigned long pid = (unsigned long)getpid();
 
-	str_printfa(apop_challenge,"<%lx.%lx.%"PRIxTIME_T".", (unsigned long)getpid(),
-		    (unsigned long)connect_uid, process_start_time+10);
+	i_assert(variant_idx < N_ELEMENTS(apop_challenge_variants));
+	if (apop_challenge_variants[variant_idx].negate_pid)
+		pid = UNSIGNED_MINUS(pid);
+	str_printfa(apop_challenge, "<%s%lx.%lx.%s%"PRIxTIME_T".",
+		    apop_challenge_variants[variant_idx].pid_prefix, pid,
+		    (unsigned long)connect_uid,
+		    apop_challenge_variants[variant_idx].timestamp_prefix,
+		    process_start_time + 10);
 	str_append_data(apop_challenge, "\0testuser\0responseoflen16-", 26);
 	*len_r = apop_challenge->used;
 	return apop_challenge->data;
@@ -170,94 +189,94 @@ static void test_mechs(void)
 
 	static const struct test_case tests[] = {
 		/* Expected to be successful */
-		{"ANONYMOUS", UCHAR_LEN("\0any \0 bad \0 content"), "anonuser", TRUE, FALSE, FALSE},
-		{"APOP", NULL, 0, "testuser", TRUE, FALSE, FALSE},
-		{"CRAM-MD5", UCHAR_LEN("testuser b913a602c7eda7a495b4e6e7334d3890"), "testuser", TRUE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("username=\"testuser@example.com\",realm=\"example.com\",nonce=\"OA6MG9tEQGm2hh\",cnonce=\"OA6MHXh6VqTrRk\",nc=00000001,digest-uriresponse=d388dad90d4bbd760a152321f2143af7,qop=\"auth\""), "testuser@example.com", TRUE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("username=\"testuser@example.com\",realm=\"example.com\",nonce=\"OA6MG9tEQGm2hh\",cnonce=\"OA6MHXh6VqTrRk\",nc=00000001,digest-uriresponse=d388dad90d4bbd760a152321f2143af7,qop=\"auth\",authzid=\"masteruser\""), "testuser@example.com", TRUE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("username=\"test\xc3\xbaser@example.com\",realm=\"example.com\",nonce=\"OA6MG9tEQGm2hh\",cnonce=\"OA6MHXh6VqTrRk\",nc=00000001,digest-uriresponse=d388dad90d4bbd760a152321f2143af7,qop=\"auth\",authzid=\"masteruser\""), "test\xc3\xbaser@example.com", TRUE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("username=\"test\xc3\xbaser@example.com\",realm=\"example.com\",nonce=\"OA6MG9tEQGm2hh\",cnonce=\"OA6MHXh6VqTrRk\",charset=\"utf-8\",cipher=unsupported,nc=00000001,digest-uri=imap/server.com,response=d388dad90d4bbd760a152321f2143af7,qop=\"auth\",authzid=\"masteruser\""), "test\xc3\xbaser@example.com", TRUE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("username=\"testuser\",realm=\"example.com\",nonce=\"OA6MG9tEQGm2hh\",cnonce=\"OA6MHXh6VqTrRk\",charset=\"utf-8\",cipher=unsupported,nc=00000001,digest-uri=imap/server.com,response=d388dad90d4bbd760a152321f2143af7,qop=\"auth\",authzid=\"masteruser\""), "testuser@example.com", TRUE, FALSE, FALSE},
-		{"EXTERNAL", UCHAR_LEN(""), "testuser", TRUE, FALSE, TRUE},
-		{"EXTERNAL", UCHAR_LEN(""), "testuser", TRUE, TRUE, TRUE},
-		{"DOVECOT-TOKEN", NULL, 0, "testuser", TRUE, FALSE, FALSE},
-		{"LOGIN", UCHAR_LEN("testuser"), "testuser", TRUE, FALSE, FALSE},
-		{"PLAIN", UCHAR_LEN("\0testuser\0testpass"), "testuser", TRUE, FALSE, FALSE},
-		{"PLAIN", UCHAR_LEN("normaluser\0masteruser\0masterpass"), "masteruser", TRUE, FALSE, FALSE},
-		{"PLAIN", UCHAR_LEN("normaluser\0normaluser\0masterpass"), "normaluser", TRUE, FALSE, FALSE},
-		{"OAUTHBEARER", UCHAR_LEN("n,a=testuser,p=cHJvb2Y=,f=nonstandart\x01host=server\x01port=143\x01""auth=Bearer vF9dft4qmTc2Nvb3RlckBhbHRhdmlzdGEuY29tCg==\x01\x01"), "testuser", FALSE, TRUE, FALSE},
-		{"SCRAM-SHA-1", UCHAR_LEN("n,,n=testuser,r=rOprNGfwEbeRWgbNEkqO"), "testuser", TRUE, FALSE, FALSE},
-		{"SCRAM-SHA-256", UCHAR_LEN("n,,n=testuser,r=rOprNGfwEbeRWgbNEkqO"), "testuser",  TRUE, FALSE, FALSE},
-		{"XOAUTH2", UCHAR_LEN("user=testuser\x01""auth=Bearer vF9dft4qmTc2Nvb3RlckBhdHRhdmlzdGEuY29tCg==\x01\x01"), "testuser", TRUE, FALSE, FALSE},
+		{"ANONYMOUS", UCHAR_LEN("\0any \0 bad \0 content"), "anonuser", TRUE, FALSE, FALSE, 0},
+		{"APOP", NULL, 0, "testuser", TRUE, FALSE, FALSE, 0},
+		{"CRAM-MD5", UCHAR_LEN("testuser b913a602c7eda7a495b4e6e7334d3890"), "testuser", TRUE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("username=\"testuser@example.com\",realm=\"example.com\",nonce=\"OA6MG9tEQGm2hh\",cnonce=\"OA6MHXh6VqTrRk\",nc=00000001,digest-uriresponse=d388dad90d4bbd760a152321f2143af7,qop=\"auth\""), "testuser@example.com", TRUE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("username=\"testuser@example.com\",realm=\"example.com\",nonce=\"OA6MG9tEQGm2hh\",cnonce=\"OA6MHXh6VqTrRk\",nc=00000001,digest-uriresponse=d388dad90d4bbd760a152321f2143af7,qop=\"auth\",authzid=\"masteruser\""), "testuser@example.com", TRUE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("username=\"test\xc3\xbaser@example.com\",realm=\"example.com\",nonce=\"OA6MG9tEQGm2hh\",cnonce=\"OA6MHXh6VqTrRk\",nc=00000001,digest-uriresponse=d388dad90d4bbd760a152321f2143af7,qop=\"auth\",authzid=\"masteruser\""), "test\xc3\xbaser@example.com", TRUE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("username=\"test\xc3\xbaser@example.com\",realm=\"example.com\",nonce=\"OA6MG9tEQGm2hh\",cnonce=\"OA6MHXh6VqTrRk\",charset=\"utf-8\",cipher=unsupported,nc=00000001,digest-uri=imap/server.com,response=d388dad90d4bbd760a152321f2143af7,qop=\"auth\",authzid=\"masteruser\""), "test\xc3\xbaser@example.com", TRUE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("username=\"testuser\",realm=\"example.com\",nonce=\"OA6MG9tEQGm2hh\",cnonce=\"OA6MHXh6VqTrRk\",charset=\"utf-8\",cipher=unsupported,nc=00000001,digest-uri=imap/server.com,response=d388dad90d4bbd760a152321f2143af7,qop=\"auth\",authzid=\"masteruser\""), "testuser@example.com", TRUE, FALSE, FALSE, 0},
+		{"EXTERNAL", UCHAR_LEN(""), "testuser", TRUE, FALSE, TRUE, 0},
+		{"EXTERNAL", UCHAR_LEN(""), "testuser", TRUE, TRUE, TRUE, 0},
+		{"DOVECOT-TOKEN", NULL, 0, "testuser", TRUE, FALSE, FALSE, 0},
+		{"LOGIN", UCHAR_LEN("testuser"), "testuser", TRUE, FALSE, FALSE, 0},
+		{"PLAIN", UCHAR_LEN("\0testuser\0testpass"), "testuser", TRUE, FALSE, FALSE, 0},
+		{"PLAIN", UCHAR_LEN("normaluser\0masteruser\0masterpass"), "masteruser", TRUE, FALSE, FALSE, 0},
+		{"PLAIN", UCHAR_LEN("normaluser\0normaluser\0masterpass"), "normaluser", TRUE, FALSE, FALSE, 0},
+		{"OAUTHBEARER", UCHAR_LEN("n,a=testuser,p=cHJvb2Y=,f=nonstandart\x01host=server\x01port=143\x01""auth=Bearer vF9dft4qmTc2Nvb3RlckBhbHRhdmlzdGEuY29tCg==\x01\x01"), "testuser", FALSE, TRUE, FALSE, 0},
+		{"SCRAM-SHA-1", UCHAR_LEN("n,,n=testuser,r=rOprNGfwEbeRWgbNEkqO"), "testuser", TRUE, FALSE, FALSE, 0},
+		{"SCRAM-SHA-256", UCHAR_LEN("n,,n=testuser,r=rOprNGfwEbeRWgbNEkqO"), "testuser",  TRUE, FALSE, FALSE, 0},
+		{"XOAUTH2", UCHAR_LEN("user=testuser\x01""auth=Bearer vF9dft4qmTc2Nvb3RlckBhdHRhdmlzdGEuY29tCg==\x01\x01"), "testuser", TRUE, FALSE, FALSE, 0},
 
 		/* Below tests are expected to fail */
 		/* Empty input tests*/
-		{"APOP", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE},
-		{"CRAM-MD5", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE},
-		{"DOVECOT-TOKEN", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE},
-		{"EXTERNAL", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE},
-		{"LOGIN", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE},
-		{"PLAIN", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE},
-		{"OAUTHBEARER", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE},
-		{"XOAUTH2", UCHAR_LEN(""), NULL,  FALSE, FALSE, FALSE},
-		{"SCRAM-SHA-1", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE},
-		{"SCRAM-SHA-256", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE},
+		{"APOP", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE, 0},
+		{"CRAM-MD5", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE, 0},
+		{"DOVECOT-TOKEN", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE, 0},
+		{"EXTERNAL", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE, 0},
+		{"LOGIN", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE, 0},
+		{"PLAIN", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE, 0},
+		{"OAUTHBEARER", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE, 0},
+		{"XOAUTH2", UCHAR_LEN(""), NULL,  FALSE, FALSE, FALSE, 0},
+		{"SCRAM-SHA-1", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE, 0},
+		{"SCRAM-SHA-256", UCHAR_LEN(""), NULL, FALSE, FALSE, FALSE, 0},
 
 		/* Bad input tests*/
-		{"APOP", UCHAR_LEN("1.1.1\0test\0user\0response"), NULL, FALSE, FALSE, FALSE},
-		{"APOP", UCHAR_LEN("1.1.1\0testuser\0tooshort"), NULL, FALSE, FALSE, FALSE},
-		{"APOP", UCHAR_LEN("1.1.1\0testuser\0responseoflen16-"), NULL, FALSE, FALSE, FALSE},
-		{"APOP", UCHAR_LEN("1.1.1"), NULL, FALSE, FALSE, FALSE},
-		{"CRAM-MD5", UCHAR_LEN("testuser\0response"), "testuser",  FALSE, FALSE, FALSE},
-		{"PLAIN", UCHAR_LEN("testuser\0"), "testuser", FALSE, FALSE, FALSE},
+		{"APOP", UCHAR_LEN("1.1.1\0test\0user\0response"), NULL, FALSE, FALSE, FALSE, 0},
+		{"APOP", UCHAR_LEN("1.1.1\0testuser\0tooshort"), NULL, FALSE, FALSE, FALSE, 0},
+		{"APOP", UCHAR_LEN("1.1.1\0testuser\0responseoflen16-"), NULL, FALSE, FALSE, FALSE, 0},
+		{"APOP", UCHAR_LEN("1.1.1"), NULL, FALSE, FALSE, FALSE, 0},
+		{"CRAM-MD5", UCHAR_LEN("testuser\0response"), "testuser",  FALSE, FALSE, FALSE, 0},
+		{"PLAIN", UCHAR_LEN("testuser\0"), "testuser", FALSE, FALSE, FALSE, 0},
 
 		/* Covering most of the digest md5 parsing */
-		{"DIGEST-MD5", UCHAR_LEN("username=\"testuser@example.com\",realm=\"example.com\",cnonce=\"OA6MHXh6VqTrRk\",response=d388dad90d4bbd760a152321f2143af7,qop=\"auth\""), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("realm=\"example.com\",cnonce=\"OA6MHXh6VqTrRk\",nonce=\"OA6MG9tEQGm2hh\""), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("username=\"testuser@example.com\",realm=\"example.com\", nonce=\"OA6MG9tEQGm2hh\""), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("qop=\"auth-int\""), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("qop=\"auth-int\""), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("qop=\"auth-conf\",\"cipher=rc4\""), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("cnonce=\"OA6MHXh6VqTrRk\",cnonce=\"OA6MHXh6VqTrRk\""), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("cnonce=\"\""), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("nonce=\"not matching\""), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("nc=00000001,nc=00000002"), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("nc=NAN"), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("nc=00000002"), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("cipher=unsupported"), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("digest-uri="), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("username=\"\""), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("username=\"a\",username=\"b\""), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("response=broken"), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("maxbuf=32,maxbuf=1024"), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("maxbuf=broken"), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("authzid=\"somebody\",authzid=\"else\""), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("authzid=\"\""), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("charset=unsupported"), NULL, FALSE, FALSE, FALSE},
-		{"DIGEST-MD5", UCHAR_LEN("qop=unsupported"), NULL, FALSE, FALSE, FALSE},
+		{"DIGEST-MD5", UCHAR_LEN("username=\"testuser@example.com\",realm=\"example.com\",cnonce=\"OA6MHXh6VqTrRk\",response=d388dad90d4bbd760a152321f2143af7,qop=\"auth\""), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("realm=\"example.com\",cnonce=\"OA6MHXh6VqTrRk\",nonce=\"OA6MG9tEQGm2hh\""), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("username=\"testuser@example.com\",realm=\"example.com\", nonce=\"OA6MG9tEQGm2hh\""), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("qop=\"auth-int\""), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("qop=\"auth-int\""), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("qop=\"auth-conf\",\"cipher=rc4\""), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("cnonce=\"OA6MHXh6VqTrRk\",cnonce=\"OA6MHXh6VqTrRk\""), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("cnonce=\"\""), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("nonce=\"not matching\""), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("nc=00000001,nc=00000002"), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("nc=NAN"), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("nc=00000002"), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("cipher=unsupported"), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("digest-uri="), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("username=\"\""), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("username=\"a\",username=\"b\""), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("response=broken"), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("maxbuf=32,maxbuf=1024"), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("maxbuf=broken"), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("authzid=\"somebody\",authzid=\"else\""), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("authzid=\"\""), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("charset=unsupported"), NULL, FALSE, FALSE, FALSE, 0},
+		{"DIGEST-MD5", UCHAR_LEN("qop=unsupported"), NULL, FALSE, FALSE, FALSE, 0},
 
 		/* Too much nuls */
-		{"DOVECOT-TOKEN", UCHAR_LEN("service\0pid\0fail\0se\0ssion_id\0deadbeef"), NULL, FALSE, FALSE, FALSE},
-		{"LOGIN", UCHAR_LEN("test user\0user"), NULL, FALSE, FALSE, FALSE},
-		{"OAUTHBEARER", UCHAR_LEN("n,a==testuser,\x01""auth=Bearer token\x01\x01"), NULL, FALSE, FALSE, FALSE},
-		{"OAUTHBEARER", UCHAR_LEN("F,n,a=testuser,f=non-standard\x01""auth=Bearer token\x01\x01"), "testuser", FALSE, FALSE, FALSE},
-		{"OAUTHBEARER", UCHAR_LEN("n,a=testuser,f=non-standard\x01""auth=Bearer token\x01\x01"), "testuser", FALSE, TRUE, FALSE},
-		{"OAUTHBEARER", UCHAR_LEN("n,a=testuser\x01""auth=token\x01\x01"), "testuser", FALSE, FALSE, FALSE},
-		{"XOAUTH2", UCHAR_LEN("testuser\x01auth=Bearer token\x01\x01"), NULL, FALSE, FALSE, FALSE},
+		{"DOVECOT-TOKEN", UCHAR_LEN("service\0pid\0fail\0se\0ssion_id\0deadbeef"), NULL, FALSE, FALSE, FALSE, 0},
+		{"LOGIN", UCHAR_LEN("test user\0user"), NULL, FALSE, FALSE, FALSE, 0},
+		{"OAUTHBEARER", UCHAR_LEN("n,a==testuser,\x01""auth=Bearer token\x01\x01"), NULL, FALSE, FALSE, FALSE, 0},
+		{"OAUTHBEARER", UCHAR_LEN("F,n,a=testuser,f=non-standard\x01""auth=Bearer token\x01\x01"), "testuser", FALSE, FALSE, FALSE, 0},
+		{"OAUTHBEARER", UCHAR_LEN("n,a=testuser,f=non-standard\x01""auth=Bearer token\x01\x01"), "testuser", FALSE, TRUE, FALSE, 0},
+		{"OAUTHBEARER", UCHAR_LEN("n,a=testuser\x01""auth=token\x01\x01"), "testuser", FALSE, FALSE, FALSE, 0},
+		{"XOAUTH2", UCHAR_LEN("testuser\x01auth=Bearer token\x01\x01"), NULL, FALSE, FALSE, FALSE, 0},
 		/* does not start with [B|b]earer */
-		{"XOAUTH2", UCHAR_LEN("user=testuser\x01""auth=token\x01\x01"), "testuser", FALSE, FALSE, FALSE},
+		{"XOAUTH2", UCHAR_LEN("user=testuser\x01""auth=token\x01\x01"), "testuser", FALSE, FALSE, FALSE, 0},
 		/* Too much nuls */
-		{"PLAIN", UCHAR_LEN("\0fa\0il\0ing\0withthis"), NULL, FALSE, FALSE, FALSE},
-		{"PLAIN", UCHAR_LEN("failingwiththis"), NULL, FALSE, FALSE, FALSE},
-		{"PLAIN", UCHAR_LEN("failing\0withthis"), NULL, FALSE, FALSE, FALSE},
-		{"SCRAM-SHA-1", UCHAR_LEN("c=biws,r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j,p=v0X8v3Bz2T0CJGbJQyF0X+HI4Ts="), NULL, FALSE, FALSE, FALSE},
-		{"SCRAM-SHA-1", UCHAR_LEN("iws0X8v3Bz2T0CJGbJQyF0X+HI4Ts=,,,,"), NULL, FALSE, FALSE, FALSE},
-		{"SCRAM-SHA-1", UCHAR_LEN("n,a=masteruser,,"), NULL, FALSE, FALSE, FALSE},
-		{"SCRAM-SHA-1", UCHAR_LEN("n,a==masteruser,,"), NULL, FALSE, FALSE, FALSE},
-		{"SCRAM-SHA-1", UCHAR_LEN("n,,m=testuser,,"), NULL, FALSE, FALSE, FALSE},
-		{"SCRAM-SHA-1", UCHAR_LEN("broken\0input"), NULL, FALSE, FALSE, FALSE},
-		{"SCRAM-SHA-256", UCHAR_LEN("broken\0input"), NULL, FALSE, FALSE, FALSE},
+		{"PLAIN", UCHAR_LEN("\0fa\0il\0ing\0withthis"), NULL, FALSE, FALSE, FALSE, 0},
+		{"PLAIN", UCHAR_LEN("failingwiththis"), NULL, FALSE, FALSE, FALSE, 0},
+		{"PLAIN", UCHAR_LEN("failing\0withthis"), NULL, FALSE, FALSE, FALSE, 0},
+		{"SCRAM-SHA-1", UCHAR_LEN("c=biws,r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j,p=v0X8v3Bz2T0CJGbJQyF0X+HI4Ts="), NULL, FALSE, FALSE, FALSE, 0},
+		{"SCRAM-SHA-1", UCHAR_LEN("iws0X8v3Bz2T0CJGbJQyF0X+HI4Ts=,,,,"), NULL, FALSE, FALSE, FALSE, 0},
+		{"SCRAM-SHA-1", UCHAR_LEN("n,a=masteruser,,"), NULL, FALSE, FALSE, FALSE, 0},
+		{"SCRAM-SHA-1", UCHAR_LEN("n,a==masteruser,,"), NULL, FALSE, FALSE, FALSE, 0},
+		{"SCRAM-SHA-1", UCHAR_LEN("n,,m=testuser,,"), NULL, FALSE, FALSE, FALSE, 0},
+		{"SCRAM-SHA-1", UCHAR_LEN("broken\0input"), NULL, FALSE, FALSE, FALSE, 0},
+		{"SCRAM-SHA-256", UCHAR_LEN("broken\0input"), NULL, FALSE, FALSE, FALSE, 0},
 	};
 
 	test_auth_init();
@@ -286,7 +305,8 @@ static void test_mechs(void)
 
 		if (strcmp(mech_name, "APOP") == 0 && in == NULL) {
 			in = test_mech_construct_apop_challenge(
-				request->connect_uid, &len);
+				test_case->apop_variant, request->connect_uid,
+				&len);
 		}
 		if (strcmp(mech_name, "DOVECOT-TOKEN") == 0 && in == NULL) {
 			in = d_token->data;
