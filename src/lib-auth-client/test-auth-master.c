@@ -15,6 +15,7 @@
 #include "connection.h"
 #include "master-interface.h"
 #include "master-service-private.h"
+#include "lib-event-private.h"
 #include "test-common.h"
 #include "test-subprocess.h"
 
@@ -1380,6 +1381,147 @@ static void test_request_set_event(void)
 }
 
 /*
+ * Invalid lookup event
+ */
+
+static string_t *test_invalid_event_fields, *test_invalid_event_log;
+
+static bool
+test_invalid_event_callback(struct event *event, enum event_callback_type type,
+			    struct failure_context *ctx ATTR_UNUSED,
+			    const char *fmt ATTR_UNUSED,
+			    va_list args ATTR_UNUSED)
+{
+	if (type != EVENT_CALLBACK_TYPE_SEND ||
+	    event_find_field_recursive_str(event, "user") == NULL)
+		return TRUE;
+	if (str_len(test_invalid_event_fields) == 0) {
+		str_printfa(test_invalid_event_fields,
+			    "user=%s protocol=%s session=%s local_name=%s",
+			    event_find_field_recursive_str(event, "user"),
+			    event_find_field_recursive_str(event, "protocol"),
+			    event_find_field_recursive_str(event, "session"),
+			    event_find_field_recursive_str(event, "local_name"));
+	}
+	return TRUE;
+}
+
+static void ATTR_FORMAT(2, 0)
+test_invalid_debug_handler(const struct failure_context *ctx ATTR_UNUSED,
+			   const char *format, va_list args)
+{
+	va_list args_copy;
+
+	VA_COPY(args_copy, args);
+	str_vprintfa(test_invalid_event_log, format, args_copy);
+	str_append_c(test_invalid_event_log, '\n');
+	va_end(args_copy);
+}
+
+static void
+test_client_invalid_passdb_callback(struct ioloop *ioloop,
+				    int result ATTR_UNUSED,
+				    const char *const *fields ATTR_UNUSED)
+{
+	io_loop_stop(ioloop);
+}
+
+static void
+test_client_invalid_userdb_callback(struct ioloop *ioloop,
+				    int result ATTR_UNUSED,
+				    const char *username ATTR_UNUSED,
+				    const char *const *fields ATTR_UNUSED)
+{
+	io_loop_stop(ioloop);
+}
+
+static bool test_client_invalid_lookup_event(void)
+{
+	static const struct {
+		const char *user, *protocol, *session_id, *local_name;
+		const char *expected_user, *expected_fields;
+	} tests[] = {
+		{ "hen\tk", "test", "sess", "local", "hen?k",
+		  "user=hen?k protocol=test session=sess local_name=local" },
+		{ "henk", "te\rst", "s\nid", "lo\tcal", "henk",
+		  "user=henk protocol=te?st session=s?id local_name=lo?cal" },
+		/* is_valid_string() accepts \x01, but it is not printable */
+		{ "he\x01nk", "te\rst", "sess", "local", "he?nk",
+		  "user=he?nk protocol=te?st session=sess local_name=local" },
+	};
+	failure_callback_t *fatal_handler, *error_handler, *info_handler;
+	failure_callback_t *debug_handler;
+	struct event *parent;
+
+	parent = event_create(NULL);
+	event_register_callback(test_invalid_event_callback);
+	i_get_failure_handlers(&fatal_handler, &error_handler, &info_handler,
+			       &debug_handler);
+	i_set_debug_handler(test_invalid_debug_handler);
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		for (unsigned int j = 0; j < 2; j++) {
+			struct auth_master_connection *auth_conn;
+			struct ioloop *ioloop;
+			struct auth_user_info info;
+
+			i_zero(&info);
+			info.protocol = tests[i].protocol;
+			info.session_id = tests[i].session_id;
+			info.local_name = tests[i].local_name;
+			info.event_parent = parent;
+
+			test_invalid_event_fields = str_new(default_pool, 128);
+			test_invalid_event_log = str_new(default_pool, 256);
+			ioloop = io_loop_create();
+			auth_conn = auth_master_init(TEST_SOCKET,
+						     AUTH_MASTER_FLAG_DEBUG);
+			if (j == 0) {
+				(void)auth_master_pass_lookup_async(auth_conn,
+					tests[i].user, &info,
+					test_client_invalid_passdb_callback,
+					ioloop);
+			} else {
+				(void)auth_master_user_lookup_async(auth_conn,
+					tests[i].user, &info,
+					test_client_invalid_userdb_callback,
+					ioloop);
+			}
+			io_loop_run(ioloop);
+			auth_master_deinit(&auth_conn);
+			io_loop_destroy(&ioloop);
+
+			const char *name = t_strdup_printf("%s lookup %u",
+				j == 0 ? "passdb" : "userdb", i);
+			const char *prefix = t_strdup_printf(
+				"%s lookup(%s): ", j == 0 ? "passdb" : "userdb",
+				tests[i].expected_user);
+			bool success = strcmp(str_c(test_invalid_event_fields),
+					      tests[i].expected_fields) == 0;
+
+			test_out_reason(t_strconcat(name, " fields", NULL),
+					success, success ? NULL :
+					str_c(test_invalid_event_fields));
+			test_out(t_strconcat(name, " log prefix", NULL),
+				 strstr(str_c(test_invalid_event_log),
+					prefix) != NULL);
+			str_free(&test_invalid_event_fields);
+			str_free(&test_invalid_event_log);
+		}
+	}
+	i_set_debug_handler(debug_handler);
+	event_unregister_callback(test_invalid_event_callback);
+	event_unref(&parent);
+	return FALSE;
+}
+
+static void test_invalid_lookup_event(void)
+{
+	test_begin("invalid lookup event");
+	test_run_client_server(test_client_invalid_lookup_event, NULL);
+	test_end();
+}
+
+/*
  * User list
  */
 
@@ -1682,6 +1824,7 @@ static void (*const test_functions[])(void) = {
 	test_userdb_lookup,
 	test_userdb_lookup_event_parent,
 	test_request_set_event,
+	test_invalid_lookup_event,
 	test_user_list,
 	test_user_list_slow,
 	test_user_list_stall,

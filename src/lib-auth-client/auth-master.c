@@ -11,6 +11,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "strescape.h"
 #include "time-util.h"
 #include "master-service.h"
@@ -683,6 +684,12 @@ static bool is_valid_string(const char *str)
 	return TRUE;
 }
 
+/* Returns the string unchanged if nothing needs sanitizing. */
+static const char *auth_master_event_str(const char *str)
+{
+	return str_sanitize(str, SIZE_MAX);
+}
+
 const char *const *auth_client_args_hide_secrets(const char *const *args)
 {
 	ARRAY_TYPE(const_string) new_args;
@@ -815,10 +822,19 @@ void auth_user_info_export(string_t *str, const struct auth_user_info *info)
 
 static struct event *
 auth_master_user_event_create(struct auth_master_connection *conn,
-			      const char *prefix,
+			      const char *name, const char *user,
 			      const struct auth_user_info *info)
 {
 	struct event *event;
+	const char *prefix;
+
+	/* The event is also used for an invalid user or protocol. */
+	if (user == NULL) {
+		prefix = t_strdup_printf("%s: ", name);
+	} else {
+		user = auth_master_event_str(user);
+		prefix = t_strdup_printf("%s(%s): ", name, user);
+	}
 
 	if (info == NULL || info->event_parent == NULL) {
 		event = event_create(conn->conn.event);
@@ -832,13 +848,21 @@ auth_master_user_event_create(struct auth_master_connection *conn,
 	}
 	event_set_append_log_prefix(event, prefix);
 
+	if (user != NULL)
+		event_add_str(event, "user", user);
 	if (info != NULL) {
-		if (info->protocol != NULL)
-			event_add_str(event, "protocol", info->protocol);
-		if (info->session_id != NULL)
-			event_add_str(event, "session", info->session_id);
-		if (info->local_name != NULL)
-			event_add_str(event, "local_name", info->local_name);
+		if (info->protocol != NULL) {
+			event_add_str(event, "protocol",
+				      auth_master_event_str(info->protocol));
+		}
+		if (info->session_id != NULL) {
+			event_add_str(event, "session",
+				      auth_master_event_str(info->session_id));
+		}
+		if (info->local_name != NULL) {
+			event_add_str(event, "local_name",
+				      auth_master_event_str(info->local_name));
+		}
 		if (info->local_ip.family != 0)
 			event_add_ip(event, "local_ip", &info->local_ip);
 		if (info->local_port != 0)
@@ -1066,8 +1090,7 @@ auth_master_pass_lookup_async(struct auth_master_connection *conn,
 	lookup->lookup.user = i_strdup(user);
 
 	lookup->lookup.event = auth_master_user_event_create(
-		conn, t_strdup_printf("passdb lookup(%s): ", user), info);
-	event_add_str(lookup->lookup.event, "user", user);
+		conn, "passdb lookup", user, info);
 
 	if (!is_valid_string(user) || !is_valid_string(info->protocol)) {
 		/* non-allowed characters, the user can't exist */
@@ -1234,8 +1257,7 @@ auth_master_user_lookup_async(struct auth_master_connection *conn,
 	lookup->lookup.user = i_strdup(user);
 
 	lookup->lookup.event = auth_master_user_event_create(
-		conn, t_strdup_printf("userdb lookup(%s): ", user), info);
-	event_add_str(lookup->lookup.event, "user", user);
+		conn, "userdb lookup", user, info);
 
 	if (!is_valid_string(user) || !is_valid_string(info->protocol)) {
 		/* non-allowed characters, the user can't exist */
@@ -1370,8 +1392,10 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 	if (info != NULL)
 		auth_user_info_export(args, info);
 
-	ctx->event = auth_master_user_event_create(conn, "userdb list: ", info);
-	event_add_str(ctx->event," user_mask", user_mask);
+	ctx->event = auth_master_user_event_create(conn, "userdb list", NULL,
+						   info);
+	event_add_str(ctx->event," user_mask",
+		      auth_master_event_str(user_mask));
 
 	struct event_passthrough *e =
 		event_create_passthrough(ctx->event)->
