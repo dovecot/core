@@ -75,6 +75,13 @@ static const char *get_body_name(const struct imap_fetch_body_data *body)
 	return str_c(str);
 }
 
+static const char *get_value_prefix(uoff_t size, bool literal8)
+{
+	/* The returned string includes the leading space. */
+	return t_strdup_printf(" %s{%"PRIuUOFF_T"}\r\n",
+			       literal8 ? "~" : "", size);
+}
+
 static string_t *get_prefix(struct imap_fetch_state *state,
 			    const struct imap_fetch_body_data *body,
 			    uoff_t size, bool has_nuls)
@@ -89,12 +96,12 @@ static string_t *get_prefix(struct imap_fetch_state *state,
 
 	str_append(str, get_body_name(body));
 
-	if (size == UOFF_T_MAX)
+	if (size == UOFF_T_MAX) {
 		str_append(str, " NIL");
-	else if (has_nuls && body->binary)
-		str_printfa(str, " ~{%"PRIuUOFF_T"}\r\n", size);
-	else
-		str_printfa(str, " {%"PRIuUOFF_T"}\r\n", size);
+	} else {
+		str_append(str, get_value_prefix(size,
+						 has_nuls && body->binary));
+	}
 	return str;
 }
 
@@ -509,8 +516,8 @@ fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
 	if (fetch_and_free_msgpart(ctx, mail, &msgpart) < 0)
 		return -1;
 
-	str = t_strdup_printf(" RFC822 {%"PRIuUOFF_T"}\r\n",
-			      ctx->state.cur_size);
+	str = t_strconcat(" RFC822",
+			  get_value_prefix(ctx->state.cur_size, FALSE), NULL);
 	if (ctx->state.cur_first) {
 		str++; ctx->state.cur_first = FALSE;
 	}
@@ -532,8 +539,8 @@ fetch_rfc822_header(struct imap_fetch_context *ctx,
 	if (fetch_and_free_msgpart(ctx, mail, &msgpart) < 0)
 		return -1;
 
-	str = t_strdup_printf(" RFC822.HEADER {%"PRIuUOFF_T"}\r\n",
-			      ctx->state.cur_size);
+	str = t_strconcat(" RFC822.HEADER",
+			  get_value_prefix(ctx->state.cur_size, FALSE), NULL);
 	if (ctx->state.cur_first) {
 		str++; ctx->state.cur_first = FALSE;
 	}
@@ -555,8 +562,8 @@ fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
 	if (fetch_and_free_msgpart(ctx, mail, &msgpart) < 0)
 		return -1;
 
-	str = t_strdup_printf(" RFC822.TEXT {%"PRIuUOFF_T"}\r\n",
-			      ctx->state.cur_size);
+	str = t_strconcat(" RFC822.TEXT",
+			  get_value_prefix(ctx->state.cur_size, FALSE), NULL);
 	if (ctx->state.cur_first) {
 		str++; ctx->state.cur_first = FALSE;
 	}
