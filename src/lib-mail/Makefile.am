@@ -124,10 +124,19 @@ test_libs = $(test_deps) $(LIBDOVECOT_TEST_LIBS)
 fuzz_programs =
 
 if USE_FUZZER
-fuzz_programs += fuzz-message-parser \
+fuzz_programs += fuzz-message-address \
+		 fuzz-message-parser \
 		 fuzz-qp-decoder \
 		 fuzz-message-date \
 		 fuzz-message-decoder
+
+nodist_EXTRA_fuzz_message_address_SOURCES = force-cxx-linking.cxx
+
+fuzz_message_address_CPPFLAGS = $(FUZZER_CPPFLAGS)
+fuzz_message_address_LDFLAGS = $(FUZZER_LDFLAGS)
+fuzz_message_address_SOURCES = fuzz-message-address.c
+fuzz_message_address_LDADD = $(test_libs)
+fuzz_message_address_DEPENDENCIES = $(test_deps)
 
 nodist_EXTRA_fuzz_message_parser_SOURCES = force-cxx-linking.cxx
 
@@ -166,6 +175,7 @@ endif
 noinst_PROGRAMS += $(fuzz_programs)
 
 EXTRA_DIST = \
+	fuzz-message-address.dict \
 	fuzz-message-date.dict \
 	fuzz-message-decoder.dict \
 	fuzz-message-parser.dict \

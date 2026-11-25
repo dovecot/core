@@ -138,6 +138,7 @@ endforeach
 
 if get_option('fuzzing')
   fuzzers = [
+    'message-address',
     'message-date',
     'message-decoder',
     'message-parser',
