@@ -511,8 +511,20 @@ fts_backend_solr_uid_changed(struct solr_fts_backend_update_context *ctx,
 		FTS_SOLR_USER_CONTEXT_REQUIRE(ctx->ctx.backend->ns->user);
 
 	if (ctx->mails_since_flush >= fuser->set->batch_size) {
+		/* We're moving on to a new UID, so every document up to and
+		   including prev_uid is complete and part of this batch. */
+		uint32_t flushed_uid = ctx->prev_uid;
+
 		if (fts_backed_solr_build_flush(ctx) < 0)
 			ctx->ctx.failed = TRUE;
+		else if (!ctx->ctx.failed && flushed_uid != 0 &&
+			 ctx->cur_box != NULL) {
+			/* Solr accepted the batch. Record the progress now,
+			   so that a later failure in this same run doesn't
+			   throw away everything indexed so far and restart
+			   from the beginning next time. */
+			(void)fts_index_set_last_uid(ctx->cur_box, flushed_uid);
+		}
 	}
 	ctx->mails_since_flush++;
 	if (ctx->post == NULL) {
