@@ -551,7 +551,8 @@ json_tree_node_get_parent(const struct json_tree_node *jtnode)
 struct json_tree_node *
 json_tree_node_get_child(const struct json_tree_node *jtnode)
 {
-	i_assert(jtnode->node.value.content_type == JSON_CONTENT_TYPE_LIST);
+	if (jtnode->node.value.content_type != JSON_CONTENT_TYPE_LIST)
+		return NULL;
 	if (jtnode->node.value.content.list == NULL)
 		return NULL;
 	return jtnode->node.value.content.list->head;
@@ -562,7 +563,8 @@ json_tree_node_get_nth_child(const struct json_tree_node *jtnode, unsigned int n
 {
 	struct json_tree_node *node;
 
-	i_assert(jtnode->node.value.content_type == JSON_CONTENT_TYPE_LIST);
+	if (jtnode->node.value.content_type != JSON_CONTENT_TYPE_LIST)
+		return NULL;
 	if (jtnode->node.value.content.list == NULL)
 		return NULL;
 	if (jtnode->node.value.content.list->count <= n)
@@ -576,7 +578,8 @@ json_tree_node_get_nth_child(const struct json_tree_node *jtnode, unsigned int n
 unsigned int
 json_tree_node_get_child_count(const struct json_tree_node *jtnode)
 {
-	i_assert(jtnode->node.value.content_type == JSON_CONTENT_TYPE_LIST);
+	if (jtnode->node.value.content_type != JSON_CONTENT_TYPE_LIST)
+		return 0;
 	if (jtnode->node.value.content.list == NULL)
 		return 0;
 	return jtnode->node.value.content.list->count;
@@ -588,8 +591,9 @@ json_tree_node_get_member(const struct json_tree_node *jtnode,
 {
 	struct json_tree_node *child;
 
-	i_assert(json_node_is_object(&jtnode->node));
-	i_assert(jtnode->node.value.content_type == JSON_CONTENT_TYPE_LIST);
+	if (!json_node_is_object(&jtnode->node) ||
+	    jtnode->node.value.content_type != JSON_CONTENT_TYPE_LIST)
+		return NULL;
 
 	if (jtnode->node.value.content.list == NULL)
 		return NULL;
@@ -609,7 +613,8 @@ json_tree_node_get_child_with(const struct json_tree_node *jtnode,
 {
 	struct json_tree_node *child;
 
-	i_assert(jtnode->node.value.content_type == JSON_CONTENT_TYPE_LIST);
+	if (jtnode->node.value.content_type != JSON_CONTENT_TYPE_LIST)
+		return NULL;
 	if (jtnode->node.value.content.list == NULL)
 		return NULL;
 
