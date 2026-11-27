@@ -1139,6 +1139,64 @@ test_json_tree_node_add_string_stream_nonseekable_fatal(unsigned int stage)
 	return FATAL_TEST_FINISHED;
 }
 
+static void test_json_tree_node_wrong_type(void)
+{
+	struct json_tree *jtree;
+	struct json_tree_node *root, *jtnode;
+
+	/* member/child accessors on a string node */
+	test_begin("json tree node wrong type - string");
+	jtree = json_tree_create();
+	root = json_tree_get_root(jtree);
+	jtnode = json_tree_node_add_string(root, NULL, "frop");
+	test_assert(json_tree_is_string(jtree));
+	test_assert(json_tree_node_get_member(jtnode, "frop") == NULL);
+	test_assert(json_tree_node_get_child(jtnode) == NULL);
+	test_assert(json_tree_node_get_nth_child(jtnode, 0) == NULL);
+	test_assert_ucmp(json_tree_node_get_child_count(jtnode), ==, 0);
+	test_assert(json_tree_node_get_child_with(jtnode, "frop",
+						  "frop") == NULL);
+	json_tree_unref(&jtree);
+	test_end();
+
+	/* member accessor on an array node */
+	test_begin("json tree node wrong type - array");
+	jtree = json_tree_create_array(&root);
+	test_assert(json_tree_is_array(jtree));
+	test_assert(json_tree_node_get_member(root, "frop") == NULL);
+	json_tree_unref(&jtree);
+	test_end();
+
+	/* member/child accessors on a number node */
+	test_begin("json tree node wrong type - number");
+	jtree = json_tree_create();
+	root = json_tree_get_root(jtree);
+	jtnode = json_tree_node_add_number_int(root, NULL, 123);
+	test_assert(json_tree_is_number(jtree));
+	test_assert(json_tree_node_get_member(jtnode, "frop") == NULL);
+	test_assert(json_tree_node_get_child(jtnode) == NULL);
+	test_assert(json_tree_node_get_nth_child(jtnode, 0) == NULL);
+	test_assert_ucmp(json_tree_node_get_child_count(jtnode), ==, 0);
+	test_assert(json_tree_node_get_child_with(jtnode, "frop",
+						  "frop") == NULL);
+	json_tree_unref(&jtree);
+	test_end();
+
+	/* member/child accessors on a non-object member of an object */
+	test_begin("json tree node wrong type - member");
+	jtree = json_tree_create_object(&root);
+	jtnode = json_tree_node_add_string(root, "frop", "friep");
+	test_assert(json_tree_node_get_member(root, "frop") == jtnode);
+	test_assert(json_tree_node_get_member(jtnode, "frop") == NULL);
+	test_assert(json_tree_node_get_child(jtnode) == NULL);
+	test_assert(json_tree_node_get_nth_child(jtnode, 0) == NULL);
+	test_assert_ucmp(json_tree_node_get_child_count(jtnode), ==, 0);
+	test_assert(json_tree_node_get_child_with(jtnode, "frop",
+						  "friep") == NULL);
+	json_tree_unref(&jtree);
+	test_end();
+}
+
 int main(int argc, char *argv[])
 {
 	int c;
@@ -1150,6 +1208,7 @@ int main(int argc, char *argv[])
 		test_json_tree_node_value,
 		test_json_tree_walker_from_node,
 		test_json_tree_walker,
+		test_json_tree_node_wrong_type,
 		NULL
 	};
 	static enum fatal_test_state (*fatal_functions[])(unsigned int) = {
