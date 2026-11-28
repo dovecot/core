@@ -1503,6 +1503,78 @@ static void test_jwt_key_alg_mismatch(void)
 	test_end();
 }
 
+static void test_jwt_aud_tab_escape(void)
+{
+	test_begin("JWT aud single-string tab escaping");
+
+	struct oauth2_settings set = {
+		.key_dict = keys_dict,
+		.key_cache = key_cache,
+		.client_id = "my-client-id",
+	};
+	ARRAY_TYPE(oauth2_field) fields;
+	t_array_init(&fields, 8);
+	const char *error = NULL;
+	bool is_jwt = FALSE;
+
+	/* A single string aud containing a tab must NOT split into multiple
+	   audiences and match client_id. */
+	buffer_t *tokenbuf = t_buffer_create(128);
+	base64url_encode_str("{\"alg\":\"HS256\",\"typ\":\"JWT\"}", tokenbuf);
+	buffer_append(tokenbuf, ".", 1);
+	base64url_encode_str(
+		t_strdup_printf(
+			"{\"sub\":\"testuser\",\"aud\":\"other\\tmy-client-id\","
+			"\"iat\":%"PRIdTIME_T",\"exp\":%"PRIdTIME_T"}",
+			time(NULL), time(NULL) + 600),
+		tokenbuf);
+	sign_jwt_token_hs256(tokenbuf, hs_sign_key);
+
+	test_assert(oauth2_try_parse_jwt(&set, str_c(tokenbuf), &fields,
+					 &is_jwt, &error) < 0);
+	test_assert(is_jwt);
+
+	/* Exact single-string aud must succeed. */
+	array_clear(&fields);
+	error = NULL;
+	is_jwt = FALSE;
+	buffer_set_used_size(tokenbuf, 0);
+	base64url_encode_str("{\"alg\":\"HS256\",\"typ\":\"JWT\"}", tokenbuf);
+	buffer_append(tokenbuf, ".", 1);
+	base64url_encode_str(
+		t_strdup_printf(
+			"{\"sub\":\"testuser\",\"aud\":\"my-client-id\","
+			"\"iat\":%"PRIdTIME_T",\"exp\":%"PRIdTIME_T"}",
+			time(NULL), time(NULL) + 600),
+		tokenbuf);
+	sign_jwt_token_hs256(tokenbuf, hs_sign_key);
+
+	test_assert(oauth2_try_parse_jwt(&set, str_c(tokenbuf), &fields,
+					 &is_jwt, &error) == 0);
+	test_assert(is_jwt);
+
+	/* Array aud containing client_id must succeed. */
+	array_clear(&fields);
+	error = NULL;
+	is_jwt = FALSE;
+	buffer_set_used_size(tokenbuf, 0);
+	base64url_encode_str("{\"alg\":\"HS256\",\"typ\":\"JWT\"}", tokenbuf);
+	buffer_append(tokenbuf, ".", 1);
+	base64url_encode_str(
+		t_strdup_printf(
+			"{\"sub\":\"testuser\",\"aud\":[\"other\",\"my-client-id\"],"
+			"\"iat\":%"PRIdTIME_T",\"exp\":%"PRIdTIME_T"}",
+			time(NULL), time(NULL) + 600),
+		tokenbuf);
+	sign_jwt_token_hs256(tokenbuf, hs_sign_key);
+
+	test_assert(oauth2_try_parse_jwt(&set, str_c(tokenbuf), &fields,
+					 &is_jwt, &error) == 0);
+	test_assert(is_jwt);
+
+	test_end();
+}
+
 static void test_do_init(void)
 {
 	const char *error;
@@ -1575,6 +1647,7 @@ int main(void)
 		test_jwt_sign_errors,
 		test_jwt_sign_dcrypt_failure,
 		test_jwt_key_alg_mismatch,
+		test_jwt_aud_tab_escape,
 		test_do_deinit,
 		NULL
 	};

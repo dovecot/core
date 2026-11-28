@@ -144,7 +144,7 @@ get_field_multiple(const struct json_tree *tree, const char *key)
 	if (value_node == NULL || json_tree_node_is_object(value_node))
 		return NULL;
 	if (!json_tree_node_is_array(value_node))
-		return json_tree_node_as_str(value_node);
+		return str_tabescape(json_tree_node_as_str(value_node));
 
 	const struct json_tree_node *entry_node;
 
