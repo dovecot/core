@@ -17,7 +17,15 @@
 int oauth2_json_tree_build(const buffer_t *json, struct json_tree **jtree_r,
 			   const char **error_r)
 {
-	return json_tree_read_buffer(json, 0, jtree_r, error_r);
+	if (json_tree_read_buffer(json, 0, jtree_r, error_r) < 0)
+		return -1;
+	const struct json_tree_node *root = json_tree_get_root_const(*jtree_r);
+	if (root == NULL || !json_tree_node_is_object(root)) {
+		json_tree_unref(jtree_r);
+		*error_r = "JSON root is not an object";
+		return -1;
+	}
+	return 0;
 }
 
 bool oauth2_valid_token(const char *token)
