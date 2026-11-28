@@ -620,6 +620,22 @@ static void test_jwt_broken_token(void)
 			.token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..",
 			.is_jwt = TRUE
 		},
+		{ /* non-object JSON array header: [] */
+			.token = "W10.e30.AA",
+			.is_jwt = FALSE
+		},
+		{ /* non-object JSON string header: "a" */
+			.token = "ImEi.e30.AA",
+			.is_jwt = FALSE
+		},
+		{ /* non-object JSON array body: [] */
+			.token = "eyJhbGciOiJIUzI1NiJ9.W10.AA",
+			.is_jwt = TRUE
+		},
+		{ /* non-object JSON number body: 123 */
+			.token = "eyJhbGciOiJIUzI1NiJ9.MTIz.AA",
+			.is_jwt = TRUE
+		},
 		{ /* empty signature */
 			.token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
 				 "eyJleHAiOjE1ODEzMzA3OTN9.",
